@@ -2,10 +2,10 @@ import axios from 'axios'
 import { storage } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 
-// Native: direct API URL; Web: use current hostname so it works via localhost or 129.204.152.168
+// Native: direct API URL; Web: use current hostname for dynamic routing
 const API_BASE = typeof window !== 'undefined'
   ? `${window.location.protocol}//${window.location.hostname}:8090/api`
-  : 'http://192.168.1.59:8090/api'
+  : `${process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'}:8090/api`
 
 const client = axios.create({
   baseURL: API_BASE,

@@ -10,33 +10,33 @@ spring:
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   data:
     redis:
-      host: ${REDIS_HOST:129.204.152.168}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
   cloud:
     inetutils:
       preferred-networks:
         - 192.168.1.
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
       discovery:
         server-addr: ${spring.cloud.nacos.server-addr}
       config:
-        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
         refresh-enabled: true
     sentinel:
       transport:
-        dashboard: 129.204.152.168:8088
+        dashboard: 127.0.0.1:8088
         port: 8719
       eager: true
       datasource:
         gw-flow:
           nacos:
-            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
             namespace: ${NACOS_NAMESPACE:}
@@ -45,7 +45,7 @@ spring:
             rule-type: gw-flow
         gw-degrade:
           nacos:
-            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
             namespace: ${NACOS_NAMESPACE:}
@@ -198,7 +198,7 @@ spring:
           globalcors:
             cors-configurations:
               '[/**]':
-                allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:8000,http://localhost:8081,http://localhost:10086,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:8000,http://127.0.0.1:8081,http://127.0.0.1:10086,http://129.204.152.168:8000,http://129.204.152.168:3000}
+                allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:8000,http://localhost:8081,http://localhost:10086,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:8000,http://127.0.0.1:8081,http://127.0.0.1:10086,http://127.0.0.1:8000,http://127.0.0.1:3000}
                 allowedMethods:
                   - GET
                   - POST

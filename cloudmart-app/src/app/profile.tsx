@@ -127,7 +127,7 @@ export default function ProfilePage() {
         name: 'avatar.jpg',
       } as unknown as Blob)
 
-      const uploadRes = await axios.post('http://129.204.152.168:8090/api/file/upload', formData, {
+      const uploadRes = await axios.post(`${window.location.protocol}//${window.location.hostname}:8090/api/file/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: token ? `Bearer ${token}` : '' },
       })
       const avatarUrl = uploadRes.data?.data?.url

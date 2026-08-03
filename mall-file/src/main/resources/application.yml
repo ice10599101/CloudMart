@@ -13,25 +13,25 @@ spring:
       preferred-networks:
         - 192.168.1.
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
       discovery:
         server-addr: ${spring.cloud.nacos.server-addr}
       config:
-        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
         refresh-enabled: true
     sentinel:
       transport:
-        dashboard: 129.204.152.168:8088
+        dashboard: 127.0.0.1:8088
         port: 8731
       eager: true
   data:
     redis:
-      host: ${REDIS_HOST:129.204.152.168}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
   servlet:
     multipart:
@@ -44,8 +44,8 @@ dromara:
     aliyun-oss:
       - platform: aliyun-oss-1
         enable-storage: true
-        access-key: ${OSS_ACCESS_KEY:LTAI5tCyAuMKzk7x8Ky3a5eH}
-        secret-key: ${OSS_SECRET_KEY:McdnUEn9Ui6bCH9pFyhrSOJ1apIp7O}
+        access-key: ${OSS_ACCESS_KEY:}
+        secret-key: ${OSS_SECRET_KEY:}
         end-point: ${OSS_END_POINT:oss-cn-guangzhou.aliyuncs.com}
         bucket-name: ${OSS_BUCKET_NAME:oss-ysf}
         domain: ${OSS_DOMAIN:https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/}

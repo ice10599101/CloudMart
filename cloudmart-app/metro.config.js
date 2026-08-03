@@ -20,11 +20,11 @@ config.server.enhanceMiddleware = (middleware) => {
 
     if (req.url && req.url.startsWith('/api/')) {
       const http = require('http')
-      const targetUrl = `http://129.204.152.168:8090${req.url}`
+      const targetUrl = `http://127.0.0.1:8090${req.url}`
 
       // Build clean headers: remove Origin/Referer to bypass gateway CORS check
       const { origin, referer, ...cleanHeaders } = req.headers
-      cleanHeaders.host = '129.204.152.168:8090'
+      cleanHeaders.host = '127.0.0.1:8090'
 
       const proxyReq = http.request(
         targetUrl,

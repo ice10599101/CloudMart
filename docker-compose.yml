@@ -58,7 +58,7 @@ services:
       MYSQL_SERVICE_USER: ${MYSQL_USERNAME:-root}
       MYSQL_SERVICE_PASSWORD: ${MYSQL_PASSWORD:-123456}
       MYSQL_SERVICE_DB_PARAM: "characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
-      NACOS_AUTH_TOKEN: U2VjcmV0S2V5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OQ==
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:}
       NACOS_AUTH_IDENTITY_KEY: nacos
       NACOS_AUTH_IDENTITY_VALUE: nacos
       NACOS_EXTENSION_AI_ENABLED: "false"
@@ -82,7 +82,7 @@ services:
       - "8191:7091"
       - "8091:8091"
     environment:
-      SEATA_IP: 129.204.152.168
+      SEATA_IP: ${SEATA_IP:127.0.0.1}
       SEATA_PORT: 8091
     entrypoint: ["/bin/bash", "/seata-server/custom-entrypoint.sh"]
     volumes:
@@ -118,9 +118,10 @@ services:
       - "10909:10909"
       - "10911:10911"
       - "10912:10912"
-    command: ["sh", "-c", "chown -R rocketmq:rocketmq /home/rocketmq/store && exec sh /home/rocketmq/rocketmq-5.5.0/bin/mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/rocketmq-5.5.0/conf/broker.conf --enable-proxy"]
+    command: ["sh", "-c", "sed -i \"s/brokerIP1 = .*/brokerIP1 = $${BROKER_IP:-127.0.0.1}/\" /home/rocketmq/rocketmq-5.5.0/conf/broker.conf && chown -R rocketmq:rocketmq /home/rocketmq/store && exec sh /home/rocketmq/rocketmq-5.5.0/bin/mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/rocketmq-5.5.0/conf/broker.conf --enable-proxy"]
     environment:
       NAMESRV_ADDR: "rocketmq-namesrv:9876"
+      BROKER_IP: ${BROKER_IP:127.0.0.1}
     depends_on:
       rocketmq-namesrv:
         condition: service_healthy

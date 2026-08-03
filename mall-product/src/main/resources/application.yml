@@ -15,26 +15,26 @@ spring:
       preferred-networks:
         - 192.168.1.
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
       discovery:
         server-addr: ${spring.cloud.nacos.server-addr}
       config:
-        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
         refresh-enabled: true
     sentinel:
       transport:
-        dashboard: 129.204.152.168:8088
+        dashboard: 127.0.0.1:8088
         port: 8721
       eager: true
       datasource:
         flow:
           nacos:
-            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
             namespace: ${NACOS_NAMESPACE:}
@@ -43,7 +43,7 @@ spring:
             rule-type: flow
         degrade:
           nacos:
-            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
             namespace: ${NACOS_NAMESPACE:}
@@ -51,7 +51,7 @@ spring:
             data-id: ${spring.application.name}-degrade-rules
             rule-type: degrade
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:129.204.152.168}:${MYSQL_PORT:8306}/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:8306}/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -66,10 +66,10 @@ spring:
     clean-disabled: true
     validate-on-migrate: false
   elasticsearch:
-    uris: ${ELASTICSEARCH_URIS:http://129.204.152.168:9200}
+    uris: ${ELASTICSEARCH_URIS:http://127.0.0.1:9200}
   data:
     redis:
-      host: ${REDIS_HOST:129.204.152.168}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
     elasticsearch:
       repositories:

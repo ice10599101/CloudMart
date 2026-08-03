@@ -13,13 +13,13 @@ spring:
       preferred-networks:
         - 192.168.1.
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
       discovery:
         server-addr: ${spring.cloud.nacos.server-addr}
       config:
-        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: DEFAULT_GROUP
         file-extension: yml
@@ -35,12 +35,12 @@ spring:
         options:
           model: text-embedding-v3
   elasticsearch:
-    uris: ${ES_URIS:http://129.204.152.168:9200}
+    uris: ${ES_URIS:http://127.0.0.1:9200}
     username: ${ES_USERNAME:}
     password: ${ES_PASSWORD:}
   data:
     redis:
-      host: ${REDIS_HOST:129.204.152.168}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
 
 ai:
