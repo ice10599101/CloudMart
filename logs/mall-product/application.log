@@ -1,0 +1,905 @@
+2026-08-02 01:44:52.902 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 23668 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 01:44:53.021 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 01:44:53.310 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 01:44:53.310 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 01:45:00.403 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:45:00.408 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 01:45:03.554 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 3024 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 01:45:07.523 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:45:07.525 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 01:45:07.603 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 74 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 01:45:07.706 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:45:07.710 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 01:45:07.785 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 01:45:07.787 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 29 ms. Found 0 Redis repository interfaces.
+2026-08-02 01:45:11.433 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 01:45:15.394 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 01:45:15.665 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 01:45:15.665 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 01:45:18.985 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 25665 ms
+2026-08-02 01:45:23.508 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 01:45:33.285 [redisson-netty-1-5] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 01:45:37.282 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 01:45:41.660 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 01:45:43.761 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@1c890653
+2026-08-02 01:45:43.765 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 01:45:44.024 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 01:45:44.385 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 01:45:45.156 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 01:45:45.203 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 01:45:47.519 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 01:45:57.118 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 01:45:57.122 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 01:45:57.132 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 01:45:57.188 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 01:45:57.226 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 01:45:57.293 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 01:45:58.168 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 01:45:58.169 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 01:45:58.170 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 01:45:58.170 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-08-02 01:45:58.179 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 01:45:58.181 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Completed destruction of HttpClient
+2026-08-02 01:50:09.198 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 25092 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 01:50:09.203 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 01:50:10.377 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 01:50:10.382 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 01:50:32.282 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:50:32.284 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 01:50:36.146 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 3821 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 01:50:42.781 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:50:42.783 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 01:50:43.037 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 248 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 01:50:43.100 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 01:50:43.103 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 01:50:43.338 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 01:50:43.338 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 192 ms. Found 0 Redis repository interfaces.
+2026-08-02 01:50:49.127 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 01:50:57.764 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 01:50:57.858 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 01:50:57.859 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 01:50:58.249 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 47859 ms
+2026-08-02 01:51:01.280 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 01:51:09.909 [redisson-netty-1-4] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 01:51:14.420 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 01:51:17.322 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 01:51:19.869 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@7aaf8bf8
+2026-08-02 01:51:19.874 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 01:51:20.249 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 01:51:20.609 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 01:51:21.262 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 01:51:21.316 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 01:51:23.218 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 01:51:34.886 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 01:51:34.943 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 01:51:34.985 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 01:51:35.087 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 01:51:35.157 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 01:51:35.270 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 01:51:36.127 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 01:51:36.126 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 01:51:36.127 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 01:51:36.129 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Completed destruction of HttpClient
+2026-08-02 01:51:36.199 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 01:51:36.200 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-08-02 02:12:16.829 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 31372 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 02:12:16.832 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 02:12:17.008 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 02:12:17.009 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 02:12:19.667 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:12:19.669 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:12:20.321 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 629 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 02:12:21.244 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:12:21.245 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:12:21.283 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 35 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 02:12:21.309 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:12:21.311 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 02:12:21.345 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 02:12:21.345 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 10 ms. Found 0 Redis repository interfaces.
+2026-08-02 02:12:22.093 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 02:12:23.241 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 02:12:23.280 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 02:12:23.280 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 02:12:23.397 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 6383 ms
+2026-08-02 02:12:23.831 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 02:12:24.939 [redisson-netty-1-4] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:12:26.377 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:12:27.081 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 02:12:28.303 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@1bbb3617
+2026-08-02 02:12:28.307 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 02:12:28.515 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 02:12:28.855 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 02:12:29.462 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 02:12:29.503 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 02:12:30.377 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 02:12:32.000 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 02:12:32.003 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 02:12:32.010 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 02:12:32.032 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 02:12:32.051 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 02:12:32.079 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 02:12:33.026 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 02:12:33.026 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 02:12:33.026 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-08-02 02:12:33.027 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 02:12:33.027 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 02:12:33.027 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Completed destruction of HttpClient
+2026-08-02 02:13:07.912 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 26596 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 02:13:07.913 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 02:13:07.993 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 02:13:07.993 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 02:13:10.505 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:13:10.507 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:13:11.119 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 588 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 02:13:12.298 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:13:12.298 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:13:12.341 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 40 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 02:13:12.363 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:13:12.365 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 02:13:12.396 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 02:13:12.396 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 8 ms. Found 0 Redis repository interfaces.
+2026-08-02 02:13:13.171 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 02:13:14.551 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 02:13:14.592 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 02:13:14.592 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 02:13:14.710 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 6714 ms
+2026-08-02 02:13:15.232 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 02:13:16.096 [redisson-netty-1-4] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:13:17.467 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:13:18.314 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 02:13:19.886 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@485ba73c
+2026-08-02 02:13:19.890 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 02:13:20.083 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 02:13:20.392 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 02:13:20.909 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 02:13:20.951 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 02:13:21.709 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 02:13:23.073 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 02:13:23.075 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 02:13:23.081 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 02:13:23.119 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 02:13:23.137 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 02:13:23.174 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 02:13:24.109 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 02:13:24.109 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 02:13:24.109 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 02:13:24.110 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-08-02 02:13:24.110 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 02:13:24.110 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Completed destruction of HttpClient
+2026-08-02 02:15:46.757 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 26672 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 02:15:46.758 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 02:15:46.871 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 02:15:46.872 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 02:15:48.805 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:15:48.807 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:15:49.537 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 710 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 02:15:50.360 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:15:50.361 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:15:50.394 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 31 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 02:15:50.420 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:15:50.422 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 02:15:50.450 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 02:15:50.450 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 9 ms. Found 0 Redis repository interfaces.
+2026-08-02 02:15:51.037 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 02:15:52.164 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 02:15:52.203 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 02:15:52.203 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 02:15:52.315 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 5440 ms
+2026-08-02 02:15:52.736 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 02:15:54.594 [redisson-netty-1-4] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:15:55.794 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:15:56.415 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 02:16:06.796 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@4b629d9c
+2026-08-02 02:16:06.799 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 02:16:06.976 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 02:16:07.271 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 02:16:07.776 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 02:16:07.810 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 02:16:08.529 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 02:16:09.888 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 02:16:09.891 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 02:16:09.897 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 02:16:09.920 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 02:16:09.938 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 02:16:09.967 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 02:16:10.913 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 02:16:10.914 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-08-02 02:16:10.915 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 02:16:10.915 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 02:16:10.916 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 02:18:18.584 [main] [none] INFO  c.c.product.ProductApplication - Starting ProductApplication using Java 26.0.1 with PID 36136 (D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes started by Administrator in D:\Ide\IdeaProjects\CloudMart)
+2026-08-02 02:18:18.587 [main] [none] INFO  c.c.product.ProductApplication - No active profile set, falling back to 1 default profile: "default"
+2026-08-02 02:18:18.716 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-08-02 02:18:18.717 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-product.yml, group=DEFAULT_GROUP] is empty
+2026-08-02 02:18:20.448 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:18:20.449 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:18:21.400 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 925 ms. Found 1 Elasticsearch repository interface.
+2026-08-02 02:18:22.815 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:18:22.816 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Reactive Elasticsearch repositories in DEFAULT mode.
+2026-08-02 02:18:22.852 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 34 ms. Found 0 Reactive Elasticsearch repository interfaces.
+2026-08-02 02:18:22.874 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-02 02:18:22.877 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-02 02:18:22.905 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.cloudmart.product.es.ProductSearchRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-08-02 02:18:22.905 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 8 ms. Found 0 Redis repository interfaces.
+2026-08-02 02:18:23.501 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=821e90fa-15a5-3e3c-9532-1f38eebddb53
+2026-08-02 02:18:25.001 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9003 (http)
+2026-08-02 02:18:25.055 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-08-02 02:18:25.055 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-08-02 02:18:25.222 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 6501 ms
+2026-08-02 02:18:25.714 [main] [none] INFO  org.redisson.Version - Redisson 4.6.1
+2026-08-02 02:18:26.554 [redisson-netty-1-4] [none] INFO  o.r.connection.ConnectionsHolder - 1 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:18:27.863 [redisson-netty-1-19] [none] INFO  o.r.connection.ConnectionsHolder - 24 connections initialized for 129.204.152.168/129.204.152.168:8379
+2026-08-02 02:18:28.490 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-08-02 02:18:29.871 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@551fb56b
+2026-08-02 02:18:29.873 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-08-02 02:18:30.077 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://129.204.152.168:8306/mall_product?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-02 02:18:30.380 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-02 02:18:30.942 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_product`: 2
+2026-08-02 02:18:30.985 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Schema `mall_product` is up to date. No migration necessary.
+2026-08-02 02:18:31.930 [main] [none] INFO  c.c.p.config.BloomFilterInitializer - SKU Bloom filter already exists with count=21
+2026-08-02 02:18:33.825 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+2026-08-02 02:18:33.828 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-08-02 02:18:33.836 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-08-02 02:18:33.864 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-08-02 02:18:33.883 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-02 02:18:33.922 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productReindexController' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\controller\ProductReindexController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1218) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1184) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.__refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.jrLockAndRefresh(AbstractApplicationContext.java:1) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:42008) ~[spring-context-7.0.7.jar:7.0.7]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.0.6.jar:4.0.6]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.0.6.jar:4.0.6]
+	at com.cloudmart.product.ProductApplication.main(ProductApplication.java:14) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'productSyncService' defined in file [D:\Ide\IdeaProjects\CloudMart\mall-product\target\classes\com\cloudmart\product\service\ProductSyncService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1382) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1221) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1704) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 23 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'productSearchRepository' defined in com.cloudmart.product.es.ProductSearchRepository defined in @EnableElasticsearchRepositories declared on ElasticsearchConfig: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1817) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:229) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1762) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1651) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 37 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository]: Constructor threw exception
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:220) ~[spring-beans-7.0.7.jar:na]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.instantiateClass(RepositoryFactorySupport.java:623) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getTargetRepositoryViaReflection(RepositoryFactorySupport.java:600) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactory.getTargetRepository(ElasticsearchRepositoryFactory.java:81) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactorySupport.getRepository(RepositoryFactorySupport.java:359) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.lambda$afterPropertiesSet$1(RepositoryFactoryBeanSupport.java:361) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.getNullable(Lazy.java:136) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.util.Lazy.get(Lazy.java:114) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport.afterPropertiesSet(RepositoryFactoryBeanSupport.java:370) ~[spring-data-commons-4.0.5.jar:4.0.5]
+	at org.springframework.data.elasticsearch.repository.support.ElasticsearchRepositoryFactoryBean.afterPropertiesSet(ElasticsearchRepositoryFactoryBean.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1864) ~[spring-beans-7.0.7.jar:7.0.7]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1813) ~[spring-beans-7.0.7.jar:7.0.7]
+	... 48 common frames omitted
+Caused by: org.springframework.dao.DataAccessResourceFailureException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateExceptionIfPossible(ElasticsearchExceptionTranslator.java:116) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:70) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:73) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.doExists(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.exists(IndicesTemplate.java:172) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.createIndexAndMappingIfNeeded(SimpleElasticsearchRepository.java:92) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.repository.support.SimpleElasticsearchRepository.<init>(SimpleElasticsearchRepository.java:86) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499) ~[na:na]
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:483) ~[na:na]
+	at org.springframework.beans.BeanUtils.instantiateClass(BeanUtils.java:207) ~[spring-beans-7.0.7.jar:na]
+	... 59 common frames omitted
+Caused by: java.lang.RuntimeException: Connection closed by peer
+	at org.springframework.data.elasticsearch.client.elc.ElasticsearchExceptionTranslator.translateException(ElasticsearchExceptionTranslator.java:69) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 68 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.extractAndWrapCause(Rest5Client.java:936) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:308) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.low_level.Rest5Client.performRequest(Rest5Client.java:293) ~[elasticsearch-rest5-client-9.2.8.jar:na]
+	at co.elastic.clients.transport.rest5_client.Rest5ClientHttpClient.performRequest(Rest5ClientHttpClient.java:93) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.transport.ElasticsearchTransportBase.performRequest(ElasticsearchTransportBase.java:151) ~[elasticsearch-java-9.2.8.jar:na]
+	at co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient.exists(ElasticsearchIndicesClient.java:1213) ~[elasticsearch-java-9.2.8.jar:na]
+	at org.springframework.data.elasticsearch.client.elc.IndicesTemplate.lambda$doExists$0(IndicesTemplate.java:180) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	at org.springframework.data.elasticsearch.client.elc.ChildTemplate.execute(ChildTemplate.java:71) ~[spring-data-elasticsearch-6.0.5.jar:6.0.5]
+	... 67 common frames omitted
+Caused by: org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1StreamDuplexer.onInput(AbstractHttp1StreamDuplexer.java:355) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.AbstractHttp1IOEventHandler.inputReady(AbstractHttp1IOEventHandler.java:64) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.http.impl.nio.ClientHttp1IOEventHandler.inputReady(ClientHttp1IOEventHandler.java:41) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalDataChannel.onIOEvent(InternalDataChannel.java:139) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.InternalChannel.handleIOEvent(InternalChannel.java:51) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.processEvents(SingleCoreIOReactor.java:176) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.SingleCoreIOReactor.doExecute(SingleCoreIOReactor.java:125) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.AbstractSingleCoreIOReactor.execute(AbstractSingleCoreIOReactor.java:92) ~[httpcore5-5.3.6.jar:5.3.6]
+	at org.apache.hc.core5.reactor.IOReactorWorker.run(IOReactorWorker.java:44) ~[httpcore5-5.3.6.jar:5.3.6]
+	at java.base/java.lang.Thread.run(Thread.java:1516) ~[na:na]
+2026-08-02 02:18:34.862 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-08-02 02:18:34.863 [Thread-11] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-08-02 02:18:34.863 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-08-02 02:18:34.864 [Thread-17] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Completed destruction of HttpClient
+2026-08-02 02:18:34.867 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-08-02 02:18:34.868 [Thread-19] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher

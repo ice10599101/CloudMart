@@ -1,0 +1,4 @@
+sentinel:
+  gateway:
+    rules:
+      enabled: false

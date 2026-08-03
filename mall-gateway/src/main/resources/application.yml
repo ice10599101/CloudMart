@@ -1,0 +1,234 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: mall-gateway
+  config:
+    import:
+      - optional:nacos:mall-gateway.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  data:
+    redis:
+      host: ${REDIS_HOST:129.204.152.168}
+      port: ${REDIS_PORT:8379}
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+    sentinel:
+      transport:
+        dashboard: 129.204.152.168:8088
+        port: 8719
+      eager: true
+      datasource:
+        gw-flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-gw-flow-rules
+            rule-type: gw-flow
+        gw-degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-gw-degrade-rules
+            rule-type: degrade
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: mall-auth
+              uri: lb://mall-auth
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=2
+            - id: mall-user
+              uri: lb://mall-user
+              predicates:
+                - Path=/api/user/**
+              filters:
+                - StripPrefix=2
+            - id: mall-product
+              uri: lb://mall-product
+              predicates:
+                - Path=/api/product/**
+              filters:
+                - StripPrefix=2
+            - id: mall-order
+              uri: lb://mall-order
+              predicates:
+                - Path=/api/order/**
+              filters:
+                - StripPrefix=2
+            - id: mall-payment
+              uri: lb://mall-payment
+              predicates:
+                - Path=/api/payment/**
+              filters:
+                - StripPrefix=2
+            - id: mall-inventory
+              uri: lb://mall-inventory
+              predicates:
+                - Path=/api/inventory/**
+              filters:
+                - StripPrefix=2
+            - id: mall-cart
+              uri: lb://mall-cart
+              predicates:
+                - Path=/api/cart/**
+              filters:
+                - StripPrefix=2
+            - id: mall-coupon
+              uri: lb://mall-coupon
+              predicates:
+                - Path=/api/coupon/**
+              filters:
+                - StripPrefix=2
+            - id: mall-seckill
+              uri: lb://mall-seckill
+              predicates:
+                - Path=/api/seckill/**
+              filters:
+                - StripPrefix=2
+            - id: mall-notification
+              uri: lb://mall-notification
+              predicates:
+                - Path=/api/notification/**
+              filters:
+                - StripPrefix=2
+            - id: mall-risk
+              uri: lb://mall-risk
+              predicates:
+                - Path=/api/risk/**
+              filters:
+                - StripPrefix=2
+            - id: mall-wms
+              uri: lb://mall-wms
+              predicates:
+                - Path=/api/wms/**
+              filters:
+                - StripPrefix=2
+            - id: mall-notification-ws
+              uri: lb:ws://mall-notification
+              predicates:
+                - Path=/ws/notifications/**
+            - id: mall-live-ws
+              uri: lb:ws://mall-live
+              predicates:
+                - Path=/ws/live/**
+            - id: mall-admin
+              uri: lb://mall-admin
+              predicates:
+                - Path=/api/admin/**
+              filters:
+                - StripPrefix=2
+            - id: mall-job
+              uri: lb://mall-job
+              predicates:
+                - Path=/api/job/**
+              filters:
+                - StripPrefix=2
+            - id: mall-file
+              uri: lb://mall-file
+              predicates:
+                - Path=/api/file/**
+              filters:
+                - StripPrefix=2
+            - id: mall-gen
+              uri: lb://mall-gen
+              predicates:
+                - Path=/api/gen/**
+              filters:
+                - StripPrefix=2
+            - id: mall-ai
+              uri: lb://mall-ai
+              predicates:
+                - Path=/api/ai/**
+              filters:
+                - StripPrefix=2
+            - id: mall-live
+              uri: lb://mall-live
+              predicates:
+                - Path=/api/live/**
+              filters:
+                - StripPrefix=2
+            - id: mall-marketing
+              uri: lb://mall-marketing
+              predicates:
+                - Path=/api/marketing/**
+              filters:
+                - StripPrefix=2
+            - id: mall-community
+              uri: lb://mall-community
+              predicates:
+                - Path=/api/community/**
+              filters:
+                - StripPrefix=2
+          default-filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+                methods: GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+                  factor: 2
+                  basedOnPreviousValue: false
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:8000,http://localhost:8081,http://localhost:10086,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:8000,http://127.0.0.1:8081,http://127.0.0.1:10086,http://129.204.152.168:8000,http://129.204.152.168:3000}
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+                maxAge: 3600
+
+management:
+  endpoint:
+    gateway:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: gateway,health,info,prometheus,metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  level:
+    com.cloudmart.admin.feign: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    com.alibaba.nacos.client: DEBUG
+    com.alibaba.csp.sentinel: WARN

@@ -1,0 +1,243 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background-color: $color-bg-white;
+  padding: $spacing-lg $spacing-lg $spacing-md;
+  border-bottom: 1px solid $color-border;
+}
+
+.title {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: $color-text-primary;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background-color: $color-bg-white;
+  padding: $spacing-sm 0;
+  border-bottom: 1px solid $color-border;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xs 0;
+  position: relative;
+  transition: $transition-base;
+
+  &Active {
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40rpx;
+      height: 6rpx;
+      border-radius: 3rpx;
+      background: var(--color-primary);
+    }
+  }
+}
+
+.tabText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+}
+
+.tabTextActive {
+  font-size: $font-size-md;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  padding: $spacing-md;
+}
+
+/* Room Grid */
+.roomGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+}
+
+/* Card */
+.card {
+  width: calc(50% - #{$spacing-md} / 2);
+  background-color: $color-bg-white;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  border: 1px solid $color-border;
+  box-shadow: var(--shadow-card);
+  transition: $transition-base;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.cardCover {
+  position: relative;
+  width: 100%;
+  height: 280rpx;
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+}
+
+.coverGradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120rpx;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+
+/* Status Badge */
+.badge {
+  position: absolute;
+  top: $spacing-sm;
+  left: $spacing-sm;
+  padding: 4rpx 16rpx;
+  border-radius: $radius-full;
+}
+
+.badgeLiving {
+  background: rgba(255, 71, 87, 0.9);
+}
+
+.badgeUpcoming {
+  background: rgba(255, 165, 0, 0.9);
+}
+
+.badgeEnded {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.badgeText {
+  font-size: $font-size-xs;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Viewer Badge */
+.viewerBadge {
+  position: absolute;
+  top: $spacing-sm;
+  right: $spacing-sm;
+  padding: 4rpx 12rpx;
+  border-radius: $radius-full;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.viewerBadgeText {
+  font-size: $font-size-xs;
+  color: #FFFFFF;
+}
+
+/* Card Info */
+.cardInfo {
+  padding: $spacing-sm $spacing-md $spacing-md;
+}
+
+.roomTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: $color-text-primary;
+  @include text-ellipsis(2);
+  margin-bottom: $spacing-xs;
+}
+
+.anchorRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.anchorAvatar {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid $color-border;
+}
+
+.anchorName {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  @include text-ellipsis(1);
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: $spacing-xl 0;
+}
+
+.spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid $color-border;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Empty */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 200rpx 0;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+  margin-bottom: $spacing-lg;
+  opacity: 0.3;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  margin-bottom: $spacing-xs;
+}
+
+.emptySubText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+/* No More */
+.noMore {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-lg 0;
+}
+
+.noMoreText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}

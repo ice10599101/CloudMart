@@ -1,0 +1,168 @@
+@import './theme.scss';
+
+// ========== 间距系统 ==========
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+$spacing-2xl: 64rpx;
+$spacing-xxl: 64rpx; // alias for backward compat
+
+// 页面边距
+$page-padding: 32rpx;
+$max-content-width: 686rpx;
+
+// ========== 圆角 ==========
+$radius-xs: 4rpx;
+$radius-sm: 8rpx;
+$radius-md: 12rpx;
+$radius-lg: 16rpx;
+$radius-xl: 24rpx;
+$radius-full: 999rpx;
+
+// ========== 阴影 ==========
+$shadow-card: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+$shadow-card-hover: 0 4rpx 20rpx rgba(0, 0, 0, 0.12);
+$shadow-float: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+$shadow-popup: 0 8rpx 32rpx rgba(0, 0, 0, 0.15);
+
+// ========== 字体 ==========
+$font-size-xs: 22rpx;
+$font-size-sm: 24rpx;
+$font-size-md: 28rpx;
+$font-size-lg: 30rpx;
+$font-size-xl: 34rpx;
+$font-size-2xl: 40rpx;
+$font-size-3xl: 48rpx;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+
+// ========== 按钮 ==========
+$button-height-sm: 64rpx;
+$button-height-md: 80rpx;
+$button-height-lg: 96rpx;
+
+// ========== 过渡 ==========
+$transition-base: all 0.2s ease;
+
+// ========== Mixins ==========
+@mixin text-ellipsis($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+  }
+}
+
+@mixin button-reset {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+  text-align: center;
+  &::after {
+    display: none;
+  }
+}
+
+@mixin scroll-x-container {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@mixin scroll-x-item($width) {
+  display: inline-block;
+  width: $width;
+  vertical-align: top;
+  flex-shrink: 0;
+}
+
+@mixin safe-area-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// ========== New Design System Mixins ==========
+
+@mixin card-style {
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+@mixin glass-effect {
+  background-color: var(--color-bg-container);
+  /* backdrop-filter: blur(24px) saturate(180%); */
+  /* -webkit-backdrop-filter: blur(24px) saturate(180%); */
+  border: 1px solid var(--color-border);
+}
+
+@mixin glow-text {
+  text-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+@mixin glow-box {
+  box-shadow: 0 0 20px var(--color-glow-primary), 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+@mixin gradient-text {
+  background: var(--color-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// ========== Keyframes ==========
+@keyframes avatarRingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

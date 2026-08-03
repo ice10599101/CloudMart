@@ -1,0 +1,76 @@
+server:
+  port: 9050
+
+spring:
+  application:
+    name: mall-gen
+  config:
+    import:
+      - optional:nacos:mall-gen.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+    sentinel:
+      transport:
+        dashboard: 129.204.152.168:8088
+        port: 8733
+      eager: true
+  data:
+    redis:
+      host: ${REDIS_HOST:129.204.152.168}
+      port: ${REDIS_PORT:8379}
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:129.204.152.168}:${MYSQL_PORT:8306}/mall_admin?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+  configuration:
+    map-underscore-to-camel-case: true
+
+gen:
+  package-name: com.cloudmart
+  auto-remove-prefix: true
+  table-prefix: admin_
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  level:
+    com.cloudmart.admin.feign: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    com.alibaba.nacos.client: DEBUG
+    com.alibaba.csp.sentinel: WARN

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudmart-config
+  namespace: cloudmart
+data:
+  nacos-addr: "nacos.default.svc.cluster.local:8848"
+  mysql-host: "mysql.default.svc.cluster.local"
+  redis-host: "redis.default.svc.cluster.local"
+  rocketmq-name-server: "rocketmq-namesrv.default.svc.cluster.local:9876"
+  elasticsearch-hosts: "http://elasticsearch.default.svc.cluster.local:9200"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudmart-secrets
+  namespace: cloudmart
+type: Opaque
+stringData:
+  mysql-password: "CHANGE_ME"
+  redis-password: ""
+  jwt-public-key: "CHANGE_ME"

@@ -1,0 +1,146 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sectionTitle {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  padding: $spacing-lg $spacing-lg $spacing-xs;
+}
+
+.section {
+  margin: 0 $spacing-lg $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+// Switch Item
+.switchItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.switchInfo {
+  flex: 1;
+  margin-right: $spacing-md;
+}
+
+.switchLabel {
+  font-size: $font-size-md;
+  color: var(--color-text);
+  font-weight: 500;
+  display: block;
+}
+
+.switchDesc {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  margin-top: 4rpx;
+  display: block;
+}
+
+// Field Item (Account Security)
+.fieldItem {
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.fieldLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  margin-bottom: $spacing-xs;
+  display: block;
+}
+
+.fieldValue {
+  font-size: $font-size-md;
+  color: var(--color-text);
+}
+
+.fieldInput {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 $spacing-md;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  background-color: var(--color-bg-base);
+}
+
+.placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.changePwdBtn {
+  margin: $spacing-md $spacing-lg $spacing-lg;
+  height: 80rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.changePwdText {
+  color: #FFFFFF;
+  font-size: $font-size-md;
+  font-weight: 600;
+}
+
+// Menu Item
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.itemText {
+  font-size: $font-size-md;
+  color: var(--color-text);
+}
+
+.arrow {
+  font-size: $font-size-xl;
+  color: var(--color-text-tertiary);
+}
+
+// Logout
+.logoutBtn {
+  margin: $spacing-xl $spacing-lg;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid var(--color-accent-red);
+  border-radius: $radius-xl;
+}
+
+.logoutText {
+  color: var(--color-accent-red);
+  font-size: $font-size-lg;
+  font-weight: 600;
+}

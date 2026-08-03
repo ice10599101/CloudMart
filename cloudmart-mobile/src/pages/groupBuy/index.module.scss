@@ -1,0 +1,303 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+  display: flex;
+  flex-direction: column;
+}
+
+// ========== Header ==========
+.header {
+  background: var(--color-gradient-primary);
+  padding: $spacing-xl $spacing-lg $spacing-lg;
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -40rpx;
+    left: -20rpx;
+    right: -20rpx;
+    height: 80rpx;
+    background-color: $color-bg-page;
+    border-radius: 50% 50% 0 0;
+  }
+}
+
+.headerTitle {
+  font-size: $font-size-2xl;
+  font-weight: 800;
+  color: #FFFFFF;
+  display: block;
+}
+
+.headerSub {
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.8);
+  display: block;
+  margin-top: $spacing-xs;
+}
+
+// ========== ScrollView ==========
+.scrollView {
+  flex: 1;
+  height: 0;
+}
+
+// ========== Activity List ==========
+.list {
+  padding: $spacing-md $spacing-md $spacing-xl;
+}
+
+// ========== Card ==========
+.card {
+  @include card-style;
+  display: flex;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  animation: fadeInUp 0.3s ease both;
+}
+
+.cardImageWrap {
+  position: relative;
+  width: 220rpx;
+  height: 220rpx;
+  flex-shrink: 0;
+  border-radius: $radius-md;
+  overflow: hidden;
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+}
+
+.endedOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  @include flex-center;
+}
+
+.endedText {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.cardBody {
+  flex: 1;
+  margin-left: $spacing-md;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.productName {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: $color-text-primary;
+  @include text-ellipsis(2);
+  line-height: 1.4;
+}
+
+// ========== Price ==========
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}
+
+.groupPrice {
+  font-size: $font-size-xl;
+  font-weight: 800;
+  color: $color-price;
+}
+
+.originalPrice {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  text-decoration: line-through;
+}
+
+// ========== Group Info ==========
+.groupInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}
+
+.groupSizeTag {
+  font-size: $font-size-xs;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: $color-tag-bg;
+  padding: 2rpx 12rpx;
+  border-radius: $radius-xs;
+}
+
+.participantCount {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+// ========== Progress Bar ==========
+.progressBar {
+  height: 8rpx;
+  background-color: var(--color-border);
+  border-radius: $radius-full;
+  overflow: hidden;
+  margin-top: $spacing-sm;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-full;
+  transition: width 0.5s ease;
+}
+
+// ========== Card Footer ==========
+.cardFooter {
+  @include flex-between;
+  margin-top: $spacing-sm;
+}
+
+.countdownWrap {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.countdownLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.countdownBlocks {
+  display: flex;
+  align-items: center;
+  gap: 2rpx;
+}
+
+.countdownBlock {
+  font-size: $font-size-xs;
+  font-weight: 700;
+  color: #FFFFFF;
+  background-color: $color-price;
+  padding: 2rpx 6rpx;
+  border-radius: $radius-xs;
+  min-width: 36rpx;
+  text-align: center;
+}
+
+.countdownSep {
+  font-size: $font-size-xs;
+  font-weight: 700;
+  color: $color-price;
+}
+
+// ========== Join Button ==========
+.joinBtn {
+  background: var(--color-gradient-primary);
+  padding: $spacing-xs $spacing-lg;
+  border-radius: $radius-full;
+  transition: $transition-base;
+
+  &:active {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+}
+
+.joinBtnDisabled {
+  background: var(--color-border);
+  pointer-events: none;
+}
+
+.joinBtnLoading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.joinBtnText {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+// ========== Empty State ==========
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 200rpx;
+}
+
+.emptyIcon {
+  font-size: 100rpx;
+  margin-bottom: $spacing-lg;
+}
+
+.emptyTitle {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: $color-text-secondary;
+  display: block;
+  margin-bottom: $spacing-xs;
+}
+
+.emptyDesc {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  display: block;
+}
+
+// ========== Loading ==========
+.loadingWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl 0;
+  gap: $spacing-sm;
+}
+
+.loadingDot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.loadingText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+// ========== Footer ==========
+.footer {
+  display: flex;
+  align-items: center;
+  padding: $spacing-xl $spacing-lg;
+  gap: $spacing-md;
+}
+
+.footerLine {
+  flex: 1;
+  height: 1rpx;
+  background-color: var(--color-border);
+}
+
+.footerText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  white-space: nowrap;
+}

@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mall-payment
+  namespace: cloudmart
+  labels:
+    app: mall-payment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mall-payment
+  template:
+    metadata:
+      labels:
+        app: mall-payment
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8085"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      initContainers:
+        - name: skywalking-agent
+          image: apache/skywalking-java-agent:9.0.0-java21
+          command: ['sh', '-c', 'cp -r /skywalking/agent /skywalking/agent-shared']
+          volumeMounts:
+            - name: skywalking-agent
+              mountPath: /skywalking/agent-shared
+      containers:
+        - name: mall-payment
+          image: cloudmart/mall-payment:latest
+          ports:
+            - containerPort: 8085
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: NACOS_SERVER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudmart-config
+                  key: nacos-addr
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseZGC -javaagent:/skywalking/agent/skywalking-agent.jar"
+            - name: SW_AGENT_NAME
+              value: "mall-payment"
+            - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
+              value: "skywalking-oap.cloudmart.svc.cluster.local:11800"
+          envFrom:
+            - secretRef:
+                name: cloudmart-secrets
+          volumeMounts:
+            - name: skywalking-agent
+              mountPath: /skywalking/agent
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8085
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8085
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: skywalking-agent
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mall-payment
+  namespace: cloudmart
+spec:
+  selector:
+    app: mall-payment
+  ports:
+    - port: 8085
+      targetPort: 8085
+  type: ClusterIP

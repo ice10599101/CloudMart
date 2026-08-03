@@ -1,0 +1,75 @@
+server:
+  port: 9030
+
+spring:
+  application:
+    name: mall-file
+  config:
+    import:
+      - optional:nacos:mall-file.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+    sentinel:
+      transport:
+        dashboard: 129.204.152.168:8088
+        port: 8731
+      eager: true
+  data:
+    redis:
+      host: ${REDIS_HOST:129.204.152.168}
+      port: ${REDIS_PORT:8379}
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+dromara:
+  x-file-storage:
+    default-platform: aliyun-oss-1
+    aliyun-oss:
+      - platform: aliyun-oss-1
+        enable-storage: true
+        access-key: ${OSS_ACCESS_KEY:LTAI5tCyAuMKzk7x8Ky3a5eH}
+        secret-key: ${OSS_SECRET_KEY:McdnUEn9Ui6bCH9pFyhrSOJ1apIp7O}
+        end-point: ${OSS_END_POINT:oss-cn-guangzhou.aliyuncs.com}
+        bucket-name: ${OSS_BUCKET_NAME:oss-ysf}
+        domain: ${OSS_DOMAIN:https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/}
+        base-path: cloudmart/
+
+file:
+  allowed-extensions: jpg,jpeg,png,gif,bmp,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp4,mp3
+  max-size: 52428800
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.cloudmart.file: DEBUG
+    org.dromara.x.file-storage: INFO
+    com.alibaba.nacos.client: DEBUG
+    com.alibaba.csp.sentinel: WARN

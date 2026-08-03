@@ -1,0 +1,78 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/mall/index",
+    "pages/publish/index",
+    "pages/message/index",
+    "pages/mine/index",
+    "pages/search/index",
+    "pages/productDetail/index",
+    "pages/postDetail/index",
+    "pages/cart/index",
+    "pages/orders/index",
+    "pages/orderDetail/index",
+    "pages/checkout/index",
+    "pages/wishlist/index",
+    "pages/coupons/index",
+    "pages/seckill/index",
+    "pages/groupBuy/index",
+    "pages/live/index",
+    "pages/liveRoom/index",
+    "pages/aiChat/index",
+    "pages/chat/index",
+    "pages/profile/index",
+    "pages/userProfile/index",
+    "pages/settings/index",
+    "pages/login/index",
+    "pages/register/index",
+    "pages/topicDetail/index",
+    "pages/following/index",
+    "pages/collections/index",
+    "pages/notifications/index"
+  ],
+  "tabBar": {
+    "color": "#86909C",
+    "selectedColor": "#00D4FF",
+    "backgroundColor": "#0B1220",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "assets/tab-home.png",
+        "selectedIconPath": "assets/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/mall/index",
+        "text": "商城",
+        "iconPath": "assets/tab-mall.png",
+        "selectedIconPath": "assets/tab-mall-active.png"
+      },
+      {
+        "pagePath": "pages/publish/index",
+        "text": "发布",
+        "iconPath": "assets/tab-plus.png",
+        "selectedIconPath": "assets/tab-plus-active.png"
+      },
+      {
+        "pagePath": "pages/message/index",
+        "text": "消息",
+        "iconPath": "assets/tab-message.png",
+        "selectedIconPath": "assets/tab-message-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "assets/tab-user.png",
+        "selectedIconPath": "assets/tab-user-active.png"
+      }
+    ]
+  },
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0B1220",
+    "navigationBarTitleText": "CloudMart",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0B1220"
+  }
+}

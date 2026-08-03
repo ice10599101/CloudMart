@@ -1,0 +1,17 @@
+# ShardingSphere 分表 Profile
+# 启用方式: spring.profiles.active=sharding
+# 此时数据源由 ShardingSphere 管理，Flyway 需要禁用（分表DDL由V2迁移手动执行）
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration
+  datasource:
+    url: jdbc:shardingsphere:classpath:sharding-config.yaml
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+  flyway:
+    enabled: false
+
+shardingsphere:
+  enabled: true

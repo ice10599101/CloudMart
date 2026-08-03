@@ -1,0 +1,48 @@
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "long"
+      },
+      "name": {
+        "type": "text",
+        "analyzer": "ik_max_word",
+        "search_analyzer": "ik_smart"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "ik_max_word",
+        "search_analyzer": "ik_smart"
+      },
+      "categoryId": {
+        "type": "long"
+      },
+      "brand": {
+        "type": "keyword"
+      },
+      "minPrice": {
+        "type": "double"
+      },
+      "maxOriginalPrice": {
+        "type": "double"
+      },
+      "mainImage": {
+        "type": "keyword",
+        "index": false
+      },
+      "createdAt": {
+        "type": "date",
+        "format": "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis"
+      },
+      "salesCount": {
+        "type": "long"
+      },
+      "avgRating": {
+        "type": "double"
+      },
+      "status": {
+        "type": "integer"
+      }
+    }
+  }
+}

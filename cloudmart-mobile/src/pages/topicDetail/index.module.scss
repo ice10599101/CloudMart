@@ -1,0 +1,213 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background-color: $color-bg-white;
+  border-bottom: 2rpx solid $color-border-light;
+}
+
+.headerContent {
+  padding: $spacing-lg $spacing-lg $spacing-md;
+}
+
+.topicName {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: var(--color-primary);
+  display: block;
+  margin-bottom: $spacing-xs;
+}
+
+.topicCount {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  display: block;
+}
+
+.searchHint {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  margin-top: $spacing-xs;
+  display: block;
+  opacity: 0.7;
+}
+
+/* Scroll Content */
+.scrollContent {
+  flex: 1;
+  height: 0;
+}
+
+/* Post List */
+.postList {
+  padding: $spacing-md;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+/* Post Card */
+.postCard {
+  background-color: $color-bg-white;
+  border-radius: 16rpx;
+  overflow: hidden;
+  border: 1px solid $color-border;
+  transition: transform 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.postCover {
+  width: 100%;
+  height: 320rpx;
+}
+
+.postBody {
+  padding: $spacing-md;
+}
+
+.postTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: $color-text-primary;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: $spacing-xs;
+  line-height: 1.5;
+}
+
+.postContent {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: $spacing-sm;
+  line-height: 1.6;
+}
+
+.postFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: $spacing-sm;
+}
+
+.authorInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex: 1;
+  min-width: 0;
+}
+
+.authorAvatar {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.authorName {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.postStats {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-shrink: 0;
+}
+
+.statItem {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.statTime {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  opacity: 0.7;
+}
+
+/* Empty */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 200rpx 0;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+  margin-bottom: $spacing-lg;
+  opacity: 0.3;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  margin-bottom: $spacing-xs;
+}
+
+.emptySubText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+/* Loading More */
+.loadingMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg 0;
+  gap: $spacing-xs;
+}
+
+.spinner {
+  width: 32rpx;
+  height: 32rpx;
+  border: 3rpx solid $color-border;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+/* No More */
+.noMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg 0;
+}
+
+.noMoreText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  opacity: 0.6;
+}

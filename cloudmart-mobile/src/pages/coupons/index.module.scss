@@ -1,0 +1,37 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+}
+
+.tabs {
+  display: flex;
+  background-color: $color-bg-white;
+  padding: $spacing-md 0;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+}
+
+.tabText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 200rpx;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+  margin-bottom: $spacing-lg;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+}

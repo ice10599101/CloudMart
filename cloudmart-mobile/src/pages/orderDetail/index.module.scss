@@ -1,0 +1,308 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+}
+
+.content {
+  height: 100vh;
+  padding-bottom: 140rpx;
+}
+
+// ========== Loading ==========
+.loading {
+  @include flex-center;
+  flex-direction: column;
+  padding-top: 300rpx;
+}
+
+.spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  margin-top: $spacing-md;
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+}
+
+// ========== Empty ==========
+.empty {
+  @include flex-center;
+  flex-direction: column;
+  padding-top: 300rpx;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+  margin-bottom: $spacing-lg;
+  opacity: 0.3;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+}
+
+// ========== Status Section ==========
+.statusSection {
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-2xl $spacing-lg;
+  background: var(--color-gradient-primary);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -60rpx;
+    right: -60rpx;
+    width: 240rpx;
+    height: 240rpx;
+    border-radius: 50%;
+    background: var(--color-glow-primary);
+    opacity: 0.4;
+  }
+}
+
+.statusIcon {
+  font-size: 72rpx;
+  margin-bottom: $spacing-sm;
+  position: relative;
+  z-index: 1;
+}
+
+.statusText {
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: #FFFFFF;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+// ========== Section ==========
+.section {
+  margin: $spacing-md $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.sectionHeader {
+  @include flex-between;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+// ========== Address ==========
+.addressHeader {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+  gap: $spacing-sm;
+}
+
+.addressIcon {
+  font-size: 32rpx;
+}
+
+.addressBody {
+  padding: $spacing-md $spacing-lg;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-bottom: $spacing-sm;
+}
+
+.recipientName {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.recipientPhone {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+}
+
+.addressDetail {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+// ========== Order Items ==========
+.orderItem {
+  display: flex;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.itemImage {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: $radius-md;
+  flex-shrink: 0;
+  margin-right: $spacing-md;
+}
+
+.itemInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: $font-size-md;
+  font-weight: 500;
+  color: var(--color-text);
+  @include text-ellipsis(2);
+  line-height: 1.4;
+}
+
+.itemSku {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  margin-top: $spacing-xs;
+}
+
+.itemBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $spacing-xs;
+}
+
+.itemPrice {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: var(--color-accent-red);
+}
+
+.itemQuantity {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+}
+
+// ========== Price Breakdown ==========
+.priceRow {
+  @include flex-between;
+  padding: $spacing-sm $spacing-lg;
+}
+
+.priceLabel {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+}
+
+.priceLabelBold {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.priceValue {
+  font-size: $font-size-md;
+  color: var(--color-text);
+}
+
+.priceDivider {
+  height: 1px;
+  margin: $spacing-sm $spacing-lg;
+  background-color: var(--color-border);
+}
+
+.priceTotal {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: var(--color-accent-red);
+}
+
+// ========== Order Info ==========
+.infoRow {
+  @include flex-between;
+  padding: $spacing-sm $spacing-lg;
+}
+
+.infoLabel {
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  margin-right: $spacing-lg;
+}
+
+.infoValue {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+// ========== Bottom Bar ==========
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-lg;
+  background-color: var(--color-bg-container);
+  border-top: 1px solid var(--color-border);
+  padding-bottom: calc(#{$spacing-sm} + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.1);
+}
+
+.btnPrimary {
+  padding: $spacing-sm $spacing-2xl;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.btnPrimaryText {
+  font-size: $font-size-md;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.btnSecondary {
+  padding: $spacing-sm $spacing-2xl;
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.btnSecondaryText {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}

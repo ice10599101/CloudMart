@@ -1,0 +1,73 @@
+# 通用微服务 Deployment 模板
+# 使用 kustomize 或 sed 替换 SERVICE_NAME/PORT/IMAGE 变量
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: SERVICE_NAME
+  namespace: cloudmart
+  labels:
+    app: SERVICE_NAME
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: SERVICE_NAME
+  template:
+    metadata:
+      labels:
+        app: SERVICE_NAME
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "PORT"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: SERVICE_NAME
+          image: cloudmart/SERVICE_NAME:latest
+          ports:
+            - containerPort: PORT
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: NACOS_SERVER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudmart-config
+                  key: nacos-addr
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseZGC"
+          envFrom:
+            - secretRef:
+                name: cloudmart-secrets
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: PORT
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: PORT
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: SERVICE_NAME
+  namespace: cloudmart
+spec:
+  selector:
+    app: SERVICE_NAME
+  ports:
+    - port: PORT
+      targetPort: PORT
+  type: ClusterIP

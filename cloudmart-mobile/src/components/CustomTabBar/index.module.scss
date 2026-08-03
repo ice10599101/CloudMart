@@ -1,0 +1,92 @@
+.tabBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  height: 110rpx;
+  background-color: var(--color-bg-header);
+  border-top: 1px solid var(--color-border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 999;
+  /* backdrop-filter not supported in Mini Programs */
+  /* backdrop-filter not supported in Mini Programs */
+}
+
+.tabItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  position: relative;
+}
+
+.tabIcon {
+  @include flex-center;
+  width: 48rpx;
+  height: 48rpx;
+  margin-bottom: 4rpx;
+  transition: all 0.25s ease;
+}
+
+.tabText {
+  font-size: 20rpx;
+  color: var(--color-text-tertiary);
+  transition: color 0.25s ease;
+}
+
+.tabTextActive {
+  font-size: 20rpx;
+  color: var(--color-primary);
+  font-weight: 600;
+  text-shadow: 0 0 12px var(--color-primary-glow);
+  transition: color 0.25s ease;
+}
+
+.activeDot {
+  position: absolute;
+  bottom: 8rpx;
+  width: 16rpx;
+  height: 6rpx;
+  border-radius: 3rpx;
+  background: var(--color-gradient-primary);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.centerBtn {
+  @include flex-center;
+  width: 100rpx;
+  height: 100rpx;
+  margin-top: -40rpx;
+  border-radius: 50%;
+  background: var(--color-gradient-primary);
+  box-shadow: 0 4px 20px var(--color-primary-glow), 0 0 30px var(--color-glow-primary);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+.centerIcon {
+  @include flex-center;
+}
+
+.themeToggle {
+  position: absolute;
+  right: 16rpx;
+  top: 8rpx;
+  width: 56rpx;
+  height: 56rpx;
+  @include flex-center;
+  border-radius: 50%;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.themeIcon {
+  font-size: 28rpx;
+}

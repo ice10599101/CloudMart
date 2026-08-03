@@ -1,0 +1,16 @@
+ALTER TABLE `admin_config` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '参数ID';
+ALTER TABLE `admin_dept` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '部门ID';
+ALTER TABLE `admin_dict_data` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '字典数据ID';
+ALTER TABLE `admin_dict_type` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '字典类型ID';
+ALTER TABLE `admin_login_log` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '访问ID';
+ALTER TABLE `admin_menu` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '菜单ID';
+ALTER TABLE `admin_notice` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '公告ID';
+ALTER TABLE `admin_notice_read` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID';
+ALTER TABLE `admin_oper_log` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '日志ID';
+ALTER TABLE `admin_post` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '岗位ID';
+ALTER TABLE `admin_role` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '角色ID';
+ALTER TABLE `admin_role_dept` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID';
+ALTER TABLE `admin_role_menu` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID';
+ALTER TABLE `admin_user` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID';
+ALTER TABLE `admin_user_post` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID';
+ALTER TABLE `admin_user_role` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID';

@@ -1,0 +1,132 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  padding-bottom: 120rpx;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  margin: $spacing-md $spacing-lg;
+  padding: $spacing-sm $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-xl;
+  /* backdrop-filter not supported in Mini Programs */
+}
+
+.searchPlaceholder {
+  margin-left: $spacing-sm;
+  color: var(--color-text-tertiary);
+  font-size: $font-size-md;
+}
+
+.content {
+  height: calc(100vh - 120rpx);
+}
+
+.quickGrid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 $spacing-lg $spacing-md;
+  padding: $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.quickItem {
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.quickIconWrap {
+  width: 88rpx;
+  height: 88rpx;
+  @include flex-center;
+  border-radius: $radius-lg;
+  margin-bottom: $spacing-sm;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.quickIcon {
+  font-size: 40rpx;
+}
+
+.quickName {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+}
+
+.sectionHeader {
+  padding: $spacing-md $spacing-lg $spacing-sm;
+}
+
+.sectionTitle {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  @include gradient-text;
+}
+
+.productGrid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 $spacing-md;
+  gap: $spacing-sm;
+}
+
+.productCard {
+  width: calc(50% - #{$spacing-sm} / 2);
+  @include card-style;
+  margin-bottom: $spacing-sm;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:active {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
+}
+
+.productImage {
+  width: 100%;
+  height: 340rpx;
+}
+
+.productInfo {
+  padding: $spacing-sm $spacing-md $spacing-md;
+}
+
+.productName {
+  font-size: $font-size-md;
+  color: var(--color-text);
+  @include text-ellipsis(2);
+  line-height: 1.4;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  margin-top: $spacing-sm;
+  gap: $spacing-sm;
+}
+
+.productPrice {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: var(--color-accent-red);
+}
+
+.originalPrice {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.productSales {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  margin-top: 4rpx;
+}

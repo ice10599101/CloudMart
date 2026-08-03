@@ -1,0 +1,72 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 120rpx;
+}
+
+.messages {
+  flex: 1;
+  padding: $spacing-lg;
+}
+
+.aiMessage {
+  margin-bottom: $spacing-lg;
+}
+
+.aiLabel {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  display: block;
+  margin-bottom: $spacing-xs;
+}
+
+.aiBubble {
+  background-color: $color-bg-white;
+  padding: $spacing-md;
+  border-radius: $radius-lg;
+  display: inline-block;
+  max-width: 80%;
+}
+
+.aiText {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  line-height: 1.6;
+}
+
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  background-color: $color-bg-white;
+  border-top: 1rpx solid var(--color-border);
+  padding-bottom: calc(#{$spacing-sm} + env(safe-area-inset-bottom));
+  gap: $spacing-md;
+}
+
+.input {
+  flex: 1;
+  height: 64rpx;
+  padding: 0 $spacing-md;
+  background-color: var(--color-bg-input);
+  border-radius: $radius-xl;
+  font-size: $font-size-sm;
+}
+
+.sendBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.sendText {
+  color: #FFFFFF;
+  font-size: $font-size-sm;
+  font-weight: 600;
+}

@@ -1,0 +1,205 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-lg;
+  background-color: var(--color-bg-header);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cancelBtn {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  background: transparent;
+}
+
+.pageTitle {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.draftBtn {
+  font-size: $font-size-md;
+  color: var(--color-primary);
+  padding: $spacing-sm $spacing-lg;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: $radius-lg;
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.publishBtn {
+  padding: $spacing-sm $spacing-xl;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-lg;
+  box-shadow: 0 2px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.publishBtnText {
+  font-size: $font-size-md;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.scrollContent {
+  flex: 1;
+  padding-bottom: 120rpx;
+}
+
+.titleWrap {
+  padding: 0 $spacing-lg;
+  margin-top: $spacing-md;
+}
+
+.titleInput {
+  width: 100%;
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: var(--color-text);
+  padding: $spacing-md 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.editorWrap {
+  margin: $spacing-md $spacing-lg;
+}
+
+.fallbackInput {
+  width: 100%;
+  min-height: 300rpx;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  padding: $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-md;
+}
+
+/* Media Section */
+.mediaSection {
+  margin: 0 $spacing-lg;
+  padding: $spacing-md 0;
+}
+
+.sectionLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  margin-bottom: $spacing-sm;
+  display: block;
+}
+
+.mediaGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.mediaItem {
+  width: calc(33.33% - #{$spacing-sm} * 2 / 3);
+  aspect-ratio: 1;
+  border-radius: $radius-md;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--color-border);
+}
+
+.mediaThumb {
+  width: 100%;
+  height: 100%;
+}
+
+.mediaRemove {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mediaRemoveText {
+  color: #FFFFFF;
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.mediaAdd {
+  width: calc(33.33% - #{$spacing-sm} * 2 / 3);
+  aspect-ratio: 1;
+  border-radius: $radius-md;
+  border: 2rpx dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  background: var(--color-bg-container);
+}
+
+.mediaAddIcon {
+  font-size: 48rpx;
+  color: var(--color-text-tertiary);
+  line-height: 1;
+}
+
+.mediaAddText {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+}
+
+/* Tag Section */
+.tagWrap {
+  margin: 0 $spacing-lg;
+  padding: $spacing-sm 0;
+}
+
+.tagInput {
+  width: 100%;
+  padding: $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-md;
+  color: var(--color-text);
+  font-size: $font-size-md;
+}
+
+/* Quick Tags */
+.quickTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg;
+}
+
+.quickTag {
+  padding: $spacing-xs $spacing-md;
+  background: rgba(var(--color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-radius: $radius-xl;
+}
+
+.quickTagText {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+}

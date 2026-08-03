@@ -1,0 +1,165 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+  padding-bottom: 120rpx;
+}
+
+.content {
+  height: calc(100vh - 120rpx);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 200rpx;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+  margin-bottom: $spacing-lg;
+}
+
+.goShopping {
+  padding: $spacing-sm $spacing-xl;
+  background-color: $color-primary;
+  color: #FFFFFF;
+  border-radius: $radius-xl;
+  font-size: $font-size-md;
+}
+
+.cartItem {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  background-color: $color-bg-white;
+  margin-bottom: 2rpx;
+}
+
+.checkbox {
+  margin-right: $spacing-md;
+  font-size: 40rpx;
+}
+
+.itemImage {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: $radius-sm;
+  margin-right: $spacing-md;
+  flex-shrink: 0;
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skuName {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.itemBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $spacing-sm;
+}
+
+.itemPrice {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: $color-primary;
+}
+
+.quantityControl {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.quantityBtn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-sm;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.quantity {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  min-width: 40rpx;
+  text-align: center;
+}
+
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-lg;
+  background-color: $color-bg-white;
+  border-top: 1rpx solid var(--color-border);
+  padding-bottom: calc(#{$spacing-sm} + env(safe-area-inset-bottom));
+}
+
+.checkAll {
+  display: flex;
+  align-items: center;
+  font-size: 40rpx;
+  margin-right: $spacing-md;
+}
+
+.checkAllText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  margin-left: 8rpx;
+}
+
+.totalInfo {
+  flex: 1;
+  text-align: right;
+  margin-right: $spacing-md;
+}
+
+.totalLabel {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.totalPrice {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $color-primary;
+}
+
+.checkoutBtn {
+  padding: $spacing-sm $spacing-xl;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.checkoutText {
+  color: #FFFFFF;
+  font-size: $font-size-md;
+  font-weight: 600;
+}

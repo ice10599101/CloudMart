@@ -1,0 +1,202 @@
+.wrapper {
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-md;
+  overflow: hidden;
+  background-color: var(--color-bg-container);
+}
+
+.toolbarToggle {
+  padding: $spacing-sm $spacing-md;
+  background-color: var(--color-bg-elevated);
+  border-bottom: 2rpx solid var(--color-border);
+  text-align: center;
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4rpx;
+  padding: $spacing-sm;
+  border-bottom: 2rpx solid var(--color-border);
+  background-color: var(--color-bg-elevated);
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64rpx;
+  height: 64rpx;
+  padding: 0 $spacing-sm;
+  border-radius: $radius-sm;
+  background-color: transparent;
+  border: none;
+}
+
+.toolbarBtnText {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.toolbarBtnDisabled {
+  opacity: 0.35;
+}
+
+.toolbarBtnActive {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.toolbarBtnActive .toolbarBtnText {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.divider {
+  width: 2rpx;
+  height: 40rpx;
+  background-color: var(--color-border);
+  margin: 0 4rpx;
+}
+
+.panel {
+  padding: $spacing-md;
+  border-bottom: 2rpx solid var(--color-border);
+  background-color: var(--color-bg-container);
+}
+
+.panelTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: $spacing-md;
+  display: block;
+}
+
+.fontSizeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.fontSizeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100rpx;
+  height: 64rpx;
+  padding: 0 $spacing-md;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-sm;
+  background-color: var(--color-bg-container);
+  color: var(--color-text);
+}
+
+.fontFamilyGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.fontFamilyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120rpx;
+  height: 64rpx;
+  padding: 0 $spacing-md;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-sm;
+  background-color: var(--color-bg-container);
+  color: var(--color-text);
+  font-size: $font-size-md;
+}
+
+.colorGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.colorBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: $radius-sm;
+  border: 2rpx solid var(--color-border);
+  background-color: var(--color-bg-container);
+}
+
+.colorDot {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+}
+
+.colorDotNone {
+  background-color: var(--color-bg-container);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.colorDotNoneText {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+.hexInputRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.colorPreview {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: $radius-sm;
+  border: 2rpx solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.hexInput {
+  flex: 1;
+  height: 64rpx;
+  padding: 0 $spacing-md;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-sm;
+  background-color: var(--color-bg-container);
+  color: var(--color-text);
+  font-size: $font-size-md;
+}
+
+.removeHighlightBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: $spacing-md;
+  height: 64rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-sm;
+  background-color: var(--color-bg-container);
+}
+
+.removeHighlightText {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+}
+
+.content {
+  min-height: 400rpx;
+  max-height: 800rpx;
+  padding: $spacing-lg;
+  font-size: $font-size-md;
+  line-height: 1.7;
+  color: var(--color-text);
+}

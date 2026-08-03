@@ -1,0 +1,103 @@
+server:
+  port: 9015
+
+spring:
+  application:
+    name: mall-live
+  config:
+    import:
+      - optional:nacos:mall-live.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+    sentinel:
+      transport:
+        dashboard: 129.204.152.168:8088
+        port: 8731
+      eager: true
+      datasource:
+        flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-flow-rules
+            rule-type: flow
+        degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-degrade-rules
+            rule-type: degrade
+    openfeign:
+      sentinel:
+        enabled: true
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:129.204.152.168}:${MYSQL_PORT:8306}/mall_live?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+    clean-disabled: true
+    validate-on-migrate: false
+  data:
+    redis:
+      host: ${REDIS_HOST:129.204.152.168}
+      port: ${REDIS_PORT:8379}
+
+live:
+  netty:
+    port: ${NETTY_WS_PORT:9016}
+    boss-threads: 1
+    worker-threads: 0
+    idle-timeout-seconds: 300
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  level:
+    com.cloudmart.admin.feign: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    com.alibaba.nacos.client: DEBUG
+    com.alibaba.csp.sentinel: WARN

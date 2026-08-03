@@ -1,0 +1,151 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  padding-bottom: 120rpx;
+}
+
+.quickRow {
+  display: flex;
+  justify-content: space-around;
+  padding: $spacing-lg $spacing-md;
+  margin: $spacing-md $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.quickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.quickIconWrap {
+  position: relative;
+  width: 88rpx;
+  height: 88rpx;
+  @include flex-center;
+  border-radius: 50%;
+  margin-bottom: $spacing-sm;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.quickIcon {
+  font-size: 40rpx;
+}
+
+.badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  background-color: var(--color-accent-red);
+  border-radius: 16rpx;
+  @include flex-center;
+  padding: 0 8rpx;
+  box-shadow: 0 0 8px var(--color-accent-red);
+}
+
+.badgeText {
+  font-size: 20rpx;
+  color: #FFFFFF;
+}
+
+.quickName {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+}
+
+.sectionHeader {
+  padding: $spacing-md $spacing-lg $spacing-sm;
+}
+
+.sectionTitle {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  @include gradient-text;
+}
+
+.conversationList {
+  height: calc(100vh - 400rpx);
+}
+
+.conversationItem {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  margin: 0 $spacing-lg;
+  background-color: var(--color-bg-container);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s ease;
+
+  &:first-child {
+    border-radius: $radius-lg $radius-lg 0 0;
+  }
+
+  &:last-child {
+    border-bottom: none;
+    border-radius: 0 0 $radius-lg $radius-lg;
+  }
+
+  &:only-child {
+    border-radius: $radius-lg;
+  }
+
+  &:active {
+    background-color: var(--color-bg-elevated);
+  }
+}
+
+.avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  margin-right: $spacing-md;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+.conversationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversationTop {
+  @include flex-between;
+  margin-bottom: 8rpx;
+}
+
+.nickname {
+  font-size: $font-size-md;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.time {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+}
+
+.lastMessage {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  @include text-ellipsis(1);
+}
+
+.unreadBadge {
+  min-width: 36rpx;
+  height: 36rpx;
+  background-color: var(--color-accent-red);
+  border-radius: 18rpx;
+  @include flex-center;
+  padding: 0 8rpx;
+  margin-left: $spacing-sm;
+  box-shadow: 0 0 8px var(--color-accent-red);
+}
+
+.unreadText {
+  font-size: 20rpx;
+  color: #FFFFFF;
+}

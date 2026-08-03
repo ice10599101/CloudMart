@@ -1,0 +1,76 @@
+server:
+  port: 9013
+
+spring:
+  application:
+    name: mall-ai
+  config:
+    import:
+      - optional:nacos:mall-ai.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:129.204.152.168:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
+      chat:
+        options:
+          model: qwen-plus
+          temperature: 0.7
+      embedding:
+        options:
+          model: text-embedding-v3
+  elasticsearch:
+    uris: ${ES_URIS:http://129.204.152.168:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:129.204.152.168}
+      port: ${REDIS_PORT:8379}
+
+ai:
+  search:
+    product-service-url: ${PRODUCT_SERVICE_URL:http://mall-product}
+    enabled: ${AI_SEARCH_ENABLED:true}
+  vector:
+    enabled: ${AI_VECTOR_ENABLED:false}
+    index-name: ${AI_VECTOR_INDEX:cloudmart_product_vectors}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+logging:
+  level:
+    com.cloudmart.admin.feign: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    com.alibaba.nacos.client: DEBUG
+    com.alibaba.csp.sentinel: WARN

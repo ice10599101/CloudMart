@@ -1,0 +1,336 @@
+services:
+  mysql:
+    image: mysql:latest
+    container_name: cloudmart-mysql
+    restart: unless-stopped
+    ports:
+      - "8306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --lower_case_table_names=1
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudmart-network
+
+  redis:
+    image: redis:latest
+    container_name: cloudmart-redis
+    restart: unless-stopped
+    ports:
+      - "8379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cloudmart-network
+
+  nacos:
+    image: nacos/nacos-server:latest
+    container_name: cloudmart-nacos
+    restart: unless-stopped
+    ports:
+      - "9090:8080"
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+      MYSQL_SERVICE_HOST: mysql
+      MYSQL_SERVICE_DB_NAME: nacos_config
+      MYSQL_SERVICE_PORT: "3306"
+      MYSQL_SERVICE_USER: ${MYSQL_USERNAME:-root}
+      MYSQL_SERVICE_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_SERVICE_DB_PARAM: "characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
+      NACOS_AUTH_TOKEN: U2VjcmV0S2V5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OQ==
+      NACOS_AUTH_IDENTITY_KEY: nacos
+      NACOS_AUTH_IDENTITY_VALUE: nacos
+      NACOS_EXTENSION_AI_ENABLED: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8848/nacos/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudmart-network
+
+  seata-server:
+    image: apache/seata-server:latest
+    container_name: cloudmart-seata
+    restart: unless-stopped
+    ports:
+      - "8191:7091"
+      - "8091:8091"
+    environment:
+      SEATA_IP: 129.204.152.168
+      SEATA_PORT: 8091
+    entrypoint: ["/bin/bash", "/seata-server/custom-entrypoint.sh"]
+    volumes:
+      - ./docker/seata/config/application.yml:/seata-server/resources/application.yml
+      - ./docker/seata/entrypoint.sh:/seata-server/custom-entrypoint.sh
+    depends_on:
+      nacos:
+        condition: service_healthy
+    networks:
+      - cloudmart-network
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:latest
+    container_name: cloudmart-rocketmq-namesrv
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    command: sh mqnamesrv
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9876' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - cloudmart-network
+
+  rocketmq-broker:
+    image: apache/rocketmq:latest
+    container_name: cloudmart-rocketmq-broker
+    restart: unless-stopped
+    user: "0:0"
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+      - "10912:10912"
+    command: ["sh", "-c", "chown -R rocketmq:rocketmq /home/rocketmq/store && exec sh /home/rocketmq/rocketmq-5.5.0/bin/mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/rocketmq-5.5.0/conf/broker.conf --enable-proxy"]
+    environment:
+      NAMESRV_ADDR: "rocketmq-namesrv:9876"
+    depends_on:
+      rocketmq-namesrv:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/10911' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - rocketmq-broker-store:/home/rocketmq/store
+      - ./docker/rocketmq/broker.conf:/home/rocketmq/rocketmq-5.5.0/conf/broker.conf
+    networks:
+      - cloudmart-network
+
+  rocketmq-dashboard:
+    image: apacherocketmq/rocketmq-dashboard:latest
+    container_name: cloudmart-rocketmq-dashboard
+    restart: unless-stopped
+    ports:
+      - "8167:8080"
+    environment:
+      JAVA_OPTS: "-Drocketmq.namesrv.addr=rocketmq-namesrv:9876"
+    depends_on:
+      rocketmq-namesrv:
+        condition: service_healthy
+    networks:
+      - cloudmart-network
+
+  elasticsearch:
+    build:
+      context: ./docker/elasticsearch
+      dockerfile: Dockerfile
+    image: cloudmart-elasticsearch:9.4.0
+    container_name: cloudmart-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudmart-network
+
+  xxl-job-admin:
+    image: xuxueli/xxl-job-admin:3.4.0
+    container_name: cloudmart-xxl-job-admin
+    restart: unless-stopped
+    ports:
+      - "8180:8080"
+    environment:
+      PARAMS: >-
+        --spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+        --spring.datasource.username=${MYSQL_USERNAME:-root}
+        --spring.datasource.password=${MYSQL_PASSWORD:-123456}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/xxl-job-admin/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudmart-network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: cloudmart-loki
+    restart: unless-stopped
+    ports:
+      - "8100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./docker/loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    networks:
+      - cloudmart-network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: cloudmart-promtail
+    restart: unless-stopped
+    volumes:
+      - ./logs:/var/log/microservices
+      - ./docker/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - promtail-data:/promtail
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - cloudmart-network
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cloudmart-grafana
+    restart: unless-stopped
+    ports:
+      - "8300:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_USERS_DEFAULT_LANGUAGE=zh-Hans
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    networks:
+      - cloudmart-network
+    depends_on:
+      - loki
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.0
+    container_name: cloudmart-kibana
+    ports:
+      - "8561:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      I18N_LOCALE: zh-CN
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - cloudmart-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cloudmart-prometheus
+    ports:
+      - "9099:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - cloudmart-network
+
+  skywalking-oap:
+    image: apache/skywalking-oap-server:latest
+    container_name: cloudmart-skywalking-oap
+    ports:
+      - "11800:11800"
+      - "8200:12800"
+    environment:
+      SW_STORAGE: elasticsearch
+      SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - cloudmart-network
+
+  skywalking-ui:
+    image: apache/skywalking-ui:latest
+    container_name: cloudmart-skywalking-ui
+    ports:
+      - "8202:8080"
+    environment:
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+    depends_on:
+      - skywalking-oap
+    networks:
+      - cloudmart-network
+
+  sentinel-dashboard:
+    image: bladex/sentinel-dashboard:latest
+    container_name: cloudmart-sentinel-dashboard
+    ports:
+      - "8088:8088"
+    networks:
+      - cloudmart-network
+
+  frontend:
+    build:
+      context: ./CloudMart-ui
+      dockerfile: Dockerfile
+    image: cloudmart-frontend:latest
+    pull_policy: never
+    container_name: cloudmart-frontend
+    restart: unless-stopped
+    ports:
+      - "8000:8080"
+    depends_on:
+      - nacos
+    networks:
+      - cloudmart-network
+
+networks:
+  cloudmart-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  rocketmq-broker-store:
+  es-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  promtail-data:

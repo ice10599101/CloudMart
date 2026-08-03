@@ -1,0 +1,450 @@
+.page {
+  background: var(--color-bg-base);
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+
+.header {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.unreadBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #FF6B6B 0%, #EE4444 100%);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.markAllBtn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.markAllBtn:hover {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+}
+
+.markAllBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tabBar {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px 24px 0;
+  display: flex;
+  gap: 4px;
+  background: transparent;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  position: relative;
+}
+
+.tab:hover {
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tabActive {
+  background: var(--color-gradient-primary);
+  color: var(--color-bg-base);
+  font-weight: 600;
+  box-shadow: 0 2px 12px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.tabActive:hover {
+  color: var(--color-bg-base);
+  background: var(--color-gradient-primary);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #FF6B6B;
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tabActive .tabBadge {
+  background: rgba(11, 18, 32, 0.3);
+  color: var(--color-bg-base);
+}
+
+.notificationList {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notificationItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--color-bg-container);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.notificationItem:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.15);
+  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.06);
+  background: rgba(21, 32, 56, 0.9);
+}
+
+.notificationItemUnread {
+  background: rgba(21, 32, 56, 0.95);
+  border-color: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.notificationItemUnread::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.notificationAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.avatarLike {
+  background: linear-gradient(135deg, #FF6B6B 0%, #EE4444 100%);
+}
+
+.avatarComment {
+  background: var(--color-gradient-primary);
+}
+
+.avatarCollect {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+}
+
+.avatarFollow {
+  background: linear-gradient(135deg, #7C5CFC 0%, #5A3FD6 100%);
+}
+
+.avatarSystem {
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+}
+
+.avatarBadge {
+  background: linear-gradient(135deg, #E040FB 0%, #AB47BC 100%);
+}
+
+.avatarAccount {
+  background: linear-gradient(135deg, #607D8B 0%, #455A64 100%);
+}
+
+.notificationContent {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.notificationText {
+  font-size: 14px;
+  color: #C8D6E5;
+  line-height: 1.6;
+  margin: 0;
+  word-break: break-word;
+}
+
+.notificationText strong {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.notificationText .postLink {
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.notificationText .postLink:hover {
+  color: #33DDFF;
+  text-decoration: underline;
+}
+
+.notificationCommentPreview {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border-left: 3px solid rgba(var(--color-primary-rgb), 0.3);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.followRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.followAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-bg-base);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.followAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.followNickname {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.followBackBtn {
+  padding: 4px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.followBackBtn:hover {
+  background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.followBackBtnFollowed {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-tertiary);
+  background: transparent;
+}
+
+.followBackBtnFollowed:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--color-text-secondary);
+}
+
+.notificationTime {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-top: 3px;
+}
+
+.systemIcon {
+  font-size: 20px;
+}
+
+.loadingWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.emptyWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  color: #2A3A5C;
+  margin-bottom: 16px;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.loadMoreWrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.loadMoreBtn {
+  padding: 8px 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.loadMoreBtn:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.refreshHint {
+  text-align: center;
+  padding: 8px;
+  color: var(--color-primary);
+  font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 16px 16px 0;
+  }
+
+  .headerTitle {
+    font-size: 18px;
+  }
+
+  .tabBar {
+    padding: 12px 16px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tabBar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+
+  .notificationList {
+    padding: 12px 16px;
+  }
+
+  .notificationItem {
+    padding: 14px 14px;
+    gap: 10px;
+  }
+
+  .notificationAvatar {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+
+  .notificationItemUnread::before {
+    left: 4px;
+    top: 14px;
+    width: 6px;
+    height: 6px;
+  }
+}

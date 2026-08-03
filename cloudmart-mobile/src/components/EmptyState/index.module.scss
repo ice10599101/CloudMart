@@ -1,0 +1,22 @@
+.container {
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-xxl 0;
+}
+
+.icon {
+  font-size: 80rpx;
+  margin-bottom: $spacing-lg;
+}
+
+.title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-medium;
+  color: $color-text-secondary;
+  margin-bottom: $spacing-xs;
+}
+
+.description {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}

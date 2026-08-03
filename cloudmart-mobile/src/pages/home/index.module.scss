@@ -1,0 +1,106 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  padding-bottom: 120rpx;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  margin: $spacing-md $spacing-lg;
+  padding: $spacing-sm $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-xl;
+  /* backdrop-filter not supported in Mini Programs */
+  transition: all 0.25s ease;
+
+  &:active {
+    border-color: rgba(var(--color-primary-rgb), 0.3);
+    box-shadow: 0 0 16px var(--color-glow-primary);
+  }
+}
+
+.searchPlaceholder {
+  margin-left: $spacing-sm;
+  color: var(--color-text-tertiary);
+  font-size: $font-size-md;
+}
+
+.tabScroll {
+  white-space: nowrap;
+  margin-bottom: $spacing-sm;
+}
+
+.tabList {
+  display: flex;
+  padding: 0 $spacing-lg;
+  gap: $spacing-sm;
+}
+
+.tabPill {
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $radius-xl;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  transition: all 0.25s ease;
+}
+
+.tabPillActive {
+  background: var(--color-gradient-primary);
+  border-color: transparent;
+  box-shadow: 0 0 16px var(--color-glow-primary);
+}
+
+.tabPillText {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.tabPillTextActive {
+  color: var(--color-bg-base);
+  font-weight: 700;
+}
+
+.content {
+  height: calc(100vh - 240rpx);
+}
+
+.loading {
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-xl;
+}
+
+.loadingDot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+  background: var(--color-gradient-primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.loadingText {
+  margin-top: $spacing-sm;
+  color: var(--color-text-tertiary);
+  font-size: $font-size-sm;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  padding: $spacing-xl $spacing-lg;
+  gap: $spacing-md;
+}
+
+.footerLine {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-border);
+}
+
+.footerText {
+  color: var(--color-text-tertiary);
+  font-size: $font-size-xs;
+}

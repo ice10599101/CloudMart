@@ -1,0 +1,3 @@
+ALTER TABLE `sys_job` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '任务ID';
+
+ALTER TABLE `sys_job_log` MODIFY COLUMN `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '日志ID';

@@ -1,0 +1,437 @@
+.page {
+  min-height: 100vh;
+  background-color: $color-bg-page;
+}
+
+.content {
+  height: 100vh;
+  padding-bottom: 160rpx;
+}
+
+// ========== Loading ==========
+.loading {
+  @include flex-center;
+  flex-direction: column;
+  padding-top: 300rpx;
+}
+
+.spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  margin-top: $spacing-md;
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+}
+
+// ========== Section ==========
+.section {
+  margin: $spacing-md $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.sectionHeader {
+  @include flex-between;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+// ========== Countdown ==========
+.countdownSection {
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-2xl $spacing-lg;
+  background: var(--color-gradient-primary);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -60rpx;
+    right: -60rpx;
+    width: 240rpx;
+    height: 240rpx;
+    border-radius: 50%;
+    background: var(--color-glow-primary);
+    opacity: 0.4;
+  }
+}
+
+.countdownIcon {
+  font-size: 72rpx;
+  margin-bottom: $spacing-sm;
+  position: relative;
+  z-index: 1;
+}
+
+.countdownText {
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: #FFFFFF;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.countdownTimer {
+  font-size: $font-size-md;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: $spacing-xs;
+  position: relative;
+  z-index: 1;
+}
+
+.countdownExpired {
+  font-size: $font-size-lg;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: $spacing-xs;
+  position: relative;
+  z-index: 1;
+}
+
+// ========== Order Summary ==========
+.orderInfo {
+  padding: $spacing-sm $spacing-lg;
+}
+
+.infoRow {
+  @include flex-between;
+  padding: $spacing-sm 0;
+}
+
+.infoLabel {
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  margin-right: $spacing-lg;
+}
+
+.infoValue {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+// ========== Order Items ==========
+.orderItem {
+  display: flex;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.itemImage {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: $radius-md;
+  flex-shrink: 0;
+  margin-right: $spacing-md;
+}
+
+.itemInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: $font-size-md;
+  font-weight: 500;
+  color: var(--color-text);
+  @include text-ellipsis(2);
+  line-height: 1.4;
+}
+
+.itemSku {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  margin-top: $spacing-xs;
+}
+
+.itemBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $spacing-xs;
+}
+
+.itemPrice {
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: var(--color-accent-red);
+}
+
+.itemQuantity {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+}
+
+// ========== Total ==========
+.totalRow {
+  @include flex-between;
+  padding: $spacing-md $spacing-lg;
+  border-top: 1px solid var(--color-border);
+}
+
+.totalLabel {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.totalAmount {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: var(--color-accent-red);
+}
+
+// ========== Payment Methods ==========
+.methodList {
+  padding: $spacing-sm $spacing-lg;
+}
+
+.methodCard {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  margin-bottom: $spacing-sm;
+  background-color: var(--color-bg-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: $radius-lg;
+  transition: $transition-base;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.selected {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px var(--color-glow-primary);
+  }
+}
+
+.methodIcon {
+  width: 64rpx;
+  height: 64rpx;
+  @include flex-center;
+  border-radius: $radius-md;
+  margin-right: $spacing-md;
+  font-size: 36rpx;
+  flex-shrink: 0;
+}
+
+.methodIconAlipay {
+  background-color: rgba(0, 166, 255, 0.15);
+}
+
+.methodIconWechat {
+  background-color: rgba(7, 193, 96, 0.15);
+}
+
+.methodIconBank {
+  background-color: rgba(255, 165, 0, 0.15);
+}
+
+.methodInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.methodName {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+  display: block;
+}
+
+.methodDesc {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  margin-top: 4rpx;
+  display: block;
+}
+
+.methodCheck {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  @include flex-center;
+  flex-shrink: 0;
+  transition: $transition-base;
+
+  &.checked {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+  }
+}
+
+.checkIcon {
+  font-size: 24rpx;
+  color: #FFFFFF;
+}
+
+// ========== Bottom Bar ==========
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-sm $spacing-lg;
+  background-color: var(--color-bg-container);
+  border-top: 1px solid var(--color-border);
+  padding-bottom: calc(#{$spacing-sm} + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.1);
+}
+
+.payAmountInfo {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-xs;
+}
+
+.payAmountLabel {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+}
+
+.payAmount {
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: var(--color-accent-red);
+}
+
+.payBtn {
+  padding: $spacing-sm $spacing-2xl;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+  transition: $transition-base;
+
+  &:active {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+.payBtnText {
+  font-size: $font-size-md;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+// ========== Result States ==========
+.resultContainer {
+  @include flex-center;
+  flex-direction: column;
+  padding-top: 200rpx;
+}
+
+.resultIcon {
+  font-size: 120rpx;
+  margin-bottom: $spacing-lg;
+}
+
+.resultTitle {
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: $spacing-sm;
+}
+
+.resultSubtitle {
+  font-size: $font-size-md;
+  color: var(--color-text-tertiary);
+  margin-bottom: $spacing-2xl;
+}
+
+.resultActions {
+  display: flex;
+  gap: $spacing-lg;
+}
+
+.resultBtnPrimary {
+  padding: $spacing-sm $spacing-2xl;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.resultBtnPrimaryText {
+  font-size: $font-size-md;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.resultBtnSecondary {
+  padding: $spacing-sm $spacing-2xl;
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.resultBtnSecondaryText {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+// ========== Pending State ==========
+.pendingContainer {
+  @include flex-center;
+  flex-direction: column;
+  padding-top: 200rpx;
+}
+
+.pendingSpinner {
+  width: 64rpx;
+  height: 64rpx;
+  border: 4rpx solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: $spacing-lg;
+}
+
+.pendingText {
+  font-size: $font-size-lg;
+  color: var(--color-text-secondary);
+  margin-bottom: $spacing-sm;
+}
+
+.pendingHint {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+}

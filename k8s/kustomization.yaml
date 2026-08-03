@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cloudmart
+
+resources:
+  - namespace.yaml
+  - base/configmap.yaml
+  - base/gateway.yaml
+  - base/ingress.yaml
+  - base/mall-auth.yaml
+  - base/mall-user.yaml
+  - base/mall-product.yaml
+  - base/mall-order.yaml
+  - base/mall-payment.yaml
+  - base/mall-inventory.yaml
+  - base/mall-cart.yaml
+  - base/mall-coupon.yaml
+  - base/mall-seckill.yaml
+  - base/mall-notification.yaml
+  - base/mall-ai.yaml
+  - base/mall-marketing.yaml
+  - base/mall-live.yaml
+  - base/mall-wms.yaml
+  - base/mall-risk.yaml
+  - base/mall-admin.yaml
+  - base/mall-file.yaml
+  - base/mall-job.yaml
+  - base/mall-gen.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: cloudmart
+  app.kubernetes.io/managed-by: kustomize

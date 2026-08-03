@@ -1,0 +1,336 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+}
+
+.scrollContent {
+  height: 100vh;
+  padding-bottom: 140rpx;
+}
+
+// Hero Section
+.hero {
+  position: relative;
+  padding: $spacing-2xl $spacing-lg $spacing-xl;
+  background: var(--color-gradient-hero);
+  overflow: hidden;
+}
+
+.heroGlow {
+  position: absolute;
+  top: -100rpx;
+  right: -100rpx;
+  width: 400rpx;
+  height: 400rpx;
+  border-radius: 50%;
+  background: var(--color-glow-primary);
+  opacity: 0.5;
+}
+
+.profileSection {
+  position: relative;
+  z-index: 1;
+}
+
+.loginSection {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatarRing {
+  position: relative;
+  width: 160rpx;
+  height: 160rpx;
+  @include flex-center;
+  margin-bottom: $spacing-lg;
+}
+
+.avatarRingInner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-avatar-ring);
+  animation: avatarRingSpin 4s linear infinite;
+  opacity: 0.8;
+}
+
+.avatar {
+  position: relative;
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--color-bg-base);
+  z-index: 1;
+}
+
+.defaultAvatar {
+  position: relative;
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 4rpx solid rgba(255, 255, 255, 0.2);
+  @include flex-center;
+  z-index: 1;
+}
+
+.userInfo {
+  margin-bottom: $spacing-md;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-xs;
+}
+
+.nickname {
+  font-size: $font-size-2xl;
+  font-weight: 700;
+  color: #FFFFFF;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.levelBadge {
+  padding: 2rpx 16rpx;
+  background: var(--color-gradient-gold);
+  border-radius: $radius-xl;
+}
+
+.levelText {
+  font-size: $font-size-xs;
+  font-weight: 800;
+  color: var(--color-bg-base);
+  letter-spacing: 1px;
+}
+
+.signature {
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: $spacing-xs;
+  display: block;
+}
+
+.editBtn {
+  align-self: flex-start;
+  padding: $spacing-sm $spacing-lg;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: $radius-xl;
+  background: rgba(255, 255, 255, 0.1);
+  /* backdrop-filter not supported in Mini Programs */
+}
+
+.editBtnText {
+  font-size: $font-size-sm;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.loginBtn {
+  padding: $spacing-md $spacing-2xl;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: $radius-xl;
+  /* backdrop-filter not supported in Mini Programs */
+}
+
+.loginBtnText {
+  font-size: $font-size-lg;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+// Stats Row
+.statsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+  margin: -$spacing-xl $spacing-lg $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  z-index: 2;
+}
+
+.statItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statNumber {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.statLabel {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  margin-top: 4rpx;
+}
+
+.statDivider {
+  width: 1px;
+  height: 48rpx;
+  background-color: var(--color-border);
+}
+
+// Quick Actions
+.quickGrid {
+  display: flex;
+  justify-content: space-around;
+  padding: $spacing-lg $spacing-md;
+  margin: 0 $spacing-lg $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.quickCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.quickIcon {
+  font-size: 44rpx;
+}
+
+.quickName {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+}
+
+// Sections
+.section {
+  margin: 0 $spacing-lg $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sectionAction {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+}
+
+// Order Tabs
+.orderTabs {
+  display: flex;
+  justify-content: space-around;
+  padding: $spacing-lg 0;
+}
+
+.orderTab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.orderTabIcon {
+  font-size: 44rpx;
+}
+
+.orderTabName {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+}
+
+// Menu Items
+.menuItem {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.menuIconWrap {
+  width: 56rpx;
+  height: 56rpx;
+  @include flex-center;
+  border-radius: $radius-md;
+  margin-right: $spacing-md;
+  font-size: 28rpx;
+}
+
+.menuName {
+  flex: 1;
+  font-size: $font-size-md;
+  color: var(--color-text);
+}
+
+.menuArrow {
+  font-size: $font-size-xl;
+  color: var(--color-text-tertiary);
+}
+
+// Bottom Section
+.bottomSection {
+  margin: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.themeCard {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+  gap: $spacing-md;
+}
+
+.themeIcon {
+  font-size: 36rpx;
+}
+
+.themeLabel {
+  font-size: $font-size-md;
+  color: var(--color-text-secondary);
+}
+
+.logoutBtn {
+  padding: $spacing-md;
+  text-align: center;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-accent-red);
+  border-radius: $radius-lg;
+}
+
+.logoutText {
+  font-size: $font-size-md;
+  color: var(--color-accent-red);
+  font-weight: 500;
+}

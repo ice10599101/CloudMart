@@ -1,0 +1,59 @@
+# ShardingSphere 分表配置 (通过 spring.profiles.active=sharding 激活)
+# 按 user_id 取模分 4 表: orders_0~3, order_items_0~3
+
+mode:
+  type: Standalone
+  repository:
+    type: JDBC
+
+dataSources:
+  ds_0:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/mall_order?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+    driverClassName: com.mysql.cj.jdbc.Driver
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+
+rules:
+  - !SHARDING
+    tables:
+      orders:
+        actualDataNodes: ds_0.orders_${0..3}
+        tableStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: orders_mod
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      order_items:
+        actualDataNodes: ds_0.order_items_${0..3}
+        tableStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: order_items_mod
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+    shardingAlgorithms:
+      orders_mod:
+        type: MOD
+        props:
+          sharding-count: '4'
+      order_items_mod:
+        type: CLASS_BASED
+        props:
+          strategy: STANDARD
+          algorithmClassName: com.cloudmart.order.config.OrderItemShardingAlgorithm
+    keyGenerators:
+      snowflake:
+        type: SNOWFLAKE
+        props:
+          worker-id: '1'
+
+props:
+  sql-show: false

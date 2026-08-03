@@ -1,0 +1,141 @@
+// CloudMart Ocean/Sakura Dual-Theme Design System
+// Apple + GoPro + Red Bull premium feel
+
+// ========== SCSS Variables → CSS Custom Properties ==========
+// All SCSS variables point to CSS custom properties so every page
+// automatically follows the Ocean/Sakura dual-theme system.
+$color-primary: var(--color-primary);
+$color-primary-light: var(--color-primary);
+$color-primary-dark: var(--color-primary-dark);
+$color-primary-bg: var(--color-glow-primary);
+
+$color-success: var(--color-accent-green);
+$color-warning: var(--color-accent-orange);
+$color-error: var(--color-accent-red);
+$color-danger: var(--color-accent-red);
+$color-info: var(--color-accent-purple);
+
+$color-bg-page: var(--color-bg-base);
+$color-bg-card: var(--color-bg-container);
+$color-bg-white: var(--color-bg-container);
+$color-bg-grey: var(--color-bg-input);
+$color-bg-hover: var(--color-bg-elevated);
+
+$color-text-primary: var(--color-text);
+$color-text-secondary: var(--color-text-secondary);
+$color-text-tertiary: var(--color-text-tertiary);
+$color-text-disabled: var(--color-text-tertiary);
+$color-text-white: #FFFFFF;
+
+$color-border: var(--color-border);
+$color-border-light: var(--color-border);
+
+$color-price: var(--color-accent-red);
+$color-tag-bg: var(--color-glow-primary);
+$color-tag-text: var(--color-primary);
+$color-link: var(--color-primary);
+
+$gradient-primary: var(--color-gradient-primary);
+$gradient-page: var(--color-gradient-primary);
+
+// ========== Ocean Theme (Default - Dark) ==========
+// Use `page` selector for WeChat Mini Program compatibility
+// `:root` for H5, `page` for Mini Program
+:root,
+page {
+  // Primary
+  --color-primary: #00D4FF;
+  --color-primary-rgb: 0, 212, 255;
+  --color-primary-dark: #0099CC;
+  --color-primary-glow: rgba(0, 212, 255, 0.4);
+
+  // Backgrounds
+  --color-bg-base: #0B1220;
+  --color-bg-container: rgba(20, 35, 60, 0.85);
+  --color-bg-elevated: rgba(30, 50, 80, 0.9);
+  --color-bg-header: rgba(11, 18, 32, 0.88);
+  --color-bg-input: rgba(20, 35, 60, 0.6);
+
+  // Text
+  --color-text: #FFFFFF;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-tertiary: rgba(255, 255, 255, 0.45);
+
+  // Border
+  --color-border: rgba(255, 255, 255, 0.1);
+
+  // Accents
+  --color-accent-gold: #FFD700;
+  --color-accent-purple: #9370DB;
+  --color-accent-green: #32CD32;
+  --color-accent-red: #FF4757;
+  --color-accent-orange: #FFA500;
+
+  // Gradients
+  --color-gradient-primary: linear-gradient(135deg, #00D4FF 0%, #9370DB 100%);
+  --color-gradient-hero: linear-gradient(135deg, #0A1628 0%, #0E2240 40%, #132D52 100%);
+  --color-gradient-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+
+  // Glow
+  --color-glow-primary: rgba(0, 212, 255, 0.3);
+  --color-glow-purple: rgba(147, 112, 219, 0.3);
+  --color-glow-gold: rgba(255, 215, 0, 0.3);
+
+  // Avatar ring
+  --color-avatar-ring: linear-gradient(135deg, #00D4FF, #9370DB, #FFD700);
+
+  // Shadows
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px var(--color-glow-primary), 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+// ========== Sakura Theme (Light) ==========
+// In WeChat mini-program, sakura CSS variables are injected as inline `style`
+// on the root View element (via useThemeClass), overriding the `page` defaults.
+// This selector is kept for H5 where data-theme is set on document.documentElement.
+[data-theme='sakura'] {
+  // Primary
+  --color-primary: #FF4D6A;
+  --color-primary-rgb: 255, 77, 106;
+  --color-primary-dark: #E63950;
+  --color-primary-glow: rgba(255, 77, 106, 0.35);
+
+  // Backgrounds
+  --color-bg-base: #FFF5F6;
+  --color-bg-container: rgba(255, 255, 255, 0.85);
+  --color-bg-elevated: rgba(255, 255, 255, 0.95);
+  --color-bg-header: rgba(255, 245, 246, 0.88);
+  --color-bg-input: rgba(255, 240, 242, 0.6);
+
+  // Text
+  --color-text: #1D2129;
+  --color-text-secondary: #4E5969;
+  --color-text-tertiary: #86909C;
+
+  // Border
+  --color-border: rgba(0, 0, 0, 0.08);
+
+  // Accents
+  --color-accent-gold: #FFA500;
+  --color-accent-purple: #9370DB;
+  --color-accent-green: #00B42A;
+  --color-accent-red: #F53F3F;
+  --color-accent-orange: #FF7D00;
+
+  // Gradients
+  --color-gradient-primary: linear-gradient(135deg, #FF4D6A 0%, #FF8FA3 100%);
+  --color-gradient-hero: linear-gradient(135deg, #FF4D6A 0%, #FF8FA3 50%, #FFB3C6 100%);
+  --color-gradient-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+
+  // Glow
+  --color-glow-primary: rgba(255, 77, 106, 0.25);
+  --color-glow-purple: rgba(147, 112, 219, 0.25);
+  --color-glow-gold: rgba(255, 215, 0, 0.25);
+
+  // Avatar ring
+  --color-avatar-ring: linear-gradient(135deg, #FF4D6A, #FF8FA3, #FFD700);
+
+  // Shadows
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 16px var(--color-glow-primary), 0 2px 12px rgba(0, 0, 0, 0.08);
+}

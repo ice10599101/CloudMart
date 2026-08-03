@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "关注/粉丝",
+  "usingComponents": {
+    "comp": "../../comp"
+  }
+}
