@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "直播间",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "comp": "../../comp"
-  }
-}
