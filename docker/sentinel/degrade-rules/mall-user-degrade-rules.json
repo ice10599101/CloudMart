@@ -1,0 +1,26 @@
+[
+  {
+    "resource": "POST:/users/register",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "GET:/users/{id}",
+    "grade": 0,
+    "count": 2000,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "PUT:/users/{id}",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  }
+]

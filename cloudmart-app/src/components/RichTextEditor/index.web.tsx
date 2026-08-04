@@ -692,7 +692,7 @@ const RichTextEditorWeb = forwardRef<RichTextEditorRef, RichTextEditorProps>(
 RichTextEditorWeb.displayName = 'RichTextEditorWeb'
 
 // CSS for placeholder, images, tables, code etc.
-if (Platform.OS === 'web') {
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const styleId = 'rich-text-editor-placeholder'
   let styleEl = document.getElementById(styleId)
   if (!styleEl) {
@@ -803,4 +803,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export { RichTextEditorWeb }
+export { RichTextEditorWeb as RichTextEditor }

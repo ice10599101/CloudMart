@@ -1,0 +1,26 @@
+[
+  {
+    "resource": "POST:/auth/login",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "POST:/auth/register",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "POST:/auth/refresh",
+    "grade": 1,
+    "count": 0.3,
+    "timeWindow": 15,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  }
+]

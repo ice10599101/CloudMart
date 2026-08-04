@@ -26,6 +26,11 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
     header.Authorization = `Bearer ${token}`
   }
 
+  const method = (config.method || 'GET').toUpperCase()
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    header['X-Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  }
+
   try {
     const res = await Taro.request({
       url: `${API_BASE}${config.url}`,

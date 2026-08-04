@@ -1,0 +1,26 @@
+[
+  {
+    "resource": "POST:/payments",
+    "grade": 1,
+    "count": 0.3,
+    "timeWindow": 15,
+    "minRequestAmount": 3,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "POST:/payments/callback",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000
+  },
+  {
+    "resource": "POST:/payments/{id}/refund",
+    "grade": 1,
+    "count": 0.3,
+    "timeWindow": 15,
+    "minRequestAmount": 3,
+    "statIntervalMs": 10000
+  }
+]

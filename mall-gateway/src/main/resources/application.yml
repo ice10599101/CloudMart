@@ -52,7 +52,20 @@ spring:
             group-id: SENTINEL_GROUP
             data-id: ${spring.application.name}-gw-degrade-rules
             rule-type: degrade
+    loadbalancer:
+      health-check:
+        enabled: true
+        path:
+          default: /actuator/health
+        interval: 10s
+        initial-delay: 0s
+      cache:
+        enabled: true
+        ttl: 5s
     gateway:
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10s
       server:
         webflux:
           routes:
@@ -187,9 +200,14 @@ spring:
           default-filters:
             - name: Retry
               args:
-                retries: 2
-                statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+                retries: 3
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                series: SERVER_ERROR
                 methods: GET
+                exceptions:
+                  - java.net.ConnectException
+                  - io.netty.channel.ConnectTimeoutException
+                  - org.springframework.cloud.gateway.support.TimeoutException
                 backoff:
                   firstBackoff: 100ms
                   maxBackoff: 500ms

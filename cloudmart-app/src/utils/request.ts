@@ -21,6 +21,12 @@ client.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  const method = (config.method ?? 'GET').toUpperCase()
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    config.headers['X-Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  }
+
   return config
 })
 
