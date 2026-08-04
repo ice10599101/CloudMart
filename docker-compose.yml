@@ -58,7 +58,7 @@ services:
       MYSQL_SERVICE_USER: ${MYSQL_USERNAME:-root}
       MYSQL_SERVICE_PASSWORD: ${MYSQL_PASSWORD:-123456}
       MYSQL_SERVICE_DB_PARAM: "characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
-      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:}
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:-}
       NACOS_AUTH_IDENTITY_KEY: nacos
       NACOS_AUTH_IDENTITY_VALUE: nacos
       NACOS_EXTENSION_AI_ENABLED: "false"
@@ -82,8 +82,9 @@ services:
       - "8191:7091"
       - "8091:8091"
     environment:
-      SEATA_IP: ${SEATA_IP:127.0.0.1}
+      SEATA_IP: ${SEATA_IP:-127.0.0.1}
       SEATA_PORT: 8091
+      JAVA_OPTS: "-Xms256m -Xmx512m"
     entrypoint: ["/bin/bash", "/seata-server/custom-entrypoint.sh"]
     volumes:
       - ./docker/seata/config/application.yml:/seata-server/resources/application.yml
@@ -118,10 +119,10 @@ services:
       - "10909:10909"
       - "10911:10911"
       - "10912:10912"
-    command: ["sh", "-c", "sed -i \"s/brokerIP1 = .*/brokerIP1 = $${BROKER_IP:-127.0.0.1}/\" /home/rocketmq/rocketmq-5.5.0/conf/broker.conf && chown -R rocketmq:rocketmq /home/rocketmq/store && exec sh /home/rocketmq/rocketmq-5.5.0/bin/mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/rocketmq-5.5.0/conf/broker.conf --enable-proxy"]
+    command: ["sh", "-c", "sed \"s/brokerIP1 = .*/brokerIP1 = $${BROKER_IP:-127.0.0.1}/\" /home/rocketmq/rocketmq-5.5.0/conf/broker.conf > /tmp/broker.conf && cp /tmp/broker.conf /home/rocketmq/rocketmq-5.5.0/conf/broker.conf && chown -R rocketmq:rocketmq /home/rocketmq/store && exec sh /home/rocketmq/rocketmq-5.5.0/bin/mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/rocketmq-5.5.0/conf/broker.conf --enable-proxy"]
     environment:
       NAMESRV_ADDR: "rocketmq-namesrv:9876"
-      BROKER_IP: ${BROKER_IP:127.0.0.1}
+      BROKER_IP: ${BROKER_IP:-127.0.0.1}
     depends_on:
       rocketmq-namesrv:
         condition: service_healthy
@@ -165,6 +166,7 @@ services:
       discovery.type: single-node
       xpack.security.enabled: "false"
       xpack.security.http.ssl.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
     volumes:
       - es-data:/usr/share/elasticsearch/data
     healthcheck:
@@ -272,18 +274,32 @@ services:
     networks:
       - cloudmart-network
 
+  banyandb:
+    image: apache/skywalking-banyandb:0.10.3
+    container_name: cloudmart-banyandb
+    restart: unless-stopped
+    command: standalone
+    ports:
+      - "17912:17912"
+      - "17913:17913"
+    volumes:
+      - banyandb-data:/banyandb-data
+    networks:
+      - cloudmart-network
+
   skywalking-oap:
     image: apache/skywalking-oap-server:latest
     container_name: cloudmart-skywalking-oap
+    restart: unless-stopped
     ports:
       - "11800:11800"
       - "8200:12800"
     environment:
-      SW_STORAGE: elasticsearch
-      SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
+      SW_STORAGE: banyandb
+      SW_STORAGE_BANYANDB_TARGETS: banyandb:17912
     depends_on:
-      elasticsearch:
-        condition: service_healthy
+      banyandb:
+        condition: service_started
     networks:
       - cloudmart-network
 
@@ -335,3 +351,4 @@ volumes:
   grafana-data:
   loki-data:
   promtail-data:
+  banyandb-data:
