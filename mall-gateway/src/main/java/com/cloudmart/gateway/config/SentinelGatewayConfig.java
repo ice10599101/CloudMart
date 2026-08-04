@@ -1,12 +1,13 @@
 package com.cloudmart.gateway.config;
 
-import com.alibaba.csp.sentinel.adapter.gateway.common.rule.GatewayDegradeRule;
 import com.alibaba.csp.sentinel.adapter.gateway.common.rule.GatewayFlowRule;
 import com.alibaba.csp.sentinel.adapter.gateway.common.rule.GatewayRuleManager;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.SentinelGatewayFilter;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.callback.GatewayCallbackManager;
 import com.alibaba.csp.sentinel.adapter.gateway.sc.exception.SentinelGatewayBlockExceptionHandler;
 import com.alibaba.csp.sentinel.datasource.Converter;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRule;
+import com.alibaba.csp.sentinel.slots.block.degrade.DegradeRuleManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -21,6 +22,7 @@ import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.reactive.result.view.ViewResolver;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -85,58 +87,59 @@ public class SentinelGatewayConfig {
         GatewayRuleManager.loadRules(rules);
 
         // === 熔断降级规则 ===
-        Set<GatewayDegradeRule> degradeRules = new HashSet<>();
+        // 使用 DegradeRuleManager 加载标准降级规则，资源名与网关路由 ID 一致
+        List<DegradeRule> degradeRules = new ArrayList<>();
 
         // 认证服务 - 异常比例 30%，熔断 15 秒
-        degradeRules.add(new GatewayDegradeRule("mall-auth")
+        degradeRules.add(new DegradeRule("mall-auth")
                 .setGrade(1).setCount(0.3)
                 .setTimeWindow(15)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // 支付服务 - 异常比例 30%，熔断 15 秒
-        degradeRules.add(new GatewayDegradeRule("mall-payment")
+        degradeRules.add(new DegradeRule("mall-payment")
                 .setGrade(1).setCount(0.3)
                 .setTimeWindow(15)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // 订单服务 - 异常比例 50%，熔断 10 秒
-        degradeRules.add(new GatewayDegradeRule("mall-order")
+        degradeRules.add(new DegradeRule("mall-order")
                 .setGrade(1).setCount(0.5)
                 .setTimeWindow(10)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // 秒杀服务 - 异常比例 50%，熔断 10 秒
-        degradeRules.add(new GatewayDegradeRule("mall-seckill")
+        degradeRules.add(new DegradeRule("mall-seckill")
                 .setGrade(1).setCount(0.5)
                 .setTimeWindow(10)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // 商品服务 - 异常比例 50%，熔断 10 秒
-        degradeRules.add(new GatewayDegradeRule("mall-product")
+        degradeRules.add(new DegradeRule("mall-product")
                 .setGrade(1).setCount(0.5)
                 .setTimeWindow(10)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // 用户服务 - 异常比例 50%，熔断 10 秒
-        degradeRules.add(new GatewayDegradeRule("mall-user")
+        degradeRules.add(new DegradeRule("mall-user")
                 .setGrade(1).setCount(0.5)
                 .setTimeWindow(10)
                 .setMinRequestAmount(5)
                 .setStatIntervalMs(10000));
 
         // AI 服务 - 异常比例 60%，熔断 10 秒（LLM 不稳定，阈值放宽）
-        degradeRules.add(new GatewayDegradeRule("mall-ai")
+        degradeRules.add(new DegradeRule("mall-ai")
                 .setGrade(1).setCount(0.6)
                 .setTimeWindow(10)
                 .setMinRequestAmount(3)
                 .setStatIntervalMs(10000));
 
-        GatewayRuleManager.loadDegradeRules(degradeRules);
+        DegradeRuleManager.loadRules(degradeRules);
 
         // 统一熔断响应格式（符合标准信封）
         String json = "{\"success\":false,\"data\":{},\"error\":{"
