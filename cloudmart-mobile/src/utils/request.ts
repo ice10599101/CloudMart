@@ -1,9 +1,11 @@
 import Taro from '@tarojs/taro'
 import type { ApiResponse } from '@/types'
 
-// H5 uses /api proxy, Mini Program uses full URL
+// H5 uses /api proxy, Mini Program uses full URL from env
 const IS_WEAPP = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-const API_BASE = IS_WEAPP ? 'http://192.168.1.59:8090/api' : '/api'
+const API_BASE = IS_WEAPP
+  ? `${process.env.TARO_APP_API_HOST || 'http://127.0.0.1'}:8090/api`
+  : '/api'
 
 
 let isRefreshing = false

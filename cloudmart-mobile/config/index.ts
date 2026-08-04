@@ -2,6 +2,29 @@ import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import devConfig from './dev'
 import prodConfig from './prod'
 import path from 'path'
+import fs from 'fs'
+
+/**
+ * 读取项目根目录的 .env 文件，提取指定变量。
+ * 和微服务共用同一份 .env，所有机器通用。
+ */
+function readRootEnv(key: string): string | undefined {
+  const envPath = path.resolve(__dirname, '..', '..', '.env')
+  if (!fs.existsSync(envPath)) return undefined
+  const content = fs.readFileSync(envPath, 'utf-8')
+  const match = content.match(new RegExp(`^${key}=(.+)$`, 'm'))
+  return match?.[1]?.trim()
+}
+
+/**
+ * API 地址优先级：
+ * 1. cloudmart-mobile/.env 中的 TARO_APP_API_HOST
+ * 2. 项目根目录 .env 中的 EXPO_PUBLIC_API_HOST（和 APP 共用）
+ * 3. 兜底 127.0.0.1
+ */
+const API_HOST = process.env.TARO_APP_API_HOST
+  || readRootEnv('EXPO_PUBLIC_API_HOST')
+  || 'http://127.0.0.1'
 
 export default defineConfig<'vite'>(async (merge) => {
   const baseConfig: UserConfigExport<'vite'> = {
@@ -17,7 +40,9 @@ export default defineConfig<'vite'>(async (merge) => {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: [],
-    defineConstants: {},
+    defineConstants: {
+      'process.env.TARO_APP_API_HOST': `"${API_HOST}"`,
+    },
     copy: {
       patterns: [
         { from: 'src/assets/', to: 'assets/', ignore: [] },
