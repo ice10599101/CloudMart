@@ -19,23 +19,23 @@
     "dependencies": {
       "@ant-design/icons": "^6.2.3",
       "@ant-design/pro-components": "^3.1.12-0",
-      "@tiptap/core": "^3.24.0",
-      "@tiptap/extension-color": "^3.24.0",
-      "@tiptap/extension-highlight": "^3.24.0",
-      "@tiptap/extension-image": "^3.24.0",
-      "@tiptap/extension-link": "^3.24.0",
-      "@tiptap/extension-placeholder": "^3.24.0",
-      "@tiptap/extension-subscript": "^3.24.0",
-      "@tiptap/extension-superscript": "^3.24.0",
-      "@tiptap/extension-table": "^3.24.0",
-      "@tiptap/extension-table-cell": "^3.24.0",
-      "@tiptap/extension-table-header": "^3.24.0",
-      "@tiptap/extension-table-row": "^3.24.0",
-      "@tiptap/extension-text-align": "^3.24.0",
-      "@tiptap/extension-text-style": "^3.24.0",
-      "@tiptap/extension-underline": "^3.24.0",
-      "@tiptap/react": "^3.24.0",
-      "@tiptap/starter-kit": "^3.24.0",
+      "@tiptap/core": "^3.30.0",
+      "@tiptap/extension-color": "^3.30.0",
+      "@tiptap/extension-highlight": "^3.30.0",
+      "@tiptap/extension-image": "^3.30.0",
+      "@tiptap/extension-link": "^3.30.0",
+      "@tiptap/extension-placeholder": "^3.30.0",
+      "@tiptap/extension-subscript": "^3.30.0",
+      "@tiptap/extension-superscript": "^3.30.0",
+      "@tiptap/extension-table": "^3.30.0",
+      "@tiptap/extension-table-cell": "^3.30.0",
+      "@tiptap/extension-table-header": "^3.30.0",
+      "@tiptap/extension-table-row": "^3.30.0",
+      "@tiptap/extension-text-align": "^3.30.0",
+      "@tiptap/extension-text-style": "^3.30.0",
+      "@tiptap/extension-underline": "^3.30.0",
+      "@tiptap/react": "^3.30.0",
+      "@tiptap/starter-kit": "^3.30.0",
       "antd": "^6.4.2",
       "axios": "^1.9.0",
       "dayjs": "^1.11.13",
@@ -62,71 +62,66 @@
   "pkgPath": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui\\package.json",
   "plugins": {
     "./node_modules/@umijs/core/dist/service/servicePlugin": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "register",
       "type": "preset",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/core/dist/service/servicePlugin.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/core/dist/service/servicePlugin",
-      "key": "servicePlugin",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      },
-      "enableBy": "register"
+      "key": "servicePlugin"
     },
     "@umijs/preset-umi": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "preset",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/index.js",
-      "id": "@umijs/preset-umi",
-      "key": "umi",
       "config": {},
       "time": {
         "hooks": {},
-        "register": 44
+        "register": 29
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "preset",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/index.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "@umijs/preset-umi",
+      "key": "umi"
     },
     "./node_modules/@umijs/preset-umi/dist/registerMethods": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/registerMethods.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/registerMethods",
-      "key": "registerMethods",
       "config": {},
       "time": {
         "hooks": {
           "onStart": [
-            0
+            1
           ]
         },
         "register": 6
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/registerMethods.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/registerMethods",
+      "key": "registerMethods"
     },
     "@umijs/did-you-know": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/did-you-know/dist/plugin.js",
-      "id": "@umijs/did-you-know",
-      "key": "umijsDidYouKnow",
       "config": {},
       "time": {
         "hooks": {
           "onStart": [
-            4
+            7
           ]
         },
-        "register": 4
+        "register": 3
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/did-you-know/dist/plugin.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "@umijs/did-you-know",
+      "key": "umijsDidYouKnow"
     },
     "./node_modules/@umijs/preset-umi/dist/features/404/404": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/404/404.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/404/404",
-      "key": "404",
       "config": {},
       "time": {
         "hooks": {
@@ -136,57 +131,57 @@
         },
         "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/404/404.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/404/404",
+      "key": "404"
     },
     "./node_modules/@umijs/preset-umi/dist/features/aiDev/aiDev": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/aiDev/aiDev.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/aiDev/aiDev",
-      "key": "aiDev",
       "config": {},
       "time": {
         "hooks": {},
         "register": 2
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/aiDev/aiDev.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/aiDev/aiDev",
+      "key": "aiDev"
     },
     "./node_modules/@umijs/preset-umi/dist/features/appData/appData": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/appData/appData.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/appData/appData",
-      "key": "appData",
       "config": {},
       "time": {
         "hooks": {
           "modifyAppData": [
-            385
+            369
           ]
         },
-        "register": 37
+        "register": 30
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/appData/appData.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/appData/appData",
+      "key": "appData"
     },
     "./node_modules/@umijs/preset-umi/dist/features/appData/umiInfo": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/appData/umiInfo.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/appData/umiInfo",
-      "key": "umiInfo",
       "config": {},
       "time": {
         "hooks": {},
         "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/appData/umiInfo.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/appData/umiInfo",
+      "key": "umiInfo"
     },
     "./node_modules/@umijs/preset-umi/dist/features/check/check": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/check/check.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/check/check",
-      "key": "check",
       "config": {},
       "time": {
         "hooks": {
@@ -194,19 +189,19 @@
             0
           ],
           "onCheck": [
-            1
+            0
           ]
         },
         "register": 2
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/check/check.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/check/check",
+      "key": "check"
     },
     "./node_modules/@umijs/preset-umi/dist/features/check/babel722": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/check/babel722.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/check/babel722",
-      "key": "babel722",
       "config": {},
       "time": {
         "hooks": {
@@ -216,27 +211,27 @@
         },
         "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/check/babel722.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/check/babel722",
+      "key": "babel722"
     },
     "./node_modules/@umijs/preset-umi/dist/features/codeSplitting/codeSplitting": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/codeSplitting/codeSplitting.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/codeSplitting/codeSplitting",
-      "key": "codeSplitting",
       "config": {},
       "time": {
         "hooks": {},
         "register": 1
       },
-      "enableBy": "config"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/codeSplitting/codeSplitting.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/codeSplitting/codeSplitting",
+      "key": "codeSplitting"
     },
     "./node_modules/@umijs/preset-umi/dist/features/configPlugins/configPlugins": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/configPlugins/configPlugins.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/configPlugins/configPlugins",
-      "key": "configPlugins",
       "config": {},
       "time": {
         "hooks": {
@@ -244,9 +239,14 @@
             0
           ]
         },
-        "register": 27
+        "register": 16
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/configPlugins/configPlugins.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/configPlugins/configPlugins",
+      "key": "configPlugins"
     },
     "virtual: config-title": {
       "id": "virtual: config-title",
@@ -1088,24 +1088,19 @@
       }
     },
     "./node_modules/@umijs/preset-umi/dist/features/crossorigin/crossorigin": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/crossorigin/crossorigin.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/crossorigin/crossorigin",
-      "key": "crossorigin",
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 1
       },
-      "enableBy": "config"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/crossorigin/crossorigin.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/crossorigin/crossorigin",
+      "key": "crossorigin"
     },
     "./node_modules/@umijs/preset-umi/dist/features/depsOnDemand/depsOnDemand": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/depsOnDemand/depsOnDemand.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/depsOnDemand/depsOnDemand",
-      "key": "depsOnDemand",
       "config": {},
       "time": {
         "hooks": {
@@ -1115,66 +1110,66 @@
         },
         "register": 2
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/depsOnDemand/depsOnDemand.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/depsOnDemand/depsOnDemand",
+      "key": "depsOnDemand"
     },
     "./node_modules/@umijs/preset-umi/dist/features/devTool/devTool": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/devTool/devTool.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/devTool/devTool",
-      "key": "devTool",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 7
-      },
-      "enableBy": "register"
+      "key": "devTool"
     },
     "./node_modules/@umijs/preset-umi/dist/features/esbuildHelperChecker/esbuildHelperChecker": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 88
+      },
+      "enableBy": "register",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/esbuildHelperChecker/esbuildHelperChecker.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/esbuildHelperChecker/esbuildHelperChecker",
-      "key": "esbuildHelperChecker",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 108
-      },
-      "enableBy": "register"
+      "key": "esbuildHelperChecker"
     },
     "./node_modules/@umijs/preset-umi/dist/features/esmi/esmi": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 78
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/esmi/esmi.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/esmi/esmi",
-      "key": "esmi",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 146
-      },
-      "enableBy": "config"
+      "key": "esmi"
     },
     "./node_modules/@umijs/preset-umi/dist/features/exportStatic/exportStatic": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/exportStatic/exportStatic.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/exportStatic/exportStatic",
-      "key": "exportStatic",
       "config": {},
       "time": {
         "hooks": {},
-        "register": 51
+        "register": 33
       },
-      "enableBy": "config"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/exportStatic/exportStatic.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/exportStatic/exportStatic",
+      "key": "exportStatic"
     },
     "./node_modules/@umijs/preset-umi/dist/features/favicons/favicons": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/favicons/favicons.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/favicons/favicons",
-      "key": "favicons",
       "config": {},
       "time": {
         "hooks": {
@@ -1182,381 +1177,377 @@
             0
           ]
         },
-        "register": 2
+        "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/favicons/favicons.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/favicons/favicons",
+      "key": "favicons"
     },
     "./node_modules/@umijs/preset-umi/dist/features/helmet/helmet": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/helmet/helmet.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/helmet/helmet",
-      "key": "helmet",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/icons/icons": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/icons/icons.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/icons/icons",
-      "key": "icons",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 5
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/mock/mock": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/mock/mock",
-      "key": "mock",
-      "config": {},
-      "time": {
-        "hooks": {
-          "onStart": [
-            1
-          ]
-        },
-        "register": 53
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/mpa/mpa": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mpa/mpa.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/mpa/mpa",
-      "key": "mpa",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 2
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/okam/okam": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/okam/okam",
-      "key": "okam",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 2
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/overrides/overrides": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/overrides/overrides.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/overrides/overrides",
-      "key": "overrides",
       "config": {},
       "time": {
         "hooks": {},
         "register": 1
       },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "enableBy": "register",
       "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency",
-      "key": "phantomDependency",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/helmet/helmet.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/helmet/helmet",
+      "key": "helmet"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/icons/icons": {
       "config": {},
       "time": {
         "hooks": {},
         "register": 3
       },
-      "enableBy": "config"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/icons/icons.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/icons/icons",
+      "key": "icons"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/mock/mock": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 38
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/mock/mock",
+      "key": "mock"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/mpa/mpa": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mpa/mpa.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/mpa/mpa",
+      "key": "mpa"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/okam/okam": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/okam/okam",
+      "key": "okam"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/overrides/overrides": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 0
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/overrides/overrides.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/overrides/overrides",
+      "key": "overrides"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/phantomDependency/phantomDependency",
+      "key": "phantomDependency"
     },
     "./node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill",
-      "key": "polyfill",
       "config": {},
       "time": {
         "hooks": {
           "modifyConfig": [
-            2
+            1
           ]
         },
-        "register": 5
-      }
+        "register": 4
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill",
+      "key": "polyfill"
     },
     "./node_modules/@umijs/preset-umi/dist/features/polyfill/publicPathPolyfill": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/publicPathPolyfill.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/polyfill/publicPathPolyfill",
-      "key": "publicPathPolyfill",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
+      "key": "publicPathPolyfill"
     },
     "./node_modules/@umijs/preset-umi/dist/features/prepare/prepare": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "register",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/prepare/prepare.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/prepare/prepare",
-      "key": "prepare",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 5
-      },
-      "enableBy": "register"
+      "key": "prepare"
     },
     "./node_modules/@umijs/preset-umi/dist/features/routePrefetch/routePrefetch": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePrefetch/routePrefetch.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/routePrefetch/routePrefetch",
-      "key": "routePrefetch",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "config"
+      "key": "routePrefetch"
     },
     "./node_modules/@umijs/preset-umi/dist/features/stagewise/stagewise": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/stagewise/stagewise.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/stagewise/stagewise",
-      "key": "stagewise",
       "config": {},
       "time": {
         "hooks": {},
         "register": 1
       },
-      "enableBy": "config"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/stagewise/stagewise.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/stagewise/stagewise",
+      "key": "stagewise"
     },
     "./node_modules/@umijs/preset-umi/dist/features/terminal/terminal": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/terminal/terminal.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/terminal/terminal",
-      "key": "terminal",
       "config": {},
       "time": {
         "hooks": {},
         "register": 2
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/terminal/terminal.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/terminal/terminal",
+      "key": "terminal"
     },
     "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/tmpFiles": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/tmpFiles/tmpFiles.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/tmpFiles",
-      "key": "tmpFiles",
       "config": {},
       "time": {
         "hooks": {},
-        "register": 10
+        "register": 11
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/tmpFiles/tmpFiles.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/tmpFiles",
+      "key": "tmpFiles"
     },
     "./node_modules/@umijs/preset-umi/dist/features/clientLoader/clientLoader": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 4
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/clientLoader/clientLoader.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/clientLoader/clientLoader",
-      "key": "clientLoader",
+      "key": "clientLoader"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps",
+      "key": "routeProps"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/ssr/ssr": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 6
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ssr/ssr.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/ssr/ssr",
+      "key": "ssr"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 7
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes",
+      "key": "configTypes"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/transform/transform": {
       "config": {},
       "time": {
         "hooks": {},
         "register": 5
       },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps",
-      "key": "routeProps",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 2
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/ssr/ssr": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ssr/ssr.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/ssr/ssr",
-      "key": "ssr",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 13
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/tmpFiles/configTypes",
-      "key": "configTypes",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 13
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/transform/transform": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "enableBy": "register",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/transform/transform.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/transform/transform",
-      "key": "transform",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 13
-      },
-      "enableBy": "register"
+      "key": "transform"
     },
     "./node_modules/@umijs/preset-umi/dist/features/lowImport/lowImport": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 5
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/lowImport/lowImport.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/lowImport/lowImport",
-      "key": "lowImport",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 10
-      },
-      "enableBy": "config"
+      "key": "lowImport"
     },
     "./node_modules/@umijs/preset-umi/dist/features/vite/vite": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/vite/vite.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/vite/vite",
-      "key": "vite",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 2
-      },
-      "enableBy": "config"
+      "key": "vite"
     },
     "./node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 11
+      },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute",
-      "key": "apiRoute",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 24
-      }
+      "key": "apiRoute"
     },
     "./node_modules/@umijs/preset-umi/dist/features/monorepo/redirect": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 25
+      },
+      "enableBy": "config",
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/monorepo/redirect.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "id": "./node_modules/@umijs/preset-umi/dist/features/monorepo/redirect",
-      "key": "monorepoRedirect",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 35
-      },
-      "enableBy": "config"
+      "key": "monorepoRedirect"
     },
     "./node_modules/@umijs/preset-umi/dist/features/test/test": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/test/test.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/test/test",
-      "key": "test",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent",
-      "key": "clickToComponent",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/legacy/legacy": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/legacy/legacy.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/legacy/legacy",
-      "key": "legacy",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose",
-      "key": "classPropertiesLoose",
       "config": {},
       "time": {
         "hooks": {},
         "register": 2
       },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/webpack/webpack": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/webpack/webpack",
-      "key": "preset-umi:webpack",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/test/test.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/test/test",
+      "key": "test"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent": {
       "config": {},
       "time": {
         "hooks": {},
         "register": 3
-      }
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent",
+      "key": "clickToComponent"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/legacy/legacy": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 847
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/legacy/legacy.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/legacy/legacy",
+      "key": "legacy"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/classPropertiesLoose/classPropertiesLoose",
+      "key": "classPropertiesLoose"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/webpack/webpack": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/webpack/webpack",
+      "key": "preset-umi:webpack"
     },
     "./node_modules/@umijs/preset-umi/dist/features/swc/swc": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/swc/swc.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/swc/swc",
-      "key": "swc",
       "config": {},
       "time": {
         "hooks": {
@@ -1564,428 +1555,441 @@
             0
           ]
         },
-        "register": 2
+        "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/swc/swc.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/swc/swc",
+      "key": "swc"
     },
     "./node_modules/@umijs/preset-umi/dist/features/ui/ui": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/ui/ui",
-      "key": "ui",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 10
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/mako/mako": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mako/mako.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/mako/mako",
-      "key": "mako",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 2
-      },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack",
-      "key": "utoopack",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian",
-      "key": "hmrGuardian",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 6
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad",
-      "key": "routePreloadOnLoad",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 34
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/forget/forget": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/forget/forget.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/forget/forget",
-      "key": "forget",
       "config": {},
       "time": {
         "hooks": {},
         "register": 4
       },
-      "enableBy": "config"
-    },
-    "./node_modules/@umijs/preset-umi/dist/features/bundler/bundler": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
       "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/bundler/bundler.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/features/bundler/bundler",
-      "key": "preset-umi:bundler",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 3
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/build": {
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
       "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/build.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/build",
-      "key": "build",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 9
-      },
-      "enableBy": "register"
+      "id": "./node_modules/@umijs/preset-umi/dist/features/ui/ui",
+      "key": "ui"
     },
-    "./node_modules/@umijs/preset-umi/dist/commands/config/config": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/config/config.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/config/config",
-      "key": "config",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 54
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/dev/dev": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/dev/dev",
-      "key": "dev",
-      "config": {},
-      "time": {
-        "hooks": {
-          "modifyAppData": [
-            101
-          ]
-        },
-        "register": 95
-      }
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/help": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/help.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/help",
-      "key": "help",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 0
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/lint": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/lint.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/lint",
-      "key": "lint",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/setup": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/setup.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/setup",
-      "key": "setup",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/deadcode": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/deadcode.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/deadcode",
-      "key": "deadcode",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/version": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/version.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/version",
-      "key": "version",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/page": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/page.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/page",
-      "key": "generator:page",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 5
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/prettier": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/prettier.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/prettier",
-      "key": "generator:prettier",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 0
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig",
-      "key": "generator:tsconfig",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/jest": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/jest.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/jest",
-      "key": "generator:jest",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss",
-      "key": "generator:tailwindcss",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/dva": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/dva.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/dva",
-      "key": "generator:dva",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 0
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/component": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/component.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/component",
-      "key": "generator:component",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/mock": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/mock.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/mock",
-      "key": "generator:mock",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/cypress": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/cypress.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/cypress",
-      "key": "generator:cypress",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/api": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/api.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/api",
-      "key": "generator:api",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/generators/precommit": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/precommit.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/precommit",
-      "key": "generator:precommit",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/plugin": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/plugin.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/plugin",
-      "key": "command:plugin",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/verify-commit": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/verify-commit.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/verify-commit",
-      "key": "verifyCommit",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 1
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/preview": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/preview.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/preview",
-      "key": "preview",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 21
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu.js",
-      "id": "./node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu",
-      "key": "mfsu-cli",
+    "./node_modules/@umijs/preset-umi/dist/features/mako/mako": {
       "config": {},
       "time": {
         "hooks": {},
         "register": 2
       },
-      "enableBy": "register"
-    },
-    "@umijs/plugin-run": {
-      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "enableBy": "config",
       "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/plugin-run/dist/index.js",
-      "id": "@umijs/plugin-run",
-      "key": "run",
-      "config": {},
-      "time": {
-        "hooks": {},
-        "register": 6
-      },
-      "enableBy": "register"
-    },
-    "./node_modules/@umijs/core/dist/service/generatePlugin": {
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mako/mako.js",
       "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
-      "type": "plugin",
-      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/core/dist/service/generatePlugin.js",
-      "id": "./node_modules/@umijs/core/dist/service/generatePlugin",
-      "key": "generatePlugin",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/mako/mako",
+      "key": "mako"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/reactCompiler/forget": {
       "config": {},
       "time": {
         "hooks": {},
         "register": 1
       },
-      "enableBy": "register"
+      "enableBy": "config",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/forget.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/reactCompiler/forget",
+      "key": "forget"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler",
+      "key": "reactCompiler"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack",
+      "key": "utoopack"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 5
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian",
+      "key": "hmrGuardian"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 28
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad",
+      "key": "routePreloadOnLoad"
+    },
+    "./node_modules/@umijs/preset-umi/dist/features/bundler/bundler": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 4
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/bundler/bundler.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/features/bundler/bundler",
+      "key": "preset-umi:bundler"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/build": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 6
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/build.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/build",
+      "key": "build"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/config/config": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 42
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/config/config.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/config/config",
+      "key": "config"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/dev/dev": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 74
+      },
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/dev/dev",
+      "key": "dev"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/help": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/help.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/help",
+      "key": "help"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/lint": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/lint.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/lint",
+      "key": "lint"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/setup": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 0
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/setup.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/setup",
+      "key": "setup"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/deadcode": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/deadcode.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/deadcode",
+      "key": "deadcode"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/version": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/version.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/version",
+      "key": "version"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/page": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 4
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/page.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/page",
+      "key": "generator:page"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/prettier": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/prettier.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/prettier",
+      "key": "generator:prettier"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 0
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/tsconfig",
+      "key": "generator:tsconfig"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/jest": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/jest.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/jest",
+      "key": "generator:jest"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/tailwindcss",
+      "key": "generator:tailwindcss"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/dva": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/dva.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/dva",
+      "key": "generator:dva"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/component": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/component.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/component",
+      "key": "generator:component"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/mock": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 0
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/mock.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/mock",
+      "key": "generator:mock"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/cypress": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/cypress.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/cypress",
+      "key": "generator:cypress"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/api": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/api.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/api",
+      "key": "generator:api"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/generators/precommit": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/generators/precommit.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/generators/precommit",
+      "key": "generator:precommit"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/plugin": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 0
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/plugin.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/plugin",
+      "key": "command:plugin"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/verify-commit": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/verify-commit.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/verify-commit",
+      "key": "verifyCommit"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/preview": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 3
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/preview.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/preview",
+      "key": "preview"
+    },
+    "./node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 2
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/preset-umi/dist/commands/mfsu/mfsu",
+      "key": "mfsu-cli"
+    },
+    "@umijs/plugin-run": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/plugin-run/dist/index.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "@umijs/plugin-run",
+      "key": "run"
+    },
+    "./node_modules/@umijs/core/dist/service/generatePlugin": {
+      "config": {},
+      "time": {
+        "hooks": {},
+        "register": 1
+      },
+      "enableBy": "register",
+      "type": "plugin",
+      "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/core/dist/service/generatePlugin.js",
+      "cwd": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui",
+      "id": "./node_modules/@umijs/core/dist/service/generatePlugin",
+      "key": "generatePlugin"
     }
   },
   "presets": [],
-  "name": "dev",
+  "name": "setup",
   "args": {
     "_": []
   },
@@ -3960,7 +3964,7 @@
   "hasSrcDir": true,
   "npmClient": "npm",
   "umi": {
-    "version": "4.6.57",
+    "version": "4.7.4",
     "name": "Umi",
     "importSource": "umi",
     "cliName": "umi"
@@ -3972,11 +3976,11 @@
     "done": false
   },
   "react": {
-    "version": "19.2.7",
+    "version": "19.2.8",
     "path": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui\\node_modules\\react"
   },
   "react-dom": {
-    "version": "19.2.7",
+    "version": "19.2.8",
     "path": "D:\\Ide\\IdeaProjects\\CloudMart\\CloudMart-ui\\node_modules\\react-dom"
   },
   "appJS": {
@@ -3993,15 +3997,12 @@
   "overridesCSS": [],
   "bundler": "webpack",
   "git": {
-    "originUrl": "https://github.com/ice10599101/CloudMart.git"
+    "originUrl": "git@github.com:ice10599101/CloudMart.git"
   },
   "framework": "react",
   "typescript": {
     "tsVersion": "5.9.3",
     "tslibVersion": "2.8.1"
   },
-  "faviconFiles": [],
-  "port": 8000,
-  "host": "0.0.0.0",
-  "ip": "192.168.1.59"
+  "faviconFiles": []
 }

@@ -40,6 +40,8 @@ export default defineConfig<'vite'>(async (merge) => {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: [],
+    // H5 和小程序使用不同输出目录，避免互相覆盖
+    // H5 -> dist/h5, 小程序 -> dist/weapp
     defineConstants: {
       'process.env.TARO_APP_API_HOST': `"${API_HOST}"`,
     },
@@ -58,6 +60,7 @@ export default defineConfig<'vite'>(async (merge) => {
       data: `@import "@/styles/variables.scss";`,
     },
     mini: {
+      outputRoot: 'dist/weapp',
       miniCssExtractPluginOption: {
         ignoreOrder: true,
       },
@@ -76,6 +79,7 @@ export default defineConfig<'vite'>(async (merge) => {
       },
     },
     h5: {
+      outputRoot: 'dist/h5',
       publicPath: '/',
       staticDirectory: 'static',
       miniCssExtractPluginOption: {

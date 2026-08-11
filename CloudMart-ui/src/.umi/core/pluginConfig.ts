@@ -297,15 +297,19 @@ interface IConfigTypes {
     skipModules?: (boolean | undefined);
 } | undefined);
 };
+    forget: boolean | {
+    ReactCompilerConfig?: (({ [x: string]: any } | undefined) | undefined);
+};
+    reactCompiler: boolean | { [x: string]: any };
     utoopack: boolean | {
     root?: (string | undefined);
-};
-    hmrGuardian: boolean;
-    forget: {
-    ReactCompilerConfig?: ({
-
+    watch?: ({
+    pollIntervalMs?: (number | undefined);
+    ignored?: (Array<string> | undefined);
+    nodeModulesRegexes?: (Array<string> | undefined);
 } | undefined);
 };
+    hmrGuardian: boolean;
     verifyCommit: {
     scope?: (Array<string> | undefined);
     allowEmoji?: (boolean | undefined);
