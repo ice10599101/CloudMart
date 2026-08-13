@@ -2,9 +2,10 @@ import axios from 'axios'
 import { storage } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 
-// Native: direct API URL; Web: use current hostname for dynamic routing
+// Web: 相对路径，通过 Metro dev server 代理转发到 Gateway（只需暴露 8081 端口）
+// Native: 直连 Gateway 地址
 const API_BASE = typeof window !== 'undefined'
-  ? `${window.location.protocol}//${window.location.hostname}:8090/api`
+  ? '/api'
   : `${process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'}:8090/api`
 
 const client = axios.create({

@@ -114,6 +114,11 @@ export default defineConfig({
     '/api': {
       target: 'http://127.0.0.1:8090',
       changeOrigin: true,
+      onProxyReq: (proxyReq) => {
+        // 移除 Origin/Referer 头，避免 Gateway CORS 校验拦截非 localhost 来源的请求
+        proxyReq.removeHeader('origin')
+        proxyReq.removeHeader('referer')
+      },
     },
     '/ws': {
       target: 'ws://127.0.0.1:8090',

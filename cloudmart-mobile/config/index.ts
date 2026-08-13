@@ -52,7 +52,38 @@ export default defineConfig<'vite'>(async (merge) => {
       options: {},
     },
     framework: 'react',
-    compiler: 'vite',
+    compiler: {
+      type: 'vite',
+      vitePlugins: [
+        {
+          name: 'exclude-tiptap',
+          enforce: 'pre',
+          resolveId(source) {
+            // 仅小程序构建时把 TiptapEditor 及其依赖重定向到空模块
+            // H5 构建保留真实依赖，避免破坏 TiptapEditor 功能
+            if (process.env.TARO_ENV === 'weapp') {
+              const emptyPath = path.resolve(__dirname, '..', 'src', 'components', 'empty.tsx')
+              // 拦截 @tiptap 和 prosemirror 模块
+              if (source.includes('@tiptap/') || source.includes('prosemirror-')) {
+                return emptyPath
+              }
+              // 拦截 TiptapEditor 组件入口（别名和直接路径）
+              if (source === '@/components/TiptapEditor'
+                || source === '@/components/TiptapEditor/index'
+                || /[/\\]components[/\\]TiptapEditor[/\\]?$/.test(source)
+                || /[/\\]components[/\\]TiptapEditor[/\\]index$/.test(source)) {
+                return emptyPath
+              }
+              // 拦截 TiptapEditor 的扩展文件（相对路径 ./extensions/xxx）
+              if (/[/\\]TiptapEditor[/\\]extensions[/\\]/.test(source)) {
+                return emptyPath
+              }
+            }
+            return null
+          },
+        },
+      ],
+    },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
     },
@@ -61,6 +92,9 @@ export default defineConfig<'vite'>(async (merge) => {
     },
     mini: {
       outputRoot: 'dist/weapp',
+      alias: {
+        '@': path.resolve(__dirname, '..', 'src'),
+      },
       miniCssExtractPluginOption: {
         ignoreOrder: true,
       },
@@ -79,7 +113,12 @@ export default defineConfig<'vite'>(async (merge) => {
       },
     },
     h5: {
-      outputRoot: 'dist/h5',
+      outputRoot: 'dist-h5',
+      // 禁止 Taro 在编译前清空 outputPath（基于顶层 outputRoot='dist'），
+      // 避免运行 dev:h5/build:h5 时误删 dist/weapp 下的小程序产物
+      output: {
+        clean: false,
+      },
       publicPath: '/',
       staticDirectory: 'static',
       miniCssExtractPluginOption: {

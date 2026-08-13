@@ -9,16 +9,24 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
 import styles from './index.module.scss'
 
+// 编辑器组件：H5 用 TiptapEditor，小程序用 MiniProgramEditor
+// 使用 Taro 条件编译在构建时静态选择，避免 Tiptap/ProseMirror 被打包进小程序
 // #ifdef H5
 import TiptapEditor from '@/components/TiptapEditor'
 // #endif
-
 // #ifdef WEAPP
 import MiniProgramEditor from '@/components/MiniProgramEditor'
 // #endif
 
 const IS_WEAPP = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-const EditorComponent = IS_WEAPP ? MiniProgramEditor : TiptapEditor
+
+let EditorComponent: React.FC<{ value?: string; onChange?: (v: string) => void; placeholder?: string }> | null = null
+// #ifdef H5
+EditorComponent = TiptapEditor
+// #endif
+// #ifdef WEAPP
+EditorComponent = MiniProgramEditor
+// #endif
 
 interface MediaItem {
   uid: string

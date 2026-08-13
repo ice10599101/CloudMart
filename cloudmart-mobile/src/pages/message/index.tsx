@@ -30,17 +30,16 @@ export default function MessagePage() {
   }, [isLoggedIn])
 
   const loadData = async () => {
-    try {
-      const [convRes] = await Promise.all([
-        notificationApi.getConversations({ page: 1, pageSize: 20 }),
-        notificationApi.getUnreadCount().then((res) => {
-          setUnreadCounts((res.data as unknown as Record<number, number>) || {})
-          return res
-        }),
-      ])
-      setConversations(convRes.data?.data?.list || [])
-    } catch {
-      // API unavailable
+    // 使用 allSettled：单个接口超时不影响其他接口数据显示
+    const [convResult, countResult] = await Promise.allSettled([
+      notificationApi.getConversations({ page: 1, pageSize: 20 }),
+      notificationApi.getUnreadCount(),
+    ])
+    if (convResult.status === 'fulfilled') {
+      setConversations(convResult.value.data?.data?.list || [])
+    }
+    if (countResult.status === 'fulfilled') {
+      setUnreadCounts((countResult.value.data?.data as unknown as Record<number, number>) || {})
     }
   }
 
