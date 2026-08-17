@@ -7,8 +7,10 @@ export interface ApiResponse<T = unknown> {
     details?: unknown[];
   };
   meta?: {
-    page: number;
-    pageSize: number;
-    total: number;
+    page?: number;
+    pageSize?: number;
+    total?: number;
+    nextCursor?: string | null;
+    hasMore?: boolean;
   };
 }

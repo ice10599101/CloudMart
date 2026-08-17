@@ -1,0 +1,50 @@
+/*
+ * 心愿宇宙独立视觉主题
+ * 星空深色主题：主色 #1a1a2e / 辅色 #e94560 / 强调 #0f3460
+ * 与宝贝小答社区主站视觉风格区分
+ */
+
+.wish-universe-theme {
+  --color-primary: #e94560;
+  --color-primary-rgb: 233, 69, 96;
+  --color-primary-dark: #c81d3e;
+  --color-primary-glow: rgba(233, 69, 96, 0.5);
+
+  --color-bg-base: #1a1a2e;
+  --color-bg-container: #16213e;
+  --color-bg-elevated: #0f3460;
+  --color-bg-header: rgba(26, 26, 46, 0.88);
+  --color-bg-footer: #0f3460;
+  --color-bg-input: #1a1a3e;
+
+  --color-border: rgba(233, 69, 96, 0.12);
+  --color-border-hover: rgba(233, 69, 96, 0.3);
+
+  --color-text: #f5f5fa;
+  --color-text-secondary: #a0a0c0;
+  --color-text-tertiary: #6c6c8a;
+
+  --color-accent-gold: #ffd700;
+  --color-accent-gold-dark: #ffa500;
+  --color-accent-purple: #9370db;
+  --color-accent-green: #32cd32;
+  --color-accent-red: #ff4757;
+  --color-accent-orange: #ff6b35;
+
+  --color-gradient-primary: linear-gradient(135deg, #e94560, #c81d3e);
+  --color-gradient-hero: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #1a1a2e 100%);
+  --color-gradient-gold: linear-gradient(90deg, #ffd700, #ffa500, #ff6b35);
+
+  --color-glow-primary: rgba(233, 69, 96, 0.08);
+  --color-glow-purple: rgba(147, 112, 219, 0.06);
+  --color-glow-gold: rgba(255, 215, 0, 0.15);
+
+  --color-badge-bg: rgba(233, 69, 96, 0.12);
+  --color-stat-card-bg: rgba(233, 69, 96, 0.15);
+
+  --color-divider: rgba(255, 255, 255, 0.06);
+
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(233, 69, 96, 0.1);
+  --shadow-glow: 0 0 30px rgba(233, 69, 96, 0.2);
+}

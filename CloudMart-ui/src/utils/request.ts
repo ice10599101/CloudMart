@@ -45,6 +45,9 @@ const USER_PUBLIC_PATH_PREFIXES = [
   '/community/posts/hot',
   '/community/posts/',
   '/community/topics/',
+  '/wish/wishes',
+  '/wish/categories',
+  '/wish/home',
 ]
 
 const ADMIN_PUBLIC_PATH_PREFIXES = [

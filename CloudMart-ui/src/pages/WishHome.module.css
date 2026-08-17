@@ -1,0 +1,298 @@
+.container {
+  min-height: 100vh;
+  background: var(--color-gradient-hero);
+  padding-bottom: 40px;
+}
+
+.loadingContainer,
+.emptyContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+/* Banner */
+.banner {
+  position: relative;
+  height: 320px;
+  background: linear-gradient(180deg, #0a0e1a 0%, #0d1528 50%, #0B1220 100%);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bannerContent {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.title {
+  font-size: 42px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00D4FF, #9370DB, #FFD700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  letter-spacing: 4px;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  margin-bottom: 24px;
+}
+
+.createBtn {
+  height: 44px;
+  padding: 0 32px;
+  font-size: 16px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #00D4FF, #0099CC);
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+}
+
+.createBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 212, 255, 0.6);
+}
+
+/* 星空动画 */
+.starField {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.5); }
+}
+
+/* 入口导航 */
+.entryNav {
+  max-width: 1200px;
+  margin: -40px auto 0;
+  padding: 0 24px;
+  position: relative;
+  z-index: 3;
+}
+
+.entryCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  text-align: center;
+  padding: 20px 0;
+  transition: all 0.3s;
+}
+
+.entryCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+}
+
+.entryIcon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.entryText {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Section */
+.section {
+  max-width: 1200px;
+  margin: 40px auto 0;
+  padding: 0 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.moreBtn {
+  color: var(--color-text-secondary);
+  padding: 0;
+}
+
+/* 心愿卡片 */
+.wishCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.wishCard:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.cardCover {
+  height: 160px;
+  object-fit: cover;
+}
+
+.cardCoverPlaceholder {
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-elevated);
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardDesc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* 我的心愿 */
+.myWishCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+
+.myWishCard:hover {
+  border-color: var(--color-primary);
+}
+
+.myWishContent {
+  padding: 4px 0;
+}
+
+.myWishHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.myWishTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progressBg {
+  flex: 1;
+  height: 6px;
+  background: var(--color-bg-input);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* 热门共鸣 */
+.hotListCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.hotItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hotItem:last-child {
+  border-bottom: none;
+}
+
+.hotItem:hover {
+  padding-left: 8px;
+}
+
+.hotRank {
+  font-size: 20px;
+  font-weight: 700;
+  min-width: 32px;
+  text-align: center;
+}
+
+.hotTitle {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotCount {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}

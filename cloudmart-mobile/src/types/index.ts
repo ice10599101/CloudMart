@@ -11,6 +11,8 @@ export interface ApiResponse<T> {
     page: number
     pageSize: number
     total: number
+    nextCursor?: string | null
+    hasMore?: boolean
   }
 }
 
@@ -352,4 +354,111 @@ export interface PaginatedResult<T> {
   page: number
   pageSize: number
   total: number
+}
+
+// Cursor pagination meta
+export interface CursorMeta {
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+// ============ Wish Universe ============
+export type WishStatus = 'DRAFT' | 'PENDING' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED' | 'REJECTED'
+export type WishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'
+export type FruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'
+
+export interface WishCategory {
+  id: number
+  name: string
+  icon?: string
+}
+
+export interface WishListItem {
+  id: number
+  title: string
+  description: string
+  coverUrl?: string
+  mediaUrls?: string[]
+  tags?: string[]
+  fruitType: FruitType
+  status: WishStatus
+  authorId: number
+  authorNickname: string
+  authorAvatar?: string
+  supportCount: number
+  commentCount: number
+  createdAt: string
+}
+
+export interface MyWishListItem {
+  id: number
+  title: string
+  fruitType: FruitType
+  status: WishStatus
+  progress: number
+  createdAt: string
+}
+
+export interface WishProgress {
+  percentage: number
+  currentValue: number
+  targetValue: number
+}
+
+export interface WishGrowthRecord {
+  id: number
+  content: string
+  mediaUrls?: string[]
+  progressDelta: number
+  createdAt: string
+}
+
+export interface WishDetail {
+  id: number
+  title: string
+  description: string
+  mediaUrls?: string[]
+  tags?: string[]
+  fruitType: FruitType
+  status: WishStatus
+  visibility: WishVisibility
+  authorId: number
+  authorNickname: string
+  authorAvatar?: string
+  supportCount: number
+  commentCount: number
+  expectedAt?: string
+  createdAt: string
+  updatedAt: string
+  progress?: WishProgress
+  checkinDays: number
+  growthRecords?: WishGrowthRecord[]
+}
+
+export interface TodayRecommendItem {
+  wishId: number
+  title: string
+  coverUrl?: string
+  fruitType: FruitType
+  authorNickname: string
+  supportCount: number
+}
+
+export interface MyWishSummary {
+  wishId: number
+  title: string
+  fruitType: FruitType
+  progress: number
+}
+
+export interface HotResonanceItem {
+  wishId: number
+  title: string
+  supportCount: number
+}
+
+export interface HomeAggregation {
+  todayRecommend: TodayRecommendItem[]
+  myWishes: MyWishSummary[]
+  hotResonance: HotResonanceItem[]
 }

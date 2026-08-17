@@ -115,8 +115,8 @@ public class GlobalExceptionHandler {
         return switch (code) {
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
-            case "ACCOUNT_LOCKED" -> HttpStatus.FORBIDDEN;
-            case "FORBIDDEN" -> HttpStatus.FORBIDDEN;
+            case "ACCOUNT_LOCKED", "FORBIDDEN",
+                 "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -139,7 +139,10 @@ public class GlobalExceptionHandler {
                  "MESSAGE_NOT_FOUND", "ROOM_NOT_FOUND",
                  "TEMPLATE_NOT_FOUND",
                  "WISHLIST_NOT_FOUND", "ADDRESS_NOT_FOUND",
-                 "OPER_LOG_NOT_FOUND", "LOGIN_LOG_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                 "OPER_LOG_NOT_FOUND", "LOGIN_LOG_NOT_FOUND",
+                 "WISH_NOT_FOUND", "WISH_CATEGORY_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
+            case "WISH_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
                  "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",
                  "INVENTORY_SERVICE_UNAVAILABLE", "PAYMENT_SERVICE_UNAVAILABLE",

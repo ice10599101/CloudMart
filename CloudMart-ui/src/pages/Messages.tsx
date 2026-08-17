@@ -254,7 +254,7 @@ export default function Messages() {
         enrichAndSet(items)
       }
       if (meta) {
-        setHasMore(meta.page * meta.pageSize < meta.total)
+        setHasMore((meta.page ?? 1) * (meta.pageSize ?? 20) < (meta.total ?? 0))
       } else {
         setHasMore(items.length >= 20)
       }

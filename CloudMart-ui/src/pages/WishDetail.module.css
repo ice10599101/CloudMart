@@ -1,0 +1,224 @@
+.container {
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  padding-bottom: 40px;
+}
+
+.loadingContainer,
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+}
+
+.backBar {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.backBtn {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.actionBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mediaCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.carousel {
+  width: 100%;
+}
+
+.mediaImage {
+  width: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  display: block;
+}
+
+.infoCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  background: var(--color-badge-bg);
+  color: var(--color-primary);
+  border: none;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.authorName {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.date {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.description {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.expectedAt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-accent-gold);
+  padding: 8px 12px;
+  background: var(--color-glow-gold);
+  border-radius: 8px;
+}
+
+.stats {
+  display: flex;
+  gap: 24px;
+  padding-top: 12px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.progressCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.progressContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progressDetail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.growthCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.growthItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.growthContent {
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.growthMedia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.growthImage {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.growthDate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.deltaTag {
+  font-size: 11px;
+  background: rgba(46, 213, 115, 0.15);
+  color: var(--color-success);
+  border: none;
+}

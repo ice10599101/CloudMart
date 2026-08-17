@@ -197,6 +197,12 @@ spring:
                 - Path=/api/community/**
               filters:
                 - StripPrefix=2
+            - id: mall-wish
+              uri: lb://mall-wish
+              predicates:
+                - Path=/api/wish/**
+              filters:
+                - StripPrefix=2
           default-filters:
             - name: Retry
               args:

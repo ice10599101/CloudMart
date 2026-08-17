@@ -313,5 +313,6 @@
         <module>mall-job</module>
         <module>mall-gen</module>
         <module>mall-community</module>
+        <module>mall-wish</module>
     </modules>
 </project>

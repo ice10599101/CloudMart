@@ -233,6 +233,237 @@
   gap: 12px;
 }
 
+/* Wish masonry variant - 瀑布流卡片 */
+.skeleton-wish-masonry {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.skeleton-wish-masonry-item {
+  background: rgba(21, 32, 56, 0.6);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.skeleton-wish-cover {
+  width: 100%;
+  height: 180px;
+  border-radius: 0;
+}
+
+.skeleton-wish-cover-wide {
+  height: 320px;
+  border-radius: 14px;
+}
+
+.skeleton-wish-masonry-body {
+  padding: 14px;
+}
+
+.skeleton-wish-masonry-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Wish list variant - 横向列表项 */
+.skeleton-wish-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.skeleton-wish-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(21, 32, 56, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.skeleton-tag {
+  width: 48px;
+  height: 22px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.skeleton-wish-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skeleton-wish-list-right {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.skeleton-progress {
+  width: 140px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.skeleton-progress-wide {
+  width: 100%;
+}
+
+/* Wish detail variant */
+.skeleton-wish-detail {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.skeleton-wish-detail-body {
+  padding: 20px 0;
+}
+
+.skeleton-wish-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* Wish home variant */
+.skeleton-wish-home {
+  padding: 20px;
+}
+
+.skeleton-wish-home-banner {
+  width: 100%;
+  height: 200px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.skeleton-wish-home-entries {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.skeleton-wish-home-entry {
+  height: 100px;
+  border-radius: 12px;
+}
+
+.skeleton-section-title {
+  width: 140px;
+  height: 22px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.skeleton-wish-home-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.skeleton-wish-home-card {
+  background: rgba(21, 32, 56, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.skeleton-wish-home-cover {
+  width: 100%;
+  height: 140px;
+  border-radius: 0;
+}
+
+.skeleton-wish-home-card-body {
+  padding: 12px;
+}
+
+.skeleton-wish-home-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .skeleton-wish-home-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .skeleton-wish-home-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .skeleton-wish-masonry {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .skeleton-wish-cover {
+    height: 130px;
+  }
+
+  .skeleton-wish-home-entries {
+    gap: 10px;
+  }
+
+  .skeleton-wish-home-entry {
+    height: 80px;
+  }
+
+  .skeleton-wish-home-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .skeleton-wish-home-cover {
+    height: 100px;
+  }
+
+  .skeleton-wish-list-right {
+    width: 120px;
+  }
+
+  .skeleton-progress {
+    width: 90px;
+  }
+
+  .skeleton-card {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .skeleton-image {
+    height: 140px;
+  }
+
+  .skeleton-chat-sidebar {
+    width: 100%;
+  }
+
+  .skeleton-profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Page transition animation */
 .page-enter {
   opacity: 0;
@@ -254,25 +485,4 @@
   opacity: 0;
   transform: translateY(-8px);
   transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .skeleton-card {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    padding: 12px;
-  }
-
-  .skeleton-image {
-    height: 140px;
-  }
-
-  .skeleton-chat-sidebar {
-    width: 100%;
-  }
-
-  .skeleton-profile-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }

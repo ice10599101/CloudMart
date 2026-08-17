@@ -48,6 +48,11 @@ export default defineConfig({
         { path: '/topic/:id', component: '@/pages/TopicDetail' },
         { path: '/user/:id/following', component: '@/pages/Following' },
         { path: '/collections', component: '@/pages/Collections' },
+        { path: '/wish', component: '@/pages/WishHome' },
+        { path: '/wish/list', component: '@/pages/WishSquare' },
+        { path: '/wish/create', component: '@/pages/WishCreate' },
+        { path: '/wish/my', component: '@/pages/MyWishes' },
+        { path: '/wish/:id', component: '@/pages/WishDetail' },
       ],
     },
     {

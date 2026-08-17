@@ -57,7 +57,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/community/posts",
             "/api/community/topics",
             "/api/community/tags",
-            "/api/community/search"
+            "/api/community/search",
+            "/api/wish/wishes",
+            "/api/wish/categories",
+            "/api/wish/home"
     );
 
     @Override

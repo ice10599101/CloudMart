@@ -1,0 +1,233 @@
+.scroll {
+  height: calc(100vh - 280rpx);
+  padding: 0 24rpx;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid rgba(233, 69, 96, 0.2);
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinnerSmall {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid rgba(233, 69, 96, 0.2);
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Filter Bar */
+.filterBar {
+  white-space: nowrap;
+  padding: 16rpx 24rpx;
+}
+
+.filterChip {
+  display: inline-block;
+  padding: 10rpx 28rpx;
+  margin-right: 12rpx;
+  border-radius: 32rpx;
+  background: rgba(22, 33, 62, 0.6);
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.filterChipActive {
+  background: linear-gradient(135deg, #e94560, #c81d3e);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Toolbar */
+.toolbar {
+  padding: 0 24rpx 16rpx;
+}
+
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 32rpx;
+  border-radius: 40rpx;
+  background: linear-gradient(135deg, #e94560, #c81d3e);
+}
+
+.createBtnText {
+  font-size: 26rpx;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Wish Card */
+.wishCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(22, 33, 62, 0.8);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.cardLeft {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.fruitTag {
+  font-size: 20rpx;
+  color: #fff;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  flex-shrink: 0;
+}
+
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitle {
+  font-size: 28rpx;
+  color: #fff;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardDate {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4rpx;
+  display: block;
+}
+
+.cardRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+  width: 200rpx;
+  flex-shrink: 0;
+}
+
+.progressWrap {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  width: 100%;
+}
+
+.progressBg {
+  flex: 1;
+  height: 8rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.6);
+  width: 50rpx;
+  text-align: right;
+}
+
+.deleteBtn {
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 77, 79, 0.15);
+
+  &:active {
+    background: rgba(255, 77, 79, 0.25);
+  }
+}
+
+.deleteText {
+  font-size: 22rpx;
+  color: #ff4d4f;
+}
+
+/* Empty */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 160rpx 0;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+}
+
+.emptyText {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 16rpx;
+}
+
+.emptyBtn {
+  margin-top: 32rpx;
+  padding: 16rpx 48rpx;
+  border-radius: 40rpx;
+  background: linear-gradient(135deg, #e94560, #c81d3e);
+}
+
+.emptyBtnText {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+/* Loading More */
+.loadingMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 32rpx 0;
+}
+
+.loadingText {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.endText {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.3);
+}

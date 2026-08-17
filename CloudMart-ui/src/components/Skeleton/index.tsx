@@ -1,7 +1,7 @@
 import './index.css'
 
 interface SkeletonProps {
-  variant?: 'card' | 'list' | 'detail' | 'chat' | 'profile'
+  variant?: 'card' | 'list' | 'detail' | 'chat' | 'profile' | 'wish-masonry' | 'wish-list' | 'wish-detail' | 'wish-home'
   count?: number
 }
 
@@ -23,6 +23,85 @@ export default function Skeleton({ variant = 'card', count = 4 }: SkeletonProps)
           </div>
         </div>
       ))}
+
+      {variant === 'wish-masonry' && items.map((i) => (
+        <div key={i} className="skeleton-wish-masonry-item">
+          <div className="skeleton-shimmer skeleton-wish-cover" />
+          <div className="skeleton-wish-masonry-body">
+            <div className="skeleton-shimmer skeleton-title" />
+            <div className="skeleton-shimmer skeleton-text skeleton-text-short" />
+            <div className="skeleton-wish-masonry-footer">
+              <div className="skeleton-shimmer skeleton-avatar-sm" />
+              <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {variant === 'wish-list' && items.map((i) => (
+        <div key={i} className="skeleton-wish-list-item">
+          <div className="skeleton-shimmer skeleton-tag" />
+          <div className="skeleton-wish-list-info">
+            <div className="skeleton-shimmer skeleton-title" />
+            <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+          </div>
+          <div className="skeleton-wish-list-right">
+            <div className="skeleton-shimmer skeleton-progress" />
+            <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+          </div>
+        </div>
+      ))}
+
+      {variant === 'wish-detail' && (
+        <div className="skeleton-wish-detail">
+          <div className="skeleton-shimmer skeleton-wish-cover skeleton-wish-cover-wide" />
+          <div className="skeleton-wish-detail-body">
+            <div className="skeleton-shimmer skeleton-title skeleton-title-lg" />
+            <div className="skeleton-wish-detail-meta">
+              <div className="skeleton-shimmer skeleton-avatar-sm" />
+              <div className="skeleton-shimmer skeleton-text skeleton-text-sm" />
+            </div>
+            <div className="skeleton-shimmer skeleton-text" />
+            <div className="skeleton-shimmer skeleton-text" />
+            <div className="skeleton-shimmer skeleton-text skeleton-text-short" />
+            <div className="skeleton-shimmer skeleton-progress skeleton-progress-wide" />
+            <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+          </div>
+        </div>
+      )}
+
+      {variant === 'wish-home' && (
+        <div className="skeleton-wish-home">
+          <div className="skeleton-shimmer skeleton-wish-home-banner" />
+          <div className="skeleton-wish-home-entries">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="skeleton-shimmer skeleton-wish-home-entry" />
+            ))}
+          </div>
+          <div className="skeleton-shimmer skeleton-section-title" />
+          <div className="skeleton-wish-home-grid">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="skeleton-wish-home-card">
+                <div className="skeleton-shimmer skeleton-wish-home-cover" />
+                <div className="skeleton-wish-home-card-body">
+                  <div className="skeleton-shimmer skeleton-title" />
+                  <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="skeleton-shimmer skeleton-section-title" />
+          <div className="skeleton-wish-home-list">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="skeleton-wish-list-item">
+                <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+                <div className="skeleton-shimmer skeleton-text" />
+                <div className="skeleton-shimmer skeleton-text skeleton-text-xs" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {variant === 'list' && items.map((i) => (
         <div key={i} className="skeleton-list-item">
