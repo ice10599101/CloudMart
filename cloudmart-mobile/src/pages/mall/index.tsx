@@ -34,7 +34,7 @@ export default function MallPage() {
     setLoading(true)
     try {
       const res = await productApi.search({ page: 1, size: 20 })
-      setProducts(res.data?.data?.products || [])
+      setProducts(res.data?.data?.list || [])
     } catch {
       // API unavailable
     } finally {

@@ -1,0 +1,333 @@
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
+import { useState, useEffect } from 'react'
+import { router, useLocalSearchParams } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { wishApi } from '@/api/wish'
+import { useAuthStore } from '@/store/auth'
+import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
+import type { WishDetail } from '@/types'
+
+export default function WishDetailScreen() {
+  const insets = useSafeAreaInsets()
+  const params = useLocalSearchParams<{ id?: string }>()
+  const wishId = Number(params.id)
+  const user = useAuthStore((s) => s.user)
+  const [loading, setLoading] = useState(true)
+  const [wish, setWish] = useState<WishDetail | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await wishApi.getWishDetail(wishId)
+        if (res.data?.success) {
+          setWish(res.data.data)
+        }
+      } catch {
+        // 错误已由 request 拦截器处理
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [wishId])
+
+  const handleDelete = () => {
+    Alert.alert('确认删除', '删除后不可恢复，确定删除吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await wishApi.deleteWish(wishId)
+            if (res.data?.success) {
+              Alert.alert('提示', '已删除', [{ text: '好的', onPress: () => router.back() }])
+            }
+          } catch {
+            Alert.alert('错误', '删除失败')
+          }
+        },
+      },
+    ])
+  }
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: WishColors.bgBase, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color={WishColors.primary} />
+      </View>
+    )
+  }
+
+  if (!wish) {
+    return (
+      <View style={{ flex: 1, backgroundColor: WishColors.bgBase, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }}>
+        <Text style={{ fontSize: 48, opacity: 0.3 }}>🌌</Text>
+        <Text style={{ fontSize: FontSize.md, color: WishColors.textTertiary, marginTop: Spacing.md }}>
+          心愿不存在或已被删除
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: Spacing.lg }}>
+          <Text style={{ fontSize: FontSize.md, color: WishColors.accentCyan }}>返回</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  const isAuthor = user?.id === wish.authorId
+
+  return (
+    <View style={{ flex: 1, backgroundColor: WishColors.bgBase, paddingTop: insets.top }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: Spacing.md,
+          borderBottomWidth: 1,
+          borderBottomColor: WishColors.border,
+        }}
+      >
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={{ fontSize: FontSize.lg, color: WishColors.textSecondary }}>‹ 返回</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginLeft: Spacing.md }}>
+          心愿详情
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: Spacing.md, paddingBottom: insets.bottom + 100 }}>
+        {/* 媒体 */}
+        {wish.mediaUrls && wish.mediaUrls.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+            {wish.mediaUrls.map((url) => (
+              <Image
+                key={url}
+                source={{ uri: url }}
+                style={{ width: 260, height: 180, borderRadius: BorderRadius.lg, marginRight: Spacing.sm }}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        )}
+
+        {/* 信息卡 */}
+        <View
+          style={{
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.lg,
+            backgroundColor: WishColors.bgContainer,
+            borderWidth: 1,
+            borderColor: WishColors.border,
+          }}
+        >
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
+            <View
+              style={{
+                paddingHorizontal: Spacing.md,
+                paddingVertical: 2,
+                borderRadius: 14,
+                backgroundColor: FRUIT_COLORS[wish.fruitType],
+              }}
+            >
+              <Text style={{ fontSize: FontSize.xs, color: '#fff', fontWeight: '600' }}>
+                {FRUIT_LABELS[wish.fruitType]}
+              </Text>
+            </View>
+            <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: 14, backgroundColor: 'rgba(0,212,255,0.12)' }}>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.accentCyan }}>
+                {WISH_STATUS_LABELS[wish.status] || wish.status}
+              </Text>
+            </View>
+            {wish.tags?.map((tag) => (
+              <View key={tag} style={{ paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={{ fontSize: 24, fontWeight: '700', color: WishColors.text, marginTop: Spacing.md, lineHeight: 34 }}>
+            {wish.title}
+          </Text>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md }}>
+            {wish.authorAvatar ? (
+              <Image source={{ uri: wish.authorAvatar }} style={{ width: 32, height: 32, borderRadius: 16 }} />
+            ) : (
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 12, color: FRUIT_COLORS[wish.fruitType] }}>★</Text>
+              </View>
+            )}
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, marginLeft: Spacing.sm, fontWeight: '600' }}>
+              {wish.authorNickname}
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginLeft: 'auto' }}>
+              {new Date(wish.createdAt).toLocaleDateString('zh-CN')}
+            </Text>
+          </View>
+
+          <Text style={{ fontSize: FontSize.md, color: WishColors.textSecondary, lineHeight: 24, marginTop: Spacing.md }}>
+            {wish.description}
+          </Text>
+
+          {wish.expectedAt && (
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.accentGold, marginTop: Spacing.md }}>
+              📅 预计完成：{new Date(wish.expectedAt).toLocaleDateString('zh-CN')}
+            </Text>
+          )}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: Spacing.lg,
+              marginTop: Spacing.md,
+              paddingTop: Spacing.md,
+              borderTopWidth: 1,
+              borderTopColor: WishColors.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textTertiary }}>
+              ♥ {formatCount(wish.supportCount)} 互动
+            </Text>
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textTertiary }}>
+              💬 {formatCount(wish.commentCount)} 评论
+            </Text>
+          </View>
+        </View>
+
+        {/* 进度 */}
+        {wish.progress && (
+          <View
+            style={{
+              marginTop: Spacing.md,
+              padding: Spacing.lg,
+              borderRadius: BorderRadius.lg,
+              backgroundColor: WishColors.bgContainer,
+              borderWidth: 1,
+              borderColor: WishColors.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginBottom: Spacing.sm }}>
+              心愿进度
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                <View
+                  style={{
+                    width: `${Math.min(Math.max(wish.progress.percentage, 0), 100)}%`,
+                    height: '100%',
+                    borderRadius: 4,
+                    backgroundColor: FRUIT_COLORS[wish.fruitType],
+                  }}
+                />
+              </View>
+              <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, marginLeft: Spacing.sm, fontWeight: '600' }}>
+                {wish.progress.currentValue}/{wish.progress.targetValue}
+              </Text>
+            </View>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: Spacing.xs }}>
+              打卡 {wish.checkinDays} 天
+            </Text>
+          </View>
+        )}
+
+        {/* 成长记录 */}
+        {wish.growthRecords && wish.growthRecords.length > 0 && (
+          <View
+            style={{
+              marginTop: Spacing.md,
+              padding: Spacing.lg,
+              borderRadius: BorderRadius.lg,
+              backgroundColor: WishColors.bgContainer,
+              borderWidth: 1,
+              borderColor: WishColors.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginBottom: Spacing.sm }}>
+              成长记录
+            </Text>
+            {wish.growthRecords.map((record) => (
+              <View key={record.id} style={{ flexDirection: 'row', paddingVertical: Spacing.sm }}>
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: FRUIT_COLORS[wish.fruitType],
+                    marginTop: 6,
+                    marginRight: Spacing.sm,
+                  }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, lineHeight: 20 }}>
+                    {record.content}
+                  </Text>
+                  {record.mediaUrls && record.mediaUrls.length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs }}>
+                      {record.mediaUrls.map((url) => (
+                        <Image
+                          key={url}
+                          source={{ uri: url }}
+                          style={{ width: 80, height: 80, borderRadius: BorderRadius.sm }}
+                          resizeMode="cover"
+                        />
+                      ))}
+                    </View>
+                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>
+                      {new Date(record.createdAt).toLocaleString('zh-CN')}
+                    </Text>
+                    {record.progressDelta > 0 && (
+                      <Text style={{ fontSize: FontSize.xs, color: '#4ade80', marginLeft: Spacing.sm }}>
+                        +{record.progressDelta}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {isAuthor && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            padding: Spacing.md,
+            paddingBottom: insets.bottom + Spacing.md,
+            backgroundColor: 'rgba(26,26,46,0.95)',
+            borderTopWidth: 1,
+            borderTopColor: WishColors.border,
+          }}
+        >
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={{
+              paddingVertical: Spacing.md,
+              borderRadius: 28,
+              alignItems: 'center',
+              backgroundColor: 'rgba(233,69,96,0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(233,69,96,0.4)',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>删除心愿</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  )
+}

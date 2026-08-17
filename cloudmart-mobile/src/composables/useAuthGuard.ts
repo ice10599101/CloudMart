@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore, authStore } from '@/store/auth'
 
 const PUBLIC_PAGES = [
   '/pages/login/index',

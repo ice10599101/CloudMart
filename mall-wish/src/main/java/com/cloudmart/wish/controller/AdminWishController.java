@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,10 +20,13 @@ import java.util.List;
 /**
  * 管理后台心愿 Controller。
  *
- * <p>路由前缀 /admin/wishes，需管理员权限（网关层 X-Admin-Role 校验）。</p>
+ * <p>路由前缀 /admin/wishes，仅允许内部服务调用（mall-admin 经 Feign 代理转发），
+ * 与 mall-community 管理端点安全模式一致：ROLE_INTERNAL 由网关注入的
+ * X-Internal-Call 头经 InternalCallAuthenticationFilter 授予，外部请求无法伪造。</p>
  */
 @RestController
 @RequestMapping("/admin/wishes")
+@PreAuthorize("hasRole('INTERNAL')")
 @Tag(name = "管理后台-心愿管理", description = "心愿列表查看与审核操作")
 @RequiredArgsConstructor
 public class AdminWishController {

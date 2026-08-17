@@ -72,6 +72,16 @@ export default function HomePage() {
         <Text className={styles.searchPlaceholder}>搜索内容、用户、话题</Text>
       </View>
 
+      {/* Wish Universe Entry */}
+      <View className={styles.wishEntry} onClick={() => Taro.navigateTo({ url: '/pages/wishHome/index' })}>
+        <Text className={styles.wishEntryIcon}>✨</Text>
+        <View className={styles.wishEntryText}>
+          <Text className={styles.wishEntryTitle}>心愿宇宙</Text>
+          <Text className={styles.wishEntryDesc}>种下一颗心愿种子，看它发光</Text>
+        </View>
+        <Text className={styles.wishEntryArrow}>→</Text>
+      </View>
+
       {/* Tab Pills */}
       <ScrollView scrollX className={styles.tabScroll}>
         <View className={styles.tabList}>

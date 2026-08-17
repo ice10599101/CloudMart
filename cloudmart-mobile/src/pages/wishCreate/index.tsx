@@ -120,9 +120,13 @@ export default function WishCreatePage() {
         sizeType: ['compressed'],
       })
 
-      for (const filePath of result.tempFilePaths) {
+      for (const file of result.tempFiles) {
+        if (file.size > MAX_FILE_SIZE) {
+          Taro.showToast({ title: '单张图片不能超过 10MB', icon: 'none' })
+          continue
+        }
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        const item: UploadItem = { id, filePath, progress: 0, status: 'uploading' }
+        const item: UploadItem = { id, filePath: file.path, progress: 0, status: 'uploading' }
         setUploads(prev => [...prev, item])
         performUpload(item)
       }
@@ -226,11 +230,10 @@ export default function WishCreatePage() {
   }
 
   const categoryIndex = categories.findIndex(c => c.id === categoryId)
-  const visibilityIndex = VISIBILITY_OPTIONS.findIndex(v => v.value === visibility)
 
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-      <CustomNavBar title='许下心愿' showBack />
+      <CustomNavBar title='许下心愿' back />
       <ScrollView scrollY className={styles.scroll}>
         {/* 标题 */}
         <View className={styles.field}>
@@ -240,7 +243,7 @@ export default function WishCreatePage() {
             placeholder='给你的心愿起个名字...'
             value={title}
             onInput={e => setTitle(e.detail.value)}
-            maxLength={120}
+            maxlength={120}
           />
           <Text className={styles.count}>{title.length}/120</Text>
         </View>
@@ -340,7 +343,7 @@ export default function WishCreatePage() {
                 onInput={e => setTagInput(e.detail.value)}
                 onConfirm={handleAddTag}
                 confirmType='done'
-                maxLength={20}
+                maxlength={20}
               />
             )}
           </View>

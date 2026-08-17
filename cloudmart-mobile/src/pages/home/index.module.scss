@@ -27,6 +27,55 @@
   font-size: $font-size-md;
 }
 
+.wishEntry {
+  display: flex;
+  align-items: center;
+  margin: 0 $spacing-lg $spacing-md;
+  padding: $spacing-md $spacing-lg;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.9), rgba(15, 52, 96, 0.85));
+  border: 1px solid rgba(233, 69, 96, 0.35);
+  border-radius: $radius-xl;
+
+  &:active {
+    border-color: rgba(233, 69, 96, 0.6);
+    box-shadow: 0 0 16px rgba(233, 69, 96, 0.25);
+  }
+}
+
+.wishEntryIcon {
+  font-size: 40px;
+  line-height: 1;
+  margin-right: $spacing-md;
+}
+
+.wishEntryText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wishEntryTitle {
+  color: #f5f5fa;
+  font-size: $font-size-lg;
+  font-weight: 600;
+}
+
+.wishEntryDesc {
+  margin-top: 4px;
+  color: rgba(245, 245, 250, 0.65);
+  font-size: $font-size-sm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wishEntryArrow {
+  color: #e94560;
+  font-size: $font-size-lg;
+  margin-left: $spacing-sm;
+}
+
 .tabScroll {
   white-space: nowrap;
   margin-bottom: $spacing-sm;

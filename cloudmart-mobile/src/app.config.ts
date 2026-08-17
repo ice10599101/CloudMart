@@ -32,6 +32,11 @@ export default defineAppConfig({
     'pages/notifications/index',
     'pages/address/index',
     'pages/checkIn/index',
+    'pages/wishHome/index',
+    'pages/wishSquare/index',
+    'pages/wishCreate/index',
+    'pages/wishDetail/index',
+    'pages/myWishes/index',
   ],
   tabBar: {
     color: '#86909C',

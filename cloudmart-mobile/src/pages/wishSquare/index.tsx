@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView, Image, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
@@ -40,7 +40,6 @@ export default function WishSquarePage() {
   const [keyword, setKeyword] = useState('')
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
-  const scrollHeightRef = useRef(0)
 
   const fetchWishes = useCallback(async (reset: boolean) => {
     if (reset) {
@@ -153,7 +152,7 @@ export default function WishSquarePage() {
 
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-      <CustomNavBar title='心愿广场' showBack />
+      <CustomNavBar title='心愿广场' back />
       {/* 搜索栏 */}
       <View className={styles.searchBar}>
         <Input

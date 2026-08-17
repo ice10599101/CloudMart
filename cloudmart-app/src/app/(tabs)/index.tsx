@@ -148,6 +148,32 @@ export default function HomePage() {
           <Text style={{ fontSize: FontSize.md, color: theme.textTertiary }}>搜索内容、用户、话题</Text>
         </TouchableOpacity>
 
+        {/* Wish Universe Entry */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/wish-home')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderRadius: BorderRadius.xl,
+            paddingHorizontal: Spacing.lg,
+            paddingVertical: Spacing.md,
+            marginBottom: Spacing.md,
+            backgroundColor: '#0f3460',
+            borderWidth: 1,
+            borderColor: 'rgba(233,69,96,0.4)',
+          }}
+        >
+          <Text style={{ fontSize: 22, marginRight: Spacing.md }}>✨</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#f5f5fa' }}>心愿宇宙</Text>
+            <Text style={{ fontSize: FontSize.xs, color: 'rgba(245,245,250,0.6)', marginTop: 2 }}>
+              种下一颗心愿种子，看它发光
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.lg, color: '#e94560' }}>→</Text>
+        </TouchableOpacity>
+
         {/* Tab Pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.sm }}>
           {TABS.map((tab) => (

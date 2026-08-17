@@ -85,7 +85,7 @@ export default function WishDetailPage() {
   if (loading) {
     return (
       <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-        <CustomNavBar title='心愿详情' showBack />
+        <CustomNavBar title='心愿详情' back />
         <View className={styles.loading}>
           <View className={styles.spinner} />
         </View>
@@ -96,7 +96,7 @@ export default function WishDetailPage() {
   if (!wish) {
     return (
       <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-        <CustomNavBar title='心愿详情' showBack />
+        <CustomNavBar title='心愿详情' back />
         <View className={styles.empty}>
           <Text className={styles.emptyIcon}>🌌</Text>
           <Text className={styles.emptyText}>心愿不存在或已被删除</Text>
@@ -109,7 +109,7 @@ export default function WishDetailPage() {
 
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-      <CustomNavBar title='心愿详情' showBack />
+      <CustomNavBar title='心愿详情' back />
       <ScrollView scrollY className={styles.scroll}>
         {/* 媒体轮播 */}
         {wish.mediaUrls && wish.mediaUrls.length > 0 && (
@@ -207,7 +207,7 @@ export default function WishDetailPage() {
         {wish.growthRecords && wish.growthRecords.length > 0 && (
           <View className={styles.growthCard}>
             <Text className={styles.cardTitle}>成长记录</Text>
-            {wish.growthRecords.map((record, index) => (
+            {wish.growthRecords.map(record => (
               <View key={record.id} className={styles.growthItem}>
                 <View className={styles.growthDot} style={{ background: FRUIT_COLORS[wish.fruitType] }} />
                 <View className={styles.growthContent}>

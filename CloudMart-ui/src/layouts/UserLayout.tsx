@@ -16,6 +16,7 @@ import {
   CompassOutlined,
   CalendarOutlined,
   SettingOutlined,
+  StarOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAuthStore } from '@/stores/auth'
@@ -31,6 +32,7 @@ import pageStyles from './UserLayout.module.css'
 const NAV_ITEMS = [
   { key: '/', label: '首页', icon: <CompassOutlined /> },
   { key: '/products', label: '商城', icon: <AppstoreOutlined /> },
+  { key: '/wish', label: '心愿宇宙', icon: <StarOutlined /> },
   { key: '/live', label: '直播', icon: <VideoCameraOutlined /> },
   { key: '/messages', label: '消息', icon: <MessageOutlined /> },
   { key: '/profile', label: '我的', icon: <UserOutlined /> },

@@ -353,3 +353,108 @@ export interface PaginatedResult<T> {
   pageSize: number
   total: number
 }
+
+// ========== Wish Universe (心愿宇宙) ==========
+
+export type WishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'
+export type WishStatus = 'DRAFT' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED'
+export type FruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'
+
+export interface WishCategory {
+  id: number
+  code: string
+  name: string
+  icon: string
+  sortOrder: number
+}
+
+export interface WishListItem {
+  id: number
+  title: string
+  description: string
+  mediaUrls: string[]
+  categoryId: number
+  categoryName: string
+  tags: string[]
+  visibility: WishVisibility
+  status: WishStatus
+  fruitType: FruitType
+  authorId: number
+  authorNickname: string
+  authorAvatar: string
+  lightCount: number
+  sameWishCount: number
+  blessCount: number
+  supportCount: number
+  commentCount: number
+  expectedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MyWishListItem {
+  id: number
+  title: string
+  status: WishStatus
+  fruitType: FruitType
+  progress: number
+  lightCount: number
+  createdAt: string
+}
+
+export interface WishGrowthRecord {
+  id: number
+  type: string
+  content: string
+  mediaUrls: string[]
+  progressDelta: number
+  createdAt: string
+}
+
+export interface WishProgress {
+  currentValue: number
+  targetValue: number
+  percentage: number
+  version: number
+}
+
+export interface WishDetail extends WishListItem {
+  growthRecords: WishGrowthRecord[]
+  checkinDays: number
+  progress: WishProgress | null
+}
+
+export interface TodayRecommendItem {
+  wishId: number
+  title: string
+  coverUrl: string | null
+  authorNickname: string
+  supportCount: number
+  fruitType: FruitType
+}
+
+export interface MyWishSummary {
+  wishId: number
+  title: string
+  status: WishStatus
+  progress: number
+  fruitType: FruitType
+}
+
+export interface HotResonanceItem {
+  wishId: number
+  title: string
+  supportCount: number
+}
+
+export interface HomeAggregation {
+  worldTree: null
+  todayRecommend: TodayRecommendItem[]
+  myWishes: MyWishSummary[]
+  hotResonance: HotResonanceItem[]
+  entries: {
+    wishEntry: boolean
+    mapEntry: boolean
+    aiAssistantEntry: boolean
+  }
+}

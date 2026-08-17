@@ -52,7 +52,7 @@ const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/
 
 type PanelType = 'none' | 'size' | 'color' | 'highlight' | 'font'
 
-type TbProps = { title: string; onPress: () => void; active?: boolean; theme: Record<string, string> }
+type TbProps = { title: string; onPress: () => void; active?: boolean; theme: { text: string; primaryGlow?: string } }
 
 const Tb = ({ title, onPress, active, theme }: TbProps) => (
   <TouchableOpacity

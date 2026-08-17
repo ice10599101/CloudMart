@@ -85,7 +85,7 @@ export default function SearchScreen() {
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword: trimmed, page: 1, size: PAGE_SIZE })
-        const list = res.data?.data?.products || res.data?.data || []
+        const list = res.data?.data?.list || []
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       }
@@ -112,7 +112,7 @@ export default function SearchScreen() {
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword, page: nextPage, size: PAGE_SIZE })
-        const list = res.data?.data?.products || res.data?.data || []
+        const list = res.data?.data?.list || []
         setResults((prev) => [...prev, ...list] as Product[])
         setHasMore(list.length >= PAGE_SIZE)
       }
@@ -138,7 +138,7 @@ export default function SearchScreen() {
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword, page: 1, size: PAGE_SIZE })
-        const list = res.data?.data?.products || res.data?.data || []
+        const list = res.data?.data?.list || []
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       }

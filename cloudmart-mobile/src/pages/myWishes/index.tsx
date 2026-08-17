@@ -111,7 +111,7 @@ export default function MyWishesPage() {
   if (loading) {
     return (
       <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-        <CustomNavBar title='我的心愿' showBack />
+        <CustomNavBar title='我的心愿' back />
         <View className={styles.loading}>
           <View className={styles.spinner} />
         </View>
@@ -121,7 +121,7 @@ export default function MyWishesPage() {
 
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-      <CustomNavBar title='我的心愿' showBack />
+      <CustomNavBar title='我的心愿' back />
 
       {/* 状态筛选 */}
       <ScrollView scrollX className={styles.filterBar}>

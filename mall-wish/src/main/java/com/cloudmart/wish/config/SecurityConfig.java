@@ -22,7 +22,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   <li>GET /wishes（公开列表）、GET /wishes/{id}（详情）、GET /categories（字典）、
  *       GET /home（首页聚合）→ permitAll（未登录可浏览，登录后个性化）</li>
  *   <li>POST/PUT/DELETE /wishes/**、GET /my/**、/admin/** → authenticated</li>
- *   <li>/admin/** 由网关层 X-Admin-Role 头 + InternalCallAuthenticationFilter 共同保护</li>
+ *   <li>/admin/** 由 Controller 层 @PreAuthorize("hasRole('INTERNAL')") 限制为内部调用
+ *       （mall-admin Feign 代理），外部经网关的普通用户请求无法到达</li>
  * </ul>
  */
 @Configuration(proxyBeanMethods = false)

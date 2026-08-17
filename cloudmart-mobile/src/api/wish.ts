@@ -58,9 +58,9 @@ export const wishApi = {
     request<WishListItem[]>({ url: `/wish/wishes${buildQuery(params as Record<string, unknown>)}` }),
   getWishDetail: (id: number) => request<WishDetail>({ url: `/wish/wishes/${id}` }),
   createWish: (data: CreateWishPayload) =>
-    request<WishDetail>({ url: '/wish/wishes', method: 'POST', data }),
+    request<WishDetail>({ url: '/wish/wishes', method: 'POST', data: data as unknown as Record<string, unknown> }),
   updateWish: (id: number, data: UpdateWishPayload) =>
-    request<WishDetail>({ url: `/wish/wishes/${id}`, method: 'PUT', data }),
+    request<WishDetail>({ url: `/wish/wishes/${id}`, method: 'PUT', data: data as unknown as Record<string, unknown> }),
   deleteWish: (id: number) => request<void>({ url: `/wish/wishes/${id}`, method: 'DELETE' }),
   listMyWishes: (params: MyWishListQuery) =>
     request<MyWishListItem[]>({ url: `/wish/wishes/my${buildQuery(params as Record<string, unknown>)}` }),
