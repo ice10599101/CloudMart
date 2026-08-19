@@ -55,14 +55,26 @@ const ADMIN_PUBLIC_PATH_PREFIXES = [
   '/auth/admin/refresh',
 ]
 
+// 依赖网关注入用户身份头的心愿接口（登录态）：
+// /wish/wishes/my（我的心愿）、/wish/wishes/{id}/interactions、/wish/wishes/{id}/comments
+const WISH_AUTH_REQUIRED_REGEX = /^\/wish\/wishes\/(my|\d+\/(interactions|comments))/
+
 function isPublicPath(url: string): boolean {
   if (!url) return false
+  if (WISH_AUTH_REQUIRED_REGEX.test(url)) return false
   const prefixes = isAdminRequest(url) ? ADMIN_PUBLIC_PATH_PREFIXES : USER_PUBLIC_PATH_PREFIXES
   for (const prefix of prefixes) {
     if (url.startsWith(prefix)) return true
   }
   if (!isAdminRequest(url) && /\/product\/products\/\d+/.test(url)) return true
   return false
+}
+
+/** 构造携带业务错误码的 Error（组件需按 code 区分 402/409/429 等场景） */
+function toBusinessError(code: string, messageText: string): Error & { code: string } {
+  const error = new Error(messageText) as Error & { code: string }
+  error.code = code
+  return error
 }
 
 request.interceptors.request.use(

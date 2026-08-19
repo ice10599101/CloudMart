@@ -81,6 +81,8 @@ export default [
       { path: '/admin/business/file-upload', component: './admin/business/FileUpload' },
       { path: '/admin/business/wishes', component: './admin/business/Wishes' },
       { path: '/admin/business/wish-categories', component: './admin/business/WishCategories' },
+      { path: '/admin/business/wish-interactions', component: './admin/business/WishInteractions' },
+      { path: '/admin/business/wish-comments', component: './admin/business/WishComments' },
       { path: '/admin/community/posts', component: './admin/community/Posts' },
       { path: '/admin/community/review', component: './admin/community/Review' },
       { path: '/admin/community/comments', component: './admin/community/Comments' },

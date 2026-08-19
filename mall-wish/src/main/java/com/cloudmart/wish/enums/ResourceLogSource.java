@@ -10,6 +10,8 @@ public enum ResourceLogSource {
     SIGNIN,
     /** 被点亮（+1） */
     LIGHTED,
+    /** 被同求（+2，文档 6.1 节；V1 表注释来源清单遗漏，字段为 VARCHAR 无需迁移） */
+    SAME_WISHED,
     /** 打卡（+3） */
     CHECKIN,
     /** 还愿（奖励） */

@@ -1,0 +1,194 @@
+// 心愿互动按钮组（Sprint 1.2）：呼吸灯高亮 + 点亮微光粒子
+// 主题变量来自 wish-theme.ts 注入的 WISH_THEME_STYLE（心愿宇宙独立星空主题）
+
+.interactionBar {
+  position: relative;
+}
+
+.buttonsRow {
+  display: flex;
+  gap: 16rpx;
+}
+
+.interactBtn {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  padding: 20rpx 8rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.interactBtn:active {
+  transform: scale(0.96);
+}
+
+.btnIcon {
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+.btnText {
+  font-size: 22rpx;
+  color: var(--color-text-secondary, rgba(255, 255, 255, 0.75));
+  text-align: center;
+}
+
+// 已同求：呼吸灯动效（光晕脉冲，文档"共鸣果实光效随互动量动态变大"）
+.interactActive {
+  border-color: var(--color-primary, #e94560);
+  background: rgba(233, 69, 96, 0.12);
+  animation: breathe-glow 2.4s ease-in-out infinite;
+}
+
+.btnTextActive {
+  font-size: 22rpx;
+  color: var(--color-primary, #e94560);
+  font-weight: 600;
+}
+
+@keyframes breathe-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 8rpx 0 rgba(233, 69, 96, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 28rpx 8rpx rgba(233, 69, 96, 0.45);
+  }
+}
+
+// 今日已祝福：禁用态
+.interactDisabled {
+  opacity: 0.45;
+}
+
+.btnTextDisabled {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+}
+
+// 点亮成功：微光粒子四散上浮（--spark-angle 由内联注入）
+.burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.spark {
+  position: absolute;
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: var(--color-accent-gold, #ffd700);
+  box-shadow: 0 0 12rpx 4rpx rgba(255, 215, 0, 0.35);
+  opacity: 0;
+  animation: spark-fly 0.9s ease-out forwards;
+}
+
+@keyframes spark-fly {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--spark-angle, 0deg)) translateY(0) scale(0.4);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--spark-angle, 0deg)) translateY(-72rpx) scale(0.7);
+  }
+}
+
+// 祝福弹层（自绘底部面板）
+.blessMask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.blessPanel {
+  width: 100%;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  border-radius: 32rpx 32rpx 0 0;
+  background: var(--color-bg-container, #16213e);
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.blessTitle {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-text, #fff);
+}
+
+.blessHint {
+  font-size: 24rpx;
+  color: var(--color-text-secondary, rgba(255, 255, 255, 0.65));
+}
+
+.blessTextarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: 20rpx;
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text, #fff);
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.blessActions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.blessCancel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.blessCancelText {
+  font-size: 28rpx;
+  color: var(--color-text-secondary, rgba(255, 255, 255, 0.75));
+}
+
+.blessSubmit {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background: var(--color-primary, #e94560);
+}
+
+.blessSubmitDisabled {
+  opacity: 0.45;
+}
+
+.blessSubmitText {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: 600;
+}

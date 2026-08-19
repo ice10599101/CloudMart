@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, ScrollView, Image, Swiper, SwiperItem } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
@@ -6,6 +6,8 @@ import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
+import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
+import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
 import type { WishDetail, FruitType } from '@/types'
 import styles from './index.module.scss'
 
@@ -44,9 +46,32 @@ export default function WishDetailPage() {
   const router = useRouter()
   const wishId = Number(router.params.id)
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
-  const { user } = useAuthStore()
+  const { user, isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+  const commentRef = useRef<WishCommentSectionHandle>(null)
+
+  /** 页面 ScrollView 触底 → 加载更多评论（组件内含 hasMore/loadingMore 防抖） */
+  const onScrollToLower = () => {
+    commentRef.current?.loadMore()
+  }
+
+  /** 互动成功后同步心愿计数（服务端返回的最新值） */
+  const handleCountsChange = (partial: Partial<WishInteractionCounts>) => {
+    setWish((prev) => (prev ? { ...prev, ...partial } : prev))
+  }
+
+  /** 评论数变化（发表 +1 / 删除 -1） */
+  const handleCommentCountChange = (delta: number) => {
+    setWish((prev) =>
+      prev ? { ...prev, commentCount: Math.max(0, prev.commentCount + delta) } : prev,
+    )
+  }
+
+  /** 未登录引导（组件在调用前已确认未登录态） */
+  const gotoLogin = () => {
+    Taro.navigateTo({ url: '/pages/login/index' })
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,7 +135,12 @@ export default function WishDetailPage() {
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
       <CustomNavBar title='心愿详情' back />
-      <ScrollView scrollY className={styles.scroll}>
+      <ScrollView
+        scrollY
+        className={styles.scroll}
+        onScrollToLower={onScrollToLower}
+        lowerThreshold={100}
+      >
         {/* 媒体轮播 */}
         {wish.mediaUrls && wish.mediaUrls.length > 0 && (
           <Swiper
@@ -179,6 +209,21 @@ export default function WishDetailPage() {
           </View>
         </View>
 
+        {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
+        <View className={styles.interactionCard}>
+          <WishInteractionBar
+            wishId={wishId}
+            counts={{
+              lightCount: wish.lightCount,
+              sameWishCount: wish.sameWishCount,
+              blessCount: wish.blessCount,
+            }}
+            isLoggedIn={isLoggedIn}
+            onCountsChange={handleCountsChange}
+            onRequireLogin={gotoLogin}
+          />
+        </View>
+
         {/* 进度 */}
         {wish.progress && (
           <View className={styles.progressCard}>
@@ -232,6 +277,19 @@ export default function WishDetailPage() {
             ))}
           </View>
         )}
+
+        {/* 评论模块（Sprint 1.2） */}
+        <View className={styles.commentCard}>
+          <WishCommentSection
+            ref={commentRef}
+            wishId={wishId}
+            commentCount={wish.commentCount}
+            isLoggedIn={isLoggedIn}
+            currentUserId={user?.id}
+            onCountChange={handleCommentCountChange}
+            onRequireLogin={gotoLogin}
+          />
+        </View>
 
         <View style={{ height: '160rpx' }} />
       </ScrollView>

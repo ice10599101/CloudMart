@@ -1,5 +1,7 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
+import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -37,4 +39,18 @@ public interface WishFeignClient {
 
     @DeleteMapping("/categories/{id}")
     ApiResponse<Void> deleteCategory(@PathVariable("id") Long id);
+
+    // ========== 互动记录审计（Sprint 1.2） ==========
+
+    @GetMapping("/interactions")
+    ApiResponse<Object> listInteractions(@SpringQueryMap AdminInteractionSearchRequest request);
+
+    // ========== 评论审核（Sprint 1.2） ==========
+
+    @GetMapping("/comments")
+    ApiResponse<Object> listComments(@SpringQueryMap AdminCommentSearchRequest request);
+
+    @PutMapping("/comments/{id}/status")
+    ApiResponse<Object> updateCommentStatus(@PathVariable("id") Long id,
+                                            @RequestBody Map<String, Object> data);
 }

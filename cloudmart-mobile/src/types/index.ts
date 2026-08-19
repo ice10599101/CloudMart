@@ -426,6 +426,9 @@ export interface WishDetail {
   authorNickname: string
   authorAvatar?: string
   supportCount: number
+  lightCount: number
+  sameWishCount: number
+  blessCount: number
   commentCount: number
   expectedAt?: string
   createdAt: string
@@ -461,4 +464,36 @@ export interface HomeAggregation {
   todayRecommend: TodayRecommendItem[]
   myWishes: MyWishSummary[]
   hotResonance: HotResonanceItem[]
+}
+
+// ============ Wish Interaction & Comment（Sprint 1.2） ============
+export type WishInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+
+export interface WishInteractionResult {
+  id: number
+  type: WishInteractionType
+  lightCount: number
+  sameWishCount: number
+  blessCount: number
+  starlightCost: number
+}
+
+export interface MyWishInteraction {
+  id: number
+  type: WishInteractionType
+  content: string | null
+  createdAt: string
+  createdToday: boolean
+}
+
+export interface WishCommentItem {
+  id: number
+  wishId: number
+  userId: number
+  nickname: string
+  avatar: string | null
+  content: string
+  parentId: number | null
+  replyToNickname: string | null
+  createdAt: string
 }

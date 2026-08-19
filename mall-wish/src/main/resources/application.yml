@@ -69,6 +69,14 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
+      chat:
+        options:
+          # 树洞治愈回复场景模型（文档 28.1.3 / 30.1：qwen-turbo，低成本低延迟）
+          model: qwen-turbo
+          temperature: 0.8
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
   producer:
@@ -148,3 +156,31 @@ knife4j:
     cors-allow-methods: []
     cors-allow-credentials: false
     cors-max-age: 3600
+
+# 心愿模块业务配置（支持 Nacos 热更新）
+wish:
+  ai:
+    # 树洞单用户每日调用上限（文档 30.3：10 次/日）
+    tree-hole-daily-limit: 10
+    # DashScope 调用失败重试次数（不含首次；文档 30.3：重试 2 次）
+    max-retries: 2
+    # 重试间隔毫秒（文档 30.3：间隔 1s；测试环境可置 0）
+    retry-interval-ms: 1000
+    # 危机关键词：命中后本地拦截，不发送 DashScope（文档 30.4 数据安全）
+    crisis-keywords:
+      - 自杀
+      - 自残
+      - 轻生
+      - 不想活
+      - 想死
+      - 结束生命
+      - 伤害自己
+      - 了结自己
+    # 心理援助热线资源（危机场景返回，文档 12.2 树洞系统专用）
+    hotline-resources:
+      - type: HOTLINE
+        title: 全国心理援助热线
+        url: tel:12356
+      - type: HOTLINE
+        title: 北京心理危机研究与干预中心热线
+        url: tel:010-82951332

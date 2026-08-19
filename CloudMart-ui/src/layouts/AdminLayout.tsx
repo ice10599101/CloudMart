@@ -35,6 +35,7 @@ import {
   TrophyOutlined,
   MessageOutlined,
   StarOutlined,
+  HeartOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -103,6 +104,8 @@ const MENU_CONFIG: MenuRouteItem[] = [
       { path: '/admin/business/file-upload', name: '文件管理', icon: <UploadOutlined />, permission: 'business:file:list' },
       { path: '/admin/business/wishes', name: '心愿管理', icon: <StarOutlined />, permission: 'business:wish:list' },
       { path: '/admin/business/wish-categories', name: '心愿分类', icon: <StarOutlined />, permission: 'business:wishCategory:list' },
+      { path: '/admin/business/wish-interactions', name: '互动记录', icon: <HeartOutlined />, permission: 'business:wishInteraction:list' },
+      { path: '/admin/business/wish-comments', name: '心愿评论', icon: <CommentOutlined />, permission: 'business:wishComment:list' },
     ],
   },
   {

@@ -1,5 +1,7 @@
 package com.cloudmart.admin.controller;
 
+import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
+import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.admin.feign.WishFeignClient;
 import com.cloudmart.common.annotation.OperLog;
@@ -81,5 +83,34 @@ public class AdminWishController {
     @Operation(summary = "删除心愿分类", description = "系统预设分类不可删除")
     public ApiResponse<Void> deleteCategory(@PathVariable Long id) {
         return wishFeignClient.deleteCategory(id);
+    }
+
+    // ========== 互动记录审计（Sprint 1.2） ==========
+
+    @GetMapping("/wish/interactions")
+    @RequiresPermission("business:wishInteraction:list")
+    @Operation(summary = "互动记录列表", description = "含已取消记录的完整审计轨迹，"
+            + "支持心愿/用户/类型/时间范围筛选，offset 分页")
+    public ApiResponse<Object> listInteractions(@Valid AdminInteractionSearchRequest request) {
+        return wishFeignClient.listInteractions(request);
+    }
+
+    // ========== 评论审核（Sprint 1.2） ==========
+
+    @GetMapping("/wish/comments")
+    @RequiresPermission("business:wishComment:list")
+    @Operation(summary = "评论列表", description = "含已删除评论供审计；"
+            + "敏感词审核场景：sensitiveHit=true + status=VISIBLE 筛选待处理命中")
+    public ApiResponse<Object> listComments(@Valid AdminCommentSearchRequest request) {
+        return wishFeignClient.listComments(request);
+    }
+
+    @PutMapping("/wish/comments/{id}/status")
+    @OperLog(title = "心愿评论审核", businessType = 2)
+    @RequiresPermission("business:wishComment:audit")
+    @Operation(summary = "评论上下架", description = "HIDDEN=下架（四端立即不展示），VISIBLE=恢复上架")
+    public ApiResponse<Object> updateCommentStatus(@PathVariable Long id,
+                                                   @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateCommentStatus(id, data);
     }
 }

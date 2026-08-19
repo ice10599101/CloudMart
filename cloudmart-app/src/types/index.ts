@@ -8,9 +8,12 @@ export interface ApiResponse<T> {
     details?: unknown[]
   }
   meta?: {
-    page: number
-    pageSize: number
-    total: number
+    page?: number
+    pageSize?: number
+    total?: number
+    // cursor 分页（心愿/社区列表等场景）
+    nextCursor?: string | null
+    hasMore?: boolean
   }
 }
 
@@ -457,4 +460,36 @@ export interface HomeAggregation {
     mapEntry: boolean
     aiAssistantEntry: boolean
   }
+}
+
+// ============ Wish Interaction & Comment（Sprint 1.2） ============
+export type WishInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+
+export interface WishInteractionResult {
+  id: number
+  type: WishInteractionType
+  lightCount: number
+  sameWishCount: number
+  blessCount: number
+  starlightCost: number
+}
+
+export interface MyWishInteraction {
+  id: number
+  type: WishInteractionType
+  content: string | null
+  createdAt: string
+  createdToday: boolean
+}
+
+export interface WishCommentItem {
+  id: number
+  wishId: number
+  userId: number
+  nickname: string
+  avatar: string | null
+  content: string
+  parentId: number | null
+  replyToNickname: string | null
+  createdAt: string
 }

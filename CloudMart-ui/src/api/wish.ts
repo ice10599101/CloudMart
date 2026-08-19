@@ -123,6 +123,61 @@ export interface CursorMeta {
   hasMore: boolean
 }
 
+// ========== Interaction & Comment Types（Sprint 1.2） ==========
+
+export type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+
+export interface InteractionResult {
+  id: number
+  type: InteractionType
+  lightCount: number
+  sameWishCount: number
+  blessCount: number
+  starlightCost: number
+}
+
+export interface InteractionRevokeResult {
+  id: number
+  type: InteractionType
+  revoked: boolean
+}
+
+export interface InteractionItem {
+  id: number
+  userId: number
+  nickname: string
+  avatar: string
+  type: InteractionType
+  content: string | null
+  createdAt: string
+}
+
+export interface MyInteractionItem {
+  id: number
+  type: InteractionType
+  content: string | null
+  createdAt: string
+  createdToday: boolean
+}
+
+export interface WishCommentItem {
+  id: number
+  wishId: number
+  userId: number
+  nickname: string
+  avatar: string
+  content: string
+  parentId: number | null
+  replyToNickname: string | null
+  createdAt: string
+}
+
+export interface WishCommentCreateResult {
+  id: number
+  content: string
+  createdAt: string
+}
+
 // ========== API Functions ==========
 
 export function getHomeAggregation() {
@@ -184,4 +239,43 @@ export function listMyWishes(params: {
   pageSize?: number
 }) {
   return request.get<ApiResponse<MyWishListItem[]>>('/wish/wishes/my', { params })
+}
+
+// ========== Interaction & Comment API（Sprint 1.2） ==========
+
+export function createInteraction(wishId: number, data: { type: InteractionType; content?: string }) {
+  return request.post<ApiResponse<InteractionResult>>(`/wish/wishes/${wishId}/interactions`, data)
+}
+
+export function revokeInteraction(wishId: number, interactionId: number) {
+  return request.delete<ApiResponse<InteractionRevokeResult>>(
+    `/wish/wishes/${wishId}/interactions/${interactionId}`
+  )
+}
+
+export function listInteractions(wishId: number, params: {
+  type?: InteractionType
+  cursor?: string
+  pageSize?: number
+}) {
+  return request.get<ApiResponse<InteractionItem[]>>(`/wish/wishes/${wishId}/interactions`, { params })
+}
+
+export function listMyInteractions(wishId: number) {
+  return request.get<ApiResponse<MyInteractionItem[]>>(`/wish/wishes/${wishId}/interactions/my`)
+}
+
+export function createWishComment(wishId: number, data: { content: string; parentId?: number }) {
+  return request.post<ApiResponse<WishCommentCreateResult>>(`/wish/wishes/${wishId}/comments`, data)
+}
+
+export function listWishComments(wishId: number, params: {
+  cursor?: string
+  pageSize?: number
+}) {
+  return request.get<ApiResponse<WishCommentItem[]>>(`/wish/wishes/${wishId}/comments`, { params })
+}
+
+export function deleteWishComment(wishId: number, commentId: number) {
+  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/comments/${commentId}`)
 }

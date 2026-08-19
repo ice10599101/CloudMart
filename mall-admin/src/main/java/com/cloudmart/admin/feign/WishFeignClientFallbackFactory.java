@@ -1,5 +1,7 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
+import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -49,6 +51,21 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
 
             @Override
             public ApiResponse<Void> deleteCategory(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listInteractions(AdminInteractionSearchRequest request) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listComments(AdminCommentSearchRequest request) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateCommentStatus(Long id, Map<String, Object> data) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
         };

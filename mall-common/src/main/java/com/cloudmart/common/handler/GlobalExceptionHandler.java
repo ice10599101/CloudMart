@@ -116,7 +116,8 @@ public class GlobalExceptionHandler {
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
             case "ACCOUNT_LOCKED", "FORBIDDEN",
-                 "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+                 "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN",
+                 "WISH_CONSENT_REQUIRED" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -142,7 +143,7 @@ public class GlobalExceptionHandler {
                  "OPER_LOG_NOT_FOUND", "LOGIN_LOG_NOT_FOUND",
                  "WISH_NOT_FOUND", "WISH_CATEGORY_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
-            case "WISH_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
                  "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",
                  "INVENTORY_SERVICE_UNAVAILABLE", "PAYMENT_SERVICE_UNAVAILABLE",
@@ -151,6 +152,7 @@ public class GlobalExceptionHandler {
                  "WMS_SERVICE_UNAVAILABLE", "BRAND_SERVICE_UNAVAILABLE",
                  "MARKETING_SERVICE_UNAVAILABLE", "LIVE_SERVICE_UNAVAILABLE",
                  "AI_SERVICE_UNAVAILABLE", "REVIEW_SERVICE_UNAVAILABLE",
+                 "WISH_AI_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };

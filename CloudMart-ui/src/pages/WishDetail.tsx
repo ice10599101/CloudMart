@@ -13,6 +13,8 @@ import { getWishDetail, deleteWish } from '@/api/wish'
 import type { WishDetail } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
+import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
+import WishCommentSection from '@/components/WishCommentSection'
 import styles from './WishDetail.module.css'
 import WishBGM from '@/components/WishBGM'
 
@@ -80,6 +82,20 @@ export default function WishDetail() {
       // 错误已由 request 拦截器处理
     }
   }
+
+  /** 互动成功后同步心愿计数（服务端返回的最新值） */
+  const handleCountsChange = (partial: Partial<WishInteractionCounts>) => {
+    setWish((prev) => (prev ? { ...prev, ...partial } : prev))
+  }
+
+  /** 评论数变化（发表 +1 / 删除 -1） */
+  const handleCommentCountChange = (delta: number) => {
+    setWish((prev) =>
+      prev ? { ...prev, commentCount: Math.max(0, prev.commentCount + delta) } : prev,
+    )
+  }
+
+  const gotoLogin = () => history.push('/login')
 
   if (loading) {
     return (
@@ -194,6 +210,21 @@ export default function WishDetail() {
           </div>
         </Card>
 
+        {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
+        <Card className={styles.interactionCard}>
+          <WishInteractionBar
+            wishId={wishId}
+            counts={{
+              lightCount: wish.lightCount,
+              sameWishCount: wish.sameWishCount,
+              blessCount: wish.blessCount,
+            }}
+            isLoggedIn={Boolean(user)}
+            onCountsChange={handleCountsChange}
+            onRequireLogin={gotoLogin}
+          />
+        </Card>
+
         {/* 进度 */}
         {wish.progress && (
           <Card className={styles.progressCard} title="心愿进度">
@@ -241,6 +272,18 @@ export default function WishDetail() {
             />
           </Card>
         )}
+
+        {/* 评论模块（Sprint 1.2） */}
+        <Card className={styles.commentCard}>
+          <WishCommentSection
+            wishId={wishId}
+            commentCount={wish.commentCount}
+            isLoggedIn={Boolean(user)}
+            currentUserId={user?.id}
+            onCountChange={handleCommentCountChange}
+            onRequireLogin={gotoLogin}
+          />
+        </Card>
       </div>
       <WishBGM />
     </div>

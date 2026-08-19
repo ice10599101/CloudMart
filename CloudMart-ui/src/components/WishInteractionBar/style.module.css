@@ -1,0 +1,114 @@
+/* 心愿互动按钮组（Sprint 1.2）：呼吸灯高亮 + 点亮微光粒子特效 */
+
+.interactionBar {
+  position: relative;
+}
+
+.interactionButtons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.interactBtn {
+  flex: 1;
+  min-width: 120px;
+  height: 44px;
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.interactBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+/* 已同求：呼吸灯动效（box-shadow 光晕脉冲，文档"共鸣果实光效随互动量变大"） */
+.interactActive {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-glow-gold);
+  animation: breatheGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes breatheGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0 rgba(233, 69, 96, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(233, 69, 96, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactActive {
+    animation: none;
+  }
+}
+
+.mineCount {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* 点亮成功：微光粒子四散上浮（一次性动画，key 变更重放） */
+.burst {
+  position: absolute;
+  top: 50%;
+  left: 16%;
+  pointer-events: none;
+}
+
+.spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-gold);
+  box-shadow: 0 0 8px 2px var(--color-glow-gold);
+  opacity: 0;
+  animation: sparkRise 0.9s ease-out forwards;
+}
+
+/* 6 个粒子按序微延迟向不同方向散开（data-index 驱动角度，见 :nth-child 偏移） */
+.spark:nth-child(1) { --angle: -55deg; }
+.spark:nth-child(2) { --angle: -30deg; animation-delay: 0.05s; }
+.spark:nth-child(3) { --angle: -10deg; animation-delay: 0.1s; }
+.spark:nth-child(4) { --angle: 10deg; animation-delay: 0.03s; }
+.spark:nth-child(5) { --angle: 30deg; animation-delay: 0.08s; }
+.spark:nth-child(6) { --angle: 55deg; animation-delay: 0.13s; }
+
+@keyframes sparkRise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(calc(cos(var(--angle)) * 14px), calc(sin(var(--angle)) * 14px)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(cos(var(--angle)) * 34px), calc(sin(var(--angle)) * 34px - 26px)) scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spark {
+    animation: none;
+    display: none;
+  }
+}
+
+.blessHint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}

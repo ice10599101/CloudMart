@@ -115,3 +115,82 @@ export function updateAdminWishCategory(id: number, data: { name?: string; sort?
 export function deleteAdminWishCategory(id: number) {
   return request.delete<ApiResponse<null>>(`/admin/wish/categories/${id}`)
 }
+
+// ========== 互动记录审计（Sprint 1.2，与 mall-wish AdminInteractionVO 对齐） ==========
+
+export type AdminInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+
+export interface AdminInteractionRecord {
+  id: number
+  wishId: number
+  wishTitle: string
+  userId: number
+  nickname: string
+  type: AdminInteractionType
+  content: string | null
+  starlightCost: number
+  deletedAt: string | null
+  createdAt: string
+}
+
+export interface AdminInteractionListParams {
+  wishId?: number
+  userId?: number
+  type?: AdminInteractionType
+  /** ISO 8601，如 2026-08-18T00:00:00 */
+  startTime?: string
+  /** ISO 8601（含） */
+  endTime?: string
+  page?: number
+  pageSize?: number
+}
+
+export const INTERACTION_TYPE_MAP: Record<AdminInteractionType, { label: string; emoji: string; color: string }> = {
+  LIGHT: { label: '点亮', emoji: '💡', color: 'gold' },
+  SAME_WISH: { label: '同求', emoji: '🤝', color: 'blue' },
+  BLESS: { label: '祝福', emoji: '🌟', color: 'purple' },
+}
+
+export function getAdminWishInteractions(params: AdminInteractionListParams) {
+  return request.get<ApiResponse<AdminInteractionRecord[]>>('/admin/wish/interactions', { params })
+}
+
+// ========== 评论审核（Sprint 1.2，与 mall-wish AdminCommentVO 对齐） ==========
+
+export type AdminWishCommentStatus = 'VISIBLE' | 'HIDDEN'
+
+export interface AdminWishCommentRecord {
+  id: number
+  wishId: number
+  wishTitle: string
+  userId: number
+  nickname: string
+  content: string
+  parentId: number | null
+  status: AdminWishCommentStatus
+  sensitiveHit: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminWishCommentListParams {
+  wishId?: number
+  userId?: number
+  sensitiveHit?: boolean
+  status?: AdminWishCommentStatus
+  page?: number
+  pageSize?: number
+}
+
+export const WISH_COMMENT_STATUS_MAP: Record<AdminWishCommentStatus, { label: string; color: string }> = {
+  VISIBLE: { label: '已上架', color: 'success' },
+  HIDDEN: { label: '已下架', color: 'error' },
+}
+
+export function getAdminWishComments(params: AdminWishCommentListParams) {
+  return request.get<ApiResponse<AdminWishCommentRecord[]>>('/admin/wish/comments', { params })
+}
+
+export function updateAdminWishCommentStatus(id: number, data: { status: AdminWishCommentStatus }) {
+  return request.put<ApiResponse<AdminWishCommentRecord>>(`/admin/wish/comments/${id}/status`, data)
+}

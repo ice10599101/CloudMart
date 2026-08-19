@@ -61,6 +61,16 @@
   border: 1px solid rgba(245, 245, 250, 0.08);
 }
 
+// 互动/评论卡片（Sprint 1.2，与 infoCard 同款视觉）
+.interactionCard,
+.commentCard {
+  margin: 24rpx;
+  padding: 32rpx;
+  border-radius: 24rpx;
+  background: rgba(15, 52, 96, 0.35);
+  border: 1px solid rgba(245, 245, 250, 0.08);
+}
+
 .tagsRow {
   display: flex;
   align-items: center;
