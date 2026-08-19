@@ -37,6 +37,7 @@ export default defineAppConfig({
     'pages/wishCreate/index',
     'pages/wishDetail/index',
     'pages/myWishes/index',
+    'pages/treeHole/index',
   ],
   tabBar: {
     color: '#86909C',

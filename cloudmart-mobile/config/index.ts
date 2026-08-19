@@ -1,8 +1,17 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
+import type { IH5Config, IMiniAppConfig } from '@tarojs/taro/types/compile/config'
 import devConfig from './dev'
 import prodConfig from './prod'
 import path from 'path'
 import fs from 'fs'
+
+/**
+ * Taro 4.2.1 的 vite 编译器类型（IMiniAppConfig<'vite'> / IH5Config<'vite'>）
+ * 遗漏了 outputRoot 声明，但运行时支持且为双端产物目录约定所必需，
+ * 本地交叉类型补齐，待 Taro 修复类型后可移除。
+ */
+type MiniConfig = IMiniAppConfig<'vite'> & { outputRoot?: string }
+type H5Config = IH5Config<'vite'> & { outputRoot?: string }
 
 /**
  * 读取项目根目录的 .env 文件，提取指定变量。
@@ -111,7 +120,7 @@ export default defineConfig<'vite'>(async (merge) => {
           },
         },
       },
-    },
+    } as MiniConfig,
     h5: {
       outputRoot: 'dist-h5',
       // 禁止 Taro 在编译前清空 outputPath（基于顶层 outputRoot='dist'），
@@ -139,7 +148,7 @@ export default defineConfig<'vite'>(async (merge) => {
           },
         },
       },
-    },
+    } as H5Config,
   }
 
   process.env.BROWSERSLIST_ENV = process.env.NODE_ENV

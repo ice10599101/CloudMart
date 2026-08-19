@@ -1,8 +1,12 @@
 import request from '@/utils/request'
 import type {
+  AiConversationItem,
+  ConsentStatus,
+  ConsentType,
   HomeAggregation,
   MyWishInteraction,
   MyWishListItem,
+  TreeHoleReply,
   WishCategory,
   WishCommentItem,
   WishDetail,
@@ -101,4 +105,24 @@ export const wishApi = {
     }),
   deleteComment: (wishId: number, commentId: number) =>
     request<void>({ url: `/wish/wishes/${wishId}/comments/${commentId}`, method: 'DELETE' }),
+
+  // ---- 树洞 AI（Sprint 1.3）----
+  sendTreeHoleMessage: (wishId: number, message: string) =>
+    request<TreeHoleReply>({
+      url: '/wish/ai/tree-hole',
+      method: 'POST',
+      data: { wishId, message },
+    }),
+  listAiConversations: (params?: { scene?: string; cursor?: string; pageSize?: number }) =>
+    request<AiConversationItem[]>({
+      url: `/wish/ai/conversations${buildQuery(params as Record<string, unknown>)}`,
+    }),
+  getConsentStatus: (consentType: ConsentType = 'AI_DATA_PROCESSING') =>
+    request<ConsentStatus>({ url: `/wish/my/consents?consentType=${consentType}` }),
+  grantConsent: (data: { consentType: ConsentType; version: string; action?: 'GRANT' | 'WITHDRAW' }) =>
+    request<void>({
+      url: '/wish/my/consents',
+      method: 'POST',
+      data: data as unknown as Record<string, unknown>,
+    }),
 }

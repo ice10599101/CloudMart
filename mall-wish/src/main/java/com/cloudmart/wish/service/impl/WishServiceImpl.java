@@ -258,6 +258,7 @@ public class WishServiceImpl implements WishService {
                 wish.getSupportCount(),
                 0, // commentCount: Sprint 1.2 接入 mall-community Feign
                 wish.getExpectedAt(),
+                wish.getEnableAiReply(),
                 wish.getCreatedAt(),
                 wish.getUpdatedAt(),
                 recordVOs,

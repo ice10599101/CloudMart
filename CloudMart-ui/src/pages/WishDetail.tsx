@@ -7,6 +7,7 @@ import {
   DeleteOutlined,
   CalendarOutlined,
   ArrowLeftOutlined,
+  MoonOutlined,
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { getWishDetail, deleteWish } from '@/api/wish'
@@ -209,6 +210,21 @@ export default function WishDetail() {
             </div>
           </div>
         </Card>
+
+        {/* 树洞入口（Sprint 1.3：作者本人 + 树洞心愿 + 已启用 AI 回复） */}
+        {isAuthor && wish.visibility === 'TREE_HOLE' && wish.enableAiReply && (
+          <Card className={styles.interactionCard}>
+            <Button
+              type="primary"
+              block
+              icon={<MoonOutlined />}
+              onClick={() => history.push(`/wish/${wishId}/tree-hole`)}
+              className={styles.treeHoleBtn}
+            >
+              进入树洞 · 让守护者陪你聊聊
+            </Button>
+          </Card>
+        )}
 
         {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
         <Card className={styles.interactionCard}>

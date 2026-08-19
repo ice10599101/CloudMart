@@ -35,6 +35,7 @@ public record WishVO(
         @Schema(description = "总互动数") Integer supportCount,
         @Schema(description = "评论数") Integer commentCount,
         @Schema(description = "预计完成时间") LocalDateTime expectedAt,
+        @Schema(description = "是否启用 AI 回复（树洞心愿）") Boolean enableAiReply,
         @Schema(description = "创建时间") LocalDateTime createdAt,
         @Schema(description = "更新时间") LocalDateTime updatedAt,
         @Schema(description = "最近成长记录列表（默认 10 条）") List<WishGrowthRecordVO> growthRecords,

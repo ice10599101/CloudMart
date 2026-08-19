@@ -52,6 +52,7 @@ export interface WishDetail extends WishListItem {
   growthRecords: WishGrowthRecord[]
   checkinDays: number
   progress: WishProgress | null
+  enableAiReply?: boolean
 }
 
 export interface WishCreateResult {
@@ -278,4 +279,64 @@ export function listWishComments(wishId: number, params: {
 
 export function deleteWishComment(wishId: number, commentId: number) {
   return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/comments/${commentId}`)
+}
+
+// ========== Tree Hole & Consent API（Sprint 1.3） ==========
+
+export interface AiResource {
+  type: 'ARTICLE' | 'HOTLINE'
+  title: string
+  url: string
+}
+
+export interface TreeHoleReply {
+  reply: string
+  sentimentScore: number | null
+  resources: AiResource[]
+}
+
+export interface AiConversationItem {
+  id: number
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  sentimentScore: number | null
+  resources: AiResource[]
+  createdAt: string
+}
+
+export type ConsentType = 'PRIVACY_POLICY' | 'AI_DATA_PROCESSING' | 'BRAND_DATA_SHARE'
+
+export interface ConsentStatus {
+  consentType: ConsentType
+  granted: boolean
+  version: string | null
+  latestAction: 'GRANT' | 'WITHDRAW' | null
+  updatedAt: string | null
+}
+
+/** 发送树洞消息并获取 AI 治愈回复（前置：AI 数据处理同意；10 次/日） */
+export function sendTreeHoleMessage(wishId: number, data: { message: string }) {
+  return request.post<ApiResponse<TreeHoleReply>>(`/wish/ai/tree-hole`, {
+    wishId,
+    message: data.message,
+  })
+}
+
+/** AI 对话历史（cursor 分页，默认 scene=TREE_HOLE） */
+export function listAiConversations(params?: { scene?: string; cursor?: string; pageSize?: number }) {
+  return request.get<ApiResponse<AiConversationItem[]>>('/wish/ai/conversations', { params })
+}
+
+/** 查询指定类型的同意状态（默认 AI_DATA_PROCESSING） */
+export function getConsentStatus(consentType: ConsentType = 'AI_DATA_PROCESSING') {
+  return request.get<ApiResponse<ConsentStatus>>('/wish/my/consents', { params: { consentType } })
+}
+
+/** 提交同意/撤回记录（幂等） */
+export function grantConsent(data: {
+  consentType: ConsentType
+  version: string
+  action?: 'GRANT' | 'WITHDRAW'
+}) {
+  return request.post<ApiResponse<null>>('/wish/my/consents', data)
 }

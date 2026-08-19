@@ -1,0 +1,212 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-base);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+  flex-shrink: 0;
+}
+
+.backBtn {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.moon {
+  font-size: 18px;
+}
+
+.remaining {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  min-width: 90px;
+  text-align: right;
+}
+
+.chatArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.welcomeMoon {
+  font-size: 56px;
+  margin-bottom: 8px;
+}
+
+.welcomeTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.welcomeText {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+  margin: 0;
+}
+
+.userRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.userBubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px 16px 4px 16px;
+  background: linear-gradient(135deg, #6a5acd, #483d8b);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.aiRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.aiAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.aiBubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 危机拦截回复：暖色安抚样式 */
+.aiBubbleCrisis {
+  border-color: #e8a87c;
+  background: linear-gradient(135deg, rgba(232, 168, 124, 0.12), var(--color-bg-container));
+}
+
+.typing {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.resources {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resourceCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+
+.resourceCard:hover {
+  border-color: #e8a87c;
+}
+
+.resourceTitle {
+  flex: 1;
+}
+
+.inputArea {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+}
+
+.sendBtn {
+  flex-shrink: 0;
+}
+
+.consentBody {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.8;
+}
+
+.consentBody ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.consentBody li {
+  margin-bottom: 4px;
+}
+
+.emphasis {
+  color: #e8a87c;
+  font-weight: 600;
+}

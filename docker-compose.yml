@@ -41,6 +41,45 @@ services:
     networks:
       - cloudmart-network
 
+  # 集成测试专用 MySQL（Sprint 1.4）：无数据卷，可随时销毁重建，与业务实例完全隔离
+  mysql-it:
+    image: mysql:latest
+    container_name: cloudmart-mysql-it
+    restart: unless-stopped
+    ports:
+      - "8307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_DATABASE: mall_wish_it
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --lower_case_table_names=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudmart-network
+
+  # 集成测试专用 Redis（Sprint 1.4）：无持久化、无数据卷，纯内存隔离实例
+  redis-it:
+    image: redis:latest
+    container_name: cloudmart-redis-it
+    restart: unless-stopped
+    ports:
+      - "8380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cloudmart-network
+
   nacos:
     image: nacos/nacos-server:latest
     container_name: cloudmart-nacos

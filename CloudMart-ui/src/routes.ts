@@ -34,6 +34,7 @@ export default [
       { path: '/wish/create', component: './WishCreate' },
       { path: '/wish/my', component: './MyWishes' },
       { path: '/wish/list', component: './WishSquare' },
+      { path: '/wish/:id/tree-hole', component: './TreeHole' },
       { path: '/wish/:id', component: './WishDetail' },
       { path: '/login', component: './Login' },
       { path: '/register', component: './Register' },

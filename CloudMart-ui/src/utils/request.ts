@@ -103,8 +103,9 @@ request.interceptors.response.use(
     const data = response.data as ApiResponse<unknown>
     if (data.success === false) {
       const errorCode = data.error?.code ?? ''
+      const businessError = toBusinessError(errorCode, data.error?.message || '请求失败')
       if (errorCode === 'UNAUTHORIZED') {
-        return Promise.reject(new Error(data.error?.message))
+        return Promise.reject(businessError)
       }
       if (errorCode.endsWith('_SERVICE_UNAVAILABLE')) {
         if (!SERVICE_UNAVAILABLE_CODES.has(errorCode)) {
@@ -113,15 +114,23 @@ request.interceptors.response.use(
           if (serviceUnavailableTimer) clearTimeout(serviceUnavailableTimer)
           serviceUnavailableTimer = setTimeout(() => SERVICE_UNAVAILABLE_CODES.clear(), 5000)
         }
-        return Promise.reject(new Error(data.error?.message))
+        return Promise.reject(businessError)
       }
       message.error(data.error?.message || '请求失败')
-      return Promise.reject(new Error(data.error?.message))
+      return Promise.reject(businessError)
     }
     return response
   },
   async (error) => {
     if (error.response?.status === 401 || error.response?.status === 403) {
+      // 业务错误（携带 error.code，如 WISH_CONSENT_REQUIRED/WISH_NOT_AUTHOR）直接透传，
+      // 不触发 token refresh：refresh 后仍会 403，既浪费也会造成组件拿不到业务码
+      const errCode = error.response?.data?.error?.code as string | undefined
+      if (errCode && errCode !== 'UNAUTHORIZED') {
+        return Promise.reject(
+          toBusinessError(errCode, error.response?.data?.error?.message || '请求失败'),
+        )
+      }
       const url = error.config.url ?? ''
       if (isPublicPath(url)) {
         return Promise.reject(error)

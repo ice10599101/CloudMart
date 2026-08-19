@@ -209,6 +209,18 @@ export default function WishDetailPage() {
           </View>
         </View>
 
+        {/* 树洞入口（Sprint 1.3：作者本人 + 树洞心愿 + 已启用 AI 回复） */}
+        {isAuthor && wish.visibility === 'TREE_HOLE' && wish.enableAiReply && (
+          <View
+            className={styles.treeHoleEntry}
+            onClick={() => Taro.navigateTo({ url: `/pages/treeHole/index?id=${wishId}` })}
+          >
+            <Text className={styles.treeHoleEntryIcon}>🌙</Text>
+            <Text className={styles.treeHoleEntryText}>进入树洞 · 让守护者陪你聊聊</Text>
+            <Text className={styles.treeHoleEntryArrow}>›</Text>
+          </View>
+        )}
+
         {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
         <View className={styles.interactionCard}>
           <WishInteractionBar

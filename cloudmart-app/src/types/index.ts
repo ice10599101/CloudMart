@@ -425,6 +425,8 @@ export interface WishDetail extends WishListItem {
   growthRecords: WishGrowthRecord[]
   checkinDays: number
   progress: WishProgress | null
+  /** 是否启用 AI 回复（树洞心愿，Sprint 1.3） */
+  enableAiReply?: boolean
 }
 
 export interface TodayRecommendItem {
@@ -492,4 +494,38 @@ export interface WishCommentItem {
   parentId: number | null
   replyToNickname: string | null
   createdAt: string
+}
+
+// ============ Tree Hole AI（Sprint 1.3） ============
+export type AiResourceType = 'ARTICLE' | 'HOTLINE'
+
+export interface AiResource {
+  type: AiResourceType
+  title: string
+  url: string
+}
+
+export interface TreeHoleReply {
+  reply: string
+  sentimentScore: number | null
+  resources: AiResource[]
+}
+
+export interface AiConversationItem {
+  id: number
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  sentimentScore: number | null
+  resources: AiResource[]
+  createdAt: string
+}
+
+export type ConsentType = 'PRIVACY_POLICY' | 'AI_DATA_PROCESSING' | 'BRAND_DATA_SHARE'
+
+export interface ConsentStatus {
+  consentType: ConsentType
+  granted: boolean
+  version: string | null
+  latestAction: 'GRANT' | 'WITHDRAW' | null
+  updatedAt: string | null
 }

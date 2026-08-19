@@ -291,6 +291,28 @@ export default function WishDetailScreen() {
         </View>
       )}
 
+      {/* 树洞入口（Sprint 1.3：作者本人 + 树洞心愿 + 已启用 AI 回复） */}
+      {isAuthor && wish.visibility === 'TREE_HOLE' && wish.enableAiReply && (
+        <TouchableOpacity
+          onPress={() => router.push(`/tree-hole/${wishId}`)}
+          style={{
+            marginTop: Spacing.md,
+            height: 52,
+            borderRadius: BorderRadius.lg,
+            backgroundColor: WishColors.accentPurple,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: Spacing.sm,
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>🌙</Text>
+          <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: '#fff', letterSpacing: 1 }}>
+            进入树洞 · 让守护者陪你聊聊
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
       <View
         style={{

@@ -34,6 +34,14 @@
   gap: 8px;
 }
 
+.treeHoleBtn {
+  background: linear-gradient(135deg, #483d8b, #6a5acd);
+  border: none;
+  height: 44px;
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
 .content {
   max-width: 900px;
   margin: 0 auto;
