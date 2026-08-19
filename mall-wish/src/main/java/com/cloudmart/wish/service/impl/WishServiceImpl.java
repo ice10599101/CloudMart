@@ -64,6 +64,8 @@ public class WishServiceImpl implements WishService {
 
     private static final int GROWTH_RECORDS_DETAIL_LIMIT = 10;
     private static final int DEFAULT_TARGET_VALUE = 100;
+    /** OVERDUE 扫描分批大小（文档定时任务口径：500 条/批） */
+    private static final int OVERDUE_SCAN_BATCH_SIZE = 500;
 
     private final WishMapper wishMapper;
     private final WishCategoryMapper wishCategoryMapper;
@@ -145,7 +147,7 @@ public class WishServiceImpl implements WishService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WishUpdateResultVO updateWish(Long userId, Long wishId, UpdateWishRequest request) {
-        Wish wish = getWishOrThrow(wishId);
+        Wish wish = getViewableWishOrThrow(wishId, userId);
         assertAuthor(wish, userId);
 
         // 校验状态：FULFILLED 状态尝试设置 SPARK 果实类型返回 409
@@ -185,7 +187,7 @@ public class WishServiceImpl implements WishService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WishDeleteResultVO deleteWish(Long userId, Long wishId) {
-        Wish wish = getWishOrThrow(wishId);
+        Wish wish = getViewableWishOrThrow(wishId, userId);
         assertAuthor(wish, userId);
 
         // 软删：MyBatis-Plus @TableLogic 自动设置 deleted_at
@@ -394,6 +396,19 @@ public class WishServiceImpl implements WishService {
         return wish;
     }
 
+    /**
+     * 作者级操作（更新/删除）前置获取：对不可见心愿统一返回 404，
+     * 避免 PRIVATE/TREE_HOLE 心愿的存在性被非作者探测（NOT_AUTHOR 会泄露资源存在）。
+     * 可见但非作者 → WISH_NOT_AUTHOR（403）。
+     */
+    private Wish getViewableWishOrThrow(Long wishId, Long userId) {
+        Wish wish = getWishOrThrow(wishId);
+        if (!isViewableByUser(wish, userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        return wish;
+    }
+
     private void assertAuthor(Wish wish, Long userId) {
         if (!wish.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可操作此心愿");
@@ -532,5 +547,45 @@ public class WishServiceImpl implements WishService {
         static AuthorInfo placeholder(Long userId) {
             return new AuthorInfo(userId, "心愿旅人", "");
         }
+    }
+
+    @Override
+    public int scanOverdueWishes() {
+        LocalDateTime now = LocalDateTime.now();
+        int totalTransferred = 0;
+        Set<Long> notifiedUserIds = new java.util.HashSet<>();
+        // 分批流转（500 条/批）：批间独立提交，单批失败不影响其余批次
+        while (true) {
+            List<Wish> expiredBatch = wishMapper.selectList(
+                    new LambdaQueryWrapper<Wish>()
+                            .select(Wish::getId, Wish::getUserId)
+                            .eq(Wish::getStatus, WishStatus.ACTIVE)
+                            .isNotNull(Wish::getExpectedAt)
+                            .lt(Wish::getExpectedAt, now)
+                            .isNull(Wish::getDeletedAt)
+                            .orderByAsc(Wish::getId)
+                            .last("LIMIT " + OVERDUE_SCAN_BATCH_SIZE));
+            if (expiredBatch.isEmpty()) {
+                break;
+            }
+            List<Long> batchIds = expiredBatch.stream().map(Wish::getId).toList();
+            expiredBatch.forEach(w -> notifiedUserIds.add(w.getUserId()));
+            // UPDATE 附加 status=ACTIVE 条件双保险（查询与更新间状态可能并发变化）
+            wishMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                            .in(Wish::getId, batchIds)
+                            .eq(Wish::getStatus, WishStatus.ACTIVE)
+                            .set(Wish::getStatus, WishStatus.OVERDUE));
+            totalTransferred += batchIds.size();
+            if (batchIds.size() < OVERDUE_SCAN_BATCH_SIZE) {
+                break;
+            }
+        }
+        // OVERDUE 提醒推送占位：通知中心对接后改发 OVERDUE_REMINDER（文档 27.1）
+        if (!notifiedUserIds.isEmpty()) {
+            log.info("OVERDUE 扫描流转完成, count={}, 待提醒用户数={}（通知中心对接前仅日志占位）",
+                    totalTransferred, notifiedUserIds.size());
+        }
+        return totalTransferred;
     }
 }

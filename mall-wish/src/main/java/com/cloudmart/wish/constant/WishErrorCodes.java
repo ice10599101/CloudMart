@@ -45,6 +45,11 @@ public final class WishErrorCodes {
     /** AI 功能调用频次达上限（文档 30.3：树洞 10 次/日） */
     public static final String WISH_AI_RATE_LIMITED = "WISH_AI_RATE_LIMITED";
 
+    // 徽章管理（Sprint 1.8）
+    public static final String BADGE_NOT_FOUND = "BADGE_NOT_FOUND";
+    public static final String BADGE_CODE_DUPLICATED = "BADGE_CODE_DUPLICATED";
+    public static final String BADGE_CONDITION_INVALID = "BADGE_CONDITION_INVALID";
+
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";

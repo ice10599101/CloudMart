@@ -37,6 +37,7 @@ export default defineAppConfig({
     'pages/wishCreate/index',
     'pages/wishDetail/index',
     'pages/myWishes/index',
+    'pages/badgeWall/index',
     'pages/treeHole/index',
   ],
   tabBar: {

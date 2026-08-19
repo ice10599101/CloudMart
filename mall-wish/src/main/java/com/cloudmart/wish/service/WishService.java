@@ -125,4 +125,20 @@ public interface WishService {
      * 我的心愿列表分页结果（cursor 分页）。
      */
     record MyWishListPage(List<MyWishListItemVO> records, String nextCursor, boolean hasMore) {}
+
+    /**
+     * OVERDUE 状态机扫描（文档 1.2 定时任务：每日 00:30 由 mall-job 触发）。
+     *
+     * <p>业务规则：</p>
+     * <ul>
+     *   <li>流转条件：status=ACTIVE + expected_at &lt; 当前时间 + 未软删</li>
+     *   <li>流转动作：ACTIVE → OVERDUE（仅服务端定时任务可改 status，铁律 39.1）</li>
+     *   <li>分批处理（500 条/批），批间无事务关联（每批独立提交，
+     *       部分成功不影响其余批次，重复扫描幂等跳过已流转记录）</li>
+     *   <li>OVERDUE 提醒推送：通知中心对接前仅记日志占位（同 BADGE_EARNED 口径）</li>
+     * </ul>
+     *
+     * @return 本次扫描流转的心愿总数
+     */
+    int scanOverdueWishes();
 }

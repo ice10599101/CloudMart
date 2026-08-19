@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Spin, Empty, Card, Tag, Button, Segmented, Popconfirm, App } from 'antd'
-import { PlusOutlined, DeleteOutlined, RightOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, RightOutlined, TrophyOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { listMyWishes, deleteWish } from '@/api/wish'
 import type { MyWishListItem, WishStatus } from '@/api/wish'
@@ -138,6 +138,12 @@ export default function MyWishes() {
             value={statusFilter}
             onChange={(value) => setStatusFilter(value as string)}
           />
+          <Button
+            icon={<TrophyOutlined />}
+            onClick={() => history.push('/wish/badges')}
+          >
+            我的徽章
+          </Button>
           <Button
             type="primary"
             icon={<PlusOutlined />}

@@ -10,6 +10,7 @@ import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
+import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.UserStatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class UserStatServiceImpl implements UserStatService {
 
     private final WishUserStatMapper wishUserStatMapper;
     private final WishResourceLogMapper wishResourceLogMapper;
+    private final BadgeService badgeService;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -79,6 +81,8 @@ public class UserStatServiceImpl implements UserStatService {
                         .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
         );
         log.debug("心愿创建统计+1, userId={}", userId);
+        // 同事务判定徽章（FIRST_WISH 等），回滚时授予一并撤销
+        badgeService.evaluateAndAward(userId);
     }
 
     @Override
@@ -180,7 +184,10 @@ public class UserStatServiceImpl implements UserStatService {
         );
         if (affected == 0) {
             log.warn("帮助统计+1失败（用户统计记录不存在）, userId={}", userId);
+            return;
         }
+        // 同事务判定徽章（HELP_100 等）；MQ 重复消费时幂等授予不重复
+        badgeService.evaluateAndAward(userId);
     }
 
     private int requireBalance(Long userId) {

@@ -113,4 +113,41 @@ public class AdminWishController {
                                                    @RequestBody Map<String, Object> data) {
         return wishFeignClient.updateCommentStatus(id, data);
     }
+
+    // ========== 徽章管理（Sprint 1.8） ==========
+
+    @GetMapping("/wish/badges")
+    @RequiresPermission("business:wishBadge:list")
+    @Operation(summary = "徽章列表", description = "全量含下架状态与原始 condition JSON（编辑器回显）")
+    public ApiResponse<Object> listBadges() {
+        return wishFeignClient.listBadges();
+    }
+
+    @PostMapping("/wish/badges")
+    @OperLog(title = "徽章管理", businessType = 1)
+    @RequiresPermission("business:wishBadge:add")
+    @Operation(summary = "新增徽章", description = "code 唯一；condition JSON 结构校验"
+            + "（type/threshold/description 三段式）")
+    public ApiResponse<Object> createBadge(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createBadge(data);
+    }
+
+    @PutMapping("/wish/badges/{id}")
+    @OperLog(title = "徽章管理", businessType = 2)
+    @RequiresPermission("business:wishBadge:edit")
+    @Operation(summary = "编辑徽章", description = "code 不可修改；condition 编辑校验同新增")
+    public ApiResponse<Object> updateBadge(@PathVariable Long id,
+                                           @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateBadge(id, data);
+    }
+
+    @PutMapping("/wish/badges/{id}/status")
+    @OperLog(title = "徽章上下架", businessType = 2)
+    @RequiresPermission("business:wishBadge:edit")
+    @Operation(summary = "徽章上下架", description = "下架后不参与授予判定、不出现在徽章墙与图鉴；"
+            + "已获得记录保留，重新上架自动恢复")
+    public ApiResponse<Object> updateBadgeStatus(@PathVariable Long id,
+                                                 @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateBadgeStatus(id, data);
+    }
 }

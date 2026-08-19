@@ -340,3 +340,45 @@ export function grantConsent(data: {
 }) {
   return request.post<ApiResponse<null>>('/wish/my/consents', data)
 }
+
+// ========== 徽章（Sprint 1.9，与 mall-wish BadgeWallItemVO/BadgeDefinitionVO 对齐） ==========
+
+export type BadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+
+export interface BadgeCondition {
+  type: string
+  threshold: number
+  description: string
+}
+
+export interface BadgeDefinition {
+  badgeId: number
+  code: string
+  name: string
+  icon: string
+  description: string
+  rarity: BadgeRarity
+  condition: BadgeCondition | null
+}
+
+export interface BadgeProgress {
+  current: number
+  threshold: number
+  percentage: number
+}
+
+export interface BadgeWallItem extends BadgeDefinition {
+  earned: boolean
+  earnedAt: string | null
+  progress: BadgeProgress | null
+}
+
+/** 我的徽章墙（登录；已获得在前 + 未获得锁定态含进度） */
+export function getMyBadges() {
+  return request.get<ApiResponse<BadgeWallItem[]>>('/wish/my/badges')
+}
+
+/** 徽章图鉴（公开；未登录亦可浏览） */
+export function getBadgeDefinitions() {
+  return request.get<ApiResponse<BadgeDefinition[]>>('/wish/badges/definitions')
+}

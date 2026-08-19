@@ -127,13 +127,24 @@ class WishCrudIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("非作者更新：拒绝（WISH_NOT_FOUND，不泄露他人资源）")
+        @DisplayName("非作者更新公开心愿：WISH_NOT_AUTHOR（403）；私密心愿：WISH_NOT_FOUND（不泄露存在性）")
         void nonAuthorCannotUpdate() {
             Long categoryId = seedCategory("IT_WEALTH");
             stubUserFeign();
-            WishCreateResultVO created = wishService.createWish(1001L, buildRequest(categoryId, WishVisibility.PUBLIC));
+            WishCreateResultVO publicWish = wishService.createWish(
+                    1001L, buildRequest(categoryId, WishVisibility.PUBLIC));
+            WishCreateResultVO privateWish = wishService.createWish(
+                    1001L, buildRequest(categoryId, WishVisibility.PRIVATE));
 
-            assertThatThrownBy(() -> wishService.updateWish(2002L, created.id(),
+            // 公开心愿对非作者可见：返回明确的作者校验错误（403）
+            assertThatThrownBy(() -> wishService.updateWish(2002L, publicWish.id(),
+                            new UpdateWishRequest("越权标题", null, null, null, null, null, null, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR);
+
+            // 私密心愿对非作者不可见：统一 404，防止存在性探测
+            assertThatThrownBy(() -> wishService.updateWish(2002L, privateWish.id(),
                             new UpdateWishRequest("越权标题", null, null, null, null, null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())

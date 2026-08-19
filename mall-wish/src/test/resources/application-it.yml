@@ -20,6 +20,8 @@ spring:
 wish:
   ai:
     retry-interval-ms: 0
+  # 测试专用敏感词词库（生产词库由运营维护，经 Nacos 下发；此处仅保证集成测试确定性）
+  sensitive-words: 骗局,诈骗
 
 logging:
   level:

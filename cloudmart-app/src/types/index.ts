@@ -529,3 +529,35 @@ export interface ConsentStatus {
   latestAction: 'GRANT' | 'WITHDRAW' | null
   updatedAt: string | null
 }
+
+// ---- 徽章（Sprint 1.9，与 mall-wish BadgeWallItemVO/BadgeDefinitionVO 对齐）----
+
+export type BadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+
+export interface BadgeCondition {
+  type: string
+  threshold: number
+  description: string
+}
+
+export interface BadgeDefinition {
+  badgeId: number
+  code: string
+  name: string
+  icon: string
+  description: string
+  rarity: BadgeRarity
+  condition: BadgeCondition | null
+}
+
+export interface BadgeProgress {
+  current: number
+  threshold: number
+  percentage: number
+}
+
+export interface BadgeWallItem extends BadgeDefinition {
+  earned: boolean
+  earnedAt: string | null
+  progress: BadgeProgress | null
+}

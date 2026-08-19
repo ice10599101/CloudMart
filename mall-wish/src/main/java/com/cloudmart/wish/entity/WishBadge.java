@@ -26,6 +26,14 @@ public class WishBadge {
 
     private String icon;
 
+    /** 稀有度（V5）：COMMON/RARE/EPIC/LEGENDARY */
+    private String rarity;
+
+    /** 上架状态（V6）：0=下架（不参与判定、不出现在徽章墙/图鉴） */
+    private Boolean isActive;
+
+    /** 触发条件 JSON；CONDITION 为 MySQL 保留字，列名必须反引号转义 */
+    @TableField("`condition`")
     private String condition;
 
     @TableField(fill = FieldFill.INSERT)

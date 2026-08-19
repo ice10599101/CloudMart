@@ -5,6 +5,7 @@ import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.service.TreeHoleAiClient;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -48,10 +49,14 @@ import static org.mockito.Mockito.when;
         "spring.cloud.nacos.discovery.enabled=false",
         // Sentinel 不急连 dashboard
         "spring.cloud.sentinel.eager=false",
-        // 排除 RocketMQ 自动装配（合并主配置中已排除的 OAuth2 ResourceServer）
+        // 排除 RocketMQ 自动装配（合并主配置中已排除的 OAuth2 ResourceServer）；
+        // Knife4j 必须排除：非 Web 环境(NONE)下 springdoc 自动配置被 @ConditionalOnWebApplication
+        // 跳过，而 Knife4jAutoConfiguration 仍尝试创建 knife4jOpenApiCustomizer 并注入
+        // SpringDocConfigProperties → NoSuchBeanDefinitionException（集成测试无 HTTP 层）
         "spring.autoconfigure.exclude="
                 + "org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration,"
-                + "org.apache.rocketmq.spring.autoconfigure.RocketMQAutoConfiguration"
+                + "org.apache.rocketmq.spring.autoconfigure.RocketMQAutoConfiguration,"
+                + "com.github.xiaoymin.knife4j.spring.configuration.Knife4jAutoConfiguration"
 })
 @ActiveProfiles("it")
 public abstract class WishIntegrationTestBase {
@@ -62,12 +67,14 @@ public abstract class WishIntegrationTestBase {
         System.setProperty("csp.sentinel.log.dir", "target/sentinel-log");
     }
 
-    /** 全部业务表：@AfterEach 统一 TRUNCATE 保证用例隔离 */
+    /** 全部业务表：@AfterEach 统一 TRUNCATE 保证用例隔离。
+     *  注意 wish_badge 不在此列：V1 种子的字典表被 TRUNCATE 后 Flyway 不会重跑
+     *  （首轮 Badge 集成即因此空表失败），改由 {@link #ensureBadgeSeedData} 幂等补种 */
     private static final List<String> BUSINESS_TABLES = List.of(
             "wish", "wish_progress", "wish_interaction", "wish_growth_record",
-            "wish_checkin", "wish_user_stat", "wish_resource_log", "wish_badge",
+            "wish_checkin", "wish_user_stat", "wish_resource_log",
             "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
-            "wish_ai_conversation");
+            "wish_ai_conversation", "wish_world_tree_state");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -92,6 +99,30 @@ public abstract class WishIntegrationTestBase {
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushDb();
+    }
+
+    /**
+     * 幂等补种 V1 徽章种子 + V5 rarity（ON DUPLICATE KEY UPDATE）。
+     *
+     * <p>自愈场景：wish_badge 一旦被误 TRUNCATE（如首轮 Badge 集成的隔离策略
+     * 缺陷），Flyway 不会重跑 V1/V5，种子永久丢失。每次用例前补种保证定义
+     * 恒在（含 rarity，与 V1+V5 合并态一致）；集成库被人工清库后亦自动恢复。</p>
+     */
+    @BeforeEach
+    void ensureBadgeSeedData() {
+        jdbcTemplate.update("""
+                INSERT INTO wish_badge (id, code, name, icon, rarity, is_active, `condition`) VALUES
+                    (2001, 'FIRST_WISH',    '第一次许愿', '', 'COMMON', 1,
+                     JSON_OBJECT('type', 'WISH_CREATED', 'threshold', 1, 'description', '发布第一个心愿')),
+                    (2002, 'FIRST_FULFILL', '第一次还愿', '', 'COMMON', 1,
+                     JSON_OBJECT('type', 'WISH_FULFILLED', 'threshold', 1, 'description', '完成第一个还愿')),
+                    (2003, 'HELP_100',      '帮助100人', '', 'EPIC', 1,
+                     JSON_OBJECT('type', 'TOTAL_HELPED', 'threshold', 100, 'description', '累计帮助100人(点亮+匿名星光)')),
+                    (2004, 'PERSIST_365',   '坚持365天', '', 'LEGENDARY', 1,
+                     JSON_OBJECT('type', 'TOTAL_CHECKIN_DAYS', 'threshold', 365, 'description', '累计打卡365天'))
+                ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `rarity` = VALUES(`rarity`),
+                    `is_active` = VALUES(`is_active`), `condition` = VALUES(`condition`)
+                """);
     }
 
     /**

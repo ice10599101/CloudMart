@@ -84,20 +84,30 @@ class InteractionCommentIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("重复点亮：命中唯一约束幂等拒绝（WISH_ALREADY_INTERACTED），计数不重复")
-        void duplicateLightRejectedByUniqueKey() {
+        @DisplayName("重复点亮：产品设计允许多次（uk 仅约束非 LIGHT 类型），计数与扣费逐次累加")
+        void repeatLightAccumulatesCountAndCost() {
             interactionService.createInteraction(
                     ACTOR_ID, wishId, new CreateInteractionRequest(InteractionType.LIGHT, null));
 
-            assertThatThrownBy(() -> interactionService.createInteraction(
-                            ACTOR_ID, wishId, new CreateInteractionRequest(InteractionType.LIGHT, null)))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getCode())
-                    .isEqualTo(WishErrorCodes.WISH_ALREADY_INTERACTED);
+            var second = interactionService.createInteraction(
+                    ACTOR_ID, wishId, new CreateInteractionRequest(InteractionType.LIGHT, null));
+
+            assertThat(second.lightCount()).isEqualTo(2);
+            assertThat(second.starlightCost()).isEqualTo(2);
 
             Integer lightCount = jdbcTemplate.queryForObject(
                     "SELECT light_count FROM wish WHERE id = ?", Integer.class, wishId);
-            assertThat(lightCount).isEqualTo(1);
+            assertThat(lightCount).isEqualTo(2);
+
+            Integer balance = jdbcTemplate.queryForObject(
+                    "SELECT starlight_balance FROM wish_user_stat WHERE user_id = ?",
+                    Integer.class, ACTOR_ID);
+            assertThat(balance).isEqualTo(96);
+
+            Integer spendLogs = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_resource_log WHERE user_id = ? AND type = 'SPEND'",
+                    Integer.class, ACTOR_ID);
+            assertThat(spendLogs).isEqualTo(2);
         }
 
         @Test

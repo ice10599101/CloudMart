@@ -15,6 +15,8 @@ import type {
   AiConversationItem,
   ConsentStatus,
   ConsentType,
+  BadgeWallItem,
+  BadgeDefinition,
 } from '@/types'
 
 function buildQuery(params?: Record<string, unknown>): string {
@@ -132,4 +134,8 @@ export const wishApi = {
       method: 'POST',
       data: data as unknown as Record<string, unknown>,
     }),
+
+  // ---- 徽章（Sprint 1.9）----
+  getMyBadges: () => request<BadgeWallItem[]>({ url: '/wish/my/badges' }),
+  getBadgeDefinitions: () => request<BadgeDefinition[]>({ url: '/wish/badges/definitions' }),
 }

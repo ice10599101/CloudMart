@@ -53,4 +53,19 @@ public interface WishFeignClient {
     @PutMapping("/comments/{id}/status")
     ApiResponse<Object> updateCommentStatus(@PathVariable("id") Long id,
                                             @RequestBody Map<String, Object> data);
+
+    // ========== 徽章管理（Sprint 1.8） ==========
+
+    @GetMapping("/badges")
+    ApiResponse<Object> listBadges();
+
+    @PostMapping("/badges")
+    ApiResponse<Object> createBadge(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/badges/{id}")
+    ApiResponse<Object> updateBadge(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    @PutMapping("/badges/{id}/status")
+    ApiResponse<Object> updateBadgeStatus(@PathVariable("id") Long id,
+                                          @RequestBody Map<String, Object> data);
 }

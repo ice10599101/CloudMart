@@ -52,6 +52,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/wishes/{id}").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/home").permitAll()
+                // 公开浏览：世界生命树环境状态（未登录首页/世界树亦需渲染）
+                .requestMatchers(HttpMethod.GET, "/tree-env").permitAll()
+                // 公开浏览：徽章图鉴（未登录可浏览，文档 2.9）
+                .requestMatchers(HttpMethod.GET, "/badges/definitions").permitAll()
                 // 文档与监控端点
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**",

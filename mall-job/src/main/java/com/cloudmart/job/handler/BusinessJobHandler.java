@@ -81,4 +81,93 @@ public class BusinessJobHandler {
             throw new RuntimeException("优惠券过期处理失败", e);
         }
     }
+
+    /**
+     * 生命树情绪环境扫描：聚合树洞窗口情绪并流转世界树环境状态
+     * （心愿宇宙文档 2.2 气象情绪联动：mood &lt; -0.6 下雨 / 好转或
+     * BLESS 突增触发彩虹）。由 XXL-JOB 调度中心每 5 分钟触发一次。
+     *
+     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
+     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     */
+    @XxlJob("treeMoodScanHandler")
+    public void treeMoodScanHandler() {
+        log.info("XXL-JOB: 开始执行生命树情绪环境扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/tree-env/scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 生命树情绪环境扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 生命树情绪环境扫描失败: {}", e.getMessage());
+            throw new RuntimeException("生命树情绪环境扫描失败", e);
+        }
+    }
+
+    /**
+     * 心愿 OVERDUE 状态机扫描：流转 expected_at 过期的 ACTIVE 心愿为 OVERDUE。
+     * 由 XXL-JOB 调度中心每日 00:30 触发（心愿宇宙文档 1.2 定时任务矩阵）。
+     *
+     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
+     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     */
+    @XxlJob("wishOverdueScanHandler")
+    public void wishOverdueScanHandler() {
+        log.info("XXL-JOB: 开始执行心愿 OVERDUE 扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/overdue-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 心愿 OVERDUE 扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 心愿 OVERDUE 扫描失败: {}", e.getMessage());
+            throw new RuntimeException("心愿 OVERDUE 扫描失败", e);
+        }
+    }
+
+    /**
+     * 热门推荐缓存刷新：删除 wish:hot:feed 强制回源最新候选集
+     * （ZSet 增量回填不清旧成员，需定时清理防止过期心愿残留）。
+     * 由 XXL-JOB 调度中心每 10 分钟触发（与缓存 TTL 对齐）。
+     */
+    @XxlJob("homeHotCacheRefreshHandler")
+    public void homeHotCacheRefreshHandler() {
+        log.info("XXL-JOB: 开始刷新热门推荐缓存...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/hot-cache-refresh")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 热门推荐缓存刷新完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 热门推荐缓存刷新失败: {}", e.getMessage());
+            throw new RuntimeException("热门推荐缓存刷新失败", e);
+        }
+    }
+
+    /**
+     * 徽章漏发补偿扫描：游标分批遍历用户统计记录，逐用户重判定徽章。
+     * 补偿 total_helped MQ 消费失败重试耗尽进 DLQ 时的徽章漏发。
+     * 由 XXL-JOB 调度中心每日 03:00 低峰触发（与 00:30 OVERDUE 扫描错峰）。
+     */
+    @XxlJob("badgeCompensationScanHandler")
+    public void badgeCompensationScanHandler() {
+        log.info("XXL-JOB: 开始执行徽章漏发补偿扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/badge-compensation-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 徽章漏发补偿扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 徽章漏发补偿扫描失败: {}", e.getMessage());
+            throw new RuntimeException("徽章漏发补偿扫描失败", e);
+        }
+    }
 }

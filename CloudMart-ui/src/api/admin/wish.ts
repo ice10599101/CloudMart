@@ -194,3 +194,66 @@ export function getAdminWishComments(params: AdminWishCommentListParams) {
 export function updateAdminWishCommentStatus(id: number, data: { status: AdminWishCommentStatus }) {
   return request.put<ApiResponse<AdminWishCommentRecord>>(`/admin/wish/comments/${id}/status`, data)
 }
+
+// ========== 徽章管理（Sprint 1.8，与 mall-wish AdminBadgeVO 对齐） ==========
+
+export type AdminBadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+export type AdminBadgeConditionType = 'WISH_CREATED' | 'WISH_FULFILLED' | 'TOTAL_HELPED' | 'TOTAL_CHECKIN_DAYS'
+
+export interface AdminBadgeRecord {
+  id: number
+  code: string
+  name: string
+  icon: string | null
+  rarity: AdminBadgeRarity
+  isActive: boolean
+  /** 原始 condition JSON 字符串（编辑器回显） */
+  condition: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminBadgeCondition {
+  type: AdminBadgeConditionType
+  threshold: number
+  description: string
+}
+
+export const BADGE_RARITY_MAP: Record<AdminBadgeRarity, { label: string; color: string }> = {
+  COMMON: { label: '普通', color: 'default' },
+  RARE: { label: '稀有', color: 'blue' },
+  EPIC: { label: '史诗', color: 'purple' },
+  LEGENDARY: { label: '传说', color: 'gold' },
+}
+
+export const BADGE_CONDITION_TYPE_MAP: Record<AdminBadgeConditionType, { label: string }> = {
+  WISH_CREATED: { label: '累计许愿数' },
+  WISH_FULFILLED: { label: '累计还愿数' },
+  TOTAL_HELPED: { label: '累计帮助人数' },
+  TOTAL_CHECKIN_DAYS: { label: '累计打卡天数' },
+}
+
+export function getAdminWishBadges() {
+  return request.get<ApiResponse<AdminBadgeRecord[]>>('/admin/wish/badges')
+}
+
+export function createAdminWishBadge(data: {
+  code: string
+  name: string
+  icon?: string
+  rarity: AdminBadgeRarity
+  condition: string
+}) {
+  return request.post<ApiResponse<AdminBadgeRecord>>('/admin/wish/badges', data)
+}
+
+export function updateAdminWishBadge(
+  id: number,
+  data: { name: string; icon?: string; rarity: AdminBadgeRarity; condition: string }
+) {
+  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}`, data)
+}
+
+export function updateAdminWishBadgeStatus(id: number, active: boolean) {
+  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}/status`, { active })
+}

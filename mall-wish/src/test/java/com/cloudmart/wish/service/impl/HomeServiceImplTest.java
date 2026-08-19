@@ -208,4 +208,27 @@ class HomeServiceImplTest {
             return Double.compare(this.score, o.getScore());
         }
     }
+
+    // ========== refreshHotCache ==========
+
+    @Nested
+    @DisplayName("refreshHotCache - 热门推荐缓存刷新")
+    class RefreshHotCacheTests {
+
+        @Test
+        @DisplayName("正常刷新：DEL wish:hot:feed")
+        void refreshDeletesHotFeedKey() {
+            homeService.refreshHotCache();
+            verify(redisTemplate).delete("wish:hot:feed");
+        }
+
+        @Test
+        @DisplayName("Redis 异常 Fail-Open：不抛错（TTL 过期兜底）")
+        void redisFailureFailsOpen() {
+            when(redisTemplate.delete(anyString()))
+                    .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("connection refused"));
+            org.assertj.core.api.Assertions.assertThatCode(() -> homeService.refreshHotCache())
+                    .doesNotThrowAnyException();
+        }
+    }
 }

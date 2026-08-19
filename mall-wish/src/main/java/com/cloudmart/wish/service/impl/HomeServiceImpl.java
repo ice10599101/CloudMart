@@ -251,4 +251,15 @@ public class HomeServiceImpl implements HomeService {
 
     /** 评分包装记录。 */
     private record ScoredWish(Wish wish, double score) {}
+
+    @Override
+    public void refreshHotCache() {
+        try {
+            redisTemplate.delete(HOT_FEED_KEY);
+            log.debug("热门推荐缓存已刷新: {}", HOT_FEED_KEY);
+        } catch (Exception e) {
+            // Fail-Open：删除失败不阻断任务，TTL 10min 自然过期兜底
+            log.warn("热门推荐缓存刷新失败（Fail-Open，等待 TTL 过期兜底）: {}", e.getMessage());
+        }
+    }
 }

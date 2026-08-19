@@ -1,6 +1,8 @@
 import request from '@/utils/request'
 import type {
   AiConversationItem,
+  BadgeDefinition,
+  BadgeWallItem,
   ConsentStatus,
   ConsentType,
   HomeAggregation,
@@ -125,4 +127,8 @@ export const wishApi = {
       method: 'POST',
       data: data as unknown as Record<string, unknown>,
     }),
+
+  // ---- 徽章（Sprint 1.9）----
+  getMyBadges: () => request<BadgeWallItem[]>({ url: '/wish/my/badges' }),
+  getBadgeDefinitions: () => request<BadgeDefinition[]>({ url: '/wish/badges/definitions' }),
 }

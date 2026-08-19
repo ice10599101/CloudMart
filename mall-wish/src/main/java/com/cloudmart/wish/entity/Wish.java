@@ -1,6 +1,7 @@
 package com.cloudmart.wish.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -62,6 +63,12 @@ public class Wish {
 
     private Integer blessCount;
 
+    /**
+     * 生成列（light_count + same_wish_count + bless_count GENERATED ALWAYS STORED），
+     * MySQL 禁止显式写入：insert/update 必须排除，否则作者更新心愿时
+     * 报 "The value specified for generated column 'support_count' is not allowed"
+     */
+    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
     private Integer supportCount;
 
     private AuditStatus auditStatus;

@@ -1,5 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
@@ -24,6 +26,8 @@ import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.service.WishService;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -563,5 +567,58 @@ class WishServiceImplTest {
         progress.setMaxStreak(0);
         progress.setVersion(1);
         return progress;
+    }
+
+    // ========== scanOverdueWishes ==========
+
+    @Nested
+    @DisplayName("scanOverdueWishes - OVERDUE 状态机扫描")
+    class ScanOverdueTests {
+
+        @BeforeAll
+        static void initWishEntityMeta() {
+            // LambdaQueryWrapper.select(SFunction) / LambdaUpdateWrapper.set(SFunction)
+            // 构造期解析列名需要 TableInfo 缓存
+            MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+            TableInfoHelper.initTableInfo(assistant, Wish.class);
+        }
+
+        @Test
+        @DisplayName("无过期心愿：返回 0 且不执行 UPDATE")
+        void noExpired_returnsZero() {
+            when(wishMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            assertThat(wishService.scanOverdueWishes()).isZero();
+            verify(wishMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("两条过期心愿：流转为 OVERDUE 并返回计数")
+        void expiredBatch_transferred() {
+            when(wishMapper.selectList(any())).thenReturn(List.of(
+                    buildWishWithId(3001L), buildWishWithId(3002L)));
+            when(wishMapper.update(any(), any())).thenReturn(2);
+
+            int transferred = wishService.scanOverdueWishes();
+
+            assertThat(transferred).isEqualTo(2);
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), any());
+        }
+
+        @Test
+        @DisplayName("超过单批 500 条：分两批流转累计 502")
+        void multiBatch_accumulates() {
+            List<Wish> fullBatch = new ArrayList<>();
+            for (long i = 1; i <= 500; i++) {
+                fullBatch.add(buildWishWithId(i));
+            }
+            when(wishMapper.selectList(any()))
+                    .thenReturn(fullBatch)
+                    .thenReturn(List.of(buildWishWithId(501L), buildWishWithId(502L)));
+            when(wishMapper.update(any(), any())).thenReturn(500, 2);
+
+            assertThat(wishService.scanOverdueWishes()).isEqualTo(502);
+            verify(wishMapper, org.mockito.Mockito.times(2)).update(any(), any());
+        }
     }
 }

@@ -32,4 +32,16 @@ public interface HomeService {
      * @return 首页聚合 VO
      */
     HomeAggregationVO getHomeAggregation(Long userId);
+
+    /**
+     * 主动刷新热门推荐缓存（DEL {@code wish:hot:feed}，由 mall-job 定时触发）。
+     *
+     * <p>动因：ZSet 回填为增量 add 不清旧成员，TTL 到期前超过 7 天窗口的
+     * 过期心愿会残留在缓存中；定时删除强制下次请求回源最新数据
+     * （Cache-Aside 写操作删除语义，AGENTS.md 14.3）。</p>
+     *
+     * <p>失败策略 Fail-Open：Redis 不可用时仅告警不报错
+     * （TTL 10min 自然过期兜底，缓存删除失败不阻断任务链路）。</p>
+     */
+    void refreshHotCache();
 }

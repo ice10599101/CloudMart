@@ -106,6 +106,7 @@ const MENU_CONFIG: MenuRouteItem[] = [
       { path: '/admin/business/wish-categories', name: '心愿分类', icon: <StarOutlined />, permission: 'business:wishCategory:list' },
       { path: '/admin/business/wish-interactions', name: '互动记录', icon: <HeartOutlined />, permission: 'business:wishInteraction:list' },
       { path: '/admin/business/wish-comments', name: '心愿评论', icon: <CommentOutlined />, permission: 'business:wishComment:list' },
+      { path: '/admin/business/wish-badges', name: '徽章管理', icon: <TrophyOutlined />, permission: 'business:wishBadge:list' },
     ],
   },
   {

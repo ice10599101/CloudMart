@@ -10,6 +10,7 @@ import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
+import com.cloudmart.wish.service.BadgeService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,8 @@ class UserStatServiceImplTest {
     private WishUserStatMapper wishUserStatMapper;
     @Mock
     private WishResourceLogMapper wishResourceLogMapper;
+    @Mock
+    private BadgeService badgeService;
 
     private UserStatServiceImpl userStatService;
 
@@ -61,7 +64,7 @@ class UserStatServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper);
+        userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper, badgeService);
         // initUserStat 的存在性检查默认无记录（允许 insert）
         when(wishUserStatMapper.selectById(USER_ID)).thenReturn(null);
     }

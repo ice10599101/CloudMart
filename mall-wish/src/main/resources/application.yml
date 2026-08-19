@@ -184,3 +184,27 @@ wish:
       - type: HOTLINE
         title: 北京心理危机研究与干预中心热线
         url: tel:010-82951332
+  # 生命树情绪环境联动（文档 2.2 气象情绪联动 / Sprint 2.2；阈值与窗口可经 Nacos 热更新）
+  tree-env:
+    # 情绪聚合滑动窗口（分钟，文档 2.2：1 小时）
+    mood-window-minutes: 60
+    # 时间衰减系数 λ（权重 w=exp(-λ×年龄分钟)；0.0231≈1 小时衰减至 25%）
+    mood-decay-lambda: 0.0231
+    # 下雨阈值（文档 2.2：mood < -0.6 触发 RAIN）
+    rain-threshold: -0.6
+    # 彩虹阈值（文档 2.2：mood > +0.3 触发 RAINBOW）
+    rainbow-threshold: 0.3
+    # 下雨最短持续（分钟，文档 2.2：30）
+    rain-min-duration-minutes: 30
+    # 彩虹持续（分钟，文档 2.2：15）
+    rainbow-duration-minutes: 15
+    # BLESS 突增检测窗口（分钟，当前窗口 vs 前一窗口对比）
+    bless-burst-window-minutes: 15
+    # BLESS 突增最小计数（低基数防误报）
+    bless-burst-min-count: 5
+    # BLESS 突增倍率（当前 ≥ 前窗口 × 倍率）
+    bless-burst-multiplier: 2.0
+    # Redis 聚合分数缓存 TTL（分钟，文档 2.2：10）
+    mood-cache-ttl-minutes: 10
+    # 扫描互斥锁 TTL（秒）
+    scan-lock-ttl-seconds: 240
