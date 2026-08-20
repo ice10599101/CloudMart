@@ -86,6 +86,31 @@ export default function WishHomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 世界树入口（Sprint 2.1） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/world-tree')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(61, 220, 151, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#3ddc97' }}>🌳 世界生命树</Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              每颗果实都是一个公开心愿 · 拖动旋转探索
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* 我的心愿摘要 */}
         <SectionTitle title="我的心愿" actionLabel="全部" onAction={() => router.push('/my-wishes')} />
         {data && data.myWishes.length > 0 ? (

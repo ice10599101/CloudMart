@@ -5,9 +5,13 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.wish.dto.CreateWishRequest;
 import com.cloudmart.wish.dto.MyWishListQuery;
+import com.cloudmart.wish.dto.SubmitFulfillmentRequest;
 import com.cloudmart.wish.dto.UpdateWishRequest;
 import com.cloudmart.wish.dto.WishListQuery;
+import com.cloudmart.wish.service.FulfillmentService;
 import com.cloudmart.wish.service.WishService;
+import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
+import com.cloudmart.wish.vo.WishFulfillmentVO;
 import com.cloudmart.wish.vo.MyWishListItemVO;
 import com.cloudmart.wish.vo.WishCreateResultVO;
 import com.cloudmart.wish.vo.WishDeleteResultVO;
@@ -36,6 +40,7 @@ import java.util.List;
 public class WishController {
 
     private final WishService wishService;
+    private final FulfillmentService fulfillmentService;
 
     @PostMapping
     @Operation(summary = "发布心愿", description = "用户发布新心愿，初始状态 ACTIVE，果实类型 GLOW")
@@ -101,5 +106,30 @@ public class WishController {
         WishService.MyWishListPage page = wishService.listMyWishes(userId, query);
         return ApiResponse.okWithCursor(page.records(), query.pageSize(),
                 page.nextCursor(), page.hasMore());
+    }
+
+    @PostMapping("/{id}/fulfillment")
+    @Operation(summary = "提交还愿", description = "仅作者可对 ACTIVE/OVERDUE 心愿提交还愿故事，"
+            + "提交即流转 FULFILLED + 果实 BLOOM，先发后审（audit_status=PENDING），奖励星光 +50")
+    @SentinelResource("WISH_FULFILL")
+    public ApiResponse<WishFulfillmentSubmitVO> submitFulfillment(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "还愿请求") @Valid @RequestBody SubmitFulfillmentRequest request) {
+        WishFulfillmentSubmitVO vo = fulfillmentService.submitFulfillment(userId, wishId, request);
+        return ApiResponse.ok(vo);
+    }
+
+    @GetMapping("/{id}/fulfillment")
+    @Operation(summary = "还愿详情", description = "获取心愿的还愿故事（含照片/感悟）。"
+            + "公开心愿的还愿匿名可见；PRIVATE/TREE_HOLE 心愿仅作者可见；未还愿返回 404")
+    @SentinelResource("WISH_FULFILLMENT_DETAIL")
+    public ApiResponse<WishFulfillmentVO> getFulfillmentDetail(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "当前用户 ID（网关注入，可空）")
+            @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long userId) {
+        WishFulfillmentVO vo = fulfillmentService.getFulfillmentDetail(wishId, userId);
+        return ApiResponse.ok(vo);
     }
 }

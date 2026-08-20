@@ -429,6 +429,8 @@ export interface WishDetail {
   lightCount: number
   sameWishCount: number
   blessCount: number
+  /** 匿名星光数（Sprint 2.6，仅详情返回） */
+  anonStarCount: number
   commentCount: number
   expectedAt?: string
   createdAt: string
@@ -468,8 +470,8 @@ export interface HomeAggregation {
   hotResonance: HotResonanceItem[]
 }
 
-// ============ Wish Interaction & Comment（Sprint 1.2） ============
-export type WishInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+// ============ Wish Interaction & Comment（Sprint 1.2；匿名星光 Sprint 2.6） ============
+export type WishInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS' | 'ANON_STAR'
 
 export interface WishInteractionResult {
   id: number
@@ -477,6 +479,7 @@ export interface WishInteractionResult {
   lightCount: number
   sameWishCount: number
   blessCount: number
+  anonStarCount: number
   starlightCost: number
 }
 
@@ -565,4 +568,75 @@ export interface BadgeWallItem extends BadgeDefinition {
   earned: boolean
   earnedAt: string | null
   progress: BadgeProgress | null
+}
+
+// ---- 还愿（Sprint 1.10，与 mall-wish WishFulfillmentSubmitVO/WishFulfillmentVO 对齐）----
+
+export interface WishFulfillmentSubmitResult {
+  id: number
+  wishId: number
+  status: WishStatus
+  fruitType: FruitType
+  badgeAwarded: { id: number; name: string }[]
+  starlightReward: number
+  createdAt: string
+}
+
+export interface WishFulfillmentDetail {
+  id: number
+  wishId: number
+  story: string
+  mediaUrls: string[]
+  feeling: string | null
+  authorId: number
+  authorNickname: string
+  authorAvatar: string | null
+  createdAt: string
+}
+
+export interface SubmitFulfillmentPayload {
+  story: string
+  mediaUrls?: string[]
+  feeling?: string
+}
+
+// ---- 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐）----
+
+export type TreeEnvironment = 'SUNNY' | 'RAIN' | 'RAINBOW'
+
+export type TreeSeason = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'
+
+export interface WorldTreeAggregation {
+  totalFruits: number
+  totalBloom: number
+  totalLight: number
+  environment: TreeEnvironment
+  season: TreeSeason
+  environmentUpdatedAt: string | null
+}
+
+export interface TreeFruitPosition {
+  /** 经度角 [0,2π) 弧度 */
+  theta: number
+  /** 纬度角 (0,π] 弧度（0=北极 π=南极） */
+  phi: number
+}
+
+export interface TreeFruit {
+  id: number
+  title: string
+  fruitType: FruitType
+  authorNickname: string
+  lightCount: number
+  position: TreeFruitPosition
+}
+
+export interface TreeFruitsQuery {
+  cursor?: string
+  /** 视口过滤（弧度制）：lat→phi [0,π]、lng→theta [0,2π)，四参数需同时提供 */
+  minLat?: number
+  maxLat?: number
+  minLng?: number
+  maxLng?: number
+  pageSize?: number
 }

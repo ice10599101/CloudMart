@@ -7,18 +7,21 @@ import type { MyWishInteraction } from '@/types'
 import styles from './index.module.scss'
 
 /**
- * 心愿互动按钮组（Sprint 1.2）。
+ * 心愿互动按钮组（Sprint 1.2；匿名星光 Sprint 2.6）。
  *
  * 规则：点亮可重复（每次扣 2 星光）；同求每愿望唯一（已同求呼吸灯高亮，可取消）；
- * 祝福每愿望每日 1 次（今日已祝福禁用）；未登录点击引导登录。
+ * 祝福每愿望每日 1 次（今日已祝福禁用）；匿名星光每愿望 1 次、每日 3 次（扣 5 星光，
+ * 身份对作者保密）；未登录点击引导登录。
  */
 
 const BLESS_CONTENT_MAX = 200
+const ANON_STAR_COST = 5
 
 export interface WishInteractionCounts {
   lightCount: number
   sameWishCount: number
   blessCount: number
+  anonStarCount: number
 }
 
 interface WishInteractionBarProps {
@@ -74,6 +77,10 @@ export default function WishInteractionBar({
     () => myInteractions.find((i) => i.type === 'SAME_WISH') ?? null,
     [myInteractions],
   )
+  const myAnonStar = useMemo(
+    () => myInteractions.find((i) => i.type === 'ANON_STAR') ?? null,
+    [myInteractions],
+  )
   const blessedToday = useMemo(
     () => myInteractions.some((i) => i.type === 'BLESS' && i.createdToday),
     [myInteractions],
@@ -122,6 +129,26 @@ export default function WishInteractionBar({
       onCountsChange({ sameWishCount: res.data.data.sameWishCount })
       refreshMyInteractions()
       Taro.showToast({ title: '已加入共同愿望 🤝', icon: 'none' })
+    } else {
+      toastBusinessError(res.data)
+    }
+  }
+
+  /** 匿名星光：二次确认后送出（扣 5 星光，身份对作者保密） */
+  const handleAnonStar = async () => {
+    const confirmed = await Taro.showModal({
+      title: '匿名送出星光？',
+      content: `将消耗 ${ANON_STAR_COST} 星光，TA 只会看到「神秘星人」送来的光`,
+      confirmText: `送出 ${ANON_STAR_COST} 星光`,
+      cancelText: '再想想',
+    })
+    if (!confirmed.confirm) return
+
+    const res = await wishApi.createInteraction(wishId, { type: 'ANON_STAR' })
+    if (res.data.success) {
+      onCountsChange({ anonStarCount: res.data.data.anonStarCount })
+      refreshMyInteractions()
+      Taro.showToast({ title: 'TA 眼中你是一颗神秘星辰 💫', icon: 'none' })
     } else {
       toastBusinessError(res.data)
     }
@@ -207,6 +234,16 @@ export default function WishInteractionBar({
           <Text className={styles.btnIcon}>{blessedToday ? '⭐' : '🌟'}</Text>
           <Text className={blessedToday ? styles.btnTextDisabled : styles.btnText}>
             {blessedToday ? '已祝福' : '祝福'} {counts.blessCount}
+          </Text>
+        </View>
+
+        <View
+          className={`${styles.interactBtn} ${myAnonStar ? styles.interactDisabled : ''}`}
+          onClick={() => !myAnonStar && requireLoginOr(handleAnonStar)}
+        >
+          <Text className={styles.btnIcon}>{myAnonStar ? '💫' : '🌠'}</Text>
+          <Text className={myAnonStar ? styles.btnTextDisabled : styles.btnText}>
+            {myAnonStar ? '已送星光' : '匿名星光'} {counts.anonStarCount}
           </Text>
         </View>
       </View>

@@ -1,0 +1,236 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 20%, #1a2a4a 0%, #1a1a2e 55%, #101024 100%);
+  overflow: hidden;
+}
+
+/* ===== 顶部信息栏 ===== */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.backBtn {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.titleIcon {
+  font-size: 26px;
+  color: #9370db;
+  text-shadow: 0 0 12px rgba(147, 112, 219, 0.6);
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 2px;
+}
+
+.envTags {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.tag {
+  margin-inline-end: 0;
+  border-radius: 10px;
+}
+
+.stats {
+  margin-left: auto;
+  display: flex;
+  gap: 20px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+
+.statItem strong {
+  color: #00d4ff;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* ===== 3D 画布 ===== */
+.canvasWrap {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px 24px;
+  box-sizing: border-box;
+  min-height: 520px;
+}
+
+.canvas {
+  width: 100%;
+  height: calc(100vh - 130px);
+  min-height: 480px;
+  display: block;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(ellipse at 50% 40%, rgba(15, 52, 96, 0.35) 0%, transparent 70%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.loadingMask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: rgba(16, 16, 36, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.viewportIndicator {
+  position: absolute;
+  top: 16px;
+  right: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(22, 33, 62, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== 图例与提示 ===== */
+.legend {
+  position: absolute;
+  bottom: 44px;
+  left: 40px;
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(22, 33, 62, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hint {
+  position: absolute;
+  bottom: 44px;
+  right: 40px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(22, 33, 62, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  backdrop-filter: blur(4px);
+}
+
+/* ===== 选中果实信息卡 ===== */
+.fruitCard {
+  position: absolute;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100% - 48px));
+  border-radius: 16px;
+  background: rgba(22, 33, 62, 0.92);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  box-shadow: 0 8px 40px rgba(0, 212, 255, 0.15);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+.fruitCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.fruitAuthor {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.fruitLight {
+  color: #ffd700;
+}
+
+.viewBtn {
+  margin-top: 4px;
+}
+
+/* ===== 小屏适配 ===== */
+@media (max-width: 768px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .stats {
+    margin-left: 0;
+    gap: 12px;
+    width: 100%;
+    font-size: 13px;
+  }
+
+  .canvasWrap {
+    padding: 0 12px 12px;
+  }
+
+  .canvas {
+    height: calc(100vh - 170px);
+  }
+
+  .legend {
+    left: 24px;
+    bottom: 32px;
+    gap: 10px;
+    padding: 6px 12px;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .fruitCard {
+    bottom: 28px;
+  }
+}

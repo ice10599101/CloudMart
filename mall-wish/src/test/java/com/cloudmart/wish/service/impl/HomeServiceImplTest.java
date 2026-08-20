@@ -10,6 +10,8 @@ import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
+import com.cloudmart.wish.service.WorldTreeService;
+import com.cloudmart.wish.vo.WorldTreeVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,6 +53,8 @@ class HomeServiceImplTest {
     private RedisTemplate<String, Object> redisTemplate;
     @Mock
     private ZSetOperations<String, Object> zSetOperations;
+    @Mock
+    private WorldTreeService worldTreeService;
 
     @InjectMocks
     private HomeServiceImpl homeService;
@@ -59,7 +63,8 @@ class HomeServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        homeService = new HomeServiceImpl(wishMapper, wishProgressMapper, userFeignClient, redisTemplate);
+        homeService = new HomeServiceImpl(wishMapper, wishProgressMapper, userFeignClient,
+                redisTemplate, worldTreeService);
     }
 
     @Nested
@@ -87,6 +92,12 @@ class HomeServiceImplTest {
             // 模拟我的心愿
             when(wishProgressMapper.selectBatchIds(any())).thenReturn(List.of(buildProgress(1L)));
 
+            // 模拟世界树聚合（Sprint 2.1 首页接线）
+            WorldTreeVO worldTree = new WorldTreeVO(100, 20, 500,
+                    com.cloudmart.wish.enums.TreeEnvironment.SUNNY,
+                    com.cloudmart.wish.enums.TreeSeason.SUMMER, null);
+            when(worldTreeService.getTreeAggregation()).thenReturn(worldTree);
+
             var result = homeService.getHomeAggregation(USER_ID);
 
             assertThat(result.todayRecommend()).hasSize(1);
@@ -96,7 +107,24 @@ class HomeServiceImplTest {
             assertThat(result.entries().wishEntry()).isTrue();
             assertThat(result.entries().mapEntry()).isFalse();
             assertThat(result.entries().aiAssistantEntry()).isFalse();
+            assertThat(result.worldTree()).isEqualTo(worldTree);
+            assertThat(result.worldTree().totalFruits()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("世界树聚合查询异常：Fail-Open 返回 null，不阻塞首页主内容")
+        void getHomeAggregation_worldTreeFailure_failsOpen() {
+            when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+            when(zSetOperations.reverseRangeWithScores(anyString(), anyLong(), anyLong()))
+                    .thenReturn(Collections.emptySet());
+            when(wishMapper.selectList(any())).thenReturn(Collections.emptyList());
+            when(worldTreeService.getTreeAggregation())
+                    .thenThrow(new RuntimeException("redis down"));
+
+            var result = homeService.getHomeAggregation(USER_ID);
+
             assertThat(result.worldTree()).isNull();
+            assertThat(result.todayRecommend()).isEmpty();
         }
 
         @Test

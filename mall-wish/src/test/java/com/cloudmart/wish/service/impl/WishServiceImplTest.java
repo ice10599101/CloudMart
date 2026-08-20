@@ -149,6 +149,61 @@ class WishServiceImplTest {
         }
 
         @Test
+        @DisplayName("创建 PUBLIC 心愿：insert 后固化球面坐标（上树）")
+        void createWish_public_assignsTreePosition() {
+            WishCategory category = buildCategory();
+            when(wishCategoryMapper.selectById(CATEGORY_ID)).thenReturn(category);
+            when(wishMapper.insert(any(Wish.class))).thenAnswer(invocation -> {
+                Wish wish = invocation.getArgument(0);
+                wish.setId(WISH_ID);
+                wish.setCreatedAt(LocalDateTime.now());
+                return 1;
+            });
+
+            CreateWishRequest request = new CreateWishRequest(
+                    "考研上岸", "我要考上研究生", List.of("url1"),
+                    CATEGORY_ID, List.of("学习"),
+                    WishVisibility.PUBLIC,
+                    LocalDateTime.now().plusMonths(6), false, false
+            );
+
+            wishService.createWish(USER_ID, request);
+
+            // 坐标固化：insert 后追加一次 updateById，theta/phi 非空且在球面值域
+            verify(wishMapper).updateById(org.mockito.ArgumentMatchers.<Wish>argThat(w ->
+                    w.getTreeTheta() != null && w.getTreePhi() != null
+                            && w.getTreeTheta().doubleValue() >= 0
+                            && w.getTreeTheta().doubleValue() < 2 * Math.PI
+                            && w.getTreePhi().doubleValue() > 0
+                            && w.getTreePhi().doubleValue() <= Math.PI
+            ));
+        }
+
+        @Test
+        @DisplayName("创建 TREE_HOLE 心愿：不上树不固化坐标")
+        void createWish_treeHole_skipsTreePosition() {
+            WishCategory category = buildCategory();
+            when(wishCategoryMapper.selectById(CATEGORY_ID)).thenReturn(category);
+            when(wishMapper.insert(any(Wish.class))).thenAnswer(invocation -> {
+                Wish wish = invocation.getArgument(0);
+                wish.setId(WISH_ID);
+                wish.setCreatedAt(LocalDateTime.now());
+                return 1;
+            });
+
+            CreateWishRequest request = new CreateWishRequest(
+                    "树洞秘密", "说出来会好受些", null,
+                    CATEGORY_ID, null,
+                    WishVisibility.TREE_HOLE,
+                    null, false, false
+            );
+
+            wishService.createWish(USER_ID, request);
+
+            verify(wishMapper, never()).updateById(any(Wish.class));
+        }
+
+        @Test
         @DisplayName("分类不存在时抛出 WISH_CATEGORY_INVALID")
         void createWish_categoryNotFound_throwsException() {
             when(wishCategoryMapper.selectById(CATEGORY_ID)).thenReturn(null);
@@ -252,6 +307,53 @@ class WishServiceImplTest {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_CATEGORY_INVALID);
                     });
+        }
+
+        @Test
+        @DisplayName("PRIVATE 转 PUBLIC：转公开时固化球面坐标（随同次 updateById 落库）")
+        void updateWish_privateToPublic_assignsTreePosition() {
+            Wish wish = buildWish();
+            wish.setUserId(USER_ID);
+            wish.setVisibility(WishVisibility.PRIVATE);
+            wish.setTreeTheta(null);
+            wish.setTreePhi(null);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+
+            UpdateWishRequest request = new UpdateWishRequest(
+                    null, null, null, null, null, WishVisibility.PUBLIC, null, null
+            );
+
+            wishService.updateWish(USER_ID, WISH_ID, request);
+
+            verify(wishMapper).updateById(org.mockito.ArgumentMatchers.<Wish>argThat(w ->
+                    w.getVisibility() == WishVisibility.PUBLIC
+                            && w.getTreeTheta() != null && w.getTreePhi() != null
+            ));
+        }
+
+        @Test
+        @DisplayName("已有坐标的 PUBLIC 心愿再更新：坐标不重算（一经写入不变更）")
+        void updateWish_publicWithExistingPosition_keepsPosition() {
+            Wish wish = buildWish();
+            wish.setUserId(USER_ID);
+            java.math.BigDecimal originalTheta = java.math.BigDecimal.valueOf(3.1415926);
+            java.math.BigDecimal originalPhi = java.math.BigDecimal.valueOf(1.5707963);
+            wish.setTreeTheta(originalTheta);
+            wish.setTreePhi(originalPhi);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+
+            UpdateWishRequest request = new UpdateWishRequest(
+                    "新标题", null, null, null, null, null, null, null
+            );
+
+            wishService.updateWish(USER_ID, WISH_ID, request);
+
+            verify(wishMapper).updateById(org.mockito.ArgumentMatchers.<Wish>argThat(w ->
+                    originalTheta.compareTo(w.getTreeTheta()) == 0
+                            && originalPhi.compareTo(w.getTreePhi()) == 0
+            ));
         }
     }
 

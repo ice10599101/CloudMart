@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
  *   <li>限频（Redis）在方法入口、DB 操作之前执行——事务内不持有 DB 锁时做网络调用</li>
  *   <li>同求唯一三道防线：Redis SETNX 占位（快速拒绝）→ DB 存在性校验 →
  *       {@code uk_interaction_unique} 函数唯一索引（最终正确性保障）</li>
+ *   <li>匿名星光（Sprint 2.6）每日限 3 次（用户维度），同一心愿仅 1 次
+ *       （uk_interaction_unique，非 LIGHT 未删除唯一）；扣 5 星光不发放作者；
+ *       互动列表脱敏为"神秘星人"，不暴露帮助者身份（文档安全要求）</li>
  *   <li>星光扣减/发放与互动落库同事务（文档 6.4：流水与余额同事务）</li>
  *   <li>作者星光日上限按"含软删"的总互动数判定——取消互动不退已发星光，
  *       若按未删除计数会出现"取消→重新互动"重复发薪漏洞</li>
@@ -60,6 +63,10 @@ public class InteractionServiceImpl implements InteractionService {
 
     /** 点亮单次消耗星光（文档 6.2） */
     static final int LIGHT_COST = 2;
+    /** 匿名星光单次消耗星光（文档 6.2，Sprint 2.6） */
+    static final int ANON_STAR_COST = 5;
+    /** 匿名星光互动列表展示昵称（文档安全要求：不暴露帮助者身份） */
+    static final String ANON_STAR_NICKNAME = "神秘星人";
     /** 作者被点亮单次获得（文档 6.1） */
     static final int EARN_PER_LIGHT = 1;
     /** 作者被同求单次获得（文档 6.1） */
@@ -86,11 +93,6 @@ public class InteractionServiceImpl implements InteractionService {
         InteractionType type = request.type();
 
         // ---- 前置校验（无 DB 写、无锁持有）----
-        if (type == InteractionType.ANON_STAR) {
-            throw new BusinessException(WishErrorCodes.WISH_INTERACTION_TYPE_INVALID,
-                    "匿名星光将在后续版本开放");
-        }
-
         Wish wish = requireInteractableWish(wishId, userId);
         ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(userId));
 
@@ -139,15 +141,16 @@ public class InteractionServiceImpl implements InteractionService {
                                                     InteractionType type, String blessContent) {
         Long wishId = wish.getId();
 
-        // 同求 DB 存在性校验（Redis Fail-Open 时的兜底；最终兜底为唯一索引）
-        if (type == InteractionType.SAME_WISH) {
+        // 同求/匿名星光 DB 存在性校验（Redis Fail-Open 时的兜底；最终兜底为唯一索引）
+        if (type == InteractionType.SAME_WISH || type == InteractionType.ANON_STAR) {
             Long existing = wishInteractionMapper.selectCount(
                     new LambdaQueryWrapper<WishInteraction>()
                             .eq(WishInteraction::getWishId, wishId)
                             .eq(WishInteraction::getUserId, userId)
                             .eq(WishInteraction::getType, type));
             if (existing != null && existing > 0) {
-                throw new BusinessException(WishErrorCodes.WISH_ALREADY_INTERACTED, "已同求过该心愿");
+                throw new BusinessException(WishErrorCodes.WISH_ALREADY_INTERACTED,
+                        type == InteractionType.SAME_WISH ? "已同求过该心愿" : "已匿名星光过该心愿");
             }
         }
 
@@ -157,7 +160,11 @@ public class InteractionServiceImpl implements InteractionService {
         interaction.setUserId(userId);
         interaction.setType(type);
         interaction.setContent(blessContent);
-        interaction.setStarlightCost(type == InteractionType.LIGHT ? LIGHT_COST : 0);
+        interaction.setStarlightCost(switch (type) {
+            case LIGHT -> LIGHT_COST;
+            case ANON_STAR -> ANON_STAR_COST;
+            default -> 0;
+        });
         wishInteractionMapper.insert(interaction);
 
         // ---- 星光结算（同事务，文档 6.4）----
@@ -169,6 +176,11 @@ public class InteractionServiceImpl implements InteractionService {
         } else if (type == InteractionType.SAME_WISH) {
             earnForAuthor(wish, InteractionType.SAME_WISH, EARN_PER_SAME_WISH,
                     DAILY_EARN_SAME_WISH_CAP, ResourceLogSource.SAME_WISHED, interaction.getId());
+        } else if (type == InteractionType.ANON_STAR) {
+            // 匿名星光扣 5（文档 6.2）；作者不获得星光（文档 6.1 未定义）；
+            // 计入累计帮助他人（文档 6.5：点亮+匿名星光）
+            userStatService.spendStarlight(userId, ANON_STAR_COST, ResourceLogSource.ANON_STAR, interaction.getId());
+            publishHelpedAfterCommit(userId);
         }
         // BLESS 无星光变化
 
@@ -184,6 +196,7 @@ public class InteractionServiceImpl implements InteractionService {
                 latest != null ? latest.getLightCount() : null,
                 latest != null ? latest.getSameWishCount() : null,
                 latest != null ? latest.getBlessCount() : null,
+                latest != null ? latest.getAnonStarCount() : null,
                 interaction.getStarlightCost()
         );
     }
@@ -333,7 +346,7 @@ public class InteractionServiceImpl implements InteractionService {
             case LIGHT -> "light_count";
             case SAME_WISH -> "same_wish_count";
             case BLESS -> "bless_count";
-            case ANON_STAR -> throw new IllegalArgumentException("ANON_STAR 未启用");
+            case ANON_STAR -> "anon_star_count";
         };
         String sql = column + " = GREATEST(" + column + " + (" + delta + "), 0)";
         wishMapper.update(null, new LambdaUpdateWrapper<Wish>()
@@ -361,11 +374,18 @@ public class InteractionServiceImpl implements InteractionService {
         if (interactions.isEmpty()) {
             return Collections.emptyList();
         }
+        // 匿名星光不查询/不返回真实用户信息（文档安全要求：不暴露帮助者身份）
         Set<Long> userIds = interactions.stream()
+                .filter(i -> i.getType() != InteractionType.ANON_STAR)
                 .map(WishInteraction::getUserId).collect(Collectors.toSet());
         Map<Long, UserInfo> userMap = fetchUserInfo(userIds);
         return interactions.stream()
                 .map(i -> {
+                    if (i.getType() == InteractionType.ANON_STAR) {
+                        return new InteractionItemVO(
+                                i.getId(), null, ANON_STAR_NICKNAME, null,
+                                i.getType(), i.getContent(), i.getCreatedAt());
+                    }
                     UserInfo info = userMap.getOrDefault(i.getUserId(), UserInfo.placeholder(i.getUserId()));
                     return new InteractionItemVO(
                             i.getId(), i.getUserId(), info.nickname(), info.avatar(),
@@ -375,6 +395,9 @@ public class InteractionServiceImpl implements InteractionService {
     }
 
     private Map<Long, UserInfo> fetchUserInfo(Set<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
         try {
             var response = userFeignClient.batchGetUsers(new ArrayList<>(userIds));
             if (response.success() && response.data() != null) {

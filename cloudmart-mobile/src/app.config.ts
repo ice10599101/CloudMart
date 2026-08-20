@@ -36,9 +36,11 @@ export default defineAppConfig({
     'pages/wishSquare/index',
     'pages/wishCreate/index',
     'pages/wishDetail/index',
+    'pages/wishFulfillment/index',
     'pages/myWishes/index',
     'pages/badgeWall/index',
     'pages/treeHole/index',
+    'pages/worldTree/index',
   ],
   tabBar: {
     color: '#86909C',

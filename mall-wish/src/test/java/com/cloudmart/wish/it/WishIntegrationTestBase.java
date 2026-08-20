@@ -74,7 +74,7 @@ public abstract class WishIntegrationTestBase {
             "wish", "wish_progress", "wish_interaction", "wish_growth_record",
             "wish_checkin", "wish_user_stat", "wish_resource_log",
             "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
-            "wish_ai_conversation", "wish_world_tree_state");
+            "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;

@@ -17,6 +17,12 @@ import type {
   ConsentType,
   BadgeWallItem,
   BadgeDefinition,
+  WishFulfillmentSubmitResult,
+  WishFulfillmentDetail,
+  SubmitFulfillmentPayload,
+  WorldTreeAggregation,
+  TreeFruit,
+  TreeFruitsQuery,
 } from '@/types'
 
 function buildQuery(params?: Record<string, unknown>): string {
@@ -138,4 +144,21 @@ export const wishApi = {
   // ---- 徽章（Sprint 1.9）----
   getMyBadges: () => request<BadgeWallItem[]>({ url: '/wish/my/badges' }),
   getBadgeDefinitions: () => request<BadgeDefinition[]>({ url: '/wish/badges/definitions' }),
+
+  // ---- 还愿（Sprint 1.10）----
+  submitFulfillment: (wishId: number, data: SubmitFulfillmentPayload) =>
+    request<WishFulfillmentSubmitResult>({
+      url: `/wish/wishes/${wishId}/fulfillment`,
+      method: 'POST',
+      data: data as unknown as Record<string, unknown>,
+    }),
+  getFulfillmentDetail: (wishId: number) =>
+    request<WishFulfillmentDetail>({ url: `/wish/wishes/${wishId}/fulfillment` }),
+
+  // ---- 世界树（Sprint 2.1）----
+  /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */
+  getWorldTree: () => request<WorldTreeAggregation>({ url: '/wish/tree' }),
+  /** 果实分页（公开；id DESC 游标 + bounds 视口过滤，异常 bounds 整组忽略退化全量） */
+  listTreeFruits: (params: TreeFruitsQuery) =>
+    request<TreeFruit[]>({ url: `/wish/tree/fruits${buildQuery(params as Record<string, unknown>)}` }),
 }

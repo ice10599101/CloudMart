@@ -5,14 +5,17 @@
   position: relative;
 }
 
+// 四个互动按钮（点亮/同求/祝福/匿名星光）：2x2 网格（Sprint 2.6 起 4 按钮，
+// 单行等分过窄导致文案换行，改为每行两个）
 .buttonsRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
 }
 
 .interactBtn {
   position: relative;
-  flex: 1;
+  flex: 1 1 calc(50% - 8rpx);
   display: flex;
   flex-direction: column;
   align-items: center;

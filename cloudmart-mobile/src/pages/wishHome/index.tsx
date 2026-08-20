@@ -107,6 +107,10 @@ export default function WishHomePage() {
             <Text className={styles.entryIcon} style={{ color: '#00d4ff' }}>★</Text>
             <Text className={styles.entryText}>心愿广场</Text>
           </View>
+          <View className={styles.entryCard} onClick={() => navigateTo('/pages/worldTree/index')}>
+            <Text className={styles.entryIcon} style={{ color: '#3ddc97' }}>🌳</Text>
+            <Text className={styles.entryText}>世界树</Text>
+          </View>
           <View className={styles.entryCard} onClick={() => navigateTo('/pages/myWishes/index')}>
             <Text className={styles.entryIcon} style={{ color: '#ff6b6b' }}>♥</Text>
             <Text className={styles.entryText}>我的心愿</Text>

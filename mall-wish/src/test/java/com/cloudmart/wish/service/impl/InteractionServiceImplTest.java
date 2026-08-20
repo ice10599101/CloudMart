@@ -121,15 +121,6 @@ class InteractionServiceImplTest {
     class CreatePreconditionTests {
 
         @Test
-        @DisplayName("ANON_STAR 未开放：返回 400 WISH_INTERACTION_TYPE_INVALID")
-        void anonStar_notEnabled() {
-            assertThatThrownBy(() -> interactionService.createInteraction(
-                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null)))
-                    .isInstanceOfSatisfying(BusinessException.class, ex ->
-                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_INTERACTION_TYPE_INVALID));
-        }
-
-        @Test
         @DisplayName("心愿不存在：返回 404 WISH_NOT_FOUND")
         void wishNotFound() {
             when(wishMapper.selectById(WISH_ID)).thenReturn(null);
@@ -335,6 +326,129 @@ class InteractionServiceImplTest {
         }
     }
 
+    @Nested
+    @DisplayName("createInteraction - 匿名星光（Sprint 2.6）")
+    class CreateAnonStarTests {
+
+        @Test
+        @DisplayName("匿名星光成功：扣 5 星光、作者不获得星光、发送 helped 事件、返回计数")
+        void anonStar_success() {
+            Wish latest = buildPublicWish();
+            latest.setAnonStarCount(7);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildPublicWish(), latest);
+
+            var result = interactionService.createInteraction(
+                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null));
+
+            assertThat(result.type()).isEqualTo(InteractionType.ANON_STAR);
+            assertThat(result.starlightCost()).isEqualTo(5);
+            assertThat(result.anonStarCount()).isEqualTo(7);
+            verify(userStatService).spendStarlight(USER_ID, 5, ResourceLogSource.ANON_STAR, INTERACTION_ID);
+            // 匿名星光作者不获得星光（文档 6.1 未定义发放规则）
+            verify(userStatService, never()).earnStarlight(anyLong(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+            verify(statEventProducer).publishHelpedEvent(USER_ID);
+        }
+
+        @Test
+        @DisplayName("已匿名星光过该心愿（DB 存在性校验）：返回 409")
+        void anonStar_dbExists() {
+            when(wishInteractionMapper.selectCount(any())).thenReturn(1L);
+
+            assertThatThrownBy(() -> interactionService.createInteraction(
+                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null)))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_ALREADY_INTERACTED));
+            verify(wishInteractionMapper, never()).insert(any(WishInteraction.class));
+        }
+
+        @Test
+        @DisplayName("匿名星光日限频达上限（第 4 次）：返回 429 且不落库")
+        void anonStar_rateLimited() {
+            when(rateLimiter.checkUserDailyLimit(eq(USER_ID), eq(InteractionType.ANON_STAR), any()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> interactionService.createInteraction(
+                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null)))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_RATE_LIMITED));
+            verify(wishInteractionMapper, never()).insert(any(WishInteraction.class));
+            verify(userStatService, never()).spendStarlight(anyLong(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+        }
+
+        @Test
+        @DisplayName("匿名星光入库记录：type=ANON_STAR、cost=5、无内容")
+        void anonStar_persistedRecord() {
+            interactionService.createInteraction(
+                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null));
+
+            ArgumentCaptor<WishInteraction> captor = ArgumentCaptor.forClass(WishInteraction.class);
+            verify(wishInteractionMapper).insert(captor.capture());
+            assertThat(captor.getValue().getType()).isEqualTo(InteractionType.ANON_STAR);
+            assertThat(captor.getValue().getStarlightCost()).isEqualTo(5);
+            assertThat(captor.getValue().getContent()).isNull();
+        }
+
+        @Test
+        @DisplayName("匿名星光者余额不足：402 异常传播（事务回滚）")
+        void anonStar_insufficientStarlight() {
+            doThrow(new BusinessException(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT, "星光余额不足"))
+                    .when(userStatService).spendStarlight(anyLong(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+
+            assertThatThrownBy(() -> interactionService.createInteraction(
+                    USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.ANON_STAR, null)))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT));
+        }
+    }
+
+    @Nested
+    @DisplayName("listInteractions - 匿名星光脱敏")
+    class AnonStarAnonymityTests {
+
+        @Test
+        @DisplayName("匿名星光记录：昵称显示神秘星人、userId/avatar 置空、不查询真实用户信息")
+        void list_anonStar_anonymized() {
+            WishInteraction anonStar = buildInteraction(InteractionType.ANON_STAR, USER_ID);
+            anonStar.setId(30L);
+            when(wishInteractionMapper.selectList(any())).thenReturn(List.of(anonStar));
+
+            var page = interactionService.listInteractions(
+                    WISH_ID, USER_ID, new InteractionListQuery(null, null, 10));
+
+            assertThat(page.records()).hasSize(1);
+            var item = page.records().get(0);
+            assertThat(item.userId()).isNull();
+            assertThat(item.nickname()).isEqualTo("神秘星人");
+            assertThat(item.avatar()).isNull();
+            // 匿名星光不查询用户信息（不暴露帮助者身份）
+            verify(userFeignClient, never()).batchGetUsers(any());
+        }
+
+        @Test
+        @DisplayName("匿名星光与普通互动混合：仅匿名项脱敏，普通项正常展示")
+        void list_mixed_anonAndNormal() {
+            WishInteraction anonStar = buildInteraction(InteractionType.ANON_STAR, 3001L);
+            anonStar.setId(30L);
+            WishInteraction light = buildInteraction(InteractionType.LIGHT, USER_ID);
+            light.setId(20L);
+            when(wishInteractionMapper.selectList(any())).thenReturn(List.of(anonStar, light));
+
+            var page = interactionService.listInteractions(
+                    WISH_ID, USER_ID, new InteractionListQuery(null, null, 10));
+
+            assertThat(page.records()).hasSize(2);
+            var anonItem = page.records().get(0);
+            var lightItem = page.records().get(1);
+            assertThat(anonItem.nickname()).isEqualTo("神秘星人");
+            assertThat(anonItem.userId()).isNull();
+            assertThat(lightItem.userId()).isEqualTo(USER_ID);
+            // Feign 批量查询仅包含非匿名用户
+            ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
+            verify(userFeignClient).batchGetUsers(captor.capture());
+            assertThat(captor.getValue()).containsExactly(USER_ID);
+        }
+    }
+
     // ========== revokeInteraction ==========
 
     @Nested
@@ -388,6 +502,22 @@ class InteractionServiceImplTest {
             interactionService.revokeInteraction(USER_ID, WISH_ID, INTERACTION_ID);
 
             verify(rateLimiter).releaseSameWishUnique(USER_ID, WISH_ID);
+        }
+
+        @Test
+        @DisplayName("取消匿名星光：计数-1、不退 5 星光、不释放同求占位")
+        void revoke_anonStar_noRefund() {
+            WishInteraction anonStar = buildInteraction(InteractionType.ANON_STAR, USER_ID);
+            anonStar.setStarlightCost(5);
+            when(wishInteractionMapper.selectById(INTERACTION_ID)).thenReturn(anonStar);
+
+            var result = interactionService.revokeInteraction(USER_ID, WISH_ID, INTERACTION_ID);
+
+            assertThat(result.revoked()).isTrue();
+            verify(wishInteractionMapper).deleteById(INTERACTION_ID);
+            verify(userStatService, never()).earnStarlight(anyLong(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+            verify(userStatService, never()).spendStarlight(anyLong(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+            verify(rateLimiter, never()).releaseSameWishUnique(anyLong(), anyLong());
         }
     }
 

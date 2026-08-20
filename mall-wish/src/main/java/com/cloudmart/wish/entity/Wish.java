@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -53,6 +54,19 @@ public class Wish {
 
     private String geohash;
 
+    /**
+     * 世界树球面经度角 [0,2π) 弧度（Sprint 2.1，V9 新增）。
+     * PUBLIC 心愿创建/转公开时由 TreePositionCalculator 固化，
+     * 坐标一经写入不变更（果实位置稳定不跳动）；PRIVATE/TREE_HOLE 不赋值。
+     */
+    private BigDecimal treeTheta;
+
+    /**
+     * 世界树球面纬度角 (0,π] 弧度（Sprint 2.1，V9 新增）。
+     * 0=北极 π=南极，与 treeTheta 共同定位果实；ACOS 反余弦分布保证球面均匀。
+     */
+    private BigDecimal treePhi;
+
     private String mediaUrls;
 
     private String tags;
@@ -62,6 +76,9 @@ public class Wish {
     private Integer lightCount;
 
     private Integer blessCount;
+
+    /** 匿名星光累计数（Sprint 2.6，V8 新增；取消匿名星光 -1，与 light_count 口径一致） */
+    private Integer anonStarCount;
 
     /**
      * 生成列（light_count + same_wish_count + bless_count GENERATED ALWAYS STORED），

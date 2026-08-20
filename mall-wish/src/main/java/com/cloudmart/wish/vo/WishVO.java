@@ -32,6 +32,7 @@ public record WishVO(
         @Schema(description = "点亮数") Integer lightCount,
         @Schema(description = "同求数") Integer sameWishCount,
         @Schema(description = "祝福数") Integer blessCount,
+        @Schema(description = "匿名星光数") Integer anonStarCount,
         @Schema(description = "总互动数") Integer supportCount,
         @Schema(description = "评论数") Integer commentCount,
         @Schema(description = "预计完成时间") LocalDateTime expectedAt,

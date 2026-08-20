@@ -120,6 +120,15 @@ public class WishServiceImpl implements WishService {
 
         wishMapper.insert(wish);
 
+        // PUBLIC 心愿上树：固化球面坐标（Sprint 2.1，文档 2.5——坐标一经
+        // 写入不变更，果实位置稳定不跳动；insert 后 id 已回填方可计算）
+        if (visibility == WishVisibility.PUBLIC) {
+            TreePositionCalculator.TreePosition position = TreePositionCalculator.assign(wish.getId());
+            wish.setTreeTheta(position.theta());
+            wish.setTreePhi(position.phi());
+            wishMapper.updateById(wish);
+        }
+
         // 初始化进度记录（1:1 with wish）
         WishProgress progress = new WishProgress();
         progress.setWishId(wish.getId());
@@ -172,6 +181,15 @@ public class WishServiceImpl implements WishService {
             wish.setTags(WishJsonUtils.stringifyList(request.tags()));
         }
         if (request.visibility() != null) {
+            // 转公开时固化球面坐标（Sprint 2.1：PRIVATE→PUBLIC 上树；
+            // 坐标为空才赋值——一经写入不变更，PUBLIC→PRIVATE→PUBLIC 位置不跳动）
+            if (request.visibility() == WishVisibility.PUBLIC
+                    && wish.getVisibility() != WishVisibility.PUBLIC
+                    && wish.getTreeTheta() == null) {
+                TreePositionCalculator.TreePosition position = TreePositionCalculator.assign(wish.getId());
+                wish.setTreeTheta(position.theta());
+                wish.setTreePhi(position.phi());
+            }
             wish.setVisibility(request.visibility());
         }
         if (request.expectedAt() != null) {
@@ -257,6 +275,7 @@ public class WishServiceImpl implements WishService {
                 wish.getLightCount(),
                 wish.getSameWishCount(),
                 wish.getBlessCount(),
+                wish.getAnonStarCount(),
                 wish.getSupportCount(),
                 0, // commentCount: Sprint 1.2 接入 mall-community Feign
                 wish.getExpectedAt(),

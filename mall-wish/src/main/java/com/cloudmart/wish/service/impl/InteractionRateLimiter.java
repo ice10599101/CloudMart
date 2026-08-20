@@ -25,9 +25,10 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>限频矩阵：</p>
  * <ul>
- *   <li>用户维度：LIGHT 50/日、SAME_WISH 10/日、BLESS 20/日（总量）</li>
+ *   <li>用户维度：LIGHT 50/日、SAME_WISH 10/日、BLESS 20/日（总量）、ANON_STAR 3/日（Sprint 2.6）</li>
  *   <li>心愿维度：被点亮 200/日</li>
- *   <li>用户-心愿维度：BLESS 每愿望 1/日；SAME_WISH 永久唯一（SETNX）</li>
+ *   <li>用户-心愿维度：BLESS 每愿望 1/日；SAME_WISH 永久唯一（SETNX）；
+ *       ANON_STAR 每愿望 1 次（uk_interaction_unique 兜底，无需占位）</li>
  * </ul>
  */
 @Component
@@ -41,6 +42,8 @@ public class InteractionRateLimiter {
     static final int LIMIT_USER_SAME_WISH_DAILY = 10;
     /** 用户维度：祝福总量 20 次/日 */
     static final int LIMIT_USER_BLESS_DAILY = 20;
+    /** 用户维度：匿名星光 3 次/日（文档 4.1，Sprint 2.6 启用） */
+    static final int LIMIT_USER_ANON_STAR_DAILY = 3;
     /** 心愿维度：被点亮 200 次/日 */
     static final int LIMIT_WISH_LIGHT_DAILY = 200;
     /** 用户-心愿维度：每愿望祝福 1 次/日 */
@@ -60,7 +63,7 @@ public class InteractionRateLimiter {
      * 用户维度限频检查（当日按用户时区计算）。
      *
      * @param userId      用户 ID
-     * @param type        互动类型（LIGHT/SAME_WISH/BLESS）
+     * @param type        互动类型（LIGHT/SAME_WISH/BLESS/ANON_STAR）
      * @param userZone    用户时区
      * @return true=放行；false=已达上限（应由调用方返回 429）
      */
@@ -69,7 +72,7 @@ public class InteractionRateLimiter {
             case LIGHT -> LIMIT_USER_LIGHT_DAILY;
             case SAME_WISH -> LIMIT_USER_SAME_WISH_DAILY;
             case BLESS -> LIMIT_USER_BLESS_DAILY;
-            case ANON_STAR -> 3; // Sprint 2.6 启用，预留
+            case ANON_STAR -> LIMIT_USER_ANON_STAR_DAILY;
         };
         String key = KEY_PREFIX + KEY_USER_DIMENSION + userId + ":" + type.name().toLowerCase();
         return incrementAndCheck(key, limit, userZone);

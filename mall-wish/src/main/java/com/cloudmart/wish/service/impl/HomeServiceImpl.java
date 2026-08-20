@@ -9,6 +9,7 @@ import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
 import com.cloudmart.wish.service.HomeService;
+import com.cloudmart.wish.service.WorldTreeService;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.HomeAggregationVO;
 import com.cloudmart.wish.vo.HomeEntriesVO;
@@ -62,6 +63,7 @@ public class HomeServiceImpl implements HomeService {
     private final WishProgressMapper wishProgressMapper;
     private final UserFeignClient userFeignClient;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final WorldTreeService worldTreeService;
 
     @Override
     public HomeAggregationVO getHomeAggregation(Long userId) {
@@ -77,12 +79,25 @@ public class HomeServiceImpl implements HomeService {
         HomeEntriesVO entries = new HomeEntriesVO(true, false, false);
 
         return new HomeAggregationVO(
-                null, // worldTree: Sprint 2.1 上线
+                getWorldTreeSafely(), // worldTree: Sprint 2.1 上线（聚合走 Redis 缓存 TTL 5min）
                 todayRecommend,
                 myWishes,
                 hotResonance,
                 entries
         );
+    }
+
+    /**
+     * 世界树聚合（Sprint 2.1）：Fail-Open——世界树仅为首页辅助区块，
+     * 查询异常时返回 null 降级（不阻塞首页主内容渲染）。
+     */
+    private com.cloudmart.wish.vo.WorldTreeVO getWorldTreeSafely() {
+        try {
+            return worldTreeService.getTreeAggregation();
+        } catch (Exception ex) {
+            log.warn("首页世界树聚合查询失败（Fail-Open 返回 null）: {}", ex.getMessage());
+            return null;
+        }
     }
 
     /**

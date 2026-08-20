@@ -1,6 +1,9 @@
 package com.cloudmart.wish.service;
 
+import com.cloudmart.wish.entity.WishBadge;
 import com.cloudmart.wish.enums.ResourceLogSource;
+
+import java.util.List;
 
 /**
  * 用户心愿统计服务接口。
@@ -47,6 +50,17 @@ public interface UserStatService {
      * @param userId 用户 ID
      */
     void decrementOnWishDeleted(Long userId);
+
+    /**
+     * 还愿提交时：totalFulfilled + 1（历史事实，驳回也不回退，文档 6.5），
+     * activeWishes - 1（FULFILLED 不再属于"进行中"，文档 6.5 字段用途说明；
+     * 更新时机文档仅记载创建/软删两点，此处按字段语义补充还愿 -1），
+     * 同事务判定徽章（FIRST_FULFILL 等）。
+     *
+     * @param userId 用户 ID
+     * @return 本次新获得的徽章列表（未新获得为空列表）
+     */
+    List<WishBadge> incrementOnFulfilled(Long userId);
 
     /**
      * 原子扣减星光（文档 6.2 消耗）。

@@ -29,6 +29,8 @@ public final class WishErrorCodes {
     // --- 404 Not Found ---
     public static final String WISH_NOT_FOUND = "WISH_NOT_FOUND";
     public static final String WISH_CATEGORY_NOT_FOUND = "WISH_CATEGORY_NOT_FOUND";
+    /** 还愿记录不存在（心愿未还愿或已撤回还愿故事） */
+    public static final String WISH_FULFILLMENT_NOT_FOUND = "WISH_FULFILLMENT_NOT_FOUND";
 
     // --- 409 Conflict ---
     public static final String WISH_STATUS_CONFLICT = "WISH_STATUS_CONFLICT";

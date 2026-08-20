@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
+import com.cloudmart.wish.entity.WishBadge;
 import com.cloudmart.wish.entity.WishResourceLog;
 import com.cloudmart.wish.entity.WishUserStat;
 import com.cloudmart.wish.enums.ResourceLogSource;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户心愿统计服务实现。
@@ -99,6 +101,23 @@ public class UserStatServiceImpl implements UserStatService {
         } else {
             log.debug("心愿软删统计-1, userId={}", userId);
         }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public List<WishBadge> incrementOnFulfilled(Long userId) {
+        initUserStat(userId); // 确保记录存在
+
+        wishUserStatMapper.update(null,
+                new LambdaUpdateWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .setSql("total_fulfilled = total_fulfilled + 1")
+                        .setSql("active_wishes = GREATEST(active_wishes - 1, 0)")
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+        );
+        log.debug("还愿统计更新, userId={}", userId);
+        // 同事务判定徽章（FIRST_FULFILL 等），回滚时授予一并撤销
+        return badgeService.evaluateAndAward(userId);
     }
 
     @Override

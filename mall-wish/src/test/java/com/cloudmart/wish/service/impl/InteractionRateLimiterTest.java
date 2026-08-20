@@ -103,6 +103,16 @@ class InteractionRateLimiterTest {
         }
 
         @Test
+        @DisplayName("匿名星光第 3 次放行、第 4 次拒绝（Sprint 2.6）")
+        void anonStar_boundary() {
+            when(valueOperations.increment(anyString())).thenReturn(3L);
+            assertThat(rateLimiter.checkUserDailyLimit(USER_ID, InteractionType.ANON_STAR, USER_ZONE)).isTrue();
+
+            when(valueOperations.increment(anyString())).thenReturn(4L);
+            assertThat(rateLimiter.checkUserDailyLimit(USER_ID, InteractionType.ANON_STAR, USER_ZONE)).isFalse();
+        }
+
+        @Test
         @DisplayName("首次计数（count=1）设置 TTL 至用户时区当日 23:59:59（跨日重置机制）")
         void firstIncrement_setsExpireAtEndOfDay() {
             when(valueOperations.increment(anyString())).thenReturn(1L);

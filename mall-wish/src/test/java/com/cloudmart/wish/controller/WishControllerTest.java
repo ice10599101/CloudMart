@@ -2,9 +2,13 @@ package com.cloudmart.wish.controller;
 
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.wish.dto.CreateWishRequest;
+import com.cloudmart.wish.dto.SubmitFulfillmentRequest;
 import com.cloudmart.wish.dto.UpdateWishRequest;
 import com.cloudmart.wish.enums.WishVisibility;
+import com.cloudmart.wish.service.FulfillmentService;
 import com.cloudmart.wish.service.WishService;
+import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
+import com.cloudmart.wish.vo.WishFulfillmentVO;
 import com.cloudmart.wish.vo.WishCreateResultVO;
 import com.cloudmart.wish.vo.WishDeleteResultVO;
 import com.cloudmart.wish.vo.WishListItemVO;
@@ -38,12 +42,13 @@ class WishControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final WishService wishService = Mockito.mock(WishService.class);
+    private final FulfillmentService fulfillmentService = Mockito.mock(FulfillmentService.class);
 
     private static final String USER_ID_HEADER = "X-User-Id";
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new WishController(wishService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new WishController(wishService, fulfillmentService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -143,7 +148,7 @@ class WishControllerTest {
                 com.cloudmart.wish.enums.WishStatus.ACTIVE,
                 com.cloudmart.wish.enums.FruitType.GLOW,
                 1L, "作者", "avatar.png",
-                0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0,
                 null, null, LocalDateTime.now(), LocalDateTime.now(),
                 List.of(), 0, null
         );
@@ -210,5 +215,72 @@ class WishControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("POST /wishes/{id}/fulfillment - 提交还愿成功")
+    void submitFulfillment_success() throws Exception {
+        SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
+                "终于上岸了！", List.of("oss://key1.png"), "感恩一切");
+        WishFulfillmentSubmitVO vo = new WishFulfillmentSubmitVO(
+                3001L, 1L,
+                com.cloudmart.wish.enums.WishStatus.FULFILLED,
+                com.cloudmart.wish.enums.FruitType.BLOOM,
+                List.of(), 50, LocalDateTime.now()
+        );
+        given(fulfillmentService.submitFulfillment(eq(1L), eq(1L), any(SubmitFulfillmentRequest.class)))
+                .willReturn(vo);
+
+        mockMvc.perform(post("/wishes/1/fulfillment")
+                        .header(USER_ID_HEADER, 1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(3001))
+                .andExpect(jsonPath("$.data.status").value("FULFILLED"))
+                .andExpect(jsonPath("$.data.fruitType").value("BLOOM"))
+                .andExpect(jsonPath("$.data.starlightReward").value(50));
+    }
+
+    @Test
+    @DisplayName("POST /wishes/{id}/fulfillment - 缺少 X-User-Id 头返回 401")
+    void submitFulfillment_withoutUserId_returns401() throws Exception {
+        SubmitFulfillmentRequest request = new SubmitFulfillmentRequest("故事", null, null);
+
+        mockMvc.perform(post("/wishes/1/fulfillment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /wishes/{id}/fulfillment - 故事为空返回校验失败 400")
+    void submitFulfillment_blankStory_returns400() throws Exception {
+        SubmitFulfillmentRequest request = new SubmitFulfillmentRequest("", null, null);
+
+        mockMvc.perform(post("/wishes/1/fulfillment")
+                        .header(USER_ID_HEADER, 1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /wishes/{id}/fulfillment - 匿名查看公开心愿还愿详情")
+    void getFulfillmentDetail_anonymous_success() throws Exception {
+        WishFulfillmentVO vo = new WishFulfillmentVO(
+                3001L, 1L, "终于上岸了！", List.of("oss://key1.png"), "感恩一切",
+                1L, "小星", "avatar.png", LocalDateTime.now()
+        );
+        given(fulfillmentService.getFulfillmentDetail(eq(1L), any())).willReturn(vo);
+
+        mockMvc.perform(get("/wishes/1/fulfillment"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(3001))
+                .andExpect(jsonPath("$.data.story").value("终于上岸了！"))
+                .andExpect(jsonPath("$.data.authorNickname").value("小星"));
     }
 }

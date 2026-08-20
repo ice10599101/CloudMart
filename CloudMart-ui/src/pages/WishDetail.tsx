@@ -8,10 +8,11 @@ import {
   CalendarOutlined,
   ArrowLeftOutlined,
   MoonOutlined,
+  GiftOutlined,
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
-import { getWishDetail, deleteWish } from '@/api/wish'
-import type { WishDetail } from '@/api/wish'
+import { getWishDetail, deleteWish, getFulfillmentDetail } from '@/api/wish'
+import type { WishDetail, WishFulfillmentDetail } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
@@ -53,6 +54,7 @@ export default function WishDetail() {
   const wishId = Number(params.id)
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+  const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
@@ -62,6 +64,17 @@ export default function WishDetail() {
         const res = await getWishDetail(wishId)
         if (res.data.success) {
           setWish(res.data.data)
+          // 已还愿心愿加载还愿故事（公开匿名可见；PRIVATE/TREE_HOLE 仅作者）
+          if (res.data.data.status === 'FULFILLED') {
+            try {
+              const fulfillmentRes = await getFulfillmentDetail(wishId)
+              if (fulfillmentRes.data.success) {
+                setFulfillment(fulfillmentRes.data.data)
+              }
+            } catch {
+              // 未还愿/已撤回/无权限时静默不展示
+            }
+          }
         }
       } catch {
         // 错误已由 request 拦截器处理
@@ -130,6 +143,16 @@ export default function WishDetail() {
         </Button>
         {isAuthor && (
           <div className={styles.actionBtns}>
+            {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+              <Button
+                type="primary"
+                icon={<GiftOutlined />}
+                onClick={() => history.push(`/wish/${wishId}/fulfillment`)}
+                className={styles.fulfillBtn}
+              >
+                我要还愿
+              </Button>
+            )}
             <Popconfirm
               title="确定删除这个心愿吗？"
               description="删除后不可恢复"
@@ -211,6 +234,39 @@ export default function WishDetail() {
           </div>
         </Card>
 
+        {/* 还愿故事（Sprint 1.10：已还愿心愿展示，公开心愿匿名可见） */}
+        {fulfillment && (
+          <Card className={styles.fulfillmentCard} title="🌸 还愿故事">
+            <div className={styles.fulfillmentHeader}>
+              <div className={styles.author}>
+                <Avatar
+                  size={32}
+                  src={fulfillment.authorAvatar || undefined}
+                  icon={<StarOutlined />}
+                />
+                <span className={styles.authorName}>{fulfillment.authorNickname}</span>
+              </div>
+              <span className={styles.date}>
+                还愿于 {new Date(fulfillment.createdAt).toLocaleString('zh-CN')}
+              </span>
+            </div>
+            <div className={styles.fulfillmentStory}>{fulfillment.story}</div>
+            {fulfillment.mediaUrls && fulfillment.mediaUrls.length > 0 && (
+              <div className={styles.fulfillmentMedia}>
+                {fulfillment.mediaUrls.map((url) => (
+                  <img key={url} src={url} alt="fulfillment" className={styles.fulfillmentImage} />
+                ))}
+              </div>
+            )}
+            {fulfillment.feeling && (
+              <div className={styles.fulfillmentFeeling}>
+                <span className={styles.feelingLabel}>💬 感悟</span>
+                <span className={styles.feelingText}>{fulfillment.feeling}</span>
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* 树洞入口（Sprint 1.3：作者本人 + 树洞心愿 + 已启用 AI 回复） */}
         {isAuthor && wish.visibility === 'TREE_HOLE' && wish.enableAiReply && (
           <Card className={styles.interactionCard}>
@@ -234,6 +290,7 @@ export default function WishDetail() {
               lightCount: wish.lightCount,
               sameWishCount: wish.sameWishCount,
               blessCount: wish.blessCount,
+              anonStarCount: wish.anonStarCount,
             }}
             isLoggedIn={Boolean(user)}
             onCountsChange={handleCountsChange}

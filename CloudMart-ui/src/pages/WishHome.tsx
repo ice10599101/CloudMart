@@ -6,6 +6,7 @@ import {
   PlusOutlined,
   RightOutlined,
   HeartOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -106,7 +107,7 @@ export default function WishHome() {
       {/* 入口导航 */}
       <div className={styles.entryNav}>
         <Row gutter={[16, 16]}>
-          <Col span={8}>
+          <Col xs={12} md={6}>
             <Card
               hoverable
               className={styles.entryCard}
@@ -116,7 +117,17 @@ export default function WishHome() {
               <div className={styles.entryText}>心愿广场</div>
             </Card>
           </Col>
-          <Col span={8}>
+          <Col xs={12} md={6}>
+            <Card
+              hoverable
+              className={styles.entryCard}
+              onClick={() => history.push('/wish/tree')}
+            >
+              <NodeIndexOutlined className={styles.entryIcon} style={{ color: '#9370DB' }} />
+              <div className={styles.entryText}>世界生命树</div>
+            </Card>
+          </Col>
+          <Col xs={12} md={6}>
             <Card
               hoverable
               className={styles.entryCard}
@@ -126,7 +137,7 @@ export default function WishHome() {
               <div className={styles.entryText}>我的心愿</div>
             </Card>
           </Col>
-          <Col span={8}>
+          <Col xs={12} md={6}>
             <Card
               hoverable
               className={styles.entryCard}

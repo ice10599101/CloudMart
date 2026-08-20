@@ -8,7 +8,7 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
 import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
-import type { WishDetail, FruitType } from '@/types'
+import type { WishDetail, FruitType, WishFulfillmentDetail } from '@/types'
 import styles from './index.module.scss'
 
 const FRUIT_LABELS: Record<FruitType, string> = {
@@ -49,6 +49,7 @@ export default function WishDetailPage() {
   const { user, isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+  const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
   const commentRef = useRef<WishCommentSectionHandle>(null)
 
   /** 页面 ScrollView 触底 → 加载更多评论（组件内含 hasMore/loadingMore 防抖） */
@@ -79,6 +80,17 @@ export default function WishDetailPage() {
         const res = await wishApi.getWishDetail(wishId)
         if (res.data.success) {
           setWish(res.data.data)
+          // 已还愿心愿加载还愿故事（公开匿名可见；PRIVATE/TREE_HOLE 仅作者）
+          if (res.data.data.status === 'FULFILLED') {
+            try {
+              const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
+              if (fulfillmentRes.data.success) {
+                setFulfillment(fulfillmentRes.data.data)
+              }
+            } catch {
+              // 未还愿/已撤回/无权限时静默不展示
+            }
+          }
         }
       } catch {
         // 错误已由 request 处理
@@ -209,6 +221,40 @@ export default function WishDetailPage() {
           </View>
         </View>
 
+        {/* 还愿故事（Sprint 1.10：已还愿心愿展示，公开心愿匿名可见） */}
+        {fulfillment && (
+          <View className={styles.fulfillmentCard}>
+            <Text className={styles.cardTitle}>🌸 还愿故事</Text>
+            <View className={styles.fulfillmentAuthorRow}>
+              {fulfillment.authorAvatar ? (
+                <Image className={styles.avatar} src={fulfillment.authorAvatar} mode='aspectFill' />
+              ) : (
+                <View className={styles.avatarPlaceholder}>
+                  <Text style={{ fontSize: '24rpx', color: '#ff6b6b' }}>★</Text>
+                </View>
+              )}
+              <Text className={styles.authorName}>{fulfillment.authorNickname}</Text>
+              <Text className={styles.fulfillmentDate}>
+                {new Date(fulfillment.createdAt).toLocaleString('zh-CN')}
+              </Text>
+            </View>
+            <Text className={styles.fulfillmentStory}>{fulfillment.story}</Text>
+            {fulfillment.mediaUrls && fulfillment.mediaUrls.length > 0 && (
+              <View className={styles.fulfillmentMedia}>
+                {fulfillment.mediaUrls.map(url => (
+                  <Image key={url} className={styles.fulfillmentImage} src={url} mode='aspectFill' />
+                ))}
+              </View>
+            )}
+            {fulfillment.feeling && (
+              <View className={styles.fulfillmentFeeling}>
+                <Text className={styles.fulfillmentFeelingLabel}>💬 感悟</Text>
+                <Text className={styles.fulfillmentFeelingText}>{fulfillment.feeling}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* 树洞入口（Sprint 1.3：作者本人 + 树洞心愿 + 已启用 AI 回复） */}
         {isAuthor && wish.visibility === 'TREE_HOLE' && wish.enableAiReply && (
           <View
@@ -221,7 +267,7 @@ export default function WishDetailPage() {
           </View>
         )}
 
-        {/* 互动按钮组（点亮/同求/祝福，Sprint 1.2） */}
+        {/* 互动按钮组（点亮/同求/祝福/匿名星光，Sprint 1.2 + 2.6） */}
         <View className={styles.interactionCard}>
           <WishInteractionBar
             wishId={wishId}
@@ -229,6 +275,7 @@ export default function WishDetailPage() {
               lightCount: wish.lightCount,
               sameWishCount: wish.sameWishCount,
               blessCount: wish.blessCount,
+              anonStarCount: wish.anonStarCount,
             }}
             isLoggedIn={isLoggedIn}
             onCountsChange={handleCountsChange}
@@ -309,6 +356,14 @@ export default function WishDetailPage() {
       {/* 底部操作栏 */}
       {isAuthor && (
         <View className={styles.bottomBar}>
+          {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+            <View
+              className={styles.fulfillBtn}
+              onClick={() => Taro.navigateTo({ url: `/pages/wishFulfillment/index?id=${wishId}` })}
+            >
+              <Text className={styles.fulfillBtnText}>🌸 我要还愿</Text>
+            </View>
+          )}
           <View className={styles.deleteBtn} onClick={handleDelete}>
             <Text className={styles.deleteBtnText}>删除心愿</Text>
           </View>

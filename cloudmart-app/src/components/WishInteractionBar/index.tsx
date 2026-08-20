@@ -6,16 +6,18 @@ import { WishColors } from '@/constants/wish-theme'
 import type { ApiResponse, MyWishInteraction } from '@/types'
 
 /**
- * 心愿互动按钮组（Sprint 1.2）。
+ * 心愿互动按钮组（Sprint 1.2；匿名星光 Sprint 2.6）。
  *
  * 规则：点亮可重复（每次扣 2 星光）；同求每愿望唯一（已同求高亮，可取消）；
- * 祝福每愿望每日 1 次（今日已祝福禁用）；未登录点击引导登录。
+ * 祝福每愿望每日 1 次（今日已祝福禁用）；匿名星光每愿望 1 次、每日 3 次（扣 5 星光，
+ * 身份对作者保密）；未登录点击引导登录。
  *
  * 触感反馈：React Native 内置 Vibration（expo-haptics 因 registry 不可达暂未引入，
  * 网络恢复后可替换为 Haptics.impactAsync 获得 Taptic Engine 分级反馈）。
  */
 
 const BLESS_CONTENT_MAX = 200
+const ANON_STAR_COST = 5
 /** 轻触反馈时长（ms），iOS/Android 通用 */
 const HAPTIC_DURATION_MS = 15
 
@@ -23,6 +25,7 @@ export interface WishInteractionCounts {
   lightCount: number
   sameWishCount: number
   blessCount: number
+  anonStarCount: number
 }
 
 interface WishInteractionBarProps {
@@ -90,6 +93,10 @@ export default function WishInteractionBar({
     () => myInteractions.find((i) => i.type === 'SAME_WISH') ?? null,
     [myInteractions],
   )
+  const myAnonStar = useMemo(
+    () => myInteractions.find((i) => i.type === 'ANON_STAR') ?? null,
+    [myInteractions],
+  )
   const blessedToday = useMemo(
     () => myInteractions.some((i) => i.type === 'BLESS' && i.createdToday),
     [myInteractions],
@@ -144,6 +151,36 @@ export default function WishInteractionBar({
     }
   }
 
+  /** 匿名星光：二次确认后送出（扣 5 星光，身份对作者保密） */
+  const handleAnonStar = () => {
+    Alert.alert(
+      '匿名送出星光？',
+      `将消耗 ${ANON_STAR_COST} 星光，TA 只会看到「神秘星人」送来的光`,
+      [
+        { text: '再想想', style: 'cancel' },
+        {
+          text: `送出 ${ANON_STAR_COST} 星光`,
+          onPress: async () => {
+            hapticLight()
+            try {
+              const res = await wishApi.createInteraction(wishId, { type: 'ANON_STAR' })
+              if (res.data?.success) {
+                onCountsChange({ anonStarCount: res.data.data.anonStarCount })
+                refreshMyInteractions()
+                Alert.alert('已匿名送出星光 💫', 'TA 眼中你是一颗神秘星辰')
+              } else if (res.data) {
+                alertBusinessError(res.data)
+                if (res.data.error?.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
+              }
+            } catch {
+              Alert.alert('错误', '操作失败，请稍后重试')
+            }
+          },
+        },
+      ],
+    )
+  }
+
   const handleRevokeSameWish = () => {
     if (!mySameWish) return
     Alert.alert('取消同求？', '取消后可重新同求，已消耗星光不退还', [
@@ -194,8 +231,11 @@ export default function WishInteractionBar({
     }
   }
 
+  // 四个互动按钮（点亮/同求/祝福/匿名星光）：2x2 网格（Sprint 2.6 起 4 按钮，
+  // 单行等分过窄导致文案换行，改为每行两个）
   const btnBaseStyle = {
-    flex: 1,
+    flexBasis: '48%' as const,
+    flexGrow: 0,
     alignItems: 'center' as const,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
@@ -217,7 +257,7 @@ export default function WishInteractionBar({
 
   return (
     <View>
-      <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
         <TouchableOpacity
           style={btnBaseStyle}
           activeOpacity={0.7}
@@ -270,6 +310,23 @@ export default function WishInteractionBar({
           <Text style={btnIconStyle}>{blessedToday ? '⭐' : '🌟'}</Text>
           <Text style={btnTextStyle}>
             {blessedToday ? '已祝福' : '祝福'} {counts.blessCount}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[btnBaseStyle, myAnonStar && { opacity: 0.45 }]}
+          activeOpacity={0.7}
+          disabled={Boolean(myAnonStar)}
+          onPress={() => requireLoginOr(handleAnonStar)}
+          accessibilityLabel={
+            myAnonStar
+              ? `已送匿名星光，累计匿名星光 ${counts.anonStarCount} 次`
+              : `匿名送出星光（消耗 ${ANON_STAR_COST} 星光），累计匿名星光 ${counts.anonStarCount} 次`
+          }
+        >
+          <Text style={btnIconStyle}>{myAnonStar ? '💫' : '🌠'}</Text>
+          <Text style={btnTextStyle}>
+            {myAnonStar ? '已送星光' : '匿名星光'} {counts.anonStarCount}
           </Text>
         </TouchableOpacity>
       </View>

@@ -1,363 +1,88 @@
+==============================================================
+Sprint 2.1 世界生命树 3D 版（后端 + 前端四端）测试结果
+执行日期：2026-08-21（集成测试用户本机执行 + 缺陷修复）
+==============================================================
 
-D:\Ide\IdeaProjects\CloudMart>mvn -pl mall-wish test "-Dtest=WishCrudIntegrationTest,InteractionCommentIntegrationTest,TreeHoleIntegrationTest,TreeEnvIntegrationTest,BadgeIntegrationTest"
-[INFO] Scanning for projects...
-[INFO]
-[INFO] -------------------------< com.ice:mall-wish >--------------------------
-[INFO] Building mall-wish 1.0-SNAPSHOT
-[INFO]   from pom.xml
-[INFO] --------------------------------[ jar ]---------------------------------
-[WARNING] The POM for com.ice:mall-common:jar:1.0-SNAPSHOT is invalid, transitive dependencies (if any) will not be available: 1 problem was encountered while building the effective model for com.ice:mall-common:1.0-SNAPSHOT
-[ERROR] 'dependencies.dependency.version' for org.apache.skywalking:apm-toolkit-trace:jar is missing. @
+一、测试范围与基线
+--------------------------------------------------------------
+- 基线（Sprint 2.6 后）：单元 275 全 PASS；集成 59 全 PASS（用户本机）
+- 本批新增（后端）：
+  · TreePositionCalculatorTest            6（黄金比例散列坐标）
+  · TreeBoundsParserTest                  9（视口解析含环绕窗口）
+  · TreeSeasonTest                        5（UTC 季节判定）
+  · WorldTreeServiceImplTest             18（聚合缓存/分页过滤）
+  · WishServiceImplTest                    4（坐标固化接线）
+  · HomeServiceImplTest                    1（首页 worldTree 接线）
+  · TreeIntegrationTest                   13（集成）
+- 本批新增（前端）：四端世界树 3D 页面（typecheck 验证口径）
+- 当前总量：单元 318 / 集成 72
 
-[WARNING] 1 problem was encountered while building the effective model for org.javassist:javassist:jar:3.21.0-GA during dependency collection step for project (use -X to see details)
-[INFO]
-[INFO] --- jacoco:0.8.14:prepare-agent (default) @ mall-wish ---
-[INFO] argLine set to -javaagent:E:\\ice\\develop\\apache-maven-3.9.15\\mvn-repo\\org\\jacoco\\org.jacoco.agent\\0.8.14\\org.jacoco.agent-0.8.14-runtime.jar=destfile=D:\\Ide\\IdeaProjects\\CloudMart\\mall-wish\\target\\jacoco.exec
-[INFO]
-[INFO] --- resources:3.5.0:resources (default-resources) @ mall-wish ---
-[INFO] Copying 6 resources from src\main\resources to target\classes
-[INFO]
-[INFO] --- compiler:3.15.0:compile (default-compile) @ mall-wish ---
-[INFO] Nothing to compile - all classes are up to date.
-[INFO]
-[INFO] --- resources:3.5.0:testResources (default-testResources) @ mall-wish ---
-[INFO] Copying 1 resource from src\test\resources to target\test-classes
-[INFO]
-[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ mall-wish ---
-[INFO] Nothing to compile - all classes are up to date.
-[INFO]
-[INFO] --- surefire:3.5.4:test (default-test) @ mall-wish ---
-[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
-[INFO]
-[INFO] -------------------------------------------------------
-[INFO]  T E S T S
-[INFO] -------------------------------------------------------
-[INFO] Running 徽章系统链路集成测试
-04:27:10.825 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest]: BadgeIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.056 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest
-04:27:11.230 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest]: BadgeIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.232 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.233 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest
-[INFO] Running 触发链路与幂等
-04:27:11.297 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests]: TriggerTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.300 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests
-04:27:11.303 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests]: TriggerTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.303 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest]: BadgeIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.304 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-04:27:11.307 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests
+二、执行结果
+--------------------------------------------------------------
+1. 后端单元测试（TRAE 终端执行，含缺陷修复后回归）
+   - 命令：mvn -pl mall-wish test "-Dtest=!%regex[.*IntegrationTest.*]"
+   - 结果：PASS（exit 0）
+   - 318/318：Failures=0，Errors=0（基线 275 无回归 + 新增 43）
 
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
+2. 集成测试（用户本机执行，2026-08-21 02:52-02:57）
+   - 命令：mvn -pl mall-wish test "-Dtest=WishCrudIntegrationTest,
+     InteractionCommentIntegrationTest,TreeHoleIntegrationTest,
+     TreeEnvIntegrationTest,BadgeIntegrationTest,FulfillmentIntegrationTest,
+     OverdueScanIntegrationTest,AnonStarIntegrationTest,TreeIntegrationTest"
+   - 结果：72 例执行，71 PASS / 1 FAIL
+   - 失败用例：TreeIntegrationTest.aggregationCountsOnlyOnTreeWishes
+     expected: 3L but was: 4L
+   - 根因与修复：见第三节（代码缺陷，已修复，待用户重跑验证）
+   - V9 迁移已随本轮 Flyway 自动执行成功（无迁移报错）
 
- :: Spring Boot ::                (v4.0.6)
+3. 前端三端 typecheck（用户本机执行，2026-08-21）
+   - APP（cloudmart-app）：npx tsc --noEmit PASS（零新增依赖）
+   - WEB（CloudMart-ui）：npm install 后 npx tsc --noEmit PASS
+   - Mobile（cloudmart-mobile）：npm install 后 npx tsc --noEmit PASS
+   - three 依赖已安装（WEB three+@types/three / Mobile three）
 
-2026-08-20T04:27:12.074+08:00  INFO 18532 --- [mall-wish] [           main] .c.w.i.BadgeIntegrationTest$TriggerTests : Starting BadgeIntegrationTest.TriggerTests using Java 26.0.1 with PID 18532 (started by Administrator in D:\Ide\IdeaProjects\CloudMart\mall-wish)
-2026-08-20T04:27:12.076+08:00  INFO 18532 --- [mall-wish] [           main] .c.w.i.BadgeIntegrationTest$TriggerTests : The following 1 profile is active: "it"
-2026-08-20T04:27:13.539+08:00  INFO 18532 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
-2026-08-20T04:27:13.542+08:00  INFO 18532 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
-2026-08-20T04:27:13.587+08:00  INFO 18532 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 27 ms. Found 0 Redis repository interfaces.
-2026-08-20T04:27:13.902+08:00  INFO 18532 --- [mall-wish] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=3d763be7-3d45-33be-a703-e71799f28d1b
-Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-WARNING: A Java agent has been loaded dynamically (E:\ice\develop\apache-maven-3.9.15\mvn-repo\net\bytebuddy\byte-buddy-agent\1.17.8\byte-buddy-agent-1.17.8.jar)
-WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
-WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
-WARNING: Dynamic loading of agents will be disallowed by default in a future release
-INFO: Sentinel log output type is: file
-INFO: Sentinel log charset is: utf-8
-INFO: Sentinel log base directory is: target/sentinel-log\
-INFO: Sentinel log name use pid is: false
-INFO: Sentinel log level is: INFO
- _ _   |_  _ _|_. ___ _ |    _
-| | |\/|_)(_| | |_\  |_)||_|_\
-     /               |
-                        3.5.15
-2026-08-20T04:27:16.603+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Executing Flyway repair to clean failed migration records...
-2026-08-20T04:27:16.627+08:00  INFO 18532 --- [mall-wish] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-08-20T04:27:22.276+08:00  INFO 18532 --- [mall-wish] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@71accac1
-2026-08-20T04:27:22.281+08:00  INFO 18532 --- [mall-wish] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-08-20T04:27:22.451+08:00  INFO 18532 --- [mall-wish] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://129.204.152.168:8307/mall_wish_it?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
-2026-08-20T04:27:22.748+08:00  WARN 18532 --- [mall-wish] [           main] o.f.c.internal.database.base.Database    : Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
-2026-08-20T04:27:23.032+08:00  INFO 18532 --- [mall-wish] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table `mall_wish_it`.`flyway_schema_history` not necessary. No failed migration detected.
-2026-08-20T04:27:23.242+08:00  INFO 18532 --- [mall-wish] [           main] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table `mall_wish_it`.`flyway_schema_history` (execution time 00:00.474s).
-2026-08-20T04:27:23.463+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Flyway repair completed
-2026-08-20T04:27:23.463+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Starting Flyway migration...
-2026-08-20T04:27:23.867+08:00  WARN 18532 --- [mall-wish] [           main] o.f.c.internal.database.base.Database    : Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
-2026-08-20T04:27:24.308+08:00  INFO 18532 --- [mall-wish] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema `mall_wish_it`: 5
-2026-08-20T04:27:24.341+08:00  INFO 18532 --- [mall-wish] [           main] o.f.core.internal.command.DbMigrate      : Schema `mall_wish_it` is up to date. No migration necessary.
-2026-08-20T04:27:24.574+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Flyway migration completed
-2026-08-20T04:27:24.930+08:00  INFO 18532 --- [mall-wish] [           main] org.redisson.Version                     : Redisson 4.6.1
-2026-08-20T04:27:25.472+08:00  INFO 18532 --- [mall-wish] [isson-netty-1-4] o.redisson.connection.ConnectionsHolder  : 1 connections initialized for 129.204.152.168/129.204.152.168:8380
-2026-08-20T04:27:26.809+08:00  INFO 18532 --- [mall-wish] [sson-netty-1-19] o.redisson.connection.ConnectionsHolder  : 24 connections initialized for 129.204.152.168/129.204.152.168:8380
-2026-08-20T04:27:28.595+08:00  INFO 18532 --- [mall-wish] [           main] m.e.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.context.annotation.AnnotationConfigApplicationContext@22002459
-2026-08-20T04:27:28.890+08:00  WARN 18532 --- [mall-wish] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
-2026-08-20T04:27:29.222+08:00  INFO 18532 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
-2026-08-20T04:27:29.222+08:00  INFO 18532 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
-WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
-WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/E:/ice/develop/apache-maven-3.9.15/mvn-repo/com/alibaba/nacos/nacos-client/3.1.1/nacos-client-3.1.1.jar)
-WARNING: Please consider reporting this to the maintainers of class com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
-WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
-2026-08-20T04:27:30.307+08:00  INFO 18532 --- [mall-wish] [           main] c.a.c.s.d.converter.SentinelConverter    : converter can not convert rules because source is empty
-2026-08-20T04:27:30.316+08:00  INFO 18532 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
-2026-08-20T04:27:30.316+08:00  INFO 18532 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
-2026-08-20T04:27:30.737+08:00  INFO 18532 --- [mall-wish] [           main] c.a.c.s.d.converter.SentinelConverter    : converter can not convert rules because source is empty
-2026-08-20T04:27:30.753+08:00  INFO 18532 --- [mall-wish] [           main] .c.w.i.BadgeIntegrationTest$TriggerTests : Started BadgeIntegrationTest.TriggerTests in 19.242 seconds (process running for 21.528)
-2026-08-20T04:27:31.673+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:31.673+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173837768638465, userId=1001, visibility=PUBLIC
-2026-08-20T04:27:33.551+08:00  WARN 18532 --- [mall-wish] [           main] c.c.w.service.impl.UserStatServiceImpl   : 帮助统计+1失败（用户统计记录不存在）, userId=999999
-2026-08-20T04:27:35.532+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1003, badges=[HELP_100]
-2026-08-20T04:27:37.655+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1002, badges=[FIRST_WISH]
-2026-08-20T04:27:37.655+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173863139983361, userId=1002, visibility=PUBLIC
-2026-08-20T04:27:38.112+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173865698508801, userId=1002, visibility=PUBLIC
-[ERROR] Tests run: 4, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 28.37 s <<< FAILURE! -- in 触发链路与幂等
-[ERROR] com.cloudmart.wish.it.BadgeIntegrationTest.firstWish_autoAwarded -- Time elapsed: 2.647 s <<< FAILURE!
-org.opentest4j.AssertionFailedError:
+三、集成测试失败根因与修复（2026-08-21）
+--------------------------------------------------------------
+1. 现象
+   - TreeIntegrationTest.aggregationCountsOnlyOnTreeWishes：
+     聚合 totalFruits expected 3 but was 4
+   - 用例设计：3 条在树心愿 + 6 条口径外干扰数据（PRIVATE/
+     REJECTED/软删/无坐标/OVERDUE/is_visible=0 各 1）
+2. 根因（代码缺陷：聚合与列表口径不一致）
+   - listFruits（果实列表）有 .isNotNull(Wish::getTreeTheta)
+     —— 只返回「在树上」（已固化坐标）的果实
+   - queryCounts（聚合计数）缺少该条件 —— 无坐标的心愿
+     （PUBLIC/ACTIVE/APPROVED 但 tree_theta=NULL）被计入
+     totalFruits，导致多算 1
+   - 该用例即为缺陷检测锚点（theta=NULL 干扰数据 107 号漏网）
+3. 修复
+   - WorldTreeServiceImpl.queryCounts 补齐 .isNotNull("tree_theta")
+     （与 listFruits 同口径，注释说明「theta 固化即上树」）
+4. 修复后验证
+   - WorldTreeServiceImplTest 18/18 PASS
+   - 全量单元回归 318/318 PASS（exit 0）
+   - ⚠️ 待用户本机重跑 TreeIntegrationTest 确认 13/13 PASS：
+     mvn -pl mall-wish test "-Dtest=TreeIntegrationTest"
 
-expected: 1001L
- but was: 1001
-        at com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests.firstWish_autoAwarded(BadgeIntegrationTest.java:65)
+四、四端 3D 场景验证要点（后端启动后走查，待执行）
+--------------------------------------------------------------
+- WEB /wish/tree：拖拽旋转/自动旋转恢复/果实点击详情卡/
+  视口增量加载（旋转 >0.6rad 触发节流拉取）
+- Mobile H5：与 WEB 同源体验（three.js 视口回调）
+- Mobile 小程序：CSS 伪 3D 星图降级（固定视角正面半球投影，
+  上限 120 点）
+- APP /world-tree：PanResponder 拖拽旋转伪 3D 星图 +
+  下拉刷新 + Modal 详情
+- 视觉契约：季节树冠色（春 #7ef0c0/夏 #3ddc97/秋 #ffb347/
+  冬 #bfe8ff）、环境树心光色（晴 #ffd700/雨 #4facfe/
+  彩虹 #ff9ff3）、果实四色（微光/共鸣/绽放/星火）
 
-[ERROR] com.cloudmart.wish.it.BadgeIntegrationTest.helpedReachThreshold_awarded -- Time elapsed: 1.873 s <<< FAILURE!
-org.opentest4j.AssertionFailedError:
-
-expected: 2003L
- but was: 2003
-        at com.cloudmart.wish.it.BadgeIntegrationTest$TriggerTests.helpedReachThreshold_awarded(BadgeIntegrationTest.java:95)
-
-[INFO] Running 聚合查询
-2026-08-20T04:27:39.663+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest$QueryTests]: QueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:39.667+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest$QueryTests
-2026-08-20T04:27:39.668+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest$QueryTests]: QueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:39.668+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.BadgeIntegrationTest]: BadgeIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:39.669+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:39.670+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.BadgeIntegrationTest$QueryTests
-2026-08-20T04:27:40.312+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1004, badges=[FIRST_WISH]
-2026-08-20T04:27:40.312+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173874254888961, userId=1004, visibility=PUBLIC
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.740 s -- in 聚合查询
-[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 32.90 s -- in 徽章系统链路集成测试
-[INFO] Running 互动/评论链路集成测试
-2026-08-20T04:27:43.407+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest]: InteractionCommentIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.407+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest
-2026-08-20T04:27:43.408+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest]: InteractionCommentIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.409+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.410+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest
-[INFO] Running LIGHT 点亮
-2026-08-20T04:27:43.413+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest$LightInteraction]: LightInteraction does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.415+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest$LightInteraction
-2026-08-20T04:27:43.417+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest$LightInteraction]: LightInteraction does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.417+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest]: InteractionCommentIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.417+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:43.418+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest$LightInteraction
-2026-08-20T04:27:44.068+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:44.068+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173890117746689, userId=1001, visibility=PUBLIC
-2026-08-20T04:27:44.979+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.s.impl.InteractionServiceImpl      : 互动成功, wishId=2090173890117746689, userId=2002, type=LIGHT, interactionId=2090173893326389250
-2026-08-20T04:27:47.231+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:47.231+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173903203975170, userId=1001, visibility=PUBLIC
-2026-08-20T04:27:48.136+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.s.impl.InteractionServiceImpl      : 互动成功, wishId=2090173903203975170, userId=2002, type=LIGHT, interactionId=2090173906483920898
-2026-08-20T04:27:48.986+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.s.impl.InteractionServiceImpl      : 互动成功, wishId=2090173903203975170, userId=2002, type=LIGHT, interactionId=2090173910099410946
-2026-08-20T04:27:51.300+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:51.301+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173920333512706, userId=1001, visibility=PUBLIC
-[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.06 s -- in LIGHT 点亮
-[INFO] Running 评论
-2026-08-20T04:27:53.471+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest$Comments]: Comments does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:53.473+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest$Comments
-2026-08-20T04:27:53.475+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest$Comments]: Comments does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:53.475+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.InteractionCommentIntegrationTest]: InteractionCommentIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:53.475+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:27:53.478+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.InteractionCommentIntegrationTest$Comments
-2026-08-20T04:27:54.174+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:54.174+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173932387942401, userId=1001, visibility=PUBLIC
-2026-08-20T04:27:54.383+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.s.impl.WishCommentServiceImpl      : 评论命中敏感词已标记待审, wishId=2090173932387942401, userId=2002, commentId=2090173934988410882
-2026-08-20T04:27:56.645+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:56.646+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173942680764417, userId=1001, visibility=PUBLIC
-2026-08-20T04:27:57.080+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.s.impl.WishCommentServiceImpl      : 评论删除成功, wishId=2090173942680764417, userId=2002, commentId=2090173945318981634
-2026-08-20T04:27:59.368+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:27:59.368+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090173954219294722, userId=1001, visibility=PUBLIC
-[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.615 s -- in 评论
-[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 17.68 s -- in 互动/评论链路集成测试
-[INFO] Running 生命树情绪环境联动集成测试
-2026-08-20T04:28:01.092+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.094+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest
-2026-08-20T04:28:01.094+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.095+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.096+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest
-[INFO] Running 情绪聚合与环境触发
-2026-08-20T04:28:01.099+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests]: MoodScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.100+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests
-2026-08-20T04:28:01.101+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests]: MoodScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.101+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.101+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:01.102+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests
-2026-08-20T04:28:01.471+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=SUNNY, source=MOOD_RECOVER, mood=null, samples=0, blessBurst=false
-2026-08-20T04:28:03.553+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAIN, source=MOOD_RAIN, mood=-0.9, samples=1, blessBurst=false
-2026-08-20T04:28:05.985+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAINBOW, source=MOOD_RAINBOW, mood=0.8, samples=1, blessBurst=false
-2026-08-20T04:28:07.867+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAIN, source=MOOD_RAIN, mood=-0.7585768581518089, samples=2, blessBurst=false
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.303 s -- in 情绪聚合与环境触发
-[INFO] Running 并发互斥与查询
-2026-08-20T04:28:09.402+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests]: LockAndQueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:09.403+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests
-2026-08-20T04:28:09.405+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests]: LockAndQueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:09.405+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:09.405+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:09.406+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests
-2026-08-20T04:28:09.589+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描锁被占用（其他实例扫描中），跳过本次扫描
-2026-08-20T04:28:11.678+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAIN, source=MOOD_RAIN, mood=-0.75, samples=1, blessBurst=false
-[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.487 s -- in 并发互斥与查询
-[INFO] Running BLESS 突增与状态机流转
-2026-08-20T04:28:14.892+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests]: BlessBurstAndTransitionTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:14.893+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests
-2026-08-20T04:28:14.895+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests]: BlessBurstAndTransitionTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:14.895+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:14.896+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:14.897+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests
-2026-08-20T04:28:15.280+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAIN, source=MOOD_RAIN, mood=-0.9, samples=1, blessBurst=false
-2026-08-20T04:28:17.220+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=SUNNY, source=MOOD_RECOVER, mood=null, samples=0, blessBurst=false
-2026-08-20T04:28:19.256+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAIN, source=MOOD_RAIN, mood=null, samples=0, blessBurst=false
-2026-08-20T04:28:21.213+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 检测到 BLESS 祝福突增: current=6, previous=2, window=15min
-2026-08-20T04:28:21.350+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=RAINBOW, source=BLESS_BURST_RAINBOW, mood=-0.9, samples=1, blessBurst=true
-2026-08-20T04:28:23.134+08:00  INFO 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeEnvServiceImpl    : 生命树情绪扫描完成: environment=SUNNY, source=MOOD_RECOVER, mood=null, samples=0, blessBurst=false
-[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.815 s -- in BLESS 突增与状态机流转
-[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 23.62 s -- in 生命树情绪环境联动集成测试
-[INFO] Running 树洞 AI 链路集成测试
-2026-08-20T04:28:24.709+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.710+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest
-2026-08-20T04:28:24.711+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.712+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.713+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest
-[INFO] Running 合规前置
-2026-08-20T04:28:24.715+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$ConsentGate]: ConsentGate does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.716+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$ConsentGate
-2026-08-20T04:28:24.717+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$ConsentGate]: ConsentGate does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.717+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.717+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:24.718+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$ConsentGate
-2026-08-20T04:28:25.345+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:25.345+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174063212478466, userId=3001, visibility=TREE_HOLE
-2026-08-20T04:28:27.828+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:27.828+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174073735987202, userId=3001, visibility=TREE_HOLE
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.978 s -- in 合规前置
-[INFO] Running 访问控制
-2026-08-20T04:28:29.695+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$AccessControl]: AccessControl does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:29.696+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$AccessControl
-2026-08-20T04:28:29.697+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$AccessControl]: AccessControl does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:29.697+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:29.698+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:29.698+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$AccessControl
-2026-08-20T04:28:30.388+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:30.389+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174084209164290, userId=3001, visibility=TREE_HOLE
-2026-08-20T04:28:31.026+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174087535247361, userId=3001, visibility=PUBLIC
-2026-08-20T04:28:33.162+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:33.163+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174096041295874, userId=3001, visibility=TREE_HOLE
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.232 s -- in 访问控制
-[INFO] Running 正常链路与持久化
-2026-08-20T04:28:34.927+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$HappyPath]: HappyPath does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:34.929+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$HappyPath
-2026-08-20T04:28:34.930+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$HappyPath]: HappyPath does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:34.930+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:34.931+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:34.932+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$HappyPath
-2026-08-20T04:28:35.582+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:35.582+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174106116014082, userId=3001, visibility=TREE_HOLE
-2026-08-20T04:28:38.326+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:38.326+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174117583241217, userId=3001, visibility=TREE_HOLE
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.370 s -- in 正常链路与持久化
-[INFO] Running 危机与限频
-2026-08-20T04:28:40.299+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$CrisisAndRateLimit]: CrisisAndRateLimit does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:40.300+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$CrisisAndRateLimit
-2026-08-20T04:28:40.301+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest$CrisisAndRateLimit]: CrisisAndRateLimit does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:40.302+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeHoleIntegrationTest]: TreeHoleIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:40.302+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:40.302+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeHoleIntegrationTest$CrisisAndRateLimit
-2026-08-20T04:28:40.981+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:40.981+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174128823975937, userId=3001, visibility=TREE_HOLE
-2026-08-20T04:28:41.315+08:00  WARN 18532 --- [mall-wish] [           main] c.c.w.service.impl.TreeHoleServiceImpl   : 树洞消息命中危机词，本地拦截不外发, userId=3001, wishId=2090174128823975937
-2026-08-20T04:28:43.873+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=3001, badges=[FIRST_WISH]
-2026-08-20T04:28:43.873+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174140924542978, userId=3001, visibility=TREE_HOLE
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.482 s -- in 危机与限频
-[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 21.07 s -- in 树洞 AI 链路集成测试
-[INFO] Running 心愿核心链路集成测试
-2026-08-20T04:28:45.783+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest]: WishCrudIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.785+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest
-2026-08-20T04:28:45.786+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest]: WishCrudIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.786+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.787+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest
-[INFO] Running 创建心愿
-2026-08-20T04:28:45.789+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$CreateWish]: CreateWish does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.790+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$CreateWish
-2026-08-20T04:28:45.791+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$CreateWish]: CreateWish does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.791+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest]: WishCrudIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.792+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:45.792+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$CreateWish
-2026-08-20T04:28:46.405+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:46.405+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174151586463746, userId=1001, visibility=TREE_HOLE
-2026-08-20T04:28:49.126+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:49.126+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174160872652802, userId=1001, visibility=PUBLIC
-2026-08-20T04:28:51.510+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:51.510+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174172805447682, userId=1001, visibility=PUBLIC
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.817 s -- in 创建心愿
-[INFO] Running 详情与可见性
-2026-08-20T04:28:54.607+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$DetailVisibility]: DetailVisibility does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:54.609+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$DetailVisibility
-2026-08-20T04:28:54.610+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$DetailVisibility]: DetailVisibility does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:54.610+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest]: WishCrudIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:54.610+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:54.612+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$DetailVisibility
-2026-08-20T04:28:55.265+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:55.265+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174188664111105, userId=1001, visibility=TREE_HOLE
-2026-08-20T04:28:57.514+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:57.514+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174198248095745, userId=1001, visibility=TREE_HOLE
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.559 s -- in 详情与可见性
-[INFO] Running 更新与删除
-2026-08-20T04:28:59.169+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$UpdateAndDelete]: UpdateAndDelete does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:59.170+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$UpdateAndDelete
-2026-08-20T04:28:59.170+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest$UpdateAndDelete]: UpdateAndDelete does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:59.171+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishCrudIntegrationTest]: WishCrudIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:59.171+08:00  INFO 18532 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-08-20T04:28:59.171+08:00  INFO 18532 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.WishCrudIntegrationTest$UpdateAndDelete
-2026-08-20T04:28:59.813+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:28:59.813+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174207802720258, userId=1001, visibility=PUBLIC
-2026-08-20T04:29:00.286+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174210235416577, userId=1001, visibility=PRIVATE
-2026-08-20T04:29:02.673+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:29:02.673+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174220108808193, userId=1001, visibility=PUBLIC
-2026-08-20T04:29:02.939+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿软删成功, wishId=2090174220108808193, userId=1001
-2026-08-20T04:29:05.289+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.BadgeServiceImpl   : 徽章授予, userId=1001, badges=[FIRST_WISH]
-2026-08-20T04:29:05.290+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿创建成功, wishId=2090174230779117569, userId=1001, visibility=PUBLIC
-2026-08-20T04:29:05.523+08:00  INFO 18532 --- [mall-wish] [           main] c.c.wish.service.impl.WishServiceImpl    : 心愿更新成功, wishId=2090174230779117569, userId=1001
-[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.916 s -- in 更新与删除
-[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 21.30 s -- in 心愿核心链路集成测试
-[INFO]
-[INFO] Results:
-[INFO]
-[ERROR] Failures:
-[ERROR]   BadgeIntegrationTest.firstWish_autoAwarded
-expected: 1001L
- but was: 1001
-[ERROR]   BadgeIntegrationTest.helpedReachThreshold_awarded
-expected: 2003L
- but was: 2003
-[INFO]
-[ERROR] Tests run: 41, Failures: 2, Errors: 0, Skipped: 0
-[INFO]
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD FAILURE
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  02:01 min
-[INFO] Finished at: 2026-08-20T04:29:07+08:00
-[INFO] ------------------------------------------------------------------------
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test (default-test) on project mall-wish: There are test failures.
-[ERROR]
-[ERROR] See D:\Ide\IdeaProjects\CloudMart\mall-wish\target\surefire-reports for the individual test results.
-[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
-[ERROR] -> [Help 1]
-[ERROR]
-[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
-[ERROR] Re-run Maven using the -X switch to enable full debug logging.
-[ERROR]
-[ERROR] For more information about the errors and possible solutions, please read the following articles:
-[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
-
-D:\Ide\IdeaProjects\CloudMart>
+五、历史基线记录
+--------------------------------------------------------------
+- Sprint 1.10（2026-08-20）：单元 267 / 集成 53（用户本机全 PASS）
+- Sprint 2.6 匿名星光（2026-08-20）：单元 275 / 集成 59
+  （用户本机 59/59 PASS 确认）
+- Sprint 2.1 后端（2026-08-21）：单元 317（+42）
+- Sprint 2.1 前端四端（2026-08-21）：单元 318（+1 首页接线）；
+  三端 typecheck PASS（用户本机装 three 后验证）；
+  集成 71/72 PASS + 1 缺陷已修复待重跑

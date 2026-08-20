@@ -1,0 +1,293 @@
+.container {
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  padding: 24px 0;
+}
+
+.formWrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.backBar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.backBtn {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wishTitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+}
+
+.formCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.form :global(.ant-form-item-label) > label {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.invalidText {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 24px 0;
+}
+
+.rewardHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 4px 0 16px;
+}
+
+/* Upload（与 WishCreate 同模式） */
+.uploadArea {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mediaItem {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.mediaItemError {
+  border-color: var(--color-error, #ff4d4f);
+}
+
+.mediaPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mediaRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.uploadProgress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  gap: 6px;
+  padding: 8px;
+}
+
+.errorOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.errorText {
+  color: #ff9c9e;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.uploadTrigger {
+  width: 100px;
+  height: 100px;
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  font-size: 24px;
+  transition: all 0.2s;
+}
+
+.uploadTrigger:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Submit */
+.submitArea {
+  margin-bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.submitArea :global(.ant-form-item-control-input) {
+  justify-content: flex-end;
+}
+
+.submitBtn {
+  min-width: 140px;
+  background: linear-gradient(135deg, #ff8fa3, #ff6b6b);
+  border: none;
+}
+
+.submitBtn:hover {
+  background: linear-gradient(135deg, #ff8fa3, #ff6b6b);
+  opacity: 0.9;
+}
+
+/* ===== 绽放仪式（粒子炸裂 + 光晕扩散，三端节奏一致 0.9s） ===== */
+.ceremony {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px 32px;
+}
+
+.bloomCore {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bloomEmoji {
+  font-size: 56px;
+  animation: bloomPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.bloomRing {
+  position: absolute;
+  inset: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 107, 107, 0.6);
+  animation: ringSpread 0.9s ease-out both;
+}
+
+.bloomParticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd700 0%, #ff6b6b 70%);
+  animation: particleBurst 0.9s ease-out both;
+  animation-delay: var(--delay, 0s);
+}
+
+.ceremonyTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 20px 0 8px;
+}
+
+.ceremonyText {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.rewardRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.rewardTag {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.ceremonyActions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+@keyframes bloomPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ringSpread {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes particleBurst {
+  0% {
+    transform: rotate(var(--angle)) translateY(-20px) scale(0.4);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateY(-74px) scale(1);
+    opacity: 0;
+  }
+}

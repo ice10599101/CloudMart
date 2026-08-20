@@ -1,0 +1,83 @@
+/* 小程序端伪 3D 星图（index.tsx 使用） */
+.sphere {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, rgba(15, 52, 96, 0.55), rgba(10, 18, 32, 0.95) 75%);
+}
+
+.sphereGlow {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  border: 2rpx solid rgba(61, 220, 151, 0.5);
+  box-shadow: 0 0 40rpx rgba(61, 220, 151, 0.22), inset 0 0 60rpx rgba(61, 220, 151, 0.1);
+  animation: tree-breathe 4s ease-in-out infinite;
+}
+
+.sphereInner {
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  border: 1rpx dashed rgba(255, 255, 255, 0.18);
+}
+
+.sphereCore {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16%;
+  height: 16%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: tree-pulse 3s ease-in-out infinite;
+}
+
+.fruitDot {
+  position: absolute;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  animation: fruit-twinkle 2.5s ease-in-out infinite;
+}
+
+@keyframes tree-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes tree-pulse {
+  0%,
+  100% {
+    filter: brightness(0.85);
+  }
+  50% {
+    filter: brightness(1.3);
+  }
+}
+
+@keyframes fruit-twinkle {
+  0%,
+  100% {
+    filter: brightness(0.9);
+  }
+  50% {
+    filter: brightness(1.4);
+  }
+}
+
+/* H5 端 three.js 画布容器（index.h5.tsx 使用） */
+.canvasHost {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}

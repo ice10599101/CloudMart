@@ -8,7 +8,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
 import WishInteractionBar from '@/components/WishInteractionBar'
 import WishCommentSection from '@/components/WishCommentSection'
-import type { WishDetail } from '@/types'
+import type { WishDetail, WishFulfillmentDetail } from '@/types'
 
 export default function WishDetailScreen() {
   const insets = useSafeAreaInsets()
@@ -17,6 +17,7 @@ export default function WishDetailScreen() {
   const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+  const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,6 +25,17 @@ export default function WishDetailScreen() {
         const res = await wishApi.getWishDetail(wishId)
         if (res.data?.success) {
           setWish(res.data.data)
+          // 已还愿心愿加载还愿故事（未还愿/无权限静默忽略）
+          if (res.data.data.status === 'FULFILLED') {
+            try {
+              const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
+              if (fulfillmentRes.data?.success) {
+                setFulfillment(fulfillmentRes.data.data)
+              }
+            } catch {
+              // 静默处理
+            }
+          }
         }
       } catch {
         // 错误已由 request 拦截器处理
@@ -34,7 +46,7 @@ export default function WishDetailScreen() {
     fetchData()
   }, [wishId])
 
-  const handleCountsChange = (partial: Partial<Pick<WishDetail, 'lightCount' | 'sameWishCount' | 'blessCount'>>) => {
+  const handleCountsChange = (partial: Partial<Pick<WishDetail, 'lightCount' | 'sameWishCount' | 'blessCount' | 'anonStarCount'>>) => {
     setWish((prev) => (prev ? { ...prev, ...partial } : prev))
   }
 
@@ -330,12 +342,83 @@ export default function WishDetailScreen() {
             lightCount: wish.lightCount,
             sameWishCount: wish.sameWishCount,
             blessCount: wish.blessCount,
+            anonStarCount: wish.anonStarCount,
           }}
           isLoggedIn={Boolean(user)}
           onCountsChange={handleCountsChange}
           onRequireLogin={() => router.push('/login')}
         />
       </View>
+
+      {/* 还愿故事（Sprint 1.10） */}
+      {fulfillment && (
+        <View
+          style={{
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.lg,
+            backgroundColor: 'rgba(15,52,96,0.35)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,107,107,0.35)',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>🌸 还愿故事</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md }}>
+            {fulfillment.authorAvatar ? (
+              <Image source={{ uri: fulfillment.authorAvatar }} style={{ width: 32, height: 32, borderRadius: 16 }} />
+            ) : (
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 12, color: '#ff6b6b' }}>★</Text>
+              </View>
+            )}
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, marginLeft: Spacing.sm, fontWeight: '600' }}>
+              {fulfillment.authorNickname}
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginLeft: 'auto' }}>
+              还愿于 {new Date(fulfillment.createdAt).toLocaleString('zh-CN')}
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.md, color: WishColors.textSecondary, lineHeight: 26, marginTop: Spacing.md }}>
+            {fulfillment.story}
+          </Text>
+          {fulfillment.mediaUrls && fulfillment.mediaUrls.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md }}>
+              {fulfillment.mediaUrls.map((url) => (
+                <Image
+                  key={url}
+                  source={{ uri: url }}
+                  style={{ width: 100, height: 100, borderRadius: BorderRadius.md }}
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          )}
+          {fulfillment.feeling && (
+            <View
+              style={{
+                marginTop: Spacing.md,
+                padding: Spacing.md,
+                borderRadius: BorderRadius.md,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.sm, color: '#ff8fa3', fontWeight: '600' }}>💬 感悟</Text>
+              <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, lineHeight: 22, marginTop: Spacing.xs }}>
+                {fulfillment.feeling}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   )
 
@@ -381,11 +464,29 @@ export default function WishDetailScreen() {
             backgroundColor: 'rgba(26,26,46,0.95)',
             borderTopWidth: 1,
             borderTopColor: WishColors.border,
+            flexDirection: 'row',
+            gap: Spacing.md,
           }}
         >
+          {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push(`/wish-fulfillment?id=${wishId}`)}
+              style={{
+                flex: 2,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: WishColors.primary,
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#fff' }}>🌸 我要还愿</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={handleDelete}
             style={{
+              flex: 1,
               paddingVertical: Spacing.md,
               borderRadius: 28,
               alignItems: 'center',

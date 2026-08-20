@@ -49,6 +49,8 @@ export interface WishProgress {
 }
 
 export interface WishDetail extends WishListItem {
+  /** 匿名星光数（Sprint 2.6，仅详情返回） */
+  anonStarCount: number
   growthRecords: WishGrowthRecord[]
   checkinDays: number
   progress: WishProgress | null
@@ -126,7 +128,7 @@ export interface CursorMeta {
 
 // ========== Interaction & Comment Types（Sprint 1.2） ==========
 
-export type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'
+export type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS' | 'ANON_STAR'
 
 export interface InteractionResult {
   id: number
@@ -134,6 +136,7 @@ export interface InteractionResult {
   lightCount: number
   sameWishCount: number
   blessCount: number
+  anonStarCount: number
   starlightCost: number
 }
 
@@ -145,9 +148,10 @@ export interface InteractionRevokeResult {
 
 export interface InteractionItem {
   id: number
-  userId: number
+  /** 匿名星光记录不透出用户身份（userId/avatar 为 null） */
+  userId: number | null
   nickname: string
-  avatar: string
+  avatar: string | null
   type: InteractionType
   content: string | null
   createdAt: string
@@ -381,4 +385,98 @@ export function getMyBadges() {
 /** 徽章图鉴（公开；未登录亦可浏览） */
 export function getBadgeDefinitions() {
   return request.get<ApiResponse<BadgeDefinition[]>>('/wish/badges/definitions')
+}
+
+// ========== 还愿 API（Sprint 1.10 后端契约，文档 2.4） ==========
+
+export interface WishFulfillmentSubmitResult {
+  id: number
+  wishId: number
+  status: WishStatus
+  fruitType: FruitType
+  badgeAwarded: { id: number; name: string }[]
+  starlightReward: number
+  createdAt: string
+}
+
+export interface WishFulfillmentDetail {
+  id: number
+  wishId: number
+  story: string
+  mediaUrls: string[]
+  feeling: string | null
+  authorId: number
+  authorNickname: string
+  authorAvatar: string | null
+  createdAt: string
+}
+
+export interface SubmitFulfillmentPayload {
+  story: string
+  mediaUrls?: string[]
+  feeling?: string
+}
+
+/** 提交还愿（仅作者 + ACTIVE/OVERDUE；提交即 FULFILLED + BLOOM + 星光奖励） */
+export function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload) {
+  return request.post<ApiResponse<WishFulfillmentSubmitResult>>(
+    `/wish/wishes/${wishId}/fulfillment`,
+    data,
+  )
+}
+
+/** 还愿详情（公开心愿匿名可见；PRIVATE/TREE_HOLE 仅作者；未还愿 404） */
+export function getFulfillmentDetail(wishId: number) {
+  return request.get<ApiResponse<WishFulfillmentDetail>>(`/wish/wishes/${wishId}/fulfillment`)
+}
+
+// ========== 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐） ==========
+
+export type TreeEnvironment = 'SUNNY' | 'RAIN' | 'RAINBOW'
+
+export type TreeSeason = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'
+
+export interface WorldTreeAggregation {
+  totalFruits: number
+  totalBloom: number
+  totalLight: number
+  environment: TreeEnvironment
+  season: TreeSeason
+  environmentUpdatedAt: string | null
+}
+
+export interface TreeFruitPosition {
+  /** 经度角 [0,2π) 弧度 */
+  theta: number
+  /** 纬度角 (0,π] 弧度（0=北极 π=南极） */
+  phi: number
+}
+
+export interface TreeFruit {
+  id: number
+  title: string
+  fruitType: FruitType
+  authorNickname: string
+  lightCount: number
+  position: TreeFruitPosition
+}
+
+export interface TreeFruitsQuery {
+  cursor?: string
+  /** 视口过滤（弧度制）：lat→phi [0,π]、lng→theta [0,2π)，四参数需同时提供 */
+  minLat?: number
+  maxLat?: number
+  minLng?: number
+  maxLng?: number
+  pageSize?: number
+}
+
+/** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */
+export function getWorldTree() {
+  return request.get<ApiResponse<WorldTreeAggregation>>('/wish/tree')
+}
+
+/** 果实分页（公开；id DESC 游标 + bounds 视口过滤，异常 bounds 整组忽略退化全量） */
+export function listTreeFruits(params: TreeFruitsQuery) {
+  return request.get<ApiResponse<TreeFruit[]>>('/wish/tree/fruits', { params })
 }

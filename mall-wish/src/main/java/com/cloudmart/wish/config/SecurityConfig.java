@@ -50,10 +50,15 @@ public class SecurityConfig {
                 // 公开浏览：心愿列表、详情、分类字典、首页聚合
                 .requestMatchers(HttpMethod.GET, "/wishes").permitAll()
                 .requestMatchers(HttpMethod.GET, "/wishes/{id}").permitAll()
+                // 公开浏览：公开心愿的还愿故事（文档 2.4 GET，与心愿详情同语义）
+                .requestMatchers(HttpMethod.GET, "/wishes/{id}/fulfillment").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/home").permitAll()
                 // 公开浏览：世界生命树环境状态（未登录首页/世界树亦需渲染）
                 .requestMatchers(HttpMethod.GET, "/tree-env").permitAll()
+                // 公开浏览：世界生命树 3D 聚合状态 + 果实视口分页（Sprint 2.1）
+                .requestMatchers(HttpMethod.GET, "/tree").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tree/fruits").permitAll()
                 // 公开浏览：徽章图鉴（未登录可浏览，文档 2.9）
                 .requestMatchers(HttpMethod.GET, "/badges/definitions").permitAll()
                 // 文档与监控端点
