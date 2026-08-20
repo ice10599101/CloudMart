@@ -308,8 +308,10 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
   resize()
 
   // ===== 点击拾取（区分拖拽与点击：位移 < 6px 视为点击） =====
-  const raycaster = new THREE.Raycaster()
-  const pointer = new THREE.Vector2()
+  // 屏幕空间最近邻拾取：raycaster 对 0.045 半径果实的精确命中区仅约 2-3px，
+  // 实际几乎不可点中；改为果实投影坐标与点击点的像素距离（容差内取最近）。
+  const CLICK_RADIUS_PX = 28
+  const screenPos = new THREE.Vector3()
   let pointerDownX = 0
   let pointerDownY = 0
   const handlePointerDown = (event: PointerEvent) => {
@@ -321,13 +323,28 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
       return
     }
     const rect = canvas.getBoundingClientRect()
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-    raycaster.setFromCamera(pointer, camera)
-    const hits = raycaster.intersectObject(coreMesh)
-    const instanceId = hits[0]?.instanceId
-    if (instanceId !== undefined && fruits[instanceId]) {
-      fruitClickCallback?.(fruits[instanceId])
+    const clickX = event.clientX - rect.left
+    const clickY = event.clientY - rect.top
+    // 背面剔除阈值：果实世界坐标与相机位置的点积 > R² 为朝向相机的正面
+    const frontThreshold = TREE_RADIUS * TREE_RADIUS
+    let bestIndex = -1
+    let bestDist = CLICK_RADIUS_PX
+    for (let i = 0; i < fruits.length; i++) {
+      const fruit = fruits[i]
+      if (!fruit) continue
+      const world = toCartesian(fruit.position.theta, fruit.position.phi, TREE_RADIUS)
+      if (world.dot(camera.position) < frontThreshold) continue
+      screenPos.copy(world).project(camera)
+      const sx = (screenPos.x * 0.5 + 0.5) * rect.width
+      const sy = (-screenPos.y * 0.5 + 0.5) * rect.height
+      const dist = Math.hypot(sx - clickX, sy - clickY)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestIndex = i
+      }
+    }
+    if (bestIndex >= 0 && fruits[bestIndex]) {
+      fruitClickCallback?.(fruits[bestIndex])
     }
   }
   canvas.addEventListener('pointerdown', handlePointerDown)

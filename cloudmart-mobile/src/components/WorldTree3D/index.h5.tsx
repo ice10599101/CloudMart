@@ -233,9 +233,10 @@ export default function WorldTree3D({
     resizeObserver.observe(host)
     resize()
 
-    // 点击拾取（位移 < 6px 视为点击）
-    const raycaster = new THREE.Raycaster()
-    const pointer = new THREE.Vector2()
+    // 点击拾取（位移 < 6px 视为点击）：屏幕空间最近邻 + 背面剔除，
+    // raycaster 对 0.045 半径果实命中区仅约 2-3px 几乎不可点中
+    const CLICK_RADIUS_PX = 28
+    const screenPos = new THREE.Vector3()
     let downX = 0
     let downY = 0
     const handlePointerDown = (event: PointerEvent) => {
@@ -245,13 +246,27 @@ export default function WorldTree3D({
     const handlePointerUp = (event: PointerEvent) => {
       if (Math.abs(event.clientX - downX) > 6 || Math.abs(event.clientY - downY) > 6) return
       const rect = canvas.getBoundingClientRect()
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-      raycaster.setFromCamera(pointer, camera)
-      const hits = raycaster.intersectObject(coreMesh)
-      const instanceId = hits[0]?.instanceId
-      if (instanceId !== undefined && currentFruits[instanceId]) {
-        fruitSelectRef.current(currentFruits[instanceId])
+      const clickX = event.clientX - rect.left
+      const clickY = event.clientY - rect.top
+      const frontThreshold = TREE_RADIUS * TREE_RADIUS
+      let bestIndex = -1
+      let bestDist = CLICK_RADIUS_PX
+      for (let i = 0; i < currentFruits.length; i++) {
+        const fruit = currentFruits[i]
+        if (!fruit) continue
+        const world = toCartesian(fruit.position.theta, fruit.position.phi, TREE_RADIUS)
+        if (world.dot(camera.position) < frontThreshold) continue
+        screenPos.copy(world).project(camera)
+        const sx = (screenPos.x * 0.5 + 0.5) * rect.width
+        const sy = (-screenPos.y * 0.5 + 0.5) * rect.height
+        const dist = Math.hypot(sx - clickX, sy - clickY)
+        if (dist < bestDist) {
+          bestDist = dist
+          bestIndex = i
+        }
+      }
+      if (bestIndex >= 0 && currentFruits[bestIndex]) {
+        fruitSelectRef.current(currentFruits[bestIndex])
       }
     }
     canvas.addEventListener('pointerdown', handlePointerDown)

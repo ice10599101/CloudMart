@@ -30,21 +30,29 @@ export default function WishBGM() {
     return stopAudio
   }, [enabled])
 
+  /** 音源不可用（如 OSS 文件未上传 404）时静默回退到关闭态，避免控制台报错风暴 */
+  function handleAudioError() {
+    stopAudio()
+    setEnabled(false)
+    Taro.setStorageSync(BGM_STORAGE_KEY, 'false')
+  }
+
   function startAudio() {
     if (IS_WEAPP) {
       const ctx = Taro.createInnerAudioContext()
       ctx.src = BGM_AUDIO_URL
       ctx.loop = true
       ctx.volume = 0.3
+      ctx.onError(handleAudioError)
       ctx.play()
       audioCtxRef.current = ctx
     } else {
       const audio = new Audio(BGM_AUDIO_URL)
       audio.loop = true
       audio.volume = 0.3
+      audio.onerror = handleAudioError
       audio.play().catch(() => {
-        setEnabled(false)
-        Taro.setStorageSync(BGM_STORAGE_KEY, 'false')
+        handleAudioError()
       })
       audioCtxRef.current = audio
     }

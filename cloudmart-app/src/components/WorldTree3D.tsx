@@ -80,10 +80,11 @@ export default function WorldTree3D({ fruits, season, environment, onFruitSelect
   const corePulse = useRef(new Animated.Value(0.75)).current
 
   useEffect(() => {
+    // 树心脉冲：scale 为主 opacity 为辅（纯透明度变化视觉过弱，走查反馈「无动画」）
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(corePulse, { toValue: 1, duration: 1600, useNativeDriver: true }),
-        Animated.timing(corePulse, { toValue: 0.75, duration: 1600, useNativeDriver: true }),
+        Animated.timing(corePulse, { toValue: 0.6, duration: 1600, useNativeDriver: true }),
       ]),
     )
     loop.start()
@@ -93,6 +94,11 @@ export default function WorldTree3D({ fruits, season, environment, onFruitSelect
   const panResponder = useMemo(
     () =>
       PanResponder.create({
+        // capture 阶段接管：优先于子元素 TouchableOpacity 的 responder 协商，
+        // react-native-web 下普通 move 协商可能被子组件拦截导致拖不动
+        onMoveShouldSetPanResponderCapture: (_e, gestureState) =>
+          Math.abs(gestureState.dx) > PAN_ACTIVATE_THRESHOLD ||
+          Math.abs(gestureState.dy) > PAN_ACTIVATE_THRESHOLD,
         onMoveShouldSetPanResponder: (_e, gestureState) =>
           Math.abs(gestureState.dx) > PAN_ACTIVATE_THRESHOLD ||
           Math.abs(gestureState.dy) > PAN_ACTIVATE_THRESHOLD,
@@ -129,7 +135,18 @@ export default function WorldTree3D({ fruits, season, environment, onFruitSelect
     <View style={styles.sphere} {...panResponder.panHandlers} accessibilityLabel="世界树星图">
       <View style={[styles.sphereGlow, { borderColor: ringColor }]} />
       <View style={styles.sphereInner} />
-      <Animated.View style={[styles.sphereCore, { backgroundColor: coreColor, opacity: corePulse }]} />
+      <Animated.View
+        style={[
+          styles.sphereCore,
+          {
+            backgroundColor: coreColor,
+            opacity: corePulse.interpolate({ inputRange: [0.6, 1], outputRange: [0.75, 1] }),
+            transform: [
+              { scale: corePulse.interpolate({ inputRange: [0.6, 1], outputRange: [0.85, 1.15] }) },
+            ],
+          },
+        ]}
+      />
       {points.map(({ fruit, left, top, depth }) => {
         const color = FRUIT_COLORS[fruit.fruitType] || '#ffffff'
         const size = 8 + depth * 6

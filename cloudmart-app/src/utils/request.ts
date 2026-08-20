@@ -1,12 +1,26 @@
 import axios from 'axios'
+import Constants from 'expo-constants'
 import { storage } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 
-// Web: 相对路径，通过 Metro dev server 代理转发到 Gateway（只需暴露 8081 端口）
-// Native: 直连 Gateway 地址
-const API_BASE = typeof window !== 'undefined'
-  ? '/api'
-  : `${process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'}:8090/api`
+/**
+ * API 基址按运行环境解析：
+ * - Web（metro dev server / expo web）：相对路径 /api，由 metro.config.js 代理转发到 Gateway
+ * - Native + Expo Go dev：同样走 metro 代理（hostUri 为 Expo 连接的 dev server 地址，
+ *   手机只需可达电脑 8081——Expo Go 本身就依赖它；避免真机直连公网 8090 被网络拦截）
+ * - Native 生产构建或显式配置：EXPO_PUBLIC_API_HOST 直连 Gateway
+ */
+function resolveApiBase(): string {
+  if (typeof window !== 'undefined') return '/api'
+  const isDev = process.env.NODE_ENV !== 'production'
+  const metroHost = Constants.expoConfig?.hostUri
+  if (isDev && metroHost) {
+    return `http://${metroHost}/api`
+  }
+  return `${process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'}:8090/api`
+}
+
+const API_BASE = resolveApiBase()
 
 const client = axios.create({
   baseURL: API_BASE,

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, RefreshControl } from 'react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -47,6 +47,7 @@ export default function WorldTreeScreen() {
   const [aggregation, setAggregation] = useState<WorldTreeAggregation | null>(null)
   const [fruits, setFruits] = useState<TreeFruit[]>([])
   const [selectedFruit, setSelectedFruit] = useState<TreeFruit | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const fruitsMapRef = useRef<Map<number, TreeFruit>>(new Map())
 
   /** 合并果实（按 id 去重） */
@@ -56,27 +57,36 @@ export default function WorldTreeScreen() {
     setFruits(Array.from(map.values()))
   }, [])
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [treeRes, fruitsRes] = await Promise.all([
-          wishApi.getWorldTree(),
-          wishApi.listTreeFruits({ pageSize: FIRST_PAGE_SIZE }),
-        ])
-        if (treeRes.data?.success && treeRes.data.data) {
-          setAggregation(treeRes.data.data)
-        }
-        if (fruitsRes.data?.success && Array.isArray(fruitsRes.data.data)) {
-          mergeFruits(fruitsRes.data.data)
-        }
-      } catch {
-        // 错误已由 request 拦截器处理
-      } finally {
-        setLoading(false)
+  const fetchData = useCallback(async () => {
+    try {
+      const [treeRes, fruitsRes] = await Promise.all([
+        wishApi.getWorldTree(),
+        wishApi.listTreeFruits({ pageSize: FIRST_PAGE_SIZE }),
+      ])
+      if (treeRes.data?.success && treeRes.data.data) {
+        setAggregation(treeRes.data.data)
       }
+      if (fruitsRes.data?.success && Array.isArray(fruitsRes.data.data)) {
+        mergeFruits(fruitsRes.data.data)
+      }
+    } catch {
+      // 错误已由 request 拦截器处理
+    } finally {
+      setLoading(false)
     }
-    fetchData()
   }, [mergeFruits])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  /** 下拉刷新：清空本地果实缓存后重拉（聚合与列表口径重新对齐） */
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    fruitsMapRef.current.clear()
+    await fetchData()
+    setRefreshing(false)
+  }, [fetchData])
 
   const goDetail = () => {
     if (!selectedFruit) return
@@ -119,7 +129,17 @@ export default function WorldTreeScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={WishColors.primary}
+            colors={[WishColors.primary]}
+          />
+        }
+      >
         {/* 统计条 */}
         {aggregation && (
           <View

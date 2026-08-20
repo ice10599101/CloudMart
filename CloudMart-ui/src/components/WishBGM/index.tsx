@@ -26,9 +26,15 @@ export default function WishBGM() {
     }
 
     if (!audioRef.current) {
-      audioRef.current = new Audio(BGM_AUDIO_URL)
-      audioRef.current.loop = true
-      audioRef.current.volume = 0.3
+      const audio = new Audio(BGM_AUDIO_URL)
+      audio.loop = true
+      audio.volume = 0.3
+      // 音源不可用（如 OSS 文件未上传 404）时静默回退，避免控制台报错
+      audio.onerror = () => {
+        setEnabled(false)
+        localStorage.setItem(BGM_STORAGE_KEY, 'false')
+      }
+      audioRef.current = audio
     }
 
     const audio = audioRef.current
