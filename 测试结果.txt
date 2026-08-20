@@ -1,88 +1,328 @@
-==============================================================
-Sprint 2.1 世界生命树 3D 版（后端 + 前端四端）测试结果
-执行日期：2026-08-21（集成测试用户本机执行 + 缺陷修复）
-==============================================================
+web端错误：
+notification.ts:36 WebSocket connection to 'ws://localhost:8090/ws/notifications?token=eyJraWQiOiJlZGI4NjQ0Ni03NThmLTRjZjQtOWJhZC03NTgyNTBjNzZlMTMiLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzg3MTc1NjU2LCJpYXQiOjE3ODcxNzQ3NTYsImp0aSI6IjgzZDM1MDA3LTI4YWEtNDM1Ni05ZDIzLTJkMDNlMjMxZjNhZiIsInNjb3BlIjoidXNlciJ9.m24SKHWtvugvNFVXQAyIY5kRJroDL_UqPTtxLsgzKrxShOmDgDJNz037SQ0gzlO24Bs-MU9yXgFCKNtrA6FqNLR9qlH1P0Yu8FqhV5iddfHNfctLheB1HEx5etuiH0BKCBQYBGqOaLoXZYAR7yyAaY2gPW5vT_UHpv8ANyDG67V9r4biFCpqcJUmPCeb_oIAGB1df0NR1wB1GbgILXjHDJyn_1Uc4SC_kYwxK3fSGaRvAy_-XHJuliMpsaHVG3i3qAPDcupEwG7hmgRZAx58LUFtl53YtE2lGLSQ1VQ11Om9urZuN0Ib30qns8ZpgS6pt6-xhT6ugTPPmVV5tEbyBw' failed: 
+index.js:1 Warning: [antd: Spin] `tip` is deprecated. Please use `description` instead.
+视口增量加载没有效果
+果实点击暂时没有果实无法测试
 
-一、测试范围与基线
---------------------------------------------------------------
-- 基线（Sprint 2.6 后）：单元 275 全 PASS；集成 59 全 PASS（用户本机）
-- 本批新增（后端）：
-  · TreePositionCalculatorTest            6（黄金比例散列坐标）
-  · TreeBoundsParserTest                  9（视口解析含环绕窗口）
-  · TreeSeasonTest                        5（UTC 季节判定）
-  · WorldTreeServiceImplTest             18（聚合缓存/分页过滤）
-  · WishServiceImplTest                    4（坐标固化接线）
-  · HomeServiceImplTest                    1（首页 worldTree 接线）
-  · TreeIntegrationTest                   13（集成）
-- 本批新增（前端）：四端世界树 3D 页面（typecheck 验证口径）
-- 当前总量：单元 318 / 集成 72
+Mobile H5端：
+tab-mall.png、tab-plus.png、tab-message.png、tab-user.png、tab-home-active.png全部404
+https://cdn.cloudmart.example.com/assets/wish-bgm.mp3 net::ERR_NAME_NOT_RESOLVED
+顶部无统计数字
+果实点击暂时没有果实无法测试
 
-二、执行结果
---------------------------------------------------------------
-1. 后端单元测试（TRAE 终端执行，含缺陷修复后回归）
-   - 命令：mvn -pl mall-wish test "-Dtest=!%regex[.*IntegrationTest.*]"
-   - 结果：PASS（exit 0）
-   - 318/318：Failures=0，Errors=0（基线 275 无回归 + 新增 43）
+微信小程序：
+Error: timeout
+    at Function.<anonymous> (WAServiceMainContext.js?t=wechat&v=3.16.1:1)
+    at p (WAServiceMainContext.js?t=wechat&v=3.16.1:1)
+    at WAServiceMainContext.js?t=wechat&v=3.16.1:1
+    at WAServiceMainContext.js?t=wechat&v=3.16.1:1(env: Windows,mp,2.01.2510290; lib: 3.16.1)
+    index.tsx:36 GET https://cdn.cloudmart.example.com/assets/wish-bgm.mp3 net::ERR_NAME_NOT_RESOLVED(env: Windows,mp,2.01.2510290; lib: 3.16.1)
+startAudio @ index.tsx:36
+(anonymous) @ index.tsx:29
+Og @ react-reconciler.production.min.js:151
+Ph @ react-reconciler.production.min.js:195
+(anonymous) @ react-reconciler.production.min.js:191
+J2 @ scheduler.production.min.js:13
+R2 @ scheduler.production.min.js:14
+setTimeout (async)
+S2 @ scheduler.production.min.js:14
+I2 @ scheduler.production.min.js:14
+exports2.unstable_scheduleCallback @ scheduler.production.min.js:18
+Nh @ react-reconciler.production.min.js:206
+Lh @ react-reconciler.production.min.js:176
+ge @ react-reconciler.production.min.js:175
+mf @ react-reconciler.production.min.js:95
+toggle @ index.tsx:67
+handler @ event-target.js:38
+dispatchEvent @ element.js:256
+(anonymous) @ react.esm.js:866
+exports2.runWithPriority @ react-reconciler.production.min.js:230
+(anonymous) @ react.esm.js:865
+call @ runtime-hooks.js:71
+dispatch @ event.js:124
+(anonymous) @ event.js:136
+exports2.batchedUpdates @ react-reconciler.production.min.js:219
+unstable_batchedUpdates @ react.esm.js:895
+(anonymous) @ runtime.js:158
+call @ runtime-hooks.js:71
+eventHandler @ event.js:131
+{errMsg: "request:fail", errno: undefined}(env: Windows,mp,2.01.2510290; lib: 3.16.1)
+没有果实，没有星点，测试不了近大远小和详情卡
 
-2. 集成测试（用户本机执行，2026-08-21 02:52-02:57）
-   - 命令：mvn -pl mall-wish test "-Dtest=WishCrudIntegrationTest,
-     InteractionCommentIntegrationTest,TreeHoleIntegrationTest,
-     TreeEnvIntegrationTest,BadgeIntegrationTest,FulfillmentIntegrationTest,
-     OverdueScanIntegrationTest,AnonStarIntegrationTest,TreeIntegrationTest"
-   - 结果：72 例执行，71 PASS / 1 FAIL
-   - 失败用例：TreeIntegrationTest.aggregationCountsOnlyOnTreeWishes
-     expected: 3L but was: 4L
-   - 根因与修复：见第三节（代码缺陷，已修复，待用户重跑验证）
-   - V9 迁移已随本轮 Flyway 自动执行成功（无迁移报错）
-
-3. 前端三端 typecheck（用户本机执行，2026-08-21）
-   - APP（cloudmart-app）：npx tsc --noEmit PASS（零新增依赖）
-   - WEB（CloudMart-ui）：npm install 后 npx tsc --noEmit PASS
-   - Mobile（cloudmart-mobile）：npm install 后 npx tsc --noEmit PASS
-   - three 依赖已安装（WEB three+@types/three / Mobile three）
-
-三、集成测试失败根因与修复（2026-08-21）
---------------------------------------------------------------
-1. 现象
-   - TreeIntegrationTest.aggregationCountsOnlyOnTreeWishes：
-     聚合 totalFruits expected 3 but was 4
-   - 用例设计：3 条在树心愿 + 6 条口径外干扰数据（PRIVATE/
-     REJECTED/软删/无坐标/OVERDUE/is_visible=0 各 1）
-2. 根因（代码缺陷：聚合与列表口径不一致）
-   - listFruits（果实列表）有 .isNotNull(Wish::getTreeTheta)
-     —— 只返回「在树上」（已固化坐标）的果实
-   - queryCounts（聚合计数）缺少该条件 —— 无坐标的心愿
-     （PUBLIC/ACTIVE/APPROVED 但 tree_theta=NULL）被计入
-     totalFruits，导致多算 1
-   - 该用例即为缺陷检测锚点（theta=NULL 干扰数据 107 号漏网）
-3. 修复
-   - WorldTreeServiceImpl.queryCounts 补齐 .isNotNull("tree_theta")
-     （与 listFruits 同口径，注释说明「theta 固化即上树」）
-4. 修复后验证
-   - WorldTreeServiceImplTest 18/18 PASS
-   - 全量单元回归 318/318 PASS（exit 0）
-   - ⚠️ 待用户本机重跑 TreeIntegrationTest 确认 13/13 PASS：
-     mvn -pl mall-wish test "-Dtest=TreeIntegrationTest"
-
-四、四端 3D 场景验证要点（后端启动后走查，待执行）
---------------------------------------------------------------
-- WEB /wish/tree：拖拽旋转/自动旋转恢复/果实点击详情卡/
-  视口增量加载（旋转 >0.6rad 触发节流拉取）
-- Mobile H5：与 WEB 同源体验（three.js 视口回调）
-- Mobile 小程序：CSS 伪 3D 星图降级（固定视角正面半球投影，
-  上限 120 点）
-- APP /world-tree：PanResponder 拖拽旋转伪 3D 星图 +
-  下拉刷新 + Modal 详情
-- 视觉契约：季节树冠色（春 #7ef0c0/夏 #3ddc97/秋 #ffb347/
-  冬 #bfe8ff）、环境树心光色（晴 #ffd700/雨 #4facfe/
-  彩虹 #ff9ff3）、果实四色（微光/共鸣/绽放/星火）
-
-五、历史基线记录
---------------------------------------------------------------
-- Sprint 1.10（2026-08-20）：单元 267 / 集成 53（用户本机全 PASS）
-- Sprint 2.6 匿名星光（2026-08-20）：单元 275 / 集成 59
-  （用户本机 59/59 PASS 确认）
-- Sprint 2.1 后端（2026-08-21）：单元 317（+42）
-- Sprint 2.1 前端四端（2026-08-21）：单元 318（+1 首页接线）；
-  三端 typecheck PASS（用户本机装 three 后验证）；
-  集成 71/72 PASS + 1 缺陷已修复待重跑
+APP 端：
+GET http://localhost:8081/api/wish/home 502 (Bad Gateway)
+dispatchXhrRequest @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\adapters\xhr.js:225
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\adapters\xhr.js:17
+dispatchRequest @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\core\dispatchRequest.js:48
+Promise.then
+_request @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\core\Axios.js:197
+request @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\core\Axios.js:41
+wrap @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\helpers\bind.js:12
+request @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\src\utils\request.ts:87
+getHome @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\src\api\wish.ts:75
+fetchData @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\src\app\wish-home.tsx:20
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\src\app\wish-home.tsx:30
+react_stack_bottom_frame @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:25989
+runWithFiberInDEV @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:871
+commitHookEffectListMount @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:13249
+commitHookPassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:13336
+reconnectPassiveEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15832
+recursivelyTraverseReconnectPassiveEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15784
+reconnectPassiveEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15824
+recursivelyTraverseReconnectPassiveEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15784
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15675
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15633
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15666
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15633
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15718
+recursivelyTraversePassiveMountEffects @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15439
+commitPassiveMountOnFiber @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:15476
+<WishHomeScreen(./wish-home.tsx)>
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react\cjs\react-jsx-runtime.development.js:335
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\useScreens.js:212
+react_stack_bottom_frame @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:25904
+renderWithHooks @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:7662
+updateFunctionComponent @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:10166
+beginWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:11778
+runWithFiberInDEV @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:871
+performUnitOfWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17641
+workLoopSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17469
+renderRootSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17450
+performWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:16504
+performSyncWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18853
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18991
+<WrappedScreenComponent>
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react\cjs\react-jsx-runtime.development.js:335
+BaseRoute @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\useScreens.js:259
+react_stack_bottom_frame @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:25904
+renderWithHooks @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:7662
+updateFunctionComponent @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:10166
+beginWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:11778
+runWithFiberInDEV @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:871
+performUnitOfWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17641
+workLoopSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17469
+renderRootSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17450
+performWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:16504
+performSyncWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18853
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18991
+<Route(wish-home)>
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react\cjs\react-jsx-runtime.development.js:335
+SceneView @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\react-navigation\core\SceneView.js:134
+react_stack_bottom_frame @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:25904
+renderWithHooks @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:7662
+updateFunctionComponent @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:10166
+beginWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:11778
+runWithFiberInDEV @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:871
+performUnitOfWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17641
+workLoopSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17469
+renderRootSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17450
+performWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:16504
+performSyncWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18853
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18991
+<SceneView>
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react\cjs\react-jsx-runtime.development.js:335
+render @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\react-navigation\core\useDescriptors.js:128
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\react-navigation\core\useDescriptors.js:144
+useDescriptors @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\react-navigation\core\useDescriptors.js:141
+useNavigationBuilder @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\react-navigation\core\useNavigationBuilder.js:630
+NativeStackNavigator @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js:48
+react_stack_bottom_frame @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:25904
+renderWithHooks @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:7662
+updateFunctionComponent @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:10166
+beginWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:11778
+runWithFiberInDEV @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:871
+performUnitOfWork @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17641
+workLoopSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17469
+renderRootSync @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:17450
+performWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:16504
+performSyncWorkOnRoot @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18853
+(匿名) @ D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\react-dom\cjs\react-dom-client.development.js:18991
+D:\Ide\IdeaProjects\CloudMart\cloudmart-app\node_modules\axios\lib\adapters\xhr.js:225  GET http://localhost:8081/api/community/posts/feed?page=2&pageSize=10 502 (Bad Gateway)
+Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+除了能点击进去世界树，其他2.3.4.5的检查点都没效果

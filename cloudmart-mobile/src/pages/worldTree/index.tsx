@@ -129,7 +129,7 @@ export default function WorldTreePage() {
     <View style={{ ...WISH_THEME_STYLE, minHeight: '100vh' }}>
       <CustomNavBar title='世界树' />
       <View className={styles.content} style={{ height: `calc(100vh - ${statusBarHeight + navBarHeight}rpx)` }}>
-        {aggregation && (
+        {aggregation ? (
           <View className={styles.statsBar}>
             <View className={styles.statsRow}>
               <View className={styles.statItem}>
@@ -150,6 +150,12 @@ export default function WorldTreePage() {
               <Text className={styles.envTag}>{ENVIRONMENT_LABELS[aggregation.environment]}</Text>
             </View>
           </View>
+        ) : (
+          !loading && (
+            <View className={styles.statsBar}>
+              <Text className={styles.statLabel}>树语暂不可读</Text>
+            </View>
+          )
         )}
 
         <View className={styles.treeStage}>

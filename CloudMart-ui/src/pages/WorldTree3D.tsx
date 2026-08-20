@@ -571,7 +571,7 @@ export default function WorldTree3D() {
         />
         {loading && (
           <div className={styles.loadingMask}>
-            <Spin size="large" tip="世界树苏醒中…" />
+            <Spin size="large" description="世界树苏醒中…" />
           </div>
         )}
         {viewportLoading && !loading && (

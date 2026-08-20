@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import styles from './index.module.scss'
 
 const BGM_STORAGE_KEY = 'wish_bgm_enabled'
-const BGM_AUDIO_URL = 'https://cdn.cloudmart.example.com/assets/wish-bgm.mp3'
+const BGM_AUDIO_URL = 'https://cloudmart-oss.oss-cn-hangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3'
 
 /**
  * 心愿宇宙背景音乐组件

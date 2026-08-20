@@ -20,11 +20,15 @@ config.server.enhanceMiddleware = (middleware) => {
 
     if (req.url && req.url.startsWith('/api/')) {
       const http = require('http')
-      const targetUrl = `http://127.0.0.1:8090${req.url}`
+      // 与 request.ts 原生端共用 EXPO_PUBLIC_API_HOST（默认本机 Gateway）；
+      // Gateway 在远程服务器时通过 .env 注入（如 http://129.204.152.168）
+      const gatewayHost = process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'
+      const gatewayOrigin = `${gatewayHost.replace(/\/+$/, '')}:8090`
+      const targetUrl = `${gatewayOrigin}${req.url}`
 
       // Build clean headers: remove Origin/Referer to bypass gateway CORS check
       const { origin, referer, ...cleanHeaders } = req.headers
-      cleanHeaders.host = '127.0.0.1:8090'
+      cleanHeaders.host = gatewayOrigin.replace(/^https?:\/\//, '')
 
       const proxyReq = http.request(
         targetUrl,
