@@ -123,7 +123,7 @@ export default defineConfig({
   ],
   proxy: {
     '/api': {
-      target: 'http://127.0.0.1:8090',
+      target: 'http://129.204.152.168:8090',
       changeOrigin: true,
       onProxyReq: (proxyReq) => {
         // 移除 Origin/Referer 头，避免 Gateway CORS 校验拦截非 localhost 来源的请求
@@ -132,7 +132,7 @@ export default defineConfig({
       },
     },
     '/ws': {
-      target: 'ws://127.0.0.1:8090',
+      target: 'ws://129.204.152.168:8090',
       ws: true,
       changeOrigin: true,
     },

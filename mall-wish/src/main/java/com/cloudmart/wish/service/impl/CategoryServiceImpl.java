@@ -38,12 +38,10 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public List<CategoryVO> listCategories() {
-        // Cache-Aside: 先查缓存
-        Object cached = redisTemplate.opsForValue().get(CACHE_KEY);
-        if (cached instanceof List<?> list && !list.isEmpty()) {
-            @SuppressWarnings("unchecked")
-            List<CategoryVO> result = (List<CategoryVO>) list;
-            return result;
+        // Cache-Aside: 先查缓存（Fail-Open：缓存反序列化失败/连接异常时删除脏键并回源 DB，不阻塞业务）
+        List<CategoryVO> cached = readCategoryCache();
+        if (cached != null && !cached.isEmpty()) {
+            return cached;
         }
 
         // 缓存未命中，回源 DB
@@ -56,11 +54,32 @@ public class CategoryServiceImpl implements CategoryService {
                 .map(c -> new CategoryVO(c.getId(), c.getCode(), c.getName(), c.getIcon(), c.getSort()))
                 .toList();
 
-        // 回填缓存（TTL + 抖动）
+        // 回填缓存（TTL + 抖动；写入失败仅告警，不影响响应）
         long ttl = CACHE_TTL_SECONDS + ThreadLocalRandom.current().nextLong(CACHE_JITTER_MAX_SECONDS);
-        redisTemplate.opsForValue().set(CACHE_KEY, result, ttl, TimeUnit.SECONDS);
+        try {
+            redisTemplate.opsForValue().set(CACHE_KEY, result, ttl, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            log.warn("分类缓存回填失败（Fail-Open，不影响响应）: {}", ex.getMessage());
+        }
 
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<CategoryVO> readCategoryCache() {
+        try {
+            Object cached = redisTemplate.opsForValue().get(CACHE_KEY);
+            return cached instanceof List<?> list ? (List<CategoryVO>) list : null;
+        } catch (Exception ex) {
+            // 脏数据（序列化格式不兼容）或 Redis 故障：清键降级回源
+            log.warn("分类缓存读取失败，删除疑似脏键并回源 DB（Fail-Open）: {}", ex.getMessage());
+            try {
+                redisTemplate.delete(CACHE_KEY);
+            } catch (Exception delEx) {
+                log.warn("脏键删除失败（键过期后自动消失）: {}", delEx.getMessage());
+            }
+            return null;
+        }
     }
 
     @Override

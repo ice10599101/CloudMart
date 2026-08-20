@@ -89,16 +89,11 @@ public class HomeServiceImpl implements HomeService {
      * 获取热门心愿列表（先查 Redis ZSet，未命中回源 DB 并回填）。
      */
     private List<Wish> getHotWishes() {
-        // 尝试从 ZSet 缓存读取
-        Set<ZSetOperations.TypedTuple<Object>> cached = redisTemplate.opsForZSet()
-                .reverseRangeWithScores(HOT_FEED_KEY, 0, RECOMMEND_CANDIDATE_LIMIT - 1);
-
-        if (cached != null && !cached.isEmpty()) {
+        // 尝试从 ZSet 缓存读取（Fail-Open：脏数据/Redis 故障时删键回源，不阻塞首页）
+        List<Wish> cached = readHotFeedCache();
+        if (!cached.isEmpty()) {
             log.debug("首页热门缓存命中, count={}", cached.size());
-            return cached.stream()
-                    .map(tuple -> (Wish) tuple.getValue())
-                    .filter(java.util.Objects::nonNull)
-                    .toList();
+            return cached;
         }
 
         // 缓存未命中，回源 DB：近 7 天 PUBLIC + APPROVED
@@ -117,15 +112,42 @@ public class HomeServiceImpl implements HomeService {
             return Collections.emptyList();
         }
 
-        // 回填 ZSet 缓存（score = support_count，便于按互动量排序）
-        for (Wish wish : candidates) {
-            redisTemplate.opsForZSet().add(HOT_FEED_KEY, wish, wish.getSupportCount());
+        // 回填 ZSet 缓存（score = support_count，便于按互动量排序；写入失败仅告警）
+        try {
+            for (Wish wish : candidates) {
+                redisTemplate.opsForZSet().add(HOT_FEED_KEY, wish, wish.getSupportCount());
+            }
+            long ttl = HOT_FEED_TTL_SECONDS + ThreadLocalRandom.current().nextLong(HOT_FEED_JITTER_MAX_SECONDS);
+            redisTemplate.expire(HOT_FEED_KEY, ttl, TimeUnit.SECONDS);
+            log.debug("首页热门缓存回填, count={}, ttl={}s", candidates.size(), ttl);
+        } catch (Exception ex) {
+            log.warn("首页热门缓存回填失败（Fail-Open，不影响响应）: {}", ex.getMessage());
         }
-        long ttl = HOT_FEED_TTL_SECONDS + ThreadLocalRandom.current().nextLong(HOT_FEED_JITTER_MAX_SECONDS);
-        redisTemplate.expire(HOT_FEED_KEY, ttl, TimeUnit.SECONDS);
-        log.debug("首页热门缓存回填, count={}, ttl={}s", candidates.size(), ttl);
 
         return candidates;
+    }
+
+    private List<Wish> readHotFeedCache() {
+        try {
+            Set<ZSetOperations.TypedTuple<Object>> cached = redisTemplate.opsForZSet()
+                    .reverseRangeWithScores(HOT_FEED_KEY, 0, RECOMMEND_CANDIDATE_LIMIT - 1);
+            if (cached == null || cached.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return cached.stream()
+                    .map(tuple -> (Wish) tuple.getValue())
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } catch (Exception ex) {
+            // 脏数据（序列化格式不兼容/CCE）或 Redis 故障：清键降级回源
+            log.warn("首页热门缓存读取失败，删除疑似脏键并回源 DB（Fail-Open）: {}", ex.getMessage());
+            try {
+                redisTemplate.delete(HOT_FEED_KEY);
+            } catch (Exception delEx) {
+                log.warn("脏键删除失败（键过期后自动消失）: {}", delEx.getMessage());
+            }
+            return Collections.emptyList();
+        }
     }
 
     /**
