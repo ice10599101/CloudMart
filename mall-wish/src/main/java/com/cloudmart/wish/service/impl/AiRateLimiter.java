@@ -3,7 +3,7 @@ package com.cloudmart.wish.service.impl;
 import com.cloudmart.wish.config.WishAiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -51,7 +51,7 @@ public class AiRateLimiter {
                 redisTemplate.expireAt(key, new java.util.Date(expireAtEpoch * 1000));
             }
             return count <= limit;
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("Redis不可用，AI限频降级放行（Fail-Open）, key={}", key, ex);
             return true;
         }

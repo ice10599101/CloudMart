@@ -33,6 +33,10 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
+      # Lettuce 默认命令超时 60s；服务器端口转发抖动时半开连接会拖死请求。
+      # 3s 快速失败（与 mall-wish 对齐，见进度文件四K 第八轮）
+      timeout: 3s
+      connect-timeout: 2s
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:8306}/mall_job?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
     username: ${MYSQL_USERNAME:root}
@@ -84,7 +88,9 @@ xxl-job:
     appname: mall-job-executor
     address:
     ip:
-    port: ${XXL_JOB_EXECUTOR_PORT:9999}
+    # Windows 服务器 9999 被 OpenSSH(sshd) 占用，执行器绑不上端口导致注册失败；
+    # 默认改 9998（仍可用 XXL_JOB_EXECUTOR_PORT 环境变量覆盖）
+    port: ${XXL_JOB_EXECUTOR_PORT:9998}
     logpath: /data/applogs/xxl-job/jobhandler
     logretentiondays: 30
 

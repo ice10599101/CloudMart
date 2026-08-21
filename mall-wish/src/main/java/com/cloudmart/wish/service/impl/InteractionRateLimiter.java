@@ -3,7 +3,7 @@ package com.cloudmart.wish.service.impl;
 import com.cloudmart.wish.enums.InteractionType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -111,7 +111,7 @@ public class InteractionRateLimiter {
         try {
             Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, String.valueOf(Instant.now().toEpochMilli()));
             return Boolean.TRUE.equals(acquired);
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("Redis不可用，同求唯一占位降级放行（DB唯一索引兜底）, key={}", key, ex);
             return true;
         }
@@ -124,7 +124,7 @@ public class InteractionRateLimiter {
         String key = KEY_PREFIX + KEY_USER_WISH_DIMENSION + userId + ":" + wishId + ":same_wish";
         try {
             redisTemplate.delete(key);
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("Redis不可用，同求唯一占位释放失败（残留Key会导致需人工处理）, key={}", key, ex);
         }
     }
@@ -145,7 +145,7 @@ public class InteractionRateLimiter {
                 redisTemplate.expireAt(key, new java.util.Date(expireAtEpoch * 1000));
             }
             return count <= limit;
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("Redis不可用，限频降级放行（Fail-Open）, key={}", key, ex);
             return true;
         }

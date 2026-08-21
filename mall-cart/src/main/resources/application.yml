@@ -69,6 +69,10 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
+      # Lettuce 默认命令超时 60s；服务器端口转发抖动时半开连接会拖死请求。
+      # 3s 快速失败（与 mall-wish 对齐，见进度文件四K 第八轮）
+      timeout: 3s
+      connect-timeout: 2s
 
 mybatis-plus:
   global-config:

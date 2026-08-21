@@ -24,7 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -200,7 +200,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
             redisTemplate.opsForValue().set(MOOD_CACHE_KEY,
                     objectMapper.writeValueAsString(value),
                     Duration.ofMinutes(props.getMoodCacheTtlMinutes()));
-        } catch (RedisConnectionFailureException | JsonProcessingException ex) {
+        } catch (DataAccessException | JsonProcessingException ex) {
             log.warn("生命树情绪缓存写入失败（Fail-Open，下次扫描重写）: {}", ex.getMessage());
         }
     }
@@ -209,7 +209,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
         try {
             String json = redisTemplate.opsForValue().get(MOOD_CACHE_KEY);
             return json != null ? objectMapper.readValue(json, MoodCacheValue.class) : null;
-        } catch (RedisConnectionFailureException | JsonProcessingException ex) {
+        } catch (DataAccessException | JsonProcessingException ex) {
             log.warn("生命树情绪缓存读取失败（降级返回 null）: {}", ex.getMessage());
             return null;
         }
@@ -220,7 +220,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
             Boolean locked = redisTemplate.opsForValue().setIfAbsent(
                     SCAN_LOCK_KEY, "1", props.getScanLockTtlSeconds(), TimeUnit.SECONDS);
             return Boolean.TRUE.equals(locked);
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             // Redis 不可用时仍执行扫描（无锁保护可容忍：单行幂等写入）
             log.warn("生命树扫描锁获取失败，Redis 不可用，无锁继续扫描（Fail-Open）: {}", ex.getMessage());
             return true;
@@ -230,7 +230,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
     private void releaseScanLock() {
         try {
             redisTemplate.delete(SCAN_LOCK_KEY);
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("生命树扫描锁释放失败（TTL 兜底自动过期）: {}", ex.getMessage());
         }
     }

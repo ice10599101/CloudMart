@@ -116,7 +116,7 @@ export default function WorldTreePage() {
 
   if (loading) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='世界树' />
         <View className={styles.loading}>
           <View className={styles.spinner} />
@@ -126,9 +126,9 @@ export default function WorldTreePage() {
   }
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, minHeight: '100vh' }}>
+    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='世界树' />
-      <View className={styles.content} style={{ height: `calc(100vh - ${statusBarHeight + navBarHeight}rpx)` }}>
+      <View className={styles.content} style={{ height: `calc(100vh - ${statusBarHeight + navBarHeight}px)` }}>
         {aggregation ? (
           <View className={styles.statsBar}>
             <View className={styles.statsRow}>
