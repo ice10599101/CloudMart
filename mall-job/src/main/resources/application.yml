@@ -83,7 +83,9 @@ mybatis-plus:
 xxl-job:
   admin:
     addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8180/xxl-job-admin}
-  accessToken: ${XXL_JOB_ACCESS_TOKEN:}
+  # 与 docker-compose 中 admin 的 --xxl.job.accessToken 保持一致；
+  # 默认值直接内置，避免依赖服务器 IDEA EnvFile 注入（曾因未注入导致注册被拒）
+  accessToken: ${XXL_JOB_ACCESS_TOKEN:cloudmart-xxl-job}
   executor:
     appname: mall-job-executor
     address:
