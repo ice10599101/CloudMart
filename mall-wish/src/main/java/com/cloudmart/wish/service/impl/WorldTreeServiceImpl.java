@@ -24,7 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -205,8 +205,9 @@ public class WorldTreeServiceImpl implements WorldTreeService {
         try {
             String json = redisTemplate.opsForValue().get(AGG_CACHE_KEY);
             return json != null ? objectMapper.readValue(json, AggregateCounts.class) : null;
-        } catch (RedisConnectionFailureException | JsonProcessingException ex) {
-            // Fail-Open：脏数据/连接异常均降级为 miss（回源 DB），读失败绝不阻塞业务
+        } catch (DataAccessException | JsonProcessingException ex) {
+            // Fail-Open：脏数据/连接异常/命令超时均降级为 miss（回源 DB），读失败绝不阻塞业务。
+            // DataAccessException 涵盖 RedisConnectionFailureException 与命令超时的 QueryTimeoutException
             log.warn("世界树聚合缓存读取失败（Fail-Open 降级回源）: {}", ex.getMessage());
             return null;
         }
@@ -219,7 +220,7 @@ public class WorldTreeServiceImpl implements WorldTreeService {
             redisTemplate.opsForValue().set(AGG_CACHE_KEY,
                     objectMapper.writeValueAsString(counts),
                     Duration.ofSeconds(Math.max(ttlSeconds, CACHE_JITTER_SECONDS)));
-        } catch (RedisConnectionFailureException | JsonProcessingException ex) {
+        } catch (DataAccessException | JsonProcessingException ex) {
             // Fail-Open：回填失败仅告警（下次读取仍回源），不影响响应
             log.warn("世界树聚合缓存写入失败（Fail-Open 仅告警）: {}", ex.getMessage());
         }
@@ -261,8 +262,8 @@ public class WorldTreeServiceImpl implements WorldTreeService {
             Boolean locked = redisTemplate.opsForValue()
                     .setIfAbsent(AGG_LOCK_KEY, "1", LOCK_TTL_SECONDS, TimeUnit.SECONDS);
             return Boolean.TRUE.equals(locked);
-        } catch (RedisConnectionFailureException ex) {
-            // Redis 不可用时无锁继续（单条聚合查询幂等，无一致性风险）
+        } catch (DataAccessException ex) {
+            // Redis 不可用/命令超时时无锁继续（单条聚合查询幂等，无一致性风险）
             log.warn("世界树聚合锁获取失败，Redis 不可用，无锁回源（Fail-Open）: {}", ex.getMessage());
             return true;
         }
@@ -271,7 +272,7 @@ public class WorldTreeServiceImpl implements WorldTreeService {
     private void releaseLock() {
         try {
             redisTemplate.delete(AGG_LOCK_KEY);
-        } catch (RedisConnectionFailureException ex) {
+        } catch (DataAccessException ex) {
             log.warn("世界树聚合锁释放失败（TTL 兜底自动过期）: {}", ex.getMessage());
         }
     }

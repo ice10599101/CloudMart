@@ -4,7 +4,8 @@ import Taro from '@tarojs/taro'
 import styles from './index.module.scss'
 
 const BGM_STORAGE_KEY = 'wish_bgm_enabled'
-const BGM_AUDIO_URL = 'https://cloudmart-oss.oss-cn-hangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3'
+// 与 mall-file 的 OSS 配置对齐（bucket=oss-ysf，region=广州）
+const BGM_AUDIO_URL = 'https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3'
 
 /**
  * 心愿宇宙背景音乐组件

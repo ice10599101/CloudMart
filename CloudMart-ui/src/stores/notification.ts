@@ -14,11 +14,11 @@ interface NotificationState {
   setNotifications: (items: NotificationItem[]) => void
 }
 
+// 同源地址：dev 走 .umirc.ts 的 /ws 代理转发到 Gateway（与 /api 同链路），
+// 生产由部署层 nginx 等反代 /ws；禁止直连 {hostname}:8090（Gateway 不在同机时必然失败）
 const WS_BASE = (() => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.hostname
-  const port = (typeof process !== 'undefined' && process.env?.WS_PORT) || '8090'
-  return `${protocol}//${host}:${port}`
+  return `${protocol}//${window.location.host}`
 })()
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({

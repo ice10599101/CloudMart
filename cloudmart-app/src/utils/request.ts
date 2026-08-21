@@ -1,19 +1,26 @@
 import axios from 'axios'
 import Constants from 'expo-constants'
+import { Platform } from 'react-native'
 import { storage } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 
 /**
  * API 基址按运行环境解析：
  * - Web（metro dev server / expo web）：相对路径 /api，由 metro.config.js 代理转发到 Gateway
- * - Native + Expo Go dev：同样走 metro 代理（hostUri 为 Expo 连接的 dev server 地址，
- *   手机只需可达电脑 8081——Expo Go 本身就依赖它；避免真机直连公网 8090 被网络拦截）
+ * - Native + Expo Go dev：走 metro 代理（manifest2.extra.expoGoHostUri 为 Expo 连接的
+ *   dev server 地址，手机只需可达电脑 8081——Expo Go 本身就依赖它；避免真机直连
+ *   公网 8090 被网络拦截）
  * - Native 生产构建或显式配置：EXPO_PUBLIC_API_HOST 直连 Gateway
+ *
+ * 注意：RN 运行时全局存在 window（window === global），typeof window 判定 web
+ * 在原生端恒为 true，必须用 Platform.OS 判定（曾因此导致真机全部请求走相对路径失败）
  */
 function resolveApiBase(): string {
-  if (typeof window !== 'undefined') return '/api'
+  if (Platform.OS === 'web') return '/api'
   const isDev = process.env.NODE_ENV !== 'production'
-  const metroHost = Constants.expoConfig?.hostUri
+  const metroHost =
+    Constants.expoConfig?.hostUri ??
+    (Constants.manifest2 as { extra?: { expoGoHostUri?: string } } | undefined)?.extra?.expoGoHostUri
   if (isDev && metroHost) {
     return `http://${metroHost}/api`
   }
@@ -21,6 +28,10 @@ function resolveApiBase(): string {
 }
 
 const API_BASE = resolveApiBase()
+// 诊断日志：native 端输出到 metro 终端，用于确认真机实际请求基址
+if (Platform.OS !== 'web') {
+  console.log('[request] API_BASE =', API_BASE)
+}
 
 const client = axios.create({
   baseURL: API_BASE,

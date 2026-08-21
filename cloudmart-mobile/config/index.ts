@@ -26,14 +26,32 @@ function readRootEnv(key: string): string | undefined {
 }
 
 /**
+ * 直读 cloudmart-mobile/.env（fs 读取，不依赖 Taro CLI 的 dotenv 注入时机，
+ * 保证 defineConstants 烘焙进小程序 bundle 的值一定与文件一致）。
+ */
+function readLocalEnv(key: string): string | undefined {
+  const envPath = path.resolve(__dirname, '..', '.env')
+  if (!fs.existsSync(envPath)) return undefined
+  const content = fs.readFileSync(envPath, 'utf-8')
+  const match = content.match(new RegExp(`^${key}=(.+)$`, 'm'))
+  return match?.[1]?.trim()
+}
+
+/**
  * API 地址优先级：
- * 1. cloudmart-mobile/.env 中的 TARO_APP_API_HOST
- * 2. 项目根目录 .env 中的 EXPO_PUBLIC_API_HOST（和 APP 共用）
- * 3. 兜底 127.0.0.1
+ * 1. 进程环境变量 TARO_APP_API_HOST（shell 显式注入，最高）
+ * 2. cloudmart-mobile/.env 中的 TARO_APP_API_HOST（fs 直读）
+ * 3. 项目根目录 .env 中的 EXPO_PUBLIC_API_HOST（和 APP 共用）
+ * 4. 兜底 127.0.0.1
  */
 const API_HOST = process.env.TARO_APP_API_HOST
+  || readLocalEnv('TARO_APP_API_HOST')
   || readRootEnv('EXPO_PUBLIC_API_HOST')
   || 'http://127.0.0.1'
+
+// 诊断日志：dev 终端直接可见本次构建烘焙进前端的 API 基址，
+// 用于分辨「值没进构建」还是「devtools 缓存旧 bundle」
+console.log(`[taro config] API_HOST = ${API_HOST}`)
 
 export default defineConfig<'vite'>(async (merge) => {
   const baseConfig: UserConfigExport<'vite'> = {

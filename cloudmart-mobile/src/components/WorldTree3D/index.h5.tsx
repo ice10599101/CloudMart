@@ -145,6 +145,24 @@ export default function WorldTree3D({
     scene.add(stars)
 
     // 树体（内球 + 线框树冠 + 核心光球）
+    // 树干 + 底座（与 WEB 端 WorldTree3D 对齐，走查反馈 H5 缺失）
+    const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.22, 1.3, 10)
+    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.9 })
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial)
+    trunk.position.y = -TREE_RADIUS - 0.65
+    scene.add(trunk)
+    const groundGeometry = new THREE.CircleGeometry(1.1, 40)
+    const groundMaterial = new THREE.MeshStandardMaterial({
+      color: 0x16213e,
+      roughness: 1,
+      transparent: true,
+      opacity: 0.85,
+    })
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+    ground.rotation.x = -Math.PI / 2
+    ground.position.y = -TREE_RADIUS - 1.3
+    scene.add(ground)
+
     const innerMaterial = new THREE.MeshBasicMaterial({
       color: 0x0f3460,
       transparent: true,

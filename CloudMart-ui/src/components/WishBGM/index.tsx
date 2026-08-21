@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { SoundOutlined, MutedOutlined } from '@ant-design/icons'
 
 const BGM_STORAGE_KEY = 'wish-bgm-enabled'
-const BGM_AUDIO_URL = 'https://cloudmart-oss.oss-cn-hangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3'
+// 与 mall-file 的 OSS 配置对齐（bucket=oss-ysf，region=广州）
+const BGM_AUDIO_URL = 'https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3'
 
 export default function WishBGM() {
   const [enabled, setEnabled] = useState(false)

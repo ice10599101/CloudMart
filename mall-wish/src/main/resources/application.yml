@@ -69,6 +69,10 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
+      # Lettuce 默认命令超时 60s——远超前端 15s 请求超时；服务器 Docker 端口
+      # 转发抖动时半开连接会把聚合请求拖到客户端超时。3s 快速失败走 Fail-Open 回源 DB
+      timeout: 3s
+      connect-timeout: 2s
   ai:
     dashscope:
       api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
