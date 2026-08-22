@@ -34,6 +34,32 @@ const ROTATE_THROTTLE_MS = 32
 /** 垂直视角偏移夹紧（弧度） */
 const MAX_PHI_OFFSET = 0.7
 
+/** 背景星点数（静态装饰层，不随拖拽重渲染变化） */
+const STAR_COUNT = 36
+
+interface BackgroundStar {
+  left: number
+  top: number
+  size: number
+  opacity: number
+}
+
+/**
+ * 确定性星空散布（模块级一次性生成）：
+ * 黄金角 + 等面积径向分布；尺寸/透明度按序号散列分档制造层次，
+ * 静态渲染零动画成本（APP 端拖拽时全量重渲染，星点为常量不参与计算）。
+ */
+const BACKGROUND_STARS: BackgroundStar[] = Array.from({ length: STAR_COUNT }, (_, i) => {
+  const theta = (i * 2.399963229728653) % (Math.PI * 2)
+  const radius = Math.sqrt((i + 0.5) / STAR_COUNT)
+  return {
+    left: 50 + Math.cos(theta) * radius * 48,
+    top: 50 + Math.sin(theta) * radius * 48,
+    size: 1.5 + ((i * 7) % 3),
+    opacity: 0.2 + ((i * 13) % 5) * 0.13,
+  }
+})
+
 interface ProjectedFruit {
   fruit: TreeFruit
   left: number
@@ -133,6 +159,23 @@ export default function WorldTree3D({ fruits, season, environment, onFruitSelect
 
   return (
     <View style={styles.sphere} {...panResponder.panHandlers} accessibilityLabel="世界树星图">
+      {BACKGROUND_STARS.map(({ left, top, size, opacity }, index) => (
+        <View
+          key={`star-${index}`}
+          style={{
+            position: 'absolute',
+            left: `${left}%`,
+            top: `${top}%`,
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            marginLeft: -size / 2,
+            marginTop: -size / 2,
+            backgroundColor: '#ffffff',
+            opacity,
+          }}
+        />
+      ))}
       <View style={[styles.sphereGlow, { borderColor: ringColor }]} />
       <View style={styles.sphereInner} />
       <Animated.View

@@ -36,6 +36,32 @@ const ENVIRONMENT_CORE_COLORS: Record<string, string> = {
 /** 小程序端降级渲染上限（投影 + setData 成本控制） */
 const MAX_POINTS = 120
 
+/** 背景星点数（纯 CSS 装饰层，无 JS 状态驱动） */
+const STAR_COUNT = 36
+
+interface BackgroundStar {
+  left: number
+  top: number
+  size: number
+  delay: number
+}
+
+/**
+ * 确定性星空散布（模块级一次性生成，渲染期间恒定）：
+ * 黄金角 + 等面积径向分布（与后端 TreePositionCalculator 同思路），
+ * 尺寸/相位按序号散列错开，避免每次 render 重随导致星点跳变。
+ */
+const BACKGROUND_STARS: BackgroundStar[] = Array.from({ length: STAR_COUNT }, (_, i) => {
+  const theta = (i * 2.399963229728653) % (Math.PI * 2)
+  const radius = Math.sqrt((i + 0.5) / STAR_COUNT)
+  return {
+    left: 50 + Math.cos(theta) * radius * 48,
+    top: 50 + Math.sin(theta) * radius * 48,
+    size: 3 + ((i * 7) % 3),
+    delay: (i % 8) * 0.45,
+  }
+})
+
 interface ProjectedFruit {
   fruit: TreeFruit
   left: number
@@ -80,6 +106,19 @@ export default function WorldTree3D({ fruits, season, environment, onFruitSelect
 
   return (
     <View className={styles.sphere} aria-label='世界树星图'>
+      {BACKGROUND_STARS.map(({ left, top, size, delay }, index) => (
+        <View
+          key={`star-${index}`}
+          className={styles.starDot}
+          style={{
+            left: `${left}%`,
+            top: `${top}%`,
+            width: `${size}rpx`,
+            height: `${size}rpx`,
+            animationDelay: `${delay}s`,
+          }}
+        />
+      ))}
       <View className={styles.sphereGlow} style={{ borderColor: ringColor }} />
       <View className={styles.sphereInner} />
       <View className={styles.sphereCore} style={{ background: coreColor }} />

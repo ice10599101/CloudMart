@@ -51,4 +51,31 @@ public class WishTreeEnvProperties {
 
     /** 扫描互斥锁 TTL（秒；略大于单次扫描预期耗时，防多实例并发扫描） */
     private int scanLockTtlSeconds = 240;
+
+    /** 天气 API 子配置（Sprint 2.2 和风天气 v7，文档 28.1.2） */
+    private Weather weather = new Weather();
+
+    /**
+     * 和风天气 API 配置（文档 28.1.2：开发版免费 1000 次/天，满足
+     * 生命树天气更新频率；缓存 5 分钟后实际调用量 ≤288 次/天单实例）。
+     */
+    @Getter
+    @Setter
+    public static class Weather {
+
+        /** 是否启用真实天气拉取（false/未配 Key 时恒返回 SUNNY 降级值） */
+        private boolean enabled = false;
+
+        /** 和风天气 API Key（敏感配置走环境变量，禁止硬编码） */
+        private String apiKey = "";
+
+        /** 天气查询位置（和风 LocationID；默认 101010100 北京，全站单点天气） */
+        private String location = "101010100";
+
+        /** API Host（开发版 devapi；付费商业版换 api.qweather.com） */
+        private String host = "https://devapi.qweather.com";
+
+        /** Redis 天气缓存 TTL（分钟，文档 Sprint 2.2 验收：5 分钟不重复请求） */
+        private int cacheTtlMinutes = 5;
+    }
 }

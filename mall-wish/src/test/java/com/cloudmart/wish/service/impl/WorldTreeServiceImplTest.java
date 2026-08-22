@@ -72,6 +72,10 @@ class WorldTreeServiceImplTest {
     @Mock
     private UserFeignClient userFeignClient;
     @Mock
+    private QWeatherClient weatherClient;
+    @Mock
+    private com.cloudmart.wish.service.TreeEnvService treeEnvService;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
@@ -86,8 +90,13 @@ class WorldTreeServiceImplTest {
         TableInfoHelper.initTableInfo(assistant, Wish.class);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(redisTemplate.delete(anyString())).thenReturn(true);
+        // 环境聚合依赖（Sprint 2.2 扩展）：天气默认晴天、无活跃事件
+        lenient().when(weatherClient.getCurrentWeather())
+                .thenReturn(com.cloudmart.wish.enums.TreeWeather.SUNNY);
+        lenient().when(treeEnvService.getActiveSpecialEvent()).thenReturn(null);
         worldTreeService = new WorldTreeServiceImpl(
-                wishMapper, stateMapper, userFeignClient, redisTemplate, new ObjectMapper());
+                wishMapper, stateMapper, userFeignClient, weatherClient, treeEnvService,
+                redisTemplate, new ObjectMapper());
     }
 
     // ========== getTreeAggregation：缓存命中 ==========

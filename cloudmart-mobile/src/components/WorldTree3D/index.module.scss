@@ -43,6 +43,24 @@
   animation: fruit-twinkle 2.5s ease-in-out infinite;
 }
 
+/* 背景星空装饰层：纯 CSS 闪烁，无 JS 状态，尺寸/相位由内联样式注入 */
+.starDot {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  animation: star-twinkle 3.6s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
 @keyframes tree-breathe {
   0%,
   100% {

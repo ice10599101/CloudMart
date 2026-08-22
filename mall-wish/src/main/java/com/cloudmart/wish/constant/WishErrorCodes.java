@@ -52,6 +52,16 @@ public final class WishErrorCodes {
     public static final String BADGE_CODE_DUPLICATED = "BADGE_CODE_DUPLICATED";
     public static final String BADGE_CONDITION_INVALID = "BADGE_CONDITION_INVALID";
 
+    // 生命树环境管理（Sprint 2.2）
+    /** 特殊事件不存在 */
+    public static final String TREE_SPECIAL_EVENT_NOT_FOUND = "TREE_SPECIAL_EVENT_NOT_FOUND";
+    /** 环境配置不存在 */
+    public static final String TREE_ENV_CONFIG_NOT_FOUND = "TREE_ENV_CONFIG_NOT_FOUND";
+    /** 环境配置 code 重复（唯一索引兜底前的预查） */
+    public static final String TREE_ENV_CONFIG_CODE_DUPLICATED = "TREE_ENV_CONFIG_CODE_DUPLICATED";
+    /** 环境配置 visual 非法 JSON */
+    public static final String TREE_ENV_VISUAL_INVALID = "TREE_ENV_VISUAL_INVALID";
+
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";

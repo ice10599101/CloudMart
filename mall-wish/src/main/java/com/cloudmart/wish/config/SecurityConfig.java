@@ -54,8 +54,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/wishes/{id}/fulfillment").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/home").permitAll()
-                // 公开浏览：世界生命树环境状态（未登录首页/世界树亦需渲染）
-                .requestMatchers(HttpMethod.GET, "/tree-env").permitAll()
+                // 公开浏览：世界生命树环境状态 + 环境渲染配置（未登录首页/世界树亦需渲染）
+                .requestMatchers(HttpMethod.GET, "/tree-env", "/tree-env/configs").permitAll()
                 // 公开浏览：世界生命树 3D 聚合状态 + 果实视口分页（Sprint 2.1）
                 .requestMatchers(HttpMethod.GET, "/tree").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tree/fruits").permitAll()

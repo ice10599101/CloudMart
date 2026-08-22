@@ -68,13 +68,16 @@ public abstract class WishIntegrationTestBase {
     }
 
     /** 全部业务表：@AfterEach 统一 TRUNCATE 保证用例隔离。
-     *  注意 wish_badge 不在此列：V1 种子的字典表被 TRUNCATE 后 Flyway 不会重跑
-     *  （首轮 Badge 集成即因此空表失败），改由 {@link #ensureBadgeSeedData} 幂等补种 */
+     *  注意 wish_badge 不在此列：V1 种子的字典表被 TRUNCATE 后 Flyway 不会
+     *  重跑，改由 {@link #ensureBadgeSeedData} 幂等补种；wish_env_config 虽然
+     *  被 TRUNCATE，但由 {@link #ensureEnvConfigSeedData} 每用例前幂等补种
+     *  恢复 16 条种子（管理端 CRUD 用例可放心改库，is_active 强制复位） */
     private static final List<String> BUSINESS_TABLES = List.of(
             "wish", "wish_progress", "wish_interaction", "wish_growth_record",
             "wish_checkin", "wish_user_stat", "wish_resource_log",
             "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
-            "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment");
+            "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
+            "wish_special_event", "wish_env_config");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -122,6 +125,59 @@ public abstract class WishIntegrationTestBase {
                      JSON_OBJECT('type', 'TOTAL_CHECKIN_DAYS', 'threshold', 365, 'description', '累计打卡365天'))
                 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `rarity` = VALUES(`rarity`),
                     `is_active` = VALUES(`is_active`), `condition` = VALUES(`condition`)
+                """);
+    }
+
+    /**
+     * 幂等补种环境配置种子（16 条，ON DUPLICATE KEY UPDATE）。
+     *
+     * <p>wish_env_config 被 TRUNCATE 后 Flyway 不会重跑 V10/V11，种子由本方法
+     * 每用例前补种恢复（管理端 CRUD 用例可放心改库）；与 wish_badge
+     * 补种策略一致。种子内容与 V11 修复迁移保持同步。</p>
+     *
+     * <p>id 必须显式提供：雪花主键无 AUTO_INCREMENT，裸 INSERT 报
+     * "Field 'id' doesn't have a default value"（V10 种子即栽在此）。
+     * 字典表小整数 id 3101-3116，与 V11 同口径。</p>
+     */
+    @BeforeEach
+    void ensureEnvConfigSeedData() {
+        jdbcTemplate.update("""
+                INSERT INTO wish_env_config (id, env_code, category, name, description, priority, visual) VALUES
+                    (3101, 'SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+                     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+                    (3102, 'CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+                     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+                    (3103, 'RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+                     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+                    (3104, 'SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+                     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+                    (3105, 'RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+                     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+                    (3106, 'SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+                     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+                    (3107, 'SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+                     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+                    (3108, 'AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+                     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+                    (3109, 'WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+                     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+                    (3110, 'DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+                     JSON_OBJECT('skyColor', '#87ceeb')),
+                    (3111, 'DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+                     JSON_OBJECT('skyColor', '#ff9a76')),
+                    (3112, 'NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+                     JSON_OBJECT('skyColor', '#0c1b3a')),
+                    (3113, 'LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+                     JSON_OBJECT('skyColor', '#060b18')),
+                    (3114, 'METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+                     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+                    (3115, 'AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+                     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+                    (3116, 'STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+                     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+                ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+                    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+                    `is_active` = 1, `description` = VALUES(`description`)
                 """);
     }
 

@@ -92,10 +92,11 @@ class HomeServiceImplTest {
             // 模拟我的心愿
             when(wishProgressMapper.selectBatchIds(any())).thenReturn(List.of(buildProgress(1L)));
 
-            // 模拟世界树聚合（Sprint 2.1 首页接线）
+            // 模拟世界树聚合（Sprint 2.2 扩展：weather/specialEvent/triggeredAt）
             WorldTreeVO worldTree = new WorldTreeVO(100, 20, 500,
                     com.cloudmart.wish.enums.TreeEnvironment.SUNNY,
-                    com.cloudmart.wish.enums.TreeSeason.SUMMER, null);
+                    com.cloudmart.wish.enums.TreeSeason.SUMMER,
+                    com.cloudmart.wish.enums.TreeWeather.SUNNY, null, null);
             when(worldTreeService.getTreeAggregation()).thenReturn(worldTree);
 
             var result = homeService.getHomeAggregation(USER_ID);

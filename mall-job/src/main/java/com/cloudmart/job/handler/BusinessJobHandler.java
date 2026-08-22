@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 
 import java.util.Map;
 
@@ -19,8 +20,9 @@ public class BusinessJobHandler {
 
     private final RestClient restClient;
 
-    public BusinessJobHandler() {
-        this.restClient = RestClient.builder().build();
+    public BusinessJobHandler(@LoadBalanced RestClient.Builder restClientBuilder) {
+        // 服务名 URI（http://mall-wish 等）经 LoadBalancer→Nacos 解析为实际地址
+        this.restClient = restClientBuilder.build();
     }
 
     /**
@@ -147,6 +149,30 @@ public class BusinessJobHandler {
         } catch (Exception e) {
             log.error("XXL-JOB: 热门推荐缓存刷新失败: {}", e.getMessage());
             throw new RuntimeException("热门推荐缓存刷新失败", e);
+        }
+    }
+
+    /**
+     * 生命树季节落库扫描：按 UTC 日期判定季节写入 wish_world_tree_state.season
+     * （心愿宇宙文档 Sprint 2.2 动态环境：3-5 月春/6-8 月夏/9-11 月秋/12-2 月冬）。
+     * 由 XXL-JOB 调度中心每日 00:00 触发。幂等：季节未变化不产生写。
+     *
+     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
+     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     */
+    @XxlJob("seasonScanHandler")
+    public void seasonScanHandler() {
+        log.info("XXL-JOB: 开始执行生命树季节落库扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/tree-env/season-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 生命树季节落库扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 生命树季节落库扫描失败: {}", e.getMessage());
+            throw new RuntimeException("生命树季节落库扫描失败", e);
         }
     }
 

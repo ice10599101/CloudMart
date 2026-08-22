@@ -15,8 +15,10 @@ import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishWorldTreeStateMapper;
+import com.cloudmart.wish.service.TreeEnvService;
 import com.cloudmart.wish.service.WorldTreeService;
 import com.cloudmart.wish.service.impl.TreeBoundsParser.TreeBounds;
+import com.cloudmart.wish.vo.SpecialEventVO;
 import com.cloudmart.wish.vo.TreeFruitVO;
 import com.cloudmart.wish.vo.TreePositionVO;
 import com.cloudmart.wish.vo.WorldTreeVO;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -85,6 +88,8 @@ public class WorldTreeServiceImpl implements WorldTreeService {
     private final WishMapper wishMapper;
     private final WishWorldTreeStateMapper stateMapper;
     private final UserFeignClient userFeignClient;
+    private final QWeatherClient weatherClient;
+    private final TreeEnvService treeEnvService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -94,12 +99,18 @@ public class WorldTreeServiceImpl implements WorldTreeService {
         if (counts == null) {
             counts = loadCountsWithStampedeProtection();
         }
-        // 环境/季节实时读取：不受计数缓存 5 分钟延迟影响（情绪联动分钟级变化）
+        // 环境/季节/天气/特殊事件实时读取：不受计数缓存 5 分钟延迟影响
+        // （情绪联动分钟级变化；天气自带 5 分钟 Redis 缓存；事件为索引查询）
         WishWorldTreeState state = stateMapper.selectById(WishWorldTreeState.SINGLETON_ID);
         TreeEnvironment environment = state != null ? state.getEnvironment() : TreeEnvironment.SUNNY;
+        // 季节优先读 state.season（Sprint 2.2 每日落库）；NULL 时实时计算兜底
+        TreeSeason season = state != null && state.getSeason() != null
+                ? state.getSeason()
+                : TreeSeason.from(LocalDate.now(ZoneOffset.UTC));
+        SpecialEventVO specialEvent = treeEnvService.getActiveSpecialEvent();
         return new WorldTreeVO(
                 counts.totalFruits(), counts.totalBloom(), counts.totalLight(),
-                environment, TreeSeason.from(LocalDate.now()),
+                environment, season, weatherClient.getCurrentWeather(), specialEvent,
                 state != null ? state.getTriggeredAt() : null);
     }
 

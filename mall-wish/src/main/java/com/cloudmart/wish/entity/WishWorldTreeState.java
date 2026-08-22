@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.cloudmart.wish.enums.TreeEnvironment;
 import com.cloudmart.wish.enums.TreeEnvSource;
+import com.cloudmart.wish.enums.TreeSeason;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -32,6 +33,12 @@ public class WishWorldTreeState {
     private Long id;
 
     private TreeEnvironment environment;
+
+    /**
+     * 当前季节（Sprint 2.2：mall-job 每日 00:00 按 UTC 日期扫描写入；
+     * NULL=未扫描，读取方实时计算兜底——TreeSeason.from 行为不变）。
+     */
+    private TreeSeason season;
 
     private TreeEnvSource environmentSource;
 
