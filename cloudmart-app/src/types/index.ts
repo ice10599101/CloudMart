@@ -495,6 +495,68 @@ export interface TreeFruitsQuery {
   pageSize?: number
 }
 
+// ---- 动态环境（Sprint 2.2，与 mall-wish TreeEnvVO/EnvConfigVO 对齐）----
+
+export type TreeWeather = 'SUNNY' | 'CLOUDY' | 'RAIN' | 'SNOW' | 'RAINBOW'
+
+export type TreeTimePhase = 'DAY' | 'DUSK' | 'NIGHT' | 'LATE_NIGHT'
+
+export type TreeEnvParticle =
+    | 'NONE'
+    | 'RAIN'
+    | 'SNOWFLAKE'
+    | 'PETAL'
+    | 'SUNBURST'
+    | 'LEAF'
+    | 'METEOR'
+    | 'AURORA'
+    | 'STAR'
+
+/** 环境视觉参数（后端 wish_env_config.visual 透传 JSON） */
+export interface TreeEnvVisual {
+  skyColor?: string
+  crownColor?: string
+  lightCoreColor?: string
+  particle?: TreeEnvParticle
+}
+
+export interface EnvConfigItem {
+  id: number
+  envCode: string
+  category: 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'
+  name: string
+  description: string | null
+  priority: number
+  visual: TreeEnvVisual | null
+  isActive: boolean
+}
+
+export interface TreeSpecialEvent {
+  id: number
+  eventCode: string
+  title: string
+  description: string | null
+  status: 'ACTIVE' | 'ENDED'
+  triggeredAt: string
+  expiresAt: string | null
+}
+
+/** 五维环境快照：displayEnv 为四端唯一渲染依据 */
+export interface TreeEnvSnapshot {
+  environment: TreeEnvironment
+  source: string | null
+  triggeredAt: string | null
+  expiresAt: string | null
+  lastScanAt: string | null
+  moodScore: number | null
+  sampleCount: number | null
+  season: TreeSeason
+  weather: TreeWeather
+  timePhase: TreeTimePhase
+  specialEvent: TreeSpecialEvent | null
+  displayEnv: string
+}
+
 export interface HomeAggregation {
   worldTree: WorldTreeAggregation | null
   todayRecommend: TodayRecommendItem[]

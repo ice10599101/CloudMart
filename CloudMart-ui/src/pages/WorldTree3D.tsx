@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Card, Spin, Tag } from 'antd'
 import { ArrowLeftOutlined, NodeIndexOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { getWorldTree, listTreeFruits } from '@/api/wish'
-import type { TreeFruit, TreeFruitsQuery, WorldTreeAggregation } from '@/api/wish'
+import { getTreeEnv, getWorldTree, listEnvConfigs, listTreeFruits } from '@/api/wish'
+import type {
+  EnvConfigItem,
+  TreeEnvParticle,
+  TreeEnvSnapshot,
+  TreeFruit,
+  TreeFruitsQuery,
+  WorldTreeAggregation,
+} from '@/api/wish'
+import { resolveTreeEnvTheme, withAlpha } from '@/utils/tree-env'
+import type { TreeEnvTheme } from '@/utils/tree-env'
 import styles from './WorldTree3D.module.css'
 import WishBGM from '@/components/WishBGM'
 
@@ -25,6 +34,8 @@ const VIEWPORT_TRIGGER_ANGLE = 0.6
 const VIEWPORT_THROTTLE_MS = 1500
 /** 用户交互后恢复自动旋转的等待时间（ms） */
 const AUTO_ROTATE_RESUME_MS = 4000
+/** 环境快照轮询间隔（ms）：特殊事件全站同步 + 情绪扫描 5min，1min 拉取足够实时 */
+const TREE_ENV_POLL_MS = 60000
 
 const FRUIT_LABELS: Record<string, string> = {
   GLOW: '微光',
@@ -40,14 +51,6 @@ const FRUIT_COLORS: Record<string, number> = {
   SPARK: 0xffd700,
 }
 
-/** 季节 → 树冠线框色（视觉主题随季节切换） */
-const SEASON_CANOPY_COLORS: Record<string, number> = {
-  SPRING: 0x7ef0c0,
-  SUMMER: 0x3ddc97,
-  AUTUMN: 0xffb347,
-  WINTER: 0xbfe8ff,
-}
-
 const SEASON_LABELS: Record<string, string> = {
   SPRING: '春 · 萌芽',
   SUMMER: '夏 · 繁盛',
@@ -55,17 +58,45 @@ const SEASON_LABELS: Record<string, string> = {
   WINTER: '冬 · 静待',
 }
 
-const ENVIRONMENT_LABELS: Record<string, string> = {
+/** displayEnv 无匹配配置时的标签兜底（配置接口失败仍可展示） */
+const DISPLAY_ENV_FALLBACK_LABELS: Record<string, string> = {
   SUNNY: '晴空',
+  CLOUDY: '多云',
   RAIN: '细雨',
+  SNOW: '落雪',
   RAINBOW: '彩虹',
+  METEOR_SHOWER: '流星雨',
+  AURORA: '极光',
+  STAR_NIGHT: '星辰夜',
 }
 
-const ENVIRONMENT_CORE_COLORS: Record<string, number> = {
-  SUNNY: 0xffd700,
-  RAIN: 0x4facfe,
-  RAINBOW: 0xff9ff3,
+/**
+ * 环境粒子运动规格（Sprint 2.2，按 wish_env_config.visual.particle 驱动）：
+ * vy 负=下落正=上升；sway 为水平摆动幅度；still 仅慢速旋转（星辰）。
+ */
+interface ParticleMotion {
+  count: number
+  color: number
+  size: number
+  vy: number
+  vx: number
+  sway: number
+  still: boolean
 }
+
+const PARTICLE_MOTIONS: Record<Exclude<TreeEnvParticle, 'NONE'>, ParticleMotion> = {
+  RAIN: { count: 420, color: 0x9fd8ff, size: 0.03, vy: -3.4, vx: 0, sway: 0, still: false },
+  SNOWFLAKE: { count: 260, color: 0xffffff, size: 0.05, vy: -0.55, vx: 0, sway: 0.3, still: false },
+  PETAL: { count: 170, color: 0xffb7d5, size: 0.07, vy: -0.5, vx: 0, sway: 0.55, still: false },
+  LEAF: { count: 170, color: 0xffb347, size: 0.07, vy: -0.65, vx: 0, sway: 0.45, still: false },
+  SUNBURST: { count: 150, color: 0xffd700, size: 0.045, vy: 0.4, vx: 0, sway: 0.2, still: false },
+  METEOR: { count: 100, color: 0xffffff, size: 0.06, vy: -5.2, vx: 2.4, sway: 0, still: false },
+  AURORA: { count: 240, color: 0x7ef0c0, size: 0.05, vy: 0.3, vx: 0, sway: 1.0, still: false },
+  STAR: { count: 220, color: 0xfff2b2, size: 0.04, vy: 0, vx: 0, sway: 0, still: true },
+}
+
+/** 粒子活动包围盒（覆盖树冠球 + 上下留空） */
+const PARTICLE_BOX = { x: 2.6, yMin: -1.6, yMax: 2.8 }
 
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
@@ -77,9 +108,9 @@ function formatCount(n: number): string {
 function toCartesian(theta: number, phi: number, radius: number): THREE.Vector3 {
   const sinPhi = Math.sin(phi)
   return new THREE.Vector3(
-    radius * sinPhi * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * sinPhi * Math.sin(theta),
+      radius * sinPhi * Math.cos(theta),
+      radius * Math.cos(phi),
+      radius * sinPhi * Math.sin(theta),
   )
 }
 
@@ -105,7 +136,7 @@ function computeViewportBounds(camera: THREE.PerspectiveCamera): TreeFruitsQuery
 
 interface TreeSceneHandle {
   setFruits(fruits: TreeFruit[]): void
-  applyTheme(season: string, environment: string): void
+  applyTheme(theme: TreeEnvTheme): void
   onViewportChange(callback: (query: TreeFruitsQuery) => void): void
   onFruitClick(callback: (fruit: TreeFruit) => void): void
   dispose(): void
@@ -142,6 +173,7 @@ function createStarfield(scene: THREE.Scene): THREE.Points {
 interface TreeBodyParts {
   canopyMaterial: THREE.MeshBasicMaterial
   coreMaterial: THREE.MeshBasicMaterial
+  haloMaterial: THREE.MeshBasicMaterial
 }
 
 function createTreeBody(scene: THREE.Scene): TreeBodyParts {
@@ -174,10 +206,10 @@ function createTreeBody(scene: THREE.Scene): TreeBodyParts {
   })
   scene.add(new THREE.Mesh(innerGeometry, innerMaterial))
 
-  // 树冠线框壳（季节主题色）
+  // 树冠线框壳（季节主题色，applyTheme 时按环境配置更新）
   const canopyGeometry = new THREE.SphereGeometry(TREE_RADIUS, 36, 24)
   const canopyMaterial = new THREE.MeshBasicMaterial({
-    color: SEASON_CANOPY_COLORS.SUMMER,
+    color: 0x3ddc97,
     wireframe: true,
     transparent: true,
     opacity: 0.18,
@@ -186,7 +218,7 @@ function createTreeBody(scene: THREE.Scene): TreeBodyParts {
 
   // 世界树之心（内核光球，环境主题色）
   const coreGeometry = new THREE.SphereGeometry(0.3, 24, 24)
-  const coreMaterial = new THREE.MeshBasicMaterial({ color: ENVIRONMENT_CORE_COLORS.SUNNY })
+  const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 })
   scene.add(new THREE.Mesh(coreGeometry, coreMaterial))
 
   // 光晕外壳
@@ -200,7 +232,7 @@ function createTreeBody(scene: THREE.Scene): TreeBodyParts {
   })
   scene.add(new THREE.Mesh(haloGeometry, haloMaterial))
 
-  return { canopyMaterial, coreMaterial }
+  return { canopyMaterial, coreMaterial, haloMaterial }
 }
 
 function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
@@ -289,9 +321,54 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     if (haloMesh.instanceColor) haloMesh.instanceColor.needsUpdate = true
   }
 
-  const handleApplyTheme = (season: string, environment: string) => {
-    treeBody.canopyMaterial.color.setHex(SEASON_CANOPY_COLORS[season] ?? 0x3ddc97)
-    treeBody.coreMaterial.color.setHex(ENVIRONMENT_CORE_COLORS[environment] ?? 0xffd700)
+  // ===== 环境粒子层（Sprint 2.2，visual.particle 驱动；NONE 时移除） =====
+  let particlePoints: THREE.Points | null = null
+  let particleMotion: ParticleMotion | null = null
+  let lastParticle: TreeEnvParticle = 'NONE'
+
+  const disposeParticles = () => {
+    if (!particlePoints) return
+    scene.remove(particlePoints)
+    particlePoints.geometry.dispose()
+    ;(particlePoints.material as THREE.PointsMaterial).dispose()
+    particlePoints = null
+    particleMotion = null
+  }
+
+  const setParticle = (particle: TreeEnvParticle) => {
+    if (particle === lastParticle) return
+    lastParticle = particle
+    disposeParticles()
+    if (particle === 'NONE') return
+    const motion = PARTICLE_MOTIONS[particle]
+    const positions = new Float32Array(motion.count * 3)
+    for (let i = 0; i < motion.count; i++) {
+      positions[i * 3] = (Math.random() * 2 - 1) * PARTICLE_BOX.x
+      positions[i * 3 + 1] =
+          PARTICLE_BOX.yMin + Math.random() * (PARTICLE_BOX.yMax - PARTICLE_BOX.yMin)
+      positions[i * 3 + 2] = (Math.random() * 2 - 1) * PARTICLE_BOX.x
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    const material = new THREE.PointsMaterial({
+      color: motion.color,
+      size: motion.size,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+    particlePoints = new THREE.Points(geometry, material)
+    particleMotion = motion
+    scene.add(particlePoints)
+  }
+
+  const handleApplyTheme = (theme: TreeEnvTheme) => {
+    treeBody.canopyMaterial.color.setStyle(theme.crownColor)
+    treeBody.coreMaterial.color.setStyle(theme.coreColor)
+    treeBody.haloMaterial.color.setStyle(theme.coreColor)
+    canvas.style.background = `radial-gradient(circle at 50% 42%, ${withAlpha(theme.skyColor, 0.5)} 0%, #04070f 78%)`
+    setParticle(theme.particle)
   }
 
   // ===== 尺寸自适应（ResizeObserver 而非 window.resize，容器尺寸独立于窗口） =====
@@ -367,7 +444,8 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
   const renderLoop = () => {
     if (disposed) return
     requestAnimationFrame(renderLoop)
-    const elapsed = clock.getElapsedTime()
+    const dt = clock.getDelta()
+    const elapsed = clock.elapsedTime
     controls.update()
 
     // 果实呼吸脉动
@@ -380,6 +458,32 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     // 星空缓慢自转（不参与视口计算，纯氛围）
     stars.rotation.y = elapsed * 0.005
 
+    // 环境粒子：运动型按速度推进并越界回绕；静止型（星辰）整体慢旋
+    if (particlePoints && particleMotion && !particleMotion.still) {
+      const positions = particlePoints.geometry.attributes.position as THREE.BufferAttribute
+      for (let i = 0; i < positions.count; i++) {
+        const y = positions.getY(i) + particleMotion.vy * dt
+        if (y < PARTICLE_BOX.yMin || y > PARTICLE_BOX.yMax) {
+          // 回绕时重随机水平位置，避免粒子轨迹可预测成列
+          positions.setXYZ(
+              i,
+              (Math.random() * 2 - 1) * PARTICLE_BOX.x,
+              particleMotion.vy < 0 ? PARTICLE_BOX.yMax : PARTICLE_BOX.yMin,
+              (Math.random() * 2 - 1) * PARTICLE_BOX.x,
+          )
+          continue
+        }
+        let x = positions.getX(i) + particleMotion.vx * dt
+        if (particleMotion.vx !== 0 && (x > PARTICLE_BOX.x || x < -PARTICLE_BOX.x)) {
+          x = -Math.sign(particleMotion.vx) * PARTICLE_BOX.x
+        }
+        positions.setXYZ(i, x + Math.sin(elapsed * 1.6 + i) * particleMotion.sway * dt, y, positions.getZ(i))
+      }
+      positions.needsUpdate = true
+    } else if (particlePoints) {
+      particlePoints.rotation.y = elapsed * 0.02
+    }
+
     // 视口变化：方位/极角偏移超阈值且过了节流窗口 → 通知宿主按 bounds 增量拉取
     currentSpherical.setFromVector3(camera.position)
     const deltaTheta = Math.abs(currentSpherical.theta - lastRequestedSpherical.theta)
@@ -387,9 +491,9 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     const now = performance.now()
     const angleMoved = Math.min(deltaTheta, Math.PI * 2 - deltaTheta) + deltaPhi
     if (
-      viewportCallback &&
-      angleMoved > VIEWPORT_TRIGGER_ANGLE &&
-      now - lastTriggerTime > VIEWPORT_THROTTLE_MS
+        viewportCallback &&
+        angleMoved > VIEWPORT_TRIGGER_ANGLE &&
+        now - lastTriggerTime > VIEWPORT_THROTTLE_MS
     ) {
       lastTriggerTime = now
       lastRequestedSpherical = currentSpherical.clone()
@@ -412,6 +516,7 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     dispose: () => {
       disposed = true
       if (idleTimer) clearTimeout(idleTimer)
+      disposeParticles()
       resizeObserver.disconnect()
       canvas.removeEventListener('pointerdown', handlePointerDown)
       canvas.removeEventListener('pointerup', handlePointerUp)
@@ -446,9 +551,17 @@ export default function WorldTree3D() {
   const sceneRef = useRef<TreeSceneHandle | null>(null)
   const fruitsMapRef = useRef<Map<number, TreeFruit>>(new Map())
   const [aggregation, setAggregation] = useState<WorldTreeAggregation | null>(null)
+  const [envSnapshot, setEnvSnapshot] = useState<TreeEnvSnapshot | null>(null)
+  const [envConfigs, setEnvConfigs] = useState<EnvConfigItem[]>([])
   const [loading, setLoading] = useState(true)
   const [viewportLoading, setViewportLoading] = useState(false)
   const [selectedFruit, setSelectedFruit] = useState<TreeFruit | null>(null)
+
+  /** 环境主题（displayEnv 仲裁；快照与配置均失败时保持 null 不覆盖既有视觉） */
+  const envTheme = useMemo(
+      () => (envSnapshot || envConfigs.length > 0 ? resolveTreeEnvTheme(envSnapshot, envConfigs) : null),
+      [envSnapshot, envConfigs],
+  )
 
   /** 合并去重（果实位置一经写入不变更，仅新增）并同步到 3D 场景 */
   const mergeFruits = useCallback((items: TreeFruit[]) => {
@@ -467,25 +580,25 @@ export default function WorldTree3D() {
 
   /** 视口增量加载：游标翻页直到 hasMore=false 或达单次上限 */
   const loadViewport = useCallback(
-    async (query: TreeFruitsQuery) => {
-      setViewportLoading(true)
-      try {
-        let cursor: string | undefined
-        for (let page = 0; page < MAX_PAGES_PER_VIEWPORT; page++) {
-          const res = await listTreeFruits({ ...query, cursor })
-          if (!res.data.success) break
-          mergeFruits(res.data.data)
-          const meta = res.data.meta
-          if (!meta?.hasMore || !meta.nextCursor) break
-          cursor = meta.nextCursor
+      async (query: TreeFruitsQuery) => {
+        setViewportLoading(true)
+        try {
+          let cursor: string | undefined
+          for (let page = 0; page < MAX_PAGES_PER_VIEWPORT; page++) {
+            const res = await listTreeFruits({ ...query, cursor })
+            if (!res.data.success) break
+            mergeFruits(res.data.data)
+            const meta = res.data.meta
+            if (!meta?.hasMore || !meta.nextCursor) break
+            cursor = meta.nextCursor
+          }
+        } catch {
+          // 动态加载失败静默降级（全局拦截器已提示，已渲染果实不受影响）
+        } finally {
+          setViewportLoading(false)
         }
-      } catch {
-        // 动态加载失败静默降级（全局拦截器已提示，已渲染果实不受影响）
-      } finally {
-        setViewportLoading(false)
-      }
-    },
-    [mergeFruits],
+      },
+      [mergeFruits],
   )
 
   useEffect(() => {
@@ -506,15 +619,26 @@ export default function WorldTree3D() {
   }, [loadViewport])
 
   useEffect(() => {
+    if (envTheme) sceneRef.current?.applyTheme(envTheme)
+  }, [envTheme])
+
+  useEffect(() => {
     const fetchInitial = async () => {
       try {
-        const [treeRes, fruitsRes] = await Promise.all([
+        const [treeRes, fruitsRes, envRes, configsRes] = await Promise.all([
           getWorldTree(),
           listTreeFruits({ pageSize: PAGE_SIZE }),
+          getTreeEnv(),
+          listEnvConfigs(),
         ])
         if (treeRes.data.success && treeRes.data.data) {
           setAggregation(treeRes.data.data)
-          sceneRef.current?.applyTheme(treeRes.data.data.season, treeRes.data.data.environment)
+        }
+        if (envRes.data.success && envRes.data.data) {
+          setEnvSnapshot(envRes.data.data)
+        }
+        if (configsRes.data.success && Array.isArray(configsRes.data.data)) {
+          setEnvConfigs(configsRes.data.data)
         }
         if (fruitsRes.data.success) {
           mergeFruits(fruitsRes.data.data)
@@ -533,118 +657,146 @@ export default function WorldTree3D() {
     fetchInitial()
   }, [loadViewport, mergeFruits])
 
+  /** 环境快照轮询：特殊事件全站同步 + 情绪环境 5 分钟扫描，1 分钟拉取足够实时 */
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await getTreeEnv()
+        if (res.data.success && res.data.data) setEnvSnapshot(res.data.data)
+      } catch {
+        // 轮询失败静默降级，保留上一轮环境
+      }
+    }, TREE_ENV_POLL_MS)
+    return () => clearInterval(timer)
+  }, [])
+
   return (
-    <div className={`${styles.container} wish-universe-theme`}>
-      {/* 顶部信息栏 */}
-      <div className={styles.header}>
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => history.push('/wish')}
-          aria-label="返回心愿宇宙首页"
-          className={styles.backBtn}
-        >
-          返回
-        </Button>
-        <div className={styles.titleWrap}>
-          <NodeIndexOutlined className={styles.titleIcon} />
-          <h1 className={styles.title}>世界生命树</h1>
-          {aggregation && (
-            <span className={styles.envTags}>
+      <div className={`${styles.container} wish-universe-theme`}>
+        {/* 顶部信息栏 */}
+        <div className={styles.header}>
+          <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={() => history.push('/wish')}
+              aria-label="返回心愿宇宙首页"
+              className={styles.backBtn}
+          >
+            返回
+          </Button>
+          <div className={styles.titleWrap}>
+            <NodeIndexOutlined className={styles.titleIcon} />
+            <h1 className={styles.title}>世界生命树</h1>
+            {envSnapshot ? (
+                <span className={styles.envTags}>
               <Tag color="cyan" className={styles.tag}>
-                {SEASON_LABELS[aggregation.season] ?? aggregation.season}
+                {SEASON_LABELS[envSnapshot.season] ?? envSnapshot.season}
               </Tag>
-              <Tag color="purple" className={styles.tag}>
-                {ENVIRONMENT_LABELS[aggregation.environment] ?? aggregation.environment}
+              <Tag color={envSnapshot.specialEvent ? 'gold' : 'purple'} className={styles.tag}>
+                {envSnapshot.specialEvent
+                    ? `✦ ${envSnapshot.specialEvent.title}`
+                    : (envConfigs.find((config) => config.envCode === envSnapshot.displayEnv)?.name ??
+                        DISPLAY_ENV_FALLBACK_LABELS[envSnapshot.displayEnv] ??
+                        envSnapshot.displayEnv)}
               </Tag>
             </span>
-          )}
-        </div>
-        <div className={styles.stats}>
-          {aggregation ? (
-            <>
+            ) : (
+                aggregation && (
+                    <span className={styles.envTags}>
+                <Tag color="cyan" className={styles.tag}>
+                  {SEASON_LABELS[aggregation.season] ?? aggregation.season}
+                </Tag>
+                <Tag color="purple" className={styles.tag}>
+                  {DISPLAY_ENV_FALLBACK_LABELS[aggregation.environment] ?? aggregation.environment}
+                </Tag>
+              </span>
+                )
+            )}
+          </div>
+          <div className={styles.stats}>
+            {aggregation ? (
+                <>
               <span className={styles.statItem}>
                 果实 <strong>{formatCount(aggregation.totalFruits)}</strong>
               </span>
-              <span className={styles.statItem}>
+                  <span className={styles.statItem}>
                 绽放 <strong>{formatCount(aggregation.totalBloom)}</strong>
               </span>
-              <span className={styles.statItem}>
+                  <span className={styles.statItem}>
                 星光 <strong>{formatCount(aggregation.totalLight)}</strong>
               </span>
-            </>
-          ) : (
-            <span className={styles.statItem}>树语暂不可读</span>
+                </>
+            ) : (
+                <span className={styles.statItem}>树语暂不可读</span>
+            )}
+          </div>
+        </div>
+
+        {/* 3D 画布 */}
+        <div className={styles.canvasWrap}>
+          <canvas
+              ref={canvasRef}
+              className={styles.canvas}
+              aria-label="世界生命树 3D 场景，可拖拽旋转查看心愿果实"
+          />
+          {loading && (
+              <div className={styles.loadingMask}>
+                <Spin size="large" description="世界树苏醒中…" />
+              </div>
           )}
-        </div>
-      </div>
-
-      {/* 3D 画布 */}
-      <div className={styles.canvasWrap}>
-        <canvas
-          ref={canvasRef}
-          className={styles.canvas}
-          aria-label="世界生命树 3D 场景，可拖拽旋转查看心愿果实"
-        />
-        {loading && (
-          <div className={styles.loadingMask}>
-            <Spin size="large" description="世界树苏醒中…" />
-          </div>
-        )}
-        {viewportLoading && !loading && (
-          <div className={styles.viewportIndicator}>
-            <Spin size="small" />
-          </div>
-        )}
-        {/* 果实类型图例 */}
-        <div className={styles.legend}>
-          {Object.keys(FRUIT_LABELS).map((type) => (
-            <span key={type} className={styles.legendItem}>
+          {viewportLoading && !loading && (
+              <div className={styles.viewportIndicator}>
+                <Spin size="small" />
+              </div>
+          )}
+          {/* 果实类型图例 */}
+          <div className={styles.legend}>
+            {Object.keys(FRUIT_LABELS).map((type) => (
+                <span key={type} className={styles.legendItem}>
               <span
-                className={styles.legendDot}
-                style={{ background: `#${FRUIT_COLORS[type].toString(16).padStart(6, '0')}` }}
+                  className={styles.legendDot}
+                  style={{ background: `#${FRUIT_COLORS[type].toString(16).padStart(6, '0')}` }}
               />
-              {FRUIT_LABELS[type]}
+                  {FRUIT_LABELS[type]}
             </span>
-          ))}
-        </div>
-        <div className={styles.hint}>拖拽旋转 · 滚轮缩放 · 点击果实查看心愿</div>
+            ))}
+          </div>
+          <div className={styles.hint}>拖拽旋转 · 滚轮缩放 · 点击果实查看心愿</div>
 
-        {/* 选中果实信息卡 */}
-        {selectedFruit && (
-          <Card
-            className={styles.fruitCard}
-            title={selectedFruit.title}
-            extra={
-              <Button
-                type="text"
-                size="small"
-                onClick={() => setSelectedFruit(null)}
-                aria-label="关闭果实信息"
+          {/* 选中果实信息卡 */}
+          {selectedFruit && (
+              <Card
+                  className={styles.fruitCard}
+                  title={selectedFruit.title}
+                  extra={
+                    <Button
+                        type="text"
+                        size="small"
+                        onClick={() => setSelectedFruit(null)}
+                        aria-label="关闭果实信息"
+                    >
+                      ×
+                    </Button>
+                  }
               >
-                ×
-              </Button>
-            }
-          >
-            <div className={styles.fruitCardMeta}>
-              <Tag color="cyan">{FRUIT_LABELS[selectedFruit.fruitType] ?? selectedFruit.fruitType}</Tag>
-              <span className={styles.fruitAuthor}>{selectedFruit.authorNickname}</span>
-              <span className={styles.fruitLight}>
+                <div className={styles.fruitCardMeta}>
+                  <Tag color="cyan">{FRUIT_LABELS[selectedFruit.fruitType] ?? selectedFruit.fruitType}</Tag>
+                  <span className={styles.fruitAuthor}>{selectedFruit.authorNickname}</span>
+                  <span className={styles.fruitLight}>
                 ✦ {formatCount(selectedFruit.lightCount)} 点亮
               </span>
-            </div>
-            <Button
-              type="primary"
-              block
-              onClick={() => history.push(`/wish/${selectedFruit.id}`)}
-              className={styles.viewBtn}
-            >
-              查看心愿
-            </Button>
-          </Card>
-        )}
+                </div>
+                <Button
+                    type="primary"
+                    block
+                    onClick={() => history.push(`/wish/${selectedFruit.id}`)}
+                    className={styles.viewBtn}
+                >
+                  查看心愿
+                </Button>
+              </Card>
+          )}
+        </div>
+        <WishBGM />
       </div>
-      <WishBGM />
-    </div>
   )
 }

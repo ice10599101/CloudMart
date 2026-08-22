@@ -254,7 +254,7 @@ export function createInteraction(wishId: number, data: { type: InteractionType;
 
 export function revokeInteraction(wishId: number, interactionId: number) {
   return request.delete<ApiResponse<InteractionRevokeResult>>(
-    `/wish/wishes/${wishId}/interactions/${interactionId}`
+      `/wish/wishes/${wishId}/interactions/${interactionId}`
   )
 }
 
@@ -420,8 +420,8 @@ export interface SubmitFulfillmentPayload {
 /** 提交还愿（仅作者 + ACTIVE/OVERDUE；提交即 FULFILLED + BLOOM + 星光奖励） */
 export function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload) {
   return request.post<ApiResponse<WishFulfillmentSubmitResult>>(
-    `/wish/wishes/${wishId}/fulfillment`,
-    data,
+      `/wish/wishes/${wishId}/fulfillment`,
+      data,
   )
 }
 
@@ -479,4 +479,76 @@ export function getWorldTree() {
 /** 果实分页（公开；id DESC 游标 + bounds 视口过滤，异常 bounds 整组忽略退化全量） */
 export function listTreeFruits(params: TreeFruitsQuery) {
   return request.get<ApiResponse<TreeFruit[]>>('/wish/tree/fruits', { params })
+}
+
+// ========== 动态环境（Sprint 2.2，与 mall-wish TreeEnvVO/EnvConfigVO 对齐） ==========
+
+export type TreeWeather = 'SUNNY' | 'CLOUDY' | 'RAIN' | 'SNOW' | 'RAINBOW'
+
+export type TreeTimePhase = 'DAY' | 'DUSK' | 'NIGHT' | 'LATE_NIGHT'
+
+export type TreeEnvParticle =
+    | 'NONE'
+    | 'RAIN'
+    | 'SNOWFLAKE'
+    | 'PETAL'
+    | 'SUNBURST'
+    | 'LEAF'
+    | 'METEOR'
+    | 'AURORA'
+    | 'STAR'
+
+/** 环境视觉参数（后端 wish_env_config.visual 透传 JSON） */
+export interface TreeEnvVisual {
+  skyColor?: string
+  crownColor?: string
+  lightCoreColor?: string
+  particle?: TreeEnvParticle
+}
+
+export interface EnvConfigItem {
+  id: number
+  envCode: string
+  category: 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'
+  name: string
+  description: string | null
+  priority: number
+  visual: TreeEnvVisual | null
+  isActive: boolean
+}
+
+export interface TreeSpecialEvent {
+  id: number
+  eventCode: string
+  title: string
+  description: string | null
+  status: 'ACTIVE' | 'ENDED'
+  triggeredAt: string
+  expiresAt: string | null
+}
+
+/** 五维环境快照：displayEnv 为四端唯一渲染依据 */
+export interface TreeEnvSnapshot {
+  environment: TreeEnvironment
+  source: string | null
+  triggeredAt: string | null
+  expiresAt: string | null
+  lastScanAt: string | null
+  moodScore: number | null
+  sampleCount: number | null
+  season: TreeSeason
+  weather: TreeWeather
+  timePhase: TreeTimePhase
+  specialEvent: TreeSpecialEvent | null
+  displayEnv: string
+}
+
+/** 环境快照（公开；timePhase 按客户端时区偏移计算，默认取本机时区） */
+export function getTreeEnv(tzOffsetMinutes: number = -new Date().getTimezoneOffset()) {
+  return request.get<ApiResponse<TreeEnvSnapshot>>('/wish/tree-env', { params: { tzOffsetMinutes } })
+}
+
+/** 环境配置图鉴（公开；priority 降序，visual 为四端透传渲染参数） */
+export function listEnvConfigs() {
+  return request.get<ApiResponse<EnvConfigItem[]>>('/wish/tree-env/configs')
 }

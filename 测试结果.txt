@@ -1,1 +1,2233 @@
-都给我滚蛋~
+Microsoft Windows [Version 10.0.22631.6199]
+(c) Microsoft Corporation。保留所有权利。
+
+D:\Ide\IdeaProjects\CloudMart>mvn -pl mall-wish test "-Dtest=TreeEnvIntegrationTest"
+[INFO] Scanning for projects...
+[INFO]
+[INFO] -------------------------< com.ice:mall-wish >--------------------------
+[INFO] Building mall-wish 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The POM for com.ice:mall-common:jar:1.0-SNAPSHOT is invalid, transitive dependencies (if any) will not be available: 1 problem was encountered while building the effective model for com.ice:mall-common:1.0-SNAPSHOT
+[ERROR] 'dependencies.dependency.version' for org.apache.skywalking:apm-toolkit-trace:jar is missing. @
+
+[WARNING] 1 problem was encountered while building the effective model for org.javassist:javassist:jar:3.21.0-GA during dependency collection step for project (use -X to see details)
+[INFO]
+[INFO] --- jacoco:0.8.14:prepare-agent (default) @ mall-wish ---
+[INFO] argLine set to -javaagent:E:\\ice\\develop\\apache-maven-3.9.15\\mvn-repo\\org\\jacoco\\org.jacoco.agent\\0.8.14\\org.jacoco.agent-0.8.14-runtime.jar=destfile=D:\\Ide\\IdeaProjects\\CloudMart\\mall-wish\\target\\jacoco.exec
+[INFO]
+[INFO] --- resources:3.5.0:resources (default-resources) @ mall-wish ---
+[INFO] Copying 11 resources from src\main\resources to target\classes
+[INFO]
+[INFO] --- compiler:3.15.0:compile (default-compile) @ mall-wish ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ mall-wish ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO]
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ mall-wish ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- surefire:3.5.4:test (default-test) @ mall-wish ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running 生命树情绪环境联动集成测试
+01:36:20.595 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:20.864 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest
+01:36:21.031 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.032 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.035 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest
+[INFO] Running 情绪聚合与环境触发
+01:36:21.089 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests]: MoodScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.092 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests
+01:36:21.093 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests]: MoodScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.095 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.095 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+01:36:21.097 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$MoodScanTests
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.6)
+
+2026-08-23T01:36:21.913+08:00  INFO 18840 --- [mall-wish] [           main] w.i.TreeEnvIntegrationTest$MoodScanTests : Starting TreeEnvIntegrationTest.MoodScanTests using Java 26.0.1 with PID 18840 (started by Administrator in D:\Ide\IdeaProjects\CloudMart\mall-wish)
+2026-08-23T01:36:21.916+08:00  INFO 18840 --- [mall-wish] [           main] w.i.TreeEnvIntegrationTest$MoodScanTests : The following 1 profile is active: "it"
+2026-08-23T01:36:23.679+08:00  INFO 18840 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-08-23T01:36:23.683+08:00  INFO 18840 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-08-23T01:36:23.735+08:00  INFO 18840 --- [mall-wish] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 29 ms. Found 0 Redis repository interfaces.
+2026-08-23T01:36:24.064+08:00  INFO 18840 --- [mall-wish] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=00216b28-9258-34f0-856b-e33bbf831f30
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (E:\ice\develop\apache-maven-3.9.15\mvn-repo\net\bytebuddy\byte-buddy-agent\1.17.8\byte-buddy-agent-1.17.8.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+INFO: Sentinel log output type is: file
+INFO: Sentinel log charset is: utf-8
+INFO: Sentinel log base directory is: target/sentinel-log\
+INFO: Sentinel log name use pid is: false
+INFO: Sentinel log level is: INFO
+ _ _   |_  _ _|_. ___ _ |    _
+| | |\/|_)(_| | |_\  |_)||_|_\
+     /               |
+                        3.5.15
+2026-08-23T01:36:26.763+08:00  INFO 18840 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Executing Flyway repair to clean failed migration records...
+2026-08-23T01:36:26.788+08:00  INFO 18840 --- [mall-wish] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-08-23T01:36:27.941+08:00  INFO 18840 --- [mall-wish] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@77136cf3
+2026-08-23T01:36:27.943+08:00  INFO 18840 --- [mall-wish] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-08-23T01:36:28.222+08:00  INFO 18840 --- [mall-wish] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://129.204.152.168:8307/mall_wish_it?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-08-23T01:36:28.551+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.internal.database.base.Database    : Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-23T01:36:28.938+08:00  INFO 18840 --- [mall-wish] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table `mall_wish_it`.`flyway_schema_history` not necessary. No failed migration detected.
+2026-08-23T01:36:29.166+08:00  INFO 18840 --- [mall-wish] [           main] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table `mall_wish_it`.`flyway_schema_history` (execution time 00:00.593s).
+2026-08-23T01:36:29.389+08:00  INFO 18840 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Flyway repair completed
+2026-08-23T01:36:29.389+08:00  INFO 18840 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Starting Flyway migration...
+2026-08-23T01:36:29.778+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.internal.database.base.Database    : Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-08-23T01:36:30.242+08:00  INFO 18840 --- [mall-wish] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema `mall_wish_it`: 9
+2026-08-23T01:36:30.435+08:00  INFO 18840 --- [mall-wish] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema `mall_wish_it` to version "10 - wish tree env ext"
+2026-08-23T01:36:31.052+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Integer display width is deprecated and will be removed in a future release. (SQL State: HY000 - Error Code: 1681)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Field 'id' doesn't have a default value (SQL State: HY000 - Error Code: 1364)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.168+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.169+08:00  WARN 18840 --- [mall-wish] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: Duplicate entry '0' for key 'wish_env_config.PRIMARY' (SQL State: 23000 - Error Code: 1062)
+2026-08-23T01:36:31.946+08:00  INFO 18840 --- [mall-wish] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 1 migration to schema `mall_wish_it`, now at version v10 (execution time 00:00.873s)
+2026-08-23T01:36:32.194+08:00  INFO 18840 --- [mall-wish] [           main] c.c.wish.config.FlywayRepairConfig       : Flyway migration completed
+2026-08-23T01:36:32.710+08:00  INFO 18840 --- [mall-wish] [           main] org.redisson.Version                     : Redisson 4.6.1
+2026-08-23T01:36:33.342+08:00  INFO 18840 --- [mall-wish] [isson-netty-1-4] o.redisson.connection.ConnectionsHolder  : 1 connections initialized for 129.204.152.168/129.204.152.168:8380
+2026-08-23T01:36:34.720+08:00  INFO 18840 --- [mall-wish] [sson-netty-1-19] o.redisson.connection.ConnectionsHolder  : 24 connections initialized for 129.204.152.168/129.204.152.168:8380
+2026-08-23T01:36:36.735+08:00  INFO 18840 --- [mall-wish] [           main] m.e.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.context.annotation.AnnotationConfigApplicationContext@4e9ea32f
+2026-08-23T01:36:37.058+08:00  WARN 18840 --- [mall-wish] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-08-23T01:36:37.367+08:00  INFO 18840 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+2026-08-23T01:36:37.367+08:00  INFO 18840 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/E:/ice/develop/apache-maven-3.9.15/mvn-repo/com/alibaba/nacos/nacos-client/3.1.1/nacos-client-3.1.1.jar)
+WARNING: Please consider reporting this to the maintainers of class com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+2026-08-23T01:36:38.598+08:00  INFO 18840 --- [mall-wish] [           main] c.a.c.s.d.converter.SentinelConverter    : converter can not convert rules because source is empty
+2026-08-23T01:36:38.607+08:00  INFO 18840 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+2026-08-23T01:36:38.607+08:00  INFO 18840 --- [mall-wish] [           main] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+2026-08-23T01:36:39.036+08:00  INFO 18840 --- [mall-wish] [           main] c.a.c.s.d.converter.SentinelConverter    : converter can not convert rules because source is empty
+2026-08-23T01:36:39.056+08:00  INFO 18840 --- [mall-wish] [           main] w.i.TreeEnvIntegrationTest$MoodScanTests : Started TreeEnvIntegrationTest.MoodScanTests in 17.737 seconds (process running for 33.336)
+[ERROR] Tests run: 4, Failures: 0, Errors: 4, Skipped: 0, Time elapsed: 25.66 s <<< FAILURE! -- in 情绪聚合与环境触发
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.noSamples_staysSunnyWithAutoInit -- Time elapsed: 2.097 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.onlyWindowAssistantSamples_counted -- Time elapsed: 1.817 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.positiveMood_triggersRainbow -- Time elapsed: 1.850 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.negativeMood_triggersRain -- Time elapsed: 1.894 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Running 环境配置表（Sprint 2.2）
+2026-08-23T01:36:46.745+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$EnvConfigTests]: EnvConfigTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:46.747+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$EnvConfigTests
+2026-08-23T01:36:46.748+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$EnvConfigTests]: EnvConfigTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:46.748+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:46.749+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:46.750+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$EnvConfigTests
+[ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 3.621 s <<< FAILURE! -- in 环境配置表（Sprint 2.2）
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.inactiveConfig_filtered -- Time elapsed: 1.802 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.listActiveEnvConfigs_returnsSeeds -- Time elapsed: 1.806 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Running 并发互斥与查询
+2026-08-23T01:36:50.368+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests]: LockAndQueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:50.374+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests
+2026-08-23T01:36:50.375+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests]: LockAndQueryTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:50.376+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:50.376+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:50.378+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$LockAndQueryTests
+[ERROR] Tests run: 3, Failures: 0, Errors: 3, Skipped: 0, Time elapsed: 5.563 s <<< FAILURE! -- in 并发互斥与查询
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.scanLockHeld_skips -- Time elapsed: 1.821 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.getCurrentEnv_afterScan -- Time elapsed: 1.794 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.getCurrentEnv_withoutHistory -- Time elapsed: 1.929 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Running BLESS 突增与状态机流转
+2026-08-23T01:36:55.935+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests]: BlessBurstAndTransitionTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:55.936+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests
+2026-08-23T01:36:55.936+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests]: BlessBurstAndTransitionTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:55.937+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:55.937+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:36:55.938+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$BlessBurstAndTransitionTests
+[ERROR] Tests run: 5, Failures: 0, Errors: 5, Skipped: 0, Time elapsed: 9.034 s <<< FAILURE! -- in BLESS 突增与状态机流转
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.rainbowExpired_fallsBackToRain -- Time elapsed: 1.809 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.blessBelowMinCount_noRainbow -- Time elapsed: 1.801 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.rainMinDuration_holdsRain -- Time elapsed: 1.815 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.blessBurst_interruptsRain -- Time elapsed: 1.782 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.rainExpired_recovers -- Time elapsed: 1.813 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Running 特殊事件（Sprint 2.2）
+2026-08-23T01:37:04.971+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$SpecialEventTests]: SpecialEventTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:04.973+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$SpecialEventTests
+2026-08-23T01:37:04.975+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$SpecialEventTests]: SpecialEventTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:04.975+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:04.975+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:04.976+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$SpecialEventTests
+[ERROR] Tests run: 4, Failures: 0, Errors: 4, Skipped: 0, Time elapsed: 7.364 s <<< FAILURE! -- in 特殊事件（Sprint 2.2）
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.adminTrigger_replacesActiveEvent -- Time elapsed: 1.828 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.expiredEvent_lazyEnded -- Time elapsed: 1.963 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.activeEvent_visibleInSnapshot -- Time elapsed: 1.783 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.adminEnd_hidesEvent -- Time elapsed: 1.772 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Running 季节落库（Sprint 2.2）
+2026-08-23T01:37:12.337+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$SeasonScanTests]: SeasonScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:12.337+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$SeasonScanTests
+2026-08-23T01:37:12.339+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest$SeasonScanTests]: SeasonScanTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:12.340+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.TreeEnvIntegrationTest]: TreeEnvIntegrationTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:12.340+08:00  INFO 18840 --- [mall-wish] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.cloudmart.wish.it.WishIntegrationTestBase]: WishIntegrationTestBase does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-08-23T01:37:12.341+08:00  INFO 18840 --- [mall-wish] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.cloudmart.wish.WishApplication for test class com.cloudmart.wish.it.TreeEnvIntegrationTest$SeasonScanTests
+[ERROR] Tests run: 3, Failures: 0, Errors: 3, Skipped: 0, Time elapsed: 5.396 s <<< FAILURE! -- in 季节落库（Sprint 2.2）
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.scanSeason_idempotent -- Time elapsed: 1.774 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.scanSeason_persistsSeason -- Time elapsed: 1.817 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[ERROR] com.cloudmart.wish.it.TreeEnvIntegrationTest.nullSeason_fallsBackToRealtime -- Time elapsed: 1.789 s <<< ERROR!
+org.springframework.jdbc.UncategorizedSQLException:
+StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+        at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1550)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:427)
+        at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:580)
+        at com.cloudmart.wish.it.WishIntegrationTestBase.ensureEnvConfigSeedData(WishIntegrationTestBase.java:140)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+Caused by: java.sql.SQLException: Field 'id' doesn't have a default value
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdateInternal(StatementImpl.java:1506)
+        at com.mysql.cj.jdbc.StatementImpl.executeLargeUpdate(StatementImpl.java:2303)
+        at com.mysql.cj.jdbc.StatementImpl.executeUpdate(StatementImpl.java:1376)
+        at com.zaxxer.hikari.pool.ProxyStatement.executeUpdate(ProxyStatement.java:120)
+        at com.zaxxer.hikari.pool.HikariProxyStatement.executeUpdate(HikariProxyStatement.java)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:568)
+        at org.springframework.jdbc.core.JdbcTemplate$1UpdateStatementCallback.doInStatement(JdbcTemplate.java:565)
+        at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:412)
+        ... 6 more
+
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 57.50 s -- in 生命树情绪环境联动集成测试
+[INFO]
+[INFO] Results:
+[INFO]
+[ERROR] Errors:
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[ERROR]   TreeEnvIntegrationTest>WishIntegrationTestBase.ensureEnvConfigSeedData:140 » UncategorizedSQL StatementCallback; uncategorized SQLException for SQL [INSERT INTO wish_env_config (env_code, category, name, description, priority, visual) VALUES
+    ('SUNNY',         'WEATHER', '晴天',   '晴空万里，树心暖金光晕', 50,
+     JSON_OBJECT('skyColor', '#87ceeb', 'lightCoreColor', '#ffd700', 'particle', 'NONE')),
+    ('CLOUDY',        'WEATHER', '多云',   '云层柔和，树影朦胧', 50,
+     JSON_OBJECT('skyColor', '#9aa5b1', 'lightCoreColor', '#cfd8dc', 'particle', 'NONE')),
+    ('RAIN',          'WEATHER', '下雨',   '细雨润泽，果实微光涟漪', 50,
+     JSON_OBJECT('skyColor', '#5d737e', 'lightCoreColor', '#4facfe', 'particle', 'RAIN')),
+    ('SNOW',          'WEATHER', '下雪',   '落雪覆枝，冬夜静谧', 50,
+     JSON_OBJECT('skyColor', '#7a8ba3', 'lightCoreColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('RAINBOW',       'WEATHER', '彩虹',   '雨后初霁，七彩拱桥横跨树冠（情绪联动触发）', 80,
+     JSON_OBJECT('skyColor', '#6c5ce7', 'lightCoreColor', '#ff9ff3', 'particle', 'NONE')),
+    ('SPRING',        'SEASON',  '春季',   '嫩绿花瓣飘落', 30,
+     JSON_OBJECT('crownColor', '#7ef0c0', 'particle', 'PETAL')),
+    ('SUMMER',        'SEASON',  '夏季',   '绿叶阳光斑驳', 30,
+     JSON_OBJECT('crownColor', '#3ddc97', 'particle', 'SUNBURST')),
+    ('AUTUMN',        'SEASON',  '秋季',   '金黄落叶纷飞', 30,
+     JSON_OBJECT('crownColor', '#ffb347', 'particle', 'LEAF')),
+    ('WINTER',        'SEASON',  '冬季',   '枯枝雪花点缀', 30,
+     JSON_OBJECT('crownColor', '#bfe8ff', 'particle', 'SNOWFLAKE')),
+    ('DAY',           'TIME',    '白天',   '晨光清朗（06-12 时）', 10,
+     JSON_OBJECT('skyColor', '#87ceeb')),
+    ('DUSK',          'TIME',    '黄昏',   '暮色橙霞（12-18 时）', 10,
+     JSON_OBJECT('skyColor', '#ff9a76')),
+    ('NIGHT',         'TIME',    '夜晚',   '星幕初垂（18-24 时）', 10,
+     JSON_OBJECT('skyColor', '#0c1b3a')),
+    ('LATE_NIGHT',    'TIME',    '深夜',   '万籁俱寂（00-06 时）', 10,
+     JSON_OBJECT('skyColor', '#060b18')),
+    ('METEOR_SHOWER', 'SPECIAL_EVENT', '流星雨', '全站流星划过树冠，愿望随星而落', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'METEOR')),
+    ('AURORA',        'SPECIAL_EVENT', '极光',   '极光绸缎萦绕世界树', 100,
+     JSON_OBJECT('skyColor', '#0a1f2e', 'lightCoreColor', '#7ef0c0', 'particle', 'AURORA')),
+    ('STAR_NIGHT',    'SPECIAL_EVENT', '星辰夜', '满天星辰为愿望加冕', 100,
+     JSON_OBJECT('skyColor', '#0c1b3a', 'lightCoreColor', '#ffd700', 'particle', 'STAR'))
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
+    `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
+    `is_active` = 1, `description` = VALUES(`description`)
+]; SQL state [HY000]; error code [1364]; Field 'id' doesn't have a default value
+[INFO]
+[ERROR] Tests run: 21, Failures: 0, Errors: 21, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:22 min
+[INFO] Finished at: 2026-08-23T01:37:18+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test (default-test) on project mall-wish:
+[ERROR]
+[ERROR] See D:\Ide\IdeaProjects\CloudMart\mall-wish\target\surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+
+D:\Ide\IdeaProjects\CloudMart>

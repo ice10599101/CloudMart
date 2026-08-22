@@ -51,6 +51,59 @@
   animation: star-twinkle 3.6s ease-in-out infinite;
 }
 
+/* 环境粒子层（Sprint 2.2）：颜色/尺寸/周期由内联样式注入，仅运动轨迹在此定义 */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.particleFall {
+  animation: particle-fall linear infinite;
+}
+
+.particleMeteor {
+  border-radius: 2rpx;
+  animation: particle-meteor linear infinite;
+}
+
+.particleTwinkle {
+  animation: particle-twinkle ease-in-out infinite;
+}
+
+/* 竖落（雨/雪/花瓣/落叶）：从圆盘上方入场，穿盘而出后由循环复位 */
+@keyframes particle-fall {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(120vh);
+  }
+}
+
+/* 斜落（流星）：自左上向右下划过 */
+@keyframes particle-meteor {
+  0% {
+    transform: translate(0, 0) rotate(38deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(28vw, 110vh) rotate(38deg);
+    opacity: 0;
+  }
+}
+
+/* 原地闪烁（光斑/极光/星辰） */
+@keyframes particle-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 @keyframes star-twinkle {
   0%,
   100% {

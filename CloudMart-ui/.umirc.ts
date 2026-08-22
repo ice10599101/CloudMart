@@ -103,6 +103,7 @@ export default defineConfig({
         { path: '/admin/business/wish-interactions', component: '@/pages/admin/business/WishInteractions' },
         { path: '/admin/business/wish-comments', component: '@/pages/admin/business/WishComments' },
         { path: '/admin/business/wish-badges', component: '@/pages/admin/business/WishBadges' },
+        { path: '/admin/business/tree-env', component: '@/pages/admin/business/TreeEnv' },
         { path: '/admin/community/posts', component: '@/pages/admin/community/Posts' },
         { path: '/admin/community/comments', component: '@/pages/admin/community/Comments' },
         { path: '/admin/community/tags', component: '@/pages/admin/community/Tags' },

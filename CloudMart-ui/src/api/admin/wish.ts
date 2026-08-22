@@ -248,12 +248,119 @@ export function createAdminWishBadge(data: {
 }
 
 export function updateAdminWishBadge(
-  id: number,
-  data: { name: string; icon?: string; rarity: AdminBadgeRarity; condition: string }
+    id: number,
+    data: { name: string; icon?: string; rarity: AdminBadgeRarity; condition: string }
 ) {
   return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}`, data)
 }
 
 export function updateAdminWishBadgeStatus(id: number, active: boolean) {
   return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}/status`, { active })
+}
+
+// ========== 生命树环境管理（Sprint 2.2，与 mall-wish EnvConfigVO/SpecialEventVO 对齐） ==========
+
+export type AdminEnvCategory = 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'
+export type AdminEnvParticle =
+    | 'NONE'
+    | 'RAIN'
+    | 'SNOWFLAKE'
+    | 'PETAL'
+    | 'SUNBURST'
+    | 'LEAF'
+    | 'METEOR'
+    | 'AURORA'
+    | 'STAR'
+
+export interface AdminEnvConfigRecord {
+  id: number
+  envCode: string
+  category: AdminEnvCategory
+  name: string
+  description: string | null
+  priority: number
+  visual: { skyColor?: string; crownColor?: string; lightCoreColor?: string; particle?: AdminEnvParticle } | null
+  isActive: boolean
+}
+
+export interface AdminSpecialEventRecord {
+  id: number
+  eventCode: string
+  title: string
+  description: string | null
+  status: 'ACTIVE' | 'ENDED'
+  triggeredAt: string
+  expiresAt: string | null
+}
+
+export const ENV_CATEGORY_MAP: Record<AdminEnvCategory, { label: string; color: string }> = {
+  WEATHER: { label: '天气', color: 'blue' },
+  SEASON: { label: '季节', color: 'green' },
+  TIME: { label: '时段', color: 'orange' },
+  SPECIAL_EVENT: { label: '特殊事件', color: 'purple' },
+}
+
+export const ENV_PARTICLE_MAP: Record<AdminEnvParticle, { label: string }> = {
+  NONE: { label: '无' },
+  RAIN: { label: '雨滴' },
+  SNOWFLAKE: { label: '雪花' },
+  PETAL: { label: '花瓣' },
+  SUNBURST: { label: '光斑' },
+  LEAF: { label: '落叶' },
+  METEOR: { label: '流星' },
+  AURORA: { label: '极光' },
+  STAR: { label: '星辰' },
+}
+
+export function getAdminEnvConfigs() {
+  return request.get<ApiResponse<AdminEnvConfigRecord[]>>('/admin/wish/tree-env/configs')
+}
+
+export function createAdminEnvConfig(data: {
+  envCode: string
+  category: AdminEnvCategory
+  name: string
+  description?: string
+  priority: number
+  visual: string
+  active?: boolean
+}) {
+  return request.post<ApiResponse<AdminEnvConfigRecord>>('/admin/wish/tree-env/configs', data)
+}
+
+export function updateAdminEnvConfig(
+    id: number,
+    data: {
+      envCode: string
+      category: AdminEnvCategory
+      name: string
+      description?: string
+      priority: number
+      visual: string
+    }
+) {
+  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}`, data)
+}
+
+export function updateAdminEnvConfigStatus(id: number, active: boolean) {
+  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}/status`, { active })
+}
+
+export function triggerAdminSpecialEvent(data: {
+  eventCode: string
+  title?: string
+  description?: string
+  durationMinutes?: number
+}) {
+  return request.post<ApiResponse<AdminSpecialEventRecord>>('/admin/wish/tree-env/special-events', data)
+}
+
+export function endAdminSpecialEvent(id: number) {
+  return request.put<ApiResponse<AdminSpecialEventRecord>>(`/admin/wish/tree-env/special-events/${id}/end`)
+}
+
+export function getAdminSpecialEvents(limit = 50) {
+  return request.get<ApiResponse<AdminSpecialEventRecord[]>>('/admin/wish/tree-env/special-events', {
+    params: { limit },
+  })
 }

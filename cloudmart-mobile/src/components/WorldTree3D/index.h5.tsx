@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react'
 import { View } from '@tarojs/components'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { TreeEnvironment, TreeFruit, TreeFruitsQuery, TreeSeason } from '@/types'
+import type { TreeEnvParticle, TreeFruit, TreeFruitsQuery } from '@/types'
+import { DEFAULT_TREE_ENV_THEME, type TreeEnvTheme } from '@/utils/tree-env'
 import styles from './index.module.scss'
 
 export interface WorldTree3DProps {
   fruits: TreeFruit[]
-  season: TreeSeason | null
-  environment: TreeEnvironment | null
+  /** 动态环境主题（Sprint 2.2；null 时组件回退默认视觉） */
+  theme: TreeEnvTheme | null
   onFruitSelect: (fruit: TreeFruit) => void
   /** H5 3D 专属：相机视口变化（弧度制 bounds，触发增量拉取） */
   onViewportChange?: (query: TreeFruitsQuery) => void
@@ -27,25 +28,41 @@ const FRUIT_COLORS: Record<string, number> = {
   SPARK: 0xffd700,
 }
 
-const SEASON_CANOPY_COLORS: Record<string, number> = {
-  SPRING: 0x7ef0c0,
-  SUMMER: 0x3ddc97,
-  AUTUMN: 0xffb347,
-  WINTER: 0xbfe8ff,
+/**
+ * 环境粒子运动规格（Sprint 2.2，按 wish_env_config.visual.particle 驱动）：
+ * vy 负=下落正=上升；sway 为水平摆动幅度；still 仅慢速旋转（星辰）。
+ * 移动端粒子量按 WEB 端 6 折裁剪（帧率优先）。
+ */
+interface ParticleMotion {
+  count: number
+  color: number
+  size: number
+  vy: number
+  vx: number
+  sway: number
+  still: boolean
 }
 
-const ENVIRONMENT_CORE_COLORS: Record<string, number> = {
-  SUNNY: 0xffd700,
-  RAIN: 0x4facfe,
-  RAINBOW: 0xff9ff3,
+const PARTICLE_MOTIONS: Record<Exclude<TreeEnvParticle, 'NONE'>, ParticleMotion> = {
+  RAIN: { count: 260, color: 0x9fd8ff, size: 0.03, vy: -3.2, vx: 0, sway: 0, still: false },
+  SNOWFLAKE: { count: 160, color: 0xffffff, size: 0.05, vy: -0.55, vx: 0, sway: 0.3, still: false },
+  PETAL: { count: 110, color: 0xffb7d5, size: 0.07, vy: -0.5, vx: 0, sway: 0.55, still: false },
+  LEAF: { count: 110, color: 0xffb347, size: 0.07, vy: -0.65, vx: 0, sway: 0.45, still: false },
+  SUNBURST: { count: 100, color: 0xffd700, size: 0.045, vy: 0.4, vx: 0, sway: 0.2, still: false },
+  METEOR: { count: 70, color: 0xffffff, size: 0.06, vy: -5.0, vx: 2.4, sway: 0, still: false },
+  AURORA: { count: 160, color: 0x7ef0c0, size: 0.05, vy: 0.3, vx: 0, sway: 1.0, still: false },
+  STAR: { count: 150, color: 0xfff2b2, size: 0.04, vy: 0, vx: 0, sway: 0, still: true },
 }
+
+/** 粒子活动包围盒（覆盖树冠球 + 上下留空） */
+const PARTICLE_BOX = { x: 2.6, yMin: -1.6, yMax: 2.8 }
 
 function toCartesian(theta: number, phi: number, radius: number): THREE.Vector3 {
   const sinPhi = Math.sin(phi)
   return new THREE.Vector3(
-    radius * sinPhi * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * sinPhi * Math.sin(theta),
+      radius * sinPhi * Math.cos(theta),
+      radius * Math.cos(phi),
+      radius * sinPhi * Math.sin(theta),
   )
 }
 
@@ -71,16 +88,15 @@ function computeViewportBounds(camera: THREE.PerspectiveCamera): TreeFruitsQuery
  * 小程序端由 index.tsx 降级为伪 3D 星图（Taro 多端文件后缀机制自动切换）。
  */
 export default function WorldTree3D({
-  fruits,
-  season,
-  environment,
-  onFruitSelect,
-  onViewportChange,
-}: WorldTree3DProps) {
+                                      fruits,
+                                      theme,
+                                      onFruitSelect,
+                                      onViewportChange,
+                                    }: WorldTree3DProps) {
   const hostRef = useRef<HTMLElement | null>(null)
   const sceneRef = useRef<{
     setFruits: (items: TreeFruit[]) => void
-    applyTheme: (seasonKey: string, envKey: string) => void
+    applyTheme: (next: TreeEnvTheme) => void
   } | null>(null)
   const viewportCallbackRef = useRef(onViewportChange)
   const fruitSelectRef = useRef(onFruitSelect)
@@ -170,13 +186,13 @@ export default function WorldTree3D({
     })
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(TREE_RADIUS * 0.96, 40, 40), innerMaterial))
     const canopyMaterial = new THREE.MeshBasicMaterial({
-      color: SEASON_CANOPY_COLORS.SUMMER,
+      color: DEFAULT_TREE_ENV_THEME.crownColor,
       wireframe: true,
       transparent: true,
       opacity: 0.18,
     })
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(TREE_RADIUS, 32, 20), canopyMaterial))
-    const coreMaterial = new THREE.MeshBasicMaterial({ color: ENVIRONMENT_CORE_COLORS.SUNNY })
+    const coreMaterial = new THREE.MeshBasicMaterial({ color: DEFAULT_TREE_ENV_THEME.coreColor })
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 20), coreMaterial))
 
     // 果实双层 InstancedMesh
@@ -214,6 +230,48 @@ export default function WorldTree3D({
       haloMesh.setMatrixAt(index, dummy.matrix)
     }
 
+    // ===== 环境粒子层（Sprint 2.2，visual.particle 驱动；NONE 时移除） =====
+    let particlePoints: THREE.Points | null = null
+    let particleMotion: ParticleMotion | null = null
+    let lastParticle: TreeEnvParticle = 'NONE'
+
+    const disposeParticles = () => {
+      if (!particlePoints) return
+      scene.remove(particlePoints)
+      particlePoints.geometry.dispose()
+      ;(particlePoints.material as THREE.PointsMaterial).dispose()
+      particlePoints = null
+      particleMotion = null
+    }
+
+    const setParticle = (particle: TreeEnvParticle) => {
+      if (particle === lastParticle) return
+      lastParticle = particle
+      disposeParticles()
+      if (particle === 'NONE') return
+      const motion = PARTICLE_MOTIONS[particle]
+      const positions = new Float32Array(motion.count * 3)
+      for (let i = 0; i < motion.count; i++) {
+        positions[i * 3] = (Math.random() * 2 - 1) * PARTICLE_BOX.x
+        positions[i * 3 + 1] =
+            PARTICLE_BOX.yMin + Math.random() * (PARTICLE_BOX.yMax - PARTICLE_BOX.yMin)
+        positions[i * 3 + 2] = (Math.random() * 2 - 1) * PARTICLE_BOX.x
+      }
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      const material = new THREE.PointsMaterial({
+        color: motion.color,
+        size: motion.size,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+      particlePoints = new THREE.Points(geometry, material)
+      particleMotion = motion
+      scene.add(particlePoints)
+    }
+
     sceneRef.current = {
       setFruits: (items) => {
         currentFruits = items.slice(0, MAX_RENDER_FRUITS)
@@ -232,9 +290,10 @@ export default function WorldTree3D({
         if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true
         if (haloMesh.instanceColor) haloMesh.instanceColor.needsUpdate = true
       },
-      applyTheme: (seasonKey, envKey) => {
-        canopyMaterial.color.setHex(SEASON_CANOPY_COLORS[seasonKey] ?? 0x3ddc97)
-        coreMaterial.color.setHex(ENVIRONMENT_CORE_COLORS[envKey] ?? 0xffd700)
+      applyTheme: (next) => {
+        canopyMaterial.color.setStyle(next.crownColor)
+        coreMaterial.color.setStyle(next.coreColor)
+        setParticle(next.particle)
       },
     }
 
@@ -311,7 +370,8 @@ export default function WorldTree3D({
     const renderLoop = () => {
       if (disposed) return
       requestAnimationFrame(renderLoop)
-      const elapsed = clock.getElapsedTime()
+      const dt = clock.getDelta()
+      const elapsed = clock.elapsedTime
       controls.update()
 
       for (let i = 0; i < currentFruits.length; i++) {
@@ -321,15 +381,40 @@ export default function WorldTree3D({
       haloMesh.instanceMatrix.needsUpdate = true
       stars.rotation.y = elapsed * 0.005
 
+      // 环境粒子：运动型按速度推进并越界回绕；静止型（星辰）整体慢旋
+      if (particlePoints && particleMotion && !particleMotion.still) {
+        const positions = particlePoints.geometry.attributes.position as THREE.BufferAttribute
+        for (let i = 0; i < positions.count; i++) {
+          const y = positions.getY(i) + particleMotion.vy * dt
+          if (y < PARTICLE_BOX.yMin || y > PARTICLE_BOX.yMax) {
+            positions.setXYZ(
+                i,
+                (Math.random() * 2 - 1) * PARTICLE_BOX.x,
+                particleMotion.vy < 0 ? PARTICLE_BOX.yMax : PARTICLE_BOX.yMin,
+                (Math.random() * 2 - 1) * PARTICLE_BOX.x,
+            )
+            continue
+          }
+          let x = positions.getX(i) + particleMotion.vx * dt
+          if (particleMotion.vx !== 0 && (x > PARTICLE_BOX.x || x < -PARTICLE_BOX.x)) {
+            x = -Math.sign(particleMotion.vx) * PARTICLE_BOX.x
+          }
+          positions.setXYZ(i, x + Math.sin(elapsed * 1.6 + i) * particleMotion.sway * dt, y, positions.getZ(i))
+        }
+        positions.needsUpdate = true
+      } else if (particlePoints) {
+        particlePoints.rotation.y = elapsed * 0.02
+      }
+
       currentSpherical.setFromVector3(camera.position)
       const deltaTheta = Math.abs(currentSpherical.theta - lastRequestedSpherical.theta)
       const deltaPhi = Math.abs(currentSpherical.phi - lastRequestedSpherical.phi)
       const now = performance.now()
       const angleMoved = Math.min(deltaTheta, Math.PI * 2 - deltaTheta) + deltaPhi
       if (
-        viewportCallbackRef.current &&
-        angleMoved > VIEWPORT_TRIGGER_ANGLE &&
-        now - lastTriggerTime > VIEWPORT_THROTTLE_MS
+          viewportCallbackRef.current &&
+          angleMoved > VIEWPORT_TRIGGER_ANGLE &&
+          now - lastTriggerTime > VIEWPORT_THROTTLE_MS
       ) {
         lastTriggerTime = now
         lastRequestedSpherical = currentSpherical.clone()
@@ -376,8 +461,8 @@ export default function WorldTree3D({
   }, [fruits])
 
   useEffect(() => {
-    sceneRef.current?.applyTheme(season ?? '', environment ?? '')
-  }, [season, environment])
+    sceneRef.current?.applyTheme(theme ?? DEFAULT_TREE_ENV_THEME)
+  }, [theme])
 
   return <View ref={hostRef as never} className={styles.canvasHost} aria-label='世界树 3D 场景' />
 }
