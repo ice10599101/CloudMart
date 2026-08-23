@@ -22,6 +22,24 @@ public class WishAiProperties {
     /** 树洞单用户每日调用上限（文档 30.3：10 次/日） */
     private int treeHoleDailyLimit = 10;
 
+    /** AI 助手目标拆解单用户每日调用上限（Sprint 2.5，文档 2.5/30.3 限频策略） */
+    private int goalBreakdownDailyLimit = 10;
+
+    /** 拆解步骤数量下限（文档 2.5：生成 5-10 步骤计划） */
+    private int goalMinCount = 5;
+
+    /** 拆解步骤数量上限（文档 2.5：生成 5-10 步骤计划） */
+    private int goalMaxCount = 10;
+
+    /** 目标拆解系统 Prompt（要求 JSON 结构化输出；DB wish_ai_prompt ACTIVE 模板优先） */
+    private String goalBreakdownSystemPrompt = DEFAULT_GOAL_BREAKDOWN_SYSTEM_PROMPT;
+
+    /** 年度报告 growthSummary 生成 Prompt（Sprint 2.5；DB 模板优先） */
+    private String annualReportSystemPrompt = DEFAULT_ANNUAL_REPORT_SYSTEM_PROMPT;
+
+    /** 预期管理到期引导文案生成 Prompt（Sprint 2.5；DB 模板优先） */
+    private String expectedGuideSystemPrompt = DEFAULT_EXPECTED_GUIDE_SYSTEM_PROMPT;
+
     /** DashScope 调用失败重试次数（不含首次，文档 30.3：重试 2 次） */
     private int maxRetries = 2;
 
@@ -75,4 +93,39 @@ public class WishAiProperties {
             我很想陪着你，但此刻更重要的是让专业的人给你支持。请考虑拨打下面的心理援助热线，那里有受过训练的老师，24 小时都在，他们会认真听你说话。
 
             你很重要。哪怕现在很难，也请再给自己一点时间，让帮助有机会到达你。""";
+
+    /** 默认目标拆解系统 Prompt：意图识别 + 5-10 步骤拆解 + JSON 结构化输出契约 */
+    static final String DEFAULT_GOAL_BREAKDOWN_SYSTEM_PROMPT = """
+            你是「心愿宇宙」的 AI 心愿助手，一位专业、温暖的目标教练。用户会告诉你一个想实现的心愿或目标。
+
+            你的职责：
+            1. 识别用户的真实意图：目标是什么、起始状态与目标状态（如"减肥 10 斤"→ 起始 10 斤差距）
+            2. 将目标拆解为 5-10 个具体、可执行、循序渐进的步骤
+            3. 每个步骤给出简短描述、预计完成天数（1-365）、优先级（1-5，1 最高）
+            4. 步骤从易到难排列，前几步应是低门槛的启动动作
+            5. 最后给一句温暖的鼓励建议（suggestion，50 字以内）
+            6. 绝不提供医疗诊断、药物建议或任何危险行为指导
+
+            请严格按以下 JSON 格式输出，不要输出 JSON 以外的任何内容：
+            {"intent": "意图概括（20字内）", "goals": [{"title": "步骤标题（30字内）", "description": "步骤描述（100字内）", "estimatedDays": 7, "priority": 3}], "suggestion": "鼓励建议"}""";
+
+    /** 默认年度报告 Prompt：基于聚合数据生成成长叙事 */
+    static final String DEFAULT_ANNUAL_REPORT_SYSTEM_PROMPT = """
+            你是「心愿宇宙」的年度报告撰写者。我会提供用户一年的心愿数据摘要（完成愿望数、打卡天数、里程碑、热门分类等）。
+
+            你的职责：
+            1. 写一段 150-250 字的成长总结（growthSummary），语气温暖、真诚、有画面感
+            2. 突出用户的努力与变化，用数据说话但不堆砌数字
+            3. 以对新一年的期许结尾
+            4. 直接输出总结正文，不要任何前后缀和解释""";
+
+    /** 默认预期管理引导 Prompt：到期心愿的个性化引导文案 */
+    static final String DEFAULT_EXPECTED_GUIDE_SYSTEM_PROMPT = """
+            你是「心愿宇宙」的心愿守护者。用户有一个心愿已到预期完成时间但还未实现。
+
+            我会提供心愿标题和已过期的天数。请生成一句个性化的引导文案：
+            1. 30-60 字，语气温暖不说教
+            2. 提及心愿本身，给予重新出发的鼓励
+            3. 以一个温和的问句结尾（引导用户选择：延长预期/调整目标/转入时间胶囊）
+            4. 直接输出文案正文，不要任何前后缀""";
 }

@@ -68,4 +68,23 @@ public interface WishFeignClient {
     @PutMapping("/badges/{id}/status")
     ApiResponse<Object> updateBadgeStatus(@PathVariable("id") Long id,
                                           @RequestBody Map<String, Object> data);
+
+    // ========== AI 心愿助手管理（Sprint 2.5） ==========
+
+    @GetMapping("/ai/prompts")
+    ApiResponse<Object> listAiPrompts(@RequestParam(value = "scene", required = false) String scene);
+
+    @PostMapping("/ai/prompts")
+    ApiResponse<Object> createAiPrompt(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/ai/prompts/{id}/status")
+    ApiResponse<Object> updateAiPromptStatus(@PathVariable("id") Long id,
+                                             @RequestBody Map<String, Object> data);
+
+    @GetMapping("/ai/configs")
+    ApiResponse<Object> listAiConfigs();
+
+    @PutMapping("/ai/configs/{key}")
+    ApiResponse<Object> updateAiConfig(@PathVariable("key") String configKey,
+                                       @RequestBody Map<String, Object> data);
 }

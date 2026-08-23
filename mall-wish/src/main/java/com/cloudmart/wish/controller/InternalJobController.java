@@ -3,6 +3,8 @@ package com.cloudmart.wish.controller;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.CapsuleService;
+import com.cloudmart.wish.service.CompanionReminderService;
+import com.cloudmart.wish.service.ExpectedManagementService;
 import com.cloudmart.wish.service.HomeService;
 import com.cloudmart.wish.service.WishService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,13 +41,24 @@ public class InternalJobController {
     private final HomeService homeService;
     private final BadgeService badgeService;
     private final CapsuleService capsuleService;
+    private final ExpectedManagementService expectedManagementService;
+    private final CompanionReminderService companionReminderService;
 
     @PostMapping("/overdue-scan")
-    @Operation(summary = "OVERDUE 状态机扫描", description = "流转 expected_at 过期的 ACTIVE 心愿为 OVERDUE"
-            + "（文档 1.2：每日 00:30）。幂等：重复扫描自动跳过已流转记录")
+    @Operation(summary = "OVERDUE 状态机扫描 + 预期管理通知", description = "流转 expected_at 过期的 "
+            + "ACTIVE 心愿为 OVERDUE（文档 1.2：每日 00:30），随后对刚到期心愿下发 AI 引导通知"
+            + "（Sprint 2.5 预期管理：3 选项 + 每日限 3 条）。幂等：重复扫描自动跳过已流转记录，"
+            + "通知失败不回滚流转")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Map<String, Integer>> overdueScan() {
-        return ApiResponse.ok(Map.of("transferred", wishService.scanOverdueWishes()));
+        WishService.OverdueScanResult scanResult = wishService.scanOverdueWishesDetailed();
+        ExpectedManagementService.NotifyResult notifyResult =
+                expectedManagementService.notifyExpiredWishes(scanResult.wishes());
+        return ApiResponse.ok(Map.of(
+                "transferred", scanResult.transferred(),
+                "notified", notifyResult.notified(),
+                "skippedByLimit", notifyResult.skippedByLimit(),
+                "skippedByPreference", notifyResult.skippedByPreference()));
     }
 
     @PostMapping("/hot-cache-refresh")
@@ -72,5 +85,15 @@ public class InternalJobController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<CapsuleService.ScanResult> capsuleOpenScan() {
         return ApiResponse.ok(capsuleService.scanAvailableCapsules());
+    }
+
+    @PostMapping("/ai-reminder-scan")
+    @Operation(summary = "AI 陪伴提醒扫描", description = "每小时触发；命中「用户本地时区 09 点」的"
+            + "活跃用户（有 ACTIVE 心愿或 IN_PROGRESS 目标）推送陪伴提醒（AI_REMINDER）。"
+            + "过滤：免打扰时段（wish_ai_config 可配）+ 每日 1 条 + 通知偏好。"
+            + "幂等：Redis 日计数保证同一用户当日仅 1 条")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<CompanionReminderService.RemindResult> aiReminderScan() {
+        return ApiResponse.ok(companionReminderService.scanAndRemind());
     }
 }

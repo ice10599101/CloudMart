@@ -32,6 +32,10 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_STAT_SYNC = "wish-stat-sync";
     /** Tag：时间胶囊到期待开启（Sprint 2.4，mall-notification 消费推送） */
     public static final String WISH_TAG_CAPSULE_AVAILABLE = "capsule-available";
+    /** Tag：预期管理 AI 引导（Sprint 2.5，mall-notification 消费推送 CHECKIN_REMINDER） */
+    public static final String WISH_TAG_EXPECTED_GUIDE = "expected-guide";
+    /** Tag：陪伴提醒（Sprint 2.5，mall-notification 消费推送 AI_REMINDER） */
+    public static final String WISH_TAG_COMPANION_REMINDER = "companion-reminder";
 
     /** 消费者组：统计同步 */
     public static final String CG_WISH_STAT_SYNC = "wish-stat-sync-cg";

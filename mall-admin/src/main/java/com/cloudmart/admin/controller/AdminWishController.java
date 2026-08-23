@@ -150,4 +150,51 @@ public class AdminWishController {
                                                  @RequestBody Map<String, Object> data) {
         return wishFeignClient.updateBadgeStatus(id, data);
     }
+
+    // ========== AI 心愿助手管理（Sprint 2.5） ==========
+
+    @GetMapping("/wish/ai/prompts")
+    @RequiresPermission("business:aiPrompt:list")
+    @Operation(summary = "Prompt 模板列表", description = "含 DRAFT/ACTIVE/ARCHIVED 全状态；"
+            + "scene 过滤可选（GOAL_BREAKDOWN/TREE_HOLE/ANNUAL_REPORT/EXPECTED_GUIDE）")
+    public ApiResponse<Object> listAiPrompts(@RequestParam(required = false) String scene) {
+        return wishFeignClient.listAiPrompts(scene);
+    }
+
+    @PostMapping("/wish/ai/prompts")
+    @OperLog(title = "AI Prompt 管理", businessType = 1)
+    @RequiresPermission("business:aiPrompt:add")
+    @Operation(summary = "创建新版本模板", description = "初始 DRAFT 不生效；version 在 scene 内自动递增；"
+            + "激活后进入 A/B 分流（trafficPercent 加权）")
+    public ApiResponse<Object> createAiPrompt(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createAiPrompt(data);
+    }
+
+    @PutMapping("/wish/ai/prompts/{id}/status")
+    @OperLog(title = "AI Prompt 管理", businessType = 2)
+    @RequiresPermission("business:aiPrompt:edit")
+    @Operation(summary = "模板状态流转", description = "DRAFT→ACTIVE 生效 / ACTIVE→ARCHIVED 下线；"
+            + "激活时可携带 trafficPercent 配置 A/B 权重；正文不可改（建新版本）；"
+            + "运行时 60s 缓存，修改后最迟 1 分钟生效不重部署")
+    public ApiResponse<Object> updateAiPromptStatus(@PathVariable Long id,
+                                                    @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateAiPromptStatus(id, data);
+    }
+
+    @GetMapping("/wish/ai/configs")
+    @RequiresPermission("business:aiConfig:list")
+    @Operation(summary = "AI 策略配置列表", description = "陪伴提醒频次/免打扰时段/预期管理限频/"
+            + "年度报告缓存时长等全局策略项")
+    public ApiResponse<Object> listAiConfigs() {
+        return wishFeignClient.listAiConfigs();
+    }
+
+    @PutMapping("/wish/ai/configs/{key}")
+    @OperLog(title = "AI 策略配置", businessType = 2)
+    @RequiresPermission("business:aiConfig:edit")
+    @Operation(summary = "更新策略配置", description = "更新后主动失效缓存实时生效；键不存在返回 400")
+    public ApiResponse<Object> updateAiConfig(@PathVariable String key,
+                                              @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateAiConfig(key, data);
+    }
 }

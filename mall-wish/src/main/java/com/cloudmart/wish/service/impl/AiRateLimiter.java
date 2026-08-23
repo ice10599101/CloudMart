@@ -38,8 +38,22 @@ public class AiRateLimiter {
      * @return true=放行；false=已达上限（调用方返回 429 WISH_AI_RATE_LIMITED）
      */
     public boolean checkTreeHoleDailyLimit(Long userId, ZoneId userZone) {
-        String key = KEY_PREFIX + userId + ":ai_tree_hole";
-        int limit = aiProperties.getTreeHoleDailyLimit();
+        return checkDailyLimit(userId, "ai_tree_hole", aiProperties.getTreeHoleDailyLimit(), userZone);
+    }
+
+    /**
+     * 目标拆解 AI 调用限频检查（Sprint 2.5，当日按用户时区计算）。
+     */
+    public boolean checkGoalBreakdownDailyLimit(Long userId, ZoneId userZone) {
+        return checkDailyLimit(userId, "ai_goal_breakdown", aiProperties.getGoalBreakdownDailyLimit(), userZone);
+    }
+
+    /**
+     * 通用每日限频：Key {@code wish:rate:user:{userId}:{type}}，
+     * TTL 至用户时区当日 23:59:59；Redis 异常 Fail-Open 放行。
+     */
+    public boolean checkDailyLimit(Long userId, String type, int limit, ZoneId userZone) {
+        String key = KEY_PREFIX + userId + ":" + type;
         try {
             Long count = redisTemplate.opsForValue().increment(key);
             if (count == null) {

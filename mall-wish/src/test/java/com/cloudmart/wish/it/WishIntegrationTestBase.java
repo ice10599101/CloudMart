@@ -2,6 +2,7 @@ package com.cloudmart.wish.it;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.feign.UserFeignClient;
+import com.cloudmart.wish.service.AssistantAiClient;
 import com.cloudmart.wish.service.TreeHoleAiClient;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.junit.jupiter.api.AfterEach;
@@ -77,7 +78,9 @@ public abstract class WishIntegrationTestBase {
             "wish_checkin", "wish_user_stat", "wish_resource_log",
             "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
             "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
-            "wish_special_event", "wish_env_config", "time_capsule");
+            "wish_special_event", "wish_env_config", "time_capsule",
+            "wish_ai_goal", "wish_notification_preference", "wish_ai_prompt",
+            "wish_expected_at_action", "wish_ai_config");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -90,6 +93,9 @@ public abstract class WishIntegrationTestBase {
 
     @MockitoBean
     protected TreeHoleAiClient treeHoleAiClient;
+
+    @MockitoBean
+    protected AssistantAiClient assistantAiClient;
 
     @MockitoBean
     protected RocketMQTemplate rocketMQTemplate;
@@ -178,6 +184,27 @@ public abstract class WishIntegrationTestBase {
                 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `category` = VALUES(`category`),
                     `priority` = VALUES(`priority`), `visual` = VALUES(`visual`),
                     `is_active` = 1, `description` = VALUES(`description`)
+                """);
+    }
+
+    /**
+     * 幂等补种 AI/提醒策略配置种子（5 条，ON DUPLICATE KEY UPDATE）。
+     *
+     * <p>wish_ai_config 被 TRUNCATE 后 Flyway 不会重跑 V13，种子由本方法
+     * 每用例前补种恢复（陪伴提醒/预期管理限频用例可放心改库后复位）；
+     * 与 wish_badge / wish_env_config 补种策略一致，内容与 V13 同口径。</p>
+     */
+    @BeforeEach
+    void ensureAiConfigSeedData() {
+        jdbcTemplate.update("""
+                INSERT INTO wish_ai_config (id, config_key, config_value, description) VALUES
+                    (1, 'reminder.daily_limit', '1', '陪伴提醒单用户每日上限(条)'),
+                    (2, 'reminder.quiet_start', '22:00', '免打扰时段开始(用户时区, HH:mm)'),
+                    (3, 'reminder.quiet_end', '08:00', '免打扰时段结束(用户时区, HH:mm)'),
+                    (4, 'expected.daily_limit', '3', '预期管理通知单用户每日上限(条)'),
+                    (5, 'annual_report.ttl_hours', '168', '年度报告结果缓存时长(小时)')
+                ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`),
+                    `description` = VALUES(`description`)
                 """);
     }
 

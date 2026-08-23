@@ -66,6 +66,18 @@ public final class WishErrorCodes {
     /** 环境配置 visual 非法 JSON */
     public static final String TREE_ENV_VISUAL_INVALID = "TREE_ENV_VISUAL_INVALID";
 
+    // AI 心愿助手（Sprint 2.5）
+    /** AI 拆解目标不存在（文档 2.11 PUT /ai/goals/{goalId}） */
+    public static final String WISH_AI_GOAL_NOT_FOUND = "WISH_AI_GOAL_NOT_FOUND";
+    /** 目标状态流转非法（如终态再变更） */
+    public static final String WISH_AI_GOAL_STATUS_INVALID = "WISH_AI_GOAL_STATUS_INVALID";
+    /** Prompt 模板不存在（管理端） */
+    public static final String WISH_AI_PROMPT_NOT_FOUND = "WISH_AI_PROMPT_NOT_FOUND";
+    /** 通知类型/渠道非法（文档 2.14） */
+    public static final String WISH_NOTIFICATION_TYPE_INVALID = "WISH_NOTIFICATION_TYPE_INVALID";
+    /** 年度报告参数非法（年份越界） */
+    public static final String WISH_ANNUAL_REPORT_INVALID = "WISH_ANNUAL_REPORT_INVALID";
+
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";

@@ -570,14 +570,19 @@ public class WishServiceImpl implements WishService {
 
     @Override
     public int scanOverdueWishes() {
+        return scanOverdueWishesDetailed().transferred();
+    }
+
+    @Override
+    public OverdueScanResult scanOverdueWishesDetailed() {
         LocalDateTime now = LocalDateTime.now();
         int totalTransferred = 0;
-        Set<Long> notifiedUserIds = new java.util.HashSet<>();
+        List<OverdueWishInfo> transferredWishes = new ArrayList<>();
         // 分批流转（500 条/批）：批间独立提交，单批失败不影响其余批次
         while (true) {
             List<Wish> expiredBatch = wishMapper.selectList(
                     new LambdaQueryWrapper<Wish>()
-                            .select(Wish::getId, Wish::getUserId)
+                            .select(Wish::getId, Wish::getUserId, Wish::getTitle, Wish::getExpectedAt)
                             .eq(Wish::getStatus, WishStatus.ACTIVE)
                             .isNotNull(Wish::getExpectedAt)
                             .lt(Wish::getExpectedAt, now)
@@ -588,7 +593,8 @@ public class WishServiceImpl implements WishService {
                 break;
             }
             List<Long> batchIds = expiredBatch.stream().map(Wish::getId).toList();
-            expiredBatch.forEach(w -> notifiedUserIds.add(w.getUserId()));
+            expiredBatch.forEach(w -> transferredWishes.add(new OverdueWishInfo(
+                    w.getId(), w.getUserId(), w.getTitle(), w.getExpectedAt())));
             // UPDATE 附加 status=ACTIVE 条件双保险（查询与更新间状态可能并发变化）
             wishMapper.update(null,
                     new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
@@ -600,11 +606,11 @@ public class WishServiceImpl implements WishService {
                 break;
             }
         }
-        // OVERDUE 提醒推送占位：通知中心对接后改发 OVERDUE_REMINDER（文档 27.1）
-        if (!notifiedUserIds.isEmpty()) {
-            log.info("OVERDUE 扫描流转完成, count={}, 待提醒用户数={}（通知中心对接前仅日志占位）",
-                    totalTransferred, notifiedUserIds.size());
+        // 预期管理通知由 InternalJobController 调用 ExpectedManagementService 下发
+        // （Sprint 2.5：状态流转与 AI 引导推送解耦，推送失败不回滚流转）
+        if (totalTransferred > 0) {
+            log.info("OVERDUE 扫描流转完成, count={}", totalTransferred);
         }
-        return totalTransferred;
+        return new OverdueScanResult(totalTransferred, transferredWishes);
     }
 }

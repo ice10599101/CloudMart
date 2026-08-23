@@ -88,6 +88,31 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             public ApiResponse<Object> updateBadgeStatus(Long id, Map<String, Object> data) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> listAiPrompts(String scene) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> createAiPrompt(Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateAiPromptStatus(Long id, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listAiConfigs() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateAiConfig(String configKey, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
         };
     }
 }

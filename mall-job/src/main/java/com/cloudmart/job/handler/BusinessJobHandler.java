@@ -221,4 +221,29 @@ public class BusinessJobHandler {
             throw new RuntimeException("时间胶囊到期扫描失败", e);
         }
     }
+
+    /**
+     * AI 陪伴提醒扫描：命中「用户本地时区 09 点」的活跃用户（有 ACTIVE
+     * 心愿或 IN_PROGRESS AI 目标）推送陪伴提醒（心愿宇宙文档 2.5 / 9.2）。
+     * 由 XXL-JOB 调度中心每小时整点触发。幂等：Redis 日计数保证
+     * 同一用户当日仅 1 条；过滤免打扰时段 + 通知偏好。
+     *
+     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
+     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     */
+    @XxlJob("aiReminderScanHandler")
+    public void aiReminderScanHandler() {
+        log.info("XXL-JOB: 开始执行 AI 陪伴提醒扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/ai-reminder-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: AI 陪伴提醒扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: AI 陪伴提醒扫描失败: {}", e.getMessage());
+            throw new RuntimeException("AI 陪伴提醒扫描失败", e);
+        }
+    }
 }

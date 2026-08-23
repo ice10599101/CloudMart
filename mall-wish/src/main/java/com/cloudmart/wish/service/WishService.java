@@ -141,4 +141,27 @@ public interface WishService {
      * @return 本次扫描流转的心愿总数
      */
     int scanOverdueWishes();
+
+    /**
+     * OVERDUE 扫描（详细版，Sprint 2.5）：流转同时返回详情，
+     * 供预期管理 AI 引导通知使用（文档 2.5：Sprint 1.1 状态流转 +
+     * 2.5 AI 介入复用同一 00:30 任务）。
+     */
+    OverdueScanResult scanOverdueWishesDetailed();
+
+    /**
+     * 到期扫描结果。
+     *
+     * @param transferred 流转总数
+     * @param wishes      本次流转的心愿详情（userId 分组限频在通知侧处理）
+     */
+    record OverdueScanResult(int transferred, List<OverdueWishInfo> wishes) {
+    }
+
+    /**
+     * 刚流转为 OVERDUE 的心愿信息（预期管理 AI 引导通知输入）。
+     */
+    record OverdueWishInfo(Long wishId, Long userId, String title,
+                           java.time.LocalDateTime expectedAt) {
+    }
 }
