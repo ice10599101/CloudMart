@@ -16,10 +16,13 @@ public final class RocketMQConfig {
 
     public static final String ORDER_TOPIC = "order-events";
     public static final String COMMUNITY_TOPIC = "community-events";
+    public static final String WISH_TOPIC = "wish-events";
 
     public static final String ORDER_TAG_STATUS_CHANGE = "status-change";
     public static final String COMMUNITY_TAG_EVENT = "event";
+    public static final String WISH_TAG_CAPSULE_AVAILABLE = "capsule-available";
 
     public static final String CG_NOTIFICATION_ORDER_STATUS = "notification-order-status-cg";
     public static final String CG_NOTIFICATION_COMMUNITY_EVENT = "notification-community-event-cg";
+    public static final String CG_NOTIFICATION_WISH_EVENT = "notification-wish-event-cg";
 }

@@ -617,6 +617,41 @@ export interface TreeHoleReply {
   resources: AiResource[]
 }
 
+// ============ Time Capsule（Sprint 2.4） ============
+
+export type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'
+
+/** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（开启是唯一拆信路径） */
+export interface CapsuleItem {
+  id: number
+  title: string
+  content: string | null
+  mediaUrls: string[] | null
+  status: CapsuleStatus
+  /** 预定开启时间（UTC，ISO 8601；到期判定唯一依据，跨时区旅行不影响） */
+  openAt: string
+  /** 创建时用户 IANA 时区（回溯展示用，不参与判定） */
+  openAtTimezone: string
+  openedAt: string | null
+  createdAt: string
+}
+
+export interface CreateCapsulePayload {
+  title: string
+  content: string
+  mediaUrls?: string[]
+  /** ISO 8601 UTC（到期判定唯一依据） */
+  openAt: string
+  /** 创建时 IANA 时区 */
+  openAtTz: string
+}
+
+export interface MyCapsuleListQuery {
+  status?: CapsuleStatus
+  cursor?: string
+  pageSize?: number
+}
+
 export interface AiConversationItem {
   id: number
   role: 'USER' | 'ASSISTANT'

@@ -41,6 +41,9 @@ export default defineAppConfig({
     'pages/badgeWall/index',
     'pages/treeHole/index',
     'pages/worldTree/index',
+    'pages/capsuleList/index',
+    'pages/capsuleCreate/index',
+    'pages/capsuleDetail/index',
   ],
   tabBar: {
     color: '#86909C',

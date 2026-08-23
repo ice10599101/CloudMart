@@ -196,4 +196,29 @@ public class BusinessJobHandler {
             throw new RuntimeException("徽章漏发补偿扫描失败", e);
         }
     }
+
+    /**
+     * 时间胶囊到期扫描：分批 500 条 CAS 流转 SEALED→AVAILABLE
+     * （open_at ≤ NOW()，UTC 判定，跨时区旅行不影响到期）并对流转成功者
+     * 推送到期待开启通知（心愿宇宙文档 9.2 / Sprint 2.4）。
+     * 由 XXL-JOB 调度中心每 10 分钟触发。幂等：重复扫描不重复推送。
+     *
+     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
+     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     */
+    @XxlJob("capsuleOpenScanHandler")
+    public void capsuleOpenScanHandler() {
+        log.info("XXL-JOB: 开始执行时间胶囊到期扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/capsule-open-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 时间胶囊到期扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 时间胶囊到期扫描失败: {}", e.getMessage());
+            throw new RuntimeException("时间胶囊到期扫描失败", e);
+        }
+    }
 }

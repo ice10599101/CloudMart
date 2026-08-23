@@ -16,6 +16,8 @@ public final class WishErrorCodes {
     public static final String WISH_CATEGORY_INVALID = "WISH_CATEGORY_INVALID";
     public static final String WISH_VISIBILITY_INVALID = "WISH_VISIBILITY_INVALID";
     public static final String WISH_VALIDATION_ERROR = "WISH_VALIDATION_ERROR";
+    /** 时间胶囊开启时间不能早于当前时间（文档 2.7 errors） */
+    public static final String WISH_OPEN_AT_PAST = "WISH_OPEN_AT_PAST";
     public static final String WISH_INTERACTION_TYPE_INVALID = "WISH_INTERACTION_TYPE_INVALID";
     public static final String WISH_INTERACTION_NOT_FOUND = "WISH_INTERACTION_NOT_FOUND";
 
@@ -38,6 +40,8 @@ public final class WishErrorCodes {
     public static final String WISH_ALREADY_CHECKIN_TODAY = "WISH_ALREADY_CHECKIN_TODAY";
     public static final String WISH_VERSION_CONFLICT = "WISH_VERSION_CONFLICT";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
+    /** 时间胶囊未到期待开启（文档 2.7 errors） */
+    public static final String WISH_CAPSULE_NOT_AVAILABLE = "WISH_CAPSULE_NOT_AVAILABLE";
 
     // --- 402 Payment Required ---
     public static final String WISH_STARLIGHT_INSUFFICIENT = "WISH_STARLIGHT_INSUFFICIENT";

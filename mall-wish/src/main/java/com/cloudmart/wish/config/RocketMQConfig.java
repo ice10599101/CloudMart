@@ -30,6 +30,8 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_FULFILLED = "wish-fulfilled";
     /** Tag：统计同步 */
     public static final String WISH_TAG_STAT_SYNC = "wish-stat-sync";
+    /** Tag：时间胶囊到期待开启（Sprint 2.4，mall-notification 消费推送） */
+    public static final String WISH_TAG_CAPSULE_AVAILABLE = "capsule-available";
 
     /** 消费者组：统计同步 */
     public static final String CG_WISH_STAT_SYNC = "wish-stat-sync-cg";

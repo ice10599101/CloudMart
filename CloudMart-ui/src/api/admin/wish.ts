@@ -364,3 +364,48 @@ export function getAdminSpecialEvents(limit = 50) {
     params: { limit },
   })
 }
+
+// ========== 时间胶囊统计（Sprint 2.4，与 mall-wish AdminCapsuleController / mall-admin 代理对齐） ==========
+
+export interface AdminCapsuleStats {
+  total: number
+  sealed: number
+  available: number
+  opened: number
+  cancelled: number
+  todayCreated: number
+}
+
+/** 通知推送记录（转发 mall-notification 通知列表，字段与全站通知一致） */
+export interface AdminCapsulePushRecord {
+  id: number
+  userId: number
+  username: string | null
+  type: string
+  title: string | null
+  content: string | null
+  isRead: number
+  createdAt: string
+}
+
+export interface AdminCapsulePushParams {
+  userId?: number
+  type?: string
+  page?: number
+  pageSize?: number
+}
+
+export const CAPSULE_STATUS_STAT_META: Array<{ key: keyof AdminCapsuleStats; label: string; emoji: string }> = [
+  { key: 'sealed', label: '封印中', emoji: '🔒' },
+  { key: 'available', label: '待开启', emoji: '🎁' },
+  { key: 'opened', label: '已开启', emoji: '💌' },
+  { key: 'cancelled', label: '已取消', emoji: '🌑' },
+]
+
+export function getAdminCapsuleStats() {
+  return request.get<ApiResponse<AdminCapsuleStats>>('/admin/wish/capsules/stats')
+}
+
+export function getAdminCapsulePushRecords(params: AdminCapsulePushParams) {
+  return request.get<ApiResponse<AdminCapsulePushRecord[]>>('/admin/wish/capsules/notifications', { params })
+}

@@ -1,0 +1,242 @@
+.scroll {
+  height: calc(100vh - 220rpx);
+}
+
+.field {
+  margin: 24rpx 24rpx 44rpx;
+  position: relative;
+}
+
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 12rpx;
+}
+
+.input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 260rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #fff;
+  line-height: 1.6;
+}
+
+.count {
+  position: absolute;
+  right: 8rpx;
+  bottom: -34rpx;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Upload */
+.uploadArea {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.uploadItem {
+  position: relative;
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.uploadPreview {
+  width: 100%;
+  height: 100%;
+}
+
+.removeBtn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44rpx;
+  height: 44rpx;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 0 0 0 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.removeIcon {
+  color: #fff;
+  font-size: 30rpx;
+  line-height: 1;
+}
+
+.uploadTrigger {
+  width: 180rpx;
+  height: 180rpx;
+  border: 2rpx dashed rgba(255, 255, 255, 0.25);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plusIcon {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 56rpx;
+}
+
+/* Picker */
+.pickerValue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+
+.pickerText {
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.pickerPlaceholder {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.pickerArrow {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 32rpx;
+}
+
+.rewardHint {
+  display: block;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 0 24rpx;
+}
+
+/* 封存仪式遮罩（火漆盖章） */
+.sealOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 20, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.sealCore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: sealStamp 0.6s ease-out both;
+}
+
+.sealWax {
+  font-size: 120rpx;
+}
+
+.sealText {
+  margin-top: 24rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sealSub {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.6);
+  animation: sealFadeIn 0.8s ease-out 0.5s both;
+}
+
+@keyframes sealStamp {
+  0% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sealFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Bottom bar */
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: rgba(11, 18, 32, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.cancelBtn {
+  width: 180rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+
+.cancelBtnText {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 28rpx;
+}
+
+.submitBtn {
+  flex: 1;
+  background: linear-gradient(135deg, #4ecdc4, #2a9d8f);
+  border-radius: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+
+.submitBtnDisabled {
+  opacity: 0.5;
+}
+
+.submitBtnText {
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+}

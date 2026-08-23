@@ -2,6 +2,7 @@ package com.cloudmart.wish.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.service.BadgeService;
+import com.cloudmart.wish.service.CapsuleService;
 import com.cloudmart.wish.service.HomeService;
 import com.cloudmart.wish.service.WishService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,7 @@ public class InternalJobController {
     private final WishService wishService;
     private final HomeService homeService;
     private final BadgeService badgeService;
+    private final CapsuleService capsuleService;
 
     @PostMapping("/overdue-scan")
     @Operation(summary = "OVERDUE 状态机扫描", description = "流转 expected_at 过期的 ACTIVE 心愿为 OVERDUE"
@@ -61,5 +63,14 @@ public class InternalJobController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<BadgeService.CompensationResult> badgeCompensationScan() {
         return ApiResponse.ok(badgeService.compensationScan());
+    }
+
+    @PostMapping("/capsule-open-scan")
+    @Operation(summary = "时间胶囊到期扫描", description = "分批 500 条 CAS 流转 SEALED→AVAILABLE"
+            + "（open_at ≤ NOW()，UTC 判定）并对流转成功者推送通知（每 10 分钟，文档 9.2）。"
+            + "幂等：重复扫描不重复推送")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<CapsuleService.ScanResult> capsuleOpenScan() {
+        return ApiResponse.ok(capsuleService.scanAvailableCapsules());
     }
 }

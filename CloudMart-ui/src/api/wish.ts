@@ -552,3 +552,53 @@ export function getTreeEnv(tzOffsetMinutes: number = -new Date().getTimezoneOffs
 export function listEnvConfigs() {
   return request.get<ApiResponse<EnvConfigItem[]>>('/wish/tree-env/configs')
 }
+
+// ========== Time Capsule（Sprint 2.4） ==========
+
+export type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'
+
+/** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（防绕过，开启是唯一拆信路径） */
+export interface CapsuleItem {
+  id: number
+  title: string
+  content: string | null
+  mediaUrls: string[] | null
+  status: CapsuleStatus
+  /** 预定开启时间（UTC，ISO 8601；到期判定唯一依据，跨时区旅行不影响） */
+  openAt: string
+  /** 创建时用户 IANA 时区（回溯展示用，不参与判定） */
+  openAtTimezone: string
+  openedAt: string | null
+  createdAt: string
+}
+
+export function createCapsule(data: {
+  title: string
+  content: string
+  mediaUrls?: string[]
+  openAt: string
+  openAtTz: string
+}) {
+  return request.post<ApiResponse<CapsuleItem>>('/wish/capsules', data)
+}
+
+export function listMyCapsules(params: { status?: CapsuleStatus; cursor?: string; pageSize?: number } = {}) {
+  return request.get<ApiResponse<CapsuleItem[]>>('/wish/capsules', { params })
+}
+
+export function getCapsuleDetail(id: number) {
+  return request.get<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)
+}
+
+export function openCapsule(id: number) {
+  return request.post<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}/open`)
+}
+
+export function cancelCapsule(id: number) {
+  return request.delete<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)
+}
+
+/** 时区上报（登录/启动/时区变化时调用；IANA 时区 + UTC 偏移分钟，重复上报幂等） */
+export function reportMyTimezone(timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone, offsetMinutes: number = -new Date().getTimezoneOffset()) {
+  return request.post<ApiResponse<{ timezone: string; updated: boolean }>>('/wish/my/timezone', { timezone, offsetMinutes })
+}

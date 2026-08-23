@@ -1,0 +1,130 @@
+.container {
+    min-height: 100vh;
+    background: var(--color-bg-base);
+    padding: 24px 0;
+}
+
+.pageWrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.pageTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tabs {
+    margin-bottom: 16px;
+}
+
+.cardList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+}
+
+/* 1024px 断点：单列（验收：1920 网格 / 1024 兼容） */
+@media (max-width: 1100px) {
+    .cardList {
+        grid-template-columns: 1fr;
+    }
+}
+
+.capsuleCard {
+    background: var(--color-bg-container);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+}
+
+.emptyCard {
+    background: var(--color-bg-container);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 24px 0;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.cardEmoji {
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.cardTitleWrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cardTitle {
+    color: var(--color-text);
+    font-size: 16px;
+}
+
+.cardTime {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.statusTag {
+    flex-shrink: 0;
+}
+
+.cardFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--color-border);
+}
+
+.countdown {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.readyHint {
+    font-size: 13px;
+    color: var(--color-primary, #d48806);
+    font-weight: 600;
+}
+
+.openedHint {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.cancelledHint {
+    font-size: 13px;
+    color: var(--color-text-tertiary);
+}
+
+.cancelBtn {
+    flex-shrink: 0;
+}
+
+.loadMore {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+}

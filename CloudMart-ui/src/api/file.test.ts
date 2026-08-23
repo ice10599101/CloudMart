@@ -18,13 +18,32 @@ describe('file API', () => {
     const file = new File(['test content'], 'test.png', { type: 'image/png' })
     await uploadFile(file)
 
-    expect(request.post).toHaveBeenCalledWith('/file/upload', expect.any(FormData), {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    expect(request.post).toHaveBeenCalledWith(
+        '/file/upload',
+        expect.any(FormData),
+        expect.objectContaining({
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60000,
+        })
+    )
 
     const callArgs = vi.mocked(request.post).mock.calls[0]
     const formData = callArgs[1] as FormData
     expect(formData.get('file')).toBeInstanceOf(File)
+  })
+
+  it('uploadFile() forwards progress events as percent', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    const onProgress = vi.fn()
+    const file = new File(['test content'], 'test.png', { type: 'image/png' })
+    await uploadFile(file, { onProgress })
+
+    const config = vi.mocked(request.post).mock.calls[0][2] as {
+      onUploadProgress?: (event: { loaded: number; total?: number }) => void
+    }
+    config.onUploadProgress?.({ loaded: 25, total: 100 })
+    expect(onProgress).toHaveBeenCalledWith(25)
   })
 
   it('deleteFile() calls DELETE /file/delete with url param', async () => {

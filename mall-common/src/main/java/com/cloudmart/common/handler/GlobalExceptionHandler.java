@@ -143,6 +143,7 @@ public class GlobalExceptionHandler {
                  "OPER_LOG_NOT_FOUND", "LOGIN_LOG_NOT_FOUND",
                  "WISH_NOT_FOUND", "WISH_CATEGORY_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
+            case "WISH_CAPSULE_NOT_AVAILABLE" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
                  "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",

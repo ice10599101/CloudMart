@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, Input, Textarea, ScrollView, Image, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
-import { fileApi } from '@/api/file'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
+import { API_BASE } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import type { WishCategory, WishVisibility } from '@/types'
 import styles from './index.module.scss'
@@ -74,7 +74,7 @@ export default function WishCreatePage() {
 
     try {
       const uploadTask = Taro.uploadFile({
-        url: `${fileApi.upload.toString()}`,
+        url: `${API_BASE}/file/upload`,
         filePath: item.filePath,
         name: 'file',
         header: { Authorization: `Bearer ${Taro.getStorageSync('access_token')}` },
@@ -232,177 +232,177 @@ export default function WishCreatePage() {
   const categoryIndex = categories.findIndex(c => c.id === categoryId)
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
-      <CustomNavBar title='许下心愿' back />
-      <ScrollView scrollY className={styles.scroll}>
-        {/* 标题 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>心愿标题 <Text style={{ color: '#e94560' }}>*</Text></Text>
-          <Input
-            className={styles.input}
-            placeholder='给你的心愿起个名字...'
-            value={title}
-            onInput={e => setTitle(e.detail.value)}
-            maxlength={120}
-          />
-          <Text className={styles.count}>{title.length}/120</Text>
-        </View>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+        <CustomNavBar title='许下心愿' back />
+        <ScrollView scrollY className={styles.scroll}>
+          {/* 标题 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>心愿标题 <Text style={{ color: '#e94560' }}>*</Text></Text>
+            <Input
+                className={styles.input}
+                placeholder='给你的心愿起个名字...'
+                value={title}
+                onInput={e => setTitle(e.detail.value)}
+                maxlength={120}
+            />
+            <Text className={styles.count}>{title.length}/120</Text>
+          </View>
 
-        {/* 描述 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>心愿描述 <Text style={{ color: '#e94560' }}>*</Text></Text>
-          <Textarea
-            className={styles.textarea}
-            placeholder='详细描述你的心愿、计划或梦想...'
-            value={description}
-            onInput={e => setDescription(e.detail.value)}
-            maxlength={2000}
-            autoHeight
-          />
-          <Text className={styles.count}>{description.length}/2000</Text>
-        </View>
+          {/* 描述 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>心愿描述 <Text style={{ color: '#e94560' }}>*</Text></Text>
+            <Textarea
+                className={styles.textarea}
+                placeholder='详细描述你的心愿、计划或梦想...'
+                value={description}
+                onInput={e => setDescription(e.detail.value)}
+                maxlength={2000}
+                autoHeight
+            />
+            <Text className={styles.count}>{description.length}/2000</Text>
+          </View>
 
-        {/* 分类 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>心愿分类 <Text style={{ color: '#e94560' }}>*</Text></Text>
-          <Picker
-            mode='selector'
-            range={categories}
-            rangeKey='name'
-            value={categoryIndex >= 0 ? categoryIndex : 0}
-            onChange={e => setCategoryId(categories[Number(e.detail.value)]?.id)}
-          >
-            <View className={styles.pickerValue}>
-              <Text className={categoryIndex >= 0 ? styles.pickerText : styles.pickerPlaceholder}>
-                {categoryIndex >= 0 ? categories[categoryIndex].name : '选择一个分类'}
-              </Text>
-              <Text className={styles.pickerArrow}>›</Text>
-            </View>
-          </Picker>
-        </View>
+          {/* 分类 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>心愿分类 <Text style={{ color: '#e94560' }}>*</Text></Text>
+            <Picker
+                mode='selector'
+                range={categories}
+                rangeKey='name'
+                value={categoryIndex >= 0 ? categoryIndex : 0}
+                onChange={e => setCategoryId(categories[Number(e.detail.value)]?.id)}
+            >
+              <View className={styles.pickerValue}>
+                <Text className={categoryIndex >= 0 ? styles.pickerText : styles.pickerPlaceholder}>
+                  {categoryIndex >= 0 ? categories[categoryIndex].name : '选择一个分类'}
+                </Text>
+                <Text className={styles.pickerArrow}>›</Text>
+              </View>
+            </Picker>
+          </View>
 
-        {/* 图片上传 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>图片/媒体（可选，最多 {MAX_MEDIA} 张）</Text>
-          <View className={styles.uploadArea}>
-            {uploads.map(item => (
-              <View key={item.id} className={styles.uploadItem}>
-                {item.status === 'success' && item.url ? (
-                  <>
-                    <Image className={styles.uploadPreview} src={item.url} mode='aspectFill' />
-                    <View className={styles.removeBtn} onClick={() => handleRemoveMedia(item.id)}>
-                      <Text className={styles.removeIcon}>×</Text>
-                    </View>
-                  </>
-                ) : (
-                  <View className={styles.uploadProgress}>
-                    {item.status === 'uploading' && (
-                      <>
-                        <Text className={styles.progressText}>{item.progress}%</Text>
-                        <View className={styles.progressBar}>
-                          <View className={styles.progressBarFill} style={{ width: `${item.progress}%` }} />
+          {/* 图片上传 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>图片/媒体（可选，最多 {MAX_MEDIA} 张）</Text>
+            <View className={styles.uploadArea}>
+              {uploads.map(item => (
+                  <View key={item.id} className={styles.uploadItem}>
+                    {item.status === 'success' && item.url ? (
+                        <>
+                          <Image className={styles.uploadPreview} src={item.url} mode='aspectFill' />
+                          <View className={styles.removeBtn} onClick={() => handleRemoveMedia(item.id)}>
+                            <Text className={styles.removeIcon}>×</Text>
+                          </View>
+                        </>
+                    ) : (
+                        <View className={styles.uploadProgress}>
+                          {item.status === 'uploading' && (
+                              <>
+                                <Text className={styles.progressText}>{item.progress}%</Text>
+                                <View className={styles.progressBar}>
+                                  <View className={styles.progressBarFill} style={{ width: `${item.progress}%` }} />
+                                </View>
+                                <View className={styles.cancelBtn} onClick={() => handleRemoveMedia(item.id)}>
+                                  <Text className={styles.cancelIcon}>×</Text>
+                                </View>
+                              </>
+                          )}
+                          {item.status === 'error' && (
+                              <View className={styles.errorOverlay} onClick={() => handleRetryUpload(item.id)}>
+                                <Text className={styles.errorText}>上传失败</Text>
+                                <Text className={styles.retryText}>点击重试</Text>
+                              </View>
+                          )}
                         </View>
-                        <View className={styles.cancelBtn} onClick={() => handleRemoveMedia(item.id)}>
-                          <Text className={styles.cancelIcon}>×</Text>
-                        </View>
-                      </>
-                    )}
-                    {item.status === 'error' && (
-                      <View className={styles.errorOverlay} onClick={() => handleRetryUpload(item.id)}>
-                        <Text className={styles.errorText}>上传失败</Text>
-                        <Text className={styles.retryText}>点击重试</Text>
-                      </View>
                     )}
                   </View>
-                )}
-              </View>
-            ))}
-            {uploadedUrls.length < MAX_MEDIA && (
-              <View className={styles.uploadTrigger} onClick={handleChooseImage}>
-                <Text className={styles.plusIcon}>+</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* 标签 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>标签（可选，最多 {MAX_TAGS} 个）</Text>
-          <View className={styles.tagArea}>
-            {tags.map(tag => (
-              <View key={tag} className={styles.tagItem} onClick={() => handleRemoveTag(tag)}>
-                <Text className={styles.tagText}>{tag}</Text>
-                <Text className={styles.tagClose}>×</Text>
-              </View>
-            ))}
-            {tags.length < MAX_TAGS && (
-              <Input
-                className={styles.tagInput}
-                placeholder='输入标签'
-                value={tagInput}
-                onInput={e => setTagInput(e.detail.value)}
-                onConfirm={handleAddTag}
-                confirmType='done'
-                maxlength={20}
-              />
-            )}
-          </View>
-        </View>
-
-        {/* 可见性 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>可见性</Text>
-          <View className={styles.visibilityOptions}>
-            {VISIBILITY_OPTIONS.map(opt => (
-              <View
-                key={opt.value}
-                className={`${styles.visibilityItem} ${visibility === opt.value ? styles.visibilityItemActive : ''}`}
-                onClick={() => setVisibility(opt.value)}
-              >
-                <Text className={styles.visibilityLabel}>{opt.label}</Text>
-                <Text className={styles.visibilityDesc}>{opt.desc}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* 预计完成时间 */}
-        <View className={styles.field}>
-          <Text className={styles.label}>预计完成时间（可选）</Text>
-          <Picker
-            mode='date'
-            value={expectedAt || ''}
-            onChange={e => setExpectedAt(e.detail.value)}
-          >
-            <View className={styles.pickerValue}>
-              <Text className={expectedAt ? styles.pickerText : styles.pickerPlaceholder}>
-                {expectedAt || '选择日期'}
-              </Text>
-              <Text className={styles.pickerArrow}>›</Text>
+              ))}
+              {uploadedUrls.length < MAX_MEDIA && (
+                  <View className={styles.uploadTrigger} onClick={handleChooseImage}>
+                    <Text className={styles.plusIcon}>+</Text>
+                  </View>
+              )}
             </View>
-          </Picker>
-        </View>
+          </View>
 
-        <View style={{ height: '180rpx' }} />
-      </ScrollView>
+          {/* 标签 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>标签（可选，最多 {MAX_TAGS} 个）</Text>
+            <View className={styles.tagArea}>
+              {tags.map(tag => (
+                  <View key={tag} className={styles.tagItem} onClick={() => handleRemoveTag(tag)}>
+                    <Text className={styles.tagText}>{tag}</Text>
+                    <Text className={styles.tagClose}>×</Text>
+                  </View>
+              ))}
+              {tags.length < MAX_TAGS && (
+                  <Input
+                      className={styles.tagInput}
+                      placeholder='输入标签'
+                      value={tagInput}
+                      onInput={e => setTagInput(e.detail.value)}
+                      onConfirm={handleAddTag}
+                      confirmType='done'
+                      maxlength={20}
+                  />
+              )}
+            </View>
+          </View>
 
-      {/* 底部提交栏 */}
-      <View className={styles.bottomBar}>
-        <View
-          className={`${styles.cancelBtn}`}
-          onClick={() => Taro.navigateBack()}
-        >
-          <Text className={styles.cancelBtnText}>取消</Text>
-        </View>
-        <View
-          className={`${styles.submitBtn} ${(isUploading || submitting) ? styles.submitBtnDisabled : ''}`}
-          onClick={handleSubmit}
-        >
-          <Text className={styles.submitBtnText}>
-            {submitting ? '发布中...' : '发布心愿'}
-          </Text>
+          {/* 可见性 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>可见性</Text>
+            <View className={styles.visibilityOptions}>
+              {VISIBILITY_OPTIONS.map(opt => (
+                  <View
+                      key={opt.value}
+                      className={`${styles.visibilityItem} ${visibility === opt.value ? styles.visibilityItemActive : ''}`}
+                      onClick={() => setVisibility(opt.value)}
+                  >
+                    <Text className={styles.visibilityLabel}>{opt.label}</Text>
+                    <Text className={styles.visibilityDesc}>{opt.desc}</Text>
+                  </View>
+              ))}
+            </View>
+          </View>
+
+          {/* 预计完成时间 */}
+          <View className={styles.field}>
+            <Text className={styles.label}>预计完成时间（可选）</Text>
+            <Picker
+                mode='date'
+                value={expectedAt || ''}
+                onChange={e => setExpectedAt(e.detail.value)}
+            >
+              <View className={styles.pickerValue}>
+                <Text className={expectedAt ? styles.pickerText : styles.pickerPlaceholder}>
+                  {expectedAt || '选择日期'}
+                </Text>
+                <Text className={styles.pickerArrow}>›</Text>
+              </View>
+            </Picker>
+          </View>
+
+          <View style={{ height: '180rpx' }} />
+        </ScrollView>
+
+        {/* 底部提交栏 */}
+        <View className={styles.bottomBar}>
+          <View
+              className={`${styles.cancelBtn}`}
+              onClick={() => Taro.navigateBack()}
+          >
+            <Text className={styles.cancelBtnText}>取消</Text>
+          </View>
+          <View
+              className={`${styles.submitBtn} ${(isUploading || submitting) ? styles.submitBtnDisabled : ''}`}
+              onClick={handleSubmit}
+          >
+            <Text className={styles.submitBtnText}>
+              {submitting ? '发布中...' : '发布心愿'}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
   )
 }
