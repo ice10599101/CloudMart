@@ -328,6 +328,43 @@ export function createAdminEnvConfig(data: {
   return request.post<ApiResponse<AdminEnvConfigRecord>>('/admin/wish/tree-env/configs', data)
 }
 
+// ========== 背景音乐曲库管理（Sprint 2.3，与 mall-wish BgmSongVO 对齐） ==========
+
+export interface AdminBgmSongRecord {
+  id: number
+  title: string
+  url: string
+  fileSize: number
+  sort: number
+  active: boolean
+  createdAt: string
+}
+
+export function getAdminWishBgmSongs() {
+  return request.get<ApiResponse<AdminBgmSongRecord[]>>('/admin/wish/bgm')
+}
+
+export function createAdminWishBgmSong(data: {
+  title: string
+  url: string
+  fileSize?: number
+  sort?: number
+}) {
+  return request.post<ApiResponse<AdminBgmSongRecord>>('/admin/wish/bgm', data)
+}
+
+export function updateAdminWishBgmSong(id: number, data: { title: string; sort?: number }) {
+  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}`, data)
+}
+
+export function updateAdminWishBgmSongStatus(id: number, active: boolean) {
+  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}/status`, { active })
+}
+
+export function deleteAdminWishBgmSong(id: number) {
+  return request.delete<ApiResponse<void>>(`/admin/wish/bgm/${id}`)
+}
+
 export function updateAdminEnvConfig(
     id: number,
     data: {

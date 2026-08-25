@@ -6,6 +6,7 @@ import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import { API_BASE } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import WishBGM from '@/components/WishBGM'
 import { getTimezoneId, localToUtcIso, reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import styles from './index.module.scss'
 
@@ -269,6 +270,8 @@ export default function CapsuleCreatePage() {
                     </Text>
                 </View>
             </View>
+
+            <WishBGM />
         </View>
     )
 }

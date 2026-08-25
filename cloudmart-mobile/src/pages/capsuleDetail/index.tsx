@@ -5,6 +5,7 @@ import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import WishBGM from '@/components/WishBGM'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import type { CapsuleItem } from '@/types'
 import styles from './index.module.scss'
@@ -189,6 +190,8 @@ export default function CapsuleDetailPage() {
                 )}
                 <View style={{ height: '80rpx' }} />
             </ScrollView>
+
+            <WishBGM />
         </View>
     )
 }

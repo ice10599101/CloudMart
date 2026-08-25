@@ -66,6 +66,12 @@ public final class WishErrorCodes {
     /** 环境配置 visual 非法 JSON */
     public static final String TREE_ENV_VISUAL_INVALID = "TREE_ENV_VISUAL_INVALID";
 
+    // 背景音乐曲库（Sprint 2.3）
+    /** BGM 歌曲不存在 */
+    public static final String BGM_SONG_NOT_FOUND = "BGM_SONG_NOT_FOUND";
+    /** BGM 音频地址非法（须为 http(s) 直链） */
+    public static final String BGM_SONG_URL_INVALID = "BGM_SONG_URL_INVALID";
+
     // AI 心愿助手（Sprint 2.5）
     /** AI 拆解目标不存在（文档 2.11 PUT /ai/goals/{goalId}） */
     public static final String WISH_AI_GOAL_NOT_FOUND = "WISH_AI_GOAL_NOT_FOUND";

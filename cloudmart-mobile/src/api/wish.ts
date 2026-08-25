@@ -83,9 +83,20 @@ export interface CommentListQuery {
     pageSize?: number
 }
 
+/** BGM 播放歌曲（公开接口，空列表由播放器回退默认曲） */
+export interface BgmSong {
+    id: number
+    title: string
+    url: string
+    sort: number
+}
+
 export const wishApi = {
     getHome: () => request<HomeAggregation>({ url: '/wish/home' }),
     getCategories: () => request<WishCategory[]>({ url: '/wish/categories' }),
+
+    // ---- 背景音乐（Sprint 2.3，公开接口；空列表由播放器回退默认曲）----
+    getBgmPlaylist: () => request<BgmSong[]>({ url: '/wish/bgm/playlist' }),
     listWishes: (params: WishListQuery) =>
         request<WishListItem[]>({ url: `/wish/wishes${buildQuery(params as Record<string, unknown>)}` }),
     getWishDetail: (id: number) => request<WishDetail>({ url: `/wish/wishes/${id}` }),

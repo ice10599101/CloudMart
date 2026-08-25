@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import WishBGM from '@/components/WishBGM'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import type { WishListItem, WishCategory } from '@/types'
@@ -205,6 +206,8 @@ export default function WishSquareScreen() {
           }
         />
       )}
+
+      <WishBGM />
     </View>
   )
 }

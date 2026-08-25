@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
+import WishBGM from '@/components/WishBGM'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, formatCount } from '@/constants/wish-theme'
 import type { HomeAggregation } from '@/types'
@@ -263,6 +264,8 @@ export default function WishHomeScreen() {
       >
         <Text style={{ fontSize: 26, color: '#fff' }}>✨</Text>
       </TouchableOpacity>
+
+      <WishBGM />
     </View>
   )
 }

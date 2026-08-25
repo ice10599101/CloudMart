@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_COLORS } from '@/constants/wish-theme'
 import WorldTree3D from '@/components/WorldTree3D'
+import WishBGM from '@/components/WishBGM'
 import { resolveTreeEnvTheme } from '@/utils/tree-env'
 import type {
     EnvConfigItem,
@@ -403,6 +404,8 @@ export default function WorldTreeScreen() {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            <WishBGM />
         </View>
     )
 }

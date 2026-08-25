@@ -90,6 +90,31 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
+            public ApiResponse<Object> listBgmSongs() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> createBgmSong(Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateBgmSong(Long id, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateBgmSongStatus(Long id, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> deleteBgmSong(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
             public ApiResponse<Object> listAiPrompts(String scene) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }

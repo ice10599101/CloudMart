@@ -4,6 +4,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import type { AiResource } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import WishBGM from '@/components/WishBGM'
 import { useAuthStore } from '@/store/auth'
 import styles from './index.module.scss'
 
@@ -327,6 +328,8 @@ export default function TreeHolePage() {
           <Text>今日剩余 {remaining} 次倾诉</Text>
         </View>
       )}
+
+      <WishBGM />
     </View>
   )
 }

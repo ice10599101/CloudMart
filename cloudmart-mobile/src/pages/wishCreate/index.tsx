@@ -6,6 +6,7 @@ import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import { API_BASE } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import WishBGM from '@/components/WishBGM'
 import type { WishCategory, WishVisibility } from '@/types'
 import styles from './index.module.scss'
 
@@ -403,6 +404,8 @@ export default function WishCreatePage() {
             </Text>
           </View>
         </View>
+
+        <WishBGM />
       </View>
   )
 }

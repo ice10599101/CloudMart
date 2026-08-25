@@ -9,6 +9,7 @@ import { fileApi } from '@/api/file'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+import WishBGM from '@/components/WishBGM'
 import type { WishDetail, WishFulfillmentSubmitResult } from '@/types'
 
 const MAX_MEDIA = 9
@@ -537,6 +538,8 @@ export default function WishFulfillmentScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      <WishBGM />
     </View>
   )
 }

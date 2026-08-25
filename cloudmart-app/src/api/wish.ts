@@ -65,6 +65,14 @@ export interface WishListQuery {
     pageSize?: number
 }
 
+/** BGM 曲目（管理端上传，sort 升序播放） */
+export interface BgmSong {
+    id: number
+    title: string
+    url: string
+    sort: number
+}
+
 export interface MyWishListQuery {
     status?: WishStatus
     cursor?: string
@@ -189,4 +197,8 @@ export const wishApi = {
             method: 'POST',
             data: { timezone, offsetMinutes },
         }),
+
+    // ---- 背景音乐（Sprint 2.3）----
+    /** 公开播放列表（is_active=true，sort 升序；空列表由前端回退默认曲） */
+    getBgmPlaylist: () => request<BgmSong[]>({ url: '/wish/bgm/playlist' }),
 }

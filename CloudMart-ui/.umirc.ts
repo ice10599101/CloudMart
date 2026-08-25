@@ -106,6 +106,7 @@ export default defineConfig({
         { path: '/admin/business/wish-interactions', component: '@/pages/admin/business/WishInteractions' },
         { path: '/admin/business/wish-comments', component: '@/pages/admin/business/WishComments' },
         { path: '/admin/business/wish-badges', component: '@/pages/admin/business/WishBadges' },
+        { path: '/admin/business/wish-bgm', component: '@/pages/admin/business/WishBgm' },
         { path: '/admin/business/tree-env', component: '@/pages/admin/business/TreeEnv' },
         { path: '/admin/business/capsules', component: '@/pages/admin/business/Capsules' },
         { path: '/admin/community/posts', component: '@/pages/admin/community/Posts' },

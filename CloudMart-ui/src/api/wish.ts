@@ -185,6 +185,19 @@ export interface WishCommentCreateResult {
 
 // ========== API Functions ==========
 
+/** BGM 播放歌曲（公开接口，空列表由播放器回退默认曲） */
+export interface BgmSong {
+  id: number
+  title: string
+  url: string
+  sort: number
+}
+
+/** 当前 BGM 播放列表（管理端上传+勾选，sort 升序顺序循环） */
+export function getBgmPlaylist() {
+  return request.get<ApiResponse<BgmSong[]>>('/wish/bgm/playlist')
+}
+
 export function getHomeAggregation() {
   return request.get<ApiResponse<HomeAggregation>>('/wish/home')
 }

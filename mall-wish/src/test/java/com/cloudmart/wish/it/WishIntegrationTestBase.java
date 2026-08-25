@@ -80,7 +80,7 @@ public abstract class WishIntegrationTestBase {
             "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
             "wish_special_event", "wish_env_config", "time_capsule",
             "wish_ai_goal", "wish_notification_preference", "wish_ai_prompt",
-            "wish_expected_at_action", "wish_ai_config");
+            "wish_expected_at_action", "wish_ai_config", "wish_bgm_song");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;

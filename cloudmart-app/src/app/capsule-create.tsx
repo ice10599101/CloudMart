@@ -8,6 +8,7 @@ import { wishApi } from '@/api/wish'
 import { fileApi } from '@/api/file'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import WishBGM from '@/components/WishBGM'
 import { WishColors } from '@/constants/wish-theme'
 import { getTimezoneId, localToUtcIso, reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import { ensureNotificationPermission, scheduleCapsuleReminder } from '@/utils/capsule-notifications'
@@ -394,6 +395,8 @@ export default function CapsuleCreateScreen() {
                     )}
                 </TouchableOpacity>
             </View>
+
+            <WishBGM />
         </View>
     )
 }

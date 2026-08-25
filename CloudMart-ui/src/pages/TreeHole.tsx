@@ -10,6 +10,7 @@ import {
 } from '@/api/wish'
 import type { AiConversationItem, AiResource } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
+import WishBGM from '@/components/WishBGM'
 import styles from './TreeHole.module.css'
 
 /** AI 数据处理协议版本（协议文本管理模块上线前为静态版本） */
@@ -300,6 +301,7 @@ export default function TreeHole() {
           </ul>
         </div>
       </Modal>
+      <WishBGM />
     </div>
   )
 }

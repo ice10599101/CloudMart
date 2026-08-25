@@ -61,6 +61,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/tree/fruits").permitAll()
                 // 公开浏览：徽章图鉴（未登录可浏览，文档 2.9）
                 .requestMatchers(HttpMethod.GET, "/badges/definitions").permitAll()
+                // 公开播放：背景音乐播放列表（未登录页面亦需 BGM，Sprint 2.3）
+                .requestMatchers(HttpMethod.GET, "/bgm/playlist").permitAll()
                 // 文档与监控端点
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**",

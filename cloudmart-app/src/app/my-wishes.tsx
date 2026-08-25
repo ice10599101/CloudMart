@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
+import WishBGM from '@/components/WishBGM'
 import type { MyWishListItem } from '@/types'
 
 const PAGE_SIZE = 10
@@ -182,6 +183,8 @@ export default function MyWishesScreen() {
           }
         />
       )}
+
+      <WishBGM />
     </View>
   )
 }

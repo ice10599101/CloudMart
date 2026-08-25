@@ -69,6 +69,25 @@ public interface WishFeignClient {
     ApiResponse<Object> updateBadgeStatus(@PathVariable("id") Long id,
                                           @RequestBody Map<String, Object> data);
 
+    // ========== 背景音乐曲库管理（Sprint 2.3） ==========
+
+    @GetMapping("/bgm")
+    ApiResponse<Object> listBgmSongs();
+
+    @PostMapping("/bgm")
+    ApiResponse<Object> createBgmSong(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/bgm/{id}")
+    ApiResponse<Object> updateBgmSong(@PathVariable("id") Long id,
+                                      @RequestBody Map<String, Object> data);
+
+    @PutMapping("/bgm/{id}/status")
+    ApiResponse<Object> updateBgmSongStatus(@PathVariable("id") Long id,
+                                            @RequestBody Map<String, Object> data);
+
+    @DeleteMapping("/bgm/{id}")
+    ApiResponse<Void> deleteBgmSong(@PathVariable("id") Long id);
+
     // ========== AI 心愿助手管理（Sprint 2.5） ==========
 
     @GetMapping("/ai/prompts")

@@ -151,6 +151,54 @@ public class AdminWishController {
         return wishFeignClient.updateBadgeStatus(id, data);
     }
 
+    // ========== 背景音乐曲库管理（Sprint 2.3） ==========
+
+    @GetMapping("/wish/bgm")
+    @RequiresPermission("business:wishBgm:list")
+    @Operation(summary = "BGM 歌曲列表", description = "全量含未激活（管理端表格），sort 升序；"
+            + "url 为 OSS 直链可供试听")
+    public ApiResponse<Object> listBgmSongs() {
+        return wishFeignClient.listBgmSongs();
+    }
+
+    @PostMapping("/wish/bgm")
+    @OperLog(title = "BGM 曲库管理", businessType = 1)
+    @RequiresPermission("business:wishBgm:add")
+    @Operation(summary = "登记歌曲", description = "前端先调 mall-file /file/upload 传 mp3"
+            + "（白名单已含，上限 50MB）拿到 URL 再登记；默认未加入播放列表")
+    public ApiResponse<Object> createBgmSong(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createBgmSong(data);
+    }
+
+    @PutMapping("/wish/bgm/{id}")
+    @OperLog(title = "BGM 曲库管理", businessType = 2)
+    @RequiresPermission("business:wishBgm:edit")
+    @Operation(summary = "编辑歌曲", description = "title/sort 可改；url 不可改"
+            + "（换歌走重新上传+登记）")
+    public ApiResponse<Object> updateBgmSong(@PathVariable Long id,
+                                             @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateBgmSong(id, data);
+    }
+
+    @PutMapping("/wish/bgm/{id}/status")
+    @OperLog(title = "BGM 播放列表勾选", businessType = 2)
+    @RequiresPermission("business:wishBgm:edit")
+    @Operation(summary = "启停歌曲（勾选播放列表）", description = "active=true 加入播放列表；"
+            + "多首激活=顺序循环，单首激活=单曲循环；空列表四端回退默认曲")
+    public ApiResponse<Object> updateBgmSongStatus(@PathVariable Long id,
+                                                    @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateBgmSongStatus(id, data);
+    }
+
+    @DeleteMapping("/wish/bgm/{id}")
+    @OperLog(title = "BGM 曲库管理", businessType = 3)
+    @RequiresPermission("business:wishBgm:delete")
+    @Operation(summary = "删除歌曲", description = "物理删除元数据行（OSS 音频文件保留）；"
+            + "正在播放列表中则同时移出")
+    public ApiResponse<Void> deleteBgmSong(@PathVariable Long id) {
+        return wishFeignClient.deleteBgmSong(id);
+    }
+
     // ========== AI 心愿助手管理（Sprint 2.5） ==========
 
     @GetMapping("/wish/ai/prompts")

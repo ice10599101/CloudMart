@@ -259,7 +259,8 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             var row = jdbcTemplate.queryForMap(
                     "SELECT user_id, status, ai_session_id, deleted_at FROM wish_ai_goal WHERE id = ?",
                     goalId);
-            assertThat(row.get("user_id")).isEqualTo(USER_ID);
+            // BIGINT 经 queryForMap 映射 BigInteger，须按 Number 比较防类型不等
+            assertThat(((Number) row.get("user_id")).longValue()).isEqualTo(USER_ID);
             assertThat(row.get("status")).isEqualTo("PENDING");
             assertThat(row.get("ai_session_id")).isEqualTo("goal-3101-it");
             assertThat(row.get("deleted_at")).isNull();
@@ -328,7 +329,8 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             var row = jdbcTemplate.queryForMap(
                     "SELECT user_id, wish_id, action FROM wish_expected_at_action "
                             + "WHERE wish_id = ?", wishId);
-            assertThat(row.get("user_id")).isEqualTo(USER_ID);
+            // BIGINT 经 queryForMap 映射 BigInteger，须按 Number 比较防类型不等
+            assertThat(((Number) row.get("user_id")).longValue()).isEqualTo(USER_ID);
             assertThat(row.get("action")).isEqualTo("EXTEND");
         }
 
@@ -365,13 +367,18 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             jdbcTemplate.update(
                     "UPDATE wish SET status = 'FULFILLED', fulfilled_at = NOW() WHERE id = ?", wish.id());
             LocalDate today = LocalDate.now();
-            // 同日两条打卡 → 去重后 1 天
-            for (int i = 0; i < 2; i++) {
+            // 同日两个心愿各打卡一次 → 用户级按日期去重后 1 天
+            //（uk_checkin_daily 按 wish+user+date 唯一，同心愿同日双打卡
+            //  在 DB 层即被唯一键拒绝，跨心愿同日打卡才是真实去重场景）
+            WishCreateResultVO secondWish = wishService.createWish(REPORT_USER_ID, new CreateWishRequest(
+                    "年度报告测试心愿二", "跨心愿同日打卡去重", null, categoryId,
+                    List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+            for (Long wishIdToCheckin : List.of(wish.id(), secondWish.id())) {
                 jdbcTemplate.update("""
                         INSERT INTO wish_checkin (id, wish_id, user_id, checkin_date, content,
                                 is_makeup, starlight_granted, created_at, updated_at)
                         VALUES (?, ?, ?, ?, '打卡', 0, 1, NOW(), NOW())
-                        """, System.nanoTime(), wish.id(), REPORT_USER_ID, today);
+                        """, System.nanoTime(), wishIdToCheckin, REPORT_USER_ID, today);
             }
             jdbcTemplate.update("""
                     INSERT INTO wish_growth_record (id, wish_id, user_id, type, content, media_urls,
@@ -387,7 +394,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             assertThat(report.totalCheckinDays()).isEqualTo(1);
             assertThat(report.topCategories()).hasSize(1);
             assertThat(report.topCategories().getFirst().name()).isEqualTo("测试分类-IT_ANNUAL_REPORT");
-            assertThat(report.topCategories().getFirst().count()).isEqualTo(1);
+            assertThat(report.topCategories().getFirst().count()).isEqualTo(2);
             assertThat(report.milestones()).hasSize(1);
             assertThat(report.milestones().getFirst().title()).isEqualTo("记下了一段成长");
             assertThat(report.growthSummary()).contains(String.valueOf(today.getYear())).isNotBlank();

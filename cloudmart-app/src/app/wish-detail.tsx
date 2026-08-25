@@ -8,6 +8,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
 import WishInteractionBar from '@/components/WishInteractionBar'
 import WishCommentSection from '@/components/WishCommentSection'
+import WishBGM from '@/components/WishBGM'
 import type { WishDetail, WishFulfillmentDetail } from '@/types'
 
 export default function WishDetailScreen() {
@@ -499,6 +500,8 @@ export default function WishDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <WishBGM />
     </View>
   )
 }

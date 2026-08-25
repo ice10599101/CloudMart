@@ -5,6 +5,7 @@ import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import WishBGM from '@/components/WishBGM'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import type { CapsuleItem, CapsuleStatus } from '@/types'
 import styles from './index.module.scss'
@@ -227,6 +228,8 @@ export default function CapsuleListPage() {
             >
                 <Text className={styles.fabText}>＋</Text>
             </View>
+
+            <WishBGM />
         </View>
     )
 }

@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+import WishBGM from '@/components/WishBGM'
 import type { BadgeRarity, BadgeWallItem } from '@/types'
 
 const RARITY_META: Record<BadgeRarity, { label: string; color: string; emoji: string }> = {
@@ -214,6 +215,8 @@ export default function BadgeWallScreen() {
           }
         />
       )}
+
+      <WishBGM />
     </View>
   )
 }

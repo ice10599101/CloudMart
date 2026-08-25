@@ -1,12 +1,11 @@
 import { useEffect } from 'react'
-import { Platform } from 'react-native'
 import { Stack, router } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import * as Notifications from 'expo-notifications'
 import { useThemeStore } from '@/store/theme'
 import { useAuthStore } from '@/store/auth'
 import { ThemeProvider } from '@/hooks/use-theme-context'
 import { storage } from '@/utils/storage'
+import { initCapsuleNotifications, subscribeCapsuleNotificationTap } from '@/utils/capsule-notifications'
 
 export default function RootLayout() {
   const hydrate = useThemeStore((s) => s.hydrate)
@@ -19,16 +18,14 @@ export default function RootLayout() {
     })
   }, [])
 
-  // 胶囊到期本地推送：点击通知直达胶囊详情（web 无本地推送，跳过注册）
+  // 胶囊到期本地推送：初始化 + 点击通知直达详情
+  // （web/Expo Go Android 不支持环境由 util 内部降级为无推送，不阻断 App）
   useEffect(() => {
-    if (Platform.OS === 'web') return
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { capsuleId?: number; type?: string }
-      if (data?.type === 'WISH_CAPSULE_AVAILABLE' && data.capsuleId) {
-        router.push(`/capsule/${data.capsuleId}`)
-      }
+    initCapsuleNotifications()
+    const unsubscribe = subscribeCapsuleNotificationTap((capsuleId) => {
+      router.push(`/capsule/${capsuleId}`)
     })
-    return () => subscription.remove()
+    return () => unsubscribe?.()
   }, [])
 
   return (
