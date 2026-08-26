@@ -38,6 +38,9 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/** 上传大小上限（与 mall-file 后端 mp3 白名单上限一致） */
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
+
 export default function WishBgm() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
@@ -129,13 +132,21 @@ export default function WishBgm() {
     actionRef.current?.reload()
   }
 
-  /** 上传前校验：仅 mp3，≤50MB */
+  /**
+   * 上传前校验：仅 mp3，≤50MB。
+   * 校验通过必须返回 true 才会触发 customRequest（customUpload）执行上传；
+   * 返回 false 会阻止上传，导致 uploadedUrl 恒为空。
+   */
   const beforeUpload = (file: UploadFile) => {
     if (file.name && !file.name.toLowerCase().endsWith('.mp3')) {
       message.error('仅支持 mp3 格式')
       return Upload.LIST_IGNORE
     }
-    return false
+    if (file.size && file.size > MAX_FILE_SIZE_BYTES) {
+      message.error(`文件 ${(file.size / 1024 / 1024).toFixed(1)} MB 超过 50MB 上限`)
+      return Upload.LIST_IGNORE
+    }
+    return true
   }
 
   const customUpload = async (options: { file: unknown; onSuccess?: (body: unknown) => void; onError?: (e: Error) => void }) => {
