@@ -996,3 +996,40 @@ export function listWarmEvents(params: { lat?: number; lng?: number; radius?: nu
     },
   })
 }
+
+// ========== 擦肩而过（Sprint 3.3，契约对齐 mall-wish EncounterController） ==========
+
+export interface EncounterLetterItem {
+  letterId: number
+  wishTags: string[]
+  encounterTime: string
+  encounterGeohash6: string
+  status: 'PENDING' | 'DELIVERED' | 'READ'
+  /** PENDING 时为 null（契约） */
+  content: string | null
+  deliveredAt: string | null
+}
+
+/** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
+export function setNearbyMode(enabled: boolean) {
+  return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })
+}
+
+/** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
+export function reportTrace(lat: number, lng: number) {
+  return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })
+}
+
+export function listEncounterLetters() {
+  return request.get<ApiResponse<EncounterLetterItem[]>>('/wish/map/encounter-letters')
+}
+
+/** 拆信（DELIVERED → READ） */
+export function readEncounterLetter(letterId: number) {
+  return request.put<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/read`)
+}
+
+/** 匿名互动（BLESS 免费 / LIGHT 扣星光 2 点亮对方心愿；每信笺每日 1 次） */
+export function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT') {
+  return request.post<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/interactions`, { type })
+}

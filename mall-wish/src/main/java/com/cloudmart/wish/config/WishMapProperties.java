@@ -25,4 +25,7 @@ public class WishMapProperties {
 
     /** 单次附近查询返回上限 */
     private int maxResults = 200;
+
+    /** 交通枢纽 geohash4 白名单（伪造检测放宽：枢纽网格内跳跃不标记） */
+    private java.util.List<String> hubGeohash4 = new java.util.ArrayList<>();
 }

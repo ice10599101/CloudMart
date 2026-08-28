@@ -781,3 +781,36 @@ export function auditAdminWarmEvent(id: number, auditStatus: 'APPROVED' | 'REJEC
     { params: { auditStatus } },
   )
 }
+
+// ========== 擦肩而过风控（Sprint 3.3，代理 mall-wish /admin/encounter/**） ==========
+
+export interface AdminLbsSuspicious {
+  id: number
+  userId: number
+  speedKmh: number
+  fromCell: string
+  toCell: string
+  createdAt: string
+}
+
+export interface AdminLbsFreeze {
+  id: number
+  userId: number
+  reason: string | null
+  frozenUntil: string
+  createdAt: string
+}
+
+export function listAdminSuspicious(userId?: number) {
+  return request.get<ApiResponse<AdminLbsSuspicious[]>>('/admin/wish/encounter/suspicious', {
+    params: { userId },
+  })
+}
+
+export function listAdminFreezes() {
+  return request.get<ApiResponse<AdminLbsFreeze[]>>('/admin/wish/encounter/freezes')
+}
+
+export function unfreezeAdminUser(userId: number) {
+  return request.post<ApiResponse<null>>(`/admin/wish/encounter/freezes/${userId}/unfreeze`)
+}

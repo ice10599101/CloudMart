@@ -6,11 +6,20 @@ import {
     deleteAdminFence,
     getAdminMapAudit,
     listAdminFences,
+    listAdminSuspicious,
+    listAdminFreezes,
     listAdminWarmEvents,
     toggleAdminFence,
+    unfreezeAdminUser,
     updateAdminFence,
 } from '@/api/admin/wish'
-import type { AdminFenceRecord, AdminMapAudit, AdminWarmEventRecord } from '@/api/admin/wish'
+import type {
+    AdminFenceRecord,
+    AdminLbsFreeze,
+    AdminLbsSuspicious,
+    AdminMapAudit,
+    AdminWarmEventRecord,
+} from '@/api/admin/wish'
 import { useMessage } from '@/utils/useMessage'
 
 const { Paragraph, Text } = Typography
@@ -26,6 +35,8 @@ export default function MapAdmin() {
     const [loading, setLoading] = useState(true)
     const [fences, setFences] = useState<AdminFenceRecord[]>([])
     const [events, setEvents] = useState<AdminWarmEventRecord[]>([])
+    const [suspicious, setSuspicious] = useState<AdminLbsSuspicious[]>([])
+    const [freezes, setFreezes] = useState<AdminLbsFreeze[]>([])
     const [fenceForm, setFenceForm] = useState({
         name: '',
         wishId: '',
@@ -64,10 +75,21 @@ export default function MapAdmin() {
         }
     }
 
+    const loadRisk = async () => {
+        try {
+            const [suspRes, freezeRes] = await Promise.all([listAdminSuspicious(), listAdminFreezes()])
+            if (suspRes.data.success) setSuspicious(suspRes.data.data ?? [])
+            if (freezeRes.data.success) setFreezes(freezeRes.data.data ?? [])
+        } catch {
+            // 拦截器已提示
+        }
+    }
+
     useEffect(() => {
         load()
         loadFences()
         loadEvents()
+        loadRisk()
     }, [])
 
     const handleCreateFence = async () => {
@@ -221,6 +243,52 @@ export default function MapAdmin() {
         </div>
     )
 
+    const riskPanel = (
+        <div>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                位置伪造检测：速度 &gt;15km/h 的跳跃记可疑（交通枢纽放宽），24h 内连续 3 次 → 冻结 24h。
+                解冻请二次确认。轨迹 Redis TTL 25h 自动过期，清理任务每小时兜底统计。
+            </Typography.Paragraph>
+            <Text strong>冻结中的用户（{freezes.length}）</Text>
+            <div style={{ margin: '8px 0 20px' }}>
+                {freezes.map((f) => (
+                    <div key={f.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                        <Badge status="error" />
+                        <Text strong>用户 {f.userId}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{f.reason}</Text>
+                        <Tag>冻结至 {new Date(f.frozenUntil).toLocaleString('zh-CN')}</Tag>
+                        <Popconfirm title={`确定解冻用户 ${f.userId} 吗？`}
+                            onConfirm={async () => {
+                                try {
+                                    await unfreezeAdminUser(f.userId)
+                                    message.success('已解冻')
+                                    loadRisk()
+                                } catch {
+                                    // 拦截器已提示
+                                }
+                            }}>
+                            <Button size="small" type="primary" ghost>解冻</Button>
+                        </Popconfirm>
+                    </div>
+                ))}
+                {freezes.length === 0 && <Text type="secondary">暂无冻结用户</Text>}
+            </div>
+            <Text strong>可疑跳跃记录（{suspicious.length}）</Text>
+            <div style={{ marginTop: 8 }}>
+                {suspicious.map((s) => (
+                    <div key={s.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                        <Tag color="red">{s.speedKmh} km/h</Tag>
+                        <Text style={{ fontSize: 12 }}>用户 {s.userId}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {s.fromCell} → {s.toCell} · {new Date(s.createdAt).toLocaleString('zh-CN')}
+                        </Text>
+                    </div>
+                ))}
+                {suspicious.length === 0 && <Text type="secondary">暂无可疑记录</Text>}
+            </div>
+        </div>
+    )
+
     return (
         <Tabs
             defaultActiveKey="audit"
@@ -228,6 +296,7 @@ export default function MapAdmin() {
                 { key: 'audit', label: '隐私审计', children: auditPanel },
                 { key: 'fences', label: '围栏管理', children: fencePanel },
                 { key: 'events', label: '温暖事件审核', children: eventPanel },
+                { key: 'risk', label: 'LBS 风控', children: riskPanel },
             ]}
         />
     )

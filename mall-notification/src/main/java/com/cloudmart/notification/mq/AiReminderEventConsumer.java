@@ -37,6 +37,7 @@ import java.io.Serializable;
                 + " || " + RocketMQConfig.WISH_TAG_COMPANION_REMINDER
                 + " || " + RocketMQConfig.WISH_TAG_SQUAD_REMIND
                 + " || " + RocketMQConfig.WISH_TAG_SQUAD_EVENT
+                + " || " + RocketMQConfig.WISH_TAG_ENCOUNTER_LETTER
                 + " || " + RocketMQConfig.WISH_TAG_LEGACY_PUSH
 )
 public class AiReminderEventConsumer implements RocketMQListener<AiReminderEventConsumer.AiReminderMessage> {

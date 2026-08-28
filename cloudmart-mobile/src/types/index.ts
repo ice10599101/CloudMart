@@ -975,3 +975,16 @@ export interface WarmEventItem {
   nickname: string | null
   createdAt: string
 }
+
+// ========== 擦肩而过（Sprint 3.3，契约对齐 mall-wish EncounterController） ==========
+
+export interface EncounterLetterItem {
+  letterId: number
+  wishTags: string[]
+  encounterTime: string
+  encounterGeohash6: string
+  status: 'PENDING' | 'DELIVERED' | 'READ'
+  /** PENDING 时为 null（契约） */
+  content: string | null
+  deliveredAt: string | null
+}

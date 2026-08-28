@@ -4,6 +4,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.CapsuleService;
 import com.cloudmart.wish.service.CompanionReminderService;
+import com.cloudmart.wish.service.EncounterService;
 import com.cloudmart.wish.service.ExpectedManagementService;
 import com.cloudmart.wish.service.HomeService;
 import com.cloudmart.wish.service.WishService;
@@ -37,6 +38,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class InternalJobController {
     private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
+    private final EncounterService encounterService;
 
     private final WishService wishService;
     private final HomeService homeService;
@@ -102,5 +104,17 @@ public class InternalJobController {
     @PostMapping("/leaderboard-refresh")
     public void leaderboardRefresh() {
         leaderboardService.refreshAll();
+    }
+
+    /** 擦肩而过匹配+投递（Sprint 3.3，建议 Cron 0 0/30 * * * ?；uk 幂等） */
+    @PostMapping("/encounter-match")
+    public ApiResponse<EncounterService.MatchStats> encounterMatch() {
+        return ApiResponse.ok(encounterService.matchAndDeliver());
+    }
+
+    /** 轨迹补偿清理（Sprint 3.3，建议 Cron 0 0 * * * ?；Redis TTL 为主，此为兜底统计） */
+    @PostMapping("/trace-cleanup")
+    public ApiResponse<EncounterService.CleanupStats> traceCleanup() {
+        return ApiResponse.ok(encounterService.cleanupTraces());
     }
 }

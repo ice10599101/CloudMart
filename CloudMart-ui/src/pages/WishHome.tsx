@@ -13,6 +13,7 @@ import {
   TeamOutlined,
   TrophyOutlined,
   EnvironmentOutlined,
+  MailOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -211,6 +212,16 @@ export default function WishHome() {
               >
                 <EnvironmentOutlined className={styles.entryIcon} style={{ color: '#4ECDC4' }} />
                 <div className={styles.entryText}>附近心愿</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/encounters')}
+              >
+                <MailOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
+                <div className={styles.entryText}>相遇信笺</div>
               </Card>
             </Col>
           </Row>

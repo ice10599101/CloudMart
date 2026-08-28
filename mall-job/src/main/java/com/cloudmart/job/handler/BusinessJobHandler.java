@@ -266,4 +266,44 @@ public class BusinessJobHandler {
             throw new RuntimeException("排行榜刷新失败", e);
         }
     }
+
+    /**
+     * 擦肩而过匹配+投递（Sprint 3.3，文档 9.x：cron 0 0/30 * * * ? 每 30 分钟；
+     * uk_letter_pair 幂等，可安全重试）。
+     */
+    @XxlJob("encounterMatchHandler")
+    public void encounterMatchHandler() {
+        log.info("XXL-JOB: 开始执行擦肩而过匹配...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/encounter-match")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 擦肩而过匹配完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 擦肩而过匹配失败: {}", e.getMessage());
+            throw new RuntimeException("擦肩而过匹配失败", e);
+        }
+    }
+
+    /**
+     * 擦肩而过轨迹清理（Sprint 3.3，文档 9.3：cron 0 0 * * * ? 每小时；
+     * Redis TTL 为主，此为兜底统计/补偿）。
+     */
+    @XxlJob("traceCleanupHandler")
+    public void traceCleanupHandler() {
+        log.info("XXL-JOB: 开始执行轨迹清理...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/trace-cleanup")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 轨迹清理完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 轨迹清理失败: {}", e.getMessage());
+            throw new RuntimeException("轨迹清理失败", e);
+        }
+    }
 }

@@ -42,6 +42,8 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_SQUAD_EVENT = "squad-event";
     /** Tag：还愿传承推送（Sprint 2.7，WISH_FULFILL 站内信，"你的同愿实现了"） */
     public static final String WISH_TAG_LEGACY_PUSH = "legacy-push";
+    /** Tag：擦肩而过（Sprint 3.3，信笺投递 + 匿名互动通知，ENCOUNTER_LETTER 站内信） */
+    public static final String WISH_TAG_ENCOUNTER_LETTER = "encounter-letter";
 
     /** 消费者组：统计同步 */
     public static final String CG_WISH_STAT_SYNC = "wish-stat-sync-cg";

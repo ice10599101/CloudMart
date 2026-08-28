@@ -49,6 +49,7 @@ import type {
     MapCluster,
     FenceCheckResult,
     WarmEventItem,
+    EncounterLetterItem,
 } from '@/types'
 
 function buildQuery(params?: Record<string, unknown>): string {
@@ -309,6 +310,22 @@ export const wishApi = {
     /** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */
     listWarmEvents: (params?: { lat?: number; lng?: number; radius?: number; cityCode?: string }) =>
         request<WarmEventItem[]>({ url: `/wish/map/warm-events${buildQuery(params as Record<string, unknown>)}` }),
+
+    // ---- 擦肩而过（Sprint 3.3）----
+    /** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
+    setNearbyMode: (enabled: boolean) =>
+        request<null>({ url: '/wish/map/nearby-mode', method: 'POST', data: { enabled } }),
+    /** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
+    reportTrace: (lat: number, lng: number) =>
+        request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } }),
+    /** 信笺列表（PENDING 时 content=null） */
+    listEncounterLetters: () => request<EncounterLetterItem[]>({ url: '/wish/map/encounter-letters' }),
+    /** 拆信（DELIVERED → READ） */
+    readEncounterLetter: (letterId: number) =>
+        request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/read`, method: 'PUT' }),
+    /** 匿名互动（BLESS 免费 / LIGHT 扣星光 2；每信笺每日 1 次） */
+    interactEncounterLetter: (letterId: number, type: 'BLESS' | 'LIGHT') =>
+        request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type } }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>
