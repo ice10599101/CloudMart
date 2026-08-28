@@ -692,3 +692,17 @@ export function scoreAiReviewSample(
 export function getAiReviewStats() {
   return request.get<ApiResponse<AdminAiReviewStats>>('/admin/wish/ai-review/stats')
 }
+
+// ========== LBS 隐私审计（Sprint 3.1，代理 mall-wish /admin/map/audit） ==========
+
+export interface AdminMapAudit {
+  publicWishCount: number
+  geohashCovered: number
+  geohashMissing: number
+  distinctCell6: number
+  strategy: Record<string, string>
+}
+
+export function getAdminMapAudit() {
+  return request.get<ApiResponse<AdminMapAudit>>('/admin/wish/map/audit')
+}

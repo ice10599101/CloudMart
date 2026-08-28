@@ -51,7 +51,7 @@ class AnonStarIntegrationTest extends WishIntegrationTestBase {
         WishCreateResultVO created = wishService.createWish(
                 AUTHOR_ID,
                 new CreateWishRequest("匿名星光测试心愿", "验证匿名星光链路", null, categoryId,
-                        List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                        List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
         wishId = created.id();
     }
 
@@ -137,7 +137,7 @@ class AnonStarIntegrationTest extends WishIntegrationTestBase {
                 WishCreateResultVO extra = wishService.createWish(
                         AUTHOR_ID,
                         new CreateWishRequest("限频心愿-" + i, "验证日限频", null, categoryId,
-                                List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                                List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
                 var result = interactionService.createInteraction(
                         ACTOR_ID, extra.id(), new CreateInteractionRequest(InteractionType.ANON_STAR, null));
                 assertThat(result.starlightCost()).isEqualTo(5);
@@ -152,7 +152,7 @@ class AnonStarIntegrationTest extends WishIntegrationTestBase {
             WishCreateResultVO fourth = wishService.createWish(
                     AUTHOR_ID,
                     new CreateWishRequest("限频心愿-第4次", "验证日限频拒绝", null, categoryId,
-                            List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                            List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
             assertThatThrownBy(() -> interactionService.createInteraction(
                             ACTOR_ID, fourth.id(), new CreateInteractionRequest(InteractionType.ANON_STAR, null)))
                     .isInstanceOf(BusinessException.class)

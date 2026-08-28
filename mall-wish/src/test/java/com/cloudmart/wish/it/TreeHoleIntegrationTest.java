@@ -69,7 +69,7 @@ class TreeHoleIntegrationTest extends WishIntegrationTestBase {
         stubUserFeign();
         WishCreateResultVO created = wishService.createWish(WISHER_ID, new CreateWishRequest(
                 "树洞集成测试心愿", "验证树洞 AI 链路", null, categoryId,
-                List.of("测试"), WishVisibility.TREE_HOLE, null, null, null));
+                List.of("测试"), WishVisibility.TREE_HOLE, null, null, null, null, null));
         treeHoleWishId = created.id();
         grantAiConsent(WISHER_ID, ConsentAction.GRANT);
     }
@@ -142,7 +142,7 @@ class TreeHoleIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_PUBLIC_WISH");
             WishCreateResultVO publicWish = wishService.createWish(WISHER_ID, new CreateWishRequest(
                     "公开心愿", "非树洞", null, categoryId,
-                    List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                    List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
 
             assertThatThrownBy(() -> treeHoleService.sendTreeHoleMessage(
                             WISHER_ID, new TreeHoleMessageRequest(publicWish.id(), "倾诉")))

@@ -12,6 +12,8 @@ import type {
     LeaderboardType,
     LeaderboardEntry,
     InheritResult,
+    NearbyWish,
+    MapCluster,
     AiGoal,
     AiGoalStatus,
     CreateAiGoalsPayload,
@@ -270,6 +272,14 @@ export const wishApi = {
     /** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */
     inheritFulfillment: (wishId: number, message?: string) =>
         request<InheritResult>({ url: `/wish/wishes/${wishId}/fulfillment/inherit`, method: 'POST', data: { message } }),
+
+    // ---- LBS 地图（Sprint 3.1）----
+    /** 附近心愿（公开；radius 异常兜底 5km；空坐标 → 服务端默认城市兜底） */
+    getMapWishes: (params?: { lat?: number; lng?: number; radius?: number; geohash?: string }) =>
+        request<NearbyWish[]>({ url: `/wish/map/wishes${buildQuery(params as Record<string, unknown>)}` }),
+    /** 网格聚合（geohash6 数量角标，坐标=网格中心） */
+    getMapClusters: (params?: { lat?: number; lng?: number; radius?: number; geohash?: string }) =>
+        request<MapCluster[]>({ url: `/wish/map/cluster${buildQuery(params as Record<string, unknown>)}` }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>

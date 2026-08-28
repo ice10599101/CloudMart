@@ -54,7 +54,7 @@ class InteractionCommentIntegrationTest extends WishIntegrationTestBase {
         WishCreateResultVO created = wishService.createWish(
                 AUTHOR_ID,
                 new CreateWishRequest("互动测试心愿", "验证互动与评论链路", null, categoryId,
-                        List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                        List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
         wishId = created.id();
     }
 

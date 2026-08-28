@@ -168,6 +168,34 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
+        {/* 附近心愿入口（Sprint 3.1） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/nearby-wishes')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(78, 205, 196, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#4ecdc4' }}>
+              📍 附近的心愿
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              坐标已模糊化 · 仅展示公开心愿
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* 排行榜入口（Sprint 2.7） */}
         <TouchableOpacity
           activeOpacity={0.8}

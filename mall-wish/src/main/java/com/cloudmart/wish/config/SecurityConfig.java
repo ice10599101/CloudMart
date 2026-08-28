@@ -70,6 +70,9 @@ public class SecurityConfig {
                 // 灰度功能开关（Sprint 2.8，四端降级开关数据源；匿名仅全量放行）
                 .requestMatchers(HttpMethod.GET, "/feature-flags").permitAll()
 
+                // LBS 地图公开浏览（Sprint 3.1，仅返回 PUBLIC 心愿模糊化坐标）
+                .requestMatchers(HttpMethod.GET, "/map/wishes", "/map/cluster").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点

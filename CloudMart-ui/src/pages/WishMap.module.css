@@ -1,0 +1,168 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  color: var(--color-text);
+}
+
+.body {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 56px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 4px 0 16px;
+}
+
+/* 地图舞台（1920px 铺满主区/1440px 自适应/1024px 与侧栏共存——验收断点） */
+.mapWrap {
+  position: relative;
+  height: 520px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+  margin-bottom: 20px;
+}
+
+.loadingMask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 16, 32, 0.8);
+  z-index: 5;
+}
+
+.loadingText {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.loadingBar {
+  width: 180px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.loadingBarInner {
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent-gold));
+  animation: loadSlide 1.2s ease-in-out infinite;
+}
+
+@keyframes loadSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(450%);
+  }
+}
+
+/* 附近心愿列表（降级模式 / 地图下方详情） */
+.listGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1440px) {
+  .listGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .listGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .body {
+    padding: 16px 12px 40px;
+  }
+}
+
+.wishCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.wishTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--color-text);
+}
+
+.wishMeta {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.distance {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-gold);
+}
+
+.clusterRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.clusterPill {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.clusterCount {
+  font-weight: 700;
+  color: var(--color-accent-gold);
+}
+
+.emptyText {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.fallbackNotice {
+  font-size: 12px;
+  color: #ffb347;
+  background: rgba(255, 179, 71, 0.1);
+  border: 1px solid rgba(255, 179, 71, 0.3);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}

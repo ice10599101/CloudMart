@@ -23,6 +23,7 @@ import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.service.WishService;
+import com.cloudmart.wish.util.GeoHashUtils;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.MyWishListItemVO;
 import com.cloudmart.wish.vo.WishCreateResultVO;
@@ -118,6 +119,14 @@ public class WishServiceImpl implements WishService {
         wish.setAuditStatus(AuditStatus.PENDING);
         wish.setIsVisible(true); // LAZY 审核策略下先可见，STRICT 策略下由审核流程控制
 
+        // LBS（Sprint 3.1）：PUBLIC 心愿携带坐标时 geohash7 编码存储——
+        // 原始坐标仅在本次请求内存中存在，不落库不落日志（隐私验收）
+        if (visibility == WishVisibility.PUBLIC
+                && request.latitude() != null && request.longitude() != null
+                && request.latitude() != 0.0 && request.longitude() != 0.0) {
+            wish.setGeohash(GeoHashUtils.encode(request.latitude(), request.longitude(), 7));
+        }
+
         wishMapper.insert(wish);
 
         // PUBLIC 心愿上树：固化球面坐标（Sprint 2.1，文档 2.5——坐标一经
@@ -179,6 +188,15 @@ public class WishServiceImpl implements WishService {
         }
         if (request.tags() != null) {
             wish.setTags(WishJsonUtils.stringifyList(request.tags()));
+        }
+        // LBS（Sprint 3.1）：PUBLIC 心愿更新坐标（geohash 覆写；0,0 视为清除）
+        if (request.latitude() != null && request.longitude() != null
+                && wish.getVisibility() == WishVisibility.PUBLIC) {
+            if (request.latitude() != 0.0 && request.longitude() != 0.0) {
+                wish.setGeohash(GeoHashUtils.encode(request.latitude(), request.longitude(), 7));
+            } else {
+                wish.setGeohash(null);
+            }
         }
         if (request.visibility() != null) {
             // 转公开时固化球面坐标（Sprint 2.1：PRIVATE→PUBLIC 上树；

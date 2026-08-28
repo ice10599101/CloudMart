@@ -930,3 +930,25 @@ export interface InheritResult {
   pushedCount: number
   createdAt: string
 }
+
+// ========== LBS 地图（Sprint 3.1，契约对齐 mall-wish MapController） ==========
+
+export interface NearbyWish {
+  wishId: number
+  title: string
+  fruitType: string | null
+  /** geohash7 网格中心 + 确定性偏移（0-50m，不含精确坐标——隐私） */
+  approximateLat: number
+  approximateLng: number
+  distance: number
+  lightCount: number
+  geohash: string
+  createdAt: string
+}
+
+export interface MapCluster {
+  geohash6: string
+  centerLat: number
+  centerLng: number
+  count: number
+}

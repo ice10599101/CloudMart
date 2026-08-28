@@ -213,6 +213,11 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             public ApiResponse<Object> aiReviewStats() {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> mapAudit() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
         };
     }
 }

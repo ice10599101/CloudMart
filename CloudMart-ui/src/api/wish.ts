@@ -905,3 +905,49 @@ export function inheritFulfillment(wishId: number, message?: string) {
 export function withdrawFulfillment(wishId: number) {
   return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/fulfillment`)
 }
+
+// ========== LBS 地图（Sprint 3.1，契约对齐 mall-wish MapController） ==========
+
+export interface NearbyWish {
+  wishId: number
+  title: string
+  fruitType: string | null
+  /** geohash7 网格中心 + 确定性偏移（0-50m，不含精确坐标——隐私） */
+  approximateLat: number
+  approximateLng: number
+  distance: number
+  lightCount: number
+  geohash: string
+  createdAt: string
+}
+
+export interface MapCluster {
+  geohash6: string
+  centerLat: number
+  centerLng: number
+  count: number
+}
+
+/** 附近心愿（公开；radius 异常兜底 5km；空坐标 → 服务端默认城市兜底） */
+export function getMapWishes(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {
+  return request.get<ApiResponse<NearbyWish[]>>('/wish/map/wishes', {
+    params: {
+      lat: params.lat ?? undefined,
+      lng: params.lng ?? undefined,
+      radius: params.radius ?? undefined,
+      geohash: params.geohash ?? undefined,
+    },
+  })
+}
+
+/** 网格聚合（geohash6 数量角标，坐标=网格中心） */
+export function getMapClusters(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {
+  return request.get<ApiResponse<MapCluster[]>>('/wish/map/cluster', {
+    params: {
+      lat: params.lat ?? undefined,
+      lng: params.lng ?? undefined,
+      radius: params.radius ?? undefined,
+      geohash: params.geohash ?? undefined,
+    },
+  })
+}

@@ -59,7 +59,7 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
 
             WishCreateResultVO result = wishService.createWish(USER_ID, new CreateWishRequest(
                     "世界树上的心愿", "固化球面坐标", null, categoryId,
-                    null, WishVisibility.PUBLIC, null, false, false));
+                    null, WishVisibility.PUBLIC, null, false, false, null, null));
 
             BigDecimal theta = jdbcTemplate.queryForObject(
                     "SELECT tree_theta FROM wish WHERE id = ?", BigDecimal.class, result.id());
@@ -80,10 +80,10 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
 
             WishCreateResultVO privateWish = wishService.createWish(USER_ID, new CreateWishRequest(
                     "私密心愿", "不上树", null, categoryId,
-                    null, WishVisibility.PRIVATE, null, false, false));
+                    null, WishVisibility.PRIVATE, null, false, false, null, null));
             WishCreateResultVO treeHoleWish = wishService.createWish(USER_ID, new CreateWishRequest(
                     "树洞心愿", "不上树", null, categoryId,
-                    null, WishVisibility.TREE_HOLE, null, false, false));
+                    null, WishVisibility.TREE_HOLE, null, false, false, null, null));
 
             Integer privateCoords = jdbcTemplate.queryForObject(
                     "SELECT (tree_theta IS NULL) + (tree_phi IS NULL) FROM wish WHERE id = ?",
@@ -104,9 +104,9 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
 
             WishCreateResultVO created = wishService.createWish(USER_ID, new CreateWishRequest(
                     "转公开心愿", "先私密后公开", null, categoryId,
-                    null, WishVisibility.PRIVATE, null, false, false));
+                    null, WishVisibility.PRIVATE, null, false, false, null, null));
             wishService.updateWish(USER_ID, created.id(), new UpdateWishRequest(
-                    null, null, null, null, null, WishVisibility.PUBLIC, null, null));
+                    null, null, null, null, null, WishVisibility.PUBLIC, null, null, null, null));
 
             BigDecimal theta = jdbcTemplate.queryForObject(
                     "SELECT tree_theta FROM wish WHERE id = ?", BigDecimal.class, created.id());

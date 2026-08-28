@@ -374,4 +374,13 @@ public class AdminWishController {
     public ApiResponse<Object> aiReviewStats() {
         return wishFeignClient.aiReviewStats();
     }
+
+    // ---- LBS 隐私审计（Sprint 3.1）----
+
+    @GetMapping("/wish/map/audit")
+    @RequiresPermission("business:map:audit")
+    @Operation(summary = "隐私审计面板", description = "PUBLIC 心愿 geohash 覆盖统计 + 模糊化策略说明")
+    public ApiResponse<Object> mapAudit() {
+        return wishFeignClient.mapAudit();
+    }
 }

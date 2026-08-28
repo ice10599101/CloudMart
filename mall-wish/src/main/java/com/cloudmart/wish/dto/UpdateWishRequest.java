@@ -31,5 +31,11 @@ public record UpdateWishRequest(
 
         LocalDateTime expectedAt,
 
-        String expectedTimezone
+        String expectedTimezone,
+
+        /** 纬度（可选，PUBLIC 心愿 LBS 用；服务端 geohash 编码，原始坐标不落库——Sprint 3.1） */
+        Double latitude,
+
+        /** 经度（可选，PUBLIC 心愿 LBS 用） */
+        Double longitude
 ) {}

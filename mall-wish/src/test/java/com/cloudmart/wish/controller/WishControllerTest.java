@@ -60,7 +60,7 @@ class WishControllerTest {
                 "考研上岸", "我要考上研究生", List.of("url1"),
                 100L, List.of("学习"),
                 WishVisibility.PUBLIC,
-                LocalDateTime.now().plusMonths(6), false, false
+                LocalDateTime.now().plusMonths(6), false, false, null, null
         );
         WishCreateResultVO vo = new WishCreateResultVO(
                 1L, "考研上岸",
@@ -87,7 +87,7 @@ class WishControllerTest {
                 "标题", "描述", null,
                 100L, null,
                 WishVisibility.PUBLIC,
-                null, false, false
+                null, false, false, null, null
         );
 
         mockMvc.perform(post("/wishes")
@@ -103,7 +103,7 @@ class WishControllerTest {
                 "", "描述", null,
                 100L, null,
                 WishVisibility.PUBLIC,
-                null, false, false
+                null, false, false, null, null
         );
 
         mockMvc.perform(post("/wishes")
@@ -167,7 +167,7 @@ class WishControllerTest {
     void updateWish_success() throws Exception {
         UpdateWishRequest request = new UpdateWishRequest(
                 "新标题", null, null, null, null, null, null, null
-        );
+        , null, null);
         WishUpdateResultVO vo = new WishUpdateResultVO(1L, LocalDateTime.now());
         given(wishService.updateWish(eq(1L), eq(1L), any(UpdateWishRequest.class))).willReturn(vo);
 

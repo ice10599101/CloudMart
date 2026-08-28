@@ -108,7 +108,7 @@ class WishServiceImplTest {
                     CATEGORY_ID, List.of("学习"),
                     WishVisibility.PUBLIC,
                     LocalDateTime.now().plusMonths(6), false, false
-            );
+            , null, null);
 
             var result = wishService.createWish(USER_ID, request);
 
@@ -137,7 +137,7 @@ class WishServiceImplTest {
                     CATEGORY_ID, null,
                     WishVisibility.TREE_HOLE,
                     null, false, false
-            );
+            , null, null);
 
             wishService.createWish(USER_ID, request);
 
@@ -165,7 +165,7 @@ class WishServiceImplTest {
                     CATEGORY_ID, List.of("学习"),
                     WishVisibility.PUBLIC,
                     LocalDateTime.now().plusMonths(6), false, false
-            );
+            , null, null);
 
             wishService.createWish(USER_ID, request);
 
@@ -196,7 +196,7 @@ class WishServiceImplTest {
                     CATEGORY_ID, null,
                     WishVisibility.TREE_HOLE,
                     null, false, false
-            );
+            , null, null);
 
             wishService.createWish(USER_ID, request);
 
@@ -213,7 +213,7 @@ class WishServiceImplTest {
                     CATEGORY_ID, null,
                     WishVisibility.PUBLIC,
                     null, false, false
-            );
+            , null, null);
 
             assertThatThrownBy(() -> wishService.createWish(USER_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -243,7 +243,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "更新标题", null, null, null, null, null, null, null
-            );
+            , null, null);
 
             var result = wishService.updateWish(USER_ID, WISH_ID, request);
 
@@ -260,7 +260,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "恶意修改", null, null, null, null, null, null, null
-            );
+            , null, null);
 
             assertThatThrownBy(() -> wishService.updateWish(OTHER_USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -279,7 +279,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "标题", null, null, null, null, null, null, null
-            );
+            , null, null);
 
             assertThatThrownBy(() -> wishService.updateWish(USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -299,7 +299,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     null, null, null, 9999L, null, null, null, null
-            );
+            , null, null);
 
             assertThatThrownBy(() -> wishService.updateWish(USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -322,7 +322,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     null, null, null, null, null, WishVisibility.PUBLIC, null, null
-            );
+            , null, null);
 
             wishService.updateWish(USER_ID, WISH_ID, request);
 
@@ -346,7 +346,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "新标题", null, null, null, null, null, null, null
-            );
+            , null, null);
 
             wishService.updateWish(USER_ID, WISH_ID, request);
 

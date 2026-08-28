@@ -48,6 +48,7 @@ export default defineAppConfig({
     'pages/annualReport/index',
     'pages/matchSquad/index',
     'pages/leaderboard/index',
+    'pages/wishMap/index',
   ],
   tabBar: {
     color: '#86909C',

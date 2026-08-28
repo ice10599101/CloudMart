@@ -38,7 +38,7 @@ class OverdueScanIntegrationTest extends WishIntegrationTestBase {
     private WishCreateResultVO createWishWithExpectedAt(Long categoryId, LocalDateTime expectedAt) {
         return wishService.createWish(USER_ID, new CreateWishRequest(
                 "过期扫描测试心愿", "OVERDUE 状态机验证", null, categoryId,
-                List.of("测试"), WishVisibility.PUBLIC, expectedAt, null, null));
+                List.of("测试"), WishVisibility.PUBLIC, expectedAt, null, null, null, null));
     }
 
     private String queryStatus(Long wishId) {

@@ -34,7 +34,7 @@ class WishCrudIntegrationTest extends WishIntegrationTestBase {
     private CreateWishRequest buildRequest(Long categoryId, WishVisibility visibility) {
         return new CreateWishRequest(
                 "集成测试心愿", "通过集成测试验证心愿创建链路", null, categoryId,
-                List.of("测试"), visibility, null, null, null);
+                List.of("测试"), visibility, null, null, null, null, null);
     }
 
     @Nested
@@ -119,7 +119,7 @@ class WishCrudIntegrationTest extends WishIntegrationTestBase {
             WishCreateResultVO created = wishService.createWish(1001L, buildRequest(categoryId, WishVisibility.PUBLIC));
 
             wishService.updateWish(1001L, created.id(),
-                    new UpdateWishRequest("更新后的标题", null, null, null, null, null, null, null));
+                    new UpdateWishRequest("更新后的标题", null, null, null, null, null, null, null, null, null));
 
             String title = jdbcTemplate.queryForObject(
                     "SELECT title FROM wish WHERE id = ?", String.class, created.id());
@@ -138,14 +138,14 @@ class WishCrudIntegrationTest extends WishIntegrationTestBase {
 
             // 公开心愿对非作者可见：返回明确的作者校验错误（403）
             assertThatThrownBy(() -> wishService.updateWish(2002L, publicWish.id(),
-                            new UpdateWishRequest("越权标题", null, null, null, null, null, null, null)))
+                            new UpdateWishRequest("越权标题", null, null, null, null, null, null, null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR);
 
             // 私密心愿对非作者不可见：统一 404，防止存在性探测
             assertThatThrownBy(() -> wishService.updateWish(2002L, privateWish.id(),
-                            new UpdateWishRequest("越权标题", null, null, null, null, null, null, null)))
+                            new UpdateWishRequest("越权标题", null, null, null, null, null, null, null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);

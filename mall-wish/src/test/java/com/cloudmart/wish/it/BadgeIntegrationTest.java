@@ -40,7 +40,7 @@ class BadgeIntegrationTest extends WishIntegrationTestBase {
     private CreateWishRequest buildWishRequest(Long categoryId) {
         return new CreateWishRequest(
                 "徽章集成测试心愿", "验证徽章触发链路", null, categoryId,
-                List.of("测试"), WishVisibility.PUBLIC, null, null, null);
+                List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null);
     }
 
     private Map<String, Object> loadUserBadgeRow(long userId, long badgeId) {

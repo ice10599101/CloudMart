@@ -127,7 +127,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
         Long categoryId = seedCategory("IT_AI_" + title);
         WishCreateResultVO created = wishService.createWish(userId, new CreateWishRequest(
                 title, "AI 助手集成测试心愿", null, categoryId,
-                List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
         return created.id();
     }
 
@@ -363,7 +363,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_ANNUAL_REPORT");
             WishCreateResultVO wish = wishService.createWish(REPORT_USER_ID, new CreateWishRequest(
                     "年度报告测试心愿", "聚合统计", null, categoryId,
-                    List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                    List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
             jdbcTemplate.update(
                     "UPDATE wish SET status = 'FULFILLED', fulfilled_at = NOW() WHERE id = ?", wish.id());
             LocalDate today = LocalDate.now();
@@ -372,7 +372,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             //  在 DB 层即被唯一键拒绝，跨心愿同日打卡才是真实去重场景）
             WishCreateResultVO secondWish = wishService.createWish(REPORT_USER_ID, new CreateWishRequest(
                     "年度报告测试心愿二", "跨心愿同日打卡去重", null, categoryId,
-                    List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                    List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
             for (Long wishIdToCheckin : List.of(wish.id(), secondWish.id())) {
                 jdbcTemplate.update("""
                         INSERT INTO wish_checkin (id, wish_id, user_id, checkin_date, content,
@@ -443,7 +443,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_COMPANION_" + userId);
             wishService.createWish(userId, new CreateWishRequest(
                     "陪伴提醒测试心愿", "扫描候选", null, categoryId,
-                    List.of("测试"), WishVisibility.PUBLIC, null, null, null));
+                    List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
         }
 
         @Test

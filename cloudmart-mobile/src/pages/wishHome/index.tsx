@@ -139,6 +139,10 @@ export default function WishHomePage() {
               <Text className={styles.entryIcon} style={{ color: '#ffd700' }}>🏆</Text>
               <Text className={styles.entryText}>排行榜</Text>
             </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/wishMap/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#4ecdc4' }}>📍</Text>
+              <Text className={styles.entryText}>附近心愿</Text>
+            </View>
           </View>
 
           {/* 今日推荐 */}

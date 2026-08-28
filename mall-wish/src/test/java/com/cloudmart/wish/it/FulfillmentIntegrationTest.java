@@ -49,7 +49,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
     private WishCreateResultVO createWish(Long categoryId, WishVisibility visibility) {
         return wishService.createWish(USER_ID, new CreateWishRequest(
                 "集成测试心愿", "还愿链路验证", null, categoryId,
-                List.of("测试"), visibility, null, null, null));
+                List.of("测试"), visibility, null, null, null, null, null));
     }
 
     private SubmitFulfillmentRequest buildFulfillmentRequest() {

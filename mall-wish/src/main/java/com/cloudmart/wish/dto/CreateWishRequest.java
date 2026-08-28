@@ -37,7 +37,13 @@ public record CreateWishRequest(
 
         Boolean enableAiReply,
 
-        Boolean triggerEnvEmo
+        Boolean triggerEnvEmo,
+
+        /** 纬度（可选，PUBLIC 心愿 LBS 用；服务端 geohash 编码，原始坐标不落库不落日志——Sprint 3.1 隐私验收） */
+        Double latitude,
+
+        /** 经度（可选，PUBLIC 心愿 LBS 用） */
+        Double longitude
 ) {
         public CreateWishRequest {
                 if (visibility == null) {

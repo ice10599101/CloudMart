@@ -167,4 +167,9 @@ public interface WishFeignClient {
 
     @GetMapping("/ai-review/stats")
     ApiResponse<Object> aiReviewStats();
+
+    // ---- LBS 隐私审计（Sprint 3.1）----
+
+    @GetMapping("/map/audit")
+    ApiResponse<Object> mapAudit();
 }
