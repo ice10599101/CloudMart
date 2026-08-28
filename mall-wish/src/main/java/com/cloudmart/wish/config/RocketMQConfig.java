@@ -36,6 +36,10 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_EXPECTED_GUIDE = "expected-guide";
     /** Tag：陪伴提醒（Sprint 2.5，mall-notification 消费推送 AI_REMINDER） */
     public static final String WISH_TAG_COMPANION_REMINDER = "companion-reminder";
+    /** Tag：同路人互相提醒（Sprint 2.6，mall-notification 消费推送 AI_REMINDER） */
+    public static final String WISH_TAG_SQUAD_REMIND = "squad-remind";
+    /** Tag：小队成员变动通知（Sprint 2.6：被踢/解散，SYSTEM 站内信） */
+    public static final String WISH_TAG_SQUAD_EVENT = "squad-event";
 
     /** 消费者组：统计同步 */
     public static final String CG_WISH_STAT_SYNC = "wish-stat-sync-cg";

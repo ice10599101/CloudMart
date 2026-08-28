@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from '@tarojs/taro'
 import { View, Text, Input, Textarea, ScrollView, Image, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
@@ -41,6 +42,35 @@ export default function CapsuleCreatePage() {
         }
         reportTimezoneIfNeeded()
     }, [isLoggedIn])
+
+    // 预期管理通知「转入时间胶囊」深链：预填心愿标题/内容/照片，open_at 默认 +30 天
+    const router = useRouter()
+    const prefillWishId = router.params.wishId
+    useEffect(() => {
+        if (!prefillWishId || !isLoggedIn) return
+        let cancelled = false
+        wishApi
+            .getWishDetail(Number(prefillWishId))
+            .then((res) => {
+                if (cancelled || !res.data.success || !res.data.data) return
+                const detail = res.data.data
+                setTitle(detail.title)
+                setContent(detail.description)
+                if (detail.mediaUrls && detail.mediaUrls.length > 0) {
+                    setMediaUrls(detail.mediaUrls.slice(0, MAX_MEDIA))
+                }
+                const target = new Date(Date.now() + 30 * 24 * 3600 * 1000)
+                const m = String(target.getMonth() + 1).padStart(2, '0')
+                const d = String(target.getDate()).padStart(2, '0')
+                setOpenDate(`${target.getFullYear()}-${m}-${d}`)
+            })
+            .catch(() => {
+                // 心愿不可见/已删除时静默，不影响正常创建
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [prefillWishId, isLoggedIn])
 
     const performUpload = (filePath: string) => {
         setUploadingCount((n) => n + 1)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, ScrollView, Image, Swiper, SwiperItem } from '@tarojs/components'
+import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
@@ -45,6 +45,10 @@ function formatCount(n: number): string {
 export default function WishDetailPage() {
   const router = useRouter()
   const wishId = Number(router.params.id)
+  // 预期管理通知「延长预期」深链：作者本人修改 expected_at（状态保持 ACTIVE）
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [extendDate, setExtendDate] = useState('')
+  const [extendSaving, setExtendSaving] = useState(false)
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const { user, isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)
@@ -100,6 +104,51 @@ export default function WishDetailPage() {
     }
     fetchData()
   }, [wishId])
+
+  // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期选择
+  useEffect(() => {
+    if (router.params.extend === '1' && wish && user?.id === wish.authorId
+        && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
+      const target = new Date(Date.now() + 30 * 24 * 3600 * 1000)
+      const m = String(target.getMonth() + 1).padStart(2, '0')
+      const d = String(target.getDate()).padStart(2, '0')
+      setExtendDate(`${target.getFullYear()}-${m}-${d}`)
+      setExtendOpen(true)
+    }
+  }, [router.params.extend, wish, user])
+
+  /** 打开延长预期（底部按钮入口） */
+  const openExtend = () => {
+    const target = new Date(Date.now() + 30 * 24 * 3600 * 1000)
+    const m = String(target.getMonth() + 1).padStart(2, '0')
+    const d = String(target.getDate()).padStart(2, '0')
+    setExtendDate(`${target.getFullYear()}-${m}-${d}`)
+    setExtendOpen(true)
+  }
+
+  /** 保存新预期时间（updateWish 仅改 expected_at，状态保持不变） */
+  const handleExtendSave = async () => {
+    if (!extendDate) return
+    if (new Date(`${extendDate}T23:59:59`).getTime() <= Date.now()) {
+      Taro.showToast({ title: '新的预期时间需要晚于现在', icon: 'none' })
+      return
+    }
+    setExtendSaving(true)
+    try {
+      const res = await wishApi.updateWish(wishId, {
+        expectedAt: new Date(`${extendDate}T12:00:00`).toISOString(),
+      })
+      if (res.data.success) {
+        Taro.showToast({ title: '预期已延长，继续加油', icon: 'none' })
+        setExtendOpen(false)
+        setWish((prev) => (prev ? { ...prev, expectedAt: new Date(`${extendDate}T12:00:00`).toISOString() } : prev))
+      }
+    } catch {
+      Taro.showToast({ title: '保存失败，请稍后重试', icon: 'none' })
+    } finally {
+      setExtendSaving(false)
+    }
+  }
 
   const handleDelete = async () => {
     const res = await Taro.showModal({
@@ -357,6 +406,11 @@ export default function WishDetailPage() {
       {isAuthor && (
         <View className={styles.bottomBar}>
           {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+            <View className={styles.deleteBtn} onClick={openExtend}>
+              <Text className={styles.deleteBtnText}>延长预期</Text>
+            </View>
+          )}
+          {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
             <View
               className={styles.fulfillBtn}
               onClick={() => Taro.navigateTo({ url: `/pages/wishFulfillment/index?id=${wishId}` })}
@@ -366,6 +420,27 @@ export default function WishDetailPage() {
           )}
           <View className={styles.deleteBtn} onClick={handleDelete}>
             <Text className={styles.deleteBtnText}>删除心愿</Text>
+          </View>
+        </View>
+      )}
+      {extendOpen && (
+        <View className={styles.modalMask} onClick={() => setExtendOpen(false)}>
+          <View className={styles.modalBody} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.modalTitle}>延长预期</Text>
+            <Text className={styles.modalText}>为这个心愿设定一个新的预期完成时间（状态保持进行中）</Text>
+            <Picker mode='date' value={extendDate} onChange={(e) => setExtendDate(e.detail.value)}>
+              <View className={styles.datePick}>
+                <Text className={styles.datePickText}>{extendDate || '选择日期'}</Text>
+              </View>
+            </Picker>
+            <View className={styles.modalBtns}>
+              <View className={styles.modalCancel} onClick={() => setExtendOpen(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={styles.modalOk} onClick={handleExtendSave}>
+                <Text>{extendSaving ? '保存中...' : '保存'}</Text>
+              </View>
+            </View>
           </View>
         </View>
       )}

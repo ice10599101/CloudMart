@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Form, Input, Button, Upload, Card, App, Modal, Tag, DatePicker, Popconfirm } from 'antd'
 import { PlusOutlined, CloseOutlined, MailOutlined, ArrowLeftOutlined } from '@ant-design/icons'
-import { history } from 'umi'
+import { history, useSearchParams } from 'umi'
 import dayjs, { type Dayjs } from 'dayjs'
-import { createCapsule } from '@/api/wish'
+import { createCapsule, getWishDetail } from '@/api/wish'
 import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
@@ -46,6 +46,7 @@ export default function CapsuleCreate() {
     const [mediaUrls, setMediaUrls] = useState<string[]>([])
     const [uploadingCount, setUploadingCount] = useState(0)
     const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false)
+    const [searchParams, setSearchParams] = useSearchParams()
     const { message } = App.useApp()
     const { user } = useAuthStore()
 
@@ -56,6 +57,33 @@ export default function CapsuleCreate() {
             history.push('/login?redirect=/wish/capsules/create')
         }
     }, [user])
+
+    // 预期管理通知「转入时间胶囊」深链：预填心愿标题/内容/照片，open_at 默认 +30 天
+    const prefillWishId = searchParams.get('wishId')
+    useEffect(() => {
+        if (!prefillWishId || !user) return
+        let cancelled = false
+        getWishDetail(Number(prefillWishId))
+            .then((res) => {
+                if (cancelled || !res.data.success || !res.data.data) return
+                const detail = res.data.data
+                form.setFieldsValue({
+                    title: detail.title,
+                    content: detail.description,
+                })
+                if (detail.mediaUrls.length > 0) {
+                    setMediaUrls(detail.mediaUrls.slice(0, MAX_MEDIA))
+                }
+                form.setFieldsValue({ openAt: dayjs().add(30, 'day') })
+                setSearchParams(new URLSearchParams())
+            })
+            .catch(() => {
+                // 心愿不可见/已删除时静默，不影响正常创建
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [prefillWishId, user, form, setSearchParams])
 
     const handleUpload = async (file: File) => {
         if (mediaUrls.length + uploadingCount >= MAX_MEDIA) {

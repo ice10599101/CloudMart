@@ -4,6 +4,19 @@ import type {
     BadgeDefinition,
     BadgeWallItem,
     CapsuleItem,
+    AiBreakdownResult,
+    MatchRecommendQuery,
+    MatchGroupItem,
+    MatchGroupCreated,
+    MatchGroupDetail,
+    AiGoal,
+    AiGoalStatus,
+    CreateAiGoalsPayload,
+    MyAiGoalsQuery,
+    ExpectedActionType,
+    AnnualReportData,
+    NotificationPreferenceMatrix,
+    NotificationPreferenceUpdate,
     ConsentStatus,
     ConsentType,
     CreateCapsulePayload,
@@ -201,4 +214,60 @@ export const wishApi = {
     // ---- 背景音乐（Sprint 2.3）----
     /** 公开播放列表（is_active=true，sort 升序；空列表由前端回退默认曲） */
     getBgmPlaylist: () => request<BgmSong[]>({ url: '/wish/bgm/playlist' }),
+
+    // ---- AI 心愿助手（Sprint 2.5）----
+    /** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 由页面分发） */
+    breakdownGoal: (data: { text: string; wishId?: number }) =>
+        request<AiBreakdownResult>({ url: '/wish/ai/assistant', method: 'POST', data: data as unknown as Record<string, unknown> }),
+    /** 勾选步骤批量持久化（status=PENDING） */
+    createAiGoals: (data: CreateAiGoalsPayload) =>
+        request<AiGoal[]>({ url: '/wish/ai/goals', method: 'POST', data: data as unknown as Record<string, unknown> }),
+    /** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */
+    updateAiGoalStatus: (goalId: number, status: AiGoalStatus) =>
+        request<AiGoal>({ url: `/wish/ai/goals/${goalId}`, method: 'PUT', data: { status } }),
+    /** 我的 AI 目标列表（id 倒序游标分页） */
+    listMyAiGoals: (params?: MyAiGoalsQuery) =>
+        request<AiGoal[]>({ url: `/wish/ai/goals${buildQuery(params as Record<string, unknown>)}` }),
+    /** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */
+    recordExpectedAction: (wishId: number, action: ExpectedActionType) =>
+        request<null>({ url: '/wish/ai/expected-actions', method: 'POST', data: { wishId, action } }),
+    /** 年度报告（growthSummary 异步 AI 生成：首次为模板文案，稍后重查返回 AI 版） */
+    getAnnualReport: (year: number) =>
+        request<AnnualReportData>({ url: `/wish/ai/annual-report${buildQuery({ year })}` }),
+
+    // ---- 同愿匹配 + 监督小队（Sprint 2.6）----
+    /** 匹配推荐（公开浏览；keyword/city 皆空时服务端基于心愿标签推荐） */
+    recommendMatchGroups: (params?: MatchRecommendQuery) =>
+        request<MatchGroupItem[]>({ url: `/wish/match/groups/recommend${buildQuery(params as Record<string, unknown>)}` }),
+    /** 建组（创建者为 LEADER；429 建组日限频 / 409 同关键词已有小队 / 403 被踢冷却） */
+    createMatchGroup: (data: { keyword: string; maxMembers?: number; wishId?: number }) =>
+        request<MatchGroupCreated>({ url: '/wish/match/groups', method: 'POST', data: data as unknown as Record<string, unknown> }),
+    /** 我的小队（ACTIVE 成员身份；含成员活跃度） */
+    listMyMatchGroups: () => request<MatchGroupDetail[]>({ url: '/wish/match/groups/my' }),
+    /** 小队详情（成员仅暴露昵称/头像/活跃度） */
+    getMatchGroupDetail: (groupId: number) =>
+        request<MatchGroupDetail>({ url: `/wish/match/groups/${groupId}` }),
+    /** 加入小队（409 满员/已是成员/同主题占坑；403 被踢 24h 冷却） */
+    joinMatchGroup: (groupId: number, message?: string) =>
+        request<null>({ url: `/wish/match/groups/${groupId}/members`, method: 'POST', data: { message } }),
+    /** 退出（target=自己）或踢人（LEADER；被踢者 24h 同主题冷却） */
+    leaveMatchGroup: (groupId: number, targetUserId: number) =>
+        request<null>({ url: `/wish/match/groups/${groupId}/members/${targetUserId}`, method: 'DELETE' }),
+    /** 解散小队（仅组长；成员收到通知） */
+    dissolveMatchGroup: (groupId: number) =>
+        request<null>({ url: `/wish/match/groups/${groupId}/dissolution`, method: 'POST' }),
+    /** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */
+    remindSquadMembers: (groupId: number, targetUserId?: number) =>
+        request<null>({ url: `/wish/match/groups/${groupId}/reminds${buildQuery({ targetUserId })}`, method: 'POST' }),
+
+    // ---- 通知偏好矩阵（Sprint 2.5）----
+    getNotificationPreferences: () =>
+        request<NotificationPreferenceMatrix>({ url: '/wish/my/notification-preferences' }),
+    /** 批量更新偏好（逐项 upsert）；一键关闭所有提醒 = 全类型×全渠道 enabled=false */
+    updateNotificationPreferences: (updates: NotificationPreferenceUpdate[]) =>
+        request<NotificationPreferenceMatrix>({
+            url: '/wish/my/notification-preferences',
+            method: 'PUT',
+            data: { updates } as unknown as Record<string, unknown>,
+        }),
 }

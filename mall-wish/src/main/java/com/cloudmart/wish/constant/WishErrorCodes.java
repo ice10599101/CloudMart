@@ -84,6 +84,22 @@ public final class WishErrorCodes {
     /** 年度报告参数非法（年份越界） */
     public static final String WISH_ANNUAL_REPORT_INVALID = "WISH_ANNUAL_REPORT_INVALID";
 
+    // 同愿匹配 + 监督小队（Sprint 2.6，文档 2.8）
+    /** 小组不存在或已关闭 */
+    public static final String WISH_GROUP_NOT_FOUND = "WISH_GROUP_NOT_FOUND";
+    /** 小组已满员（并发加入 CAS 兜底，文档验收：仅 1 人成功） */
+    public static final String WISH_GROUP_FULL = "WISH_GROUP_FULL";
+    /** 已是该小组 ACTIVE 成员 */
+    public static final String WISH_ALREADY_MEMBER = "WISH_ALREADY_MEMBER";
+    /** 同一关键词下已有进行中的小组（一人一组防占坑） */
+    public static final String WISH_GROUP_KEYWORD_DUPLICATED = "WISH_GROUP_KEYWORD_DUPLICATED";
+    /** 被踢 24h 冷却期内不可加入同关键词小组 */
+    public static final String WISH_KICKED_COOLDOWN = "WISH_KICKED_COOLDOWN";
+    /** 非组长无权执行该操作（踢人/解散） */
+    public static final String WISH_GROUP_LEADER_REQUIRED = "WISH_GROUP_LEADER_REQUIRED";
+    /** 匹配配置值非法（权重越界等，管理端） */
+    public static final String WISH_MATCH_CONFIG_INVALID = "WISH_MATCH_CONFIG_INVALID";
+
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";

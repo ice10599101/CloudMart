@@ -12,8 +12,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { notificationApi } from '@/api/notification'
+import { wishApi } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import type { Notification } from '@/types'
+import type { ExpectedActionType, Notification } from '@/types'
 
 const PAGE_SIZE = 20
 
@@ -51,10 +52,12 @@ function NotificationItem({
   item,
   theme,
   onPress,
+  onExpectedAction,
 }: {
   item: Notification
   theme: ReturnType<typeof useTheme>
   onPress: (item: Notification) => void
+  onExpectedAction: (item: Notification, action: ExpectedActionType) => void
 }) {
   const TYPE_ICON_MAP: Record<number, string> = {
     1: '👍',
@@ -98,7 +101,7 @@ function NotificationItem({
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 20 }}>{TYPE_ICON_MAP[item.type] ?? '🔔'}</Text>
+          <Text style={{ fontSize: 20 }}>{TYPE_ICON_MAP[Number(item.type)] ?? '🔔'}</Text>
         </View>
       )}
 
@@ -147,6 +150,32 @@ function NotificationItem({
         >
           {item.content}
         </Text>
+        {item.type === 'CHECKIN_REMINDER' && item.bizType === 'EXPECTED_MANAGEMENT' && item.bizId ? (
+          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+            {(
+              [
+                { action: 'EXTEND', label: '延长预期' },
+                { action: 'ADJUST', label: '调整目标' },
+                { action: 'TO_CAPSULE', label: '转入胶囊' },
+              ] as Array<{ action: ExpectedActionType; label: string }>
+            ).map(({ action, label }) => (
+              <TouchableOpacity
+                key={action}
+                accessibilityLabel={`${label}（心愿 ${item.bizId}）`}
+                onPress={() => onExpectedAction(item, action)}
+                style={{
+                  paddingHorizontal: Spacing.md,
+                  paddingVertical: 6,
+                  borderRadius: BorderRadius.full,
+                  borderWidth: 1,
+                  borderColor: theme.primary,
+                }}
+              >
+                <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
       </View>
     </TouchableOpacity>
   )
@@ -250,8 +279,32 @@ export default function NotificationsScreen() {
     }
   }, [])
 
+  /** 预期管理通知 3 选项（延长预期/调整目标/转入时间胶囊，Sprint 2.5） */
+  const handleExpectedAction = useCallback(async (item: Notification, action: ExpectedActionType) => {
+    const wishId = item.bizId
+    if (!wishId) return
+    // 埋点失败不阻断跳转（转化率数据允许少量丢失）
+    try {
+      await wishApi.recordExpectedAction(wishId, action)
+    } catch {
+      // ignore
+    }
+    if (action === 'EXTEND') {
+      router.push({ pathname: '/wish-detail', params: { id: String(wishId), extend: '1' } })
+    } else if (action === 'ADJUST') {
+      router.push({ pathname: '/ai-assistant', params: { wishId: String(wishId) } })
+    } else {
+      router.push({ pathname: '/capsule-create', params: { wishId: String(wishId) } })
+    }
+  }, [])
+
   const renderNotificationItem = ({ item }: { item: Notification }) => (
-    <NotificationItem item={item} theme={theme} onPress={handleNotificationPress} />
+    <NotificationItem
+      item={item}
+      theme={theme}
+      onPress={handleNotificationPress}
+      onExpectedAction={handleExpectedAction}
+    />
   )
 
   const renderEmpty = () => (

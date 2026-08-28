@@ -39,7 +39,7 @@ interface RoleRecord {
 
 interface MenuTreeNode {
   id: number
-  name: string
+  menuName: string
   children?: MenuTreeNode[]
 }
 
@@ -255,7 +255,7 @@ export default function Roles() {
           name="menuIds"
           label="菜单权限"
           fieldProps={{
-            treeData: convertToTreeSelect(menuTree, 'name'),
+            treeData: convertToTreeSelect(menuTree, 'menuName'),
             treeCheckable: true,
             showCheckedStrategy: TreeSelect.SHOW_ALL,
             placeholder: '请选择菜单权限',

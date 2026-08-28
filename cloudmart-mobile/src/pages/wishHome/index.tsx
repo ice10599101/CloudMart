@@ -123,6 +123,18 @@ export default function WishHomePage() {
               <Text className={styles.entryIcon} style={{ color: '#ffd700' }}>+</Text>
               <Text className={styles.entryText}>发布心愿</Text>
             </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/aiAssistant/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#00d4ff' }}>🤖</Text>
+              <Text className={styles.entryText}>AI 助手</Text>
+            </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/annualReport/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#9370db' }}>🌟</Text>
+              <Text className={styles.entryText}>年度报告</Text>
+            </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/matchSquad/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#4ecdc4' }}>🤝</Text>
+              <Text className={styles.entryText}>同路人小队</Text>
+            </View>
           </View>
 
           {/* 今日推荐 */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Empty, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm } from 'antd'
+import { Empty, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal } from 'antd'
+import dayjs, { type Dayjs } from 'dayjs'
 import {
   StarOutlined,
   HeartOutlined,
@@ -10,8 +11,8 @@ import {
   MoonOutlined,
   GiftOutlined,
 } from '@ant-design/icons'
-import { history, useParams } from 'umi'
-import { getWishDetail, deleteWish, getFulfillmentDetail } from '@/api/wish'
+import { history, useParams, useSearchParams } from 'umi'
+import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish } from '@/api/wish'
 import type { WishDetail, WishFulfillmentDetail } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
@@ -55,6 +56,10 @@ export default function WishDetail() {
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
   const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [extendDate, setExtendDate] = useState<Dayjs | null>(null)
+  const [extendSaving, setExtendSaving] = useState(false)
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
@@ -84,6 +89,36 @@ export default function WishDetail() {
     }
     fetchData()
   }, [wishId])
+
+  // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期弹窗
+  useEffect(() => {
+    if (searchParams.get('extend') === '1' && wish && user?.id === wish.authorId
+        && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
+      setExtendDate(wish.expectedAt ? dayjs(wish.expectedAt).add(30, 'day') : dayjs().add(30, 'day'))
+      setExtendOpen(true)
+      setSearchParams(new URLSearchParams())
+    }
+  }, [searchParams, wish, user, setSearchParams])
+
+  const handleExtendSave = async () => {
+    if (!extendDate || !extendDate.isAfter(dayjs())) {
+      message.warning('新的预期时间需要晚于现在')
+      return
+    }
+    setExtendSaving(true)
+    try {
+      const res = await updateWish(wishId, { expectedAt: extendDate.toDate().toISOString() })
+      if (res.data.success) {
+        message.success('预期已延长，继续加油')
+        setExtendOpen(false)
+        setWish((prev) => (prev ? { ...prev, expectedAt: extendDate.toDate().toISOString() } : prev))
+      }
+    } catch {
+      // 错误已由 request 拦截器处理
+    } finally {
+      setExtendSaving(false)
+    }
+  }
 
   const handleDelete = async () => {
     try {
@@ -358,6 +393,24 @@ export default function WishDetail() {
           />
         </Card>
       </div>
+      <Modal
+        open={extendOpen}
+        title="延长预期"
+        okText="保存新预期"
+        cancelText="取消"
+        onOk={handleExtendSave}
+        onCancel={() => setExtendOpen(false)}
+        confirmLoading={extendSaving}
+      >
+        <p style={{ marginBottom: 12 }}>为这个心愿设定一个新的预期完成时间（状态保持进行中）：</p>
+        <DatePicker
+          showTime
+          value={extendDate}
+          onChange={setExtendDate}
+          style={{ width: '100%' }}
+          disabledDate={(d) => d.isBefore(dayjs(), 'day')}
+        />
+      </Modal>
       <WishBGM />
     </div>
   )

@@ -737,3 +737,167 @@ export interface MyCapsuleListQuery {
   cursor?: string
   pageSize?: number
 }
+
+// ========== AI 心愿助手（Sprint 2.5，契约对齐 mall-wish AiAssistantController） ==========
+
+export type AiGoalStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export type ExpectedActionType = 'EXTEND' | 'ADJUST' | 'TO_CAPSULE'
+
+/** AI 拆解步骤项（POST /wish/ai/assistant 响应 goals 元素） */
+export interface AiBreakdownGoal {
+  title: string
+  description: string
+  estimatedDays: number
+  /** 优先级 1-5，1 最高 */
+  priority: number
+}
+
+export interface AiBreakdownResult {
+  intent: string
+  goals: AiBreakdownGoal[]
+  suggestion: string
+  /** AI 会话 ID（勾选持久化时回传） */
+  sessionId: string
+}
+
+/** AI 拆解目标（wish_ai_goal 持久化后的列表项） */
+export interface AiGoal {
+  id: number
+  wishId: number | null
+  title: string
+  description: string
+  estimatedDays: number
+  priority: number
+  status: AiGoalStatus
+  aiSessionId: string | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+}
+
+export interface CreateAiGoalsPayload {
+  sessionId: string
+  wishId?: number
+  goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>
+}
+
+export interface MyAiGoalsQuery {
+  status?: AiGoalStatus
+  wishId?: number
+  cursor?: string
+  pageSize?: number
+}
+
+export interface AnnualReportMilestone {
+  date: string
+  title: string
+  description: string
+}
+
+export interface AnnualReportTopCategory {
+  name: string
+  count: number
+}
+
+export interface AnnualReportData {
+  year: number
+  fulfilledCount: number
+  totalCheckinDays: number
+  growthSummary: string
+  milestones: AnnualReportMilestone[]
+  topCategories: AnnualReportTopCategory[]
+}
+
+// ========== 通知偏好矩阵（Sprint 2.5，契约对齐 mall-wish MyProfileController） ==========
+
+export type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL' | 'IN_APP'
+
+export type NotificationType =
+  | 'WISH_COMMENT'
+  | 'WISH_LIGHT'
+  | 'WISH_FULFILL'
+  | 'CAPSULE_OPEN'
+  | 'AI_REMINDER'
+  | 'CHECKIN_REMINDER'
+  | 'MATCH_RECOMMEND'
+  | 'BRAND_REWARD'
+  | 'ENCOUNTER_LETTER'
+  | 'DEVICE_OFFLINE'
+  | 'LEVEL_UP'
+  | 'BADGE_EARNED'
+  | 'SYSTEM'
+
+/** 13 类通知 × 4 渠道开关；无记录项默认开启 */
+export interface NotificationPreferenceMatrix {
+  preferences: Array<{
+    type: NotificationType
+    channels: Record<NotificationChannel, boolean>
+  }>
+}
+
+export interface NotificationPreferenceUpdate {
+  type: NotificationType
+  channel: NotificationChannel
+  enabled: boolean
+}
+
+// ========== 同愿匹配 + 监督小队（Sprint 2.6，契约对齐 mall-wish MatchGroupController） ==========
+
+export type MatchGroupStatus = 'OPEN' | 'FULL' | 'CLOSED'
+
+export interface MatchRecommendQuery {
+  keyword?: string
+  /** 同城代理码（geohash 前缀 4，可选；不传时服务端取请求者活跃公开心愿） */
+  city?: string
+  cursor?: string
+  pageSize?: number
+}
+
+export interface MatchGroupItem {
+  groupId: number
+  keyword: string
+  memberCount: number
+  maxMembers: number
+  leaderNickname: string
+  leaderAvatar: string
+  /** 相似度 0-1（关键词/城市/活跃度加权，权重管理端可配） */
+  matchScore: number
+  /** 三端一致的相似度说明（如"你们都想看极光"） */
+  matchReason: string
+  status: MatchGroupStatus
+  cityCode: string | null
+  createdAt: string
+}
+
+export interface MatchGroupCreated {
+  groupId: number
+  keyword: string
+  maxMembers: number
+  status: MatchGroupStatus
+  role: 'LEADER' | 'MEMBER'
+  joinedAt: string
+}
+
+export interface MatchMemberItem {
+  userId: number
+  nickname: string
+  avatar: string
+  role: 'LEADER' | 'MEMBER'
+  status: 'ACTIVE' | 'LEFT' | 'KICKED'
+  joinedAt: string
+  /** 距最近活跃天数（null=从未活跃；提醒未打卡组员依据） */
+  idleDays: number | null
+}
+
+export interface MatchGroupDetail {
+  groupId: number
+  keyword: string
+  memberCount: number
+  maxMembers: number
+  status: MatchGroupStatus
+  cityCode: string | null
+  createdAt: string
+  viewerRole: 'LEADER' | 'MEMBER' | null
+  members: MatchMemberItem[]
+}

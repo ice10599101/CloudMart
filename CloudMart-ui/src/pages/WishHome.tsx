@@ -8,6 +8,9 @@ import {
   HeartOutlined,
   NodeIndexOutlined,
   LockOutlined,
+  RobotOutlined,
+  BarChartOutlined,
+  TeamOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -156,6 +159,36 @@ export default function WishHome() {
               >
                 <PlusOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
                 <div className={styles.entryText}>发布心愿</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/assistant')}
+              >
+                <RobotOutlined className={styles.entryIcon} style={{ color: '#00D4FF' }} />
+                <div className={styles.entryText}>AI 助手</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/annual-report')}
+              >
+                <BarChartOutlined className={styles.entryIcon} style={{ color: '#9370DB' }} />
+                <div className={styles.entryText}>年度报告</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/match')}
+              >
+                <TeamOutlined className={styles.entryIcon} style={{ color: '#4ECDC4' }} />
+                <div className={styles.entryText}>同路人小队</div>
               </Card>
             </Col>
           </Row>

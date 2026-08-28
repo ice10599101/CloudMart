@@ -44,6 +44,9 @@ export default defineAppConfig({
     'pages/capsuleList/index',
     'pages/capsuleCreate/index',
     'pages/capsuleDetail/index',
+    'pages/aiAssistant/index',
+    'pages/annualReport/index',
+    'pages/matchSquad/index',
   ],
   tabBar: {
     color: '#86909C',

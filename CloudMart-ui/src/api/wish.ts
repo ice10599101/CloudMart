@@ -615,3 +615,249 @@ export function cancelCapsule(id: number) {
 export function reportMyTimezone(timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone, offsetMinutes: number = -new Date().getTimezoneOffset()) {
   return request.post<ApiResponse<{ timezone: string; updated: boolean }>>('/wish/my/timezone', { timezone, offsetMinutes })
 }
+
+// ========== AI Assistant（Sprint 2.5，契约对齐 mall-wish AiAssistantController） ==========
+
+export type AiGoalStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export type ExpectedActionType = 'EXTEND' | 'ADJUST' | 'TO_CAPSULE'
+
+export type AiPromptSceneFilter = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'
+
+/** AI 拆解步骤项（POST /wish/ai/assistant 响应 goals 元素） */
+export interface AiBreakdownGoal {
+  title: string
+  description: string
+  estimatedDays: number
+  /** 优先级 1-5，1 最高 */
+  priority: number
+}
+
+export interface AiBreakdownResult {
+  intent: string
+  goals: AiBreakdownGoal[]
+  suggestion: string
+  /** AI 会话 ID（勾选持久化时回传） */
+  sessionId: string
+}
+
+/** AI 拆解目标（wish_ai_goal 持久化后的列表项） */
+export interface AiGoal {
+  id: number
+  wishId: number | null
+  title: string
+  description: string
+  estimatedDays: number
+  priority: number
+  status: AiGoalStatus
+  aiSessionId: string | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+}
+
+/** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 错误码由组件分发） */
+export function breakdownGoal(data: { text: string; wishId?: number }) {
+  return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data)
+}
+
+/** 勾选步骤批量持久化（status=PENDING） */
+export function createAiGoals(data: {
+  sessionId: string
+  wishId?: number
+  goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>
+}) {
+  return request.post<ApiResponse<AiGoal[]>>('/wish/ai/goals', data)
+}
+
+/** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */
+export function updateAiGoalStatus(goalId: number, status: AiGoalStatus) {
+  return request.put<ApiResponse<AiGoal>>(`/wish/ai/goals/${goalId}`, { status })
+}
+
+/** 我的 AI 目标列表（id 倒序游标分页） */
+export function listMyAiGoals(params: {
+  status?: AiGoalStatus
+  wishId?: number
+  cursor?: string
+  pageSize?: number
+} = {}) {
+  return request.get<ApiResponse<AiGoal[]>>('/wish/ai/goals', { params })
+}
+
+/** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */
+export function recordExpectedAction(wishId: number, action: ExpectedActionType) {
+  return request.post<ApiResponse<null>>('/wish/ai/expected-actions', { wishId, action })
+}
+
+export interface AnnualReportMilestone {
+  date: string
+  title: string
+  description: string
+}
+
+export interface AnnualReportTopCategory {
+  name: string
+  count: number
+}
+
+export interface AnnualReportData {
+  year: number
+  fulfilledCount: number
+  totalCheckinDays: number
+  growthSummary: string
+  milestones: AnnualReportMilestone[]
+  topCategories: AnnualReportTopCategory[]
+}
+
+/**
+ * 年度报告（growthSummary 异步 AI 生成：首次为模板文案，稍后重查返回 AI 版）；
+ * 结果缓存 168h，仅含本人数据
+ */
+export function getAnnualReport(year: number) {
+  return request.get<ApiResponse<AnnualReportData>>('/wish/ai/annual-report', { params: { year } })
+}
+
+// ========== 通知偏好矩阵（Sprint 2.5，契约对齐 mall-wish MyProfileController） ==========
+
+export type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL' | 'IN_APP'
+
+export type NotificationType =
+  | 'WISH_COMMENT'
+  | 'WISH_LIGHT'
+  | 'WISH_FULFILL'
+  | 'CAPSULE_OPEN'
+  | 'AI_REMINDER'
+  | 'CHECKIN_REMINDER'
+  | 'MATCH_RECOMMEND'
+  | 'BRAND_REWARD'
+  | 'ENCOUNTER_LETTER'
+  | 'DEVICE_OFFLINE'
+  | 'LEVEL_UP'
+  | 'BADGE_EARNED'
+  | 'SYSTEM'
+
+/** 13 类通知 × 4 渠道开关；无记录项默认开启 */
+export interface NotificationPreferenceMatrix {
+  preferences: Array<{
+    type: NotificationType
+    channels: Record<NotificationChannel, boolean>
+  }>
+}
+
+export function getNotificationPreferences() {
+  return request.get<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences')
+}
+
+/** 批量更新偏好（逐项 upsert）；一键关闭所有提醒 = 全类型×全渠道 enabled=false */
+export function updateNotificationPreferences(
+  updates: Array<{ type: NotificationType; channel: NotificationChannel; enabled: boolean }>,
+) {
+  return request.put<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences', {
+    updates,
+  })
+}
+
+// ========== 同愿匹配 + 监督小队（Sprint 2.6，契约对齐 mall-wish MatchGroupController） ==========
+
+export type MatchGroupStatus = 'OPEN' | 'FULL' | 'CLOSED'
+
+export interface MatchRecommendQuery {
+  keyword?: string
+  /** 同城代理码（geohash 前缀 4，可选；不传时服务端取请求者活跃公开心愿） */
+  city?: string
+  cursor?: string
+  pageSize?: number
+}
+
+export interface MatchGroupItem {
+  groupId: number
+  keyword: string
+  memberCount: number
+  maxMembers: number
+  leaderNickname: string
+  leaderAvatar: string
+  /** 相似度 0-1（关键词/城市/活跃度加权，权重管理端可配） */
+  matchScore: number
+  /** 三端一致的相似度说明（如"你们都想看极光"） */
+  matchReason: string
+  status: MatchGroupStatus
+  cityCode: string | null
+  createdAt: string
+}
+
+export interface MatchGroupCreated {
+  groupId: number
+  keyword: string
+  maxMembers: number
+  status: MatchGroupStatus
+  role: 'LEADER' | 'MEMBER'
+  joinedAt: string
+}
+
+export interface MatchMemberItem {
+  userId: number
+  nickname: string
+  avatar: string
+  role: 'LEADER' | 'MEMBER'
+  status: 'ACTIVE' | 'LEFT' | 'KICKED'
+  joinedAt: string
+  /** 距最近活跃天数（null=从未活跃；提醒未打卡组员依据） */
+  idleDays: number | null
+}
+
+export interface MatchGroupDetail {
+  groupId: number
+  keyword: string
+  memberCount: number
+  maxMembers: number
+  status: MatchGroupStatus
+  cityCode: string | null
+  createdAt: string
+  viewerRole: 'LEADER' | 'MEMBER' | null
+  members: MatchMemberItem[]
+}
+
+/** 匹配推荐（公开浏览；keyword/city 皆空时服务端基于心愿标签推荐） */
+export function recommendMatchGroups(params: MatchRecommendQuery = {}) {
+  return request.get<ApiResponse<MatchGroupItem[]>>('/wish/match/groups/recommend', { params })
+}
+
+/** 建组（创建者为 LEADER；429 建组日限频 / 409 同关键词已有小队 / 403 被踢冷却） */
+export function createMatchGroup(data: { keyword: string; maxMembers?: number; wishId?: number }) {
+  return request.post<ApiResponse<MatchGroupCreated>>('/wish/match/groups', data)
+}
+
+/** 我的小队（ACTIVE 成员身份；含成员活跃度） */
+export function listMyMatchGroups() {
+  return request.get<ApiResponse<MatchGroupDetail[]>>('/wish/match/groups/my')
+}
+
+/** 小队详情（成员仅暴露昵称/头像/活跃度） */
+export function getMatchGroupDetail(groupId: number) {
+  return request.get<ApiResponse<MatchGroupDetail>>(`/wish/match/groups/${groupId}`)
+}
+
+/** 加入小队（409 满员/已是成员/同主题占坑；403 被踢 24h 冷却） */
+export function joinMatchGroup(groupId: number, message?: string) {
+  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/members`, { message })
+}
+
+/** 退出（target=自己）或踢人（LEADER；被踢者 24h 同主题冷却） */
+export function leaveMatchGroup(groupId: number, targetUserId: number) {
+  return request.delete<ApiResponse<null>>(`/wish/match/groups/${groupId}/members/${targetUserId}`)
+}
+
+/** 解散小队（仅组长；成员收到通知） */
+export function dissolveMatchGroup(groupId: number) {
+  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/dissolution`)
+}
+
+/** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */
+export function remindSquadMembers(groupId: number, targetUserId?: number) {
+  return request.post<ApiResponse<null>>(
+    `/wish/match/groups/${groupId}/reminds`,
+    {},
+    { params: targetUserId ? { targetUserId } : undefined },
+  )
+}

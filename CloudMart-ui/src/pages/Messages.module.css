@@ -448,3 +448,25 @@
     height: 6px;
   }
 }
+
+/* 预期管理通知 3 选项（Sprint 2.5） */
+.expectedActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.expectedBtn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.expectedBtn:hover {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: var(--color-primary);
+}

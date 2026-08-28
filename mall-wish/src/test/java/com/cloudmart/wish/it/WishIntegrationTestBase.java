@@ -80,7 +80,8 @@ public abstract class WishIntegrationTestBase {
             "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
             "wish_special_event", "wish_env_config", "time_capsule",
             "wish_ai_goal", "wish_notification_preference", "wish_ai_prompt",
-            "wish_expected_at_action", "wish_ai_config", "wish_bgm_song");
+            "wish_expected_at_action", "wish_ai_config", "wish_bgm_song",
+            "wish_match_group", "wish_match_member", "wish_match_config");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -203,6 +204,29 @@ public abstract class WishIntegrationTestBase {
                     (3, 'reminder.quiet_end', '08:00', '免打扰时段结束(用户时区, HH:mm)'),
                     (4, 'expected.daily_limit', '3', '预期管理通知单用户每日上限(条)'),
                     (5, 'annual_report.ttl_hours', '168', '年度报告结果缓存时长(小时)')
+                ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`),
+                    `description` = VALUES(`description`)
+                """);
+    }
+
+    /**
+     * 幂等补种 V15 匹配算法配置种子（7 条，与 V15 同口径）。
+     *
+     * <p>wish_match_config 纳入 TRUNCATE 后 Flyway 不重跑 V15，
+     * 每用例前补种保证权重/阈值/限频配置恒在（管理端改配置的用例
+     * 可放心改库，每用例前复位为默认值）。</p>
+     */
+    @BeforeEach
+    void ensureMatchConfigSeedData() {
+        jdbcTemplate.update("""
+                INSERT INTO wish_match_config (id, config_key, config_value, description) VALUES
+                    (1, 'match.weight_keyword', '0.4', '匹配权重-关键词(0-1)'),
+                    (2, 'match.weight_city', '0.3', '匹配权重-城市/geohash同城(0-1)'),
+                    (3, 'match.weight_activity', '0.3', '匹配权重-小组成员活跃度(0-1)'),
+                    (4, 'match.score_threshold', '0.15', '推荐相似度阈值(0-1)'),
+                    (5, 'match.remind_idle_days', '3', '互相提醒-idle天数(天)'),
+                    (6, 'match.remind_daily_limit', '3', '互相提醒-每日提醒上限(条)'),
+                    (7, 'match.create_daily_limit', '3', '建组-每日建组上限(个)')
                 ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`),
                     `description` = VALUES(`description`)
                 """);

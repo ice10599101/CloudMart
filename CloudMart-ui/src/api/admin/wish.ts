@@ -446,3 +446,117 @@ export function getAdminCapsuleStats() {
 export function getAdminCapsulePushRecords(params: AdminCapsulePushParams) {
   return request.get<ApiResponse<AdminCapsulePushRecord[]>>('/admin/wish/capsules/notifications', { params })
 }
+
+// ========== AI 心愿助手（Sprint 2.5，代理 mall-wish /admin/ai/**） ==========
+
+export type AdminAiPromptScene = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'
+export type AdminAiPromptStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+
+export interface AdminAiPromptRecord {
+  id: number
+  scene: AdminAiPromptScene
+  version: number
+  name: string
+  content: string
+  abGroup: 'ALL' | 'A' | 'B'
+  trafficPercent: number
+  status: AdminAiPromptStatus
+  remark: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export const AI_PROMPT_SCENE_LABELS: Record<AdminAiPromptScene, string> = {
+  GOAL_BREAKDOWN: '目标拆解',
+  TREE_HOLE: '树洞',
+  ANNUAL_REPORT: '年度报告',
+  EXPECTED_GUIDE: '预期管理引导',
+}
+
+export const AI_PROMPT_STATUS_LABELS: Record<AdminAiPromptStatus, string> = {
+  DRAFT: '草稿',
+  ACTIVE: '生效中',
+  ARCHIVED: '已归档',
+}
+
+export function listAdminAiPrompts(scene?: AdminAiPromptScene) {
+  return request.get<ApiResponse<AdminAiPromptRecord[]>>('/admin/wish/ai/prompts', {
+    params: { scene },
+  })
+}
+
+export function createAdminAiPrompt(data: {
+  scene: AdminAiPromptScene
+  name: string
+  content: string
+  abGroup?: 'ALL' | 'A' | 'B'
+  trafficPercent?: number
+  remark?: string
+}) {
+  return request.post<ApiResponse<AdminAiPromptRecord>>('/admin/wish/ai/prompts', data)
+}
+
+export function updateAdminAiPromptStatus(
+  id: number,
+  data: { status: 'ACTIVE' | 'ARCHIVED'; trafficPercent?: number; remark?: string },
+) {
+  return request.put<ApiResponse<AdminAiPromptRecord>>(`/admin/wish/ai/prompts/${id}/status`, data)
+}
+
+export interface AdminAiConfigRecord {
+  configKey: string
+  configValue: string
+  description: string | null
+  updatedAt: string
+}
+
+export function listAdminAiConfigs() {
+  return request.get<ApiResponse<AdminAiConfigRecord[]>>('/admin/wish/ai/configs')
+}
+
+export function updateAdminAiConfig(configKey: string, configValue: string) {
+  return request.put<ApiResponse<AdminAiConfigRecord>>(`/admin/wish/ai/configs/${configKey}`, {
+    configValue,
+  })
+}
+
+// ========== 同愿匹配 + 监督小队（Sprint 2.6，代理 mall-wish /admin/match/**） ==========
+
+export interface AdminMatchGroupRow {
+  groupId: number
+  keyword: string
+  memberCount: number
+  maxMembers: number
+  status: 'OPEN' | 'FULL' | 'CLOSED'
+  cityCode: string | null
+  leaderId: number
+  leaderNickname: string
+  createdAt: string
+  /** 最近一次组内成员活跃时间（活跃度监控；null=全部成员从未活跃） */
+  lastActiveAt: string | null
+}
+
+export interface AdminMatchConfigRecord {
+  configKey: string
+  configValue: string
+  description: string | null
+  updatedAt: string
+}
+
+export function listAdminMatchGroups(params: { status?: string; keyword?: string }) {
+  return request.get<ApiResponse<AdminMatchGroupRow[]>>('/admin/wish/match/groups', { params })
+}
+
+export function forceDissolveMatchGroup(groupId: number) {
+  return request.post<ApiResponse<null>>(`/admin/wish/match/groups/${groupId}/dissolution`)
+}
+
+export function listAdminMatchConfigs() {
+  return request.get<ApiResponse<AdminMatchConfigRecord[]>>('/admin/wish/match/configs')
+}
+
+export function updateAdminMatchConfig(configKey: string, configValue: string) {
+  return request.put<ApiResponse<AdminMatchConfigRecord>>(`/admin/wish/match/configs/${configKey}`, {
+    configValue,
+  })
+}

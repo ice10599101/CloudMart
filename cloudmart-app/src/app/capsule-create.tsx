@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
@@ -45,6 +45,7 @@ function defaultOpenAt(days: number): { dateStr: string; timeStr: string } {
 }
 
 export default function CapsuleCreateScreen() {
+    const params = useLocalSearchParams<{ wishId?: string }>()
     const insets = useSafeAreaInsets()
     const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
     const [title, setTitle] = useState('')
@@ -120,6 +121,40 @@ export default function CapsuleCreateScreen() {
     const removeUpload = (key: string) => {
         setUploads((prev) => prev.filter((u) => u.key !== key))
     }
+
+    // 预期管理通知「转入时间胶囊」深链：预填心愿标题/内容/照片，open_at 默认 +30 天
+    const prefillWishId = Number(params.wishId ?? 0)
+    useEffect(() => {
+        if (!prefillWishId) return
+        let cancelled = false
+        wishApi
+            .getWishDetail(prefillWishId)
+            .then((res) => {
+                if (cancelled || !res.data.success || !res.data.data) return
+                const detail = res.data.data
+                setTitle(detail.title)
+                setContent(detail.description)
+                if (detail.mediaUrls && detail.mediaUrls.length > 0) {
+                    setUploads((prev) =>
+                        prev.concat(
+                            detail
+                                .mediaUrls!.slice(0, MAX_MEDIA)
+                                .map((url) => ({ key: `prefill-${url}`, base64: '', uri: url, url, status: 'success' as const })),
+                        ),
+                    )
+                }
+                const preset = defaultOpenAt(30)
+                setCustomDate(preset.dateStr)
+                setCustomTime(preset.timeStr)
+            })
+            .catch(() => {
+                // 心愿不可见/已删除时静默，不影响正常创建
+            })
+        return () => {
+            cancelled = true
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prefillWishId])
 
     const resolveOpenAt = (): { openAt: string; error: string | null } => {
         if (durationDays !== null) {

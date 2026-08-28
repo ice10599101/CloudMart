@@ -11,6 +11,8 @@ import {
   BellOutlined,
   SendOutlined,
   ShareAltOutlined,
+  ClockCircleOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import Skeleton from '@/components/Skeleton'
@@ -21,6 +23,7 @@ import {
   type NotificationItem,
 } from '@/api/notification'
 import { useNotificationStore } from '@/stores/notification'
+import { recordExpectedAction, type ExpectedActionType } from '@/api/wish'
 import styles from './Messages.module.css'
 
 type NotificationCategory = 'all' | 'interaction' | 'follow' | 'system'
@@ -56,6 +59,15 @@ const NOTIFICATION_TYPE_MAP: Record<string, { category: NotificationCategory; av
   ACCOUNT: { category: 'system', avatarClass: styles.avatarAccount, icon: <SafetyCertificateOutlined /> },
   CHAT: { category: 'interaction', avatarClass: styles.avatarComment, icon: <SendOutlined /> },
   LEVEL_UP: { category: 'system', avatarClass: styles.avatarBadge, icon: <TrophyOutlined /> },
+  // 心愿宇宙域通知类型（Sprint 1.2/2.4/2.5，默认 SYSTEM 样式兜底）
+  WISH_COMMENT: { category: 'interaction', avatarClass: styles.avatarComment, icon: <MessageOutlined /> },
+  WISH_LIGHT: { category: 'interaction', avatarClass: styles.avatarLike, icon: <HeartOutlined /> },
+  WISH_FULFILL: { category: 'system', avatarClass: styles.avatarBadge, icon: <TrophyOutlined /> },
+  CAPSULE_OPEN: { category: 'system', avatarClass: styles.avatarSystem, icon: <ClockCircleOutlined /> },
+  CAPSULE_AVAILABLE: { category: 'system', avatarClass: styles.avatarSystem, icon: <ClockCircleOutlined /> },
+  BADGE_EARNED: { category: 'system', avatarClass: styles.avatarBadge, icon: <TrophyOutlined /> },
+  CHECKIN_REMINDER: { category: 'system', avatarClass: styles.avatarSystem, icon: <ClockCircleOutlined /> },
+  AI_REMINDER: { category: 'system', avatarClass: styles.avatarSystem, icon: <RobotOutlined /> },
   CHECK_IN: { category: 'system', avatarClass: styles.avatarSystem, icon: <BellOutlined /> },
 }
 
@@ -200,6 +212,10 @@ function navigateToBiz(item: EnrichedNotification) {
     history.push(`/chat/${item.bizId}`)
   } else if (item.type === 'CHAT' && item.bizId) {
     history.push(`/chat/${item.bizId}`)
+  } else if (item.bizType === 'WISH' && item.bizId) {
+    history.push(`/wish/${item.bizId}`)
+  } else if (item.bizType === 'CAPSULE' && item.bizId) {
+    history.push(`/wish/capsules/${item.bizId}`)
   }
 }
 
@@ -223,6 +239,41 @@ function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNot
         }}
       >
         {isFollowed ? '已关注' : '回关'}
+      </button>
+    </div>
+  )
+}
+
+/** 预期管理通知 3 选项（Sprint 2.5：延长预期/调整目标/转入时间胶囊） */
+function ExpectedActions({
+  item,
+  onAction,
+}: {
+  item: EnrichedNotification
+  onAction: (item: EnrichedNotification, action: ExpectedActionType) => void
+}) {
+  return (
+    <div className={styles.expectedActions}>
+      <button
+        type="button"
+        className={styles.expectedBtn}
+        onClick={(e) => { e.stopPropagation(); onAction(item, 'EXTEND') }}
+      >
+        延长预期
+      </button>
+      <button
+        type="button"
+        className={styles.expectedBtn}
+        onClick={(e) => { e.stopPropagation(); onAction(item, 'ADJUST') }}
+      >
+        调整目标
+      </button>
+      <button
+        type="button"
+        className={styles.expectedBtn}
+        onClick={(e) => { e.stopPropagation(); onAction(item, 'TO_CAPSULE') }}
+      >
+        转入胶囊
       </button>
     </div>
   )
@@ -316,6 +367,33 @@ export default function Messages() {
       return { ...prev, [userId]: next }
     })
   }, [])
+
+  const handleExpectedAction = useCallback(async (item: EnrichedNotification, action: ExpectedActionType) => {
+    const wishId = item.bizId
+    if (!wishId) return
+    if (!item.isRead) {
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)))
+      fetchUnreadCount()
+      try {
+        await markAsRead(item.id)
+      } catch {
+        // optimistic
+      }
+    }
+    // 埋点失败不阻断跳转（转化率数据允许少量丢失）
+    try {
+      await recordExpectedAction(wishId, action)
+    } catch {
+      // ignore
+    }
+    if (action === 'EXTEND') {
+      history.push(`/wish/${wishId}?extend=1`)
+    } else if (action === 'ADJUST') {
+      history.push(`/wish/assistant?wishId=${wishId}`)
+    } else {
+      history.push(`/wish/capsules/create?wishId=${wishId}`)
+    }
+  }, [fetchUnreadCount])
 
   const handleLoadMore = useCallback(async () => {
     const nextPage = page + 1
@@ -421,6 +499,9 @@ export default function Messages() {
                     followedMap={followedMap}
                     onToggleFollow={handleToggleFollow}
                   />
+                )}
+                {item.type === 'CHECKIN_REMINDER' && item.bizType === 'EXPECTED_MANAGEMENT' && item.bizId && (
+                  <ExpectedActions item={item} onAction={handleExpectedAction} />
                 )}
               </div>
 

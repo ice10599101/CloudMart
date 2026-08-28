@@ -138,6 +138,26 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             public ApiResponse<Object> updateAiConfig(String configKey, Map<String, Object> data) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> listMatchGroups(String status, String keyword) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> forceDissolveMatchGroup(Long groupId) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listMatchConfigs() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateMatchConfig(String configKey, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
         };
     }
 }

@@ -117,7 +117,8 @@ public class GlobalExceptionHandler {
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
             case "ACCOUNT_LOCKED", "FORBIDDEN",
                  "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN",
-                 "WISH_CONSENT_REQUIRED" -> HttpStatus.FORBIDDEN;
+                 "WISH_CONSENT_REQUIRED",
+                 "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -141,9 +142,18 @@ public class GlobalExceptionHandler {
                  "TEMPLATE_NOT_FOUND",
                  "WISHLIST_NOT_FOUND", "ADDRESS_NOT_FOUND",
                  "OPER_LOG_NOT_FOUND", "LOGIN_LOG_NOT_FOUND",
-                 "WISH_NOT_FOUND", "WISH_CATEGORY_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                 "WISH_NOT_FOUND", "WISH_CATEGORY_NOT_FOUND",
+                 "WISH_FULFILLMENT_NOT_FOUND", "WISH_AI_GOAL_NOT_FOUND",
+                 "WISH_AI_PROMPT_NOT_FOUND", "BGM_SONG_NOT_FOUND",
+                 "TREE_SPECIAL_EVENT_NOT_FOUND", "TREE_ENV_CONFIG_NOT_FOUND",
+                 "WISH_GROUP_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
-            case "WISH_CAPSULE_NOT_AVAILABLE" -> HttpStatus.CONFLICT;
+            case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
+                 "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
+                 "WISH_VERSION_CONFLICT", "WISH_NOT_FULFILLABLE",
+                 "WISH_AI_GOAL_STATUS_INVALID",
+                 "WISH_GROUP_FULL", "WISH_ALREADY_MEMBER",
+                 "WISH_GROUP_KEYWORD_DUPLICATED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
                  "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",

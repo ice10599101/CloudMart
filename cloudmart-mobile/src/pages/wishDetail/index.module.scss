@@ -457,3 +457,88 @@
   line-height: 1.6;
   word-break: break-word;
 }
+
+/* 延长预期弹窗（Sprint 2.5 预期管理） */
+.modalMask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalBody {
+  width: 80%;
+  background: #16213e;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx 32rpx;
+}
+
+.modalTitle {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.92);
+}
+
+.modalText {
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: rgba(245, 245, 250, 0.6);
+  margin: 20rpx 0;
+}
+
+.datePick {
+  height: 80rpx;
+  border-radius: 16rpx;
+  background: rgba(245, 245, 250, 0.07);
+  border: 1px solid rgba(245, 245, 250, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+}
+
+.datePickText {
+  font-size: 28rpx;
+  color: rgba(245, 245, 250, 0.9);
+}
+
+.modalBtns {
+  display: flex;
+  gap: 20rpx;
+}
+
+.modalCancel {
+  flex: 1;
+  height: 76rpx;
+  border-radius: 38rpx;
+  border: 1px solid rgba(245, 245, 250, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  Text {
+    font-size: 26rpx;
+    color: rgba(245, 245, 250, 0.7);
+  }
+}
+
+.modalOk {
+  flex: 1;
+  height: 76rpx;
+  border-radius: 38rpx;
+  background: linear-gradient(135deg, #e94560, #c81d3e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  Text {
+    font-size: 26rpx;
+    color: #fff;
+  }
+}

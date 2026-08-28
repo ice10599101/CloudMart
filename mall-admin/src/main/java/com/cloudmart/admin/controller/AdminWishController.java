@@ -245,4 +245,39 @@ public class AdminWishController {
                                               @RequestBody Map<String, Object> data) {
         return wishFeignClient.updateAiConfig(key, data);
     }
+
+    // ---- 同愿匹配 + 监督小队（Sprint 2.6）----
+
+    @GetMapping("/wish/match/groups")
+    @RequiresPermission("business:matchGroup:list")
+    @Operation(summary = "同愿小组列表", description = "全量小组（含 CLOSED）；status/keyword 过滤可选；"
+            + "含组长昵称与最近活跃时间（活跃度监控口径）")
+    public ApiResponse<Object> listMatchGroups(@RequestParam(required = false) String status,
+                                               @RequestParam(required = false) String keyword) {
+        return wishFeignClient.listMatchGroups(status, keyword);
+    }
+
+    @PostMapping("/wish/match/groups/{id}/dissolution")
+    @OperLog(title = "同愿小组解散", businessType = 2)
+    @RequiresPermission("business:matchGroup:close")
+    @Operation(summary = "强制解散异常小组", description = "关闭小组 + 成员关系置 LEFT + 逐成员通知")
+    public ApiResponse<Object> forceDissolveMatchGroup(@PathVariable Long id) {
+        return wishFeignClient.forceDissolveMatchGroup(id);
+    }
+
+    @GetMapping("/wish/match/configs")
+    @RequiresPermission("business:matchConfig:list")
+    @Operation(summary = "匹配算法配置列表", description = "关键词/城市/活跃度权重、相似度阈值、提醒与建组限频")
+    public ApiResponse<Object> listMatchConfigs() {
+        return wishFeignClient.listMatchConfigs();
+    }
+
+    @PutMapping("/wish/match/configs/{key}")
+    @OperLog(title = "匹配算法配置", businessType = 2)
+    @RequiresPermission("business:matchConfig:edit")
+    @Operation(summary = "更新匹配算法配置", description = "权重可配置实时生效（文档 2.6 验收：调整后结果排序变化不改代码）")
+    public ApiResponse<Object> updateMatchConfig(@PathVariable String key,
+                                                 @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateMatchConfig(key, data);
+    }
 }

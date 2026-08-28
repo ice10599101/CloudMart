@@ -112,6 +112,90 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
+        {/* AI 心愿助手入口（Sprint 2.5） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/ai-assistant')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(0, 212, 255, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.accentCyan }}>
+              🤖 AI 心愿助手
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              说出目标 · AI 帮你拆成可执行的步骤
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
+        {/* 同路人小队入口（Sprint 2.6） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/match-squad')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(78, 205, 196, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#4ecdc4' }}>
+              🤝 同路人小队
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              2-4 人打卡小队 · 互相监督提醒
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
+        {/* 年度报告入口（Sprint 2.5） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/annual-report')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 215, 0, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.accentGold }}>
+              🌟 年度报告
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              回顾这一年的心愿与成长轨迹
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* 我的心愿摘要 */}
         <SectionTitle title="我的心愿" actionLabel="全部" onAction={() => router.push('/my-wishes')} />
         {data && data.myWishes.length > 0 ? (

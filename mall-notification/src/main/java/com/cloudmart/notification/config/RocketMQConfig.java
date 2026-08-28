@@ -21,8 +21,17 @@ public final class RocketMQConfig {
     public static final String ORDER_TAG_STATUS_CHANGE = "status-change";
     public static final String COMMUNITY_TAG_EVENT = "event";
     public static final String WISH_TAG_CAPSULE_AVAILABLE = "capsule-available";
+    /** Tag：预期管理 AI 引导（Sprint 2.5，推送 CHECKIN_REMINDER 站内信，含 3 选项） */
+    public static final String WISH_TAG_EXPECTED_GUIDE = "expected-guide";
+    /** Tag：陪伴提醒（Sprint 2.5，推送 AI_REMINDER 站内信，每日 1 条） */
+    public static final String WISH_TAG_COMPANION_REMINDER = "companion-reminder";
+    /** Tag：同路人互相提醒（Sprint 2.6，推送 AI_REMINDER 站内信） */
+    public static final String WISH_TAG_SQUAD_REMIND = "squad-remind";
+    /** Tag：小队成员变动（Sprint 2.6：被踢/解散，SYSTEM 站内信） */
+    public static final String WISH_TAG_SQUAD_EVENT = "squad-event";
 
     public static final String CG_NOTIFICATION_ORDER_STATUS = "notification-order-status-cg";
     public static final String CG_NOTIFICATION_COMMUNITY_EVENT = "notification-community-event-cg";
     public static final String CG_NOTIFICATION_WISH_EVENT = "notification-wish-event-cg";
+    public static final String CG_NOTIFICATION_AI_REMINDER = "notification-ai-reminder-cg";
 }

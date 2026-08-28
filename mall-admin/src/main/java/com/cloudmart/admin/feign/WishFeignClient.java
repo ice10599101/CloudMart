@@ -106,4 +106,20 @@ public interface WishFeignClient {
     @PutMapping("/ai/configs/{key}")
     ApiResponse<Object> updateAiConfig(@PathVariable("key") String configKey,
                                        @RequestBody Map<String, Object> data);
+
+    // ---- 同愿匹配（Sprint 2.6）----
+
+    @GetMapping("/match/groups")
+    ApiResponse<Object> listMatchGroups(@RequestParam("status") String status,
+                                        @RequestParam("keyword") String keyword);
+
+    @PostMapping("/match/groups/{id}/dissolution")
+    ApiResponse<Object> forceDissolveMatchGroup(@PathVariable("id") Long groupId);
+
+    @GetMapping("/match/configs")
+    ApiResponse<Object> listMatchConfigs();
+
+    @PutMapping("/match/configs/{key}")
+    ApiResponse<Object> updateMatchConfig(@PathVariable("key") String configKey,
+                                          @RequestBody Map<String, Object> data);
 }

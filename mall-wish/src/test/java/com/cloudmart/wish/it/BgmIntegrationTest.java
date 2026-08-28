@@ -71,9 +71,11 @@ class BgmIntegrationTest extends WishIntegrationTestBase {
             var row = jdbcTemplate.queryForMap(
                     "SELECT file_size, is_active, uploaded_by FROM wish_bgm_song WHERE id = ?",
                     vo.id());
-            assertThat((Long) row.get("file_size")).isEqualTo(2048L);
+
+            // 修复 ClassCastException：将数据库返回的数值统一转型为 Number 再获取 longValue
+            assertThat(((Number) row.get("file_size")).longValue()).isEqualTo(2048L);
             assertThat((Boolean) row.get("is_active")).isFalse();
-            assertThat(row.get("uploaded_by")).isEqualTo(ADMIN_USER_ID);
+            assertThat(((Number) row.get("uploaded_by")).longValue()).isEqualTo(ADMIN_USER_ID);
         }
 
         @Test

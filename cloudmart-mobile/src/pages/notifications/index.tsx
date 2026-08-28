@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
+import { wishApi } from '@/api/wish'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -29,6 +31,24 @@ export default function NotificationsPage() {
     }
   }
 
+  /** 预期管理通知 3 选项（延长预期/调整目标/转入时间胶囊，Sprint 2.5） */
+  const handleExpectedAction = async (n: { bizId: number }, action: 'EXTEND' | 'ADJUST' | 'TO_CAPSULE') => {
+    const wishId = n.bizId
+    // 埋点失败不阻断跳转（转化率数据允许少量丢失）
+    try {
+      await wishApi.recordExpectedAction(wishId, action)
+    } catch {
+      // ignore
+    }
+    if (action === 'EXTEND') {
+      Taro.navigateTo({ url: `/pages/wishDetail/index?id=${wishId}&extend=1` })
+    } else if (action === 'ADJUST') {
+      Taro.navigateTo({ url: `/pages/aiAssistant/index?wishId=${wishId}` })
+    } else {
+      Taro.navigateTo({ url: `/pages/capsuleCreate/index?wishId=${wishId}` })
+    }
+  }
+
   const formatTime = (time: string) => {
     const diff = Date.now() - new Date(time).getTime()
     if (diff < 60000) return '刚刚'
@@ -53,6 +73,19 @@ export default function NotificationsPage() {
             <View className={styles.notificationBody}>
               <Text className={styles.notificationContent}>{n.content}</Text>
               <Text className={styles.notificationTime}>{formatTime(n.createdAt)}</Text>
+              {n.type === 'CHECKIN_REMINDER' && n.bizType === 'EXPECTED_MANAGEMENT' && n.bizId && (
+                <View className={styles.expectedActions}>
+                  <View className={styles.expectedBtn} onClick={() => handleExpectedAction(n, 'EXTEND')}>
+                    <Text className={styles.expectedBtnText}>延长预期</Text>
+                  </View>
+                  <View className={styles.expectedBtn} onClick={() => handleExpectedAction(n, 'ADJUST')}>
+                    <Text className={styles.expectedBtnText}>调整目标</Text>
+                  </View>
+                  <View className={styles.expectedBtn} onClick={() => handleExpectedAction(n, 'TO_CAPSULE')}>
+                    <Text className={styles.expectedBtnText}>转入胶囊</Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         )) : (

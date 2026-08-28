@@ -1,0 +1,272 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  color: var(--color-text);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.backBtn {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.reportLink {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.body {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ===== 意图输入 ===== */
+
+.inputCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.intentLabel {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.intentHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 0 0 12px;
+}
+
+.intentInput {
+  background: var(--color-bg-input);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.inputFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dailyLimit {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== 拆解结果 ===== */
+
+.breakdownCard {
+  background: linear-gradient(160deg, rgba(233, 69, 96, 0.08), var(--color-bg-container) 45%);
+  border: 1px solid var(--color-border-hover);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.breakdownIntent {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-gold);
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 999px;
+  padding: 2px 12px;
+  margin-bottom: 12px;
+}
+
+.goalItem {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-bg-input);
+  margin-bottom: 8px;
+}
+
+.goalCheck {
+  margin-top: 2px;
+}
+
+.goalText {
+  flex: 1;
+  min-width: 0;
+}
+
+.goalTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.goalDesc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 2px 0 0;
+}
+
+.goalMeta {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin: 4px 0 0;
+}
+
+.breakdownSuggestion {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  border-left: 3px solid var(--color-primary);
+  padding-left: 10px;
+  margin: 12px 0 0;
+}
+
+.saveBtn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+/* ===== 我的目标 ===== */
+
+.sectionCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.myGoalItem {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--color-bg-input);
+}
+
+.myGoalItemDone {
+  opacity: 0.6;
+}
+
+.myGoalTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.myGoalTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.myGoalDesc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 4px 0;
+}
+
+.myGoalActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.loadMoreBtn {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.emptyGoals {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  padding: 16px 0;
+  margin: 0;
+}
+
+/* ===== 提醒设置 ===== */
+
+.prefRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.prefRow:last-of-type {
+  border-bottom: none;
+}
+
+.prefType {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.prefChannels {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prefChannelLabel {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.prefBatchBtns {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1024px) {
+  .body {
+    padding: 16px 12px 40px;
+  }
+}
