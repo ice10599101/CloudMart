@@ -122,4 +122,24 @@ public interface WishFeignClient {
     @PutMapping("/match/configs/{key}")
     ApiResponse<Object> updateMatchConfig(@PathVariable("key") String configKey,
                                           @RequestBody Map<String, Object> data);
+
+    // ---- 传承 + 排行榜（Sprint 2.7）----
+
+    @GetMapping("/legacy/flows")
+    ApiResponse<Object> listContentFlowLogs(@RequestParam("status") String status,
+                                            @RequestParam("page") Integer page,
+                                            @RequestParam("size") Integer size);
+
+    @PostMapping("/legacy/flows/{id}/retry")
+    ApiResponse<Object> retryContentFlow(@PathVariable("id") Long logId);
+
+    @GetMapping("/legacy/stats")
+    ApiResponse<Object> legacyStats();
+
+    @GetMapping("/leaderboard/configs")
+    ApiResponse<Object> listLeaderboardConfigs();
+
+    @PutMapping("/leaderboard/configs/{key}")
+    ApiResponse<Object> updateLeaderboardConfig(@PathVariable("key") String configKey,
+                                                @RequestBody Map<String, Object> data);
 }

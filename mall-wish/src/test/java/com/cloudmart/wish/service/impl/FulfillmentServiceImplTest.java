@@ -17,6 +17,7 @@ import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishFulfillmentMapper;
 import com.cloudmart.wish.repository.WishMapper;
+import com.cloudmart.wish.service.LegacyFlowService;
 import com.cloudmart.wish.service.UserStatService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,6 +61,9 @@ class FulfillmentServiceImplTest {
 
     private WishContentSanitizer contentSanitizer;
 
+    @Mock
+    private com.cloudmart.wish.service.LegacyFlowService legacyFlowService;
+
     @InjectMocks
     private FulfillmentServiceImpl fulfillmentService;
 
@@ -80,7 +84,7 @@ class FulfillmentServiceImplTest {
     void setUp() {
         contentSanitizer = new WishContentSanitizer(List.of());
         fulfillmentService = new FulfillmentServiceImpl(
-                wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer
+                wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService
         );
     }
 

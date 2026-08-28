@@ -100,6 +100,16 @@ public final class WishErrorCodes {
     /** 匹配配置值非法（权重越界等，管理端） */
     public static final String WISH_MATCH_CONFIG_INVALID = "WISH_MATCH_CONFIG_INVALID";
 
+    // 还愿传承 + 内容生态 + 排行榜（Sprint 2.7，文档 2.8/2.9）
+    /** 心愿未还愿，不可发起传承（文档 2.8：409 WISH_NOT_FULFILLED） */
+    public static final String WISH_NOT_FULFILLED = "WISH_NOT_FULFILLED";
+    /** 该还愿已发起过传承（一次还愿一次传承） */
+    public static final String WISH_ALREADY_INHERITED = "WISH_ALREADY_INHERITED";
+    /** 排行榜榜单类型非法 */
+    public static final String WISH_LEADERBOARD_TYPE_INVALID = "WISH_LEADERBOARD_TYPE_INVALID";
+    /** 排行榜配置值非法（管理端） */
+    public static final String WISH_LEADERBOARD_CONFIG_INVALID = "WISH_LEADERBOARD_CONFIG_INVALID";
+
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";

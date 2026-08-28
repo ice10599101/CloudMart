@@ -861,3 +861,47 @@ export function remindSquadMembers(groupId: number, targetUserId?: number) {
     { params: targetUserId ? { targetUserId } : undefined },
   )
 }
+
+// ========== 排行榜 + 传承（Sprint 2.7，契约对齐 mall-wish LeaderboardController/WishController） ==========
+
+export type LeaderboardType = 'HOT' | 'WARM' | 'PERSISTENCE' | 'SPARK'
+
+export const LEADERBOARD_LABELS: Record<LeaderboardType, string> = {
+  HOT: '热门榜',
+  WARM: '温暖榜',
+  PERSISTENCE: '坚持榜',
+  SPARK: '星火榜',
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  /** 心愿榜为心愿作者；用户榜为本人 */
+  userId: number | null
+  nickname: string
+  avatar: string
+  score: number
+  extra: { wishTitle?: string; checkinDays?: number; helpedCount?: number; lightCount?: number; blessCount?: number }
+  /** 排名变化（三端动效一致依据） */
+  rankDelta: 'UP' | 'DOWN' | 'FLAT' | 'NEW'
+}
+
+/** 排行榜（公开；Redis ZSet 每 10 分钟刷新；同分按创建时间早在前） */
+export function getLeaderboard(type: LeaderboardType, limit = 100) {
+  return request.get<ApiResponse<LeaderboardEntry[]>>('/wish/leaderboard', { params: { type, limit } })
+}
+
+export interface InheritResult {
+  inheritId: number
+  pushedCount: number
+  createdAt: string
+}
+
+/** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */
+export function inheritFulfillment(wishId: number, message?: string) {
+  return request.post<ApiResponse<InheritResult>>(`/wish/wishes/${wishId}/fulfillment/inherit`, { message })
+}
+
+/** 撤回还愿故事（作者软删；心愿保持 FULFILLED；community 帖子同步隐藏） */
+export function withdrawFulfillment(wishId: number) {
+  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/fulfillment`)
+}

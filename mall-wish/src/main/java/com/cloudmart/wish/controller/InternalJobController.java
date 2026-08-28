@@ -36,6 +36,7 @@ import java.util.Map;
 @Tag(name = "心愿宇宙·定时任务内部", description = "mall-job XXL-Job 定时任务专用（外部不可达）")
 @RequiredArgsConstructor
 public class InternalJobController {
+    private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
 
     private final WishService wishService;
     private final HomeService homeService;
@@ -95,5 +96,11 @@ public class InternalJobController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<CompanionReminderService.RemindResult> aiReminderScan() {
         return ApiResponse.ok(companionReminderService.scanAndRemind());
+    }
+
+    /** 排行榜刷新（Sprint 2.7，建议 Cron 0 0/10 * * * ?，幂等可安全重试） */
+    @PostMapping("/leaderboard-refresh")
+    public void leaderboardRefresh() {
+        leaderboardService.refreshAll();
     }
 }

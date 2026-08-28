@@ -168,6 +168,34 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
+        {/* 排行榜入口（Sprint 2.7） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/leaderboard')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 215, 0, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.accentGold }}>
+              🏆 心愿排行榜
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              热门/温暖/坚持/星火 四大榜单 · Top 100
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* 年度报告入口（Sprint 2.5） */}
         <TouchableOpacity
           activeOpacity={0.8}

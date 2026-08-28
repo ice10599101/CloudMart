@@ -64,6 +64,9 @@ public class SecurityConfig {
                 // 公开播放：背景音乐播放列表（未登录页面亦需 BGM，Sprint 2.3）
                 .requestMatchers(HttpMethod.GET, "/bgm/playlist").permitAll()
 
+                // 排行榜公开浏览（Sprint 2.7）
+                .requestMatchers(HttpMethod.GET, "/leaderboard").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点

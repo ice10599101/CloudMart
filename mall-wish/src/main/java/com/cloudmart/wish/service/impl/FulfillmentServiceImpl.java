@@ -17,9 +17,11 @@ import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishFulfillmentMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.service.FulfillmentService;
+import com.cloudmart.wish.service.LegacyFlowService;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
+import com.cloudmart.wish.vo.InheritResultVO;
 import com.cloudmart.wish.vo.WishFulfillmentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +60,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private final UserStatService userStatService;
     private final UserFeignClient userFeignClient;
     private final WishContentSanitizer contentSanitizer;
+    private final LegacyFlowService legacyFlowService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -117,6 +120,17 @@ public class FulfillmentServiceImpl implements FulfillmentService {
 
         log.info("还愿提交成功, wishId={}, userId={}, fulfillmentId={}, starlightCredited={}",
                 wishId, userId, fulfillment.getId(), credited);
+
+        // 事务提交后异步内容流转（community 帖子生成；失败重试/日志，不阻断还愿）
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            legacyFlowService.submitContentFlow(wishId, fulfillment.getId());
+                        }
+                    });
+        }
 
         return new WishFulfillmentSubmitVO(
                 fulfillment.getId(),
@@ -206,5 +220,41 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         static AuthorInfo placeholder(Long userId) {
             return new AuthorInfo(userId, "心愿旅人", "");
         }
+    }
+
+
+    // ---------------- Sprint 2.7：传承 + 撤回 ----------------
+
+    @Override
+    public InheritResultVO inheritFulfillment(Long userId, Long wishId, String message) {
+        return legacyFlowService.pushInherit(userId, wishId, message);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void withdrawFulfillment(Long userId, Long wishId) {
+        // 作者级防存在性探测：不可见统一 404，可见但非作者 403（与提交同口径）
+        Wish wish = wishMapper.selectById(wishId);
+        if (wish == null || !isViewableByUser(wish, userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (!wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可撤回还愿故事");
+        }
+        WishFulfillment fulfillment = wishFulfillmentMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<WishFulfillment>()
+                        .eq(WishFulfillment::getWishId, wishId)
+                        .isNull(WishFulfillment::getDeletedAt)
+                        .last("LIMIT 1"));
+        if (fulfillment == null) {
+            throw new BusinessException(WishErrorCodes.WISH_FULFILLMENT_NOT_FOUND, "还愿记录不存在");
+        }
+        // 软删保留审计；心愿状态保持 FULFILLED（历史事实不回退）
+        fulfillment.setDeletedAt(java.time.LocalDateTime.now());
+        wishFulfillmentMapper.updateById(fulfillment);
+
+        // 状态同步：community 帖子隐藏（文档 2.7 还愿删除 → 帖子同步隐藏）
+        legacyFlowService.hideFlow(fulfillment.getId());
+        log.info("还愿故事已撤回, wishId={}, fulfillmentId={}", wishId, fulfillment.getId());
     }
 }

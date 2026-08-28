@@ -81,7 +81,8 @@ public abstract class WishIntegrationTestBase {
             "wish_special_event", "wish_env_config", "time_capsule",
             "wish_ai_goal", "wish_notification_preference", "wish_ai_prompt",
             "wish_expected_at_action", "wish_ai_config", "wish_bgm_song",
-            "wish_match_group", "wish_match_member", "wish_match_config");
+            "wish_match_group", "wish_match_member", "wish_match_config",
+            "wish_fulfillment_inherit", "wish_content_flow_log", "wish_leaderboard_config");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -227,6 +228,22 @@ public abstract class WishIntegrationTestBase {
                     (5, 'match.remind_idle_days', '3', '互相提醒-idle天数(天)'),
                     (6, 'match.remind_daily_limit', '3', '互相提醒-每日提醒上限(条)'),
                     (7, 'match.create_daily_limit', '3', '建组-每日建组上限(个)')
+                ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`),
+                    `description` = VALUES(`description`)
+                """);
+    }
+
+    /**
+     * 幂等补种 V16 排行榜配置种子（4 条，与 V16 同口径）。
+     */
+    @BeforeEach
+    void ensureLeaderboardConfigSeedData() {
+        jdbcTemplate.update("""
+                INSERT INTO wish_leaderboard_config (id, config_key, config_value, description) VALUES
+                    (1, 'lb.refresh_minutes', '10', '榜单刷新周期(分钟)'),
+                    (2, 'lb.top_size', '100', '每榜单保留 Top N'),
+                    (3, 'lb.tiebreak', 'CREATED_AT_ASC', '同分处理: 早在前'),
+                    (4, 'lb.exclude_restricted', '1', '排除风控受限用户(1=排除)')
                 ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`),
                     `description` = VALUES(`description`)
                 """);

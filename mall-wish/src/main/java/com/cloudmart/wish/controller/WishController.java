@@ -10,6 +10,7 @@ import com.cloudmart.wish.dto.UpdateWishRequest;
 import com.cloudmart.wish.dto.WishListQuery;
 import com.cloudmart.wish.service.FulfillmentService;
 import com.cloudmart.wish.service.WishService;
+import com.cloudmart.wish.vo.InheritResultVO;
 import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
 import com.cloudmart.wish.vo.WishFulfillmentVO;
 import com.cloudmart.wish.vo.MyWishListItemVO;
@@ -131,5 +132,35 @@ public class WishController {
             @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long userId) {
         WishFulfillmentVO vo = fulfillmentService.getFulfillmentDetail(wishId, userId);
         return ApiResponse.ok(vo);
+    }
+
+    @PostMapping("/{id}/fulfillment/inherit")
+    @Operation(summary = "传承推送", description = "作者对已实现心愿定向推送曾同求用户，"
+            + "通知含还愿故事摘要（\"你的同愿实现了\"）；一次还愿仅一次传承。"
+            + "errors: 403 WISH_NOT_AUTHOR / 409 WISH_NOT_FULFILLED / WISH_ALREADY_INHERITED")
+    @SentinelResource("WISH_FULFILLMENT_INHERIT")
+    public ApiResponse<InheritResultVO> inheritFulfillment(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @RequestBody(required = false) InheritRequest request) {
+        String message = request == null ? null : request.message();
+        return ApiResponse.ok(fulfillmentService.inheritFulfillment(userId, wishId, message));
+    }
+
+    @DeleteMapping("/{id}/fulfillment")
+    @Operation(summary = "撤回还愿故事", description = "作者软删还愿故事（心愿保持 FULFILLED，"
+            + "历史事实不回退）；community 传承帖子同步隐藏")
+    @SentinelResource("WISH_FULFILLMENT_WITHDRAW")
+    public ApiResponse<Void> withdrawFulfillment(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
+        fulfillmentService.withdrawFulfillment(userId, wishId);
+        return ApiResponse.ok(null);
+    }
+
+    /** 传承发起请求。 */
+    public record InheritRequest(String message) {
     }
 }

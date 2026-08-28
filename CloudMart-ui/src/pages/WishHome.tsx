@@ -11,6 +11,7 @@ import {
   RobotOutlined,
   BarChartOutlined,
   TeamOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -189,6 +190,16 @@ export default function WishHome() {
               >
                 <TeamOutlined className={styles.entryIcon} style={{ color: '#4ECDC4' }} />
                 <div className={styles.entryText}>同路人小队</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/leaderboard')}
+              >
+                <TrophyOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
+                <div className={styles.entryText}>排行榜</div>
               </Card>
             </Col>
           </Row>

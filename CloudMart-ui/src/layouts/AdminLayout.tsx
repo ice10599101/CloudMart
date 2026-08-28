@@ -111,6 +111,7 @@ const MENU_CONFIG: MenuRouteItem[] = [
       { path: '/admin/business/wish-bgm', name: '背景音乐', icon: <CustomerServiceOutlined />, permission: 'business:wishBgm:list' },
       { path: '/admin/business/wish-ai', name: 'AI 心愿助手', icon: <RobotOutlined />, permission: 'business:aiPrompt:list' },
       { path: '/admin/business/match', name: '同路人小队', icon: <TeamOutlined />, permission: 'business:matchGroup:list' },
+      { path: '/admin/business/legacy', name: '传承与排行榜', icon: <TrophyOutlined />, permission: 'business:legacy:list' },
     ],
   },
   {

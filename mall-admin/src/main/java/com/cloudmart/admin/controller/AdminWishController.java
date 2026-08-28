@@ -280,4 +280,46 @@ public class AdminWishController {
                                                  @RequestBody Map<String, Object> data) {
         return wishFeignClient.updateMatchConfig(key, data);
     }
+
+    // ---- 传承 + 排行榜（Sprint 2.7）----
+
+    @GetMapping("/wish/legacy/flows")
+    @RequiresPermission("business:legacy:list")
+    @Operation(summary = "内容流转日志", description = "还愿 → community 帖子流转记录（SUCCESS/FAILED/HIDDEN）")
+    public ApiResponse<Object> listContentFlowLogs(@RequestParam(required = false) String status,
+                                                   @RequestParam(defaultValue = "1") Integer page,
+                                                   @RequestParam(defaultValue = "20") Integer size) {
+        return wishFeignClient.listContentFlowLogs(status, page, size);
+    }
+
+    @PostMapping("/wish/legacy/flows/{id}/retry")
+    @OperLog(title = "内容流转重试", businessType = 2)
+    @RequiresPermission("business:legacy:retry")
+    @Operation(summary = "重试内容流转", description = "对 FAILED 流转单次重试（community 不可用时的补偿入口）")
+    public ApiResponse<Object> retryContentFlow(@PathVariable Long id) {
+        return wishFeignClient.retryContentFlow(id);
+    }
+
+    @GetMapping("/wish/legacy/stats")
+    @RequiresPermission("business:legacy:list")
+    @Operation(summary = "传承统计", description = "传承次数/目标与推送数/推送成功率/流转状态分布")
+    public ApiResponse<Object> legacyStats() {
+        return wishFeignClient.legacyStats();
+    }
+
+    @GetMapping("/wish/leaderboard/configs")
+    @RequiresPermission("business:leaderboard:list")
+    @Operation(summary = "排行榜配置列表", description = "刷新周期/Top N/同分处理/封禁过滤")
+    public ApiResponse<Object> listLeaderboardConfigs() {
+        return wishFeignClient.listLeaderboardConfigs();
+    }
+
+    @PutMapping("/wish/leaderboard/configs/{key}")
+    @OperLog(title = "排行榜配置", businessType = 2)
+    @RequiresPermission("business:leaderboard:edit")
+    @Operation(summary = "更新排行榜配置", description = "配置修改实时生效（下次刷新任务按新值执行）")
+    public ApiResponse<Object> updateLeaderboardConfig(@PathVariable String key,
+                                                       @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateLeaderboardConfig(key, data);
+    }
 }

@@ -2,6 +2,7 @@ package com.cloudmart.wish.service;
 
 import com.cloudmart.wish.dto.SubmitFulfillmentRequest;
 import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
+import com.cloudmart.wish.vo.InheritResultVO;
 import com.cloudmart.wish.vo.WishFulfillmentVO;
 
 /**
@@ -39,4 +40,17 @@ public interface FulfillmentService {
      * @return 还愿详情（含作者信息，Feign 降级为占位值）
      */
     WishFulfillmentVO getFulfillmentDetail(Long wishId, Long viewerId);
+
+    /**
+     * 发起传承（Sprint 2.7，文档 2.8：POST /wishes/{id}/fulfillment/inherit）。
+     *
+     * <p>仅作者、仅 FULFILLED；定向推送曾同求用户；一次还愿一次传承。</p>
+     */
+    InheritResultVO inheritFulfillment(Long userId, Long wishId, String message);
+
+    /**
+     * 撤回还愿故事（作者软删 deleted_at；心愿状态保持 FULFILLED 不回退，
+     * 历史事实不回退；community 帖子同步隐藏——状态同步规则）。
+     */
+    void withdrawFulfillment(Long userId, Long wishId);
 }

@@ -246,4 +246,24 @@ public class BusinessJobHandler {
             throw new RuntimeException("AI 陪伴提醒扫描失败", e);
         }
     }
+
+    /**
+     * 排行榜刷新（Sprint 2.7，文档 2.7：每 10 分钟刷新 Redis ZSet；
+     * Cron 建议 0 0/10 * * * ?；计算幂等，可安全重试）。
+     */
+    @XxlJob("leaderboardRefreshHandler")
+    public void leaderboardRefreshHandler() {
+        log.info("XXL-JOB: 开始执行排行榜刷新...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/leaderboard-refresh")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 排行榜刷新完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 排行榜刷新失败: {}", e.getMessage());
+            throw new RuntimeException("排行榜刷新失败", e);
+        }
+    }
 }

@@ -35,4 +35,21 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * 内容流转线程池（Sprint 2.7 还愿 → community 帖子）：IO 密集型 Feign
+     * 调用 + 失败重试退避，核心 1 / 最大 2 / 有界队列 50，拒绝策略 CallerRuns
+     * 兜底（流转为增强功能，不反压还愿主链路——事务已提交）。
+     */
+    @Bean("contentFlowExecutor")
+    public Executor contentFlowExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("wish-content-flow-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
 }

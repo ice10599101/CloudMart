@@ -901,3 +901,32 @@ export interface MatchGroupDetail {
   viewerRole: 'LEADER' | 'MEMBER' | null
   members: MatchMemberItem[]
 }
+
+// ========== 排行榜 + 传承（Sprint 2.7，契约对齐 mall-wish LeaderboardController） ==========
+
+export type LeaderboardType = 'HOT' | 'WARM' | 'PERSISTENCE' | 'SPARK'
+
+export interface LeaderboardEntry {
+  rank: number
+  /** 心愿榜为心愿作者；用户榜为本人 */
+  userId: number | null
+  nickname: string
+  avatar: string
+  score: number
+  extra: {
+    wishTitle?: string
+    checkinDays?: number
+    helpedCount?: number
+    lightCount?: number
+    blessCount?: number
+  }
+  /** 排名变化（三端动效一致依据） */
+  rankDelta: 'UP' | 'DOWN' | 'FLAT' | 'NEW'
+}
+
+/** 传承推送结果 */
+export interface InheritResult {
+  inheritId: number
+  pushedCount: number
+  createdAt: string
+}

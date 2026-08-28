@@ -9,6 +9,9 @@ import type {
     MatchGroupItem,
     MatchGroupCreated,
     MatchGroupDetail,
+    LeaderboardType,
+    LeaderboardEntry,
+    InheritResult,
     AiGoal,
     AiGoalStatus,
     CreateAiGoalsPayload,
@@ -259,6 +262,14 @@ export const wishApi = {
     /** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */
     remindSquadMembers: (groupId: number, targetUserId?: number) =>
         request<null>({ url: `/wish/match/groups/${groupId}/reminds${buildQuery({ targetUserId })}`, method: 'POST' }),
+
+    // ---- 排行榜 + 传承（Sprint 2.7）----
+    /** 排行榜（公开；Redis ZSet 每 10 分钟刷新；同分按创建时间早在前） */
+    getLeaderboard: (type: LeaderboardType, limit = 100) =>
+        request<LeaderboardEntry[]>({ url: `/wish/leaderboard${buildQuery({ type, limit })}` }),
+    /** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */
+    inheritFulfillment: (wishId: number, message?: string) =>
+        request<InheritResult>({ url: `/wish/wishes/${wishId}/fulfillment/inherit`, method: 'POST', data: { message } }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>

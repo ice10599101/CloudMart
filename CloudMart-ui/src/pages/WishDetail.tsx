@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Empty, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal } from 'antd'
+import { Empty, Input, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   StarOutlined,
@@ -10,9 +10,10 @@ import {
   ArrowLeftOutlined,
   MoonOutlined,
   GiftOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
-import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish } from '@/api/wish'
+import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment } from '@/api/wish'
 import type { WishDetail, WishFulfillmentDetail } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
@@ -60,6 +61,10 @@ export default function WishDetail() {
   const [extendOpen, setExtendOpen] = useState(false)
   const [extendDate, setExtendDate] = useState<Dayjs | null>(null)
   const [extendSaving, setExtendSaving] = useState(false)
+  // 传承推送（Sprint 2.7：作者对 FULFILLED 心愿定向推送曾同求用户）
+  const [inheritOpen, setInheritOpen] = useState(false)
+  const [inheritMessage, setInheritMessage] = useState('')
+  const [inheriting, setInheriting] = useState(false)
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
@@ -117,6 +122,24 @@ export default function WishDetail() {
       // 错误已由 request 拦截器处理
     } finally {
       setExtendSaving(false)
+    }
+  }
+
+  const handleInherit = async () => {
+    setInheriting(true)
+    try {
+      const res = await inheritFulfillment(wishId, inheritMessage.trim() || undefined)
+      if (res.data.success) {
+        message.success(`传承已送达 ${res.data.data?.pushedCount ?? 0} 位同路人`)
+        setInheritOpen(false)
+        setInheritMessage('')
+      }
+    } catch (err) {
+      const code = (err as { code?: string })?.code
+      if (code === 'WISH_ALREADY_INHERITED') message.info('这条心愿已经传承过了')
+      else if (code === 'WISH_NOT_FULFILLED') message.warning('心愿还未实现，无法发起传承')
+    } finally {
+      setInheriting(false)
     }
   }
 
@@ -186,6 +209,14 @@ export default function WishDetail() {
                 className={styles.fulfillBtn}
               >
                 我要还愿
+              </Button>
+            )}
+            {wish.status === 'FULFILLED' && (
+              <Button
+                icon={<TrophyOutlined />}
+                onClick={() => setInheritOpen(true)}
+              >
+                传承给同路人
               </Button>
             )}
             <Popconfirm
@@ -393,6 +424,26 @@ export default function WishDetail() {
           />
         </Card>
       </div>
+      <Modal
+        open={inheritOpen}
+        title="传承给同路人"
+        okText="发送传承"
+        cancelText="取消"
+        onOk={handleInherit}
+        onCancel={() => setInheritOpen(false)}
+        confirmLoading={inheriting}
+      >
+        <p style={{ marginBottom: 12 }}>
+          你的心愿已实现 ✨ 把这份力量传给曾与你同求的人（附言可留空）：
+        </p>
+        <Input.TextArea
+          value={inheritMessage}
+          onChange={(e) => setInheritMessage(e.target.value)}
+          maxLength={500}
+          autoSize={{ minRows: 2, maxRows: 4 }}
+          placeholder="如：谢谢你们陪我一起许下这个愿望，希望你也可以"
+        />
+      </Modal>
       <Modal
         open={extendOpen}
         title="延长预期"

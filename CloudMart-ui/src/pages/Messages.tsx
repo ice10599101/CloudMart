@@ -503,6 +503,11 @@ export default function Messages() {
                 {item.type === 'CHECKIN_REMINDER' && item.bizType === 'EXPECTED_MANAGEMENT' && item.bizId && (
                   <ExpectedActions item={item} onAction={handleExpectedAction} />
                 )}
+                {item.type === 'WISH_FULFILL' && item.bizType === 'FULFILLMENT_LEGACY' && item.bizId && (
+                  <div className={styles.legacyNotice}>
+                    🎉 你的同愿实现了 —— 点击查看 TA 的还愿故事
+                  </div>
+                )}
               </div>
 
               <span className={styles.notificationTime}>

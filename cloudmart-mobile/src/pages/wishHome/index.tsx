@@ -135,6 +135,10 @@ export default function WishHomePage() {
               <Text className={styles.entryIcon} style={{ color: '#4ecdc4' }}>🤝</Text>
               <Text className={styles.entryText}>同路人小队</Text>
             </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/leaderboard/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#ffd700' }}>🏆</Text>
+              <Text className={styles.entryText}>排行榜</Text>
+            </View>
           </View>
 
           {/* 今日推荐 */}

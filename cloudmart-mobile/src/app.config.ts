@@ -47,6 +47,7 @@ export default defineAppConfig({
     'pages/aiAssistant/index',
     'pages/annualReport/index',
     'pages/matchSquad/index',
+    'pages/leaderboard/index',
   ],
   tabBar: {
     color: '#86909C',

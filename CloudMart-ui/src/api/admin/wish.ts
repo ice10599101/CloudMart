@@ -560,3 +560,60 @@ export function updateAdminMatchConfig(configKey: string, configValue: string) {
     configValue,
   })
 }
+
+// ========== 传承 + 排行榜（Sprint 2.7，代理 mall-wish /admin/legacy、/admin/leaderboard） ==========
+
+export type AdminContentFlowStatus = 'SUCCESS' | 'FAILED' | 'HIDDEN'
+
+export interface AdminContentFlowLog {
+  id: number
+  wishId: number
+  fulfillmentId: number
+  postId: number | null
+  status: AdminContentFlowStatus
+  retryCount: number
+  errorMsg: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminLegacyStats {
+  inheritCount: number
+  totalTargets: number
+  totalPushed: number
+  /** 推送成功率（0-1）；查看率需 mall-notification 阅读埋点 */
+  pushedRate: number
+  flowSuccess: number
+  flowFailed: number
+  flowHidden: number
+}
+
+export interface AdminLeaderboardConfigRecord {
+  configKey: string
+  configValue: string
+  description: string | null
+  updatedAt: string
+}
+
+export function listAdminContentFlowLogs(params: { status?: string; page?: number; size?: number }) {
+  return request.get<ApiResponse<AdminContentFlowLog[]>>('/admin/wish/legacy/flows', { params })
+}
+
+export function retryAdminContentFlow(logId: number) {
+  return request.post<ApiResponse<null>>(`/admin/wish/legacy/flows/${logId}/retry`)
+}
+
+export function getAdminLegacyStats() {
+  return request.get<ApiResponse<AdminLegacyStats>>('/admin/wish/legacy/stats')
+}
+
+export function listAdminLeaderboardConfigs() {
+  return request.get<ApiResponse<AdminLeaderboardConfigRecord[]>>('/admin/wish/leaderboard/configs')
+}
+
+export function updateAdminLeaderboardConfig(configKey: string, configValue: string) {
+  return request.put<ApiResponse<AdminLeaderboardConfigRecord>>(
+    `/admin/wish/leaderboard/configs/${configKey}`,
+    { configValue },
+  )
+}

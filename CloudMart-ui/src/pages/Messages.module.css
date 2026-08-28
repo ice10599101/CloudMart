@@ -470,3 +470,15 @@
   background: rgba(var(--color-primary-rgb), 0.1);
   border-color: var(--color-primary);
 }
+
+
+/* 传承通知（Sprint 2.7："你的同愿实现了"温暖样式，三端文案一致） */
+.legacyNotice {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #ffd700;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(233, 69, 96, 0.08));
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
