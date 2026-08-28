@@ -951,3 +951,48 @@ export function getMapClusters(params: { lat?: number; lng?: number; radius?: nu
     },
   })
 }
+
+// ========== 城市幸福地图 + 围栏（Sprint 3.2，契约对齐 mall-wish WarmMapController） ==========
+
+export interface FenceCheckResult {
+  wishId: number
+  insideFence: boolean
+  fenceName: string | null
+  bloomTriggered: boolean
+  matchedCount: number
+}
+
+/** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */
+export function checkFence(wishId: number, lat: number, lng: number) {
+  return request.post<ApiResponse<FenceCheckResult>>('/wish/map/fence/check', { wishId, lat, lng })
+}
+
+export interface WarmEventItem {
+  eventId: number
+  title: string
+  content: string
+  approximateLat: number
+  approximateLng: number
+  distance: number
+  geohash6: string
+  cityCode: string | null
+  nickname: string | null
+  createdAt: string
+}
+
+/** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */
+export function publishWarmEvent(data: { title: string; content: string; lat: number; lng: number }) {
+  return request.post<ApiResponse<{ eventId: number }>>('/wish/map/warm-events', data)
+}
+
+/** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */
+export function listWarmEvents(params: { lat?: number; lng?: number; radius?: number; cityCode?: string }) {
+  return request.get<ApiResponse<WarmEventItem[]>>('/wish/map/warm-events', {
+    params: {
+      lat: params.lat ?? undefined,
+      lng: params.lng ?? undefined,
+      radius: params.radius ?? undefined,
+      cityCode: params.cityCode ?? undefined,
+    },
+  })
+}

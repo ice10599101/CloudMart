@@ -706,3 +706,78 @@ export interface AdminMapAudit {
 export function getAdminMapAudit() {
   return request.get<ApiResponse<AdminMapAudit>>('/admin/wish/map/audit')
 }
+
+// ========== 围栏 + 温暖事件审核（Sprint 3.2，代理 mall-wish /admin/warm-map/**） ==========
+
+export interface AdminFenceRecord {
+  id: number
+  name: string
+  wishId: number
+  centerGeohash: string
+  radiusM: number
+  validFrom: string | null
+  validTo: string | null
+  isActive: boolean
+  createdBy: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaveFencePayload {
+  name: string
+  wishId: number
+  centerLat: number
+  centerLng: number
+  radiusM: number
+  validFrom?: string
+  validTo?: string
+  isActive?: boolean
+}
+
+export function listAdminFences(params: { wishId?: number } = {}) {
+  return request.get<ApiResponse<AdminFenceRecord[]>>('/admin/wish/warm-map/fences', { params })
+}
+
+export function createAdminFence(data: SaveFencePayload) {
+  return request.post<ApiResponse<AdminFenceRecord>>('/admin/wish/warm-map/fences', data)
+}
+
+export function updateAdminFence(id: number, data: SaveFencePayload) {
+  return request.put<ApiResponse<AdminFenceRecord>>(`/admin/wish/warm-map/fences/${id}`, data)
+}
+
+export function toggleAdminFence(id: number, active: boolean) {
+  return request.put<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}/active`, undefined, {
+    params: { active },
+  })
+}
+
+export function deleteAdminFence(id: number) {
+  return request.delete<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}`)
+}
+
+export interface AdminWarmEventRecord {
+  id: number
+  userId: number
+  title: string
+  content: string
+  geohash: string | null
+  cityCode: string | null
+  auditStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'
+  isVisible: boolean
+  deletedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export function listAdminWarmEvents(params: { auditStatus?: string; page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<AdminWarmEventRecord[]>>('/admin/wish/warm-map/warm-events', { params })
+}
+
+export function auditAdminWarmEvent(id: number, auditStatus: 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN') {
+  return request.put<ApiResponse<AdminWarmEventRecord>>(
+    `/admin/wish/warm-map/warm-events/${id}/audit`,
+    undefined,
+    { params: { auditStatus } },
+  )
+}

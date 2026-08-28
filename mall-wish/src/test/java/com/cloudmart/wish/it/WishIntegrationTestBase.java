@@ -83,7 +83,8 @@ public abstract class WishIntegrationTestBase {
             "wish_expected_at_action", "wish_ai_config", "wish_bgm_song",
             "wish_match_group", "wish_match_member", "wish_match_config",
             "wish_fulfillment_inherit", "wish_content_flow_log", "wish_leaderboard_config",
-            "wish_grayscale_config", "wish_ai_review");
+            "wish_grayscale_config", "wish_ai_review",
+            "wish_warm_event", "wish_fence", "wish_fence_arrival");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;

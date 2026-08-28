@@ -952,3 +952,26 @@ export interface MapCluster {
   centerLng: number
   count: number
 }
+
+// ========== 城市幸福地图 + 围栏（Sprint 3.2，契约对齐 mall-wish WarmMapController） ==========
+
+export interface FenceCheckResult {
+  wishId: number
+  insideFence: boolean
+  fenceName: string | null
+  bloomTriggered: boolean
+  matchedCount: number
+}
+
+export interface WarmEventItem {
+  eventId: number
+  title: string
+  content: string
+  approximateLat: number
+  approximateLng: number
+  distance: number
+  geohash6: string
+  cityCode: string | null
+  nickname: string | null
+  createdAt: string
+}

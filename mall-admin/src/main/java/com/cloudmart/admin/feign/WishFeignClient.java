@@ -172,4 +172,32 @@ public interface WishFeignClient {
 
     @GetMapping("/map/audit")
     ApiResponse<Object> mapAudit();
+
+    // ---- 围栏 + 温暖事件（Sprint 3.2）----
+
+    @GetMapping("/warm-map/fences")
+    ApiResponse<Object> listFences(@RequestParam("wishId") Long wishId);
+
+    @PostMapping("/warm-map/fences")
+    ApiResponse<Object> createFence(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/warm-map/fences/{id}")
+    ApiResponse<Object> updateFence(@PathVariable("id") Long fenceId,
+                                    @RequestBody Map<String, Object> data);
+
+    @PutMapping("/warm-map/fences/{id}/active")
+    ApiResponse<Object> toggleFence(@PathVariable("id") Long fenceId,
+                                    @RequestParam("active") boolean active);
+
+    @DeleteMapping("/warm-map/fences/{id}")
+    ApiResponse<Object> deleteFence(@PathVariable("id") Long fenceId);
+
+    @GetMapping("/warm-map/warm-events")
+    ApiResponse<Object> listWarmEventsForAdmin(@RequestParam("auditStatus") String auditStatus,
+                                               @RequestParam("page") Integer page,
+                                               @RequestParam("size") Integer size);
+
+    @PutMapping("/warm-map/warm-events/{id}/audit")
+    ApiResponse<Object> auditWarmEvent(@PathVariable("id") Long eventId,
+                                       @RequestParam("auditStatus") String auditStatus);
 }

@@ -14,6 +14,8 @@ import type {
     InheritResult,
     NearbyWish,
     MapCluster,
+    FenceCheckResult,
+    WarmEventItem,
     AiGoal,
     AiGoalStatus,
     CreateAiGoalsPayload,
@@ -280,6 +282,17 @@ export const wishApi = {
     /** 网格聚合（geohash6 数量角标，坐标=网格中心） */
     getMapClusters: (params?: { lat?: number; lng?: number; radius?: number; geohash?: string }) =>
         request<MapCluster[]>({ url: `/wish/map/cluster${buildQuery(params as Record<string, unknown>)}` }),
+
+    // ---- 城市幸福地图 + 围栏（Sprint 3.2）----
+    /** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */
+    checkFence: (wishId: number, lat: number, lng: number) =>
+        request<FenceCheckResult>({ url: '/wish/map/fence/check', method: 'POST', data: { wishId, lat, lng } }),
+    /** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */
+    publishWarmEvent: (data: { title: string; content: string; lat: number; lng: number }) =>
+        request<{ eventId: number }>({ url: '/wish/map/warm-events', method: 'POST', data: data as unknown as Record<string, unknown> }),
+    /** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */
+    listWarmEvents: (params?: { lat?: number; lng?: number; radius?: number; cityCode?: string }) =>
+        request<WarmEventItem[]>({ url: `/wish/map/warm-events${buildQuery(params as Record<string, unknown>)}` }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>

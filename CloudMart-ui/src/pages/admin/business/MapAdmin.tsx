@@ -1,20 +1,38 @@
 import { useEffect, useState } from 'react'
-import { Button, Descriptions, Statistic, Typography } from 'antd'
-import { getAdminMapAudit } from '@/api/admin/wish'
-import type { AdminMapAudit } from '@/api/admin/wish'
+import { Badge, Button, Descriptions, Input, InputNumber, Popconfirm, Statistic, Tabs, Tag, Typography } from 'antd'
+import {
+    auditAdminWarmEvent,
+    createAdminFence,
+    deleteAdminFence,
+    getAdminMapAudit,
+    listAdminFences,
+    listAdminWarmEvents,
+    toggleAdminFence,
+    updateAdminFence,
+} from '@/api/admin/wish'
+import type { AdminFenceRecord, AdminMapAudit, AdminWarmEventRecord } from '@/api/admin/wish'
 import { useMessage } from '@/utils/useMessage'
 
 const { Paragraph, Text } = Typography
 
 /**
- * LBS 隐私审计面板（Sprint 3.1 管理后台）：
- * PUBLIC 心愿 geohash 覆盖统计 + 模糊化策略说明（存储/偏移/聚合/日志
- * 四环节审计依据，文档 3.1 隐私审计清单）。
+ * LBS 管理（Sprint 3.1 隐私审计面板 + Sprint 3.2 围栏管理/温暖事件审核）：
+ * 围栏中心坐标仅服务端存储（geohash7），用户端 API 永不回传；
+ * 温暖事件 DFA 命中敏感词自动隐藏，此处恢复/驳回。
  */
 export default function MapAdmin() {
     const message = useMessage()
     const [audit, setAudit] = useState<AdminMapAudit | null>(null)
     const [loading, setLoading] = useState(true)
+    const [fences, setFences] = useState<AdminFenceRecord[]>([])
+    const [events, setEvents] = useState<AdminWarmEventRecord[]>([])
+    const [fenceForm, setFenceForm] = useState({
+        name: '',
+        wishId: '',
+        centerLat: '23.1059',
+        centerLng: '113.3236',
+        radiusM: '100',
+    })
 
     const load = async () => {
         setLoading(true)
@@ -28,11 +46,51 @@ export default function MapAdmin() {
         }
     }
 
+    const loadFences = async () => {
+        try {
+            const res = await listAdminFences()
+            if (res.data.success) setFences(res.data.data ?? [])
+        } catch {
+            // 拦截器已提示
+        }
+    }
+
+    const loadEvents = async () => {
+        try {
+            const res = await listAdminWarmEvents({ page: 1, size: 50 })
+            if (res.data.success) setEvents(res.data.data ?? [])
+        } catch {
+            // 拦截器已提示
+        }
+    }
+
     useEffect(() => {
         load()
+        loadFences()
+        loadEvents()
     }, [])
 
-    return (
+    const handleCreateFence = async () => {
+        if (!fenceForm.name || !fenceForm.wishId) {
+            message.warning('名称与心愿 ID 必填')
+            return
+        }
+        try {
+            await createAdminFence({
+                name: fenceForm.name,
+                wishId: Number(fenceForm.wishId),
+                centerLat: Number(fenceForm.centerLat),
+                centerLng: Number(fenceForm.centerLng),
+                radiusM: Number(fenceForm.radiusM),
+            })
+            message.success('围栏已创建')
+            loadFences()
+        } catch {
+            // 拦截器已提示
+        }
+    }
+
+    const auditPanel = (
         <div>
             <Typography.Paragraph type="secondary" style={{ marginBottom: 24 }}>
                 隐私审计依据（文档 3.1 隐私审计清单）：DB 仅存 wish.geohash（geohash7，约 153m 网格），
@@ -69,5 +127,108 @@ export default function MapAdmin() {
                 <Button onClick={load}>重新加载</Button>
             )}
         </div>
+    )
+
+    const fencePanel = (
+        <div>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                围栏中心坐标仅服务端存储（geohash7），用户端 API 永不回传；半径最小 10m（半径 0 拒绝）；
+                到达触发绑定心愿绽放（每围栏每用户每日幂等）。
+            </Typography.Paragraph>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                <Input style={{ width: 140 }} placeholder="围栏名称" value={fenceForm.name}
+                    onChange={(e) => setFenceForm((p) => ({ ...p, name: e.target.value }))} />
+                <Input style={{ width: 180 }} placeholder="心愿 ID" value={fenceForm.wishId}
+                    onChange={(e) => setFenceForm((p) => ({ ...p, wishId: e.target.value }))} />
+                <InputNumber style={{ width: 110 }} placeholder="纬度" value={fenceForm.centerLat === '' ? undefined : Number(fenceForm.centerLat)}
+                    onChange={(v) => setFenceForm((p) => ({ ...p, centerLat: String(v ?? '') }))} />
+                <InputNumber style={{ width: 110 }} placeholder="经度" value={fenceForm.centerLng === '' ? undefined : Number(fenceForm.centerLng)}
+                    onChange={(v) => setFenceForm((p) => ({ ...p, centerLng: String(v ?? '') }))} />
+                <InputNumber style={{ width: 100 }} placeholder="半径(m)" value={fenceForm.radiusM === '' ? undefined : Number(fenceForm.radiusM)} min={10}
+                    onChange={(v) => setFenceForm((p) => ({ ...p, radiusM: String(v ?? '') }))} />
+                <Button type="primary" onClick={handleCreateFence}>创建围栏</Button>
+            </div>
+            {fences.map((fence) => (
+                <div key={fence.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                    <Text strong>{fence.name}</Text>
+                    <Tag color={fence.isActive ? 'green' : 'default'}>{fence.isActive ? '启用' : '停用'}</Tag>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                        心愿 {fence.wishId} · 半径 {fence.radiusM}m · 中心 {fence.centerGeohash}（仅管理端可见）
+                    </Text>
+                    <Popconfirm title={`确定${fence.isActive ? '停用' : '启用'}该围栏吗？`}
+                        onConfirm={async () => {
+                            try {
+                                await toggleAdminFence(fence.id, !fence.isActive)
+                                loadFences()
+                            } catch {
+                                // 拦截器已提示
+                            }
+                        }}>
+                        <Button size="small">{fence.isActive ? '停用' : '启用'}</Button>
+                    </Popconfirm>
+                    <Popconfirm title="确定删除该围栏吗？"
+                        onConfirm={async () => {
+                            try {
+                                await deleteAdminFence(fence.id)
+                                message.success('已删除')
+                                loadFences()
+                            } catch {
+                                // 拦截器已提示
+                            }
+                        }}>
+                        <Button size="small" danger>删除</Button>
+                    </Popconfirm>
+                </div>
+            ))}
+            {fences.length === 0 && <Text type="secondary">暂无围栏</Text>}
+        </div>
+    )
+
+    const eventPanel = (
+        <div>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                UGC 审核：DFA 命中敏感词的事件已自动隐藏（AUTO_HIDDEN）；此处可恢复/驳回。
+            </Typography.Paragraph>
+            {events.map((event) => (
+                <div key={event.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                    <Badge status={event.isVisible ? 'success' : 'error'} />
+                    <div style={{ width: 320 }}>
+                        <Text strong>{event.title}</Text>
+                        <div>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{event.content}</Text>
+                        </div>
+                    </div>
+                    <Tag>{event.auditStatus}</Tag>
+                    <Button size="small" type="link" onClick={async () => {
+                        try {
+                            await auditAdminWarmEvent(event.id, 'APPROVED')
+                            loadEvents()
+                        } catch {
+                            // 拦截器已提示
+                        }
+                    }}>通过</Button>
+                    <Button size="small" type="link" danger onClick={async () => {
+                        try {
+                            await auditAdminWarmEvent(event.id, 'REJECTED')
+                            loadEvents()
+                        } catch {
+                            // 拦截器已提示
+                        }
+                    }}>驳回</Button>
+                </div>
+            ))}
+            {events.length === 0 && <Text type="secondary">暂无事件</Text>}
+        </div>
+    )
+
+    return (
+        <Tabs
+            defaultActiveKey="audit"
+            items={[
+                { key: 'audit', label: '隐私审计', children: auditPanel },
+                { key: 'fences', label: '围栏管理', children: fencePanel },
+                { key: 'events', label: '温暖事件审核', children: eventPanel },
+            ]}
+        />
     )
 }

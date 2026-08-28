@@ -383,4 +383,62 @@ public class AdminWishController {
     public ApiResponse<Object> mapAudit() {
         return wishFeignClient.mapAudit();
     }
+
+    // ---- 围栏 + 温暖事件（Sprint 3.2）----
+
+    @GetMapping("/wish/warm-map/fences")
+    @RequiresPermission("business:fence:list")
+    @Operation(summary = "围栏列表", description = "全部围栏（含未启用；含中心坐标回显——仅管理端可见）")
+    public ApiResponse<Object> listFences(@RequestParam(required = false) Long wishId) {
+        return wishFeignClient.listFences(wishId);
+    }
+
+    @PostMapping("/wish/warm-map/fences")
+    @OperLog(title = "围栏创建", businessType = 1)
+    @RequiresPermission("business:fence:add")
+    @Operation(summary = "创建围栏", description = "半径最小 10m；center 服务端 geohash7 编码存储")
+    public ApiResponse<Object> createFence(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createFence(data);
+    }
+
+    @PutMapping("/wish/warm-map/fences/{id}")
+    @OperLog(title = "围栏更新", businessType = 2)
+    @RequiresPermission("business:fence:edit")
+    @Operation(summary = "更新围栏", description = "字段覆盖式更新")
+    public ApiResponse<Object> updateFence(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateFence(id, data);
+    }
+
+    @PutMapping("/wish/warm-map/fences/{id}/active")
+    @OperLog(title = "围栏状态切换", businessType = 2)
+    @RequiresPermission("business:fence:edit")
+    @Operation(summary = "启用/停用围栏", description = "is_active=0 → 判定恒 false")
+    public ApiResponse<Object> toggleFence(@PathVariable Long id, @RequestParam boolean active) {
+        return wishFeignClient.toggleFence(id, active);
+    }
+
+    @DeleteMapping("/wish/warm-map/fences/{id}")
+    @OperLog(title = "围栏删除", businessType = 2)
+    @RequiresPermission("business:fence:edit")
+    @Operation(summary = "删除围栏", description = "配置数据物理删除；到达记录保留审计")
+    public ApiResponse<Object> deleteFence(@PathVariable Long id) {
+        return wishFeignClient.deleteFence(id);
+    }
+
+    @GetMapping("/wish/warm-map/warm-events")
+    @RequiresPermission("business:warmEvent:list")
+    @Operation(summary = "温暖事件审核列表", description = "全状态分页")
+    public ApiResponse<Object> listWarmEventsForAdmin(@RequestParam(required = false) String auditStatus,
+                                                      @RequestParam(defaultValue = "1") Integer page,
+                                                      @RequestParam(defaultValue = "20") Integer size) {
+        return wishFeignClient.listWarmEventsForAdmin(auditStatus, page, size);
+    }
+
+    @PutMapping("/wish/warm-map/warm-events/{id}/audit")
+    @OperLog(title = "温暖事件审核", businessType = 2)
+    @RequiresPermission("business:warmEvent:audit")
+    @Operation(summary = "审核温暖事件", description = "APPROVED/REJECTED/AUTO_HIDDEN 同步 is_visible")
+    public ApiResponse<Object> auditWarmEvent(@PathVariable Long id, @RequestParam String auditStatus) {
+        return wishFeignClient.auditWarmEvent(id, auditStatus);
+    }
 }
