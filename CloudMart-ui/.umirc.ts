@@ -117,6 +117,7 @@ export default defineConfig({
         { path: '/admin/business/wish-ai', component: '@/pages/admin/business/WishAi' },
         { path: '/admin/business/match', component: '@/pages/admin/business/MatchAdmin' },
         { path: '/admin/business/legacy', component: '@/pages/admin/business/LegacyAdmin' },
+        { path: '/admin/business/grayscale', component: '@/pages/admin/business/GrayScaleAdmin' },
         { path: '/admin/community/posts', component: '@/pages/admin/community/Posts' },
         { path: '/admin/community/comments', component: '@/pages/admin/community/Comments' },
         { path: '/admin/community/tags', component: '@/pages/admin/community/Tags' },

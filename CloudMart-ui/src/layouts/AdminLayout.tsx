@@ -37,6 +37,7 @@ import {
   MessageOutlined,
   StarOutlined,
   HeartOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -112,6 +113,7 @@ const MENU_CONFIG: MenuRouteItem[] = [
       { path: '/admin/business/wish-ai', name: 'AI 心愿助手', icon: <RobotOutlined />, permission: 'business:aiPrompt:list' },
       { path: '/admin/business/match', name: '同路人小队', icon: <TeamOutlined />, permission: 'business:matchGroup:list' },
       { path: '/admin/business/legacy', name: '传承与排行榜', icon: <TrophyOutlined />, permission: 'business:legacy:list' },
+      { path: '/admin/business/grayscale', name: '灰度控制台', icon: <ExperimentOutlined />, permission: 'business:grayscale:list' },
     ],
   },
   {

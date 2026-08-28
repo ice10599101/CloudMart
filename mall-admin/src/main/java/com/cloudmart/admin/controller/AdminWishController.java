@@ -322,4 +322,56 @@ public class AdminWishController {
                                                        @RequestBody Map<String, Object> data) {
         return wishFeignClient.updateLeaderboardConfig(key, data);
     }
+
+    // ---- 灰度控制台 + AI 抽检（Sprint 2.8）----
+
+    @GetMapping("/wish/grayscale/configs")
+    @RequiresPermission("business:grayscale:list")
+    @Operation(summary = "灰度配置列表", description = "全部功能键的当前灰度比例（0=已回滚/未放量）")
+    public ApiResponse<Object> listGrayscaleConfigs() {
+        return wishFeignClient.listGrayscaleConfigs();
+    }
+
+    @PutMapping("/wish/grayscale/configs/{key}")
+    @OperLog(title = "灰度比例调整", businessType = 2)
+    @RequiresPermission("business:grayscale:edit")
+    @Operation(summary = "更新灰度比例", description = "比例吸附档位 {0,5,20,50,100}；回滚=置 0；实时生效")
+    public ApiResponse<Object> updateGrayscaleRatio(@PathVariable String key,
+                                                    @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateGrayscaleRatio(key, data);
+    }
+
+    @PostMapping("/wish/ai-review/generate")
+    @OperLog(title = "AI 抽检任务生成", businessType = 1)
+    @RequiresPermission("business:aiReview:score")
+    @Operation(summary = "生成抽检任务", description = "随机抽取 ASSISTANT 回复生成待评样本（1-100 条）")
+    public ApiResponse<Object> generateAiReviewSamples(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.generateAiReviewSamples(data);
+    }
+
+    @GetMapping("/wish/ai-review/samples")
+    @RequiresPermission("business:aiReview:list")
+    @Operation(summary = "抽检样本列表", description = "scene/result 过滤可选")
+    public ApiResponse<Object> listAiReviewSamples(@RequestParam(required = false) String scene,
+                                                   @RequestParam(required = false) String result,
+                                                   @RequestParam(defaultValue = "1") Integer page,
+                                                   @RequestParam(defaultValue = "20") Integer size) {
+        return wishFeignClient.listAiReviewSamples(scene, result, page, size);
+    }
+
+    @PutMapping("/wish/ai-review/samples/{id}")
+    @OperLog(title = "AI 抽检评分", businessType = 2)
+    @RequiresPermission("business:aiReview:score")
+    @Operation(summary = "人工评分", description = "PASS 或 FAIL+问题分类（机械感/错误信息/不相关）")
+    public ApiResponse<Object> scoreAiReviewSample(@PathVariable Long id,
+                                                   @RequestBody Map<String, Object> data) {
+        return wishFeignClient.scoreAiReviewSample(id, data);
+    }
+
+    @GetMapping("/wish/ai-review/stats")
+    @RequiresPermission("business:aiReview:list")
+    @Operation(summary = "合格率与问题分类统计", description = "passRate=pass/(pass+fail) + 分类计数")
+    public ApiResponse<Object> aiReviewStats() {
+        return wishFeignClient.aiReviewStats();
+    }
 }

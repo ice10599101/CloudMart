@@ -16,6 +16,7 @@ import type {
 import { resolveTreeEnvTheme, withAlpha } from '@/utils/tree-env'
 import type { TreeEnvTheme } from '@/utils/tree-env'
 import styles from './WorldTree3D.module.css'
+import { deviceTier, fetchFeatureFlags, isFeatureEnabled } from '@/utils/featureFlags'
 import WishBGM from '@/components/WishBGM'
 
 // ========== 常量 ==========
@@ -143,7 +144,14 @@ interface TreeSceneHandle {
 }
 
 function createStarfield(scene: THREE.Scene): THREE.Points {
-  const starCount = 900
+  // 机型分档 + 灰度降级开关（Sprint 2.8）：低档/未命中灰度 → 星点减半
+  // （降级动作留档：星点 900→450，中端 700；恢复条件=灰度放量或高档机）
+  const tier = deviceTier()
+  const starCount = tier === 'LOW' || !isFeatureEnabled('wish_world_tree_enhanced')
+    ? 450
+    : tier === 'MID'
+      ? 700
+      : 900
   const positions = new Float32Array(starCount * 3)
   for (let i = 0; i < starCount; i++) {
     // 随机球壳分布（半径 10-22），营造深空包围感
@@ -249,7 +257,8 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
   controls.enablePan = false
   controls.minDistance = 2.4
   controls.maxDistance = 9
-  controls.autoRotate = true
+  // 灰度降级开关（Sprint 2.8）：未命中时关闭自动旋转（中低端机减负）
+  controls.autoRotate = isFeatureEnabled('wish_world_tree_enhanced')
   controls.autoRotateSpeed = 0.3
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.8))
@@ -556,6 +565,7 @@ export default function WorldTree3D() {
   const [loading, setLoading] = useState(true)
   const [viewportLoading, setViewportLoading] = useState(false)
   const [selectedFruit, setSelectedFruit] = useState<TreeFruit | null>(null)
+  const [flagsReady, setFlagsReady] = useState(false)
 
   /** 环境主题（displayEnv 仲裁；快照与配置均失败时保持 null 不覆盖既有视觉） */
   const envTheme = useMemo(
@@ -601,9 +611,14 @@ export default function WorldTree3D() {
       [mergeFruits],
   )
 
+  // 预取灰度开关：场景创建以 flags 就绪为门控（机型分档 + 降级开关同步读取）
+  useEffect(() => {
+    fetchFeatureFlags().then(() => setFlagsReady(true))
+  }, [])
+
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas || !flagsReady) return
     const scene = createTreeScene(canvas)
     sceneRef.current = scene
     scene.onViewportChange((query) => {
@@ -616,7 +631,7 @@ export default function WorldTree3D() {
       scene.dispose()
       sceneRef.current = null
     }
-  }, [loadViewport])
+  }, [flagsReady, loadViewport])
 
   useEffect(() => {
     if (envTheme) sceneRef.current?.applyTheme(envTheme)

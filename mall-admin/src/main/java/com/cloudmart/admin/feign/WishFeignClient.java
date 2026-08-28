@@ -142,4 +142,29 @@ public interface WishFeignClient {
     @PutMapping("/leaderboard/configs/{key}")
     ApiResponse<Object> updateLeaderboardConfig(@PathVariable("key") String configKey,
                                                 @RequestBody Map<String, Object> data);
+
+    // ---- 灰度控制台 + AI 抽检（Sprint 2.8）----
+
+    @GetMapping("/grayscale/configs")
+    ApiResponse<Object> listGrayscaleConfigs();
+
+    @PutMapping("/grayscale/configs/{key}")
+    ApiResponse<Object> updateGrayscaleRatio(@PathVariable("key") String featureKey,
+                                             @RequestBody Map<String, Object> data);
+
+    @PostMapping("/ai-review/generate")
+    ApiResponse<Object> generateAiReviewSamples(@RequestBody Map<String, Object> data);
+
+    @GetMapping("/ai-review/samples")
+    ApiResponse<Object> listAiReviewSamples(@RequestParam("scene") String scene,
+                                            @RequestParam("result") String result,
+                                            @RequestParam("page") Integer page,
+                                            @RequestParam("size") Integer size);
+
+    @PutMapping("/ai-review/samples/{id}")
+    ApiResponse<Object> scoreAiReviewSample(@PathVariable("id") Long id,
+                                            @RequestBody Map<String, Object> data);
+
+    @GetMapping("/ai-review/stats")
+    ApiResponse<Object> aiReviewStats();
 }

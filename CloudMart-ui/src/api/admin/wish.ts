@@ -617,3 +617,78 @@ export function updateAdminLeaderboardConfig(configKey: string, configValue: str
     { configValue },
   )
 }
+
+// ========== 灰度控制台 + AI 质量抽检（Sprint 2.8，代理 mall-wish） ==========
+
+export interface AdminGrayscaleConfigRecord {
+  featureKey: string
+  grayRatio: number
+  description: string | null
+  updatedAt: string
+}
+
+export const GRAYSCALE_FEATURE_LABELS: Record<string, string> = {
+  wish_ai_assistant: 'AI 心愿助手',
+  wish_tree_hole: 'AI 树洞',
+  wish_time_capsule: '时间胶囊',
+  wish_match_squad: '同路人小队',
+  wish_leaderboard: '排行榜',
+  wish_legacy_flow: '还愿传承',
+  wish_world_tree_enhanced: '世界树 3D 增强效果',
+}
+
+export function listAdminGrayscaleConfigs() {
+  return request.get<ApiResponse<AdminGrayscaleConfigRecord[]>>('/admin/wish/grayscale/configs')
+}
+
+export function updateAdminGrayscaleRatio(featureKey: string, grayRatio: number) {
+  return request.put<ApiResponse<AdminGrayscaleConfigRecord>>(
+    `/admin/wish/grayscale/configs/${featureKey}`,
+    { grayRatio },
+  )
+}
+
+export type AdminAiReviewIssueType = 'MECHANICAL' | 'ERROR' | 'IRRELEVANT'
+
+export interface AdminAiReviewSample {
+  id: number
+  conversationId: number
+  scene: string
+  content: string
+  result: 'PASS' | 'FAIL' | null
+  issueType: AdminAiReviewIssueType | null
+  note: string | null
+  reviewedBy: number | null
+  reviewedAt: string | null
+  createdAt: string
+}
+
+export interface AdminAiReviewStats {
+  totalSamples: number
+  reviewedCount: number
+  passCount: number
+  failCount: number
+  passRate: number
+  issueMechanical: number
+  issueError: number
+  issueIrrelevant: number
+}
+
+export function generateAiReviewSamples(data: { scenes?: string[]; sampleSize?: number }) {
+  return request.post<ApiResponse<number>>('/admin/wish/ai-review/generate', data)
+}
+
+export function listAiReviewSamples(params: { scene?: string; result?: string; page?: number; size?: number }) {
+  return request.get<ApiResponse<AdminAiReviewSample[]>>('/admin/wish/ai-review/samples', { params })
+}
+
+export function scoreAiReviewSample(
+  id: number,
+  data: { result: 'PASS' | 'FAIL'; issueType?: AdminAiReviewIssueType; note?: string },
+) {
+  return request.put<ApiResponse<AdminAiReviewSample>>(`/admin/wish/ai-review/samples/${id}`, data)
+}
+
+export function getAiReviewStats() {
+  return request.get<ApiResponse<AdminAiReviewStats>>('/admin/wish/ai-review/stats')
+}

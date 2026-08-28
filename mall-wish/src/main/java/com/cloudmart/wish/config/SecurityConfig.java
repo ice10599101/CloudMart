@@ -67,6 +67,9 @@ public class SecurityConfig {
                 // 排行榜公开浏览（Sprint 2.7）
                 .requestMatchers(HttpMethod.GET, "/leaderboard").permitAll()
 
+                // 灰度功能开关（Sprint 2.8，四端降级开关数据源；匿名仅全量放行）
+                .requestMatchers(HttpMethod.GET, "/feature-flags").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点
