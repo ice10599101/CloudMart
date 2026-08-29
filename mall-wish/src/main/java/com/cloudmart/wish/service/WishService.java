@@ -164,4 +164,28 @@ public interface WishService {
     record OverdueWishInfo(Long wishId, Long userId, String title,
                            java.time.LocalDateTime expectedAt) {
     }
+
+    // ---------------- Sprint 1.3 打卡与成长记录 ----------------
+
+    /**
+     * 打卡（每日一次，uk_checkin_daily 幂等）：更新连续打卡天数 +
+     * 发放星光 +2（CHECKIN 流水）+ 更新 total_checkin_days。
+     *
+     * @return 打卡结果（含连续天数/星光入账）
+     */
+    CheckinResultVO checkinWish(Long userId, Long wishId, String content);
+
+    /**
+     * 添加成长记录（TEXT/IMAGE/VIDEO/DIARY），可选进度增量
+     * （乐观锁 version 防并发覆盖）。
+     */
+    GrowthRecordVO addGrowthRecord(Long userId, Long wishId, AddGrowthRequest request);
+
+    /** 查询心愿进度详情 */
+    ProgressDetail getWishProgress(Long wishId);
+
+    record CheckinResultVO(Long checkinId, int currentStreak, int maxStreak, int starlightCredited) {}
+    record GrowthRecordVO(Long recordId, int newCurrentValue) {}
+    record ProgressDetail(int currentValue, int targetValue, int percentage, int version) {}
+    record AddGrowthRequest(String type, String content, List<String> mediaUrls, Short progressDelta) {}
 }

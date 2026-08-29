@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.dto.CreateWishRequest;
@@ -18,6 +19,10 @@ import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishCategoryMapper;
+import com.cloudmart.wish.entity.WishCheckin;
+import com.cloudmart.wish.enums.GrowthRecordType;
+import com.cloudmart.wish.enums.ResourceLogSource;
+import com.cloudmart.wish.repository.WishCheckinMapper;
 import com.cloudmart.wish.repository.WishGrowthRecordMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
@@ -38,7 +43,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,6 +77,7 @@ public class WishServiceImpl implements WishService {
 
     private final WishMapper wishMapper;
     private final WishCategoryMapper wishCategoryMapper;
+    private final WishCheckinMapper wishCheckinMapper;
     private final WishGrowthRecordMapper wishGrowthRecordMapper;
     private final WishProgressMapper wishProgressMapper;
     private final UserStatService userStatService;
@@ -589,6 +597,108 @@ public class WishServiceImpl implements WishService {
     @Override
     public int scanOverdueWishes() {
         return scanOverdueWishesDetailed().transferred();
+    }
+
+
+    // ---------------- Sprint 1.3 打卡与成长记录（补齐） ----------------
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CheckinResultVO checkinWish(Long userId, Long wishId, String content) {
+        Wish wish = wishMapper.selectById(wishId);
+        if (wish == null || !wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (wish.getStatus() != WishStatus.ACTIVE) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅进行中的心愿可打卡");
+        }
+        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+        // uk_checkin_daily 幂等
+        Long existing = wishCheckinMapper.selectCount(new LambdaQueryWrapper<WishCheckin>()
+                .eq(WishCheckin::getWishId, wishId)
+                .eq(WishCheckin::getUserId, userId)
+                .eq(WishCheckin::getCheckinDate, today));
+        if (existing > 0) {
+            throw new BusinessException(WishErrorCodes.WISH_ALREADY_CHECKIN_TODAY, "今日已打卡");
+        }
+        WishCheckin checkin = new WishCheckin();
+        checkin.setWishId(wishId);
+        checkin.setUserId(userId);
+        checkin.setCheckinDate(today);
+        checkin.setContent(content);
+        checkin.setIsMakeup(false);
+        checkin.setStarlightGranted(true);
+        wishCheckinMapper.insert(checkin);
+
+        // 更新连续打卡
+        WishProgress progress = wishProgressMapper.selectById(wishId);
+        int currentStreak = 1;
+        int maxStreak = 1;
+        if (progress != null) {
+            currentStreak = progress.getCurrentStreak() != null ? progress.getCurrentStreak() + 1 : 1;
+            maxStreak = Math.max(progress.getMaxStreak() != null ? progress.getMaxStreak() : 0, currentStreak);
+            wishProgressMapper.update(null, new LambdaUpdateWrapper<WishProgress>()
+                    .set(WishProgress::getCurrentStreak, currentStreak)
+                    .set(WishProgress::getMaxStreak, maxStreak)
+                    .eq(WishProgress::getWishId, wishId));
+        }
+        // 星光 +2（CHECKIN 流水）
+        int credited = userStatService.earnStarlight(userId, 2, ResourceLogSource.CHECKIN, wishId);
+        log.info("打卡成功, wishId={}, userId={}, streak={}, starlight={}", wishId, userId, currentStreak, credited);
+        return new CheckinResultVO(checkin.getId(), currentStreak, maxStreak, credited);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public GrowthRecordVO addGrowthRecord(Long userId, Long wishId, AddGrowthRequest request) {
+        Wish wish = wishMapper.selectById(wishId);
+        if (wish == null || !wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        WishGrowthRecord record = new WishGrowthRecord();
+        record.setWishId(wishId);
+        record.setUserId(userId);
+        record.setType(GrowthRecordType.valueOf(request.type()));
+        record.setContent(request.content().trim());
+        if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
+            record.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
+        }
+        record.setProgressDelta(request.progressDelta() != null ? request.progressDelta() : (short) 0);
+        record.setAuditStatus(AuditStatus.PENDING);
+        record.setIsVisible(true);
+        wishGrowthRecordMapper.insert(record);
+
+        // 进度增量（乐观锁 version 防并发覆盖）
+        int newCurrent = 0;
+        if (request.progressDelta() != null && request.progressDelta() != 0) {
+            WishProgress progress = wishProgressMapper.selectById(wishId);
+            if (progress != null) {
+                newCurrent = Math.max(0, progress.getCurrentValue() + request.progressDelta());
+                int updated = wishProgressMapper.update(null, new LambdaUpdateWrapper<WishProgress>()
+                        .set(WishProgress::getCurrentValue, newCurrent)
+                        .set(WishProgress::getVersion, progress.getVersion() + 1)
+                        .eq(WishProgress::getWishId, wishId)
+                        .eq(WishProgress::getVersion, progress.getVersion()));
+                if (updated == 0) {
+                    throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "进度已被并发修改，请刷新重试");
+                }
+            }
+        }
+        log.info("成长记录添加, wishId={}, recordId={}, delta={}", wishId, record.getId(), request.progressDelta());
+        return new GrowthRecordVO(record.getId(), newCurrent);
+    }
+
+    @Override
+    public WishService.ProgressDetail getWishProgress(Long wishId) {
+        com.cloudmart.wish.entity.WishProgress progress = wishProgressMapper.selectById(wishId);
+        if (progress == null) {
+            return new WishService.ProgressDetail(0, 0, 0, 0);
+        }
+        int target = progress.getTargetValue() != null ? progress.getTargetValue() : 0;
+        int current = progress.getCurrentValue() != null ? progress.getCurrentValue() : 0;
+        int pct = target > 0 ? Math.min(100, Math.round(current * 100.0f / target)) : 0;
+        return new WishService.ProgressDetail(current, target, pct,
+                progress.getVersion() != null ? progress.getVersion() : 0);
     }
 
     @Override

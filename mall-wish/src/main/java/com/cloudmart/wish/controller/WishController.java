@@ -160,6 +160,41 @@ public class WishController {
         return ApiResponse.ok(null);
     }
 
+    // ---------------- Sprint 1.3 打卡与成长记录（补齐） ----------------
+
+    @PostMapping("/{id}/checkin")
+    @Operation(summary = "打卡", description = "每日一次（uk_checkin_daily 幂等）；更新连续打卡；"
+            + "发放星光 +2（CHECKIN 流水）。errors: 403 WISH_NOT_AUTHOR / 409 WISH_ALREADY_CHECKIN_TODAY")
+    @SentinelResource("WISH_CHECKIN")
+    public ApiResponse<WishService.CheckinResultVO> checkin(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String content = body != null ? body.get("content") : null;
+        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content));
+    }
+
+    @PostMapping("/{id}/growth")
+    @Operation(summary = "添加成长记录", description = "TEXT/IMAGE/VIDEO/DIARY 四类型；"
+            + "可选 progressDelta 驱动进度更新（乐观锁 version 防并发覆盖）")
+    @SentinelResource("WISH_GROWTH_ADD")
+    public ApiResponse<WishService.GrowthRecordVO> addGrowthRecord(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @RequestBody WishService.AddGrowthRequest request) {
+        return ApiResponse.ok(wishService.addGrowthRecord(userId, wishId, request));
+    }
+
+    @GetMapping("/{id}/progress")
+    @Operation(summary = "心愿进度", description = "当前值/目标值/百分比/乐观锁版本号")
+    @SentinelResource("WISH_PROGRESS")
+    public ApiResponse<WishService.ProgressDetail> getProgress(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
+        return ApiResponse.ok(wishService.getWishProgress(wishId));
+    }
+
     /** 传承发起请求。 */
     public record InheritRequest(String message) {
     }

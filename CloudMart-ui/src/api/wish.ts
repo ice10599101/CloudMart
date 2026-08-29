@@ -1190,3 +1190,54 @@ export function setActiveSkin(assetId: number) {
 export function setActiveBgm(assetId: number) {
   return request.put<ApiResponse<null>>(`/wish/my/active-bgm/${assetId}`)
 }
+
+// ========== 打卡 + 成长记录 + 进度（Sprint 1.3 补齐） ==========
+
+export interface CheckinResult {
+  checkinId: number
+  currentStreak: number
+  maxStreak: number
+  starlightCredited: number
+}
+
+export function checkinWish(wishId: number, content?: string) {
+  return request.post<ApiResponse<CheckinResult>>(`/wish/wishes/${wishId}/checkin`, { content })
+}
+
+export function addGrowthRecord(wishId: number, data: {
+  type: string; content: string; mediaUrls?: string[]; progressDelta?: number
+}) {
+  return request.post<ApiResponse<{ recordId: number; newCurrentValue: number }>>(
+    `/wish/wishes/${wishId}/growth`, data)
+}
+
+export function getWishProgressDetail(wishId: number) {
+  return request.get<ApiResponse<{ currentValue: number; targetValue: number; percentage: number; version: number }>>(
+    `/wish/wishes/${wishId}/progress`)
+}
+
+// ========== 心愿收藏 2.12（Sprint 1.5 补齐） ==========
+
+export interface WishCollectionItem {
+  collectionId: number
+  wishId: number
+  title: string
+  authorNickname: string
+  fruitType: string
+  collectedAt: string
+}
+
+export function listWishCollections(cursor?: string, pageSize?: number) {
+  return request.get<ApiResponse<WishCollectionItem[]>>('/wish/collections', {
+    params: { cursor, pageSize: pageSize ?? 20 },
+  })
+}
+
+export function collectWish(wishId: number) {
+  return request.post<ApiResponse<{ collectionId: number; wishId: number; collectedAt: string }>>(
+    '/wish/collections', { wishId })
+}
+
+export function uncollectWish(wishId: number) {
+  return request.delete<ApiResponse<{ wishId: number; deleted: boolean }>>(`/wish/collections/${wishId}`)
+}
