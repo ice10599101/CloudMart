@@ -111,4 +111,27 @@ public class CollectionController {
         collectionService.joinPool(userId, poolId);
         return ApiResponse.ok(null);
     }
+
+    @GetMapping("/brands/{brandId}/pools/{poolId}")
+    @Operation(summary = "许愿池详情", description = "池信息 + 当前进度")
+    public ApiResponse<Object> getPoolDetail(
+            @Parameter(description = "品牌 ID", required = true) @PathVariable Long brandId,
+            @Parameter(description = "许愿池 ID", required = true) @PathVariable Long poolId) {
+        return ApiResponse.ok(collectionService.getPoolDetail(poolId));
+    }
+
+    @GetMapping("/brands/{brandId}/pools/{poolId}/rewards")
+    @Operation(summary = "许愿池奖励记录", description = "品牌奖励发放记录（脱敏，仅返回匿名用户 ID + 数量）")
+    public ApiResponse<List<Map<String, Object>>> poolRewards(
+            @Parameter(description = "品牌 ID", required = true) @PathVariable Long brandId,
+            @Parameter(description = "许愿池 ID", required = true) @PathVariable Long poolId) {
+        return ApiResponse.ok(collectionService.poolRewards(poolId));
+    }
+
+    @GetMapping("/brands/{brandId}/audit-logs")
+    @Operation(summary = "品牌数据访问审计日志", description = "数据共享脱敏：仅返回匿名化操作记录")
+    public ApiResponse<List<Map<String, Object>>> brandAuditLogs(
+            @Parameter(description = "品牌 ID", required = true) @PathVariable Long brandId) {
+        return ApiResponse.ok(collectionService.brandAuditLogs(brandId));
+    }
 }

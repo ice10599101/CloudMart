@@ -61,4 +61,13 @@ public interface CollectionService {
     BrandPool createPool(BrandPool pool, Long adminUserId);
 
     void joinPool(Long userId, Long poolId);
+
+    /** 许愿池详情（含当前进度） */
+    BrandPool getPoolDetail(Long poolId);
+
+    /** 许愿池奖励记录（脱敏，暂返回空——品牌奖励发放后续迭代） */
+    List<Map<String, Object>> poolRewards(Long poolId);
+
+    /** 品牌数据访问审计日志（暂返回空——审计埋点后续迭代） */
+    List<Map<String, Object>> brandAuditLogs(Long brandId);
 }

@@ -344,6 +344,25 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
+    public BrandPool getPoolDetail(Long poolId) {
+        BrandPool pool = poolMapper.selectById(poolId);
+        if (pool == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "许愿池不存在");
+        }
+        return pool;
+    }
+
+    @Override
+    public List<Map<String, Object>> poolRewards(Long poolId) {
+        return List.of();
+    }
+
+    @Override
+    public List<Map<String, Object>> brandAuditLogs(Long brandId) {
+        return List.of();
+    }
+
+    @Override
     @Transactional
     public void joinPool(Long userId, Long poolId) {
         BrandPool pool = poolMapper.selectById(poolId);
