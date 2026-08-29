@@ -121,6 +121,7 @@ export default defineConfig({
         { path: '/admin/business/legacy', component: '@/pages/admin/business/LegacyAdmin' },
         { path: '/admin/business/grayscale', component: '@/pages/admin/business/GrayScaleAdmin' },
         { path: '/admin/business/map-audit', component: '@/pages/admin/business/MapAdmin' },
+        { path: '/admin/business/live-widget', component: '@/pages/admin/business/LiveWidgetAdmin' },
         { path: '/admin/community/posts', component: '@/pages/admin/community/Posts' },
         { path: '/admin/community/comments', component: '@/pages/admin/community/Comments' },
         { path: '/admin/community/tags', component: '@/pages/admin/community/Tags' },

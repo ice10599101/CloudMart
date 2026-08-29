@@ -814,3 +814,36 @@ export function listAdminFreezes() {
 export function unfreezeAdminUser(userId: number) {
   return request.post<ApiResponse<null>>(`/admin/wish/encounter/freezes/${userId}/unfreeze`)
 }
+
+// ========== 直播挂件配置（Sprint 3.4，代理 mall-wish /admin/live/widget/**） ==========
+
+export interface AdminLiveWidgetConfig {
+  id?: number
+  streamerId: number
+  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'
+  styleConfig: string | null
+  isVisible: boolean
+  updatedAt: string
+}
+
+export function listAdminLiveWidgetConfigs() {
+  return request.get<ApiResponse<AdminLiveWidgetConfig[]>>('/admin/wish/live/widget/configs')
+}
+
+export function saveAdminLiveWidgetConfig(
+  streamerId: number,
+  data: { position: string; styleConfig?: string; isVisible?: boolean },
+) {
+  return request.put<ApiResponse<AdminLiveWidgetConfig>>(
+    `/admin/wish/live/widget/${streamerId}`,
+    data,
+  )
+}
+
+export function toggleAdminLiveWidgetVisible(streamerId: number, visible: boolean) {
+  return request.put<ApiResponse<null>>(
+    `/admin/wish/live/widget/${streamerId}/visible`,
+    undefined,
+    { params: { visible } },
+  )
+}

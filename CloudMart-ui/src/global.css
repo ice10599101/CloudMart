@@ -1,0 +1,70 @@
+
+/* 直播心愿挂件（Sprint 3.4） */
+.wish-live-widget {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 30;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(26, 26, 46, 0.82);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wish-live-widget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.wish-live-widget-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wish-live-widget-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
+.wish-live-widget-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 4px;
+}
+
+.wish-live-widget-guide {
+  font-size: 12px;
+  color: #ffd700;
+}
+
+.wish-live-widget-closed {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 30;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  background: rgba(26, 26, 46, 0.7);
+  color: #ffd700;
+  font-size: 12px;
+  cursor: pointer;
+}

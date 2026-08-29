@@ -47,7 +47,8 @@ public class GrayscaleServiceImpl implements GrayscaleService {
             "wish_match_squad",
             "wish_leaderboard",
             "wish_legacy_flow",
-            "wish_world_tree_enhanced"));
+            "wish_world_tree_enhanced",
+            "wish_live_widget"));
 
     private static final Set<Integer> RATIO_LADDER = Set.of(0, 5, 20, 50, 100);
 

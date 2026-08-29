@@ -10,6 +10,7 @@ import { getRoutes } from './core/route';
 import type { Location } from 'history';
 
 
+import 'D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/src/global.css';
 import 'D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/src/global.ts';
 const publicPath = '/';
 const runtimePublicPath = false;

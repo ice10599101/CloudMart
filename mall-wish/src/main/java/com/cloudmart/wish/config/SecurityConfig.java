@@ -76,6 +76,9 @@ public class SecurityConfig {
                 // 温暖事件公开浏览（Sprint 3.2，仅可见状态事件）
                 .requestMatchers(HttpMethod.GET, "/map/warm-events", "/map/warm-events/cluster").permitAll()
 
+                // 直播挂件公开数据（Sprint 3.4，CDN 友好，10s 缓存）
+                .requestMatchers(HttpMethod.GET, "/live/widget/*").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点

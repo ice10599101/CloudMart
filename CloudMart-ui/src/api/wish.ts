@@ -1033,3 +1033,27 @@ export function readEncounterLetter(letterId: number) {
 export function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT') {
   return request.post<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/interactions`, { type })
 }
+
+// ========== 直播心愿挂件（Sprint 3.4，契约对齐 mall-wish LiveWidgetController） ==========
+
+export interface LiveWidgetData {
+  streamerId: number
+  /** false = 全局降级/主播配置隐藏，前端隐藏挂件 */
+  visible: boolean
+  /** false = 主播无进行中心愿，前端展示"去许愿"引导 */
+  hasWish: boolean
+  wishId: number | null
+  title: string | null
+  progressCurrent: number | null
+  progressTarget: number | null
+  progressPercentage: number | null
+  checkinDays: number | null
+  starlightBalance: number | null
+  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'
+  styleConfig: string | null
+}
+
+/** 挂件数据（公开；服务端 Redis 缓存 TTL 10s，前端 10s 轮询） */
+export function getLiveWidget(streamerId: number) {
+  return request.get<ApiResponse<LiveWidgetData>>(`/wish/live/widget/${streamerId}`)
+}

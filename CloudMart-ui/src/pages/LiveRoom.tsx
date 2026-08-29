@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'umi'
 import { getLiveRoom, enterLiveRoom } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
+import WishLiveWidget from '@/components/WishLiveWidget'
 import { useAuthStore } from '@/stores/auth'
 
 interface DanmakuMessage {
@@ -205,6 +206,9 @@ export default function LiveRoomPage() {
               直播画面区域
             </div>
           </div>
+
+          {/* 心愿挂件叠加（Sprint 3.4：10s 轮询，可关闭，点击跳心愿详情） */}
+          <WishLiveWidget streamerId={room.anchorUserId} />
 
           <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{

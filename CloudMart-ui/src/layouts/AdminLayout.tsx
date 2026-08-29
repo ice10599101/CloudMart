@@ -39,6 +39,7 @@ import {
   HeartOutlined,
   ExperimentOutlined,
   EnvironmentOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -116,6 +117,7 @@ const MENU_CONFIG: MenuRouteItem[] = [
       { path: '/admin/business/legacy', name: '传承与排行榜', icon: <TrophyOutlined />, permission: 'business:legacy:list' },
       { path: '/admin/business/grayscale', name: '灰度控制台', icon: <ExperimentOutlined />, permission: 'business:grayscale:list' },
       { path: '/admin/business/map-audit', name: 'LBS 隐私审计', icon: <EnvironmentOutlined />, permission: 'business:map:audit' },
+      { path: '/admin/business/live-widget', name: '直播挂件配置', icon: <PlayCircleOutlined />, permission: 'business:liveWidget:list' },
     ],
   },
   {

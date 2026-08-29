@@ -86,13 +86,16 @@ public abstract class WishIntegrationTestBase {
             "wish_grayscale_config", "wish_ai_review",
             "wish_warm_event", "wish_fence", "wish_fence_arrival",
             "wish_encounter_letter", "wish_encounter_letter_interaction",
-            "wish_lbs_suspicious", "wish_lbs_freeze");
+            "wish_lbs_suspicious", "wish_lbs_freeze", "wish_live_widget_config");
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
     @Autowired
     protected StringRedisTemplate redisTemplate;
+
+    @Autowired
+    protected com.cloudmart.wish.service.GrayscaleService grayscaleService;
 
     @MockitoBean
     protected UserFeignClient userFeignClient;
