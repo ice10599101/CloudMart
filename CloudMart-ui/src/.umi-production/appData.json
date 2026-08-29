@@ -80,7 +80,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 41
       },
       "enableBy": "register",
       "type": "preset",
@@ -97,7 +97,7 @@
             0
           ]
         },
-        "register": 6
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -111,10 +111,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            5
+            7
           ]
         },
-        "register": 4
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -131,7 +131,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -158,10 +158,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            141
+            183
           ]
         },
-        "register": 26
+        "register": 33
       },
       "enableBy": "register",
       "type": "plugin",
@@ -174,7 +174,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -241,7 +241,7 @@
             0
           ]
         },
-        "register": 16
+        "register": 17
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1110,7 +1110,7 @@
             1
           ]
         },
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1136,7 +1136,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 75
+        "register": 92
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1149,7 +1149,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 79
+        "register": 84
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1162,7 +1162,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 21
+        "register": 24
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1176,7 +1176,7 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            1
+            0
           ]
         },
         "register": 1
@@ -1218,7 +1218,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 34
+        "register": 36
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
@@ -1230,7 +1230,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1243,7 +1243,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1255,7 +1255,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1282,10 +1282,10 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            2
+            1
           ]
         },
-        "register": 3
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
@@ -1349,7 +1349,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1362,7 +1362,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 9
+        "register": 10
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1375,7 +1375,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 4
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1400,7 +1400,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 6
+        "register": 8
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1413,7 +1413,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 6
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1439,7 +1439,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 9
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1452,7 +1452,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1465,7 +1465,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 12
+        "register": 20
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1477,7 +1477,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 22
+        "register": 27
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1514,7 +1514,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 840
+        "register": 878
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1540,7 +1540,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
@@ -1553,7 +1553,7 @@
       "time": {
         "hooks": {
           "addOnDemandDeps": [
-            1
+            0
           ]
         },
         "register": 1
@@ -1569,7 +1569,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 6
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1581,7 +1581,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1607,7 +1607,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1643,7 +1643,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 27
+        "register": 37
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1655,7 +1655,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1668,7 +1668,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 8
+        "register": 10
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1681,7 +1681,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 45
+        "register": 48
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1694,7 +1694,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 90
+        "register": 79
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1732,7 +1732,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1771,7 +1771,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1784,7 +1784,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1823,7 +1823,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -4560,7 +4560,7 @@
       "id": "wish",
       "file": "wish.ts",
       "absPath": "/wish",
-      "__content": "import request from '@/utils/request'\nimport type { ApiResponse } from '@/types/api'\n\n// ========== Types ==========\n\nexport type WishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'\nexport type WishStatus = 'DRAFT' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED'\nexport type FruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'\nexport type AuditStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\n\nexport interface WishListItem {\n  id: number\n  title: string\n  description: string\n  mediaUrls: string[]\n  categoryId: number\n  categoryName: string\n  tags: string[]\n  visibility: WishVisibility\n  status: WishStatus\n  fruitType: FruitType\n  authorId: number\n  authorNickname: string\n  authorAvatar: string\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  supportCount: number\n  commentCount: number\n  expectedAt: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface WishGrowthRecord {\n  id: number\n  type: string\n  content: string\n  mediaUrls: string[]\n  progressDelta: number\n  createdAt: string\n}\n\nexport interface WishProgress {\n  currentValue: number\n  targetValue: number\n  percentage: number\n  version: number\n}\n\nexport interface WishDetail extends WishListItem {\n  /** 匿名星光数（Sprint 2.6，仅详情返回） */\n  anonStarCount: number\n  growthRecords: WishGrowthRecord[]\n  checkinDays: number\n  progress: WishProgress | null\n  enableAiReply?: boolean\n}\n\nexport interface WishCreateResult {\n  id: number\n  title: string\n  status: WishStatus\n  fruitType: FruitType\n  createdAt: string\n}\n\nexport interface MyWishListItem {\n  id: number\n  title: string\n  status: WishStatus\n  fruitType: FruitType\n  progress: number\n  lightCount: number\n  createdAt: string\n}\n\nexport interface Category {\n  id: number\n  code: string\n  name: string\n  icon: string\n  sortOrder: number\n}\n\nexport interface TodayRecommendItem {\n  wishId: number\n  title: string\n  coverUrl: string | null\n  authorNickname: string\n  supportCount: number\n  fruitType: FruitType\n}\n\nexport interface MyWishSummary {\n  wishId: number\n  title: string\n  status: WishStatus\n  progress: number\n  fruitType: FruitType\n}\n\nexport interface HotResonanceItem {\n  wishId: number\n  title: string\n  supportCount: number\n}\n\nexport interface HomeEntries {\n  wishEntry: boolean\n  mapEntry: boolean\n  aiAssistantEntry: boolean\n}\n\nexport interface HomeAggregation {\n  worldTree: unknown\n  todayRecommend: TodayRecommendItem[]\n  myWishes: MyWishSummary[]\n  hotResonance: HotResonanceItem[]\n  entries: HomeEntries\n}\n\nexport interface CursorMeta {\n  pageSize: number\n  nextCursor: string | null\n  hasMore: boolean\n}\n\n// ========== Interaction & Comment Types（Sprint 1.2） ==========\n\nexport type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS' | 'ANON_STAR'\n\nexport interface InteractionResult {\n  id: number\n  type: InteractionType\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  anonStarCount: number\n  starlightCost: number\n}\n\nexport interface InteractionRevokeResult {\n  id: number\n  type: InteractionType\n  revoked: boolean\n}\n\nexport interface InteractionItem {\n  id: number\n  /** 匿名星光记录不透出用户身份（userId/avatar 为 null） */\n  userId: number | null\n  nickname: string\n  avatar: string | null\n  type: InteractionType\n  content: string | null\n  createdAt: string\n}\n\nexport interface MyInteractionItem {\n  id: number\n  type: InteractionType\n  content: string | null\n  createdAt: string\n  createdToday: boolean\n}\n\nexport interface WishCommentItem {\n  id: number\n  wishId: number\n  userId: number\n  nickname: string\n  avatar: string\n  content: string\n  parentId: number | null\n  replyToNickname: string | null\n  createdAt: string\n}\n\nexport interface WishCommentCreateResult {\n  id: number\n  content: string\n  createdAt: string\n}\n\n// ========== API Functions ==========\n\n/** BGM 播放歌曲（公开接口，空列表由播放器回退默认曲） */\nexport interface BgmSong {\n  id: number\n  title: string\n  url: string\n  sort: number\n}\n\n/** 当前 BGM 播放列表（管理端上传+勾选，sort 升序顺序循环） */\nexport function getBgmPlaylist() {\n  return request.get<ApiResponse<BgmSong[]>>('/wish/bgm/playlist')\n}\n\nexport function getHomeAggregation() {\n  return request.get<ApiResponse<HomeAggregation>>('/wish/home')\n}\n\nexport function getCategories() {\n  return request.get<ApiResponse<Category[]>>('/wish/categories')\n}\n\nexport function createWish(data: {\n  title: string\n  description: string\n  mediaUrls?: string[]\n  categoryId: number\n  tags?: string[]\n  visibility?: WishVisibility\n  expectedAt?: string\n  enableAiReply?: boolean\n  triggerEnvEmo?: boolean\n}) {\n  return request.post<ApiResponse<WishCreateResult>>('/wish/wishes', data)\n}\n\nexport function getWishDetail(id: number) {\n  return request.get<ApiResponse<WishDetail>>(`/wish/wishes/${id}`)\n}\n\nexport function updateWish(id: number, data: {\n  title?: string\n  description?: string\n  mediaUrls?: string[]\n  categoryId?: number\n  tags?: string[]\n  visibility?: WishVisibility\n  expectedAt?: string\n  fruitType?: FruitType\n}) {\n  return request.put<ApiResponse<{ id: number; updatedAt: string }>>(`/wish/wishes/${id}`, data)\n}\n\nexport function deleteWish(id: number) {\n  return request.delete<ApiResponse<{ id: number; deletedAt: string }>>(`/wish/wishes/${id}`)\n}\n\nexport function listWishes(params: {\n  categoryId?: number\n  status?: WishStatus\n  keyword?: string\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<WishListItem[]>>('/wish/wishes', { params })\n}\n\nexport function listMyWishes(params: {\n  status?: WishStatus\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<MyWishListItem[]>>('/wish/wishes/my', { params })\n}\n\n// ========== Interaction & Comment API（Sprint 1.2） ==========\n\nexport function createInteraction(wishId: number, data: { type: InteractionType; content?: string }) {\n  return request.post<ApiResponse<InteractionResult>>(`/wish/wishes/${wishId}/interactions`, data)\n}\n\nexport function revokeInteraction(wishId: number, interactionId: number) {\n  return request.delete<ApiResponse<InteractionRevokeResult>>(\n      `/wish/wishes/${wishId}/interactions/${interactionId}`\n  )\n}\n\nexport function listInteractions(wishId: number, params: {\n  type?: InteractionType\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<InteractionItem[]>>(`/wish/wishes/${wishId}/interactions`, { params })\n}\n\nexport function listMyInteractions(wishId: number) {\n  return request.get<ApiResponse<MyInteractionItem[]>>(`/wish/wishes/${wishId}/interactions/my`)\n}\n\nexport function createWishComment(wishId: number, data: { content: string; parentId?: number }) {\n  return request.post<ApiResponse<WishCommentCreateResult>>(`/wish/wishes/${wishId}/comments`, data)\n}\n\nexport function listWishComments(wishId: number, params: {\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<WishCommentItem[]>>(`/wish/wishes/${wishId}/comments`, { params })\n}\n\nexport function deleteWishComment(wishId: number, commentId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/comments/${commentId}`)\n}\n\n// ========== Tree Hole & Consent API（Sprint 1.3） ==========\n\nexport interface AiResource {\n  type: 'ARTICLE' | 'HOTLINE'\n  title: string\n  url: string\n}\n\nexport interface TreeHoleReply {\n  reply: string\n  sentimentScore: number | null\n  resources: AiResource[]\n}\n\nexport interface AiConversationItem {\n  id: number\n  role: 'USER' | 'ASSISTANT'\n  content: string\n  sentimentScore: number | null\n  resources: AiResource[]\n  createdAt: string\n}\n\nexport type ConsentType = 'PRIVACY_POLICY' | 'AI_DATA_PROCESSING' | 'BRAND_DATA_SHARE'\n\nexport interface ConsentStatus {\n  consentType: ConsentType\n  granted: boolean\n  version: string | null\n  latestAction: 'GRANT' | 'WITHDRAW' | null\n  updatedAt: string | null\n}\n\n/** 发送树洞消息并获取 AI 治愈回复（前置：AI 数据处理同意；10 次/日） */\nexport function sendTreeHoleMessage(wishId: number, data: { message: string }) {\n  return request.post<ApiResponse<TreeHoleReply>>(`/wish/ai/tree-hole`, {\n    wishId,\n    message: data.message,\n  })\n}\n\n/** AI 对话历史（cursor 分页，默认 scene=TREE_HOLE） */\nexport function listAiConversations(params?: { scene?: string; cursor?: string; pageSize?: number }) {\n  return request.get<ApiResponse<AiConversationItem[]>>('/wish/ai/conversations', { params })\n}\n\n/** 查询指定类型的同意状态（默认 AI_DATA_PROCESSING） */\nexport function getConsentStatus(consentType: ConsentType = 'AI_DATA_PROCESSING') {\n  return request.get<ApiResponse<ConsentStatus>>('/wish/my/consents', { params: { consentType } })\n}\n\n/** 提交同意/撤回记录（幂等） */\nexport function grantConsent(data: {\n  consentType: ConsentType\n  version: string\n  action?: 'GRANT' | 'WITHDRAW'\n}) {\n  return request.post<ApiResponse<null>>('/wish/my/consents', data)\n}\n\n// ========== 徽章（Sprint 1.9，与 mall-wish BadgeWallItemVO/BadgeDefinitionVO 对齐） ==========\n\nexport type BadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'\n\nexport interface BadgeCondition {\n  type: string\n  threshold: number\n  description: string\n}\n\nexport interface BadgeDefinition {\n  badgeId: number\n  code: string\n  name: string\n  icon: string\n  description: string\n  rarity: BadgeRarity\n  condition: BadgeCondition | null\n}\n\nexport interface BadgeProgress {\n  current: number\n  threshold: number\n  percentage: number\n}\n\nexport interface BadgeWallItem extends BadgeDefinition {\n  earned: boolean\n  earnedAt: string | null\n  progress: BadgeProgress | null\n}\n\n/** 我的徽章墙（登录；已获得在前 + 未获得锁定态含进度） */\nexport function getMyBadges() {\n  return request.get<ApiResponse<BadgeWallItem[]>>('/wish/my/badges')\n}\n\n/** 徽章图鉴（公开；未登录亦可浏览） */\nexport function getBadgeDefinitions() {\n  return request.get<ApiResponse<BadgeDefinition[]>>('/wish/badges/definitions')\n}\n\n// ========== 还愿 API（Sprint 1.10 后端契约，文档 2.4） ==========\n\nexport interface WishFulfillmentSubmitResult {\n  id: number\n  wishId: number\n  status: WishStatus\n  fruitType: FruitType\n  badgeAwarded: { id: number; name: string }[]\n  starlightReward: number\n  createdAt: string\n}\n\nexport interface WishFulfillmentDetail {\n  id: number\n  wishId: number\n  story: string\n  mediaUrls: string[]\n  feeling: string | null\n  authorId: number\n  authorNickname: string\n  authorAvatar: string | null\n  createdAt: string\n}\n\nexport interface SubmitFulfillmentPayload {\n  story: string\n  mediaUrls?: string[]\n  feeling?: string\n}\n\n/** 提交还愿（仅作者 + ACTIVE/OVERDUE；提交即 FULFILLED + BLOOM + 星光奖励） */\nexport function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload) {\n  return request.post<ApiResponse<WishFulfillmentSubmitResult>>(\n      `/wish/wishes/${wishId}/fulfillment`,\n      data,\n  )\n}\n\n/** 还愿详情（公开心愿匿名可见；PRIVATE/TREE_HOLE 仅作者；未还愿 404） */\nexport function getFulfillmentDetail(wishId: number) {\n  return request.get<ApiResponse<WishFulfillmentDetail>>(`/wish/wishes/${wishId}/fulfillment`)\n}\n\n// ========== 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐） ==========\n\nexport type TreeEnvironment = 'SUNNY' | 'RAIN' | 'RAINBOW'\n\nexport type TreeSeason = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'\n\nexport interface WorldTreeAggregation {\n  totalFruits: number\n  totalBloom: number\n  totalLight: number\n  environment: TreeEnvironment\n  season: TreeSeason\n  environmentUpdatedAt: string | null\n}\n\nexport interface TreeFruitPosition {\n  /** 经度角 [0,2π) 弧度 */\n  theta: number\n  /** 纬度角 (0,π] 弧度（0=北极 π=南极） */\n  phi: number\n}\n\nexport interface TreeFruit {\n  id: number\n  title: string\n  fruitType: FruitType\n  authorNickname: string\n  lightCount: number\n  position: TreeFruitPosition\n}\n\nexport interface TreeFruitsQuery {\n  cursor?: string\n  /** 视口过滤（弧度制）：lat→phi [0,π]、lng→theta [0,2π)，四参数需同时提供 */\n  minLat?: number\n  maxLat?: number\n  minLng?: number\n  maxLng?: number\n  pageSize?: number\n}\n\n/** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */\nexport function getWorldTree() {\n  return request.get<ApiResponse<WorldTreeAggregation>>('/wish/tree')\n}\n\n/** 果实分页（公开；id DESC 游标 + bounds 视口过滤，异常 bounds 整组忽略退化全量） */\nexport function listTreeFruits(params: TreeFruitsQuery) {\n  return request.get<ApiResponse<TreeFruit[]>>('/wish/tree/fruits', { params })\n}\n\n// ========== 动态环境（Sprint 2.2，与 mall-wish TreeEnvVO/EnvConfigVO 对齐） ==========\n\nexport type TreeWeather = 'SUNNY' | 'CLOUDY' | 'RAIN' | 'SNOW' | 'RAINBOW'\n\nexport type TreeTimePhase = 'DAY' | 'DUSK' | 'NIGHT' | 'LATE_NIGHT'\n\nexport type TreeEnvParticle =\n    | 'NONE'\n    | 'RAIN'\n    | 'SNOWFLAKE'\n    | 'PETAL'\n    | 'SUNBURST'\n    | 'LEAF'\n    | 'METEOR'\n    | 'AURORA'\n    | 'STAR'\n\n/** 环境视觉参数（后端 wish_env_config.visual 透传 JSON） */\nexport interface TreeEnvVisual {\n  skyColor?: string\n  crownColor?: string\n  lightCoreColor?: string\n  particle?: TreeEnvParticle\n}\n\nexport interface EnvConfigItem {\n  id: number\n  envCode: string\n  category: 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'\n  name: string\n  description: string | null\n  priority: number\n  visual: TreeEnvVisual | null\n  isActive: boolean\n}\n\nexport interface TreeSpecialEvent {\n  id: number\n  eventCode: string\n  title: string\n  description: string | null\n  status: 'ACTIVE' | 'ENDED'\n  triggeredAt: string\n  expiresAt: string | null\n}\n\n/** 五维环境快照：displayEnv 为四端唯一渲染依据 */\nexport interface TreeEnvSnapshot {\n  environment: TreeEnvironment\n  source: string | null\n  triggeredAt: string | null\n  expiresAt: string | null\n  lastScanAt: string | null\n  moodScore: number | null\n  sampleCount: number | null\n  season: TreeSeason\n  weather: TreeWeather\n  timePhase: TreeTimePhase\n  specialEvent: TreeSpecialEvent | null\n  displayEnv: string\n}\n\n/** 环境快照（公开；timePhase 按客户端时区偏移计算，默认取本机时区） */\nexport function getTreeEnv(tzOffsetMinutes: number = -new Date().getTimezoneOffset()) {\n  return request.get<ApiResponse<TreeEnvSnapshot>>('/wish/tree-env', { params: { tzOffsetMinutes } })\n}\n\n/** 环境配置图鉴（公开；priority 降序，visual 为四端透传渲染参数） */\nexport function listEnvConfigs() {\n  return request.get<ApiResponse<EnvConfigItem[]>>('/wish/tree-env/configs')\n}\n\n// ========== Time Capsule（Sprint 2.4） ==========\n\nexport type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'\n\n/** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（防绕过，开启是唯一拆信路径） */\nexport interface CapsuleItem {\n  id: number\n  title: string\n  content: string | null\n  mediaUrls: string[] | null\n  status: CapsuleStatus\n  /** 预定开启时间（UTC，ISO 8601；到期判定唯一依据，跨时区旅行不影响） */\n  openAt: string\n  /** 创建时用户 IANA 时区（回溯展示用，不参与判定） */\n  openAtTimezone: string\n  openedAt: string | null\n  createdAt: string\n}\n\nexport function createCapsule(data: {\n  title: string\n  content: string\n  mediaUrls?: string[]\n  openAt: string\n  openAtTz: string\n}) {\n  return request.post<ApiResponse<CapsuleItem>>('/wish/capsules', data)\n}\n\nexport function listMyCapsules(params: { status?: CapsuleStatus; cursor?: string; pageSize?: number } = {}) {\n  return request.get<ApiResponse<CapsuleItem[]>>('/wish/capsules', { params })\n}\n\nexport function getCapsuleDetail(id: number) {\n  return request.get<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)\n}\n\nexport function openCapsule(id: number) {\n  return request.post<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}/open`)\n}\n\nexport function cancelCapsule(id: number) {\n  return request.delete<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)\n}\n\n/** 时区上报（登录/启动/时区变化时调用；IANA 时区 + UTC 偏移分钟，重复上报幂等） */\nexport function reportMyTimezone(timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone, offsetMinutes: number = -new Date().getTimezoneOffset()) {\n  return request.post<ApiResponse<{ timezone: string; updated: boolean }>>('/wish/my/timezone', { timezone, offsetMinutes })\n}\n\n// ========== AI Assistant（Sprint 2.5，契约对齐 mall-wish AiAssistantController） ==========\n\nexport type AiGoalStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'\n\nexport type ExpectedActionType = 'EXTEND' | 'ADJUST' | 'TO_CAPSULE'\n\nexport type AiPromptSceneFilter = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'\n\n/** AI 拆解步骤项（POST /wish/ai/assistant 响应 goals 元素） */\nexport interface AiBreakdownGoal {\n  title: string\n  description: string\n  estimatedDays: number\n  /** 优先级 1-5，1 最高 */\n  priority: number\n}\n\nexport interface AiBreakdownResult {\n  intent: string\n  goals: AiBreakdownGoal[]\n  suggestion: string\n  /** AI 会话 ID（勾选持久化时回传） */\n  sessionId: string\n}\n\n/** AI 拆解目标（wish_ai_goal 持久化后的列表项） */\nexport interface AiGoal {\n  id: number\n  wishId: number | null\n  title: string\n  description: string\n  estimatedDays: number\n  priority: number\n  status: AiGoalStatus\n  aiSessionId: string | null\n  startedAt: string | null\n  completedAt: string | null\n  createdAt: string\n}\n\n/** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 错误码由组件分发） */\nexport function breakdownGoal(data: { text: string; wishId?: number }) {\n  return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data)\n}\n\n/** 勾选步骤批量持久化（status=PENDING） */\nexport function createAiGoals(data: {\n  sessionId: string\n  wishId?: number\n  goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>\n}) {\n  return request.post<ApiResponse<AiGoal[]>>('/wish/ai/goals', data)\n}\n\n/** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */\nexport function updateAiGoalStatus(goalId: number, status: AiGoalStatus) {\n  return request.put<ApiResponse<AiGoal>>(`/wish/ai/goals/${goalId}`, { status })\n}\n\n/** 我的 AI 目标列表（id 倒序游标分页） */\nexport function listMyAiGoals(params: {\n  status?: AiGoalStatus\n  wishId?: number\n  cursor?: string\n  pageSize?: number\n} = {}) {\n  return request.get<ApiResponse<AiGoal[]>>('/wish/ai/goals', { params })\n}\n\n/** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */\nexport function recordExpectedAction(wishId: number, action: ExpectedActionType) {\n  return request.post<ApiResponse<null>>('/wish/ai/expected-actions', { wishId, action })\n}\n\nexport interface AnnualReportMilestone {\n  date: string\n  title: string\n  description: string\n}\n\nexport interface AnnualReportTopCategory {\n  name: string\n  count: number\n}\n\nexport interface AnnualReportData {\n  year: number\n  fulfilledCount: number\n  totalCheckinDays: number\n  growthSummary: string\n  milestones: AnnualReportMilestone[]\n  topCategories: AnnualReportTopCategory[]\n}\n\n/**\n * 年度报告（growthSummary 异步 AI 生成：首次为模板文案，稍后重查返回 AI 版）；\n * 结果缓存 168h，仅含本人数据\n */\nexport function getAnnualReport(year: number) {\n  return request.get<ApiResponse<AnnualReportData>>('/wish/ai/annual-report', { params: { year } })\n}\n\n// ========== 通知偏好矩阵（Sprint 2.5，契约对齐 mall-wish MyProfileController） ==========\n\nexport type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL' | 'IN_APP'\n\nexport type NotificationType =\n  | 'WISH_COMMENT'\n  | 'WISH_LIGHT'\n  | 'WISH_FULFILL'\n  | 'CAPSULE_OPEN'\n  | 'AI_REMINDER'\n  | 'CHECKIN_REMINDER'\n  | 'MATCH_RECOMMEND'\n  | 'BRAND_REWARD'\n  | 'ENCOUNTER_LETTER'\n  | 'DEVICE_OFFLINE'\n  | 'LEVEL_UP'\n  | 'BADGE_EARNED'\n  | 'SYSTEM'\n\n/** 13 类通知 × 4 渠道开关；无记录项默认开启 */\nexport interface NotificationPreferenceMatrix {\n  preferences: Array<{\n    type: NotificationType\n    channels: Record<NotificationChannel, boolean>\n  }>\n}\n\nexport function getNotificationPreferences() {\n  return request.get<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences')\n}\n\n/** 批量更新偏好（逐项 upsert）；一键关闭所有提醒 = 全类型×全渠道 enabled=false */\nexport function updateNotificationPreferences(\n  updates: Array<{ type: NotificationType; channel: NotificationChannel; enabled: boolean }>,\n) {\n  return request.put<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences', {\n    updates,\n  })\n}\n\n// ========== 同愿匹配 + 监督小队（Sprint 2.6，契约对齐 mall-wish MatchGroupController） ==========\n\nexport type MatchGroupStatus = 'OPEN' | 'FULL' | 'CLOSED'\n\nexport interface MatchRecommendQuery {\n  keyword?: string\n  /** 同城代理码（geohash 前缀 4，可选；不传时服务端取请求者活跃公开心愿） */\n  city?: string\n  cursor?: string\n  pageSize?: number\n}\n\nexport interface MatchGroupItem {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  leaderNickname: string\n  leaderAvatar: string\n  /** 相似度 0-1（关键词/城市/活跃度加权，权重管理端可配） */\n  matchScore: number\n  /** 三端一致的相似度说明（如\"你们都想看极光\"） */\n  matchReason: string\n  status: MatchGroupStatus\n  cityCode: string | null\n  createdAt: string\n}\n\nexport interface MatchGroupCreated {\n  groupId: number\n  keyword: string\n  maxMembers: number\n  status: MatchGroupStatus\n  role: 'LEADER' | 'MEMBER'\n  joinedAt: string\n}\n\nexport interface MatchMemberItem {\n  userId: number\n  nickname: string\n  avatar: string\n  role: 'LEADER' | 'MEMBER'\n  status: 'ACTIVE' | 'LEFT' | 'KICKED'\n  joinedAt: string\n  /** 距最近活跃天数（null=从未活跃；提醒未打卡组员依据） */\n  idleDays: number | null\n}\n\nexport interface MatchGroupDetail {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  status: MatchGroupStatus\n  cityCode: string | null\n  createdAt: string\n  viewerRole: 'LEADER' | 'MEMBER' | null\n  members: MatchMemberItem[]\n}\n\n/** 匹配推荐（公开浏览；keyword/city 皆空时服务端基于心愿标签推荐） */\nexport function recommendMatchGroups(params: MatchRecommendQuery = {}) {\n  return request.get<ApiResponse<MatchGroupItem[]>>('/wish/match/groups/recommend', { params })\n}\n\n/** 建组（创建者为 LEADER；429 建组日限频 / 409 同关键词已有小队 / 403 被踢冷却） */\nexport function createMatchGroup(data: { keyword: string; maxMembers?: number; wishId?: number }) {\n  return request.post<ApiResponse<MatchGroupCreated>>('/wish/match/groups', data)\n}\n\n/** 我的小队（ACTIVE 成员身份；含成员活跃度） */\nexport function listMyMatchGroups() {\n  return request.get<ApiResponse<MatchGroupDetail[]>>('/wish/match/groups/my')\n}\n\n/** 小队详情（成员仅暴露昵称/头像/活跃度） */\nexport function getMatchGroupDetail(groupId: number) {\n  return request.get<ApiResponse<MatchGroupDetail>>(`/wish/match/groups/${groupId}`)\n}\n\n/** 加入小队（409 满员/已是成员/同主题占坑；403 被踢 24h 冷却） */\nexport function joinMatchGroup(groupId: number, message?: string) {\n  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/members`, { message })\n}\n\n/** 退出（target=自己）或踢人（LEADER；被踢者 24h 同主题冷却） */\nexport function leaveMatchGroup(groupId: number, targetUserId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/match/groups/${groupId}/members/${targetUserId}`)\n}\n\n/** 解散小队（仅组长；成员收到通知） */\nexport function dissolveMatchGroup(groupId: number) {\n  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/dissolution`)\n}\n\n/** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */\nexport function remindSquadMembers(groupId: number, targetUserId?: number) {\n  return request.post<ApiResponse<null>>(\n    `/wish/match/groups/${groupId}/reminds`,\n    {},\n    { params: targetUserId ? { targetUserId } : undefined },\n  )\n}\n\n// ========== 排行榜 + 传承（Sprint 2.7，契约对齐 mall-wish LeaderboardController/WishController） ==========\n\nexport type LeaderboardType = 'HOT' | 'WARM' | 'PERSISTENCE' | 'SPARK'\n\nexport const LEADERBOARD_LABELS: Record<LeaderboardType, string> = {\n  HOT: '热门榜',\n  WARM: '温暖榜',\n  PERSISTENCE: '坚持榜',\n  SPARK: '星火榜',\n}\n\nexport interface LeaderboardEntry {\n  rank: number\n  /** 心愿榜为心愿作者；用户榜为本人 */\n  userId: number | null\n  nickname: string\n  avatar: string\n  score: number\n  extra: { wishTitle?: string; checkinDays?: number; helpedCount?: number; lightCount?: number; blessCount?: number }\n  /** 排名变化（三端动效一致依据） */\n  rankDelta: 'UP' | 'DOWN' | 'FLAT' | 'NEW'\n}\n\n/** 排行榜（公开；Redis ZSet 每 10 分钟刷新；同分按创建时间早在前） */\nexport function getLeaderboard(type: LeaderboardType, limit = 100) {\n  return request.get<ApiResponse<LeaderboardEntry[]>>('/wish/leaderboard', { params: { type, limit } })\n}\n\nexport interface InheritResult {\n  inheritId: number\n  pushedCount: number\n  createdAt: string\n}\n\n/** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */\nexport function inheritFulfillment(wishId: number, message?: string) {\n  return request.post<ApiResponse<InheritResult>>(`/wish/wishes/${wishId}/fulfillment/inherit`, { message })\n}\n\n/** 撤回还愿故事（作者软删；心愿保持 FULFILLED；community 帖子同步隐藏） */\nexport function withdrawFulfillment(wishId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/fulfillment`)\n}\n\n// ========== LBS 地图（Sprint 3.1，契约对齐 mall-wish MapController） ==========\n\nexport interface NearbyWish {\n  wishId: number\n  title: string\n  fruitType: string | null\n  /** geohash7 网格中心 + 确定性偏移（0-50m，不含精确坐标——隐私） */\n  approximateLat: number\n  approximateLng: number\n  distance: number\n  lightCount: number\n  geohash: string\n  createdAt: string\n}\n\nexport interface MapCluster {\n  geohash6: string\n  centerLat: number\n  centerLng: number\n  count: number\n}\n\n/** 附近心愿（公开；radius 异常兜底 5km；空坐标 → 服务端默认城市兜底） */\nexport function getMapWishes(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {\n  return request.get<ApiResponse<NearbyWish[]>>('/wish/map/wishes', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      geohash: params.geohash ?? undefined,\n    },\n  })\n}\n\n/** 网格聚合（geohash6 数量角标，坐标=网格中心） */\nexport function getMapClusters(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {\n  return request.get<ApiResponse<MapCluster[]>>('/wish/map/cluster', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      geohash: params.geohash ?? undefined,\n    },\n  })\n}\n\n// ========== 城市幸福地图 + 围栏（Sprint 3.2，契约对齐 mall-wish WarmMapController） ==========\n\nexport interface FenceCheckResult {\n  wishId: number\n  insideFence: boolean\n  fenceName: string | null\n  bloomTriggered: boolean\n  matchedCount: number\n}\n\n/** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */\nexport function checkFence(wishId: number, lat: number, lng: number) {\n  return request.post<ApiResponse<FenceCheckResult>>('/wish/map/fence/check', { wishId, lat, lng })\n}\n\nexport interface WarmEventItem {\n  eventId: number\n  title: string\n  content: string\n  approximateLat: number\n  approximateLng: number\n  distance: number\n  geohash6: string\n  cityCode: string | null\n  nickname: string | null\n  createdAt: string\n}\n\n/** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */\nexport function publishWarmEvent(data: { title: string; content: string; lat: number; lng: number }) {\n  return request.post<ApiResponse<{ eventId: number }>>('/wish/map/warm-events', data)\n}\n\n/** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */\nexport function listWarmEvents(params: { lat?: number; lng?: number; radius?: number; cityCode?: string }) {\n  return request.get<ApiResponse<WarmEventItem[]>>('/wish/map/warm-events', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      cityCode: params.cityCode ?? undefined,\n    },\n  })\n}\n\n// ========== 擦肩而过（Sprint 3.3，契约对齐 mall-wish EncounterController） ==========\n\nexport interface EncounterLetterItem {\n  letterId: number\n  wishTags: string[]\n  encounterTime: string\n  encounterGeohash6: string\n  status: 'PENDING' | 'DELIVERED' | 'READ'\n  /** PENDING 时为 null（契约） */\n  content: string | null\n  deliveredAt: string | null\n}\n\n/** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */\nexport function setNearbyMode(enabled: boolean) {\n  return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })\n}\n\n/** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */\nexport function reportTrace(lat: number, lng: number) {\n  return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })\n}\n\nexport function listEncounterLetters() {\n  return request.get<ApiResponse<EncounterLetterItem[]>>('/wish/map/encounter-letters')\n}\n\n/** 拆信（DELIVERED → READ） */\nexport function readEncounterLetter(letterId: number) {\n  return request.put<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/read`)\n}\n\n/** 匿名互动（BLESS 免费 / LIGHT 扣星光 2 点亮对方心愿；每信笺每日 1 次） */\nexport function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT') {\n  return request.post<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/interactions`, { type })\n}\n\n// ========== 直播心愿挂件（Sprint 3.4，契约对齐 mall-wish LiveWidgetController） ==========\n\nexport interface LiveWidgetData {\n  streamerId: number\n  /** false = 全局降级/主播配置隐藏，前端隐藏挂件 */\n  visible: boolean\n  /** false = 主播无进行中心愿，前端展示\"去许愿\"引导 */\n  hasWish: boolean\n  wishId: number | null\n  title: string | null\n  progressCurrent: number | null\n  progressTarget: number | null\n  progressPercentage: number | null\n  checkinDays: number | null\n  starlightBalance: number | null\n  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'\n  styleConfig: string | null\n}\n\n/** 挂件数据（公开；服务端 Redis 缓存 TTL 10s，前端 10s 轮询） */\nexport function getLiveWidget(streamerId: number) {\n  return request.get<ApiResponse<LiveWidgetData>>(`/wish/live/widget/${streamerId}`)\n}\n\n// ========== 社区活动（Sprint 3.5，契约对齐 mall-wish ActivityController） ==========\n\nexport type ActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'\nexport type ActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'\n\nexport const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {\n  WORLD_EVENT: '世界事件',\n  FESTIVAL: '节日活动',\n  CITY: '城市活动',\n  WISH_PARTNER: '心愿合伙人',\n}\n\nexport interface ActivityItem {\n  id: number\n  type: ActivityType\n  title: string\n  description: string | null\n  coverImage: string | null\n  cityCode: string | null\n  status: ActivityStatus\n  progressCounter: number\n  createdAt: string\n}\n\nexport interface ActivityBoardMember {\n  userId: number\n  role: string\n  title: string | null\n  progressPercentage: number\n  checkinDays: number\n  latestGrowth: string | null\n  latestGrowthAt: string | null\n}\n\n/** 活动列表（仅 ACTIVE 且展示期内；归档不出现在列表） */\nexport function listActivities(params: { type?: string; cityCode?: string } = {}) {\n  return request.get<ApiResponse<ActivityItem[]>>('/wish/activities', {\n    params: { type: params.type ?? undefined, cityCode: params.cityCode ?? undefined },\n  })\n}\n\n/** 活动详情（归档后仍可访问） */\nexport function getActivity(id: number) {\n  return request.get<ApiResponse<ActivityItem>>(`/wish/activities/${id}`)\n}\n\nexport function getActivityProgress(id: number) {\n  return request.get<ApiResponse<number>>(`/wish/activities/${id}/progress`)\n}\n\nexport function joinActivity(id: number) {\n  return request.post<ApiResponse<null>>(`/wish/activities/${id}/join`)\n}\n\n/** 合伙人申请（提交协作心愿 + 技能标签） */\nexport function applyPartner(id: number, wishId: number, skills?: string[]) {\n  return request.post<ApiResponse<null>>(`/wish/activities/${id}/apply`, { wishId, skills })\n}\n\nexport function reviewPartnerApplication(id: number, applicantUserId: number, approved: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/wish/activities/${id}/participants/${applicantUserId}/review`,\n    { approved },\n  )\n}\n\nexport interface BoardMember {\n  userId: number\n  role: string\n  title: string | null\n  progressPercentage: number\n  checkinDays: number\n  latestGrowth: string | null\n  latestGrowthAt: string | null\n}\n\nexport function getPartnerBoard(id: number) {\n  return request.get<ApiResponse<{ activityId: number; leaderUserId: number; members: BoardMember[] }>>(\n    `/wish/activities/${id}/board`,\n  )\n}\n"
+      "__content": "import request from '@/utils/request'\nimport type { ApiResponse } from '@/types/api'\n\n// ========== Types ==========\n\nexport type WishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'\nexport type WishStatus = 'DRAFT' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED'\nexport type FruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'\nexport type AuditStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\n\nexport interface WishListItem {\n  id: number\n  title: string\n  description: string\n  mediaUrls: string[]\n  categoryId: number\n  categoryName: string\n  tags: string[]\n  visibility: WishVisibility\n  status: WishStatus\n  fruitType: FruitType\n  authorId: number\n  authorNickname: string\n  authorAvatar: string\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  supportCount: number\n  commentCount: number\n  expectedAt: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface WishGrowthRecord {\n  id: number\n  type: string\n  content: string\n  mediaUrls: string[]\n  progressDelta: number\n  createdAt: string\n}\n\nexport interface WishProgress {\n  currentValue: number\n  targetValue: number\n  percentage: number\n  version: number\n}\n\nexport interface WishDetail extends WishListItem {\n  /** 匿名星光数（Sprint 2.6，仅详情返回） */\n  anonStarCount: number\n  growthRecords: WishGrowthRecord[]\n  checkinDays: number\n  progress: WishProgress | null\n  enableAiReply?: boolean\n}\n\nexport interface WishCreateResult {\n  id: number\n  title: string\n  status: WishStatus\n  fruitType: FruitType\n  createdAt: string\n}\n\nexport interface MyWishListItem {\n  id: number\n  title: string\n  status: WishStatus\n  fruitType: FruitType\n  progress: number\n  lightCount: number\n  createdAt: string\n}\n\nexport interface Category {\n  id: number\n  code: string\n  name: string\n  icon: string\n  sortOrder: number\n}\n\nexport interface TodayRecommendItem {\n  wishId: number\n  title: string\n  coverUrl: string | null\n  authorNickname: string\n  supportCount: number\n  fruitType: FruitType\n}\n\nexport interface MyWishSummary {\n  wishId: number\n  title: string\n  status: WishStatus\n  progress: number\n  fruitType: FruitType\n}\n\nexport interface HotResonanceItem {\n  wishId: number\n  title: string\n  supportCount: number\n}\n\nexport interface HomeEntries {\n  wishEntry: boolean\n  mapEntry: boolean\n  aiAssistantEntry: boolean\n}\n\nexport interface HomeAggregation {\n  worldTree: unknown\n  todayRecommend: TodayRecommendItem[]\n  myWishes: MyWishSummary[]\n  hotResonance: HotResonanceItem[]\n  entries: HomeEntries\n}\n\nexport interface CursorMeta {\n  pageSize: number\n  nextCursor: string | null\n  hasMore: boolean\n}\n\n// ========== Interaction & Comment Types（Sprint 1.2） ==========\n\nexport type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS' | 'ANON_STAR'\n\nexport interface InteractionResult {\n  id: number\n  type: InteractionType\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  anonStarCount: number\n  starlightCost: number\n}\n\nexport interface InteractionRevokeResult {\n  id: number\n  type: InteractionType\n  revoked: boolean\n}\n\nexport interface InteractionItem {\n  id: number\n  /** 匿名星光记录不透出用户身份（userId/avatar 为 null） */\n  userId: number | null\n  nickname: string\n  avatar: string | null\n  type: InteractionType\n  content: string | null\n  createdAt: string\n}\n\nexport interface MyInteractionItem {\n  id: number\n  type: InteractionType\n  content: string | null\n  createdAt: string\n  createdToday: boolean\n}\n\nexport interface WishCommentItem {\n  id: number\n  wishId: number\n  userId: number\n  nickname: string\n  avatar: string\n  content: string\n  parentId: number | null\n  replyToNickname: string | null\n  createdAt: string\n}\n\nexport interface WishCommentCreateResult {\n  id: number\n  content: string\n  createdAt: string\n}\n\n// ========== API Functions ==========\n\n/** BGM 播放歌曲（公开接口，空列表由播放器回退默认曲） */\nexport interface BgmSong {\n  id: number\n  title: string\n  url: string\n  sort: number\n}\n\n/** 当前 BGM 播放列表（管理端上传+勾选，sort 升序顺序循环） */\nexport function getBgmPlaylist() {\n  return request.get<ApiResponse<BgmSong[]>>('/wish/bgm/playlist')\n}\n\nexport function getHomeAggregation() {\n  return request.get<ApiResponse<HomeAggregation>>('/wish/home')\n}\n\nexport function getCategories() {\n  return request.get<ApiResponse<Category[]>>('/wish/categories')\n}\n\nexport function createWish(data: {\n  title: string\n  description: string\n  mediaUrls?: string[]\n  categoryId: number\n  tags?: string[]\n  visibility?: WishVisibility\n  expectedAt?: string\n  enableAiReply?: boolean\n  triggerEnvEmo?: boolean\n}) {\n  return request.post<ApiResponse<WishCreateResult>>('/wish/wishes', data)\n}\n\nexport function getWishDetail(id: number) {\n  return request.get<ApiResponse<WishDetail>>(`/wish/wishes/${id}`)\n}\n\nexport function updateWish(id: number, data: {\n  title?: string\n  description?: string\n  mediaUrls?: string[]\n  categoryId?: number\n  tags?: string[]\n  visibility?: WishVisibility\n  expectedAt?: string\n  fruitType?: FruitType\n}) {\n  return request.put<ApiResponse<{ id: number; updatedAt: string }>>(`/wish/wishes/${id}`, data)\n}\n\nexport function deleteWish(id: number) {\n  return request.delete<ApiResponse<{ id: number; deletedAt: string }>>(`/wish/wishes/${id}`)\n}\n\nexport function listWishes(params: {\n  categoryId?: number\n  status?: WishStatus\n  keyword?: string\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<WishListItem[]>>('/wish/wishes', { params })\n}\n\nexport function listMyWishes(params: {\n  status?: WishStatus\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<MyWishListItem[]>>('/wish/wishes/my', { params })\n}\n\n// ========== Interaction & Comment API（Sprint 1.2） ==========\n\nexport function createInteraction(wishId: number, data: { type: InteractionType; content?: string }) {\n  return request.post<ApiResponse<InteractionResult>>(`/wish/wishes/${wishId}/interactions`, data)\n}\n\nexport function revokeInteraction(wishId: number, interactionId: number) {\n  return request.delete<ApiResponse<InteractionRevokeResult>>(\n      `/wish/wishes/${wishId}/interactions/${interactionId}`\n  )\n}\n\nexport function listInteractions(wishId: number, params: {\n  type?: InteractionType\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<InteractionItem[]>>(`/wish/wishes/${wishId}/interactions`, { params })\n}\n\nexport function listMyInteractions(wishId: number) {\n  return request.get<ApiResponse<MyInteractionItem[]>>(`/wish/wishes/${wishId}/interactions/my`)\n}\n\nexport function createWishComment(wishId: number, data: { content: string; parentId?: number }) {\n  return request.post<ApiResponse<WishCommentCreateResult>>(`/wish/wishes/${wishId}/comments`, data)\n}\n\nexport function listWishComments(wishId: number, params: {\n  cursor?: string\n  pageSize?: number\n}) {\n  return request.get<ApiResponse<WishCommentItem[]>>(`/wish/wishes/${wishId}/comments`, { params })\n}\n\nexport function deleteWishComment(wishId: number, commentId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/comments/${commentId}`)\n}\n\n// ========== Tree Hole & Consent API（Sprint 1.3） ==========\n\nexport interface AiResource {\n  type: 'ARTICLE' | 'HOTLINE'\n  title: string\n  url: string\n}\n\nexport interface TreeHoleReply {\n  reply: string\n  sentimentScore: number | null\n  resources: AiResource[]\n}\n\nexport interface AiConversationItem {\n  id: number\n  role: 'USER' | 'ASSISTANT'\n  content: string\n  sentimentScore: number | null\n  resources: AiResource[]\n  createdAt: string\n}\n\nexport type ConsentType = 'PRIVACY_POLICY' | 'AI_DATA_PROCESSING' | 'BRAND_DATA_SHARE'\n\nexport interface ConsentStatus {\n  consentType: ConsentType\n  granted: boolean\n  version: string | null\n  latestAction: 'GRANT' | 'WITHDRAW' | null\n  updatedAt: string | null\n}\n\n/** 发送树洞消息并获取 AI 治愈回复（前置：AI 数据处理同意；10 次/日） */\nexport function sendTreeHoleMessage(wishId: number, data: { message: string }) {\n  return request.post<ApiResponse<TreeHoleReply>>(`/wish/ai/tree-hole`, {\n    wishId,\n    message: data.message,\n  })\n}\n\n/** AI 对话历史（cursor 分页，默认 scene=TREE_HOLE） */\nexport function listAiConversations(params?: { scene?: string; cursor?: string; pageSize?: number }) {\n  return request.get<ApiResponse<AiConversationItem[]>>('/wish/ai/conversations', { params })\n}\n\n/** 查询指定类型的同意状态（默认 AI_DATA_PROCESSING） */\nexport function getConsentStatus(consentType: ConsentType = 'AI_DATA_PROCESSING') {\n  return request.get<ApiResponse<ConsentStatus>>('/wish/my/consents', { params: { consentType } })\n}\n\n/** 提交同意/撤回记录（幂等） */\nexport function grantConsent(data: {\n  consentType: ConsentType\n  version: string\n  action?: 'GRANT' | 'WITHDRAW'\n}) {\n  return request.post<ApiResponse<null>>('/wish/my/consents', data)\n}\n\n// ========== 徽章（Sprint 1.9，与 mall-wish BadgeWallItemVO/BadgeDefinitionVO 对齐） ==========\n\nexport type BadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'\n\nexport interface BadgeCondition {\n  type: string\n  threshold: number\n  description: string\n}\n\nexport interface BadgeDefinition {\n  badgeId: number\n  code: string\n  name: string\n  icon: string\n  description: string\n  rarity: BadgeRarity\n  condition: BadgeCondition | null\n}\n\nexport interface BadgeProgress {\n  current: number\n  threshold: number\n  percentage: number\n}\n\nexport interface BadgeWallItem extends BadgeDefinition {\n  earned: boolean\n  earnedAt: string | null\n  progress: BadgeProgress | null\n}\n\n/** 我的徽章墙（登录；已获得在前 + 未获得锁定态含进度） */\nexport function getMyBadges() {\n  return request.get<ApiResponse<BadgeWallItem[]>>('/wish/my/badges')\n}\n\n/** 徽章图鉴（公开；未登录亦可浏览） */\nexport function getBadgeDefinitions() {\n  return request.get<ApiResponse<BadgeDefinition[]>>('/wish/badges/definitions')\n}\n\n// ========== 还愿 API（Sprint 1.10 后端契约，文档 2.4） ==========\n\nexport interface WishFulfillmentSubmitResult {\n  id: number\n  wishId: number\n  status: WishStatus\n  fruitType: FruitType\n  badgeAwarded: { id: number; name: string }[]\n  starlightReward: number\n  createdAt: string\n}\n\nexport interface WishFulfillmentDetail {\n  id: number\n  wishId: number\n  story: string\n  mediaUrls: string[]\n  feeling: string | null\n  authorId: number\n  authorNickname: string\n  authorAvatar: string | null\n  createdAt: string\n}\n\nexport interface SubmitFulfillmentPayload {\n  story: string\n  mediaUrls?: string[]\n  feeling?: string\n}\n\n/** 提交还愿（仅作者 + ACTIVE/OVERDUE；提交即 FULFILLED + BLOOM + 星光奖励） */\nexport function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload) {\n  return request.post<ApiResponse<WishFulfillmentSubmitResult>>(\n      `/wish/wishes/${wishId}/fulfillment`,\n      data,\n  )\n}\n\n/** 还愿详情（公开心愿匿名可见；PRIVATE/TREE_HOLE 仅作者；未还愿 404） */\nexport function getFulfillmentDetail(wishId: number) {\n  return request.get<ApiResponse<WishFulfillmentDetail>>(`/wish/wishes/${wishId}/fulfillment`)\n}\n\n// ========== 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐） ==========\n\nexport type TreeEnvironment = 'SUNNY' | 'RAIN' | 'RAINBOW'\n\nexport type TreeSeason = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'\n\nexport interface WorldTreeAggregation {\n  totalFruits: number\n  totalBloom: number\n  totalLight: number\n  environment: TreeEnvironment\n  season: TreeSeason\n  environmentUpdatedAt: string | null\n}\n\nexport interface TreeFruitPosition {\n  /** 经度角 [0,2π) 弧度 */\n  theta: number\n  /** 纬度角 (0,π] 弧度（0=北极 π=南极） */\n  phi: number\n}\n\nexport interface TreeFruit {\n  id: number\n  title: string\n  fruitType: FruitType\n  authorNickname: string\n  lightCount: number\n  position: TreeFruitPosition\n}\n\nexport interface TreeFruitsQuery {\n  cursor?: string\n  /** 视口过滤（弧度制）：lat→phi [0,π]、lng→theta [0,2π)，四参数需同时提供 */\n  minLat?: number\n  maxLat?: number\n  minLng?: number\n  maxLng?: number\n  pageSize?: number\n}\n\n/** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */\nexport function getWorldTree() {\n  return request.get<ApiResponse<WorldTreeAggregation>>('/wish/tree')\n}\n\n/** 果实分页（公开；id DESC 游标 + bounds 视口过滤，异常 bounds 整组忽略退化全量） */\nexport function listTreeFruits(params: TreeFruitsQuery) {\n  return request.get<ApiResponse<TreeFruit[]>>('/wish/tree/fruits', { params })\n}\n\n// ========== 动态环境（Sprint 2.2，与 mall-wish TreeEnvVO/EnvConfigVO 对齐） ==========\n\nexport type TreeWeather = 'SUNNY' | 'CLOUDY' | 'RAIN' | 'SNOW' | 'RAINBOW'\n\nexport type TreeTimePhase = 'DAY' | 'DUSK' | 'NIGHT' | 'LATE_NIGHT'\n\nexport type TreeEnvParticle =\n    | 'NONE'\n    | 'RAIN'\n    | 'SNOWFLAKE'\n    | 'PETAL'\n    | 'SUNBURST'\n    | 'LEAF'\n    | 'METEOR'\n    | 'AURORA'\n    | 'STAR'\n\n/** 环境视觉参数（后端 wish_env_config.visual 透传 JSON） */\nexport interface TreeEnvVisual {\n  skyColor?: string\n  crownColor?: string\n  lightCoreColor?: string\n  particle?: TreeEnvParticle\n}\n\nexport interface EnvConfigItem {\n  id: number\n  envCode: string\n  category: 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'\n  name: string\n  description: string | null\n  priority: number\n  visual: TreeEnvVisual | null\n  isActive: boolean\n}\n\nexport interface TreeSpecialEvent {\n  id: number\n  eventCode: string\n  title: string\n  description: string | null\n  status: 'ACTIVE' | 'ENDED'\n  triggeredAt: string\n  expiresAt: string | null\n}\n\n/** 五维环境快照：displayEnv 为四端唯一渲染依据 */\nexport interface TreeEnvSnapshot {\n  environment: TreeEnvironment\n  source: string | null\n  triggeredAt: string | null\n  expiresAt: string | null\n  lastScanAt: string | null\n  moodScore: number | null\n  sampleCount: number | null\n  season: TreeSeason\n  weather: TreeWeather\n  timePhase: TreeTimePhase\n  specialEvent: TreeSpecialEvent | null\n  displayEnv: string\n}\n\n/** 环境快照（公开；timePhase 按客户端时区偏移计算，默认取本机时区） */\nexport function getTreeEnv(tzOffsetMinutes: number = -new Date().getTimezoneOffset()) {\n  return request.get<ApiResponse<TreeEnvSnapshot>>('/wish/tree-env', { params: { tzOffsetMinutes } })\n}\n\n/** 环境配置图鉴（公开；priority 降序，visual 为四端透传渲染参数） */\nexport function listEnvConfigs() {\n  return request.get<ApiResponse<EnvConfigItem[]>>('/wish/tree-env/configs')\n}\n\n// ========== Time Capsule（Sprint 2.4） ==========\n\nexport type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'\n\n/** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（防绕过，开启是唯一拆信路径） */\nexport interface CapsuleItem {\n  id: number\n  title: string\n  content: string | null\n  mediaUrls: string[] | null\n  status: CapsuleStatus\n  /** 预定开启时间（UTC，ISO 8601；到期判定唯一依据，跨时区旅行不影响） */\n  openAt: string\n  /** 创建时用户 IANA 时区（回溯展示用，不参与判定） */\n  openAtTimezone: string\n  openedAt: string | null\n  createdAt: string\n}\n\nexport function createCapsule(data: {\n  title: string\n  content: string\n  mediaUrls?: string[]\n  openAt: string\n  openAtTz: string\n}) {\n  return request.post<ApiResponse<CapsuleItem>>('/wish/capsules', data)\n}\n\nexport function listMyCapsules(params: { status?: CapsuleStatus; cursor?: string; pageSize?: number } = {}) {\n  return request.get<ApiResponse<CapsuleItem[]>>('/wish/capsules', { params })\n}\n\nexport function getCapsuleDetail(id: number) {\n  return request.get<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)\n}\n\nexport function openCapsule(id: number) {\n  return request.post<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}/open`)\n}\n\nexport function cancelCapsule(id: number) {\n  return request.delete<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)\n}\n\n/** 时区上报（登录/启动/时区变化时调用；IANA 时区 + UTC 偏移分钟，重复上报幂等） */\nexport function reportMyTimezone(timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone, offsetMinutes: number = -new Date().getTimezoneOffset()) {\n  return request.post<ApiResponse<{ timezone: string; updated: boolean }>>('/wish/my/timezone', { timezone, offsetMinutes })\n}\n\n// ========== AI Assistant（Sprint 2.5，契约对齐 mall-wish AiAssistantController） ==========\n\nexport type AiGoalStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'\n\nexport type ExpectedActionType = 'EXTEND' | 'ADJUST' | 'TO_CAPSULE'\n\nexport type AiPromptSceneFilter = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'\n\n/** AI 拆解步骤项（POST /wish/ai/assistant 响应 goals 元素） */\nexport interface AiBreakdownGoal {\n  title: string\n  description: string\n  estimatedDays: number\n  /** 优先级 1-5，1 最高 */\n  priority: number\n}\n\nexport interface AiBreakdownResult {\n  intent: string\n  goals: AiBreakdownGoal[]\n  suggestion: string\n  /** AI 会话 ID（勾选持久化时回传） */\n  sessionId: string\n}\n\n/** AI 拆解目标（wish_ai_goal 持久化后的列表项） */\nexport interface AiGoal {\n  id: number\n  wishId: number | null\n  title: string\n  description: string\n  estimatedDays: number\n  priority: number\n  status: AiGoalStatus\n  aiSessionId: string | null\n  startedAt: string | null\n  completedAt: string | null\n  createdAt: string\n}\n\n/** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 错误码由组件分发） */\nexport function breakdownGoal(data: { text: string; wishId?: number }) {\n  return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data)\n}\n\n/** 勾选步骤批量持久化（status=PENDING） */\nexport function createAiGoals(data: {\n  sessionId: string\n  wishId?: number\n  goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>\n}) {\n  return request.post<ApiResponse<AiGoal[]>>('/wish/ai/goals', data)\n}\n\n/** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */\nexport function updateAiGoalStatus(goalId: number, status: AiGoalStatus) {\n  return request.put<ApiResponse<AiGoal>>(`/wish/ai/goals/${goalId}`, { status })\n}\n\n/** 我的 AI 目标列表（id 倒序游标分页） */\nexport function listMyAiGoals(params: {\n  status?: AiGoalStatus\n  wishId?: number\n  cursor?: string\n  pageSize?: number\n} = {}) {\n  return request.get<ApiResponse<AiGoal[]>>('/wish/ai/goals', { params })\n}\n\n/** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */\nexport function recordExpectedAction(wishId: number, action: ExpectedActionType) {\n  return request.post<ApiResponse<null>>('/wish/ai/expected-actions', { wishId, action })\n}\n\nexport interface AnnualReportMilestone {\n  date: string\n  title: string\n  description: string\n}\n\nexport interface AnnualReportTopCategory {\n  name: string\n  count: number\n}\n\nexport interface AnnualReportData {\n  year: number\n  fulfilledCount: number\n  totalCheckinDays: number\n  growthSummary: string\n  milestones: AnnualReportMilestone[]\n  topCategories: AnnualReportTopCategory[]\n}\n\n/**\n * 年度报告（growthSummary 异步 AI 生成：首次为模板文案，稍后重查返回 AI 版）；\n * 结果缓存 168h，仅含本人数据\n */\nexport function getAnnualReport(year: number) {\n  return request.get<ApiResponse<AnnualReportData>>('/wish/ai/annual-report', { params: { year } })\n}\n\n// ========== 通知偏好矩阵（Sprint 2.5，契约对齐 mall-wish MyProfileController） ==========\n\nexport type NotificationChannel = 'PUSH' | 'SMS' | 'EMAIL' | 'IN_APP'\n\nexport type NotificationType =\n  | 'WISH_COMMENT'\n  | 'WISH_LIGHT'\n  | 'WISH_FULFILL'\n  | 'CAPSULE_OPEN'\n  | 'AI_REMINDER'\n  | 'CHECKIN_REMINDER'\n  | 'MATCH_RECOMMEND'\n  | 'BRAND_REWARD'\n  | 'ENCOUNTER_LETTER'\n  | 'DEVICE_OFFLINE'\n  | 'LEVEL_UP'\n  | 'BADGE_EARNED'\n  | 'SYSTEM'\n\n/** 13 类通知 × 4 渠道开关；无记录项默认开启 */\nexport interface NotificationPreferenceMatrix {\n  preferences: Array<{\n    type: NotificationType\n    channels: Record<NotificationChannel, boolean>\n  }>\n}\n\nexport function getNotificationPreferences() {\n  return request.get<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences')\n}\n\n/** 批量更新偏好（逐项 upsert）；一键关闭所有提醒 = 全类型×全渠道 enabled=false */\nexport function updateNotificationPreferences(\n  updates: Array<{ type: NotificationType; channel: NotificationChannel; enabled: boolean }>,\n) {\n  return request.put<ApiResponse<NotificationPreferenceMatrix>>('/wish/my/notification-preferences', {\n    updates,\n  })\n}\n\n// ========== 同愿匹配 + 监督小队（Sprint 2.6，契约对齐 mall-wish MatchGroupController） ==========\n\nexport type MatchGroupStatus = 'OPEN' | 'FULL' | 'CLOSED'\n\nexport interface MatchRecommendQuery {\n  keyword?: string\n  /** 同城代理码（geohash 前缀 4，可选；不传时服务端取请求者活跃公开心愿） */\n  city?: string\n  cursor?: string\n  pageSize?: number\n}\n\nexport interface MatchGroupItem {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  leaderNickname: string\n  leaderAvatar: string\n  /** 相似度 0-1（关键词/城市/活跃度加权，权重管理端可配） */\n  matchScore: number\n  /** 三端一致的相似度说明（如\"你们都想看极光\"） */\n  matchReason: string\n  status: MatchGroupStatus\n  cityCode: string | null\n  createdAt: string\n}\n\nexport interface MatchGroupCreated {\n  groupId: number\n  keyword: string\n  maxMembers: number\n  status: MatchGroupStatus\n  role: 'LEADER' | 'MEMBER'\n  joinedAt: string\n}\n\nexport interface MatchMemberItem {\n  userId: number\n  nickname: string\n  avatar: string\n  role: 'LEADER' | 'MEMBER'\n  status: 'ACTIVE' | 'LEFT' | 'KICKED'\n  joinedAt: string\n  /** 距最近活跃天数（null=从未活跃；提醒未打卡组员依据） */\n  idleDays: number | null\n}\n\nexport interface MatchGroupDetail {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  status: MatchGroupStatus\n  cityCode: string | null\n  createdAt: string\n  viewerRole: 'LEADER' | 'MEMBER' | null\n  members: MatchMemberItem[]\n}\n\n/** 匹配推荐（公开浏览；keyword/city 皆空时服务端基于心愿标签推荐） */\nexport function recommendMatchGroups(params: MatchRecommendQuery = {}) {\n  return request.get<ApiResponse<MatchGroupItem[]>>('/wish/match/groups/recommend', { params })\n}\n\n/** 建组（创建者为 LEADER；429 建组日限频 / 409 同关键词已有小队 / 403 被踢冷却） */\nexport function createMatchGroup(data: { keyword: string; maxMembers?: number; wishId?: number }) {\n  return request.post<ApiResponse<MatchGroupCreated>>('/wish/match/groups', data)\n}\n\n/** 我的小队（ACTIVE 成员身份；含成员活跃度） */\nexport function listMyMatchGroups() {\n  return request.get<ApiResponse<MatchGroupDetail[]>>('/wish/match/groups/my')\n}\n\n/** 小队详情（成员仅暴露昵称/头像/活跃度） */\nexport function getMatchGroupDetail(groupId: number) {\n  return request.get<ApiResponse<MatchGroupDetail>>(`/wish/match/groups/${groupId}`)\n}\n\n/** 加入小队（409 满员/已是成员/同主题占坑；403 被踢 24h 冷却） */\nexport function joinMatchGroup(groupId: number, message?: string) {\n  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/members`, { message })\n}\n\n/** 退出（target=自己）或踢人（LEADER；被踢者 24h 同主题冷却） */\nexport function leaveMatchGroup(groupId: number, targetUserId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/match/groups/${groupId}/members/${targetUserId}`)\n}\n\n/** 解散小队（仅组长；成员收到通知） */\nexport function dissolveMatchGroup(groupId: number) {\n  return request.post<ApiResponse<null>>(`/wish/match/groups/${groupId}/dissolution`)\n}\n\n/** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */\nexport function remindSquadMembers(groupId: number, targetUserId?: number) {\n  return request.post<ApiResponse<null>>(\n    `/wish/match/groups/${groupId}/reminds`,\n    {},\n    { params: targetUserId ? { targetUserId } : undefined },\n  )\n}\n\n// ========== 排行榜 + 传承（Sprint 2.7，契约对齐 mall-wish LeaderboardController/WishController） ==========\n\nexport type LeaderboardType = 'HOT' | 'WARM' | 'PERSISTENCE' | 'SPARK'\n\nexport const LEADERBOARD_LABELS: Record<LeaderboardType, string> = {\n  HOT: '热门榜',\n  WARM: '温暖榜',\n  PERSISTENCE: '坚持榜',\n  SPARK: '星火榜',\n}\n\nexport interface LeaderboardEntry {\n  rank: number\n  /** 心愿榜为心愿作者；用户榜为本人 */\n  userId: number | null\n  nickname: string\n  avatar: string\n  score: number\n  extra: { wishTitle?: string; checkinDays?: number; helpedCount?: number; lightCount?: number; blessCount?: number }\n  /** 排名变化（三端动效一致依据） */\n  rankDelta: 'UP' | 'DOWN' | 'FLAT' | 'NEW'\n}\n\n/** 排行榜（公开；Redis ZSet 每 10 分钟刷新；同分按创建时间早在前） */\nexport function getLeaderboard(type: LeaderboardType, limit = 100) {\n  return request.get<ApiResponse<LeaderboardEntry[]>>('/wish/leaderboard', { params: { type, limit } })\n}\n\nexport interface InheritResult {\n  inheritId: number\n  pushedCount: number\n  createdAt: string\n}\n\n/** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */\nexport function inheritFulfillment(wishId: number, message?: string) {\n  return request.post<ApiResponse<InheritResult>>(`/wish/wishes/${wishId}/fulfillment/inherit`, { message })\n}\n\n/** 撤回还愿故事（作者软删；心愿保持 FULFILLED；community 帖子同步隐藏） */\nexport function withdrawFulfillment(wishId: number) {\n  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/fulfillment`)\n}\n\n// ========== LBS 地图（Sprint 3.1，契约对齐 mall-wish MapController） ==========\n\nexport interface NearbyWish {\n  wishId: number\n  title: string\n  fruitType: string | null\n  /** geohash7 网格中心 + 确定性偏移（0-50m，不含精确坐标——隐私） */\n  approximateLat: number\n  approximateLng: number\n  distance: number\n  lightCount: number\n  geohash: string\n  createdAt: string\n}\n\nexport interface MapCluster {\n  geohash6: string\n  centerLat: number\n  centerLng: number\n  count: number\n}\n\n/** 附近心愿（公开；radius 异常兜底 5km；空坐标 → 服务端默认城市兜底） */\nexport function getMapWishes(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {\n  return request.get<ApiResponse<NearbyWish[]>>('/wish/map/wishes', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      geohash: params.geohash ?? undefined,\n    },\n  })\n}\n\n/** 网格聚合（geohash6 数量角标，坐标=网格中心） */\nexport function getMapClusters(params: { lat?: number; lng?: number; radius?: number; geohash?: string }) {\n  return request.get<ApiResponse<MapCluster[]>>('/wish/map/cluster', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      geohash: params.geohash ?? undefined,\n    },\n  })\n}\n\n// ========== 城市幸福地图 + 围栏（Sprint 3.2，契约对齐 mall-wish WarmMapController） ==========\n\nexport interface FenceCheckResult {\n  wishId: number\n  insideFence: boolean\n  fenceName: string | null\n  bloomTriggered: boolean\n  matchedCount: number\n}\n\n/** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */\nexport function checkFence(wishId: number, lat: number, lng: number) {\n  return request.post<ApiResponse<FenceCheckResult>>('/wish/map/fence/check', { wishId, lat, lng })\n}\n\nexport interface WarmEventItem {\n  eventId: number\n  title: string\n  content: string\n  approximateLat: number\n  approximateLng: number\n  distance: number\n  geohash6: string\n  cityCode: string | null\n  nickname: string | null\n  createdAt: string\n}\n\n/** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */\nexport function publishWarmEvent(data: { title: string; content: string; lat: number; lng: number }) {\n  return request.post<ApiResponse<{ eventId: number }>>('/wish/map/warm-events', data)\n}\n\n/** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */\nexport function listWarmEvents(params: { lat?: number; lng?: number; radius?: number; cityCode?: string }) {\n  return request.get<ApiResponse<WarmEventItem[]>>('/wish/map/warm-events', {\n    params: {\n      lat: params.lat ?? undefined,\n      lng: params.lng ?? undefined,\n      radius: params.radius ?? undefined,\n      cityCode: params.cityCode ?? undefined,\n    },\n  })\n}\n\n// ========== 擦肩而过（Sprint 3.3，契约对齐 mall-wish EncounterController） ==========\n\nexport interface EncounterLetterItem {\n  letterId: number\n  wishTags: string[]\n  encounterTime: string\n  encounterGeohash6: string\n  status: 'PENDING' | 'DELIVERED' | 'READ'\n  /** PENDING 时为 null（契约） */\n  content: string | null\n  deliveredAt: string | null\n}\n\n/** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */\nexport function setNearbyMode(enabled: boolean) {\n  return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })\n}\n\n/** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */\nexport function reportTrace(lat: number, lng: number) {\n  return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })\n}\n\nexport function listEncounterLetters() {\n  return request.get<ApiResponse<EncounterLetterItem[]>>('/wish/map/encounter-letters')\n}\n\n/** 拆信（DELIVERED → READ） */\nexport function readEncounterLetter(letterId: number) {\n  return request.put<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/read`)\n}\n\n/** 匿名互动（BLESS 免费 / LIGHT 扣星光 2 点亮对方心愿；每信笺每日 1 次） */\nexport function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT') {\n  return request.post<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/interactions`, { type })\n}\n\n// ========== 直播心愿挂件（Sprint 3.4，契约对齐 mall-wish LiveWidgetController） ==========\n\nexport interface LiveWidgetData {\n  streamerId: number\n  /** false = 全局降级/主播配置隐藏，前端隐藏挂件 */\n  visible: boolean\n  /** false = 主播无进行中心愿，前端展示\"去许愿\"引导 */\n  hasWish: boolean\n  wishId: number | null\n  title: string | null\n  progressCurrent: number | null\n  progressTarget: number | null\n  progressPercentage: number | null\n  checkinDays: number | null\n  starlightBalance: number | null\n  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'\n  styleConfig: string | null\n}\n\n/** 挂件数据（公开；服务端 Redis 缓存 TTL 10s，前端 10s 轮询） */\nexport function getLiveWidget(streamerId: number) {\n  return request.get<ApiResponse<LiveWidgetData>>(`/wish/live/widget/${streamerId}`)\n}\n\n// ========== 社区活动（Sprint 3.5，契约对齐 mall-wish ActivityController） ==========\n\nexport type ActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'\nexport type ActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'\n\nexport const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {\n  WORLD_EVENT: '世界事件',\n  FESTIVAL: '节日活动',\n  CITY: '城市活动',\n  WISH_PARTNER: '心愿合伙人',\n}\n\nexport interface ActivityItem {\n  id: number\n  type: ActivityType\n  title: string\n  description: string | null\n  coverImage: string | null\n  cityCode: string | null\n  status: ActivityStatus\n  progressCounter: number\n  createdAt: string\n}\n\nexport interface ActivityBoardMember {\n  userId: number\n  role: string\n  title: string | null\n  progressPercentage: number\n  checkinDays: number\n  latestGrowth: string | null\n  latestGrowthAt: string | null\n}\n\n/** 活动列表（仅 ACTIVE 且展示期内；归档不出现在列表） */\nexport function listActivities(params: { type?: string; cityCode?: string } = {}) {\n  return request.get<ApiResponse<ActivityItem[]>>('/wish/activities', {\n    params: { type: params.type ?? undefined, cityCode: params.cityCode ?? undefined },\n  })\n}\n\n/** 活动详情（归档后仍可访问） */\nexport function getActivity(id: number) {\n  return request.get<ApiResponse<ActivityItem>>(`/wish/activities/${id}`)\n}\n\nexport function getActivityProgress(id: number) {\n  return request.get<ApiResponse<number>>(`/wish/activities/${id}/progress`)\n}\n\nexport function joinActivity(id: number) {\n  return request.post<ApiResponse<null>>(`/wish/activities/${id}/join`)\n}\n\n/** 合伙人申请（提交协作心愿 + 技能标签） */\nexport function applyPartner(id: number, wishId: number, skills?: string[]) {\n  return request.post<ApiResponse<null>>(`/wish/activities/${id}/apply`, { wishId, skills })\n}\n\nexport function reviewPartnerApplication(id: number, applicantUserId: number, approved: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/wish/activities/${id}/participants/${applicantUserId}/review`,\n    { approved },\n  )\n}\n\nexport interface BoardMember {\n  userId: number\n  role: string\n  title: string | null\n  progressPercentage: number\n  checkinDays: number\n  latestGrowth: string | null\n  latestGrowthAt: string | null\n}\n\nexport function getPartnerBoard(id: number) {\n  return request.get<ApiResponse<{ activityId: number; leaderUserId: number; members: BoardMember[] }>>(\n    `/wish/activities/${id}/board`,\n  )\n}\n\n// ========== 虚拟收藏 + 品牌（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========\n\nexport interface UserAssetData {\n  id: number\n  userId: number\n  assetId: number\n  source: string\n  status: string\n}\n\nexport interface WorkshopAsset {\n  assetId: number\n  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'\n  name: string\n  description: string | null\n  icon: string | null\n  priceStarlight: number\n  priceRmb: number\n  payMethod: string\n  stock: number\n  owned: boolean\n}\n\nexport interface CollectionGroup {\n  [type: string]: Array<{ id: number; assetId: number; name: string; icon: string; isActive: boolean | null; refWishId: number | null }>\n}\n\nexport function getWorkshopAssets() {\n  return request.get<ApiResponse<WorkshopAsset[]>>('/wish/workshop/assets')\n}\n\nexport function exchangeAsset(assetId: number, paymentMethod = 'STARLIGHT') {\n  return request.post<ApiResponse<UserAssetData>>('/wish/workshop/exchange', { assetId, paymentMethod })\n}\n\nexport function getCollections() {\n  return request.get<ApiResponse<CollectionGroup>>('/wish/collections/assets')\n}\n\nexport function collectSparkWish(wishId: number) {\n  return request.post<ApiResponse<null>>(`/wish/collections/spark/${wishId}`)\n}\n\nexport function setActiveSkin(assetId: number) {\n  return request.put<ApiResponse<null>>(`/wish/my/active-skin/${assetId}`)\n}\n\nexport function setActiveBgm(assetId: number) {\n  return request.put<ApiResponse<null>>(`/wish/my/active-bgm/${assetId}`)\n}\n"
     },
     "ai": {
       "path": "ai",

@@ -83,6 +83,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/activities", "/activities/{id}",
                         "/activities/{id}/progress").permitAll()
 
+                // 虚拟工坊/品牌公开浏览（Sprint 3.6；兑换/收藏馆/切换需登录）
+                .requestMatchers(HttpMethod.GET, "/workshop/assets", "/brands",
+                        "/brands/*/pools").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点

@@ -1139,3 +1139,54 @@ export function getPartnerBoard(id: number) {
     `/wish/activities/${id}/board`,
   )
 }
+
+// ========== 虚拟收藏 + 品牌（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========
+
+export interface UserAssetData {
+  id: number
+  userId: number
+  assetId: number
+  source: string
+  status: string
+}
+
+export interface WorkshopAsset {
+  assetId: number
+  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'
+  name: string
+  description: string | null
+  icon: string | null
+  priceStarlight: number
+  priceRmb: number
+  payMethod: string
+  stock: number
+  owned: boolean
+}
+
+export interface CollectionGroup {
+  [type: string]: Array<{ id: number; assetId: number; name: string; icon: string; isActive: boolean | null; refWishId: number | null }>
+}
+
+export function getWorkshopAssets() {
+  return request.get<ApiResponse<WorkshopAsset[]>>('/wish/workshop/assets')
+}
+
+export function exchangeAsset(assetId: number, paymentMethod = 'STARLIGHT') {
+  return request.post<ApiResponse<UserAssetData>>('/wish/workshop/exchange', { assetId, paymentMethod })
+}
+
+export function getCollections() {
+  return request.get<ApiResponse<CollectionGroup>>('/wish/collections/assets')
+}
+
+export function collectSparkWish(wishId: number) {
+  return request.post<ApiResponse<null>>(`/wish/collections/spark/${wishId}`)
+}
+
+export function setActiveSkin(assetId: number) {
+  return request.put<ApiResponse<null>>(`/wish/my/active-skin/${assetId}`)
+}
+
+export function setActiveBgm(assetId: number) {
+  return request.put<ApiResponse<null>>(`/wish/my/active-bgm/${assetId}`)
+}
