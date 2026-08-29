@@ -21,5 +21,7 @@ public enum ResourceLogSource {
     /** 匿名星光（-5，Sprint 2.6） */
     ANON_STAR,
     /** 虚拟工坊兑换（Sprint 3.x） */
-    EXCHANGE
+    EXCHANGE,
+    /** 活动奖励（Sprint 3.5） */
+    ACTIVITY_REWARD
 }

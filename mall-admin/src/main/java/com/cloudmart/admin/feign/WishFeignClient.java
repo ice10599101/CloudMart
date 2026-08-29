@@ -200,4 +200,32 @@ public interface WishFeignClient {
     @PutMapping("/warm-map/warm-events/{id}/audit")
     ApiResponse<Object> auditWarmEvent(@PathVariable("id") Long eventId,
                                        @RequestParam("auditStatus") String auditStatus);
+
+    // ---- 社区活动（Sprint 3.5）----
+
+    @GetMapping("/activity/list")
+    ApiResponse<Object> listActivitiesForAdmin(@RequestParam("status") String status,
+                                               @RequestParam("type") String type,
+                                               @RequestParam("page") Integer page,
+                                               @RequestParam("size") Integer size);
+
+    @PostMapping("/activity")
+    ApiResponse<Object> createActivity(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/activity/{id}")
+    ApiResponse<Object> updateActivity(@PathVariable("id") Long id,
+                                       @RequestBody Map<String, Object> data);
+
+    @PostMapping("/activity/{id}/transition")
+    ApiResponse<Object> transitionActivity(@PathVariable("id") Long id,
+                                           @RequestParam("action") String action);
+
+    @DeleteMapping("/activity/{id}")
+    ApiResponse<Object> deleteActivity(@PathVariable("id") Long id);
+
+    @PostMapping("/activity/{id}/rewards")
+    ApiResponse<Object> issueActivityRewards(@PathVariable("id") Long id);
+
+    @GetMapping("/activity/{id}/rewards/logs")
+    ApiResponse<Object> listActivityRewardLogs(@PathVariable("id") Long id);
 }

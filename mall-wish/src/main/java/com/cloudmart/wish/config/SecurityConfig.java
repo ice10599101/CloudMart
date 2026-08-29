@@ -79,6 +79,10 @@ public class SecurityConfig {
                 // 直播挂件公开数据（Sprint 3.4，CDN 友好，10s 缓存）
                 .requestMatchers(HttpMethod.GET, "/live/widget/*").permitAll()
 
+                // 社区活动公开浏览（Sprint 3.5；参与/申请/看板需登录）
+                .requestMatchers(HttpMethod.GET, "/activities", "/activities/{id}",
+                        "/activities/{id}/progress").permitAll()
+
                 // 同愿匹配推荐公开浏览（Sprint 2.6；匿名降级为纯参数匹配）
                 .requestMatchers(HttpMethod.GET, "/match/groups/recommend").permitAll()
                 // 文档与监控端点

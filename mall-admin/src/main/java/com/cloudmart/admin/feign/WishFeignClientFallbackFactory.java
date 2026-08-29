@@ -253,6 +253,41 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             public ApiResponse<Object> auditWarmEvent(Long eventId, String auditStatus) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> listActivitiesForAdmin(String status, String type, Integer page, Integer size) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> createActivity(Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> updateActivity(Long id, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> transitionActivity(Long id, String action) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> deleteActivity(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> issueActivityRewards(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listActivityRewardLogs(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
         };
     }
 }

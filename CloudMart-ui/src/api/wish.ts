@@ -1057,3 +1057,85 @@ export interface LiveWidgetData {
 export function getLiveWidget(streamerId: number) {
   return request.get<ApiResponse<LiveWidgetData>>(`/wish/live/widget/${streamerId}`)
 }
+
+// ========== 社区活动（Sprint 3.5，契约对齐 mall-wish ActivityController） ==========
+
+export type ActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'
+export type ActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  WORLD_EVENT: '世界事件',
+  FESTIVAL: '节日活动',
+  CITY: '城市活动',
+  WISH_PARTNER: '心愿合伙人',
+}
+
+export interface ActivityItem {
+  id: number
+  type: ActivityType
+  title: string
+  description: string | null
+  coverImage: string | null
+  cityCode: string | null
+  status: ActivityStatus
+  progressCounter: number
+  createdAt: string
+}
+
+export interface ActivityBoardMember {
+  userId: number
+  role: string
+  title: string | null
+  progressPercentage: number
+  checkinDays: number
+  latestGrowth: string | null
+  latestGrowthAt: string | null
+}
+
+/** 活动列表（仅 ACTIVE 且展示期内；归档不出现在列表） */
+export function listActivities(params: { type?: string; cityCode?: string } = {}) {
+  return request.get<ApiResponse<ActivityItem[]>>('/wish/activities', {
+    params: { type: params.type ?? undefined, cityCode: params.cityCode ?? undefined },
+  })
+}
+
+/** 活动详情（归档后仍可访问） */
+export function getActivity(id: number) {
+  return request.get<ApiResponse<ActivityItem>>(`/wish/activities/${id}`)
+}
+
+export function getActivityProgress(id: number) {
+  return request.get<ApiResponse<number>>(`/wish/activities/${id}/progress`)
+}
+
+export function joinActivity(id: number) {
+  return request.post<ApiResponse<null>>(`/wish/activities/${id}/join`)
+}
+
+/** 合伙人申请（提交协作心愿 + 技能标签） */
+export function applyPartner(id: number, wishId: number, skills?: string[]) {
+  return request.post<ApiResponse<null>>(`/wish/activities/${id}/apply`, { wishId, skills })
+}
+
+export function reviewPartnerApplication(id: number, applicantUserId: number, approved: boolean) {
+  return request.put<ApiResponse<null>>(
+    `/wish/activities/${id}/participants/${applicantUserId}/review`,
+    { approved },
+  )
+}
+
+export interface BoardMember {
+  userId: number
+  role: string
+  title: string | null
+  progressPercentage: number
+  checkinDays: number
+  latestGrowth: string | null
+  latestGrowthAt: string | null
+}
+
+export function getPartnerBoard(id: number) {
+  return request.get<ApiResponse<{ activityId: number; leaderUserId: number; members: BoardMember[] }>>(
+    `/wish/activities/${id}/board`,
+  )
+}

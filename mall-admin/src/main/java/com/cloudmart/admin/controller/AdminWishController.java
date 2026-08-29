@@ -441,4 +441,63 @@ public class AdminWishController {
     public ApiResponse<Object> auditWarmEvent(@PathVariable Long id, @RequestParam String auditStatus) {
         return wishFeignClient.auditWarmEvent(id, auditStatus);
     }
+
+    // ---- 社区活动（Sprint 3.5）----
+
+    @GetMapping("/wish/activity/list")
+    @RequiresPermission("business:activity:list")
+    @Operation(summary = "活动列表（全状态）", description = "status/type 过滤可选，分页")
+    public ApiResponse<Object> listActivitiesForAdmin(@RequestParam(required = false) String status,
+                                                      @RequestParam(required = false) String type,
+                                                      @RequestParam(defaultValue = "1") Integer page,
+                                                      @RequestParam(defaultValue = "20") Integer size) {
+        return wishFeignClient.listActivitiesForAdmin(status, type, page, size);
+    }
+
+    @PostMapping("/wish/activity")
+    @OperLog(title = "活动创建", businessType = 1)
+    @RequiresPermission("business:activity:add")
+    @Operation(summary = "创建活动", description = "初始 DRAFT；condition JSON 校验（非法 400）")
+    public ApiResponse<Object> createActivity(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createActivity(data);
+    }
+
+    @PutMapping("/wish/activity/{id}")
+    @OperLog(title = "活动更新", businessType = 2)
+    @RequiresPermission("business:activity:edit")
+    @Operation(summary = "更新活动", description = "仅 DRAFT/ACTIVE 可改")
+    public ApiResponse<Object> updateActivity(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateActivity(id, data);
+    }
+
+    @PostMapping("/wish/activity/{id}/transition")
+    @OperLog(title = "活动状态机流转", businessType = 2)
+    @RequiresPermission("business:activity:edit")
+    @Operation(summary = "活动状态机流转", description = "start/end/archive（非法流转 409）")
+    public ApiResponse<Object> transitionActivity(@PathVariable Long id, @RequestParam String action) {
+        return wishFeignClient.transitionActivity(id, action);
+    }
+
+    @DeleteMapping("/wish/activity/{id}")
+    @OperLog(title = "活动删除", businessType = 2)
+    @RequiresPermission("business:activity:edit")
+    @Operation(summary = "删除活动", description = "仅 DRAFT 可删")
+    public ApiResponse<Object> deleteActivity(@PathVariable Long id) {
+        return wishFeignClient.deleteActivity(id);
+    }
+
+    @PostMapping("/wish/activity/{id}/rewards")
+    @OperLog(title = "活动奖励发放", businessType = 2)
+    @RequiresPermission("business:activity:reward")
+    @Operation(summary = "发放奖励", description = "条件达成后对参与/组队用户发星光/徽章；uk 幂等（重复跳过）")
+    public ApiResponse<Object> issueActivityRewards(@PathVariable Long id) {
+        return wishFeignClient.issueActivityRewards(id);
+    }
+
+    @GetMapping("/wish/activity/{id}/rewards/logs")
+    @RequiresPermission("business:activity:list")
+    @Operation(summary = "奖励发放日志", description = "审计：时间/用户/奖励类型/数量")
+    public ApiResponse<Object> listActivityRewardLogs(@PathVariable Long id) {
+        return wishFeignClient.listActivityRewardLogs(id);
+    }
 }
