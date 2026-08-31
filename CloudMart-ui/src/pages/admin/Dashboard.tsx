@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Card, Col, Row, Statistic, Table, Spin, Tag, Button, Select, message } from 'antd'
+import { useMessage } from '@/utils/useMessage'
+import { Card, Col, Row, Statistic, Table, Spin, Tag, Button, Select } from 'antd'
 import {
   ShoppingCartOutlined,
   DollarOutlined,
@@ -133,6 +134,7 @@ function MiniBarChart({ data, dataKey, color, height = 120 }: { data: number[]; 
 }
 
 export default function Dashboard() {
+  const message = useMessage()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [salesTrend, setSalesTrend] = useState<SalesTrendItem[]>([])

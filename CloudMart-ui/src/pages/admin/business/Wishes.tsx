@@ -196,7 +196,7 @@ export default function Wishes() {
           if (!open) setRejectingId(null)
         }}
         onFinish={async (values) => handleReject(values.reason as string)}
-        modalProps={{ destroyOnClose: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormTextArea

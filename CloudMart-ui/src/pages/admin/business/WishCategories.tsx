@@ -156,7 +156,7 @@ export default function WishCategories() {
             ? { name: editingRecord.name, sort: editingRecord.sortOrder, icon: editingRecord.icon ?? undefined }
             : { sort: 0 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         {!editingRecord && (

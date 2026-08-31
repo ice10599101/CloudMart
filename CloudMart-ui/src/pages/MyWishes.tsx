@@ -106,7 +106,7 @@ export default function MyWishes() {
     return () => observer.disconnect()
   }, [hasMore, loading, loadingMore, fetchWishes])
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number | string) => {
     try {
       const res = await deleteWish(id)
       if (res.data.success) {

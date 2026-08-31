@@ -68,7 +68,7 @@ public class AdminPostController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:post:edit")
+    @RequiresPermission("admin:post:edit")
     @OperLog(title = "岗位管理", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用岗位")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

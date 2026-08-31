@@ -256,7 +256,7 @@ export default function Products() {
         }
         modalProps={{
           destroyOnHidden: true,
-          maskClosable: false,
+          mask: { closable: false },
           keyboard: false,
         }}
         width={640}

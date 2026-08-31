@@ -23,6 +23,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useNotificationStore } from '@/stores/notification'
 import { useThemeStore } from '@/stores/theme'
+import AppMessageBinder from '@/components/AppMessageBinder'
 import type { ThemeMode } from '@/stores/theme'
 import { getThemeTokens, applyCssVariables } from '@/theme/tokens'
 import type { ThemeTokens } from '@/theme/tokens'
@@ -423,6 +424,7 @@ export default function UserLayout() {
       }}
     >
     <App>
+    <AppMessageBinder />
     <div style={styles.layout}>
       <header style={styles.header}>
         <div style={styles.logo} onClick={() => history.push('/')}>

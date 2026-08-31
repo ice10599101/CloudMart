@@ -232,7 +232,7 @@ export default function WishBadges() {
               }
             : { rarity: 'COMMON', conditionType: 'WISH_CREATED', threshold: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         {!editingRecord && (

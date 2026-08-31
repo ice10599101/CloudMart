@@ -300,7 +300,7 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
       title="编辑个人资料"
       width={640}
       onCancel={handleCancel}
-      maskClosable={false}
+      mask={{ closable: false }}
       keyboard={false}
       footer={null}
       destroyOnClose
@@ -825,7 +825,7 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
         title={editingAddress ? '编辑地址' : '新增地址'}
         width={520}
         onCancel={() => setConfirmState({ type: 'close', open: false })}
-        maskClosable={false}
+        mask={{ closable: false }}
         footer={null}
         destroyOnClose
       >

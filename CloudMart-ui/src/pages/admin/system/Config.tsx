@@ -161,7 +161,7 @@ export default function Config() {
             ? { ...editingRecord, configType: editingRecord.configType === 1 }
             : { configType: false }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormText

@@ -301,7 +301,7 @@ export default function Orders() {
         open={shipModalVisible}
         onOpenChange={createHandleOpenChange(setShipModalVisible, () => setShipOrderId(null))}
         onFinish={handleShip}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormText
@@ -323,7 +323,7 @@ export default function Orders() {
         open={rejectModalVisible}
         onOpenChange={createHandleOpenChange(setRejectModalVisible, () => setRejectOrderId(null))}
         onFinish={handleRejectRefund}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormTextArea
@@ -341,7 +341,7 @@ export default function Orders() {
           open={detailVisible}
           onOpenChange={setDetailVisible}
           onFinish={async () => true}
-          modalProps={{ destroyOnHidden: true, footer: null, maskClosable: false, keyboard: false }}
+          modalProps={{ destroyOnHidden: true, footer: null, mask: { closable: false }, keyboard: false }}
           width={720}
           submitter={false}
         >

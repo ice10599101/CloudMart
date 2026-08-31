@@ -106,7 +106,7 @@ public class AdminRoleController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:role:edit")
+    @RequiresPermission("admin:role:edit")
     @OperLog(title = "角色管理", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用角色")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

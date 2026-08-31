@@ -32,7 +32,7 @@ function formatRemaining(openAt: string): string {
 export default function CapsuleList() {
     const [loading, setLoading] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
-    const [cancellingId, setCancellingId] = useState<number | null>(null)
+    const [cancellingId, setCancellingId] = useState<number | string | null>(null)
     const [items, setItems] = useState<CapsuleItem[]>([])
     const [statusFilter, setStatusFilter] = useState<CapsuleStatus>('SEALED')
     const [cursor, setCursor] = useState<string | null>(null)
@@ -84,7 +84,7 @@ export default function CapsuleList() {
         }
     }
 
-    const handleCancel = async (id: number) => {
+    const handleCancel = async (id: number | string) => {
         setCancellingId(id)
         try {
             const res = await cancelCapsule(id)

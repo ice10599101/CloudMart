@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('antd', () => ({
   message: { error: vi.fn(), warning: vi.fn() },
@@ -15,176 +15,117 @@ vi.mock('@/stores/adminAuth', () => ({
   },
 }))
 
-function isAdminRequest(url: string): boolean {
-  return url.startsWith('/admin/') || url.startsWith('/auth/admin/')
+import request from './request'
+import { message } from 'antd'
+
+// 直接调用真实 axios 实例的拦截器处理函数，避免在测试里复制拦截器逻辑造成与源码脱节
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chains = request.interceptors as any
+const requestFulfilled: (config: Record<string, unknown>) => Record<string, unknown> =
+  chains.request.handlers[0].fulfilled
+const responseFulfilled: (response: unknown) => Promise<unknown> =
+  chains.response.handlers[0].fulfilled
+
+interface MockConfig {
+  headers: Record<string, string>
+  [key: string]: unknown
 }
 
-const USER_PUBLIC_PATH_PREFIXES = [
-  '/auth/login',
-  '/auth/refresh',
-  '/user/users/register',
-  '/product/products/search',
-  '/product/categories',
-  '/product/reviews/product/',
-  '/product/reviews/stats/',
-  '/product/products/',
-  '/coupon/coupon-templates',
-  '/seckill/activities',
-  '/seckill/products/activity/',
-  '/live/rooms',
-  '/marketing/group/activities',
-  '/marketing/group/orders',
-  '/payment/payments/callback',
-  '/file/uploads/',
-  '/community/users/recommend',
-  '/community/posts/hot',
-  '/community/posts/',
-  '/community/topics/',
-]
-
-const ADMIN_PUBLIC_PATH_PREFIXES = [
-  '/auth/admin/login',
-  '/auth/admin/refresh',
-]
-
-function isPublicPath(url: string): boolean {
-  if (!url) return false
-  const prefixes = isAdminRequest(url) ? ADMIN_PUBLIC_PATH_PREFIXES : USER_PUBLIC_PATH_PREFIXES
-  for (const prefix of prefixes) {
-    if (url.startsWith(prefix)) return true
-  }
-  if (!isAdminRequest(url) && /\/product\/products\/\d+/.test(url)) return true
-  return false
+function runRequestInterceptor(config: Partial<MockConfig>): MockConfig {
+  return requestFulfilled({ headers: {}, ...config }) as MockConfig
 }
 
-describe('request utility', () => {
+describe('request 请求拦截器（真实实例）', () => {
+  const originalCrypto = globalThis.crypto
+
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
   })
 
-  describe('isAdminRequest()', () => {
-    it('returns true for /admin/ paths', () => {
-      expect(isAdminRequest('/admin/users')).toBe(true)
-      expect(isAdminRequest('/admin/roles')).toBe(true)
-      expect(isAdminRequest('/admin/profile')).toBe(true)
-    })
-
-    it('returns true for /auth/admin/ paths', () => {
-      expect(isAdminRequest('/auth/admin/login')).toBe(true)
-      expect(isAdminRequest('/auth/admin/refresh')).toBe(true)
-    })
-
-    it('returns false for user paths', () => {
-      expect(isAdminRequest('/auth/login')).toBe(false)
-      expect(isAdminRequest('/product/products')).toBe(false)
-      expect(isAdminRequest('/order/orders')).toBe(false)
-    })
+  afterEach(() => {
+    // 只恢复 crypto，不能用 vi.unstubAllGlobals()——会连带清掉 test-setup.ts 注入的 localStorage mock
+    Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true })
   })
 
-  describe('isPublicPath()', () => {
-    it('returns true for user public paths', () => {
-      expect(isPublicPath('/auth/login')).toBe(true)
-      expect(isPublicPath('/auth/refresh')).toBe(true)
-      expect(isPublicPath('/user/users/register')).toBe(true)
-      expect(isPublicPath('/product/products/search')).toBe(true)
-      expect(isPublicPath('/product/categories')).toBe(true)
-      expect(isPublicPath('/coupon/coupon-templates')).toBe(true)
-      expect(isPublicPath('/seckill/activities')).toBe(true)
-      expect(isPublicPath('/live/rooms')).toBe(true)
-      expect(isPublicPath('/community/users/recommend')).toBe(true)
-      expect(isPublicPath('/community/posts/hot')).toBe(true)
-    })
+  it('非公开路径 GET 携带用户 token', () => {
+    localStorage.setItem('access_token', 'user-token')
 
-    it('returns true for admin public paths', () => {
-      expect(isPublicPath('/auth/admin/login')).toBe(true)
-      expect(isPublicPath('/auth/admin/refresh')).toBe(true)
-    })
+    const config = runRequestInterceptor({ url: '/order/orders', method: 'get' })
 
-    it('returns false for non-public user paths', () => {
-      expect(isPublicPath('/order/orders')).toBe(false)
-      expect(isPublicPath('/cart')).toBe(false)
-      expect(isPublicPath('/user/users/me')).toBe(false)
-    })
-
-    it('returns false for non-public admin paths', () => {
-      expect(isPublicPath('/admin/users')).toBe(false)
-      expect(isPublicPath('/admin/roles')).toBe(false)
-    })
-
-    it('returns true for product detail URL pattern', () => {
-      expect(isPublicPath('/product/products/123')).toBe(true)
-    })
-
-    it('returns false for empty url', () => {
-      expect(isPublicPath('')).toBe(false)
-    })
-
-    it('returns true for review product paths', () => {
-      expect(isPublicPath('/product/reviews/product/1')).toBe(true)
-      expect(isPublicPath('/product/reviews/stats/1')).toBe(true)
-    })
+    expect(config.headers.Authorization).toBe('Bearer user-token')
   })
 
-  describe('request interceptor', () => {
-    it('adds Bearer token for non-public user paths', () => {
-      localStorage.setItem('access_token', 'user-token')
+  it('admin 路径使用 admin_access_token', () => {
+    localStorage.setItem('admin_access_token', 'admin-token')
+    localStorage.setItem('access_token', 'user-token')
 
-      const config = { url: '/order/orders', headers: {} as Record<string, string> }
+    const config = runRequestInterceptor({ url: '/admin/users', method: 'get' })
 
-      if (!isPublicPath(config.url)) {
-        const tokenKey = isAdminRequest(config.url) ? 'admin_access_token' : 'access_token'
-        const token = localStorage.getItem(tokenKey)
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`
-        }
-      }
-
-      expect(config.headers.Authorization).toBe('Bearer user-token')
-    })
-
-    it('adds admin Bearer token for admin paths', () => {
-      localStorage.setItem('admin_access_token', 'admin-token')
-
-      const config = { url: '/admin/users', headers: {} as Record<string, string> }
-
-      if (!isPublicPath(config.url)) {
-        const tokenKey = isAdminRequest(config.url) ? 'admin_access_token' : 'access_token'
-        const token = localStorage.getItem(tokenKey)
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`
-        }
-      }
-
-      expect(config.headers.Authorization).toBe('Bearer admin-token')
-    })
-
-    it('skips token for public paths', () => {
-      localStorage.setItem('access_token', 'user-token')
-
-      const config = { url: '/auth/login', headers: {} as Record<string, string> }
-
-      if (!isPublicPath(config.url)) {
-        config.headers.Authorization = `Bearer ${localStorage.getItem('access_token')}`
-      }
-
-      expect(config.headers.Authorization).toBeUndefined()
-    })
+    expect(config.headers.Authorization).toBe('Bearer admin-token')
   })
 
-  describe('response interceptor', () => {
-    it('handles success=false with UNAUTHORIZED code', () => {
-      const data = { success: false, error: { code: 'UNAUTHORIZED', message: '请先登录' } }
+  it('公开路径 GET（匿名浏览）不携带 token', () => {
+    localStorage.setItem('access_token', 'user-token')
 
-      expect(data.success).toBe(false)
-      expect(data.error?.code).toBe('UNAUTHORIZED')
-    })
+    const config = runRequestInterceptor({ url: '/wish/wishes', method: 'get' })
 
-    it('handles SERVICE_UNAVAILABLE codes', () => {
-      const data = { success: false, error: { code: 'PRODUCT_SERVICE_UNAVAILABLE', message: '服务不可用' } }
+    expect(config.headers.Authorization).toBeUndefined()
+  })
 
-      expect(data.success).toBe(false)
-      expect(data.error?.code?.endsWith('_SERVICE_UNAVAILABLE')).toBe(true)
-    })
+  it('公开路径写操作（发布心愿 POST /wish/wishes）必须携带 token 与幂等键', () => {
+    // 回归用例：此前公开路径跳过所有身份头，导致已登录用户发布心愿报 UNAUTHORIZED
+    vi.stubGlobal('crypto', { randomUUID: () => 'fixed-uuid' })
+    localStorage.setItem('access_token', 'user-token')
+
+    const config = runRequestInterceptor({ url: '/wish/wishes', method: 'post' })
+
+    expect(config.headers.Authorization).toBe('Bearer user-token')
+    expect(config.headers['X-Idempotency-Key']).toBe('fixed-uuid')
+  })
+
+  it('登录态专属心愿接口（/wish/wishes/my）即使 GET 也携带 token', () => {
+    localStorage.setItem('access_token', 'user-token')
+
+    const config = runRequestInterceptor({ url: '/wish/wishes/my', method: 'get' })
+
+    expect(config.headers.Authorization).toBe('Bearer user-token')
+  })
+
+  it('公开路径 POST 不携带 token 时登录态为空也不报错（匿名允许失败由后端判定）', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'fixed-uuid' })
+
+    const config = runRequestInterceptor({ url: '/wish/wishes', method: 'post' })
+
+    expect(config.headers.Authorization).toBeUndefined()
+    expect(config.headers['X-Idempotency-Key']).toBe('fixed-uuid')
+  })
+})
+
+describe('request 响应拦截器（信封处理，真实实例）', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('success=false 且 UNAUTHORIZED：透传业务码，不弹全局错误', async () => {
+    const response = { data: { success: false, error: { code: 'UNAUTHORIZED', message: '请先登录' } } }
+
+    await expect(responseFulfilled(response)).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    expect(message.error).not.toHaveBeenCalled()
+  })
+
+  it('success=false 普通业务错误：弹全局错误并透传业务码', async () => {
+    const response = { data: { success: false, error: { code: 'WISH_VALIDATION_ERROR', message: '标题过长' } } }
+
+    await expect(responseFulfilled(response)).rejects.toMatchObject({ code: 'WISH_VALIDATION_ERROR' })
+    expect(message.error).toHaveBeenCalledWith('标题过长')
+  })
+
+  it('success=true 正常放行', async () => {
+    const response = { data: { success: true, data: { id: 1 } } }
+
+    const result = await responseFulfilled(response)
+
+    expect(result).toEqual(response)
   })
 })

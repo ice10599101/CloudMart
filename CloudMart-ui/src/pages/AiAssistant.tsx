@@ -99,7 +99,7 @@ export default function AiAssistant() {
   const [goalsLoading, setGoalsLoading] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [actingGoalId, setActingGoalId] = useState<number | null>(null)
+  const [actingGoalId, setActingGoalId] = useState<number | string | null>(null)
 
   const [matrix, setMatrix] = useState<NotificationPreferenceMatrix | null>(null)
   const [matrixLoading, setMatrixLoading] = useState(true)

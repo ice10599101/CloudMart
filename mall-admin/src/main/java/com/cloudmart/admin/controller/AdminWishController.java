@@ -500,4 +500,55 @@ public class AdminWishController {
     public ApiResponse<Object> listActivityRewardLogs(@PathVariable Long id) {
         return wishFeignClient.listActivityRewardLogs(id);
     }
+
+    // ---- 擦肩而过风控（Sprint 3.3 管理后台）----
+
+    @GetMapping("/wish/encounter/suspicious")
+    @RequiresPermission("business:map:audit")
+    @Operation(summary = "可疑跳跃记录", description = "位置伪造检测；userId 过滤可选，仅含 geohash 无原始坐标")
+    public ApiResponse<Object> listSuspicious(@RequestParam(required = false) Long userId) {
+        return wishFeignClient.listSuspicious(userId);
+    }
+
+    @GetMapping("/wish/encounter/freezes")
+    @RequiresPermission("business:map:audit")
+    @Operation(summary = "冻结用户列表", description = "当前未解冻的 LBS 冻结记录")
+    public ApiResponse<Object> listFreezes() {
+        return wishFeignClient.listFreezes();
+    }
+
+    @PostMapping("/wish/encounter/freezes/{userId}/unfreeze")
+    @OperLog(title = "LBS 用户解冻", businessType = 2)
+    @RequiresPermission("business:encounter:unfreeze")
+    @Operation(summary = "解冻用户", description = "删除冻结记录，用户立即恢复 LBS 功能")
+    public ApiResponse<Object> unfreezeUser(@PathVariable Long userId) {
+        return wishFeignClient.unfreezeUser(userId);
+    }
+
+    // ---- 直播挂件（Sprint 3.4 管理后台）----
+
+    @GetMapping("/wish/live/widget/configs")
+    @RequiresPermission("business:liveWidget:list")
+    @Operation(summary = "挂件配置列表", description = "全量主播挂件配置")
+    public ApiResponse<Object> listLiveWidgetConfigs() {
+        return wishFeignClient.listLiveWidgetConfigs();
+    }
+
+    @PutMapping("/wish/live/widget/{streamerId}")
+    @OperLog(title = "挂件配置保存", businessType = 2)
+    @RequiresPermission("business:liveWidget:edit")
+    @Operation(summary = "保存主播挂件配置", description = "streamer 维度 upsert；position 四选一；保存即失效缓存")
+    public ApiResponse<Object> saveLiveWidgetConfig(@PathVariable Long streamerId,
+                                                    @RequestBody Map<String, Object> data) {
+        return wishFeignClient.saveLiveWidgetConfig(streamerId, data);
+    }
+
+    @PutMapping("/wish/live/widget/{streamerId}/visible")
+    @OperLog(title = "挂件启停", businessType = 2)
+    @RequiresPermission("business:liveWidget:edit")
+    @Operation(summary = "启停主播挂件", description = "is_visible=false → 该主播挂件隐藏（降级）")
+    public ApiResponse<Object> toggleLiveWidgetVisible(@PathVariable Long streamerId,
+                                                       @RequestParam boolean visible) {
+        return wishFeignClient.toggleLiveWidgetVisible(streamerId, visible);
+    }
 }

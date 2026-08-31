@@ -129,7 +129,7 @@ export default function MapAdmin() {
                         <Statistic
                             title="缺 geohash（3.1 前创建）"
                             value={audit.geohashMissing}
-                            valueStyle={{ color: audit.geohashMissing > 0 ? '#ffb347' : undefined }}
+                            styles={{ content: { color: audit.geohashMissing > 0 ? '#ffb347' : undefined } }}
                         />
                         <Statistic title="覆盖网格（geohash6）" value={audit.distinctCell6} />
                     </div>

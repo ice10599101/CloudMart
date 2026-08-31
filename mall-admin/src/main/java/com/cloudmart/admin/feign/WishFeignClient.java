@@ -228,4 +228,28 @@ public interface WishFeignClient {
 
     @GetMapping("/activity/{id}/rewards/logs")
     ApiResponse<Object> listActivityRewardLogs(@PathVariable("id") Long id);
+
+    // ---- 擦肩而过风控（Sprint 3.3 管理后台，代理 /admin/encounter）----
+
+    @GetMapping("/encounter/suspicious")
+    ApiResponse<Object> listSuspicious(@RequestParam("userId") Long userId);
+
+    @GetMapping("/encounter/freezes")
+    ApiResponse<Object> listFreezes();
+
+    @PostMapping("/encounter/freezes/{userId}/unfreeze")
+    ApiResponse<Object> unfreezeUser(@PathVariable("userId") Long userId);
+
+    // ---- 直播挂件（Sprint 3.4 管理后台，代理 /admin/live/widget）----
+
+    @GetMapping("/live/widget/configs")
+    ApiResponse<Object> listLiveWidgetConfigs();
+
+    @PutMapping("/live/widget/{streamerId}")
+    ApiResponse<Object> saveLiveWidgetConfig(@PathVariable("streamerId") Long streamerId,
+                                             @RequestBody Map<String, Object> data);
+
+    @PutMapping("/live/widget/{streamerId}/visible")
+    ApiResponse<Object> toggleLiveWidgetVisible(@PathVariable("streamerId") Long streamerId,
+                                                @RequestParam("visible") boolean visible);
 }

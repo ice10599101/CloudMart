@@ -319,7 +319,7 @@ export default function Job() {
         initialValues={
           editingRecord ?? { status: 1, misfirePolicy: 1, concurrent: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormText

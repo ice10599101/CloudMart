@@ -216,7 +216,7 @@ export default function TieredPromotion() {
               }
             : { rules: [{ minAmount: 100, discountAmount: 10 }] }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={600}
       >
         <ProFormText

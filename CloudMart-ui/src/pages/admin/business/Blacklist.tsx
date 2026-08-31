@@ -137,7 +137,7 @@ export default function Blacklist() {
         open={addModalVisible}
         onOpenChange={createHandleOpenChange(setAddModalVisible)}
         onFinish={handleAdd}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormSelect

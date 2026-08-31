@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { adminLogin, adminRefreshToken, adminLogout, getAdminProfile } from '@/api/admin/auth'
 import type { AdminInfo } from '@/types'
 import { history } from 'umi'
+import { useAdminMenuStore } from '@/stores/adminMenu'
 
 const STORAGE_KEYS = {
   accessToken: 'admin_access_token',
@@ -40,6 +41,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
     adminLogout().catch(() => {})
     localStorage.removeItem(STORAGE_KEYS.accessToken)
     localStorage.removeItem(STORAGE_KEYS.refreshToken)
+    // 菜单树与账号权限绑定，换账号登录必须重新拉取
+    useAdminMenuStore.getState().clear()
     set({
       accessToken: '',
       refreshToken: '',

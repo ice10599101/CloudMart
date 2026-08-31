@@ -110,46 +110,46 @@ export const wishApi = {
     getCategories: () => request<WishCategory[]>({ url: '/wish/categories' }),
     listWishes: (params: WishListQuery) =>
         request<WishDetail[]>({ url: `/wish/wishes${buildQuery(params as Record<string, unknown>)}` }),
-    getWishDetail: (id: number) => request<WishDetail>({ url: `/wish/wishes/${id}` }),
+    getWishDetail: (id: number | string) => request<WishDetail>({ url: `/wish/wishes/${id}` }),
     createWish: (data: CreateWishPayload) =>
         request<WishDetail>({ url: '/wish/wishes', method: 'POST', data: data as unknown as Record<string, unknown> }),
-    updateWish: (id: number, data: UpdateWishPayload) =>
+    updateWish: (id: number | string, data: UpdateWishPayload) =>
         request<WishDetail>({ url: `/wish/wishes/${id}`, method: 'PUT', data: data as unknown as Record<string, unknown> }),
-    deleteWish: (id: number) => request<void>({ url: `/wish/wishes/${id}`, method: 'DELETE' }),
+    deleteWish: (id: number | string) => request<void>({ url: `/wish/wishes/${id}`, method: 'DELETE' }),
     listMyWishes: (params: MyWishListQuery) =>
         request<MyWishListItem[]>({ url: `/wish/wishes/my${buildQuery(params as Record<string, unknown>)}` }),
 
     // ---- 互动（Sprint 1.2）----
-    createInteraction: (wishId: number, data: { type: WishInteractionType; content?: string }) =>
+    createInteraction: (wishId: number | string, data: { type: WishInteractionType; content?: string }) =>
         request<WishInteractionResult>({
             url: `/wish/wishes/${wishId}/interactions`,
             method: 'POST',
             data: data as unknown as Record<string, unknown>,
         }),
-    revokeInteraction: (wishId: number, interactionId: number) =>
+    revokeInteraction: (wishId: number | string, interactionId: number | string) =>
         request<{ id: number; type: WishInteractionType; revoked: boolean }>({
             url: `/wish/wishes/${wishId}/interactions/${interactionId}`,
             method: 'DELETE',
         }),
-    listMyInteractions: (wishId: number) =>
+    listMyInteractions: (wishId: number | string) =>
         request<MyWishInteraction[]>({ url: `/wish/wishes/${wishId}/interactions/my` }),
 
     // ---- 评论（Sprint 1.2）----
-    createComment: (wishId: number, data: { content: string; parentId?: number }) =>
+    createComment: (wishId: number | string, data: { content: string; parentId?: number }) =>
         request<{ id: number; content: string; createdAt: string }>({
             url: `/wish/wishes/${wishId}/comments`,
             method: 'POST',
             data: data as unknown as Record<string, unknown>,
         }),
-    listComments: (wishId: number, params?: CommentListQuery) =>
+    listComments: (wishId: number | string, params?: CommentListQuery) =>
         request<WishCommentItem[]>({
             url: `/wish/wishes/${wishId}/comments${buildQuery(params as Record<string, unknown>)}`,
         }),
-    deleteComment: (wishId: number, commentId: number) =>
+    deleteComment: (wishId: number | string, commentId: number | string) =>
         request<void>({ url: `/wish/wishes/${wishId}/comments/${commentId}`, method: 'DELETE' }),
 
     // ---- 树洞 AI（Sprint 1.3）----
-    sendTreeHoleMessage: (wishId: number, message: string) =>
+    sendTreeHoleMessage: (wishId: number | string, message: string) =>
         request<TreeHoleReply>({
             url: '/wish/ai/tree-hole',
             method: 'POST',
@@ -173,13 +173,13 @@ export const wishApi = {
     getBadgeDefinitions: () => request<BadgeDefinition[]>({ url: '/wish/badges/definitions' }),
 
     // ---- 还愿（Sprint 1.10）----
-    submitFulfillment: (wishId: number, data: SubmitFulfillmentPayload) =>
+    submitFulfillment: (wishId: number | string, data: SubmitFulfillmentPayload) =>
         request<WishFulfillmentSubmitResult>({
             url: `/wish/wishes/${wishId}/fulfillment`,
             method: 'POST',
             data: data as unknown as Record<string, unknown>,
         }),
-    getFulfillmentDetail: (wishId: number) =>
+    getFulfillmentDetail: (wishId: number | string) =>
         request<WishFulfillmentDetail>({ url: `/wish/wishes/${wishId}/fulfillment` }),
 
     // ---- 世界树（Sprint 2.1）----
@@ -206,9 +206,9 @@ export const wishApi = {
     listMyCapsules: (params?: MyCapsuleListQuery) =>
         request<CapsuleItem[]>({ url: `/wish/capsules${buildQuery(params as Record<string, unknown>)}` }),
     /** 胶囊详情（仅本人可见；非 OPENED 状态内容为 null） */
-    getCapsuleDetail: (id: number) => request<CapsuleItem>({ url: `/wish/capsules/${id}` }),
+    getCapsuleDetail: (id: number | string) => request<CapsuleItem>({ url: `/wish/capsules/${id}` }),
     /** 到期开启（重复调用幂等；未到期 409） */
-    openCapsule: (id: number) => request<CapsuleItem>({ url: `/wish/capsules/${id}/open`, method: 'POST' }),
+    openCapsule: (id: number | string) => request<CapsuleItem>({ url: `/wish/capsules/${id}/open`, method: 'POST' }),
     /** 取消胶囊（SEALED/AVAILABLE → CANCELLED；已开启不可取消） */
     cancelCapsule: (id: number) => request<CapsuleItem>({ url: `/wish/capsules/${id}`, method: 'DELETE' }),
     /** 时区上报（登录/启动/时区变化时；服务端幂等） */
@@ -237,7 +237,7 @@ export const wishApi = {
     listMyAiGoals: (params?: MyAiGoalsQuery) =>
         request<AiGoal[]>({ url: `/wish/ai/goals${buildQuery(params as Record<string, unknown>)}` }),
     /** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */
-    recordExpectedAction: (wishId: number, action: ExpectedActionType) =>
+    recordExpectedAction: (wishId: number | string, action: ExpectedActionType) =>
         request<null>({ url: '/wish/ai/expected-actions', method: 'POST', data: { wishId, action } }),
     /** 年度报告（growthSummary 异步 AI 生成：首次为模板文案，稍后重查返回 AI 版） */
     getAnnualReport: (year: number) =>
@@ -253,19 +253,19 @@ export const wishApi = {
     /** 我的小队（ACTIVE 成员身份；含成员活跃度） */
     listMyMatchGroups: () => request<MatchGroupDetail[]>({ url: '/wish/match/groups/my' }),
     /** 小队详情（成员仅暴露昵称/头像/活跃度） */
-    getMatchGroupDetail: (groupId: number) =>
+    getMatchGroupDetail: (groupId: number | string) =>
         request<MatchGroupDetail>({ url: `/wish/match/groups/${groupId}` }),
     /** 加入小队（409 满员/已是成员/同主题占坑；403 被踢 24h 冷却） */
-    joinMatchGroup: (groupId: number, message?: string) =>
+    joinMatchGroup: (groupId: number | string, message?: string) =>
         request<null>({ url: `/wish/match/groups/${groupId}/members`, method: 'POST', data: { message } }),
     /** 退出（target=自己）或踢人（LEADER；被踢者 24h 同主题冷却） */
-    leaveMatchGroup: (groupId: number, targetUserId: number) =>
+    leaveMatchGroup: (groupId: number | string, targetUserId: number) =>
         request<null>({ url: `/wish/match/groups/${groupId}/members/${targetUserId}`, method: 'DELETE' }),
     /** 解散小队（仅组长；成员收到通知） */
-    dissolveMatchGroup: (groupId: number) =>
+    dissolveMatchGroup: (groupId: number | string) =>
         request<null>({ url: `/wish/match/groups/${groupId}/dissolution`, method: 'POST' }),
     /** 互相提醒（点名 targetUserId 或提醒全部 idle 组员；429 日限频） */
-    remindSquadMembers: (groupId: number, targetUserId?: number) =>
+    remindSquadMembers: (groupId: number | string, targetUserId?: number) =>
         request<null>({ url: `/wish/match/groups/${groupId}/reminds${buildQuery({ targetUserId })}`, method: 'POST' }),
 
     // ---- 排行榜 + 传承（Sprint 2.7）----
@@ -273,7 +273,7 @@ export const wishApi = {
     getLeaderboard: (type: LeaderboardType, limit = 100) =>
         request<LeaderboardEntry[]>({ url: `/wish/leaderboard${buildQuery({ type, limit })}` }),
     /** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */
-    inheritFulfillment: (wishId: number, message?: string) =>
+    inheritFulfillment: (wishId: number | string, message?: string) =>
         request<InheritResult>({ url: `/wish/wishes/${wishId}/fulfillment/inherit`, method: 'POST', data: { message } }),
 
     // ---- LBS 地图（Sprint 3.1）----
@@ -286,7 +286,7 @@ export const wishApi = {
 
     // ---- 城市幸福地图 + 围栏（Sprint 3.2）----
     /** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */
-    checkFence: (wishId: number, lat: number, lng: number) =>
+    checkFence: (wishId: number | string, lat: number, lng: number) =>
         request<FenceCheckResult>({ url: '/wish/map/fence/check', method: 'POST', data: { wishId, lat, lng } }),
     /** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */
     publishWarmEvent: (data: { title: string; content: string; lat: number; lng: number }) =>
@@ -305,10 +305,10 @@ export const wishApi = {
     /** 信笺列表（PENDING 时 content=null） */
     listEncounterLetters: () => request<EncounterLetterItem[]>({ url: '/wish/map/encounter-letters' }),
     /** 拆信（DELIVERED → READ） */
-    readEncounterLetter: (letterId: number) =>
+    readEncounterLetter: (letterId: number | string) =>
         request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/read`, method: 'PUT' }),
     /** 匿名互动（BLESS 免费 / LIGHT 扣星光 2；每信笺每日 1 次） */
-    interactEncounterLetter: (letterId: number, type: 'BLESS' | 'LIGHT') =>
+    interactEncounterLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT') =>
         request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type } }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----

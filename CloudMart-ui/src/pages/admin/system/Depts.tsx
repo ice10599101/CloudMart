@@ -191,7 +191,7 @@ export default function Depts() {
             ? { ...editingRecord, status: editingRecord.status === 1 }
             : { status: true, orderNum: 0, parentId: 0 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormTreeSelect

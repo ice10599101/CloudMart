@@ -186,7 +186,7 @@ export default function Live() {
         onOpenChange={createHandleOpenChange(setModalVisible, () => setEditingRecord(null))}
         onFinish={handleSubmit}
         initialValues={editingRecord ?? undefined}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormText

@@ -41,7 +41,7 @@ export default function WishCreate() {
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [uploads, setUploads] = useState<UploadItem[]>([])
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const { user } = useAuthStore()
   const cancelTokenMapRef = useRef<Map<string, (message?: string) => void>>(new Map())
 
@@ -142,23 +142,15 @@ export default function WishCreate() {
     setUploads(prev => prev.filter(u => u.id !== id))
   }
 
-  const handleSubmit = async (values: {
+  interface SubmitValues {
     title: string
     description: string
     categoryId: number
     visibility: WishVisibility
     expectedAt?: Dayjs
-  }) => {
-    if (isUploading) {
-      message.warning('请等待图片上传完成')
-      return
-    }
-    const failedCount = uploads.filter(u => u.status === 'error').length
-    if (failedCount > 0) {
-      message.warning(`有 ${failedCount} 张图片上传失败，请重试或移除后再发布`)
-      return
-    }
+  }
 
+  const doCreateWish = async (values: SubmitValues) => {
     setLoading(true)
     try {
       const res = await createWish({
@@ -179,6 +171,36 @@ export default function WishCreate() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = (values: SubmitValues) => {
+    if (isUploading) {
+      message.warning('请等待图片上传完成')
+      return
+    }
+    const failedCount = uploads.filter(u => u.status === 'error').length
+    if (failedCount > 0) {
+      message.warning(`有 ${failedCount} 张图片上传失败，请重试或移除后再发布`)
+      return
+    }
+
+    modal.confirm({
+      title: '确认发布心愿？',
+      content: '发布后其他用户将可以看到这条心愿。',
+      okText: '确认发布',
+      cancelText: '再检查一下',
+      onOk: () => doCreateWish(values),
+    })
+  }
+
+  const handleCancelPublish = () => {
+    modal.confirm({
+      title: '确认取消发布？',
+      content: '已填写的内容和上传的图片将不会被保存。',
+      okText: '确认取消',
+      cancelText: '继续编辑',
+      onOk: () => history.back(),
+    })
   }
 
   const handleAddTag = () => {
@@ -411,7 +433,7 @@ export default function WishCreate() {
               <Button
                 type="default"
                 size="large"
-                onClick={() => history.back()}
+                onClick={handleCancelPublish}
                 className={styles.cancelBtn}
               >
                 取消

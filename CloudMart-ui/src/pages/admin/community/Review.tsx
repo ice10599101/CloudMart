@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef } from 'react'
+import { useMessage } from '@/utils/useMessage'
 import { ProTable, ModalForm, ProFormTextArea, ProFormText, ProFormSelect } from '@ant-design/pro-components'
 import type { ProColumns, ActionType } from '@ant-design/pro-components'
-import { Tabs, Tag, Button, message, Popconfirm, Modal, Descriptions } from 'antd'
+import { Tabs, Tag, Button, Popconfirm, Modal, Descriptions } from 'antd'
 import {
   CheckOutlined,
   CloseOutlined,
@@ -53,6 +54,7 @@ const LEVEL_OPTIONS = [
 ]
 
 export default function ReviewManagement() {
+  const message = useMessage()
   const [activeTab, setActiveTab] = useState('pending')
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null)
@@ -273,7 +275,7 @@ export default function ReviewManagement() {
         onFinish={async (values) => {
           return handleReject(values.reason)
         }}
-        modalProps={{ destroyOnClose: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}
       >
         <ProFormTextArea
           name="reason"
@@ -299,7 +301,7 @@ export default function ReviewManagement() {
             }
           })
         }}
-        modalProps={{ destroyOnClose: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}
       >
         <ProFormText
           name="word"
@@ -358,7 +360,7 @@ export default function ReviewManagement() {
           }
         }}
         initialValues={editingWord ? { word: editingWord.word, category: editingWord.category, level: editingWord.level } : {}}
-        modalProps={{ destroyOnClose: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}
       >
         <ProFormText
           name="word"

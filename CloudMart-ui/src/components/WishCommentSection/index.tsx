@@ -45,7 +45,7 @@ export default function WishCommentSection({
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [replyTo, setReplyTo] = useState<WishCommentItem | null>(null)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | string | null>(null)
   /** 防重复加载（触底/重复点击） */
   const requestSeq = useRef(0)
 
@@ -133,7 +133,7 @@ export default function WishCommentSection({
     }
   }
 
-  const handleDelete = async (commentId: number) => {
+  const handleDelete = async (commentId: number | string) => {
     setDeletingId(commentId)
     try {
       const res = await deleteWishComment(wishId, commentId)

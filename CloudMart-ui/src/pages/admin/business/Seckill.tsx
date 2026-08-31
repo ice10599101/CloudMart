@@ -412,7 +412,7 @@ export default function Seckill() {
               }
             : undefined
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormText
@@ -443,7 +443,7 @@ export default function Seckill() {
         open={productModalVisible}
         onOpenChange={createHandleOpenChangeProduct(setProductModalVisible)}
         onFinish={handleCreateProduct}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormDigit

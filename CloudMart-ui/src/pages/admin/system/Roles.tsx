@@ -214,7 +214,7 @@ export default function Roles() {
             ? { ...editingRecord, status: editingRecord.status === 1 }
             : { status: true, roleSort: 0 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormText
@@ -248,7 +248,7 @@ export default function Roles() {
         open={assignModalVisible}
         onOpenChange={createHandleOpenChange2(setAssignModalVisible, () => setAssigningRole(null))}
         onFinish={handleAssignSubmit}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormTreeSelect

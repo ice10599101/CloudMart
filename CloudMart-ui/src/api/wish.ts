@@ -9,7 +9,7 @@ export type FruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'
 export type AuditStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'
 
 export interface WishListItem {
-  id: number
+  id: number | string
   title: string
   description: string
   mediaUrls: string[]
@@ -33,7 +33,7 @@ export interface WishListItem {
 }
 
 export interface WishGrowthRecord {
-  id: number
+  id: number | string
   type: string
   content: string
   mediaUrls: string[]
@@ -58,7 +58,7 @@ export interface WishDetail extends WishListItem {
 }
 
 export interface WishCreateResult {
-  id: number
+  id: number | string
   title: string
   status: WishStatus
   fruitType: FruitType
@@ -66,7 +66,7 @@ export interface WishCreateResult {
 }
 
 export interface MyWishListItem {
-  id: number
+  id: number | string
   title: string
   status: WishStatus
   fruitType: FruitType
@@ -76,7 +76,7 @@ export interface MyWishListItem {
 }
 
 export interface Category {
-  id: number
+  id: number | string
   code: string
   name: string
   icon: string
@@ -131,7 +131,7 @@ export interface CursorMeta {
 export type InteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS' | 'ANON_STAR'
 
 export interface InteractionResult {
-  id: number
+  id: number | string
   type: InteractionType
   lightCount: number
   sameWishCount: number
@@ -141,13 +141,13 @@ export interface InteractionResult {
 }
 
 export interface InteractionRevokeResult {
-  id: number
+  id: number | string
   type: InteractionType
   revoked: boolean
 }
 
 export interface InteractionItem {
-  id: number
+  id: number | string
   /** 匿名星光记录不透出用户身份（userId/avatar 为 null） */
   userId: number | null
   nickname: string
@@ -158,7 +158,7 @@ export interface InteractionItem {
 }
 
 export interface MyInteractionItem {
-  id: number
+  id: number | string
   type: InteractionType
   content: string | null
   createdAt: string
@@ -166,7 +166,7 @@ export interface MyInteractionItem {
 }
 
 export interface WishCommentItem {
-  id: number
+  id: number | string
   wishId: number
   userId: number
   nickname: string
@@ -178,7 +178,7 @@ export interface WishCommentItem {
 }
 
 export interface WishCommentCreateResult {
-  id: number
+  id: number | string
   content: string
   createdAt: string
 }
@@ -187,7 +187,7 @@ export interface WishCommentCreateResult {
 
 /** BGM 播放歌曲（公开接口，空列表由播放器回退默认曲） */
 export interface BgmSong {
-  id: number
+  id: number | string
   title: string
   url: string
   sort: number
@@ -220,11 +220,11 @@ export function createWish(data: {
   return request.post<ApiResponse<WishCreateResult>>('/wish/wishes', data)
 }
 
-export function getWishDetail(id: number) {
+export function getWishDetail(id: number | string) {
   return request.get<ApiResponse<WishDetail>>(`/wish/wishes/${id}`)
 }
 
-export function updateWish(id: number, data: {
+export function updateWish(id: number | string, data: {
   title?: string
   description?: string
   mediaUrls?: string[]
@@ -237,7 +237,7 @@ export function updateWish(id: number, data: {
   return request.put<ApiResponse<{ id: number; updatedAt: string }>>(`/wish/wishes/${id}`, data)
 }
 
-export function deleteWish(id: number) {
+export function deleteWish(id: number | string) {
   return request.delete<ApiResponse<{ id: number; deletedAt: string }>>(`/wish/wishes/${id}`)
 }
 
@@ -261,17 +261,17 @@ export function listMyWishes(params: {
 
 // ========== Interaction & Comment API（Sprint 1.2） ==========
 
-export function createInteraction(wishId: number, data: { type: InteractionType; content?: string }) {
+export function createInteraction(wishId: number | string, data: { type: InteractionType; content?: string }) {
   return request.post<ApiResponse<InteractionResult>>(`/wish/wishes/${wishId}/interactions`, data)
 }
 
-export function revokeInteraction(wishId: number, interactionId: number) {
+export function revokeInteraction(wishId: number | string, interactionId: number | string) {
   return request.delete<ApiResponse<InteractionRevokeResult>>(
       `/wish/wishes/${wishId}/interactions/${interactionId}`
   )
 }
 
-export function listInteractions(wishId: number, params: {
+export function listInteractions(wishId: number | string, params: {
   type?: InteractionType
   cursor?: string
   pageSize?: number
@@ -279,22 +279,22 @@ export function listInteractions(wishId: number, params: {
   return request.get<ApiResponse<InteractionItem[]>>(`/wish/wishes/${wishId}/interactions`, { params })
 }
 
-export function listMyInteractions(wishId: number) {
+export function listMyInteractions(wishId: number | string) {
   return request.get<ApiResponse<MyInteractionItem[]>>(`/wish/wishes/${wishId}/interactions/my`)
 }
 
-export function createWishComment(wishId: number, data: { content: string; parentId?: number }) {
+export function createWishComment(wishId: number | string, data: { content: string; parentId?: number | string }) {
   return request.post<ApiResponse<WishCommentCreateResult>>(`/wish/wishes/${wishId}/comments`, data)
 }
 
-export function listWishComments(wishId: number, params: {
+export function listWishComments(wishId: number | string, params: {
   cursor?: string
   pageSize?: number
 }) {
   return request.get<ApiResponse<WishCommentItem[]>>(`/wish/wishes/${wishId}/comments`, { params })
 }
 
-export function deleteWishComment(wishId: number, commentId: number) {
+export function deleteWishComment(wishId: number | string, commentId: number | string) {
   return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/comments/${commentId}`)
 }
 
@@ -313,7 +313,7 @@ export interface TreeHoleReply {
 }
 
 export interface AiConversationItem {
-  id: number
+  id: number | string
   role: 'USER' | 'ASSISTANT'
   content: string
   sentimentScore: number | null
@@ -332,7 +332,7 @@ export interface ConsentStatus {
 }
 
 /** 发送树洞消息并获取 AI 治愈回复（前置：AI 数据处理同意；10 次/日） */
-export function sendTreeHoleMessage(wishId: number, data: { message: string }) {
+export function sendTreeHoleMessage(wishId: number | string, data: { message: string }) {
   return request.post<ApiResponse<TreeHoleReply>>(`/wish/ai/tree-hole`, {
     wishId,
     message: data.message,
@@ -403,7 +403,7 @@ export function getBadgeDefinitions() {
 // ========== 还愿 API（Sprint 1.10 后端契约，文档 2.4） ==========
 
 export interface WishFulfillmentSubmitResult {
-  id: number
+  id: number | string
   wishId: number
   status: WishStatus
   fruitType: FruitType
@@ -413,7 +413,7 @@ export interface WishFulfillmentSubmitResult {
 }
 
 export interface WishFulfillmentDetail {
-  id: number
+  id: number | string
   wishId: number
   story: string
   mediaUrls: string[]
@@ -431,7 +431,7 @@ export interface SubmitFulfillmentPayload {
 }
 
 /** 提交还愿（仅作者 + ACTIVE/OVERDUE；提交即 FULFILLED + BLOOM + 星光奖励） */
-export function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload) {
+export function submitFulfillment(wishId: number | string, data: SubmitFulfillmentPayload) {
   return request.post<ApiResponse<WishFulfillmentSubmitResult>>(
       `/wish/wishes/${wishId}/fulfillment`,
       data,
@@ -439,7 +439,7 @@ export function submitFulfillment(wishId: number, data: SubmitFulfillmentPayload
 }
 
 /** 还愿详情（公开心愿匿名可见；PRIVATE/TREE_HOLE 仅作者；未还愿 404） */
-export function getFulfillmentDetail(wishId: number) {
+export function getFulfillmentDetail(wishId: number | string) {
   return request.get<ApiResponse<WishFulfillmentDetail>>(`/wish/wishes/${wishId}/fulfillment`)
 }
 
@@ -466,7 +466,7 @@ export interface TreeFruitPosition {
 }
 
 export interface TreeFruit {
-  id: number
+  id: number | string
   title: string
   fruitType: FruitType
   authorNickname: string
@@ -520,7 +520,7 @@ export interface TreeEnvVisual {
 }
 
 export interface EnvConfigItem {
-  id: number
+  id: number | string
   envCode: string
   category: 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'
   name: string
@@ -531,7 +531,7 @@ export interface EnvConfigItem {
 }
 
 export interface TreeSpecialEvent {
-  id: number
+  id: number | string
   eventCode: string
   title: string
   description: string | null
@@ -572,7 +572,7 @@ export type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'
 
 /** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（防绕过，开启是唯一拆信路径） */
 export interface CapsuleItem {
-  id: number
+  id: number | string
   title: string
   content: string | null
   mediaUrls: string[] | null
@@ -599,15 +599,15 @@ export function listMyCapsules(params: { status?: CapsuleStatus; cursor?: string
   return request.get<ApiResponse<CapsuleItem[]>>('/wish/capsules', { params })
 }
 
-export function getCapsuleDetail(id: number) {
+export function getCapsuleDetail(id: number | string) {
   return request.get<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)
 }
 
-export function openCapsule(id: number) {
+export function openCapsule(id: number | string) {
   return request.post<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}/open`)
 }
 
-export function cancelCapsule(id: number) {
+export function cancelCapsule(id: number | string) {
   return request.delete<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)
 }
 
@@ -643,7 +643,7 @@ export interface AiBreakdownResult {
 
 /** AI 拆解目标（wish_ai_goal 持久化后的列表项） */
 export interface AiGoal {
-  id: number
+  id: number | string
   wishId: number | null
   title: string
   description: string
@@ -671,7 +671,7 @@ export function createAiGoals(data: {
 }
 
 /** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */
-export function updateAiGoalStatus(goalId: number, status: AiGoalStatus) {
+export function updateAiGoalStatus(goalId: number | string, status: AiGoalStatus) {
   return request.put<ApiResponse<AiGoal>>(`/wish/ai/goals/${goalId}`, { status })
 }
 
@@ -686,7 +686,7 @@ export function listMyAiGoals(params: {
 }
 
 /** 预期管理选项埋点（转化率分析；非本人/不存在心愿 404） */
-export function recordExpectedAction(wishId: number, action: ExpectedActionType) {
+export function recordExpectedAction(wishId: number | string, action: ExpectedActionType) {
   return request.post<ApiResponse<null>>('/wish/ai/expected-actions', { wishId, action })
 }
 
@@ -897,12 +897,12 @@ export interface InheritResult {
 }
 
 /** 传承推送（作者对 FULFILLED 心愿定向推送曾同求用户；一次还愿一次传承） */
-export function inheritFulfillment(wishId: number, message?: string) {
+export function inheritFulfillment(wishId: number | string, message?: string) {
   return request.post<ApiResponse<InheritResult>>(`/wish/wishes/${wishId}/fulfillment/inherit`, { message })
 }
 
 /** 撤回还愿故事（作者软删；心愿保持 FULFILLED；community 帖子同步隐藏） */
-export function withdrawFulfillment(wishId: number) {
+export function withdrawFulfillment(wishId: number | string) {
   return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/fulfillment`)
 }
 
@@ -963,7 +963,7 @@ export interface FenceCheckResult {
 }
 
 /** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */
-export function checkFence(wishId: number, lat: number, lng: number) {
+export function checkFence(wishId: number | string, lat: number, lng: number) {
   return request.post<ApiResponse<FenceCheckResult>>('/wish/map/fence/check', { wishId, lat, lng })
 }
 
@@ -1025,7 +1025,7 @@ export function listEncounterLetters() {
 }
 
 /** 拆信（DELIVERED → READ） */
-export function readEncounterLetter(letterId: number) {
+export function readEncounterLetter(letterId: number | string) {
   return request.put<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/read`)
 }
 
@@ -1071,7 +1071,7 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
 }
 
 export interface ActivityItem {
-  id: number
+  id: number | string
   type: ActivityType
   title: string
   description: string | null
@@ -1100,24 +1100,24 @@ export function listActivities(params: { type?: string; cityCode?: string } = {}
 }
 
 /** 活动详情（归档后仍可访问） */
-export function getActivity(id: number) {
+export function getActivity(id: number | string) {
   return request.get<ApiResponse<ActivityItem>>(`/wish/activities/${id}`)
 }
 
-export function getActivityProgress(id: number) {
+export function getActivityProgress(id: number | string) {
   return request.get<ApiResponse<number>>(`/wish/activities/${id}/progress`)
 }
 
-export function joinActivity(id: number) {
+export function joinActivity(id: number | string) {
   return request.post<ApiResponse<null>>(`/wish/activities/${id}/join`)
 }
 
 /** 合伙人申请（提交协作心愿 + 技能标签） */
-export function applyPartner(id: number, wishId: number, skills?: string[]) {
+export function applyPartner(id: number | string, wishId: number | string, skills?: string[]) {
   return request.post<ApiResponse<null>>(`/wish/activities/${id}/apply`, { wishId, skills })
 }
 
-export function reviewPartnerApplication(id: number, applicantUserId: number, approved: boolean) {
+export function reviewPartnerApplication(id: number | string, applicantUserId: number, approved: boolean) {
   return request.put<ApiResponse<null>>(
     `/wish/activities/${id}/participants/${applicantUserId}/review`,
     { approved },
@@ -1134,7 +1134,7 @@ export interface BoardMember {
   latestGrowthAt: string | null
 }
 
-export function getPartnerBoard(id: number) {
+export function getPartnerBoard(id: number | string) {
   return request.get<ApiResponse<{ activityId: number; leaderUserId: number; members: BoardMember[] }>>(
     `/wish/activities/${id}/board`,
   )
@@ -1143,7 +1143,7 @@ export function getPartnerBoard(id: number) {
 // ========== 虚拟收藏 + 品牌（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========
 
 export interface UserAssetData {
-  id: number
+  id: number | string
   userId: number
   assetId: number
   source: string
@@ -1179,7 +1179,7 @@ export function getCollections() {
   return request.get<ApiResponse<CollectionGroup>>('/wish/collections/assets')
 }
 
-export function collectSparkWish(wishId: number) {
+export function collectSparkWish(wishId: number | string) {
   return request.post<ApiResponse<null>>(`/wish/collections/spark/${wishId}`)
 }
 
@@ -1200,18 +1200,18 @@ export interface CheckinResult {
   starlightCredited: number
 }
 
-export function checkinWish(wishId: number, content?: string) {
+export function checkinWish(wishId: number | string, content?: string) {
   return request.post<ApiResponse<CheckinResult>>(`/wish/wishes/${wishId}/checkin`, { content })
 }
 
-export function addGrowthRecord(wishId: number, data: {
+export function addGrowthRecord(wishId: number | string, data: {
   type: string; content: string; mediaUrls?: string[]; progressDelta?: number
 }) {
   return request.post<ApiResponse<{ recordId: number; newCurrentValue: number }>>(
     `/wish/wishes/${wishId}/growth`, data)
 }
 
-export function getWishProgressDetail(wishId: number) {
+export function getWishProgressDetail(wishId: number | string) {
   return request.get<ApiResponse<{ currentValue: number; targetValue: number; percentage: number; version: number }>>(
     `/wish/wishes/${wishId}/progress`)
 }
@@ -1233,11 +1233,11 @@ export function listWishCollections(cursor?: string, pageSize?: number) {
   })
 }
 
-export function collectWish(wishId: number) {
+export function collectWish(wishId: number | string) {
   return request.post<ApiResponse<{ collectionId: number; wishId: number; collectedAt: string }>>(
     '/wish/collections', { wishId })
 }
 
-export function uncollectWish(wishId: number) {
+export function uncollectWish(wishId: number | string) {
   return request.delete<ApiResponse<{ wishId: number; deleted: boolean }>>(`/wish/collections/${wishId}`)
 }

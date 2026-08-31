@@ -5,6 +5,9 @@ import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -15,8 +18,37 @@ import java.util.Map;
 @Slf4j
 public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeignClient> {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /**
+     * 下游业务错误（信封 error.code/message，如"活动条件尚未达成"）原样透传，
+     * 仅真正的连接/超时类故障才降级为 WISH_SERVICE_UNAVAILABLE。
+     */
+    private static BusinessException unwrapBusinessError(Throwable cause) {
+        if (cause instanceof FeignException fe) {
+            String body = fe.contentUTF8();
+            if (body != null && !body.isBlank()) {
+                try {
+                    JsonNode error = MAPPER.readTree(body).path("error");
+                    String code = error.path("code").asText("");
+                    if (!code.isEmpty()) {
+                        return new BusinessException(code, error.path("message").asText("请求失败"));
+                    }
+                } catch (Exception ignore) {
+                    // 非信封响应体，按普通降级处理
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     public WishFeignClient create(Throwable cause) {
+        BusinessException businessError = unwrapBusinessError(cause);
+        if (businessError != null) {
+            log.warn("心愿服务返回业务错误: code={}, message={}", businessError.getCode(), businessError.getMessage());
+            throw businessError;
+        }
         log.error("心愿服务调用失败: {}", cause.getMessage());
         return new WishFeignClient() {
             @Override
@@ -286,6 +318,36 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
 
             @Override
             public ApiResponse<Object> listActivityRewardLogs(Long id) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listSuspicious(Long userId) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listFreezes() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> unfreezeUser(Long userId) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listLiveWidgetConfigs() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> saveLiveWidgetConfig(Long streamerId, Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> toggleLiveWidgetVisible(Long streamerId, boolean visible) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
         };

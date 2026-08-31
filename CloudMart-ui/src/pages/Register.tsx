@@ -12,6 +12,7 @@ import {
 import { history } from 'umi'
 import { register } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
+import AppMessageBinder from '@/components/AppMessageBinder'
 import { useMessage } from '@/utils/useMessage'
 
 interface RegisterFormValues {
@@ -193,6 +194,7 @@ export default function Register() {
       }}
     >
       <App>
+        <AppMessageBinder />
         <RegisterContent />
       </App>
     </ConfigProvider>

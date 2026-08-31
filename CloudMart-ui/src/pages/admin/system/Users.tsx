@@ -8,7 +8,7 @@ import {
   ProFormSwitch,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag, message as antMessage } from 'antd'
+import { Button, Popconfirm, Switch, Tag } from 'antd'
 import { PlusOutlined, DownloadOutlined } from '@ant-design/icons'
 import {
   getUsers,
@@ -168,7 +168,7 @@ export default function Users() {
                 const res = await getUsers({ page: 1, pageSize: 1000 })
                 const data = (res.data as { data?: UserRecord[] }).data ?? []
                 if (data.length === 0) {
-                  antMessage.warning('暂无数据可导出')
+                  message.warning('暂无数据可导出')
                   return
                 }
                 const bom = '\uFEFF'
@@ -184,9 +184,9 @@ export default function Users() {
                 link.download = '用户数据.csv'
                 link.click()
                 URL.revokeObjectURL(link.href)
-                antMessage.success('导出成功')
+                message.success('导出成功')
               } catch {
-                antMessage.error('导出失败')
+                message.error('导出失败')
               }
             }}
           >
@@ -218,7 +218,7 @@ export default function Users() {
             ? { ...editingRecord, status: editingRecord.status === 1 }
             : { status: true }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormText

@@ -258,7 +258,7 @@ export default function Menus() {
               }
             : { visible: true, status: true, orderNum: 0, menuType: 1, parentId: 0 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={600}
       >
         <ProFormTreeSelect

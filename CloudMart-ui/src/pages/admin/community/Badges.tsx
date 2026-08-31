@@ -199,7 +199,7 @@ export default function Badges() {
               }
             : { status: 1, level: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormText
@@ -245,7 +245,7 @@ export default function Badges() {
         open={grantModalVisible}
         onOpenChange={createHandleOpenChange2(setGrantModalVisible, () => setGrantingBadge(null))}
         onFinish={handleGrant}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={400}
       >
         <ProFormDigit

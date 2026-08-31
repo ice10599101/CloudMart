@@ -44,7 +44,7 @@ function formatCount(n: number): string {
 
 export default function WishDetailPage() {
   const router = useRouter()
-  const wishId = Number(router.params.id)
+  const wishId = String(router.params.id ?? '')
   // 预期管理通知「延长预期」深链：作者本人修改 expected_at（状态保持 ACTIVE）
   const [extendOpen, setExtendOpen] = useState(false)
   const [extendDate, setExtendDate] = useState('')

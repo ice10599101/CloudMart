@@ -367,7 +367,7 @@ export default function Dict() {
             ? { ...editingType, status: editingType.status === 1 }
             : { status: true }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormText
@@ -405,7 +405,7 @@ export default function Dict() {
               }
             : { status: true, isDefault: false, dictSort: 0 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormText

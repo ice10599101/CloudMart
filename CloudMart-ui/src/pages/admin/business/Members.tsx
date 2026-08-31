@@ -170,7 +170,7 @@ export default function Members() {
             ? { ...editingRecord }
             : {}
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
         <ProFormText

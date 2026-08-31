@@ -14,7 +14,7 @@ import type { WishDetail, WishFulfillmentDetail } from '@/types'
 export default function WishDetailScreen() {
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ id?: string; extend?: string }>()
-  const wishId = Number(params.id)
+  const wishId = String(params.id ?? '')
   const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)

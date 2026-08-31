@@ -173,7 +173,7 @@ export default function Notices() {
             ? editingRecord
             : { noticeType: 1, status: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={680}
       >
         <ProFormText

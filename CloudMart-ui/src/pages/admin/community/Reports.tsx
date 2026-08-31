@@ -148,7 +148,7 @@ export default function Reports() {
         onOpenChange={createHandleOpenChange(setHandleModalVisible, () => setCurrentReport(null))}
         onFinish={handleHandleReport}
         initialValues={{ status: 3 }}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormSelect

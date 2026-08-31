@@ -29,7 +29,7 @@ export interface WishInteractionCounts {
 }
 
 interface WishInteractionBarProps {
-  wishId: number
+  wishId: number | string
   counts: WishInteractionCounts
   isLoggedIn: boolean
   onCountsChange: (counts: Partial<WishInteractionCounts>) => void

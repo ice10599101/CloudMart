@@ -126,7 +126,7 @@ export default function Notifications() {
         open={sendModalVisible}
         onOpenChange={createHandleOpenChange(setSendModalVisible)}
         onFinish={handleSend}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormSelect

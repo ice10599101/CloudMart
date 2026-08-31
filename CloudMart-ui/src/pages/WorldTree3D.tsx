@@ -321,7 +321,7 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
       fruitColor.setHex(FRUIT_COLORS[fruits[i].fruitType] ?? 0xffffff)
       coreMesh.setColorAt(i, fruitColor)
       haloMesh.setColorAt(i, fruitColor)
-      instancePhases.push((fruits[i].id % 97) * 0.35)
+      instancePhases.push((Number(fruits[i].id) % 97) * 0.35)
       writeInstance(i, 1)
     }
     coreMesh.instanceMatrix.needsUpdate = true
@@ -558,7 +558,7 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
 export default function WorldTree3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<TreeSceneHandle | null>(null)
-  const fruitsMapRef = useRef<Map<number, TreeFruit>>(new Map())
+  const fruitsMapRef = useRef<Map<number | string, TreeFruit>>(new Map())
   const [aggregation, setAggregation] = useState<WorldTreeAggregation | null>(null)
   const [envSnapshot, setEnvSnapshot] = useState<TreeEnvSnapshot | null>(null)
   const [envConfigs, setEnvConfigs] = useState<EnvConfigItem[]>([])

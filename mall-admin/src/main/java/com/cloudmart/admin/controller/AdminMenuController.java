@@ -67,7 +67,7 @@ public class AdminMenuController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:menu:edit")
+    @RequiresPermission("admin:menu:edit")
     @OperLog(title = "菜单管理", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用菜单")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

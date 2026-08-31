@@ -1,8 +1,19 @@
 import axios from 'axios'
 import type { ApiResponse } from '@/types/api'
-import { message } from 'antd'
+import { message as staticMessage } from 'antd'
 import { history } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { getAppMessage } from '@/utils/appMessage'
+
+/** 拦截器是非组件环境，优先用 App 桥实例；桥未挂载时退回静态实例 */
+function notify(kind: 'error' | 'warning', content: string) {
+  const api = getAppMessage()
+  if (api) {
+    api[kind](content)
+    return
+  }
+  staticMessage[kind](content)
+}
 
 const request = axios.create({
   baseURL: '/api',
@@ -77,11 +88,16 @@ function toBusinessError(code: string, messageText: string): Error & { code: str
   return error
 }
 
+/** 公开路径仅对 GET 跳过身份头；写操作（如发布心愿 POST /wish/wishes）必须携带 token，否则网关因无身份注入返回 UNAUTHORIZED */
+function isPublicGet(config: { url?: string; method?: string }): boolean {
+  return (config.method ?? 'get').toLowerCase() === 'get' && isPublicPath(config.url ?? '')
+}
+
 request.interceptors.request.use(
   (config) => {
-    const url = config.url ?? ''
-    if (isPublicPath(url)) return config
+    if (isPublicGet(config)) return config
 
+    const url = config.url ?? ''
     const tokenKey = isAdminRequest(url) ? 'admin_access_token' : 'access_token'
     const token = localStorage.getItem(tokenKey)
     if (token) {
@@ -110,13 +126,13 @@ request.interceptors.response.use(
       if (errorCode.endsWith('_SERVICE_UNAVAILABLE')) {
         if (!SERVICE_UNAVAILABLE_CODES.has(errorCode)) {
           SERVICE_UNAVAILABLE_CODES.add(errorCode)
-          message.warning(data.error?.message || '服务暂不可用')
+          notify('warning', data.error?.message || '服务暂不可用')
           if (serviceUnavailableTimer) clearTimeout(serviceUnavailableTimer)
           serviceUnavailableTimer = setTimeout(() => SERVICE_UNAVAILABLE_CODES.clear(), 5000)
         }
         return Promise.reject(businessError)
       }
-      message.error(data.error?.message || '请求失败')
+      notify('error', data.error?.message || '请求失败')
       return Promise.reject(businessError)
     }
     return response
@@ -132,7 +148,8 @@ request.interceptors.response.use(
         )
       }
       const url = error.config.url ?? ''
-      if (isPublicPath(url)) {
+      // 公开路径的 GET（匿名浏览）401 不触发 refresh；公开路径上的写操作仍走 refresh 流程
+      if (isPublicGet(error.config)) {
         return Promise.reject(error)
       }
       const admin = isAdminRequest(url)
@@ -199,7 +216,7 @@ request.interceptors.response.use(
         return Promise.reject(error)
       }
     }
-    message.error(error.response?.data?.error?.message || '网络错误')
+    notify('error', error.response?.data?.error?.message || '网络错误')
     return Promise.reject(error)
   },
 )

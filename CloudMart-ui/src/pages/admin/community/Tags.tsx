@@ -168,7 +168,7 @@ export default function Tags() {
             ? { name: editingRecord.name, icon: editingRecord.icon, status: editingRecord.status }
             : { status: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={480}
       >
         <ProFormText

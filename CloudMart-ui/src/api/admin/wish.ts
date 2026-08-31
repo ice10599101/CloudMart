@@ -847,3 +847,94 @@ export function toggleAdminLiveWidgetVisible(streamerId: number, visible: boolea
     { params: { visible } },
   )
 }
+
+// ========== 社区活动管理（Sprint 3.5，代理 mall-wish /admin/activity/**） ==========
+
+export type AdminActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'
+export type AdminActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'
+export type AdminActivityConditionType = 'PROGRESS_COUNTER' | 'PARTICIPANT_COUNT' | 'MEMBER_FULFILLED'
+
+export const ADMIN_ACTIVITY_TYPE_MAP: Record<AdminActivityType, { label: string; color: string }> = {
+  WORLD_EVENT: { label: '世界事件', color: 'purple' },
+  FESTIVAL: { label: '节日活动', color: 'volcano' },
+  CITY: { label: '城市活动', color: 'geekblue' },
+  WISH_PARTNER: { label: '心愿合伙人', color: 'gold' },
+}
+
+export const ADMIN_ACTIVITY_STATUS_MAP: Record<AdminActivityStatus, { label: string; color: string }> = {
+  DRAFT: { label: '筹备中', color: 'default' },
+  ACTIVE: { label: '进行中', color: 'processing' },
+  ENDED: { label: '已结束', color: 'warning' },
+  ARCHIVED: { label: '已归档', color: 'default' },
+}
+
+export const ADMIN_ACTIVITY_CONDITION_TYPE_MAP: Record<AdminActivityConditionType, string> = {
+  PROGRESS_COUNTER: '活动进度达标',
+  PARTICIPANT_COUNT: '参与人数达标',
+  MEMBER_FULFILLED: '组内心愿达成',
+}
+
+export interface AdminActivityRecord {
+  id: number
+  type: AdminActivityType
+  title: string
+  description?: string | null
+  coverImage?: string | null
+  conditionJson?: string | null
+  rewardJson?: string | null
+  cityCode?: string | null
+  status: AdminActivityStatus
+  validFrom?: string | null
+  validTo?: string | null
+  progressCounter?: number
+  createdBy?: number
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface AdminActivityRewardLog {
+  id: number
+  activityId: number
+  userId: number
+  rewardType: 'STARLIGHT' | 'BADGE'
+  amount: number
+  refId?: number | null
+  createdAt: string
+}
+
+export interface AdminActivityRewardStats {
+  eligible: number
+  starlightIssued: number
+  badgeIssued: number
+  skipped: number
+}
+
+export function listAdminActivities(params: { status?: string; type?: string; page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<AdminActivityRecord[]>>('/admin/wish/activity/list', { params })
+}
+
+export function createAdminActivity(data: Partial<AdminActivityRecord>) {
+  return request.post<ApiResponse<AdminActivityRecord>>('/admin/wish/activity', data)
+}
+
+export function updateAdminActivity(id: number, data: Partial<AdminActivityRecord>) {
+  return request.put<ApiResponse<AdminActivityRecord>>(`/admin/wish/activity/${id}`, data)
+}
+
+export function transitionAdminActivity(id: number, action: 'start' | 'end' | 'archive') {
+  return request.post<ApiResponse<AdminActivityRecord>>(
+    `/admin/wish/activity/${id}/transition`, undefined, { params: { action } },
+  )
+}
+
+export function deleteAdminActivity(id: number) {
+  return request.delete<ApiResponse<null>>(`/admin/wish/activity/${id}`)
+}
+
+export function issueAdminActivityRewards(id: number) {
+  return request.post<ApiResponse<AdminActivityRewardStats>>(`/admin/wish/activity/${id}/rewards`)
+}
+
+export function listAdminActivityRewardLogs(id: number) {
+  return request.get<ApiResponse<AdminActivityRewardLog[]>>(`/admin/wish/activity/${id}/rewards/logs`)
+}

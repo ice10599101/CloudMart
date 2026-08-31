@@ -117,6 +117,7 @@ export default defineConfig({
         { path: '/admin/business/wish-bgm', component: '@/pages/admin/business/WishBgm' },
         { path: '/admin/business/tree-env', component: '@/pages/admin/business/TreeEnv' },
         { path: '/admin/business/capsules', component: '@/pages/admin/business/Capsules' },
+        { path: '/admin/business/activity', component: '@/pages/admin/business/ActivityAdmin' },
         { path: '/admin/business/wish-ai', component: '@/pages/admin/business/WishAi' },
         { path: '/admin/business/match', component: '@/pages/admin/business/MatchAdmin' },
         { path: '/admin/business/legacy', component: '@/pages/admin/business/LegacyAdmin' },

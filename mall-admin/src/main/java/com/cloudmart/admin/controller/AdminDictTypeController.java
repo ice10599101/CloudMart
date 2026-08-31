@@ -77,7 +77,7 @@ public class AdminDictTypeController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:dict:edit")
+    @RequiresPermission("admin:dict:edit")
     @OperLog(title = "字典管理", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用字典类型")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

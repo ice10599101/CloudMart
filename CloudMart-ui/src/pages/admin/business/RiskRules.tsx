@@ -191,7 +191,7 @@ export default function RiskRules() {
             ? { ...editingRecord }
             : { status: 1, threshold: 10 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormText

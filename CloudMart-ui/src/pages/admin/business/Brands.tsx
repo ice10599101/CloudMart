@@ -184,7 +184,7 @@ export default function Brands() {
             ? { ...editingRecord }
             : { status: 1 }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormText

@@ -7,7 +7,7 @@
  * Key 申请：https://lbs.amap.com/（Web端 JS API）。</p>
  */
 
-export const AMAP_KEY = ''
+export const AMAP_KEY = 'b7b068d7715d4bcd7e0929d648ab047a'
 
 let inflight: Promise<void> | null = null
 

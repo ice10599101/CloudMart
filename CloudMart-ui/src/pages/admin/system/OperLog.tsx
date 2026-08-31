@@ -162,7 +162,7 @@ export default function OperLog() {
         onOpenChange={setDetailVisible}
         onFinish={async () => true}
         submitter={false}
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={700}
       >
         {detailRecord && (

@@ -68,7 +68,7 @@ public class AdminDeptController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:dept:edit")
+    @RequiresPermission("admin:dept:edit")
     @OperLog(title = "部门管理", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用部门")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

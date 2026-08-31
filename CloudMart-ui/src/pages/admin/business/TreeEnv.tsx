@@ -177,7 +177,7 @@ function SpecialEventPanel() {
                 open={triggerVisible}
                 onOpenChange={createHandleOpenChange(setTriggerVisible)}
                 onFinish={handleTrigger}
-                modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+                modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
                 width={520}
             >
                 <ProFormSelect
@@ -381,7 +381,7 @@ function EnvConfigPanel() {
                         }
                         : { category: 'SPECIAL_EVENT', priority: 50, particle: 'NONE' }
                 }
-                modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+                modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
                 width={560}
             >
                 {!editingRecord && (

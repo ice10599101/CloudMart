@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm, message as antMessage } from 'antd'
+import { Button, Tag, Popconfirm } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
 import {
   getAdminPosts,
@@ -152,7 +152,7 @@ export default function Posts() {
               const res = await getAdminPosts({ page: 1, pageSize: 1000 })
               const data = (res.data as { data?: AdminPostRecord[] }).data ?? []
               if (data.length === 0) {
-                antMessage.warning('暂无数据可导出')
+                message.warning('暂无数据可导出')
                 return
               }
               const bom = '\uFEFF'
@@ -169,9 +169,9 @@ export default function Posts() {
               link.download = '帖子数据.csv'
               link.click()
               URL.revokeObjectURL(link.href)
-              antMessage.success('导出成功')
+              message.success('导出成功')
             } catch {
-              antMessage.error('导出失败')
+              message.error('导出失败')
             }
           }}
         >

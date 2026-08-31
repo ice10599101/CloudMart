@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { history, useSearchParams } from 'umi'
 import { useAuthStore } from '@/stores/auth'
+import AppMessageBinder from '@/components/AppMessageBinder'
 import { useMessage } from '@/utils/useMessage'
 
 interface LoginFormValues {
@@ -232,6 +233,7 @@ export default function Login() {
       }}
     >
     <App>
+      <AppMessageBinder />
       <LoginContent />
     </App>
     </ConfigProvider>

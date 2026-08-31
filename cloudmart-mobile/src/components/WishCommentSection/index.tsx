@@ -22,7 +22,7 @@ export interface WishCommentSectionHandle {
 }
 
 interface WishCommentSectionProps {
-  wishId: number
+  wishId: number | string
   commentCount: number
   isLoggedIn: boolean
   currentUserId?: number

@@ -54,7 +54,7 @@ export default function Activities() {
     loadList(typeFilter)
   }, [typeFilter, loadList])
 
-  const openDetail = useCallback(async (id: number) => {
+  const openDetail = useCallback(async (id: number | string) => {
     try {
       const [detailRes, progressRes] = await Promise.all([getActivity(id), getActivityProgress(id)])
       if (detailRes.data.success) setDetail(detailRes.data.data)
@@ -64,7 +64,7 @@ export default function Activities() {
     }
   }, [])
 
-  const handleJoin = async (id: number) => {
+  const handleJoin = async (id: number | string) => {
     if (!user) {
       history.push('/login?redirect=/wish/activities')
       return
@@ -78,7 +78,7 @@ export default function Activities() {
     }
   }
 
-  const handleViewBoard = async (id: number) => {
+  const handleViewBoard = async (id: number | string) => {
     try {
       const res = await getPartnerBoard(id)
       if (res.data.success) {

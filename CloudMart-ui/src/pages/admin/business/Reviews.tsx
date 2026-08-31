@@ -178,7 +178,7 @@ export default function Reviews() {
           open={detailVisible}
           onOpenChange={setDetailVisible}
           onFinish={async () => true}
-          modalProps={{ destroyOnHidden: true, footer: null, maskClosable: false, keyboard: false }}
+          modalProps={{ destroyOnHidden: true, footer: null, mask: { closable: false }, keyboard: false }}
           width={640}
           submitter={false}
         >

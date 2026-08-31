@@ -277,7 +277,7 @@ export default function Coupons() {
               }
             : { type: 'AMOUNT_OFF', perUserLimit: 1, totalQuantity: 100, thresholdAmount: 0, validityType: 'FIXED_DATE' }
         }
-        modalProps={{ destroyOnHidden: true, maskClosable: false, keyboard: false }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={560}
       >
         <ProFormText

@@ -91,7 +91,7 @@ public class AdminNoticeController {
     }
 
     @PutMapping("/{id}/status")
-    @RequiresPermission("system:notice:edit")
+    @RequiresPermission("admin:notice:edit")
     @OperLog(title = "通知公告", businessType = 2)
     @Operation(summary = "切换状态", description = "启用或禁用通知公告")
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
