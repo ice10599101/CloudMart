@@ -48,8 +48,8 @@ export default function CheckInModal({ visible, onClose }: CheckInModalProps) {
         getContinuousDays(),
       ])
       if (levelRes.data.data) setLevelInfo(levelRes.data.data)
-      if (statusRes.data.data != null) setCheckedIn(statusRes.data.data)
-      if (continuousRes.data.data != null) setContinuousDays(continuousRes.data.data)
+      if (statusRes.data.data !== null && statusRes.data.data !== undefined) setCheckedIn(statusRes.data.data)
+      if (continuousRes.data.data !== null && continuousRes.data.data !== undefined) setContinuousDays(continuousRes.data.data)
     } catch {
       setLevelInfo(null)
     }
@@ -167,6 +167,7 @@ export default function CheckInModal({ visible, onClose }: CheckInModalProps) {
         />
 
         <button
+          type="button"
           onClick={onClose}
           style={{
             position: 'absolute',
@@ -423,6 +424,7 @@ export default function CheckInModal({ visible, onClose }: CheckInModalProps) {
           </div>
 
           <button
+            type="button"
             onClick={handleCheckIn}
             disabled={checkedIn || loading}
             style={{

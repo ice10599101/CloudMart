@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Spin, message } from 'antd'
+import { message } from 'antd'
 import {
   HeartOutlined,
   MessageOutlined,
@@ -117,6 +117,24 @@ function extractFollowNickname(content: string): string {
   return match ? match[1] : ''
 }
 
+function navigateToBiz(item: EnrichedNotification) {
+  if (item.bizType === 'POST' && item.bizId) {
+    history.push(`/post/${item.bizId}`)
+  } else if (item.bizType === 'TAG' && item.bizId) {
+    history.push(`/topic/${item.bizId}`)
+  } else if (item.bizType === 'USER' && item.bizId) {
+    history.push(`/user/${item.bizId}`)
+  } else if (item.bizType === 'CONVERSATION' && item.bizId) {
+    history.push(`/chat/${item.bizId}`)
+  } else if (item.type === 'CHAT' && item.bizId) {
+    history.push(`/chat/${item.bizId}`)
+  } else if (item.bizType === 'WISH' && item.bizId) {
+    history.push(`/wish/${item.bizId}`)
+  } else if (item.bizType === 'CAPSULE' && item.bizId) {
+    history.push(`/wish/capsules/${item.bizId}`)
+  }
+}
+
 function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   const username = extractUsername(item.content)
   const postTitle = extractPostTitle(item.content)
@@ -199,24 +217,6 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   }
 
   return <p className={styles.notificationText}>{item.content}</p>
-}
-
-function navigateToBiz(item: EnrichedNotification) {
-  if (item.bizType === 'POST' && item.bizId) {
-    history.push(`/post/${item.bizId}`)
-  } else if (item.bizType === 'TAG' && item.bizId) {
-    history.push(`/topic/${item.bizId}`)
-  } else if (item.bizType === 'USER' && item.bizId) {
-    history.push(`/user/${item.bizId}`)
-  } else if (item.bizType === 'CONVERSATION' && item.bizId) {
-    history.push(`/chat/${item.bizId}`)
-  } else if (item.type === 'CHAT' && item.bizId) {
-    history.push(`/chat/${item.bizId}`)
-  } else if (item.bizType === 'WISH' && item.bizId) {
-    history.push(`/wish/${item.bizId}`)
-  } else if (item.bizType === 'CAPSULE' && item.bizId) {
-    history.push(`/wish/capsules/${item.bizId}`)
-  }
 }
 
 function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNotification; followedMap: Record<number, boolean>; onToggleFollow: (userId: number) => void }) {

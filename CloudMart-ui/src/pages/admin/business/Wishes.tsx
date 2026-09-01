@@ -49,7 +49,7 @@ export default function Wishes() {
   }
 
   const handleReject = async (reason: string) => {
-    if (rejectingId == null) return false
+    if (rejectingId === null) return false
     try {
       await auditAdminWish(rejectingId, { auditStatus: 'REJECTED', rejectReason: reason })
       message.success('已拒绝')

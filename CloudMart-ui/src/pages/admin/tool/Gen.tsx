@@ -74,7 +74,7 @@ export default function Gen() {
     const [previewVisible, setPreviewVisible] = useState(false)
     const [previewTable, setPreviewTable] = useState<string | null>(null)
     const [previewFiles, setPreviewFiles] = useState<GenPreviewFile[]>([])
-    const [previewLoading, setPreviewLoading] = useState(false)
+    const [previewLoading] = useState(false)
 
     const openDetail = async (tableName: string) => {
         setDetailTable(tableName)

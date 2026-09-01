@@ -18,6 +18,9 @@ public interface EncounterService {
     /** 附近模式开关（开启=允许轨迹上报 24h 内有效，上报自动续期；关闭=立即删除） */
     void setNearbyMode(Long userId, boolean enabled);
 
+    /** 附近模式当前状态（Redis 开关键存在即开启；供前端刷新后回显） */
+    boolean isNearbyModeEnabled(Long userId);
+
     /**
      * 轨迹上报（附近模式开启后客户端每 5 分钟调用）：
      * 频率限制（5 分钟 >10 次 → 429）→ 冻结检查（403）→ 伪造检测

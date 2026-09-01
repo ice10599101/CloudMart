@@ -3,8 +3,6 @@ import {
   ProTable,
   ModalForm,
   ProFormText,
-  ProFormDigit,
-  ProFormSelect,
   ProFormSwitch,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'

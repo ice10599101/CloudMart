@@ -13,8 +13,8 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
-import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment } from '@/api/wish'
-import type { WishDetail, WishFulfillmentDetail } from '@/api/wish'
+import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment, checkinWish } from '@/api/wish'
+import type { WishDetail as WishDetailData, WishFulfillmentDetail } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
@@ -55,7 +55,7 @@ export default function WishDetail() {
   const params = useParams<{ id: string }>()
   const wishId = params.id ?? ''
   const [loading, setLoading] = useState(true)
-  const [wish, setWish] = useState<WishDetail | null>(null)
+  const [wish, setWish] = useState<WishDetailData | null>(null)
   const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [extendOpen, setExtendOpen] = useState(false)
@@ -65,6 +65,11 @@ export default function WishDetail() {
   const [inheritOpen, setInheritOpen] = useState(false)
   const [inheritMessage, setInheritMessage] = useState('')
   const [inheriting, setInheriting] = useState(false)
+  // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，刷新页面后重打会 409 由后端幂等兜底）
+  const [checkinOpen, setCheckinOpen] = useState(false)
+  const [checkinContent, setCheckinContent] = useState('')
+  const [checkinSaving, setCheckinSaving] = useState(false)
+  const [checkedInToday, setCheckedInToday] = useState(false)
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
@@ -169,6 +174,29 @@ export default function WishDetail() {
 
   const gotoLogin = () => history.push('/login')
 
+  /** 提交每日打卡：成功后刷新详情（打卡天数/连续打卡来自服务端聚合） */
+  const handleCheckinSubmit = async () => {
+    setCheckinSaving(true)
+    try {
+      const res = await checkinWish(wishId, checkinContent.trim() || undefined)
+      if (res.data.success) {
+        const { currentStreak, starlightCredited } = res.data.data
+        message.success(`打卡成功！已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`)
+        setCheckinOpen(false)
+        setCheckinContent('')
+        setCheckedInToday(true)
+        const detailRes = await getWishDetail(wishId)
+        if (detailRes.data.success) {
+          setWish(detailRes.data.data)
+        }
+      }
+    } catch {
+      // 409（今日已打卡/状态冲突）等业务错误已由 request 拦截器统一提示
+    } finally {
+      setCheckinSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className={`${styles.loadingContainer} wish-universe-theme`}>
@@ -201,6 +229,15 @@ export default function WishDetail() {
         </Button>
         {isAuthor && (
           <div className={styles.actionBtns}>
+            {wish.status === 'ACTIVE' && (
+              <Button
+                icon={<CalendarOutlined />}
+                disabled={checkedInToday}
+                onClick={() => setCheckinOpen(true)}
+              >
+                {checkedInToday ? '今日已打卡' : '每日打卡'}
+              </Button>
+            )}
             {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
               <Button
                 type="primary"
@@ -442,6 +479,26 @@ export default function WishDetail() {
           maxLength={500}
           autoSize={{ minRows: 2, maxRows: 4 }}
           placeholder="如：谢谢你们陪我一起许下这个愿望，希望你也可以"
+        />
+      </Modal>
+      <Modal
+        open={checkinOpen}
+        title="每日打卡"
+        okText="打卡（星光 +2）"
+        cancelText="取消"
+        onOk={handleCheckinSubmit}
+        onCancel={() => setCheckinOpen(false)}
+        confirmLoading={checkinSaving}
+      >
+        <p style={{ marginBottom: 12 }}>
+          为今天的心愿之旅留下一点痕迹吧（心得可留空，直接打卡）：
+        </p>
+        <Input.TextArea
+          value={checkinContent}
+          onChange={(e) => setCheckinContent(e.target.value)}
+          maxLength={200}
+          autoSize={{ minRows: 2, maxRows: 4 }}
+          placeholder="如：今天离目标又近了一步"
         />
       </Modal>
       <Modal

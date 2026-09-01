@@ -59,15 +59,15 @@ export default function Products() {
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([])
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
 
-  useEffect(() => {
-    fetchCategoryTree()
-  }, [])
-
   async function fetchCategoryTree() {
     const { data: res } = await getCategories()
     const response = res as ApiResponse<CategoryTreeNode[]>
     setCategoryTree(response.data ?? [])
   }
+
+  useEffect(() => {
+    fetchCategoryTree()
+  }, [])
 
   const handleStatusChange = async (record: ProductRecord, newStatus: number) => {
     try {

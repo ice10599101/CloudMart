@@ -77,10 +77,6 @@ export default function Server() {
   const [serverData, setServerData] = useState<ServerData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchServerInfo()
-  }, [])
-
   async function fetchServerInfo() {
     setLoading(true)
     try {
@@ -91,6 +87,10 @@ export default function Server() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchServerInfo()
+  }, [])
 
   if (loading) {
     return (

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getUnreadCount, listNotifications, type NotificationItem } from '@/api/notification'
+import { getUnreadCount, type NotificationItem } from '@/api/notification'
 
 interface NotificationState {
   unreadCount: number

@@ -19,6 +19,7 @@ import type {
     BadgeDefinition,
     WishFulfillmentSubmitResult,
     WishFulfillmentDetail,
+    CheckinResult,
     SubmitFulfillmentPayload,
     WorldTreeAggregation,
     TreeFruit,
@@ -192,6 +193,13 @@ export const wishApi = {
         }),
     getFulfillmentDetail: (wishId: number | string) =>
         request<WishFulfillmentDetail>({ url: `/wish/wishes/${wishId}/fulfillment` }),
+    /** 心愿每日打卡（仅作者 + ACTIVE；每日一次幂等，星光 +2） */
+    checkinWish: (wishId: number | string, content?: string) =>
+        request<CheckinResult>({
+            url: `/wish/wishes/${wishId}/checkin`,
+            method: 'POST',
+            data: { content },
+        }),
 
     // ---- 世界树（Sprint 2.1）----
     /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */

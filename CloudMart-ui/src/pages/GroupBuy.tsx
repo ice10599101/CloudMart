@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   listGroupActivities,
-  joinGroup,
   openGroup,
   getGroupOrders,
 } from '@/api/marketing'
@@ -144,6 +143,7 @@ function GroupActivityCard({
         </div>
 
         <button
+          type="button"
           onClick={handleJoin}
           disabled={!isActive || joining}
           style={{
@@ -173,7 +173,6 @@ function GroupActivityCard({
 function GroupOrderCard({ order }: { order: GroupOrder }) {
   const isPending = order.status === 'PENDING' || order.status === 'WAITING'
   const isCompleted = order.status === 'COMPLETED' || order.status === 'SUCCESS'
-  const isFailed = order.status === 'FAILED' || order.status === 'EXPIRED'
   const progressPercent = order.targetNumber > 0
     ? Math.round((order.currentNumber / order.targetNumber) * 100)
     : 0
@@ -286,7 +285,7 @@ export default function GroupBuyPage() {
     }
   }, [activeTab, fetchActivities, fetchGroupOrders])
 
-  const handleJoin = (_activityId: number) => {
+  const handleJoin = () => {
     fetchActivities()
     fetchGroupOrders()
   }
@@ -358,6 +357,7 @@ export default function GroupBuyPage() {
           ]).map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setActiveTab(tab.key)}
               style={{
                 padding: '16px 32px',

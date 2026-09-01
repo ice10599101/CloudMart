@@ -307,6 +307,7 @@ export default function LiveRoomPage() {
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
             />
             <button
+              type="button"
               onClick={sendMessage}
               disabled={!inputValue.trim()}
               style={{
@@ -324,6 +325,7 @@ export default function LiveRoomPage() {
               发送
             </button>
             <button
+              type="button"
               onClick={sendLike}
               style={{
                 padding: '8px 14px',
@@ -379,7 +381,7 @@ export default function LiveRoomPage() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
                   {`商品ID-${room.productId}`}
                 </div>
-                <button style={{
+                <button type="button" style={{
                   width: '100%',
                   padding: '8px 0',
                   border: 'none',

@@ -12,7 +12,7 @@ vi.mock('umi', () => ({
 }))
 
 import { useAdminAuthStore } from './adminAuth'
-import { adminLogin, adminRefreshToken, adminLogout, getAdminProfile } from '@/api/admin/auth'
+import { adminLogin, adminRefreshToken, getAdminProfile } from '@/api/admin/auth'
 import { history } from 'umi'
 
 describe('useAdminAuthStore', () => {

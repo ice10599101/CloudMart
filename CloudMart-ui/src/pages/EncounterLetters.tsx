@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { App, Button, Empty, Switch, Tag } from 'antd'
 import { history } from 'umi'
 import {
+  getNearbyMode,
   interactEncounterLetter,
   listEncounterLetters,
   readEncounterLetter,
-  setNearbyMode,
+  setNearbyMode as setNearbyModeApi,
   type EncounterLetterItem,
 } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
@@ -28,7 +29,8 @@ export default function EncounterLetters() {
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
-  const [nearbyMode, setNearbyMode] = useState(false)
+  // 开关状态：进入页面时从后端回显（Redis 开关键 24h 有效）
+  const [nearbyMode, setNearbyModeState] = useState(false)
   const [letters, setLetters] = useState<EncounterLetterItem[]>([])
   const [loading, setLoading] = useState(true)
   /** 拆信动效中的信笺（信封展开动画 1.2s 后标记 READ） */
@@ -54,10 +56,21 @@ export default function EncounterLetters() {
     loadLetters()
   }, [loadLetters])
 
+  useEffect(() => {
+    if (!user) return
+    // 回显附近模式开关（查询失败保持关闭态，不阻断页面）
+    getNearbyMode()
+      .then((res) => {
+        if (res.data.success) setNearbyModeState(res.data.data === true)
+      })
+      .catch(() => undefined)
+  }, [user])
+
   const handleModeToggle = async (enabled: boolean) => {
     try {
-      await setNearbyMode(enabled)
-      setNearbyMode(enabled)
+      // 先上报后端成功再更新本地开关（失败时 Switch 不变，由拦截器提示）
+      await setNearbyModeApi(enabled)
+      setNearbyModeState(enabled)
       message.success(enabled ? '附近模式已开启，缘分正在靠近' : '附近模式已关闭，轨迹立即停止上报')
     } catch {
       // 拦截器已提示
@@ -79,7 +92,9 @@ export default function EncounterLetters() {
           { duration: 900, easing: 'ease-in-out' },
         )
       }
-      await new Promise((r) => setTimeout(r, 900))
+      await new Promise((r) => {
+        setTimeout(r, 900)
+      })
       const res = await readEncounterLetter(letter.letterId)
       if (res.data.success) {
         setLetters((prev) => prev.map((l) => (l.letterId === letter.letterId
@@ -125,7 +140,6 @@ export default function EncounterLetters() {
           <div className={styles.letterGrid}>
             {letters.map((letter) => {
               const isOpening = opening === letter.letterId
-              const sealed = letter.status === 'PENDING'
               return (
                 <div
                   key={letter.letterId}

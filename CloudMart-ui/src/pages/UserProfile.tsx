@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, Empty, Avatar, message, Popconfirm } from 'antd'
+import { Empty, Avatar, message, Popconfirm } from 'antd'
 import Skeleton from '@/components/Skeleton'
 import {
   ArrowLeftOutlined,
@@ -244,7 +244,11 @@ export default function UserProfile() {
       followerCount: willFollow ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
     } : prev)
     try {
-      willFollow ? await followUser(userId) : await unfollowUser(userId)
+      if (willFollow) {
+        await followUser(userId)
+      } else {
+        await unfollowUser(userId)
+      }
     } catch {
       setIsFollowed(!willFollow)
       setProfile((prev) => prev ? {
@@ -285,7 +289,11 @@ export default function UserProfile() {
     setBlockLoading(true)
     const willBlock = !isBlocked
     try {
-      willBlock ? await blockUser(id) : await unblockUser(id)
+      if (willBlock) {
+        await blockUser(id)
+      } else {
+        await unblockUser(id)
+      }
       setIsBlocked(willBlock)
       message.success(willBlock ? '已拉黑' : '已取消拉黑')
     } catch {

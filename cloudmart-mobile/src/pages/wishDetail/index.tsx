@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem } from '@tarojs/components'
+import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
@@ -55,6 +55,11 @@ export default function WishDetailPage() {
   const [wish, setWish] = useState<WishDetail | null>(null)
   const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
   const commentRef = useRef<WishCommentSectionHandle>(null)
+  // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，409 由后端幂等兜底）
+  const [checkinOpen, setCheckinOpen] = useState(false)
+  const [checkinContent, setCheckinContent] = useState('')
+  const [checkinSaving, setCheckinSaving] = useState(false)
+  const [checkedInToday, setCheckedInToday] = useState(false)
 
   /** 页面 ScrollView 触底 → 加载更多评论（组件内含 hasMore/loadingMore 防抖） */
   const onScrollToLower = () => {
@@ -147,6 +152,40 @@ export default function WishDetailPage() {
       Taro.showToast({ title: '保存失败，请稍后重试', icon: 'none' })
     } finally {
       setExtendSaving(false)
+    }
+  }
+
+  /** 提交每日打卡：成功后刷新详情（打卡天数/连续打卡来自服务端聚合） */
+  const handleCheckinSubmit = async () => {
+    setCheckinSaving(true)
+    try {
+      const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
+      if (res.data.success) {
+        const { currentStreak, starlightCredited } = res.data.data
+        Taro.showToast({ title: `连续 ${currentStreak} 天，星光 +${starlightCredited}`, icon: 'none' })
+        setCheckinOpen(false)
+        setCheckinContent('')
+        setCheckedInToday(true)
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data.success) {
+          setWish(detailRes.data.data)
+        }
+      }
+    } catch (err) {
+      // Taro 非 2xx 异常体：{ data: { error: { code } } }
+      const errNode = err as { data?: { error?: { code?: string } } }
+      const code = errNode?.data?.error?.code
+      if (code === 'WISH_ALREADY_CHECKIN_TODAY') {
+        Taro.showToast({ title: '今天已经打过卡啦', icon: 'none' })
+        setCheckedInToday(true)
+        setCheckinOpen(false)
+      } else if (code === 'WISH_STATUS_CONFLICT') {
+        Taro.showToast({ title: '仅进行中的心愿可打卡', icon: 'none' })
+      } else {
+        Taro.showToast({ title: '打卡失败，请稍后重试', icon: 'none' })
+      }
+    } finally {
+      setCheckinSaving(false)
     }
   }
 
@@ -405,6 +444,20 @@ export default function WishDetailPage() {
       {/* 底部操作栏 */}
       {isAuthor && (
         <View className={styles.bottomBar}>
+          {wish.status === 'ACTIVE' && (
+            <View
+              className={styles.deleteBtn}
+              onClick={() => {
+                if (checkedInToday) {
+                  Taro.showToast({ title: '今天已经打过卡啦', icon: 'none' })
+                  return
+                }
+                setCheckinOpen(true)
+              }}
+            >
+              <Text className={styles.deleteBtnText}>{checkedInToday ? '✅ 今日已打卡' : '📅 每日打卡'}</Text>
+            </View>
+          )}
           {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
             <View className={styles.deleteBtn} onClick={openExtend}>
               <Text className={styles.deleteBtnText}>延长预期</Text>
@@ -420,6 +473,30 @@ export default function WishDetailPage() {
           )}
           <View className={styles.deleteBtn} onClick={handleDelete}>
             <Text className={styles.deleteBtnText}>删除心愿</Text>
+          </View>
+        </View>
+      )}
+      {checkinOpen && (
+        <View className={styles.modalMask} onClick={() => setCheckinOpen(false)}>
+          <View className={styles.modalBody} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.modalTitle}>每日打卡</Text>
+            <Text className={styles.modalText}>为今天的心愿之旅留点痕迹吧（心得可留空），打卡可获得星光 +2 ✨</Text>
+            <Textarea
+              className={styles.checkinTextarea}
+              value={checkinContent}
+              maxlength={200}
+              placeholder='如：今天离目标又近了一步'
+              placeholderClass='checkinPlaceholder'
+              onInput={(e) => setCheckinContent(e.detail.value)}
+            />
+            <View className={styles.modalBtns}>
+              <View className={styles.modalCancel} onClick={() => setCheckinOpen(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={styles.modalOk} onClick={checkinSaving ? undefined : handleCheckinSubmit}>
+                <Text>{checkinSaving ? '打卡中...' : '打卡'}</Text>
+              </View>
+            </View>
           </View>
         </View>
       )}

@@ -104,6 +104,7 @@ function CouponTemplateCard({ template, onClaim }: { template: CouponTemplate; o
             剩余 {template.remainingQuantity}/{template.totalQuantity}
           </span>
           <button
+            type="button"
             onClick={handleClaim}
             disabled={!canClaim || claiming}
             style={{
@@ -335,6 +336,7 @@ export default function CouponListPage() {
           ]).map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setActiveTab(tab.key)}
               style={{
                 padding: '16px 32px',
@@ -388,6 +390,7 @@ export default function CouponListPage() {
               {USER_COUPON_TABS.map((tab) => (
                 <button
                   key={tab.key}
+                  type="button"
                   onClick={() => setUserCouponStatus(tab.key)}
                   style={{
                     padding: '10px 20px',

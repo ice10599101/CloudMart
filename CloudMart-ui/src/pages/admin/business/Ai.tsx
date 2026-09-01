@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Button, Card, Input, Popconfirm, Space, Table, Tag, Timeline, Typography } from 'antd'
+import { Button, Card, Input, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 import {
-  SyncOutlined,
   CloudUploadOutlined,
   DeleteOutlined,
   CloudSyncOutlined,
@@ -27,10 +26,7 @@ export default function Ai() {
   const [singleSyncLoading, setSingleSyncLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([])
-  const [logIdCounter, setLogIdCounter] = useState(0)
-
   const addLog = (action: string, target: string, status: string, logMessage: string) => {
-    setLogIdCounter((prev) => prev + 1)
     setSyncLogs((prev) => [
       {
         id: prev.length + 1,

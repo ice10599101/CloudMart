@@ -754,6 +754,7 @@ export default function Search() {
               />
             </div>
             <button
+              type="button"
               onClick={handleSearch}
               style={{
                 padding: '12px 28px',
@@ -824,7 +825,7 @@ export default function Search() {
                 搜索
               </span>
               <span style={{ color: 'var(--color-primary)', fontSize: 18, fontWeight: 600 }}>
-                "{keyword}"
+                &quot;{keyword}&quot;
               </span>
               <span style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>
                 共找到 {currentTotal} {resultLabel}

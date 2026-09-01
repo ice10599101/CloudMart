@@ -2,8 +2,6 @@ import { useRef, useState } from 'react'
 import {
   ProTable,
   ModalForm,
-  ProFormText,
-  ProFormTextArea,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Popconfirm, Tag, Descriptions } from 'antd'

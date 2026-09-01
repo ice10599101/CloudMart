@@ -73,7 +73,7 @@ const TAG_COLORS = [
 
 function MediaGallery({ mediaUrls, mediaType, coverImage }: { mediaUrls: string[]; mediaType: string; coverImage?: string }) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [videoPlaying, setVideoPlaying] = useState(false)
+  const [, setVideoPlaying] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   if (!mediaUrls || mediaUrls.length === 0) return null
@@ -82,17 +82,6 @@ function MediaGallery({ mediaUrls, mediaType, coverImage }: { mediaUrls: string[
 
   const goTo = (index: number) => {
     setCurrentIndex((index + mediaUrls.length) % mediaUrls.length)
-  }
-
-  const handleVideoClick = () => {
-    if (!videoRef.current) return
-    if (videoRef.current.paused) {
-      videoRef.current.play()
-      setVideoPlaying(true)
-    } else {
-      videoRef.current.pause()
-      setVideoPlaying(false)
-    }
   }
 
   return (
@@ -235,6 +224,25 @@ function MediaGallery({ mediaUrls, mediaType, coverImage }: { mediaUrls: string[
       )}
     </div>
   )
+}
+
+function renderCommentContent(content: string) {
+  const parts = content.split(/(@[\w\u4e00-\u9fa5]+)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('@') && part.length > 1) {
+      const nickname = part.slice(1)
+      return (
+        <span
+          key={i}
+          style={{ color: 'var(--color-primary)', cursor: 'pointer' }}
+          onClick={() => history.push(`/search?q=${encodeURIComponent(nickname)}`)}
+        >
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
 }
 
 function CommentItem({
@@ -381,25 +389,6 @@ function CommentItem({
   )
 }
 
-function renderCommentContent(content: string) {
-  const parts = content.split(/(@[\w\u4e00-\u9fa5]+)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('@') && part.length > 1) {
-      const nickname = part.slice(1)
-      return (
-        <span
-          key={i}
-          style={{ color: 'var(--color-primary)', cursor: 'pointer' }}
-          onClick={() => history.push(`/search?q=${encodeURIComponent(nickname)}`)}
-        >
-          {part}
-        </span>
-      )
-    }
-    return part
-  })
-}
-
 export default function PostDetail() {
   const { id } = useParams<{ id: string }>()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -426,7 +415,7 @@ export default function PostDetail() {
   })
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([])
   const [relatedLoading, setRelatedLoading] = useState(false)
-  const [mentionSearch, setMentionSearch] = useState('')
+  const [, setMentionSearch] = useState('')
   const [mentionResults, setMentionResults] = useState<SearchUserResult[]>([])
   const [mentionVisible, setMentionVisible] = useState(false)
   const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -530,7 +519,11 @@ export default function PostDetail() {
       likeCount: willLike ? prev.likeCount + 1 : Math.max(0, prev.likeCount - 1),
     } : prev)
     try {
-      willLike ? await likePost(post.id) : await unlikePost(post.id)
+      if (willLike) {
+        await likePost(post.id)
+      } else {
+        await unlikePost(post.id)
+      }
     } catch {
       setLiked(!willLike)
       setPost((prev) => prev ? {
@@ -552,7 +545,11 @@ export default function PostDetail() {
       collectCount: willCollect ? prev.collectCount + 1 : Math.max(0, prev.collectCount - 1),
     } : prev)
     try {
-      willCollect ? await collectPost(post.id) : await uncollectPost(post.id)
+      if (willCollect) {
+        await collectPost(post.id)
+      } else {
+        await uncollectPost(post.id)
+      }
     } catch {
       setCollected(!willCollect)
       setPost((prev) => prev ? {
@@ -592,7 +589,11 @@ export default function PostDetail() {
     setComments((prev) => updateLikeCount(prev))
 
     try {
-      isCurrentlyLiked ? await unlikeComment(commentId) : await likeComment(commentId)
+      if (isCurrentlyLiked) {
+        await unlikeComment(commentId)
+      } else {
+        await likeComment(commentId)
+      }
     } catch {
       setCommentLikedIds(commentLikedIds)
       setComments((prev) =>

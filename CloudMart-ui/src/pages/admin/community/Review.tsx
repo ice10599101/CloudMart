@@ -79,7 +79,7 @@ export default function ReviewManagement() {
 
   const handleReject = useCallback(async (reason: string) => {
     return confirmSubmit1(async () => {
-      if (rejectingPostId == null) return
+      if (rejectingPostId === null) return
       try {
         await rejectPost(rejectingPostId, { reason })
         message.success('已拒绝')

@@ -465,6 +465,7 @@ export default function Checkout() {
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => history.push('/profile')}
                   style={{
                     background: 'none',
@@ -500,6 +501,7 @@ export default function Checkout() {
                       暂无收货地址
                     </div>
                     <button
+                      type="button"
                       onClick={() => history.push('/profile')}
                       style={{
                         padding: '8px 24px',
@@ -728,6 +730,7 @@ export default function Checkout() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={submitting || checkedItems.length === 0 || !selectedAddressId}
                   style={{

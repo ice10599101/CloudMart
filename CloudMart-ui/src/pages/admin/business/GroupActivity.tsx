@@ -5,10 +5,9 @@ import {
   ProFormText,
   ProFormDigit,
   ProFormDateTimePicker,
-  ProFormSwitch,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm, Modal, Descriptions } from 'antd'
+import { Button, Tag, Popconfirm, Modal } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getGroupActivities,

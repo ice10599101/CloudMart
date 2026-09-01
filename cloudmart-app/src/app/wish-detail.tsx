@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -22,6 +22,11 @@ export default function WishDetailScreen() {
   // 预期管理通知「延长预期」深链：作者本人修改 expected_at（状态保持不变）
   const [extendOpen, setExtendOpen] = useState(false)
   const [extendSaving, setExtendSaving] = useState(false)
+  // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，重复提交 409 由后端幂等兜底）
+  const [checkinOpen, setCheckinOpen] = useState(false)
+  const [checkinContent, setCheckinContent] = useState('')
+  const [checkinSaving, setCheckinSaving] = useState(false)
+  const [checkedInToday, setCheckedInToday] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +62,40 @@ export default function WishDetailScreen() {
       setExtendOpen(true)
     }
   }, [params.extend, wish, user])
+
+  /** 提交每日打卡：成功后刷新详情（打卡天数/连续打卡来自服务端聚合） */
+  const handleCheckinSubmit = async () => {
+    setCheckinSaving(true)
+    try {
+      const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
+      if (res.data?.success) {
+        const { currentStreak, starlightCredited } = res.data.data
+        Alert.alert('打卡成功 🌟', `已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`)
+        setCheckinOpen(false)
+        setCheckinContent('')
+        setCheckedInToday(true)
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data?.success) {
+          setWish(detailRes.data.data)
+        }
+      }
+    } catch (error) {
+      // axios 异常体：response.data.error.code
+      const code = (error as { response?: { data?: { error?: { code?: string } } } })
+        ?.response?.data?.error?.code
+      if (code === 'WISH_ALREADY_CHECKIN_TODAY') {
+        Alert.alert('提示', '今天已经打过卡啦，明天再来')
+        setCheckedInToday(true)
+        setCheckinOpen(false)
+      } else if (code === 'WISH_STATUS_CONFLICT') {
+        Alert.alert('提示', '仅进行中的心愿可打卡')
+      } else {
+        Alert.alert('提示', '打卡失败，请稍后重试')
+      }
+    } finally {
+      setCheckinSaving(false)
+    }
+  }
 
   /** 延长预期：新 expected_at = max(当前时间, 原预期) + 天数（状态保持不变） */
   const handleExtend = async (days: number) => {
@@ -500,6 +539,32 @@ export default function WishDetailScreen() {
             gap: Spacing.md,
           }}
         >
+          {wish.status === 'ACTIVE' && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              accessibilityLabel={checkedInToday ? '今日已打卡' : '每日打卡'}
+              onPress={() => {
+                if (checkedInToday) {
+                  Alert.alert('提示', '今天已经打过卡啦，明天再来')
+                  return
+                }
+                setCheckinOpen(true)
+              }}
+              style={{
+                flex: 1,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.textSecondary }}>
+                {checkedInToday ? '✅ 已打卡' : '📅 打卡'}
+              </Text>
+            </TouchableOpacity>
+          )}
           {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
             <TouchableOpacity
               activeOpacity={0.85}
@@ -549,6 +614,88 @@ export default function WishDetailScreen() {
         </View>
       )}
 
+      {checkinOpen && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: Spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              backgroundColor: WishColors.bgContainer,
+              borderRadius: BorderRadius.xl,
+              padding: Spacing.lg,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginBottom: 4 }}>
+              每日打卡
+            </Text>
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, marginBottom: Spacing.md }}>
+              为今天的心愿之旅留点痕迹吧（心得可留空），打卡可获得星光 +2 ✨
+            </Text>
+            <TextInput
+              value={checkinContent}
+              onChangeText={setCheckinContent}
+              maxLength={200}
+              placeholder="如：今天离目标又近了一步"
+              placeholderTextColor={WishColors.textSecondary}
+              multiline
+              style={{
+                minHeight: 80,
+                borderWidth: 1,
+                borderColor: WishColors.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                marginBottom: Spacing.md,
+                fontSize: FontSize.sm,
+                color: WishColors.text,
+                textAlignVertical: 'top',
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setCheckinOpen(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm + 2,
+                  borderRadius: BorderRadius.lg,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <Text style={{ fontSize: FontSize.md, color: WishColors.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={checkinSaving}
+                onPress={handleCheckinSubmit}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm + 2,
+                  borderRadius: BorderRadius.lg,
+                  alignItems: 'center',
+                  backgroundColor: WishColors.primary,
+                  opacity: checkinSaving ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#fff' }}>
+                  {checkinSaving ? '打卡中...' : '打卡'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       {extendOpen && (
         <View
           style={{

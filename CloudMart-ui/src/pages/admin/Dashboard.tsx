@@ -147,14 +147,6 @@ export default function Dashboard() {
   const [latestPosts, setLatestPosts] = useState<AdminPostRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  useEffect(() => {
-    fetchCommunityTrend(trendDays)
-  }, [trendDays])
-
   async function fetchData() {
     setLoading(true)
     try {
@@ -209,6 +201,14 @@ export default function Dashboard() {
       setCommunityTrend([])
     }
   }
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  useEffect(() => {
+    fetchCommunityTrend(trendDays)
+  }, [trendDays])
 
   const handleExportCommunityTrend = useCallback(() => {
     if (communityTrend.length === 0) {

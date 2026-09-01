@@ -17,7 +17,6 @@ import {
   getWishDetail,
   grantConsent,
   listMyAiGoals,
-  recordExpectedAction,
   updateAiGoalStatus,
   updateNotificationPreferences,
   getNotificationPreferences,
@@ -37,8 +36,6 @@ const { TextArea } = Input
 
 /** AI 数据处理协议版本（协议文本管理模块上线前为静态版本，与树洞页一致） */
 const AI_CONSENT_VERSION = 'v1.0'
-/** 拆解日限频（后端 wish_ai_config 同步限制，前端仅展示） */
-const DAILY_LIMIT = 10
 const MAX_TEXT = 1000
 
 const GOAL_STATUS_LABEL: Record<AiGoalStatus, string> = {

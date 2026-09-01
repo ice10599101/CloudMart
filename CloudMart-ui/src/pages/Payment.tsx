@@ -188,6 +188,7 @@ function PaymentResult({
         </div>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <button
+            type="button"
             onClick={() => history.push('/orders')}
             style={{
               padding: '10px 32px',
@@ -212,6 +213,7 @@ function PaymentResult({
             查看订单
           </button>
           <button
+            type="button"
             onClick={() => history.push('/')}
             style={{
               padding: '10px 32px',
@@ -354,6 +356,7 @@ export default function PaymentPage() {
         <ExclamationCircleOutlined style={{ fontSize: 48, color: 'rgba(var(--color-primary-rgb), 0.3)', marginBottom: 16 }} />
         <div style={{ color: 'var(--color-text-secondary)', fontSize: 18, marginBottom: 24 }}>订单不存在</div>
         <button
+          type="button"
           onClick={() => history.push('/orders')}
           style={{
             padding: '10px 32px',
@@ -504,6 +507,7 @@ export default function PaymentPage() {
         </div>
 
         <button
+          type="button"
           onClick={handlePay}
           disabled={paying || isExpired}
           style={{

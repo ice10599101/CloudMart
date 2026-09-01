@@ -22,7 +22,6 @@ import {
   CloseOutlined,
   RightOutlined,
   AppstoreOutlined,
-  UserOutlined,
   EllipsisOutlined,
   DeleteOutlined,
   PictureOutlined,
@@ -83,7 +82,7 @@ function PostCard({
 }) {
   const isVideo = post.type === 'VIDEO'
   const isProduct = post.type === 'PRODUCT'
-  const isOwnPost = currentUserId != null && post.author.id === currentUserId
+  const isOwnPost = currentUserId !== null && post.author.id === currentUserId
 
   const mediaIndicator = isVideo
     ? <span className={styles.mediaIndicator}><VideoCameraOutlined /> 视频</span>
@@ -134,7 +133,7 @@ function PostCard({
           <div className={styles.postTime}>{timeAgo(post.createdAt)}</div>
         </div>
         <div className={styles.postHeaderRight}>
-          {hotRank != null && hotRank <= 3 && (
+          {hotRank !== undefined && hotRank <= 3 && (
             <span style={{
               padding: '2px 8px',
               borderRadius: '4px',
@@ -181,7 +180,7 @@ function PostCard({
                 <PlayCircleOutlined />
               </div>
             )}
-            {isProduct && post.productPrice != null && (
+            {isProduct && post.productPrice !== null && (
               <div className={styles.priceTag}>¥{post.productPrice}</div>
             )}
           </div>
@@ -443,7 +442,7 @@ export default function Home() {
       }
 
       if (tab === 'goods') {
-        newPosts = newPosts.filter((p) => p.productId != null)
+        newPosts = newPosts.filter((p) => p.productId !== null)
       }
 
       if (append) {
@@ -505,7 +504,11 @@ export default function Home() {
         if (p.id !== postId) return p
         const willLike = !p.isLiked
         try {
-          willLike ? likePost(postId) : unlikePost(postId)
+          if (willLike) {
+            likePost(postId)
+          } else {
+            unlikePost(postId)
+          }
         } catch { /* optimistic */ }
         return {
           ...p,
@@ -522,7 +525,11 @@ export default function Home() {
         if (p.id !== postId) return p
         const willCollect = !p.isCollected
         try {
-          willCollect ? collectPost(postId) : uncollectPost(postId)
+          if (willCollect) {
+            collectPost(postId)
+          } else {
+            uncollectPost(postId)
+          }
         } catch { /* optimistic */ }
         return {
           ...p,
@@ -549,7 +556,9 @@ export default function Home() {
         if (u.userId !== userId) return u
         const willFollow = !u.isFollowed
         try {
-          willFollow ? followUser(userId) : undefined
+          if (willFollow) {
+            followUser(userId)
+          }
         } catch { /* optimistic */ }
         return { ...u, isFollowed: willFollow }
       }),

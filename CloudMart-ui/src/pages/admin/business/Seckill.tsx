@@ -68,10 +68,6 @@ export default function Seckill() {
   const { confirmSubmit: confirmSubmitActivity, createHandleOpenChange: createHandleOpenChangeActivity } = useModalConfirm()
   const { confirmSubmit: confirmSubmitProduct, createHandleOpenChange: createHandleOpenChangeProduct } = useModalConfirm()
 
-  useEffect(() => {
-    fetchActivities()
-  }, [])
-
   async function fetchActivities() {
     const { data: res } = await getSeckillActivities({ pageSize: 200 })
     const response = res as ApiResponse<ActivityRecord[]>
@@ -81,6 +77,10 @@ export default function Seckill() {
       setSelectedActivityId(list[0].id)
     }
   }
+
+  useEffect(() => {
+    fetchActivities()
+  }, [])
 
   const handleCreateActivity = async (values: Record<string, any>) => {
     return confirmSubmitActivity(async () => {

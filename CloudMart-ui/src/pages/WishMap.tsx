@@ -14,7 +14,7 @@ import {
   type WarmEventItem,
 } from '@/api/wish'
 import WishBGM from '@/components/WishBGM'
-import { AMAP_KEY, loadAmapSdk } from '@/utils/amap'
+import { loadAmapSdk } from '@/utils/amap'
 import styles from './WishMap.module.css'
 
 /**

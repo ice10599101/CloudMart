@@ -252,6 +252,7 @@ export default function NotFound() {
       </div>
 
       <button
+        type="button"
         style={styles.homeButton}
         onClick={() => history.push('/')}
         onMouseEnter={(e) => {

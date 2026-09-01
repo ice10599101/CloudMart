@@ -8,7 +8,7 @@ import {
   ProFormTreeSelect,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag, TreeSelect } from 'antd'
+import { Button, Popconfirm, Switch, TreeSelect } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getRoles,
@@ -55,15 +55,15 @@ export default function Roles() {
   const [assigningRole, setAssigningRole] = useState<RoleRecord | null>(null)
   const [checkedMenuKeys, setCheckedMenuKeys] = useState<number[]>([])
 
-  useEffect(() => {
-    fetchMenuTree()
-  }, [])
-
   async function fetchMenuTree() {
     const { data: res } = await getMenuTree()
     const response = res as ApiResponse<MenuTreeNode[]>
     setMenuTree(response.data ?? [])
   }
+
+  useEffect(() => {
+    fetchMenuTree()
+  }, [])
 
   const handleOpenAssign = async (record: RoleRecord) => {
     setAssigningRole(record)

@@ -285,6 +285,7 @@ function ThemeToggle({ mode, onToggle }: { mode: ThemeMode; onToggle: () => void
   const t = getThemeTokens(mode)
   return (
     <button
+      type="button"
       onClick={onToggle}
       style={{
         width: 36,
@@ -563,6 +564,7 @@ export default function UserLayout() {
             </>
           ) : (
             <button
+              type="button"
               style={styles.loginBtn}
               onClick={() => history.push('/login')}
               onMouseEnter={(e) => {

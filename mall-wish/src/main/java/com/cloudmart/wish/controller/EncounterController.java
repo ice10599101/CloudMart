@@ -50,6 +50,16 @@ public class EncounterController {
         return ApiResponse.ok(null);
     }
 
+    @GetMapping("/map/nearby-mode")
+    @Operation(summary = "附近模式状态查询", description = "返回当前开关状态（Redis 开关键存在即开启），"
+            + "供前端刷新后回显；开关键 24h 有效，过期视为关闭")
+    @SentinelResource("WISH_NEARBY_MODE_STATUS")
+    public ApiResponse<Boolean> getNearbyMode(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(encounterService.isNearbyModeEnabled(userId));
+    }
+
     @PostMapping("/map/trace")
     @Operation(summary = "轨迹上报", description = "附近模式开启后每 5 分钟上报一次；坐标转 geohash6 "
             + "入 Redis（TTL 25h，无原始坐标）；频率限制 5 分钟 >10 次 → 429；"

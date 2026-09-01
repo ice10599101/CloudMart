@@ -120,6 +120,7 @@ function CouponTemplateCard({
               剩余 {template.remainingQuantity}
             </span>
             <button
+              type="button"
               onClick={handleClaim}
               disabled={!canClaim || claiming}
               style={{
@@ -378,6 +379,7 @@ export default function Coupons() {
           ]).map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => setActiveTab(tab.key)}
               style={{
                 padding: '14px 32px',

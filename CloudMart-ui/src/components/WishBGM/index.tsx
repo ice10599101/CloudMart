@@ -148,6 +148,7 @@ export default function WishBGM() {
       }}
     >
       <button
+        type="button"
         onClick={() => skip(-1)}
         aria-label="上一首"
         title="上一首"
@@ -156,6 +157,7 @@ export default function WishBGM() {
         <StepBackwardOutlined />
       </button>
       <button
+        type="button"
         onClick={toggle}
         aria-label={enabled ? '关闭背景音乐' : '开启背景音乐'}
         title={enabled ? '关闭背景音乐' : '开启背景音乐'}
@@ -164,6 +166,7 @@ export default function WishBGM() {
         {enabled ? <SoundOutlined /> : <MutedOutlined />}
       </button>
       <button
+        type="button"
         onClick={() => skip(1)}
         aria-label="下一首"
         title="下一首"

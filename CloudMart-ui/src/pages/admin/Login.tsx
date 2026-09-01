@@ -6,30 +6,6 @@ import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useMessage } from '@/utils/useMessage'
 import AppMessageBinder from '@/components/AppMessageBinder'
 
-export default function AdminLogin() {
-  return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: 'var(--color-primary)',
-          colorBgContainer: 'var(--color-bg-container)',
-          colorBgElevated: 'var(--color-bg-elevated)',
-          colorBgLayout: 'var(--color-bg-base)',
-          colorBorder: 'var(--color-border)',
-          colorText: '#FFFFFF',
-          colorTextSecondary: 'var(--color-text-secondary)',
-        },
-      }}
-    >
-      <App>
-        <AppMessageBinder />
-        <AdminLoginContent />
-    </App>
-    </ConfigProvider>
-  )
-}
-
 function AdminLoginContent() {
   const message = useMessage()
   const login = useAdminAuthStore((s) => s.login)
@@ -212,6 +188,30 @@ function AdminLoginContent() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminLogin() {
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: 'var(--color-primary)',
+          colorBgContainer: 'var(--color-bg-container)',
+          colorBgElevated: 'var(--color-bg-elevated)',
+          colorBgLayout: 'var(--color-bg-base)',
+          colorBorder: 'var(--color-border)',
+          colorText: '#FFFFFF',
+          colorTextSecondary: 'var(--color-text-secondary)',
+        },
+      }}
+    >
+      <App>
+        <AppMessageBinder />
+        <AdminLoginContent />
+    </App>
+    </ConfigProvider>
   )
 }
 

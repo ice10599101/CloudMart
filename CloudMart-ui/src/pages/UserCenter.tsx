@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
-import { UserOutlined } from '@ant-design/icons'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
@@ -75,7 +74,7 @@ function ConfirmDialog({
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12 }}>{title}</div>
         <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 24, lineHeight: 1.6 }}>{content}</div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
-          <button onClick={onCancel} style={{
+          <button type="button" onClick={onCancel} style={{
             padding: '8px 24px',
             border: '1px solid var(--color-border)',
             borderRadius: 8,
@@ -87,7 +86,7 @@ function ConfirmDialog({
           }}>
             {cancelText}
           </button>
-          <button onClick={onOk} style={{
+          <button type="button" onClick={onOk} style={{
             padding: '8px 24px',
             border: 'none',
             borderRadius: 8,
@@ -369,7 +368,7 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-        <button onClick={handleCancel} style={{ padding: '8px 24px', border: '1px solid var(--color-border)', borderRadius: 8, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
+        <button type="button" onClick={handleCancel} style={{ padding: '8px 24px', border: '1px solid var(--color-border)', borderRadius: 8, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
         <Button type="primary" onClick={handleSave} loading={saving} style={{ background: 'var(--color-gradient-primary)', border: 'none', fontWeight: 600, boxShadow: '0 4px 16px rgba(var(--color-primary-rgb), 0.3)', borderRadius: 8, minWidth: 100 }}>保存</Button>
       </div>
       </div>
@@ -456,7 +455,6 @@ function MyPostsTab() {
 }
 
 function MyDraftsTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
-  const { user } = useAuthStore()
   const [drafts, setDrafts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [confirmState, setConfirmState] = useState<{ type: 'delete' | 'publish'; open: boolean; targetId?: number }>({ type: 'delete', open: false })
@@ -539,12 +537,14 @@ function MyDraftsTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
                   <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); handlePublishDraft(draft.id) }}
                     style={{ padding: '4px 12px', border: '1px solid rgba(var(--color-primary-rgb), 0.3)', borderRadius: 6, background: 'rgba(var(--color-primary-rgb), 0.08)', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}
                   >
                     发布
                   </button>
                   <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); handleDeleteDraft(draft.id) }}
                     style={{ padding: '4px 12px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 12, cursor: 'pointer' }}
                   >
@@ -782,7 +782,7 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', margin: 0 }}>收货地址</h3>
-        <button className={s.primaryBtn} onClick={openAddModal} style={{ padding: '8px 20px', fontSize: 13, borderRadius: 6, boxShadow: '0 2px 12px rgba(var(--color-primary-rgb), 0.25)' }}>
+        <button type="button" className={s.primaryBtn} onClick={openAddModal} style={{ padding: '8px 20px', fontSize: 13, borderRadius: 6, boxShadow: '0 2px 12px rgba(var(--color-primary-rgb), 0.25)' }}>
           + 新增地址
         </button>
       </div>
@@ -808,10 +808,10 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
                   <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{addr.province}{addr.city}{addr.district} {addr.detailAddress}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => openEditModal(addr)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 12, cursor: 'pointer' }}>编辑</button>
-                  <button onClick={() => handleDeleteClick(addr.id)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 12, cursor: 'pointer' }}>删除</button>
+                  <button type="button" onClick={() => openEditModal(addr)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 12, cursor: 'pointer' }}>编辑</button>
+                  <button type="button" onClick={() => handleDeleteClick(addr.id)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 12, cursor: 'pointer' }}>删除</button>
                   {!addr.isDefault && (
-                    <button onClick={() => handleSetDefault(addr.id)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}>设为默认</button>
+                    <button type="button" onClick={() => handleSetDefault(addr.id)} style={{ padding: '4px 12px', border: '1px solid var(--color-border)', borderRadius: 6, background: 'transparent', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}>设为默认</button>
                   )}
                 </div>
               </div>
@@ -847,8 +847,8 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
           <textarea className={s.inputField} value={form.detailAddress} onChange={(e) => setForm({ ...form, detailAddress: e.target.value })} placeholder="请输入详细地址" rows={2} style={{ resize: 'vertical' }} />
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
-          <button onClick={() => setConfirmState({ type: 'close', open: false })} style={{ padding: '10px 24px', border: '1px solid var(--color-border)', borderRadius: 10, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
-          <button className={s.primaryBtn} onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10 }}>{saving ? '保存中...' : '保存'}</button>
+          <button type="button" onClick={() => setConfirmState({ type: 'close', open: false })} style={{ padding: '10px 24px', border: '1px solid var(--color-border)', borderRadius: 10, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
+          <button type="button" className={s.primaryBtn} onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10 }}>{saving ? '保存中...' : '保存'}</button>
         </div>
       </Modal>
 
@@ -928,7 +928,7 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{item.productName}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-primary)' }}>¥{item.minPrice.toFixed(2)}</span>
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveClick(item.productId) }} style={{ padding: '3px 8px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 11, cursor: 'pointer' }}>取消</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveClick(item.productId) }} style={{ padding: '3px 8px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 11, cursor: 'pointer' }}>取消</button>
                 </div>
               </div>
             </div>
@@ -983,8 +983,8 @@ export default function UserCenterPage() {
     const fetchLevelInfo = async () => { try { const { data: res } = await getUserLevel(); if (res.data) setLevelInfo(res.data) } catch { setLevelInfo(null) } }
     const fetchLevelConfigs = async () => { try { const { data: res } = await getLevelConfigs(); if (res.data) setLevelConfigs(res.data) } catch { setLevelConfigs([]) } }
     const fetchExpLogs = async () => { try { const { data: res } = await getExpLogs(1, 8); if (res.data) setExpLogs(res.data) } catch { setExpLogs([]) } }
-    const fetchCheckInStatus = async () => { try { const { data: res } = await getCheckInStatus(); if (res.data != null) setCheckedInToday(res.data) } catch { setCheckedInToday(false) } }
-    const fetchContinuousDays = async () => { try { const { data: res } = await getContinuousDays(); if (res.data != null) setContinuousDays(res.data) } catch { setContinuousDays(0) } }
+    const fetchCheckInStatus = async () => { try { const { data: res } = await getCheckInStatus(); if (res.data !== null && res.data !== undefined) setCheckedInToday(res.data) } catch { setCheckedInToday(false) } }
+    const fetchContinuousDays = async () => { try { const { data: res } = await getContinuousDays(); if (res.data !== null && res.data !== undefined) setContinuousDays(res.data) } catch { setContinuousDays(0) } }
     fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchExpLogs(); fetchCheckInStatus(); fetchContinuousDays()
   }, [user?.id])
 
@@ -1104,6 +1104,7 @@ export default function UserCenterPage() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setEditModalOpen(true)}
               style={{
                 flexShrink: 0,
@@ -1208,6 +1209,7 @@ export default function UserCenterPage() {
                 return (
                   <button
                     key={tab.key}
+                    type="button"
                     onClick={() => setActiveTab(tab.key)}
                     style={{
                       display: 'flex',

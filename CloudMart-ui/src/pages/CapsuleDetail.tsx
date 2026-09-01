@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, App, Tag, Image, Typography } from 'antd'
-import { ArrowLeftOutlined, MailOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { getCapsuleDetail, openCapsule, type CapsuleItem } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
@@ -30,6 +30,16 @@ function EnvelopeAnim({ opening }: { opening: boolean }) {
                         />
                     ))}
             </div>
+        </div>
+    )
+}
+
+function BackBar() {
+    return (
+        <div className={styles.backBar}>
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => history.push('/wish/capsules')} className={styles.backBtn}>
+                返回
+            </Button>
         </div>
     )
 }
@@ -233,16 +243,6 @@ export default function CapsuleDetail() {
                 </Card>
             </div>
             <WishBGM />
-        </div>
-    )
-}
-
-function BackBar() {
-    return (
-        <div className={styles.backBar}>
-            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => history.push('/wish/capsules')} className={styles.backBtn}>
-                返回
-            </Button>
         </div>
     )
 }

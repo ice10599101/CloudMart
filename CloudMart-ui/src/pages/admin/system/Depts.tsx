@@ -8,7 +8,7 @@ import {
   ProFormSwitch,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag } from 'antd'
+import { Button, Popconfirm, Switch } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getDeptTree,
@@ -42,15 +42,15 @@ export default function Depts() {
   const [editingRecord, setEditingRecord] = useState<DeptRecord | null>(null)
   const [deptTree, setDeptTree] = useState<DeptRecord[]>([])
 
-  useEffect(() => {
-    fetchDeptTree()
-  }, [])
-
   async function fetchDeptTree() {
     const { data: res } = await getDeptTree()
     const response = res as ApiResponse<DeptRecord[]>
     setDeptTree(response.data ?? [])
   }
+
+  useEffect(() => {
+    fetchDeptTree()
+  }, [])
 
   const handleSubmit = async (values: Record<string, any>) => {
     const payload = { ...values, status: values.status ? 1 : 0 }

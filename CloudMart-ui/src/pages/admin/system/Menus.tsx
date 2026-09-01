@@ -80,10 +80,6 @@ export default function Menus() {
   const [menuTree, setMenuTree] = useState<MenuRecord[]>([])
   const [treeSelectData, setTreeSelectData] = useState<TreeSelectNode[]>([])
 
-  useEffect(() => {
-    fetchMenuTree()
-  }, [])
-
   async function fetchMenuTree() {
     const { data: res } = await getMenuTree()
     const response = res as ApiResponse<MenuRecord[]>
@@ -93,6 +89,10 @@ export default function Menus() {
       { title: '顶级菜单', value: 0, key: 0, children: convertToTreeSelect(tree, 'menuName') },
     ])
   }
+
+  useEffect(() => {
+    fetchMenuTree()
+  }, [])
 
   const handleSubmit = async (values: Record<string, any>) => {
     const payload = {

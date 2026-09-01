@@ -50,6 +50,7 @@ function QuantityControl({ value, onChange, tokens }: { value: number; onChange:
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderRadius: 6, overflow: 'hidden', border: `1px solid ${tokens.colorBorder}` }}>
       <button
+        type="button"
         onClick={() => value > 1 && onChange(value - 1)}
         style={{
           width: 32,
@@ -87,6 +88,7 @@ function QuantityControl({ value, onChange, tokens }: { value: number; onChange:
         {value}
       </div>
       <button
+        type="button"
         onClick={() => value < 99 && onChange(value + 1)}
         style={{
           width: 32,
@@ -211,6 +213,7 @@ function CartItemRow({
       </div>
 
       <button
+        type="button"
         onClick={onRemove}
         style={{
           width: 36,
@@ -279,6 +282,7 @@ function EmptyCart({ tokens }: { tokens: ThemeTokens }) {
         去发现心仪的好物吧
       </div>
       <button
+        type="button"
         onClick={() => history.push('/products')}
         style={{
           padding: '12px 40px',
@@ -418,6 +422,7 @@ export default function Cart() {
                   <span style={{ color: tokens.colorTextSecondary, fontSize: 14 }}>全选</span>
                   {selectedSkuIds.length > 0 && (
                     <button
+                      type="button"
                       onClick={handleClearChecked}
                       style={{
                         background: 'none',
@@ -512,6 +517,7 @@ export default function Cart() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleCheckout}
                     disabled={checkedItems.length === 0}
                     style={{

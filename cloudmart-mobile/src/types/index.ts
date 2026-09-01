@@ -582,6 +582,14 @@ export interface WishFulfillmentSubmitResult {
   createdAt: string
 }
 
+/** 心愿每日打卡结果（POST /wish/wishes/{id}/checkin） */
+export interface CheckinResult {
+  checkinId: number
+  currentStreak: number
+  maxStreak: number
+  starlightCredited: number
+}
+
 export interface WishFulfillmentDetail {
   id: number
   wishId: number

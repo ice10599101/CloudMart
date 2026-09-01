@@ -1,31 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Switch, Input, Button, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
-import { getUserProfile, updateProfile, changePassword } from '@/api/user'
+import { getUserProfile, changePassword } from '@/api/user'
 import type { UserProfile } from '@/api/user'
-import { useAuthStore } from '@/stores/auth'
 import { getUserSettings, updateUserSettings } from '@/api/community'
-
-const CONSTELLATIONS = [
-  '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
-  '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座',
-]
-
-const GENDER_OPTIONS = [
-  { value: 'UNKNOWN', label: '未设置' },
-  { value: 'MALE', label: '男' },
-  { value: 'FEMALE', label: '女' },
-]
-
-function calcConstellation(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const dates = [20, 19, 21, 20, 21, 22, 23, 23, 23, 24, 22, 22]
-  const idx = day < dates[month - 1] ? month - 1 : month % 12
-  return CONSTELLATIONS[idx]
-}
 
 const sectionStyle: React.CSSProperties = {
   background: 'var(--color-bg-container)',
@@ -67,7 +45,6 @@ const toggleRowStyle: React.CSSProperties = {
 }
 
 export default function SettingsPage() {
-  const { user, fetchProfile } = useAuthStore()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 

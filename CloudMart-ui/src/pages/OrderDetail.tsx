@@ -79,6 +79,7 @@ function ActionButton({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         padding: '8px 24px',
@@ -252,6 +253,7 @@ export default function OrderDetail() {
         <ExclamationCircleOutlined style={{ fontSize: 48, color: 'rgba(var(--color-primary-rgb), 0.3)', marginBottom: 16 }} />
         <div style={{ color: 'var(--color-text-secondary)', fontSize: 18, marginBottom: 24 }}>订单不存在</div>
         <button
+          type="button"
           onClick={() => history.push('/orders')}
           style={{
             padding: '10px 32px',

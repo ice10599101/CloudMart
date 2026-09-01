@@ -95,7 +95,11 @@ export default function Following() {
       ),
     )
     try {
-      willFollow ? await followUser(targetUserId) : await unfollowUser(targetUserId)
+      if (willFollow) {
+        await followUser(targetUserId)
+      } else {
+        await unfollowUser(targetUserId)
+      }
     } catch {
       setUsers((prev) =>
         prev.map((u) =>

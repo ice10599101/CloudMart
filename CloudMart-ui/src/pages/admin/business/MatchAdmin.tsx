@@ -13,7 +13,7 @@ import type { AdminMatchConfigRecord, AdminMatchGroupRow } from '@/api/admin/wis
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
-const { Paragraph, Text } = Typography
+const { Text } = Typography
 
 /**
  * 同愿匹配管理（Sprint 2.6 管理后台）：

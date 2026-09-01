@@ -113,6 +113,11 @@ public class EncounterServiceImpl implements EncounterService {
         }
     }
 
+    @Override
+    public boolean isNearbyModeEnabled(Long userId) {
+        return isModeEnabled(userId);
+    }
+
     // ---------------- 轨迹上报 ----------------
 
     @Override

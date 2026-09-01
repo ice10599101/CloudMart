@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Empty, Avatar, Tag, Button, Card, Row, Col, Statistic } from 'antd'
+import { Empty, Tag, Button, Card, Row, Col } from 'antd'
 import {
   StarOutlined,
   FireOutlined,

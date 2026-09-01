@@ -206,6 +206,7 @@ function WishlistCard({
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button
+            type="button"
             onClick={handleAddToCart}
             disabled={addingToCart}
             style={{
@@ -247,6 +248,7 @@ function WishlistCard({
             okButtonProps={{ danger: true }}
           >
             <button
+              type="button"
               style={{
                 width: 36,
                 height: 36,
@@ -317,6 +319,7 @@ function EmptyWishlist() {
         收藏喜欢的商品，随时查看价格变动
       </div>
       <button
+        type="button"
         onClick={() => history.push('/products')}
         style={{
           padding: '12px 40px',
@@ -489,6 +492,7 @@ export default function Wishlist() {
                     okButtonProps={{ danger: true }}
                   >
                     <button
+                      type="button"
                       style={{
                         background: 'none',
                         border: 'none',
@@ -535,6 +539,7 @@ export default function Wishlist() {
               {hasMore && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
                   <button
+                    type="button"
                     onClick={handleLoadMore}
                     disabled={loading}
                     style={{

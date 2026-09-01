@@ -271,6 +271,7 @@ function SeckillProductCard({
           </div>
 
           <button
+            type="button"
             onClick={handleSeckill}
             disabled={isButtonDisabled}
             style={{
@@ -346,6 +347,7 @@ function SeckillProductCard({
               {result.message}
             </div>
             <button
+              type="button"
               onClick={() => setShowResult(false)}
               style={{
                 padding: '10px 40px',
@@ -365,6 +367,16 @@ function SeckillProductCard({
         </div>
       )}
     </>
+  )
+}
+
+function SmallCountdown({ targetTime }: { targetTime: string }) {
+  const { hours, minutes, seconds, isExpired } = useCountdown(targetTime)
+  if (isExpired) return null
+  return (
+    <div style={{ fontSize: 12, color: 'var(--color-primary)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
+      {hours}:{minutes}:{seconds}
+    </div>
   )
 }
 
@@ -419,7 +431,7 @@ export default function SeckillPage() {
     }
   }, [selectedActivity, fetchProducts])
 
-  const handleSeckillSuccess = (_result: SeckillResult) => {
+  const handleSeckillSuccess = () => {
     if (selectedActivity) {
       fetchProducts(selectedActivity.id)
     }
@@ -532,6 +544,7 @@ export default function SeckillPage() {
                 return (
                   <button
                     key={activity.id}
+                    type="button"
                     onClick={() => setSelectedActivity(activity)}
                     style={{
                       flexShrink: 0,
@@ -628,16 +641,6 @@ export default function SeckillPage() {
           </>
         )}
       </div>
-    </div>
-  )
-}
-
-function SmallCountdown({ targetTime }: { targetTime: string }) {
-  const { hours, minutes, seconds, isExpired } = useCountdown(targetTime)
-  if (isExpired) return null
-  return (
-    <div style={{ fontSize: 12, color: 'var(--color-primary)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
-      {hours}:{minutes}:{seconds}
     </div>
   )
 }

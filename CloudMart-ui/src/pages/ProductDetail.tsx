@@ -150,14 +150,6 @@ export default function ProductDetail() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (!id) return
-    getReviewStats(id)
-      .then((res) => setReviewStats(res.data.data))
-      .catch(() => {})
-    fetchReviews(1)
-  }, [id])
-
   const fetchReviews = (page: number) => {
     if (!id) return
     getProductReviews(id, page, 10)
@@ -166,6 +158,14 @@ export default function ProductDetail() {
       })
       .catch(() => {})
   }
+
+  useEffect(() => {
+    if (!id) return
+    getReviewStats(id)
+      .then((res) => setReviewStats(res.data.data))
+      .catch(() => {})
+    fetchReviews(1)
+  }, [id])
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -201,7 +201,8 @@ export default function ProductDetail() {
     let current = cats.find((c) => c.id === catId)
     while (current) {
       path.unshift(current)
-      current = cats.find((c) => c.id === current!.parentId)
+      const parentId = current.parentId
+      current = cats.find((c) => c.id === parentId)
     }
     return path
   }
@@ -446,6 +447,7 @@ export default function ProductDetail() {
                 }}
               >
                 <button
+                  type="button"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   disabled={quantity <= 1}
                   style={{
@@ -478,6 +480,7 @@ export default function ProductDetail() {
                   }}
                 />
                 <button
+                  type="button"
                   onClick={() => setQuantity(Math.min(selectedSku?.stock ?? 999, quantity + 1))}
                   style={{
                     width: 36,
@@ -499,6 +502,7 @@ export default function ProductDetail() {
 
             <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
               <button
+                type="button"
                 onClick={handleAddToCart}
                 disabled={!selectedSku || selectedSku.stock <= 0}
                 style={{
@@ -520,6 +524,7 @@ export default function ProductDetail() {
                 加入购物车
               </button>
               <button
+                type="button"
                 onClick={handleBuyNow}
                 disabled={!selectedSku || selectedSku.stock <= 0}
                 style={{

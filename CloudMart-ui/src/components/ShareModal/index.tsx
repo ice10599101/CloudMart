@@ -103,6 +103,7 @@ export default function ShareModal({ visible, onClose, postTitle, postId }: Shar
     >
       <div style={{ position: 'relative', padding: '28px 28px 24px' }}>
         <button
+          type="button"
           onClick={onClose}
           style={{
             position: 'absolute',

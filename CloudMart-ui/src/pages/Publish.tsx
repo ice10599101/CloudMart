@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -25,9 +25,6 @@ interface MediaItem {
 
 export default function Publish() {
   const { isAuthenticated } = useAuthStore()
-  const [searchParams] = useSearchParams()
-  const editPostId = searchParams.get('edit')
-  const isEditing = editPostId != null
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -36,6 +33,7 @@ export default function Publish() {
     }
   }, [isAuthenticated])
 
+  // 认证守卫提前返回只出现在无 Hook 的外层；表单 Hook 全部收敛到内层组件，保证调用顺序恒定
   if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--color-bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -43,6 +41,16 @@ export default function Publish() {
       </div>
     )
   }
+
+  // PublishForm 为函数声明，存在提升，此处前向引用安全
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  return <PublishForm />
+}
+
+function PublishForm() {
+  const [searchParams] = useSearchParams()
+  const editPostId = searchParams.get('edit')
+  const isEditing = editPostId !== null
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -53,7 +61,7 @@ export default function Publish() {
   const [productPrice, setProductPrice] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
-  const [draftId, setDraftId] = useState<number | null>(null)
+  const [draftId, setDraftId] = useState<number | string | null>(null)
   const [loadingPost, setLoadingPost] = useState(isEditing)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -99,7 +107,7 @@ export default function Publish() {
     const fetchPost = async () => {
       setLoadingPost(true)
       try {
-        const { data: res } = await getPostDetail(Number(editPostId))
+        const { data: res } = await getPostDetail(editPostId)
         const post = res.data
         setTitle(post.title)
         setContent(post.content)
@@ -213,7 +221,7 @@ export default function Publish() {
       }
 
       if (isEditing && editPostId) {
-        await updatePost(Number(editPostId), postData)
+        await updatePost(editPostId, postData)
         message.success('更新成功！')
         history.push(`/post/${editPostId}`)
       } else {
@@ -268,7 +276,7 @@ export default function Publish() {
           const coverImage = uploadedUrls.length > 0 ? uploadedUrls[0] : ''
 
           const res = await saveDraft({
-            id: draftId ?? (isEditing ? Number(editPostId) : undefined),
+            id: draftId ?? (isEditing ? editPostId : undefined),
             title: title.trim() || '未命名草稿',
             content,
             coverImage,

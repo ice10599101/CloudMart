@@ -1015,6 +1015,11 @@ export function setNearbyMode(enabled: boolean) {
   return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })
 }
 
+/** 附近模式状态查询（刷新后回显） */
+export function getNearbyMode() {
+  return request.get<ApiResponse<boolean>>('/wish/map/nearby-mode')
+}
+
 /** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
 export function reportTrace(lat: number, lng: number) {
   return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })

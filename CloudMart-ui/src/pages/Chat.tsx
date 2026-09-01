@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
 import { Spin, Dropdown, message } from 'antd'
-import { ArrowLeftOutlined, MessageOutlined, MoreOutlined, UndoOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, MessageOutlined, UndoOutlined } from '@ant-design/icons'
 import Skeleton from '@/components/Skeleton'
 import {
   getConversations,

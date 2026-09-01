@@ -177,30 +177,6 @@ const features = [
   { icon: <GlobalOutlined />, title: '全球畅享', desc: '跨越地域，连接世界' },
 ]
 
-export default function Register() {
-  return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: 'var(--color-primary)',
-          colorBgContainer: 'var(--color-bg-container)',
-          colorBgElevated: 'var(--color-bg-elevated)',
-          colorBgLayout: 'var(--color-bg-base)',
-          colorBorder: 'var(--color-border)',
-          colorText: '#FFFFFF',
-          colorTextSecondary: 'var(--color-text-secondary)',
-        },
-      }}
-    >
-      <App>
-        <AppMessageBinder />
-        <RegisterContent />
-      </App>
-    </ConfigProvider>
-  )
-}
-
 function RegisterContent() {
   const messageApi = useMessage()
   const [loading, setLoading] = useState(false)
@@ -408,5 +384,29 @@ function RegisterContent() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Register() {
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: 'var(--color-primary)',
+          colorBgContainer: 'var(--color-bg-container)',
+          colorBgElevated: 'var(--color-bg-elevated)',
+          colorBgLayout: 'var(--color-bg-base)',
+          colorBorder: 'var(--color-border)',
+          colorText: '#FFFFFF',
+          colorTextSecondary: 'var(--color-text-secondary)',
+        },
+      }}
+    >
+      <App>
+        <AppMessageBinder />
+        <RegisterContent />
+      </App>
+    </ConfigProvider>
   )
 }

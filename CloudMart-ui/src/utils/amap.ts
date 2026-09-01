@@ -11,6 +11,11 @@ export const AMAP_KEY = 'b7b068d7715d4bcd7e0929d648ab047a'
 
 let inflight: Promise<void> | null = null
 
+function resolveKey(): string {
+  const local = window.localStorage.getItem('amap_key')
+  return local && local.trim() ? local.trim() : AMAP_KEY
+}
+
 /** 动态注入高德 JS SDK（含 MarkerCluster 聚合插件）；Key 缺失时 reject */
 export function loadAmapSdk(): Promise<void> {
   const key = resolveKey()
@@ -34,9 +39,4 @@ export function loadAmapSdk(): Promise<void> {
     })
   }
   return inflight
-}
-
-function resolveKey(): string {
-  const local = window.localStorage.getItem('amap_key')
-  return local && local.trim() ? local.trim() : AMAP_KEY
 }

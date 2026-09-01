@@ -39,9 +39,7 @@ import {
   HeartOutlined,
   ExperimentOutlined,
   EnvironmentOutlined,
-  PlayCircleOutlined,
   LockOutlined,
-  CloudOutlined,
   FireOutlined,
   ApartmentOutlined,
   BookOutlined,
@@ -276,6 +274,7 @@ export default function AdminLayout() {
         actionsRender={() => [
           <button
             key="theme-toggle"
+            type="button"
             onClick={toggleMode}
             style={{
               width: 36,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Form, Input, Button, Upload, Card, App, Modal, Tag, DatePicker, Popconfirm } from 'antd'
-import { PlusOutlined, CloseOutlined, MailOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { PlusOutlined, MailOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { history, useSearchParams } from 'umi'
 import dayjs, { type Dayjs } from 'dayjs'
 import { createCapsule, getWishDetail } from '@/api/wish'

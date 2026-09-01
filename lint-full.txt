@@ -1,0 +1,340 @@
+info  - [你知道吗？] 编写 src/loading.(jsx|tsx) 可以自定义页面的加载动画。
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\components\CheckInModal\index.tsx
+   51:31  error  Expected '!==' and instead saw '!='            eqeqeq
+   52:35  error  Expected '!==' and instead saw '!='            eqeqeq
+  169:9   error  Missing an explicit type attribute for button  react/button-has-type
+  425:11  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\components\ShareModal\index.tsx
+  105:9  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\components\WishBGM\index.tsx
+  150:7  error  Missing an explicit type attribute for button  react/button-has-type
+  158:7  error  Missing an explicit type attribute for button  react/button-has-type
+  166:7  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\layouts\AdminLayout.tsx
+   42:3   error  'PlayCircleOutlined' is defined but never used  @typescript-eslint/no-unused-vars
+   44:3   error  'CloudOutlined' is defined but never used       @typescript-eslint/no-unused-vars
+  277:11  error  Missing an explicit type attribute for button   react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\layouts\UserLayout.tsx
+  287:5   error  Missing an explicit type attribute for button  react/button-has-type
+  565:13  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Activities.tsx
+  2:65  error  'Tag' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\AiAssistant.tsx
+  20:3  error  'recordExpectedAction' is defined but never used  @typescript-eslint/no-unused-vars
+  41:7  error  'DAILY_LIMIT' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\AiChat.tsx
+  186:13  error  Missing an explicit type attribute for button  react/button-has-type
+  216:11  error  Missing an explicit type attribute for button  react/button-has-type
+  267:19  error  Missing an explicit type attribute for button  react/button-has-type
+  431:11  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\CapsuleCreate.tsx
+  3:24  error  'CloseOutlined' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\CapsuleDetail.tsx
+    3:29  error  'MailOutlined' is defined but never used  @typescript-eslint/no-unused-vars
+  130:22  error  'BackBar' was used before it was defined  @typescript-eslint/no-use-before-define
+  154:22  error  'BackBar' was used before it was defined  @typescript-eslint/no-use-before-define
+  198:18  error  'BackBar' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Cart.tsx
+   52:7   error  Missing an explicit type attribute for button  react/button-has-type
+   89:7   error  Missing an explicit type attribute for button  react/button-has-type
+  213:7   error  Missing an explicit type attribute for button  react/button-has-type
+  281:7   error  Missing an explicit type attribute for button  react/button-has-type
+  420:21  error  Missing an explicit type attribute for button  react/button-has-type
+  514:19  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Chat.tsx
+  4:46  error  'MoreOutlined' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Checkout.tsx
+  467:17  error  Missing an explicit type attribute for button  react/button-has-type
+  502:21  error  Missing an explicit type attribute for button  react/button-has-type
+  730:17  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\CouponList.tsx
+  106:11  error  Missing an explicit type attribute for button  react/button-has-type
+  336:13  error  Missing an explicit type attribute for button  react/button-has-type
+  389:17  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Coupons.tsx
+  122:13  error  Missing an explicit type attribute for button  react/button-has-type
+  379:13  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\EncounterLetters.tsx
+    8:3   error  'setNearbyMode' is defined but never used                     @typescript-eslint/no-unused-vars
+   82:32  error  Return values from promise executor functions cannot be read  no-promise-executor-return
+  128:21  error  'sealed' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Following.tsx
+  98:7  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\GroupBuy.tsx
+    4:3   error  'joinGroup' is defined but never used          @typescript-eslint/no-unused-vars
+  146:9   error  Missing an explicit type attribute for button  react/button-has-type
+  176:9   error  'isFailed' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  289:23  error  '_activityId' is defined but never used        @typescript-eslint/no-unused-vars
+  359:13  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Home.tsx
+   25:3   error  'UserOutlined' is defined but never used                               @typescript-eslint/no-unused-vars
+   86:35  error  Expected '!==' and instead saw '!='                                    eqeqeq
+  137:20  error  Expected '!==' and instead saw '!='                                    eqeqeq
+  184:45  error  Expected '!==' and instead saw '!='                                    eqeqeq
+  446:55  error  Expected '!==' and instead saw '!='                                    eqeqeq
+  508:11  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  525:11  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  552:11  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\LiveRoom.tsx
+  309:13  error  Missing an explicit type attribute for button  react/button-has-type
+  326:13  error  Missing an explicit type attribute for button  react/button-has-type
+  382:17  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Login.tsx
+  237:8  error  'LoginContent' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Messages.tsx
+    2:10  error  'Spin' is defined but never used                @typescript-eslint/no-unused-vars
+  130:84  error  'navigateToBiz' was used before it was defined  @typescript-eslint/no-use-before-define
+  142:86  error  'navigateToBiz' was used before it was defined  @typescript-eslint/no-use-before-define
+  157:84  error  'navigateToBiz' was used before it was defined  @typescript-eslint/no-use-before-define
+  168:84  error  'navigateToBiz' was used before it was defined  @typescript-eslint/no-use-before-define
+  179:84  error  'navigateToBiz' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\NotFound.tsx
+  254:7  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\OrderDetail.tsx
+   81:5  error  Missing an explicit type attribute for button  react/button-has-type
+  254:9  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\OrderList.tsx
+   87:5   error  Missing an explicit type attribute for button  react/button-has-type
+  358:7   error  Missing an explicit type attribute for button  react/button-has-type
+  452:13  error  Missing an explicit type attribute for button  react/button-has-type
+  497:19  error  Missing an explicit type attribute for button  react/button-has-type
+  526:23  error  Missing an explicit type attribute for button  react/button-has-type
+  555:19  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Payment.tsx
+  190:11  error  Missing an explicit type attribute for button  react/button-has-type
+  214:11  error  Missing an explicit type attribute for button  react/button-has-type
+  356:9   error  Missing an explicit type attribute for button  react/button-has-type
+  506:9   error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\PostDetail.tsx
+   76:10  error  'videoPlaying' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+   87:9   error  'handleVideoClick' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+  317:14  error  'renderCommentContent' was used before it was defined                  @typescript-eslint/no-use-before-define
+  429:10  error  'mentionSearch' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  533:7   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  555:7   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  595:7   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\ProductDetail.tsx
+  158:5   error  'fetchReviews' was used before it was defined                                    @typescript-eslint/no-use-before-define
+  204:27  error  Function declared in a loop contains unsafe references to variable(s) 'current'  @typescript-eslint/no-loop-func
+  448:17  error  Missing an explicit type attribute for button                                    react/button-has-type
+  480:17  error  Missing an explicit type attribute for button                                    react/button-has-type
+  501:15  error  Missing an explicit type attribute for button                                    react/button-has-type
+  522:15  error  Missing an explicit type attribute for button                                    react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Publish.tsx
+   1:39  error  'useCallback' is defined but never used                                                                                                                                                      @typescript-eslint/no-unused-vars
+  30:32  error  Expected '!==' and instead saw '!='                                                                                                                                                          eqeqeq
+  47:29  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  48:33  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  49:37  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  50:27  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  51:41  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  52:41  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  53:43  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  54:39  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  55:41  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  56:33  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  57:41  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                  react-hooks/rules-of-hooks
+  58:25  error  React Hook "useRef" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                    react-hooks/rules-of-hooks
+  59:25  error  React Hook "useRef" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                    react-hooks/rules-of-hooks
+  60:22  error  React Hook "useRef" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                    react-hooks/rules-of-hooks
+  65:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  96:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Register.tsx
+  198:10  error  'RegisterContent' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Search.tsx
+  756:13  error  Missing an explicit type attribute for button                    react/button-has-type
+  827:17  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  827:27  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Seckill.tsx
+  273:11  error  Missing an explicit type attribute for button    react/button-has-type
+  348:13  error  Missing an explicit type attribute for button    react/button-has-type
+  422:33  error  '_result' is defined but never used              @typescript-eslint/no-unused-vars
+  533:19  error  Missing an explicit type attribute for button    react/button-has-type
+  567:24  error  'SmallCountdown' was used before it was defined  @typescript-eslint/no-use-before-define
+  570:24  error  'SmallCountdown' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Settings.tsx
+   4:26  error  'updateProfile' is defined but never used            @typescript-eslint/no-unused-vars
+  14:7   error  'GENDER_OPTIONS' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  20:10  error  'calcConstellation' is defined but never used        @typescript-eslint/no-unused-vars
+  70:11  error  'user' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  70:17  error  'fetchProfile' is assigned a value but never used    @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\UserCenter.tsx
+     4:10   error  'UserOutlined' is defined but never used       @typescript-eslint/no-unused-vars
+    78:11   error  Missing an explicit type attribute for button  react/button-has-type
+    90:11   error  Missing an explicit type attribute for button  react/button-has-type
+   372:9    error  Missing an explicit type attribute for button  react/button-has-type
+   459:11   error  'user' is assigned a value but never used      @typescript-eslint/no-unused-vars
+   541:19   error  Missing an explicit type attribute for button  react/button-has-type
+   547:19   error  Missing an explicit type attribute for button  react/button-has-type
+   785:9    error  Missing an explicit type attribute for button  react/button-has-type
+   811:19   error  Missing an explicit type attribute for button  react/button-has-type
+   812:19   error  Missing an explicit type attribute for button  react/button-has-type
+   814:21   error  Missing an explicit type attribute for button  react/button-has-type
+   850:11   error  Missing an explicit type attribute for button  react/button-has-type
+   851:11   error  Missing an explicit type attribute for button  react/button-has-type
+   931:19   error  Missing an explicit type attribute for button  react/button-has-type
+   986:113  error  Expected '!==' and instead saw '!='            eqeqeq
+   987:115  error  Expected '!==' and instead saw '!='            eqeqeq
+  1106:13   error  Missing an explicit type attribute for button  react/button-has-type
+  1209:19   error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\UserProfile.tsx
+    3:10  error  'Spin' is defined but never used                                       @typescript-eslint/no-unused-vars
+  247:7   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  288:7   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\WishDetail.tsx
+  54:25  error  'WishDetail' is already defined  @typescript-eslint/no-redeclare
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\WishHome.tsx
+  2:17  error  'Avatar' is defined but never used     @typescript-eslint/no-unused-vars
+  2:54  error  'Statistic' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\WishMap.tsx
+  17:10  error  'AMAP_KEY' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\WishSquare.tsx
+  3:10  error  'SearchOutlined' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\Wishlist.tsx
+  208:11  error  Missing an explicit type attribute for button  react/button-has-type
+  249:13  error  Missing an explicit type attribute for button  react/button-has-type
+  319:7   error  Missing an explicit type attribute for button  react/button-has-type
+  491:21  error  Missing an explicit type attribute for button  react/button-has-type
+  537:19  error  Missing an explicit type attribute for button  react/button-has-type
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\Dashboard.tsx
+  151:5  error  'fetchData' was used before it was defined            @typescript-eslint/no-use-before-define
+  155:5  error  'fetchCommunityTrend' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\Login.tsx
+  27:10  error  'AdminLoginContent' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Ai.tsx
+   2:62  error  'Timeline' is defined but never used               @typescript-eslint/no-unused-vars
+   4:3   error  'SyncOutlined' is defined but never used           @typescript-eslint/no-unused-vars
+  30:10  error  'logIdCounter' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Categories.tsx
+  68:5  error  'fetchCategoryTree' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\GroupActivity.tsx
+   8:3   error  'ProFormSwitch' is defined but never used  @typescript-eslint/no-unused-vars
+  11:42  error  'Descriptions' is defined but never used   @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Live.tsx
+  7:3  error  'ProFormDateTimePicker' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\LiveWidgetAdmin.tsx
+  11:9  error  'Paragraph' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\MapAdmin.tsx
+  14:5  error  'updateAdminFence' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\MatchAdmin.tsx
+  16:9  error  'Paragraph' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Payments.tsx
+  2:20  error  'ProFormSelect' is defined but never used    @typescript-eslint/no-unused-vars
+  2:35  error  'ProFormTextArea' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Products.tsx
+  63:5  error  'fetchCategoryTree' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Seckill.tsx
+  72:5  error  'fetchActivities' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Shipping.tsx
+  4:10  error  'Button' is defined but never used      @typescript-eslint/no-unused-vars
+  4:23  error  'Popconfirm' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\business\Wishes.tsx
+  52:21  error  Expected '===' and instead saw '=='  eqeqeq
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\community\Review.tsx
+  82:27  error  Expected '===' and instead saw '=='  eqeqeq
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\monitor\Cache.tsx
+  49:5  error  'fetchCacheInfo' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\monitor\Server.tsx
+  81:5  error  'fetchServerInfo' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Config.tsx
+  6:3  error  'ProFormDigit' is defined but never used   @typescript-eslint/no-unused-vars
+  7:3  error  'ProFormSelect' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Depts.tsx
+  11:38  error  'Tag' is defined but never used                 @typescript-eslint/no-unused-vars
+  46:5   error  'fetchDeptTree' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\LoginLog.tsx
+  1:18  error  'useState' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Menus.tsx
+  84:5  error  'fetchMenuTree' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\OperLog.tsx
+  5:3  error  'ProFormText' is defined but never used      @typescript-eslint/no-unused-vars
+  6:3  error  'ProFormTextArea' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Posts.tsx
+  10:38  error  'Tag' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Roles.tsx
+  11:38  error  'Tag' is defined but never used                 @typescript-eslint/no-unused-vars
+  59:5   error  'fetchMenuTree' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\system\Users.tsx
+   6:3   error  'ProFormSelect' is defined but never used  @typescript-eslint/no-unused-vars
+   7:3   error  'ProFormDigit' is defined but never used   @typescript-eslint/no-unused-vars
+  11:38  error  'Tag' is defined but never used            @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\pages\admin\tool\Gen.tsx
+  77:28  error  'setPreviewLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\stores\adminAuth.test.ts
+  15:41  error  'adminLogout' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\stores\notification.ts
+  2:26  error  'listNotifications' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Ide\IdeaProjects\CloudMart\CloudMart-ui\src\utils\amap.ts
+  16:15  error  'resolveKey' was used before it was defined  @typescript-eslint/no-use-before-define
+
+✖ 198 problems (198 errors, 0 warnings)
+

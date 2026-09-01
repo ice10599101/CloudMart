@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { App, Button, Empty, Input, InputNumber, Modal, Select, Tag } from 'antd'
+import { App, Button, Empty, Input, InputNumber, Modal, Select } from 'antd'
 import { history } from 'umi'
 import {
   ACTIVITY_TYPE_LABELS,

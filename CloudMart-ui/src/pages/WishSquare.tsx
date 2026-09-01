@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Spin, Empty, Card, Tag, Select, Input, Button, Avatar } from 'antd'
-import { SearchOutlined, StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
+import { StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { listWishes, getCategories } from '@/api/wish'
 import type { WishListItem, Category } from '@/api/wish'

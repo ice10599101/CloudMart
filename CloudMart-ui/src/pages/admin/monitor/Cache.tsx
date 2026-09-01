@@ -45,10 +45,6 @@ export default function Cache() {
   const [cacheData, setCacheData] = useState<RedisInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchCacheInfo()
-  }, [])
-
   async function fetchCacheInfo() {
     setLoading(true)
     try {
@@ -59,6 +55,10 @@ export default function Cache() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchCacheInfo()
+  }, [])
 
   if (loading) {
     return (

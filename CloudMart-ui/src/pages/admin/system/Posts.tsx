@@ -7,7 +7,7 @@ import {
   ProFormSwitch,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag } from 'antd'
+import { Button, Popconfirm, Switch } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getPosts,

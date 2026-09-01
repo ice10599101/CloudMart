@@ -8,7 +8,7 @@ import {
 import type { AdminLiveWidgetConfig } from '@/api/admin/wish'
 import { useMessage } from '@/utils/useMessage'
 
-const { Paragraph, Text } = Typography
+const { Text } = Typography
 
 const POSITION_OPTIONS = [
     { value: 'TOP_LEFT', label: '左上' },

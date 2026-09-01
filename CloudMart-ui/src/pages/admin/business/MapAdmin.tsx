@@ -11,7 +11,6 @@ import {
     listAdminWarmEvents,
     toggleAdminFence,
     unfreezeAdminUser,
-    updateAdminFence,
 } from '@/api/admin/wish'
 import type {
     AdminFenceRecord,

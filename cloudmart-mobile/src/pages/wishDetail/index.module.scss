@@ -492,6 +492,19 @@
   margin: 20rpx 0;
 }
 
+.checkinTextarea {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 16rpx;
+  margin-bottom: 32rpx;
+  box-sizing: border-box;
+  font-size: 26rpx;
+  color: #f5f5fa;
+  background: rgba(245, 245, 250, 0.07);
+  border: 1px solid rgba(245, 245, 250, 0.15);
+  border-radius: 16rpx;
+}
+
 .datePick {
   height: 80rpx;
   border-radius: 16rpx;

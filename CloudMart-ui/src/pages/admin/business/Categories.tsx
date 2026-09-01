@@ -64,10 +64,6 @@ export default function Categories() {
   const [treeSelectData, setTreeSelectData] = useState<TreeSelectNode[]>([])
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
 
-  useEffect(() => {
-    fetchCategoryTree()
-  }, [])
-
   async function fetchCategoryTree() {
     const { data: res } = await getCategories()
     const response = res as ApiResponse<CategoryRecord[]>
@@ -77,6 +73,10 @@ export default function Categories() {
       { title: '顶级分类', value: 0, key: 0, children: convertToTreeSelect(tree, 'name') },
     ])
   }
+
+  useEffect(() => {
+    fetchCategoryTree()
+  }, [])
 
   const handleSubmit = async (values: Record<string, any>) => {
     return confirmSubmit(async () => {

@@ -184,6 +184,7 @@ export default function AiChatPage() {
 
           <div style={{ padding: 16, borderTop: '1px solid var(--color-border)' }}>
             <button
+              type="button"
               onClick={() => setSearchMode(!searchMode)}
               style={{
                 width: '100%',
@@ -214,6 +215,7 @@ export default function AiChatPage() {
           gap: 12,
         }}>
           <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             style={{
               background: 'transparent',
@@ -266,6 +268,7 @@ export default function AiChatPage() {
                 {['推荐手机', '笔记本电脑', '春季穿搭', '家居好物'].map((suggestion) => (
                   <button
                     key={suggestion}
+                    type="button"
                     onClick={() => setInputValue(suggestion)}
                     style={{
                       padding: '8px 18px',
@@ -429,6 +432,7 @@ export default function AiChatPage() {
             }}
           />
           <button
+            type="button"
             onClick={handleSend}
             disabled={!inputValue.trim() || sending}
             style={{

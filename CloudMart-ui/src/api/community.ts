@@ -159,7 +159,7 @@ export function createPost(data: FormData | Record<string, unknown>) {
   return request.post<ApiResponse<Post>>('/community/posts', data)
 }
 
-export function updatePost(postId: number, data: FormData | Record<string, unknown>) {
+export function updatePost(postId: number | string, data: FormData | Record<string, unknown>) {
   if (data instanceof FormData) {
     return request.put<ApiResponse<Post>>(`/community/posts/${postId}`, data, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -276,7 +276,7 @@ export function getUserDrafts(page = 1, size = 20) {
   return request.get<ApiResponse<Post[]>>('/community/posts/drafts', { params: { page, size } })
 }
 
-export function saveDraft(data: { id?: number; title: string; content: string; coverImage?: string; mediaUrls?: string[]; mediaType?: string; tagIds?: number[] }) {
+export function saveDraft(data: { id?: number | string; title: string; content: string; coverImage?: string; mediaUrls?: string[]; mediaType?: string; tagIds?: number[] }) {
   if (data.id) {
     return request.put<ApiResponse<Post>>(`/community/posts/${data.id}`, { ...data, status: 0 })
   }

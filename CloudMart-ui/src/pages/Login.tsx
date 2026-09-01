@@ -216,30 +216,6 @@ const features = [
   },
 ]
 
-export default function Login() {
-  return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: 'var(--color-primary)',
-          colorBgContainer: 'var(--color-bg-container)',
-          colorBgElevated: 'var(--color-bg-elevated)',
-          colorBgLayout: 'var(--color-bg-base)',
-          colorBorder: 'var(--color-border)',
-          colorText: '#FFFFFF',
-          colorTextSecondary: 'var(--color-text-secondary)',
-        },
-      }}
-    >
-    <App>
-      <AppMessageBinder />
-      <LoginContent />
-    </App>
-    </ConfigProvider>
-  )
-}
-
 function LoginContent() {
   const message = useMessage()
   const [loading, setLoading] = useState(false)
@@ -377,5 +353,29 @@ function LoginContent() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Login() {
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: 'var(--color-primary)',
+          colorBgContainer: 'var(--color-bg-container)',
+          colorBgElevated: 'var(--color-bg-elevated)',
+          colorBgLayout: 'var(--color-bg-base)',
+          colorBorder: 'var(--color-border)',
+          colorText: '#FFFFFF',
+          colorTextSecondary: 'var(--color-text-secondary)',
+        },
+      }}
+    >
+    <App>
+      <AppMessageBinder />
+      <LoginContent />
+    </App>
+    </ConfigProvider>
   )
 }

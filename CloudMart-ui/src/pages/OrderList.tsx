@@ -85,6 +85,7 @@ function ActionButton({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         padding: '6px 18px',
@@ -356,6 +357,7 @@ function EmptyOrders() {
         去发现心仪的好物吧
       </div>
       <button
+        type="button"
         onClick={() => history.push('/products')}
         style={{
           padding: '10px 32px',
@@ -451,6 +453,7 @@ export default function OrderList() {
           {TAB_ITEMS.map((tab) => (
             <button
               key={tab.key}
+              type="button"
               onClick={() => handleTabChange(tab.key)}
               style={{
                 flex: 1,
@@ -495,6 +498,7 @@ export default function OrderList() {
                   }}
                 >
                   <button
+                    type="button"
                     onClick={() => handlePageChange(page - 1)}
                     disabled={page <= 1}
                     style={{
@@ -525,6 +529,7 @@ export default function OrderList() {
                     return (
                       <button
                         key={pageNum}
+                        type="button"
                         onClick={() => handlePageChange(pageNum)}
                         style={{
                           width: 36,
@@ -553,6 +558,7 @@ export default function OrderList() {
                   })}
 
                   <button
+                    type="button"
                     onClick={() => handlePageChange(page + 1)}
                     disabled={page >= totalPages}
                     style={{
