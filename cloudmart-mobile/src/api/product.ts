@@ -33,11 +33,11 @@ export interface Review {
 export const productApi = {
   search: (params: { keyword?: string; categoryId?: number; page?: number; size?: number; sort?: string }) =>
     request<PaginatedResult<Product>>({ url: `/product/products/search${buildQuery(params as Record<string, unknown>)}` }),
-  getDetail: (id: number) => request<Product>({ url: `/product/products/${id}` }),
+  getDetail: (id: number | string) => request<Product>({ url: `/product/products/${id}` }),
   getCategories: () => request<ProductCategory[]>({ url: '/product/categories' }),
-  getReviews: (productId: number, params?: { page?: number; pageSize?: number }) =>
+  getReviews: (productId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Review>>({ url: `/product/reviews/product/${productId}${buildQuery(params as Record<string, unknown>)}` }),
-  getReviewStats: (productId: number) =>
+  getReviewStats: (productId: number | string) =>
     request<ReviewStats>({ url: `/product/reviews/stats/${productId}` }),
   createReview: (data: { productId: number; rating: number; content: string; images?: string[] }) =>
     request<Review>({ url: '/product/reviews', method: 'POST', data }),

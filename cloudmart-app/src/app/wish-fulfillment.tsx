@@ -173,7 +173,7 @@ function BloomParticle({ x, y }: { x: number; y: number }) {
 export default function WishFulfillmentScreen() {
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ id?: string }>()
-  const wishId = Number(params.id)
+  const wishId = params.id ?? ''
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)

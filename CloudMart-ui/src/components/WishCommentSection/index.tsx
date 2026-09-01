@@ -20,7 +20,7 @@ const COMMENT_PAGE_SIZE = 10
 const COMMENT_CONTENT_MAX = 500
 
 interface WishCommentSectionProps {
-  wishId: number
+  wishId: number | string
   commentCount: number
   isLoggedIn: boolean
   currentUserId?: number

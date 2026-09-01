@@ -53,7 +53,7 @@ function formatCount(n: number): string {
 
 export default function WishDetail() {
   const params = useParams<{ id: string }>()
-  const wishId = Number(params.id)
+  const wishId = params.id ?? ''
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
   const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)

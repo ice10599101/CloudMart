@@ -16,7 +16,7 @@ const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权�
 export default function UserProfileScreen() {
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const userId = Number(id)
+  const userId = id ?? ''
   const { user: currentUser } = useAuthStore()
 
   const [profile, setProfile] = useState<any>(null)
@@ -27,7 +27,7 @@ export default function UserProfileScreen() {
   const [collections, setCollections] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  const isOwnProfile = currentUser?.id === userId
+  const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const loadProfile = useCallback(async () => {
     if (!userId) return

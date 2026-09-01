@@ -2,11 +2,11 @@ import request from '@/utils/request'
 import type { ApiResponse } from '@/types/api'
 import type { Payment } from '@/types'
 
-export function createPayment(data: { orderId: number; amount: number; payMethod?: string }) {
+export function createPayment(data: { orderId: number | string; amount: number; payMethod?: string }) {
   return request.post<ApiResponse<Payment>>('/payment/payments', data)
 }
 
-export function getPaymentByOrderId(orderId: number) {
+export function getPaymentByOrderId(orderId: number | string) {
   return request.get<ApiResponse<Payment>>(`/payment/payments/order/${orderId}`)
 }
 

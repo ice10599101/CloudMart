@@ -113,8 +113,8 @@ export default function WishInteractions() {
           getAdminWishInteractions({
             page: params.current,
             pageSize: params.pageSize,
-            wishId: params.wishId ? Number(params.wishId) : undefined,
-            userId: params.userId ? Number(params.userId) : undefined,
+            wishId: params.wishId || undefined,
+            userId: params.userId || undefined,
             type: params.type,
             startTime: params.startTime,
             endTime: params.endTime,

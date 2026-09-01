@@ -34,18 +34,18 @@ export const communityApi = {
     request<PaginatedResult<Post>>({ url: `/community/posts/search${buildQuery(params as Record<string, unknown>)}` }),
   getHotTags: () => request<Tag[]>({ url: '/community/tags/hot' }),
   getTrendingTags: () => request<Tag[]>({ url: '/community/tags/trending' }),
-  getTagPosts: (tagId: number, params?: { page?: number; pageSize?: number }) =>
+  getTagPosts: (tagId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/tags/${tagId}${buildQuery(params as Record<string, unknown>)}` }),
-  getUserPosts: (userId: number, params?: { page?: number; pageSize?: number }) =>
+  getUserPosts: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/users/${userId}${buildQuery(params as Record<string, unknown>)}` }),
-  followUser: (userId: number) => request<void>({ url: `/community/users/${userId}/follow`, method: 'POST' }),
-  unfollowUser: (userId: number) => request<void>({ url: `/community/users/${userId}/follow`, method: 'DELETE' }),
-  getUserProfile: (userId: number) => request<User>({ url: `/community/users/${userId}/profile` }),
+  followUser: (userId: number | string) => request<void>({ url: `/community/users/${userId}/follow`, method: 'POST' }),
+  unfollowUser: (userId: number | string) => request<void>({ url: `/community/users/${userId}/follow`, method: 'DELETE' }),
+  getUserProfile: (userId: number | string) => request<User>({ url: `/community/users/${userId}/profile` }),
   getUserFollowers: (userId: number, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<FollowUser>>({ url: `/community/users/${userId}/followers${buildQuery(params as Record<string, unknown>)}` }),
   getUserFollowing: (userId: number, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<FollowUser>>({ url: `/community/users/${userId}/following${buildQuery(params as Record<string, unknown>)}` }),
-  getUserCollections: (userId: number, params?: { page?: number; pageSize?: number }) =>
+  getUserCollections: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/users/${userId}/collections${buildQuery(params as Record<string, unknown>)}` }),
   getLikedPosts: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/liked${buildQuery(params as Record<string, unknown>)}` }),
@@ -57,8 +57,8 @@ export const communityApi = {
     request<Post>({ url: `/community/posts/${id}`, method: 'PUT', data }),
   searchUsers: (params: { keyword: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<UserBasic>>({ url: `/community/users/search${buildQuery(params as Record<string, unknown>)}` }),
-  blockUser: (userId: number) => request<void>({ url: `/community/blocks/${userId}`, method: 'POST' }),
-  unblockUser: (userId: number) => request<void>({ url: `/community/blocks/${userId}`, method: 'DELETE' }),
+  blockUser: (userId: number | string) => request<void>({ url: `/community/blocks/${userId}`, method: 'POST' }),
+  unblockUser: (userId: number | string) => request<void>({ url: `/community/blocks/${userId}`, method: 'DELETE' }),
   report: (data: { targetType: string; targetId: number; reason: string; description?: string }) =>
     request<void>({ url: '/community/reports', method: 'POST', data }),
   getSettings: () => request<Record<string, string>>({ url: '/community/settings' }),

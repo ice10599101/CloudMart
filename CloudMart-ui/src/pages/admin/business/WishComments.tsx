@@ -149,8 +149,8 @@ export default function WishComments() {
             getAdminWishComments({
               page: params.current,
               pageSize: params.pageSize,
-              wishId: params.wishId ? Number(params.wishId) : undefined,
-              userId: params.userId ? Number(params.userId) : undefined,
+              wishId: params.wishId || undefined,
+              userId: params.userId || undefined,
               sensitiveHit:
                 params.sensitiveHit === undefined || params.sensitiveHit === null
                   ? undefined

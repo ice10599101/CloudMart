@@ -29,7 +29,7 @@ interface ChatMessage {
 
 export default function TreeHole() {
   const params = useParams<{ id: string }>()
-  const wishId = Number(params.id)
+  const wishId = params.id
   const { message } = App.useApp()
   const { user } = useAuthStore()
 

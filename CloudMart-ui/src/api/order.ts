@@ -10,15 +10,15 @@ export function fetchOrders(params: OrderQueryParams) {
   return request.get<ApiResponse<Order[]>>('/order/orders', { params })
 }
 
-export function fetchOrderById(id: number) {
+export function fetchOrderById(id: number | string) {
   return request.get<ApiResponse<Order>>(`/order/orders/${id}`)
 }
 
-export function cancelOrder(id: number) {
+export function cancelOrder(id: number | string) {
   return request.put<ApiResponse<Order>>(`/order/orders/${id}/cancel`)
 }
 
-export function payForOrder(orderId: number) {
+export function payForOrder(orderId: number | string) {
   return request.post<ApiResponse<Payment>>(`/order/orders/${orderId}/pay`)
 }
 

@@ -36,7 +36,7 @@ function EnvelopeAnim({ opening }: { opening: boolean }) {
 
 export default function CapsuleDetail() {
     const params = useParams<{ id: string }>()
-    const capsuleId = Number(params.id)
+    const capsuleId = params.id
     const [loading, setLoading] = useState(true)
     const [capsule, setCapsule] = useState<CapsuleItem | null>(null)
     const [opening, setOpening] = useState(false)

@@ -22,10 +22,10 @@ interface FollowUser {
 export default function Following() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
-  const userId = Number(id)
+  const userId = id ?? ''
   const currentUser = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const isOwnProfile = currentUser?.id === userId
+  const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const initialTab = searchParams.get('tab') === 'followers' ? 'followers' : 'following'
   const [activeTab, setActiveTab] = useState<'following' | 'followers'>(initialTab)

@@ -32,7 +32,7 @@ function formatCountdown(ms: number): string {
 export default function CapsuleDetailPage() {
     const { statusBarHeight, navBarHeight } = getNavBarMetrics()
     const router = useRouter()
-    const capsuleId = Number(router.params.id)
+    const capsuleId = router.params.id ?? ''
     const { isLoggedIn } = useAuthStore()
     const [capsule, setCapsule] = useState<CapsuleItem | null>(null)
     const [loading, setLoading] = useState(true)

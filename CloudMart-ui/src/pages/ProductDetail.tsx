@@ -152,7 +152,7 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!id) return
-    getReviewStats(Number(id))
+    getReviewStats(id)
       .then((res) => setReviewStats(res.data.data))
       .catch(() => {})
     fetchReviews(1)
@@ -160,7 +160,7 @@ export default function ProductDetail() {
 
   const fetchReviews = (page: number) => {
     if (!id) return
-    getProductReviews(Number(id), page, 10)
+    getProductReviews(id, page, 10)
       .then((res) => {
         setReviews(res.data.data ?? [])
       })

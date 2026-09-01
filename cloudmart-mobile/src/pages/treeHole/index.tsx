@@ -22,7 +22,7 @@ interface ChatMessage {
 
 export default function TreeHolePage() {
   const router = useRouter()
-  const wishId = Number(router.params.id)
+  const wishId = router.params.id ?? ''
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const { isLoggedIn } = useAuthStore()
 

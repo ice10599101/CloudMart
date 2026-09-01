@@ -52,7 +52,7 @@ export default function OrderDetailPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   useAuthGuard()
 
-  const id = Number(Taro.getCurrentInstance().router?.params?.id)
+  const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
 

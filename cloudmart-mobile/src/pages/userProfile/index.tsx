@@ -16,7 +16,7 @@ type TabKey = typeof TABS[number]['key']
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
 
 export default function UserProfilePage() {
-  const userId = Number(Taro.getCurrentInstance().router?.params?.id)
+  const userId = Taro.getCurrentInstance().router?.params?.id || ''
   const { dataTheme, themeStyle } = useThemeClass()
   const { user: currentUser } = useAuthStore()
 
@@ -28,7 +28,7 @@ export default function UserProfilePage() {
   const [collections, setCollections] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  const isOwnProfile = currentUser?.id === userId
+  const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const loadProfile = useCallback(async () => {
     if (!userId) return

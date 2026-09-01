@@ -163,7 +163,7 @@ export default function OrderDetail() {
     if (!id) return
     setLoading(true)
     try {
-      const res = await fetchOrderById(Number(id))
+      const res = await fetchOrderById(id)
       setOrder(res.data.data)
     } catch {
       message.error('加载订单失败')

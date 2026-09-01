@@ -30,7 +30,7 @@ export default function TopicDetailPage() {
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
 
   const params = Taro.getCurrentInstance().router?.params
-  const tagId = params?.id ? Number(params.id) : 0
+  const tagId = params?.id || ''
   const tagName = params?.name || ''
 
   const [posts, setPosts] = useState<PostItem[]>([])

@@ -435,7 +435,7 @@ export default function PostDetail() {
     if (!id) return
     setLoading(true)
     try {
-      const { data: res } = await getPostDetail(Number(id))
+      const { data: res } = await getPostDetail(id)
       const postData = res.data
       setPost(postData)
       setLiked(postData.isLiked)
@@ -450,7 +450,7 @@ export default function PostDetail() {
   const fetchComments = useCallback(async () => {
     if (!id) return
     try {
-      const { data: res } = await getPostComments(Number(id), 1, 50)
+      const { data: res } = await getPostComments(id, 1, 50)
       const commentList = res.data ?? []
       setComments(commentList)
       const likedSet = new Set<number>()
@@ -510,7 +510,7 @@ export default function PostDetail() {
   const handleDeletePost = useCallback(async () => {
     if (!post || !id) return
     try {
-      await deletePost(Number(id))
+      await deletePost(id)
       message.success('帖子已删除')
       history.push('/')
     } catch {
@@ -622,7 +622,7 @@ export default function PostDetail() {
     setSubmitting(true)
     try {
       await createComment(
-        Number(id),
+        id,
         {
           content: commentText.trim(),
           parentId: replyTarget?.parentId,

@@ -69,7 +69,7 @@ export interface PostComment {
 }
 
 export interface HotTopic {
-  id: number
+  id: number | string
   name: string
   postCount: number
   icon?: string
@@ -106,31 +106,31 @@ export function searchUsers(keyword: string) {
   return request.get<ApiResponse<SearchUserResult[]>>('/community/users/search', { params: { keyword } })
 }
 
-export function getFollowers(userId: number, page = 1, size = 20) {
+export function getFollowers(userId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<FollowUserRawItem[]>>(`/community/users/${userId}/followers`, { params: { page, size } })
 }
 
-export function getFollowingList(userId: number, page = 1, size = 20) {
+export function getFollowingList(userId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<FollowUserRawItem[]>>(`/community/users/${userId}/following`, { params: { page, size } })
 }
 
-export function getUserProfile(userId: number) {
+export function getUserProfile(userId: number | string) {
   return request.get<ApiResponse<UserProfile>>(`/community/users/${userId}/profile`)
 }
 
-export function getUserPosts(userId: number, page = 1, size = 20) {
+export function getUserPosts(userId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<Post[]>>(`/community/posts/users/${userId}`, { params: { page, size } })
 }
 
-export function getUserCollections(userId: number, page = 1, size = 20) {
+export function getUserCollections(userId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<CollectionPostItem[]>>(`/community/users/${userId}/collections`, { params: { page, size } })
 }
 
-export function followUser(userId: number) {
+export function followUser(userId: number | string) {
   return request.post<ApiResponse<void>>(`/community/users/${userId}/follow`)
 }
 
-export function unfollowUser(userId: number) {
+export function unfollowUser(userId: number | string) {
   return request.delete<ApiResponse<void>>(`/community/users/${userId}/follow`)
 }
 
@@ -146,7 +146,7 @@ export function getFollowingFeed(page = 1, size = 20) {
   return request.get<ApiResponse<Post[]>>('/community/posts/feed/following', { params: { page, size } })
 }
 
-export function getPostDetail(postId: number) {
+export function getPostDetail(postId: number | string) {
   return request.get<ApiResponse<Post>>(`/community/posts/${postId}`)
 }
 
@@ -168,7 +168,7 @@ export function updatePost(postId: number, data: FormData | Record<string, unkno
   return request.put<ApiResponse<Post>>(`/community/posts/${postId}`, data)
 }
 
-export function deletePost(postId: number) {
+export function deletePost(postId: number | string) {
   return request.delete<ApiResponse<void>>(`/community/posts/${postId}`)
 }
 
@@ -192,11 +192,11 @@ export function sharePost(postId: number, channel = 'LINK') {
   return request.post<ApiResponse<void>>(`/community/posts/${postId}/share`, null, { params: { channel } })
 }
 
-export function getPostComments(postId: number, page = 1, size = 20) {
+export function getPostComments(postId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<PostComment[]>>(`/community/posts/${postId}/comments`, { params: { page, size } })
 }
 
-export function createComment(postId: number, data: { content: string; parentId?: number; replyToUserId?: number }) {
+export function createComment(postId: number | string, data: { content: string; parentId?: number | string; replyToUserId?: number | string }) {
   return request.post<ApiResponse<PostComment>>(`/community/posts/${postId}/comments`, data)
 }
 
@@ -232,31 +232,31 @@ export function getTrendingTopics(limit = 10) {
   return request.get<ApiResponse<HotTopic[]>>('/community/tags/trending', { params: { limit } })
 }
 
-export function getPostsByTopic(tagId: number, page = 1, size = 20) {
+export function getPostsByTopic(tagId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<Post[]>>(`/community/posts/tags/${tagId}`, { params: { page, size } })
 }
 
-export function subscribeTag(tagId: number) {
+export function subscribeTag(tagId: number | string) {
   return request.post<ApiResponse<void>>(`/community/tags/subscriptions/${tagId}`)
 }
 
-export function unsubscribeTag(tagId: number) {
+export function unsubscribeTag(tagId: number | string) {
   return request.delete<ApiResponse<void>>(`/community/tags/subscriptions/${tagId}`)
 }
 
-export function checkTagSubscription(tagId: number) {
+export function checkTagSubscription(tagId: number | string) {
   return request.get<ApiResponse<boolean>>(`/community/tags/subscriptions/${tagId}/status`)
 }
 
-export function blockUser(userId: number) {
+export function blockUser(userId: number | string) {
   return request.post<ApiResponse<void>>(`/community/blocks/${userId}`)
 }
 
-export function unblockUser(userId: number) {
+export function unblockUser(userId: number | string) {
   return request.delete<ApiResponse<void>>(`/community/blocks/${userId}`)
 }
 
-export function checkBlockStatus(targetUserId: number) {
+export function checkBlockStatus(targetUserId: number | string) {
   return request.get<ApiResponse<boolean>>('/community/blocks/check', { params: { targetUserId } })
 }
 

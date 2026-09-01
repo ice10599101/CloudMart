@@ -11,7 +11,7 @@ const PAGE_SIZE = 10
 export default function TopicDetailScreen() {
   const theme = useTheme()
   const { id, name } = useLocalSearchParams<{ id?: string; name?: string }>()
-  const tagId = id ? Number(id) : 0
+  const tagId = id || ''
   const tagName = name || '话题'
 
   const [posts, setPosts] = useState<Post[]>([])
@@ -56,7 +56,7 @@ export default function TopicDetailScreen() {
 
       // Extract tag info from first post if available
       if (targetPage === 1 && list.length > 0 && list[0].tags) {
-        const matchedTag = list[0].tags.find((t) => t.name === tagName || t.id === tagId)
+        const matchedTag = list[0].tags.find((t) => t.name === tagName || String(t.id) === tagId)
         if (matchedTag) {
           setTag(matchedTag)
           setIsSubscribed(matchedTag.isSubscribed ?? false)

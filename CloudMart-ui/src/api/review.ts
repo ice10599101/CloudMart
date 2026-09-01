@@ -40,11 +40,11 @@ export function createReview(data: CreateReviewRequest) {
   return request.post<ApiResponse<ReviewItem>>('/product/reviews', data)
 }
 
-export function getProductReviews(productId: number, page: number, size: number) {
+export function getProductReviews(productId: number | string, page: number, size: number) {
   return request.get<ApiResponse<ReviewItem[]>>(`/product/reviews/product/${productId}`, { params: { page, size } })
 }
 
-export function getReviewStats(productId: number) {
+export function getReviewStats(productId: number | string) {
   return request.get<ApiResponse<ReviewStats>>(`/product/reviews/stats/${productId}`)
 }
 

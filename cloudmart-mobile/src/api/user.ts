@@ -35,7 +35,7 @@ export const userApi = {
   setDefaultAddress: (id: number) => request<void>({ url: `/user/users/addresses/${id}/default`, method: 'PUT' }),
   getWishlist: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<WishlistItem>>({ url: `/product/wishlists${buildQuery(params as Record<string, unknown>)}` }),
-  addToWishlist: (productId: number) => request<void>({ url: `/product/wishlists/${productId}`, method: 'POST' }),
-  removeFromWishlist: (productId: number) => request<void>({ url: `/product/wishlists/${productId}`, method: 'DELETE' }),
-  checkWishlist: (productId: number) => request<boolean>({ url: `/product/wishlists/check/${productId}` }),
+  addToWishlist: (productId: number | string) => request<void>({ url: `/product/wishlists/${productId}`, method: 'POST' }),
+  removeFromWishlist: (productId: number | string) => request<void>({ url: `/product/wishlists/${productId}`, method: 'DELETE' }),
+  checkWishlist: (productId: number | string) => request<boolean>({ url: `/product/wishlists/check/${productId}` }),
 }

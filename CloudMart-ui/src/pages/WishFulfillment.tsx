@@ -63,7 +63,7 @@ function BloomCeremony({ starlight, badges }: { starlight: number; badges: { id:
 
 export default function WishFulfillment() {
   const params = useParams<{ id: string }>()
-  const wishId = Number(params.id)
+  const wishId = params.id ?? ''
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)

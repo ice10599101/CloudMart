@@ -3,7 +3,7 @@ import type { CartItem } from '@/types'
 
 export const cartApi = {
   getCart: () => request<CartItem[]>({ url: '/cart' }),
-  addItem: (data: { skuId: number; quantity: number }) =>
+  addItem: (data: { skuId: number | string; quantity: number }) =>
     request<CartItem>({ url: '/cart/items', method: 'POST', data }),
   updateItem: (skuId: number, data: { quantity: number }) =>
     request<CartItem>({ url: `/cart/items/${skuId}`, method: 'PUT', data }),

@@ -160,13 +160,13 @@ export default function UserProfile() {
   const [blockLoading, setBlockLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'posts' | 'collections'>('posts')
 
-  const isOwnProfile = currentUser?.id === Number(id)
+  const isOwnProfile = String(currentUser?.id ?? '') === (id ?? '')
 
   const fetchProfile = useCallback(async () => {
     if (!id) return
     setLoading(true)
     try {
-      const { data: res } = await getCommunityProfile(Number(id))
+      const { data: res } = await getCommunityProfile(id)
       const profileData = res.data
       setProfile({
         userId: profileData.id,
@@ -191,7 +191,7 @@ export default function UserProfile() {
   const checkBlock = useCallback(async () => {
     if (!id || isOwnProfile) return
     try {
-      const { data: res } = await checkBlockStatus(Number(id))
+      const { data: res } = await checkBlockStatus(id)
       setIsBlocked(res.data ?? false)
     } catch {
       setIsBlocked(false)
@@ -201,7 +201,7 @@ export default function UserProfile() {
   const fetchPosts = useCallback(async () => {
     if (!id) return
     try {
-      const { data: res } = await getUserPosts(Number(id), 1, 20)
+      const { data: res } = await getUserPosts(id, 1, 20)
       setPosts(res.data ?? [])
     } catch {
       setPosts([])
@@ -211,7 +211,7 @@ export default function UserProfile() {
   const fetchCollections = useCallback(async () => {
     if (!id) return
     try {
-      const { data: res } = await getUserCollections(Number(id), 1, 20)
+      const { data: res } = await getUserCollections(id, 1, 20)
       setCollections(res.data ?? [])
     } catch {
       setCollections([])
@@ -235,7 +235,7 @@ export default function UserProfile() {
       message.warning('请先登录')
       return
     }
-    const userId = Number(id)
+    const userId = id ?? ''
     setFollowLoading(true)
     const willFollow = !isFollowed
     setIsFollowed(willFollow)
@@ -264,7 +264,7 @@ export default function UserProfile() {
     if (!id) return
     setChatLoading(true)
     try {
-      const { data: res } = await createConversation(Number(id))
+      const { data: res } = await createConversation(id)
       const conv = res.data
       if (conv) {
         history.push(`/chat/${conv.id}`)
@@ -285,7 +285,7 @@ export default function UserProfile() {
     setBlockLoading(true)
     const willBlock = !isBlocked
     try {
-      willBlock ? await blockUser(Number(id)) : await unblockUser(Number(id))
+      willBlock ? await blockUser(id) : await unblockUser(id)
       setIsBlocked(willBlock)
       message.success(willBlock ? '已拉黑' : '已取消拉黑')
     } catch {

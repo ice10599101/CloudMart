@@ -244,7 +244,7 @@ function PaymentResult({
 
 export default function PaymentPage() {
   const { id } = useParams<{ id: string }>()
-  const orderId = Number(id)
+  const orderId = id
 
   const [order, setOrder] = useState<Order | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)

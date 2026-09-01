@@ -30,7 +30,7 @@ function extractBusinessError(error: unknown): { code?: string; message?: string
 export default function TreeHoleScreen() {
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ id?: string }>()
-  const wishId = Number(params.id)
+  const wishId = params.id ?? ''
   const user = useAuthStore((s) => s.user)
 
   const [messages, setMessages] = useState<ChatMessage[]>([])

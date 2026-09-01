@@ -6,7 +6,7 @@ export function searchProducts(params: ProductSearchRequest) {
   return request.get<ApiResponse<ProductSearchResult>>('/product/products/search', { params })
 }
 
-export function getProductById(id: number) {
+export function getProductById(id: number | string) {
   return request.get<ApiResponse<Product>>(`/product/products/${id}`)
 }
 

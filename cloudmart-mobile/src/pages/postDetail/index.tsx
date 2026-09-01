@@ -9,7 +9,7 @@ import styles from './index.module.scss'
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
 
 export default function PostDetailPage() {
-  const id = Number(Taro.getCurrentInstance().router?.params?.id)
+  const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentContent, setCommentContent] = useState('')

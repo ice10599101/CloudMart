@@ -40,7 +40,7 @@ export function sendMessage(conversationId: number, content: string, type = 'TEX
   })
 }
 
-export function createConversation(otherUserId: number) {
+export function createConversation(otherUserId: number | string) {
   return request.post<ApiResponse<ChatConversation>>('/notification/conversations', { otherUserId })
 }
 

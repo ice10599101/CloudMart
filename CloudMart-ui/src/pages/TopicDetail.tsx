@@ -118,7 +118,7 @@ function PostCard({ post }: { post: Post }) {
 
 export default function TopicDetail() {
   const { id } = useParams<{ id: string }>()
-  const tagId = Number(id)
+  const tagId = id ?? ''
 
   const [tagInfo, setTagInfo] = useState<HotTopic | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -133,7 +133,7 @@ export default function TopicDetail() {
     try {
       const { data: res } = await getHotTopics()
       const tags = res.data ?? []
-      const found = tags.find((t) => t.id === tagId)
+      const found = tags.find((t) => String(t.id) === tagId)
       if (found) {
         setTagInfo(found)
       } else {

@@ -27,7 +27,7 @@ interface UploadItem {
 
 export default function WishFulfillmentPage() {
   const router = useRouter()
-  const wishId = Number(router.params.id)
+  const wishId = router.params.id ?? ''
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const { user, isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)

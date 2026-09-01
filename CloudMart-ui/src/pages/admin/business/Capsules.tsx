@@ -127,7 +127,7 @@ function PushRecordsPanel() {
             request={async (params) => {
                 return safeProTableRequest<AdminCapsulePushRecord>(() =>
                     getAdminCapsulePushRecords({
-                        userId: params.userId ? Number(params.userId) : undefined,
+                        userId: params.userId || undefined,
                         type: params.type,
                         page: params.current,
                         pageSize: params.pageSize,

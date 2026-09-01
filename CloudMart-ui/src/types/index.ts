@@ -390,7 +390,7 @@ export interface UserBadge {
 }
 
 export interface HotTopic {
-  id: number
+  id: number | string
   name: string
   postCount: number
   heat: number

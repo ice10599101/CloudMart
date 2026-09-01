@@ -134,8 +134,8 @@ export interface AdminInteractionRecord {
 }
 
 export interface AdminInteractionListParams {
-  wishId?: number
-  userId?: number
+  wishId?: number | string
+  userId?: number | string
   type?: AdminInteractionType
   /** ISO 8601，如 2026-08-18T00:00:00 */
   startTime?: string
@@ -174,8 +174,8 @@ export interface AdminWishCommentRecord {
 }
 
 export interface AdminWishCommentListParams {
-  wishId?: number
-  userId?: number
+  wishId?: number | string
+  userId?: number | string
   sensitiveHit?: boolean
   status?: AdminWishCommentStatus
   page?: number
@@ -426,7 +426,7 @@ export interface AdminCapsulePushRecord {
 }
 
 export interface AdminCapsulePushParams {
-  userId?: number
+  userId?: number | string
   type?: string
   page?: number
   pageSize?: number

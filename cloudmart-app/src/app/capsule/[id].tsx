@@ -113,7 +113,7 @@ function OpeningCeremony({ visible }: { visible: boolean }) {
 export default function CapsuleDetailScreen() {
     const insets = useSafeAreaInsets()
     const params = useLocalSearchParams<{ id?: string }>()
-    const capsuleId = Number(params.id)
+    const capsuleId = params.id ?? ''
     const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
 
     const [capsule, setCapsule] = useState<CapsuleItem | null>(null)

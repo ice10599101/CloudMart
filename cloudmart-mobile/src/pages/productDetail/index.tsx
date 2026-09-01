@@ -10,7 +10,7 @@ import styles from './index.module.scss'
 
 export default function ProductDetailPage() {
   const { dataTheme, themeStyle } = useThemeClass()
-  const id = Number(Taro.getCurrentInstance().router?.params?.id)
+  const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [product, setProduct] = useState<Product | null>(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
 

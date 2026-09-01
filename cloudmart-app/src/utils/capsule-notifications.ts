@@ -94,7 +94,7 @@ export async function scheduleCapsuleReminder(capsule: CapsuleItem): Promise<voi
 }
 
 /** 取消到期提醒（取消胶囊/开启胶囊后调用） */
-export async function cancelCapsuleReminder(capsuleId: number): Promise<void> {
+export async function cancelCapsuleReminder(capsuleId: number | string): Promise<void> {
     const Notifications = getNotifications()
     if (!Notifications) return
     try {
