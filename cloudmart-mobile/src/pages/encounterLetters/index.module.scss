@@ -1,0 +1,110 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+}
+
+.modeCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin: 24rpx;
+  padding: 28rpx;
+  border-radius: 16rpx;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+}
+
+.modeTextWrap {
+  flex: 1;
+}
+
+.modeTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.modeDesc {
+  font-size: 22rpx;
+  opacity: 0.6;
+  line-height: 1.6;
+}
+
+.list {
+  height: calc(100vh - 380rpx);
+  padding: 0 24rpx;
+  box-sizing: border-box;
+}
+
+.letterCard {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.letterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.letterStatus {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.letterZone {
+  font-size: 22rpx;
+  opacity: 0.6;
+}
+
+.letterTime {
+  font-size: 22rpx;
+  opacity: 0.5;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.letterContent {
+  font-size: 26rpx;
+  line-height: 1.7;
+  margin-bottom: 16rpx;
+}
+
+.letterHint {
+  opacity: 0.5;
+  font-size: 24rpx;
+}
+
+.letterActions {
+  display: flex;
+  gap: 16rpx;
+  justify-content: flex-end;
+}
+
+.openBtn,
+.interactBtn {
+  font-size: 24rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: rgba(74, 144, 217, 0.15);
+  color: #4a90d9;
+}
+
+.openBtn {
+  background: #4a90d9;
+  color: #ffffff;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 40rpx;
+  font-size: 26rpx;
+  opacity: 0.6;
+  line-height: 1.8;
+}

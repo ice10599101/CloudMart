@@ -938,3 +938,49 @@ export function issueAdminActivityRewards(id: number) {
 export function listAdminActivityRewardLogs(id: number) {
   return request.get<ApiResponse<AdminActivityRewardLog[]>>(`/admin/wish/activity/${id}/rewards/logs`)
 }
+
+// ========== 心愿虚拟资产 + 品牌审核（Sprint 3.6 管理后台收尾，四AB B3/B4） ==========
+
+export interface AdminWishAsset {
+  assetId: number
+  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'
+  name: string
+  description: string | null
+  icon: string | null
+  priceStarlight: number
+  priceRmb: number | null
+  stock: number
+  isActive: boolean
+}
+
+export function listAdminWishAssets() {
+  return request.get<ApiResponse<AdminWishAsset[]>>('/admin/wish/collection/assets')
+}
+
+export function saveAdminWishAsset(data: Partial<AdminWishAsset>) {
+  return request.post<ApiResponse<null>>('/admin/wish/collection/assets', data)
+}
+
+export function toggleAdminWishAssetActive(id: number, active: boolean) {
+  return request.put<ApiResponse<null>>(
+    `/admin/wish/collection/assets/${id}/active`, undefined, { params: { active } },
+  )
+}
+
+export interface AdminWishBrand {
+  brandId: number
+  brandName: string
+  logo: string | null
+  description: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+}
+
+export function listAdminWishBrands() {
+  return request.get<ApiResponse<AdminWishBrand[]>>('/admin/wish/brand/list')
+}
+
+export function auditAdminWishBrand(brandId: number, status: 'APPROVED' | 'REJECTED') {
+  return request.post<ApiResponse<null>>(
+    `/admin/wish/brand/${brandId}/audit`, undefined, { params: { status } },
+  )
+}

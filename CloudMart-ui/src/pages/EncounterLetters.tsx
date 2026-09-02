@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { App, Button, Empty, Switch, Tag } from 'antd'
 import { history } from 'umi'
 import {
   getNearbyMode,
   interactEncounterLetter,
   listEncounterLetters,
+  reportTrace,
   readEncounterLetter,
   setNearbyMode as setNearbyModeApi,
   type EncounterLetterItem,
 } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import WishBGM from '@/components/WishBGM'
+import { createTraceReporter, getBrowserPosition, type TraceReporter } from '@/utils/traceReporter'
 import styles from './EncounterLetters.module.css'
 
 /**
@@ -27,7 +29,7 @@ const STATUS_LABEL: Record<EncounterLetterItem['status'], string> = {
 
 export default function EncounterLetters() {
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
 
   // 开关状态：进入页面时从后端回显（Redis 开关键 24h 有效）
   const [nearbyMode, setNearbyModeState] = useState(false)
@@ -37,7 +39,7 @@ export default function EncounterLetters() {
   const [opening, setOpening] = useState<number | null>(null)
 
   const loadLetters = useCallback(async () => {
-    if (!user) {
+    if (!user && !userLoading) {
       history.push('/login?redirect=/wish/encounters')
       return
     }
@@ -65,6 +67,28 @@ export default function EncounterLetters() {
       })
       .catch(() => undefined)
   }, [user])
+
+  // 轨迹上报器（B8 数据源）：附近模式开启期间每 5 分钟上报一次当前位置
+  const reporterRef = useRef<TraceReporter | null>(null)
+  useEffect(() => {
+    if (!nearbyMode) {
+      reporterRef.current?.stop()
+      reporterRef.current = null
+      return
+    }
+    const reporter = createTraceReporter({
+      report: async (pos) => { await reportTrace(pos.lat, pos.lng) },
+      getPosition: getBrowserPosition,
+      // 定位被拒等失败仅轻度提示一次，不打扰（下个周期自然重试）
+      onError: () => undefined,
+    })
+    reporterRef.current = reporter
+    reporter.start()
+    return () => {
+      reporter.stop()
+      reporterRef.current = null
+    }
+  }, [nearbyMode])
 
   const handleModeToggle = async (enabled: boolean) => {
     try {

@@ -80,7 +80,7 @@ const CHANNELS: Array<{ key: NotificationChannel; label: string }> = [
 export default function AiAssistant() {
   const [searchParams] = useSearchParams()
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
 
   /** 预期管理通知「调整目标」深链携带的心愿 ID */
   const wishIdParam = searchParams.get('wishId')
@@ -165,7 +165,7 @@ export default function AiAssistant() {
         return
       }
       if (breaking) return
-      if (!user) {
+      if (!user && !userLoading) {
         history.push('/login?redirect=/wish/assistant')
         return
       }

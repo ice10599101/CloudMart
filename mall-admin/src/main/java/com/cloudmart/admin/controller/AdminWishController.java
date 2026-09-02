@@ -501,6 +501,46 @@ public class AdminWishController {
         return wishFeignClient.listActivityRewardLogs(id);
     }
 
+    // ---- 虚拟资产 + 品牌审核（Sprint 3.6 管理后台）----
+
+    @GetMapping("/wish/collection/assets")
+    @RequiresPermission("business:asset:list")
+    @Operation(summary = "虚拟资产列表", description = "全量含下架；配置表化")
+    public ApiResponse<Object> listWishAssets() {
+        return wishFeignClient.listWishAssets();
+    }
+
+    @PostMapping("/wish/collection/assets")
+    @OperLog(title = "虚拟资产保存", businessType = 1)
+    @RequiresPermission("business:asset:edit")
+    @Operation(summary = "创建/更新虚拟资产", description = "配置表化：新增皮肤仅插入配置行")
+    public ApiResponse<Object> saveWishAsset(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.saveWishAsset(data);
+    }
+
+    @PutMapping("/wish/collection/assets/{id}/active")
+    @OperLog(title = "虚拟资产上下架", businessType = 2)
+    @RequiresPermission("business:asset:edit")
+    @Operation(summary = "上/下架资产", description = "下架后用户不可再获取；已拥有的保留")
+    public ApiResponse<Object> toggleWishAssetActive(@PathVariable Long id, @RequestParam boolean active) {
+        return wishFeignClient.toggleWishAssetActive(id, active);
+    }
+
+    @GetMapping("/wish/brand/list")
+    @RequiresPermission("business:asset:list")
+    @Operation(summary = "品牌列表（全状态）", description = "含 PENDING/REJECTED，入驻审核数据源")
+    public ApiResponse<Object> listAllWishBrands() {
+        return wishFeignClient.listAllBrandsForAdmin();
+    }
+
+    @PostMapping("/wish/brand/{id}/audit")
+    @OperLog(title = "品牌入驻审核", businessType = 2)
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "品牌入驻审核", description = "APPROVED/REJECTED；审核通过后品牌进入公开列表")
+    public ApiResponse<Object> auditWishBrand(@PathVariable Long id, @RequestParam String status) {
+        return wishFeignClient.auditWishBrand(id, status);
+    }
+
     // ---- 擦肩而过风控（Sprint 3.3 管理后台）----
 
     @GetMapping("/wish/encounter/suspicious")

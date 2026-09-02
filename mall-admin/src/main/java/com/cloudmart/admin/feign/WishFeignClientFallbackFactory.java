@@ -322,6 +322,31 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
+            public ApiResponse<Object> listWishAssets() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> saveWishAsset(Map<String, Object> data) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> toggleWishAssetActive(Long id, boolean active) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listAllBrandsForAdmin() {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> auditWishBrand(Long id, String status) {
+                throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
             public ApiResponse<Object> listSuspicious(Long userId) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }

@@ -41,7 +41,7 @@ const CEREMONY_STARS = Array.from({ length: 14 }, (_, i) => {
 
 export default function MatchSquad() {
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
 
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
@@ -96,7 +96,7 @@ export default function MatchSquad() {
   const handleSearch = () => loadRecommend(keyword)
 
   const handleJoin = async (item: MatchGroupItem) => {
-    if (!user) {
+    if (!user && !userLoading) {
       history.push('/login?redirect=/wish/match')
       return
     }
@@ -119,7 +119,7 @@ export default function MatchSquad() {
       message.warning('先给小队起个主题吧')
       return
     }
-    if (!user) {
+    if (!user && !userLoading) {
       history.push('/login?redirect=/wish/match')
       return
     }

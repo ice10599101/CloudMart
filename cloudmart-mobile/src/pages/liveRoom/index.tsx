@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { liveApi } from '@/api/live'
+import { wishApi } from '@/api/wish'
+import type { LiveWidgetData } from '@/api/wish'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
 
@@ -11,6 +13,7 @@ interface RoomDetail {
   coverImage: string
   anchorAvatar: string
   anchorName: string
+  anchorUserId: number
   viewerCount: number
   likeCount: number
   status: number
@@ -42,6 +45,9 @@ export default function LiveRoomPage() {
   const roomId = Number(Taro.getCurrentInstance().router?.params?.id || 0)
 
   const [room, setRoom] = useState<RoomDetail | null>(null)
+  // 直播心愿挂件（Sprint 3.4 B10）：10s 轮询，接口失败/隐藏时保持上次值
+  const [widget, setWidget] = useState<LiveWidgetData | null>(null)
+  const [widgetClosed, setWidgetClosed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isFollowed, setIsFollowed] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -126,6 +132,25 @@ export default function LiveRoomPage() {
     scrollViewRef.current = `comment-${newComment.id}`
   }
 
+  // 挂件数据轮询（10s；服务端缓存 10s；streamerId=主播用户 ID）
+  useEffect(() => {
+    if (!room?.anchorUserId) return
+    let alive = true
+    const load = () => {
+      wishApi.getLiveWidget(room.anchorUserId)
+        .then((res) => {
+          if (alive && res.data.success && res.data.data) setWidget(res.data.data)
+        })
+        .catch(() => undefined)
+    }
+    load()
+    const timer = setInterval(load, 10_000)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [room?.anchorUserId])
+
   const renderCenter = () => {
     if (!room) return null
     if (room.status === 1) {
@@ -135,6 +160,42 @@ export default function LiveRoomPage() {
             <Text className={styles.playIcon}>▶</Text>
             <Text className={styles.liveLabel}>直播画面</Text>
           </View>
+          {widget && widget.visible && !widgetClosed && (
+            <View className={styles.wishWidget}>
+              <View className={styles.wishWidgetHeader}>
+                <Text className={styles.wishWidgetTitle}>🌠 心愿挂件</Text>
+                <Text className={styles.wishWidgetClose} onClick={() => setWidgetClosed(true)}>✕</Text>
+              </View>
+              {widget.hasWish && widget.wishId ? (
+                <View
+                  onClick={() => Taro.navigateTo({ url: `/pages/wishDetail/index?id=${widget.wishId}` })}
+                >
+                  <Text className={styles.wishWidgetText} numberOfLines={1}>{widget.title}</Text>
+                  <View className={styles.wishWidgetBar}>
+                    <View
+                      className={styles.wishWidgetBarFill}
+                      style={{ width: `${Math.min(Math.max(widget.progressPercentage ?? 0, 0), 100)}%` }}
+                    />
+                  </View>
+                  <Text className={styles.wishWidgetMeta}>
+                    {widget.progressCurrent}/{widget.progressTarget} · 打卡 {widget.checkinDays} 天 · ⭐ {widget.starlightBalance}
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  className={styles.wishWidgetText}
+                  onClick={() => Taro.navigateTo({ url: '/pages/wishCreate/index' })}
+                >
+                  主播还没许愿，点击去许愿 ✨
+                </Text>
+              )}
+            </View>
+          )}
+          {widget && !widget.visible && widgetClosed && (
+            <View className={styles.wishWidgetClosedBtn} onClick={() => setWidgetClosed(false)}>
+              <Text className={styles.wishWidgetText}>🌠 心愿</Text>
+            </View>
+          )}
         </View>
       )
     }

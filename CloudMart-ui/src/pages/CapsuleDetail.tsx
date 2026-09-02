@@ -53,11 +53,11 @@ export default function CapsuleDetail() {
     const [revealed, setRevealed] = useState(false)
     const [now, setNow] = useState(Date.now())
     const { message } = App.useApp()
-    const { user } = useAuthStore()
+    const { user, userLoading } = useAuthStore()
 
     useEffect(() => {
         reportTimezoneIfNeeded()
-        if (!user) {
+        if (!user && !userLoading) {
             message.warning('请先登录后查看胶囊')
             history.push(`/login?redirect=/wish/capsules/${capsuleId}`)
             return

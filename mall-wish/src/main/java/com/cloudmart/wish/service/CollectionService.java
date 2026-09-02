@@ -56,6 +56,9 @@ public interface CollectionService {
 
     List<Brand> listBrands();
 
+    /** 管理端：全状态品牌列表（含 PENDING/REJECTED，入驻审核数据源） */
+    List<Brand> listAllBrands();
+
     List<BrandPool> listPools(Long brandId);
 
     BrandPool createPool(BrandPool pool, Long adminUserId);

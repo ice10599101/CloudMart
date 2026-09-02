@@ -12,6 +12,8 @@ interface AuthState {
   accessToken: string
   refreshToken: string
   isAuthenticated: boolean
+  /** 冷启动 profile 补拉进行中：守卫页据此避免在 user 就绪前误跳登录页 */
+  userLoading: boolean
   user: UserProfile | null
   login: (account: string, password: string, redirect?: string) => Promise<void>
   logout: () => void
@@ -22,6 +24,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: localStorage.getItem(STORAGE_KEYS.accessToken) || '',
   refreshToken: localStorage.getItem(STORAGE_KEYS.refreshToken) || '',
   isAuthenticated: !!localStorage.getItem(STORAGE_KEYS.accessToken),
+  userLoading: !!localStorage.getItem(STORAGE_KEYS.accessToken),
   user: null,
 
   login: async (account, password, redirect) => {
@@ -46,9 +49,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchProfile: async () => {
     try {
       const { data: response } = await getUserProfile()
-      set({ user: response.data })
+      set({ user: response.data, userLoading: false })
     } catch {
-      // ignore
+      set({ userLoading: false })
     }
   },
 }))

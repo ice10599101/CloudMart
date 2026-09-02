@@ -1,0 +1,68 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+}
+
+.list {
+  height: calc(100vh - 180rpx);
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.cardTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.fruitTag {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(74, 144, 217, 0.15);
+  color: #4a90d9;
+}
+
+.cardMeta {
+  font-size: 24rpx;
+  opacity: 0.6;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.removeBtn {
+  font-size: 24rpx;
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(255, 107, 107, 0.5);
+  color: #ff6b6b;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}

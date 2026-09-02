@@ -325,6 +325,12 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
+    public List<Brand> listAllBrands() {
+        return brandMapper.selectList(new LambdaQueryWrapper<Brand>()
+                .orderByDesc(Brand::getId));
+    }
+
+    @Override
     public List<BrandPool> listPools(Long brandId) {
         return poolMapper.selectList(new LambdaQueryWrapper<BrandPool>()
                 .eq(BrandPool::getBrandId, brandId)

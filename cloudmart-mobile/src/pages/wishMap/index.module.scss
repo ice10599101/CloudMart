@@ -59,3 +59,119 @@
   padding: 24rpx 0;
   display: block;
 }
+
+/* B7：围栏打卡 + 温暖事件 */
+.b7Row {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 24rpx;
+  margin-top: 20rpx;
+}
+
+.b7Btn {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  background: rgba(74, 144, 217, 0.15);
+  color: #4a90d9;
+  font-size: 26rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.checkResult {
+  display: block;
+  padding: 0 24rpx;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #ffd700;
+}
+
+.warmSection {
+  padding: 24rpx;
+}
+
+.warmSectionTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.warmCard {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.warmCardHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.warmTitle {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.warmDist {
+  font-size: 22rpx;
+  opacity: 0.6;
+}
+
+.warmContent {
+  font-size: 24rpx;
+  opacity: 0.85;
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.warmMeta {
+  font-size: 22rpx;
+  opacity: 0.5;
+}
+
+.warmModalTitle {
+  font-size: 32rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.warmInput,
+.warmTextarea {
+  width: 100%;
+  border: 2rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 12rpx;
+  padding: 16rpx;
+  font-size: 26rpx;
+  margin-bottom: 20rpx;
+  box-sizing: border-box;
+}
+
+.warmTextarea {
+  height: 160rpx;
+}
+
+.warmModalCancel,
+.warmModalOk {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+}
+
+.warmModalCancel {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.warmModalOk {
+  background: #4a90d9;
+  color: #fff;
+}

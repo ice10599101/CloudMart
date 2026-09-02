@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Empty, Input, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal } from 'antd'
+import { Empty, Input, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal, Select, Upload, InputNumber } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   StarOutlined,
@@ -11,14 +11,23 @@ import {
   MoonOutlined,
   GiftOutlined,
   TrophyOutlined,
+  ShareAltOutlined,
+  BookOutlined,
+  BookFilled,
+  PlusOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
-import { getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment, checkinWish } from '@/api/wish'
+import {
+  getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
+  checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus,
+} from '@/api/wish'
 import type { WishDetail as WishDetailData, WishFulfillmentDetail } from '@/api/wish'
+import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
 import WishCommentSection from '@/components/WishCommentSection'
+import ShareCardModal from '@/components/ShareCardModal'
 import styles from './WishDetail.module.css'
 import WishBGM from '@/components/WishBGM'
 
@@ -63,12 +72,24 @@ export default function WishDetail() {
   const [extendSaving, setExtendSaving] = useState(false)
   // 传承推送（Sprint 2.7：作者对 FULFILLED 心愿定向推送曾同求用户）
   const [inheritOpen, setInheritOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [inheritMessage, setInheritMessage] = useState('')
   const [inheriting, setInheriting] = useState(false)
   // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，刷新页面后重打会 409 由后端幂等兜底）
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [checkinContent, setCheckinContent] = useState('')
   const [checkinSaving, setCheckinSaving] = useState(false)
+  // 收藏状态（非作者）：null=回显中
+  const [collected, setCollected] = useState<boolean | null>(null)
+  const [collectSaving, setCollectSaving] = useState(false)
+  // 成长记录（仅作者）
+  const [growthOpen, setGrowthOpen] = useState(false)
+  const [growthType, setGrowthType] = useState('TEXT')
+  const [growthContent, setGrowthContent] = useState('')
+  const [growthDelta, setGrowthDelta] = useState<number | undefined>()
+  const [growthMedia, setGrowthMedia] = useState<string[]>([])
+  const [growthSaving, setGrowthSaving] = useState(false)
+  const [refreshTick, setRefreshTick] = useState(0)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const { message } = App.useApp()
   const { user } = useAuthStore()
@@ -98,7 +119,79 @@ export default function WishDetail() {
       }
     }
     fetchData()
-  }, [wishId])
+  }, [wishId, refreshTick])
+
+  /** 收藏/取消收藏（非作者） */
+  const handleCollectToggle = async () => {
+    setCollectSaving(true)
+    try {
+      if (collected) {
+        await uncollectWish(wishId)
+        setCollected(false)
+        message.success('已取消收藏')
+      } else {
+        await collectWish(wishId)
+        setCollected(true)
+        message.success('已收藏，可在我的收藏查看')
+      }
+    } catch {
+      // 业务错误已由 request 拦截器提示
+    } finally {
+      setCollectSaving(false)
+    }
+  }
+
+  /** 提交成长记录：成功后刷新详情（时间线 + 进度来自服务端） */
+  const handleGrowthSubmit = async () => {
+    if (!growthContent.trim()) {
+      message.warning('请填写成长记录内容')
+      return
+    }
+    setGrowthSaving(true)
+    try {
+      const res = await addGrowthRecord(wishId, {
+        type: growthType,
+        content: growthContent.trim(),
+        mediaUrls: growthMedia.length > 0 ? growthMedia : undefined,
+        progressDelta: growthDelta,
+      })
+      if (res.data.success) {
+        message.success('成长记录已添加')
+        setGrowthOpen(false)
+        setGrowthContent('')
+        setGrowthDelta(undefined)
+        setGrowthMedia([])
+        setRefreshTick((t) => t + 1)
+      }
+    } catch {
+      // 错误已由 request 拦截器处理
+    } finally {
+      setGrowthSaving(false)
+    }
+  }
+
+  /** 上传成长媒体（图片/视频） */
+  const growthCustomRequest = (options: { file: unknown; onSuccess: (body: unknown) => void; onError: () => void }) => {
+    const file = options.file as File
+    uploadFile(file)
+      .then((res) => {
+        if (res.data.success && res.data.data?.url) {
+          setGrowthMedia((prev) => [...prev, res.data.data.url])
+          options.onSuccess(res.data.data)
+        } else {
+          options.onError()
+        }
+      })
+      .catch(() => options.onError())
+  }
+
+  // 收藏状态回显（登录的非作者用户；作者不可收藏自己的心愿）  // 收藏状态回显（登录的非作者用户；作者不可收藏自己的心愿）
+  useEffect(() => {
+    if (!user || !wish || user.id === wish.authorId) return
+    getWishCollectionStatus(wishId)
+      .then((res) => setCollected(res.data.data === true))
+      .catch(() => setCollected(false))
+  }, [user, wish, wishId])
 
   // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期弹窗
   useEffect(() => {
@@ -227,8 +320,26 @@ export default function WishDetail() {
         >
           返回
         </Button>
+        {!isAuthor && collected !== null && (
+          <Button
+            type="text"
+            icon={collected ? <BookFilled style={{ color: FRUIT_COLORS[wish.fruitType] }} /> : <BookOutlined />}
+            loading={collectSaving}
+            onClick={handleCollectToggle}
+          >
+            {collected ? '已收藏' : '收藏'}
+          </Button>
+        )}
         {isAuthor && (
           <div className={styles.actionBtns}>
+            {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => setGrowthOpen(true)}
+              >
+                记录成长
+              </Button>
+            )}
             {wish.status === 'ACTIVE' && (
               <Button
                 icon={<CalendarOutlined />}
@@ -310,6 +421,13 @@ export default function WishDetail() {
               <span className={styles.date}>
                 {new Date(wish.createdAt).toLocaleString('zh-CN')}
               </span>
+              <Button
+                size="small"
+                icon={<ShareAltOutlined />}
+                onClick={() => setShareOpen(true)}
+              >
+                分享
+              </Button>
             </div>
           </div>
 
@@ -462,6 +580,65 @@ export default function WishDetail() {
         </Card>
       </div>
       <Modal
+        open={growthOpen}
+        title="记录成长"
+        okText="保存记录"
+        cancelText="取消"
+        onOk={handleGrowthSubmit}
+        confirmLoading={growthSaving}
+        onCancel={() => setGrowthOpen(false)}
+        destroyOnHidden
+      >
+        <Select
+          value={growthType}
+          onChange={(v) => setGrowthType(v)}
+          style={{ width: '100%', marginBottom: 12 }}
+          options={[
+            { value: 'TEXT', label: '文字记录' },
+            { value: 'IMAGE', label: '图片' },
+            { value: 'VIDEO', label: '视频' },
+            { value: 'DIARY', label: '心情日记' },
+          ]}
+        />
+        <Input.TextArea
+          rows={4}
+          maxLength={500}
+          showCount
+          value={growthContent}
+          onChange={(e) => setGrowthContent(e.target.value)}
+          placeholder="记录这一步的成长与心得…"
+          style={{ marginBottom: 12 }}
+        />
+        {(growthType === 'IMAGE' || growthType === 'VIDEO') && (
+          <Upload
+            listType="picture-card"
+            maxCount={4}
+            accept={growthType === 'IMAGE' ? 'image/*' : 'video/*'}
+            customRequest={growthCustomRequest as never}
+            onRemove={(file) => {
+              setGrowthMedia((prev) => prev.filter((u) => u !== (file.response as { url?: string })?.url && u !== file.uid))
+              return true
+            }}
+          >
+            {growthMedia.length < 4 && <PlusOutlined />}
+          </Upload>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <span style={{ color: 'var(--color-text-secondary)' }}>进度推进：</span>
+          <InputNumber
+            min={0}
+            max={100}
+            precision={0}
+            value={growthDelta}
+            onChange={(v) => setGrowthDelta(v ?? undefined)}
+            placeholder="0"
+            style={{ width: 120 }}
+          />
+          <span style={{ color: 'var(--color-text-secondary)' }}>%（可选）</span>
+        </div>
+      </Modal>
+
+      <Modal
         open={inheritOpen}
         title="传承给同路人"
         okText="发送传承"
@@ -519,6 +696,17 @@ export default function WishDetail() {
           disabledDate={(d) => d.isBefore(dayjs(), 'day')}
         />
       </Modal>
+      {wish && (
+        <ShareCardModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={wish.title}
+          author={wish.authorNickname}
+          dateText={new Date(wish.createdAt).toLocaleDateString('zh-CN')}
+          fruitLabel={FRUIT_LABELS[wish.fruitType] ?? wish.fruitType}
+          fruitColor={FRUIT_COLORS[wish.fruitType] ?? '#9370DB'}
+        />
+      )}
       <WishBGM />
     </div>
   )

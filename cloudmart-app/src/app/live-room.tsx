@@ -14,6 +14,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { liveApi } from '@/api/live'
+import { wishApi } from '@/api/wish'
+import type { LiveWidgetData } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const SCREEN_HEIGHT = Dimensions.get('window').height
@@ -25,6 +27,7 @@ interface LiveRoom {
   coverImage: string
   anchorName: string
   anchorAvatar: string
+  anchorUserId: number
   viewerCount: number
   status: number
   startTime?: string
@@ -61,6 +64,9 @@ export default function LiveRoomScreen() {
   const roomId = Number(id)
 
   const [room, setRoom] = useState<LiveRoom | null>(null)
+  // 直播心愿挂件（Sprint 3.4 B10）：10s 轮询，失败保留上次值
+  const [widget, setWidget] = useState<LiveWidgetData | null>(null)
+  const [widgetClosed, setWidgetClosed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -214,6 +220,25 @@ export default function LiveRoomScreen() {
     )
   }
 
+  // 挂件数据轮询（10s；streamerId=主播用户 ID）
+  useEffect(() => {
+    if (!room?.anchorUserId) return
+    let alive = true
+    const load = () => {
+      wishApi.getLiveWidget(room.anchorUserId)
+        .then((res) => {
+          if (alive && res.data?.success && res.data.data) setWidget(res.data.data)
+        })
+        .catch(() => undefined)
+    }
+    load()
+    const timer = setInterval(load, 10_000)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [room?.anchorUserId])
+
   const isLive = room.status === 1
   const isScheduled = room.status === 0
   const isEnded = room.status === 2
@@ -223,13 +248,67 @@ export default function LiveRoomScreen() {
       {/* 直播画面 / 状态区域 */}
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         {isLive && (
-          <View style={{ alignItems: 'center' }}>
+          <View style={{ width: '100%', alignItems: 'center', position: 'relative' }}>
             <View style={{ width: 80, height: 80, borderRadius: BorderRadius.full, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ fontSize: 36 }}>▶</Text>
             </View>
             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: FontSize.md, marginTop: Spacing.md }}>
               直播画面
             </Text>
+            {widget && widget.visible && !widgetClosed && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -Spacing.lg,
+                  left: Spacing.md,
+                  right: Spacing.md,
+                  backgroundColor: 'rgba(11,16,38,0.78)',
+                  borderRadius: BorderRadius.lg,
+                  padding: Spacing.sm + 4,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.18)',
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                  <Text style={{ fontSize: FontSize.xs, fontWeight: '600', color: '#ffd97a' }}>🌠 心愿挂件</Text>
+                  <TouchableOpacity onPress={() => setWidgetClosed(true)}>
+                    <Text style={{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                {widget.hasWish && widget.wishId ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.push(`/wish-detail?id=${widget.wishId}`)}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: '#ffffff' }} numberOfLines={1}>
+                      {widget.title}
+                    </Text>
+                    <View style={{ height: 6, borderRadius: BorderRadius.full, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 4, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          height: '100%',
+                          borderRadius: BorderRadius.full,
+                          backgroundColor: '#4a90d9',
+                          width: `${Math.min(Math.max(widget.progressPercentage ?? 0, 0), 100)}%`,
+                        }}
+                      />
+                    </View>
+                    <Text style={{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                      {widget.progressCurrent}/{widget.progressTarget} · 打卡 {widget.checkinDays} 天 · ⭐ {widget.starlightBalance}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.push('/wish-create')}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: '#ffffff' }}>
+                      主播还没许愿，点击去许愿 ✨
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         )}
 

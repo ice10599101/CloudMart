@@ -38,7 +38,7 @@ export default function CapsuleList() {
     const [cursor, setCursor] = useState<string | null>(null)
     const [hasMore, setHasMore] = useState(false)
     const { message } = App.useApp()
-    const { user } = useAuthStore()
+    const { user, userLoading } = useAuthStore()
 
     const fetchPage = useCallback(
         async (status: CapsuleStatus, nextCursor: string | null) => {
@@ -55,7 +55,7 @@ export default function CapsuleList() {
 
     useEffect(() => {
         reportTimezoneIfNeeded()
-        if (!user) {
+        if (!user && !userLoading) {
             message.warning('请先登录后查看你的胶囊')
             history.push('/login?redirect=/wish/capsules')
             return

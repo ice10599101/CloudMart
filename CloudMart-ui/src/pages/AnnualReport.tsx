@@ -20,7 +20,7 @@ function buildYearOptions(): Array<{ value: number; label: string }> {
 }
 
 export default function AnnualReport() {
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
   const [year, setYear] = useState(new Date().getFullYear())
   const [report, setReport] = useState<AnnualReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,7 +38,7 @@ export default function AnnualReport() {
   }, [])
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !userLoading) {
       history.push('/login?redirect=/wish/annual-report')
       return
     }

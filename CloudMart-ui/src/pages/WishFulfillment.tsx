@@ -72,14 +72,14 @@ export default function WishFulfillment() {
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false)
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
   const cancelTokenMapRef = useRef<Map<string, (message?: string) => void>>(new Map())
 
   const uploadedUrls = uploads.filter((u) => u.status === 'success' && u.url).map((u) => u.url!) as string[]
   const isUploading = uploads.some((u) => u.status === 'uploading')
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !userLoading) {
       message.warning('请先登录后再还愿')
       history.push(`/login?redirect=/wish/${wishId}/fulfillment`)
       return

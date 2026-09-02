@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Spin, Empty, Card, Tag, Button, Segmented, Popconfirm, App } from 'antd'
-import { PlusOutlined, DeleteOutlined, RightOutlined, TrophyOutlined } from '@ant-design/icons'
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  RightOutlined,
+  TrophyOutlined,
+  BookOutlined,
+  GiftOutlined,
+} from '@ant-design/icons'
 import { history } from 'umi'
 import { listMyWishes, deleteWish } from '@/api/wish'
 import type { MyWishListItem, WishStatus } from '@/api/wish'
@@ -40,7 +47,7 @@ export default function MyWishes() {
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   const fetchWishes = useCallback(async (reset: boolean) => {
@@ -78,7 +85,7 @@ export default function MyWishes() {
   }, [user, statusFilter, cursor])
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !userLoading) {
       message.warning('请先登录')
       history.push('/login?redirect=/wish/my')
       return
@@ -132,6 +139,14 @@ export default function MyWishes() {
     <div className={`${styles.container} wish-universe-theme`}>
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>我的心愿</h1>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <Button icon={<BookOutlined />} onClick={() => history.push('/wish/collections')}>
+            我的收藏
+          </Button>
+          <Button icon={<GiftOutlined />} onClick={() => history.push('/wish/workshop')}>
+            虚拟工坊
+          </Button>
+        </div>
         <div className={styles.toolbar}>
           <Segmented
             options={STATUS_FILTERS}

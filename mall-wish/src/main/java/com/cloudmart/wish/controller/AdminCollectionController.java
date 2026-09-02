@@ -49,6 +49,12 @@ public class AdminCollectionController {
         return ApiResponse.ok(null);
     }
 
+    @GetMapping("/admin/brand/list")
+    @Operation(summary = "品牌列表（全状态）", description = "含 PENDING/REJECTED，入驻审核数据源")
+    public ApiResponse<List<Brand>> listAllBrandsForAdmin() {
+        return ApiResponse.ok(collectionService.listAllBrands());
+    }
+
     @PostMapping("/admin/brand/{id}/audit")
     @Operation(summary = "品牌入驻审核", description = "APPROVED/REJECTED")
     public ApiResponse<Void> auditBrand(

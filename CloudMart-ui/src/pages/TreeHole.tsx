@@ -31,7 +31,7 @@ export default function TreeHole() {
   const params = useParams<{ id: string }>()
   const wishId = params.id
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -83,7 +83,7 @@ export default function TreeHole() {
     async (rawMessage?: string) => {
       const text = (rawMessage ?? input).trim()
       if (!text || sending) return
-      if (!user) {
+      if (!user && !userLoading) {
         history.push('/login')
         return
       }

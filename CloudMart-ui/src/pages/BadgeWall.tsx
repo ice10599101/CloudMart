@@ -22,7 +22,7 @@ const RARITY_META: Record<BadgeRarity, { label: string; color: string; emoji: st
 }
 
 export default function BadgeWall() {
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [badges, setBadges] = useState<BadgeWallItem[]>([])
 

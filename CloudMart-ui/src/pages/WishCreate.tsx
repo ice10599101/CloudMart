@@ -42,14 +42,14 @@ export default function WishCreate() {
   const [tagInput, setTagInput] = useState('')
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const { message, modal } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
   const cancelTokenMapRef = useRef<Map<string, (message?: string) => void>>(new Map())
 
   const uploadedUrls = uploads.filter(u => u.status === 'success' && u.url).map(u => u.url!) as string[]
   const isUploading = uploads.some(u => u.status === 'uploading')
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !userLoading) {
       message.warning('请先登录后再发布心愿')
       history.push('/login?redirect=/wish/create')
       return

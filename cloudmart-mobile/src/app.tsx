@@ -2,12 +2,14 @@ import { useEffect } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import './app.scss'
 import { useThemeStore } from '@/store/theme'
+import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 
 function App({ children }: { children: React.ReactNode }) {
   const { mode } = useThemeStore()
 
   useLaunch(() => {
-    console.log('App launched.')
+    // B12：时区上报（变更时才发；失败静默）
+    reportTimezoneIfNeeded()
   })
 
   useEffect(() => {

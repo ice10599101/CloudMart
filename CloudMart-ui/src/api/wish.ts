@@ -1196,6 +1196,47 @@ export function setActiveBgm(assetId: number) {
   return request.put<ApiResponse<null>>(`/wish/my/active-bgm/${assetId}`)
 }
 
+// ========== 品牌许愿池（Sprint 3.6 / 2.16，四AB B4 用户侧） ==========
+
+export interface BrandItem {
+  brandId: number
+  brandName: string
+  logo: string | null
+  description: string | null
+  status: string
+}
+
+export interface BrandPoolItem {
+  poolId: number
+  brandId: number
+  poolName: string
+  targetCount: number
+  currentCount: number
+  rewardDescription: string | null
+  status: string
+  endTime: string | null
+}
+
+export function listBrands() {
+  return request.get<ApiResponse<BrandItem[]>>('/wish/brands')
+}
+
+export function listBrandPools(brandId: number | string) {
+  return request.get<ApiResponse<BrandPoolItem[]>>(`/wish/brands/${brandId}/pools`)
+}
+
+export function joinBrandPool(brandId: number | string, poolId: number | string) {
+  return request.post<ApiResponse<null>>(`/wish/brands/${brandId}/pools/${poolId}/join`)
+}
+
+export function getBrandPoolDetail(brandId: number | string, poolId: number | string) {
+  return request.get<ApiResponse<BrandPoolItem>>(`/wish/brands/${brandId}/pools/${poolId}`)
+}
+
+export function getBrandPoolRewards(brandId: number | string, poolId: number | string) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/wish/brands/${brandId}/pools/${poolId}/rewards`)
+}
+
 // ========== 打卡 + 成长记录 + 进度（Sprint 1.3 补齐） ==========
 
 export interface CheckinResult {
@@ -1236,6 +1277,10 @@ export function listWishCollections(cursor?: string, pageSize?: number) {
   return request.get<ApiResponse<WishCollectionItem[]>>('/wish/collections', {
     params: { cursor, pageSize: pageSize ?? 20 },
   })
+}
+
+export function getWishCollectionStatus(wishId: number | string) {
+  return request.get<ApiResponse<boolean>>(`/wish/collections/${wishId}/status`)
 }
 
 export function collectWish(wishId: number | string) {

@@ -1,0 +1,67 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+}
+
+.list {
+  height: calc(100vh - 180rpx);
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.matrix {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+
+.headerRow,
+.typeRow {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 8rpx;
+}
+
+.headerRow {
+  opacity: 0.6;
+  font-size: 22rpx;
+  border-bottom: 2rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.typeRow {
+  border-bottom: 2rpx solid rgba(255, 255, 255, 0.05);
+}
+
+.headerType,
+.typeName {
+  flex: 1.6;
+  font-size: 26rpx;
+}
+
+.headerChannel {
+  width: 84rpx;
+  text-align: center;
+}
+
+.switchWrap {
+  width: 84rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.hint {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  opacity: 0.5;
+  line-height: 1.6;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}

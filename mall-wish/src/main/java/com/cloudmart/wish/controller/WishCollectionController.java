@@ -48,6 +48,15 @@ public class WishCollectionController {
         return ApiResponse.ok(wishCollectionService.collect(userId, wishId));
     }
 
+    @GetMapping("/{wishId}/status")
+    @Operation(summary = "收藏状态", description = "当前用户是否已收藏该心愿（详情页按钮回显）")
+    public ApiResponse<Boolean> collectionStatus(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable Long wishId) {
+        return ApiResponse.ok(wishCollectionService.isCollected(userId, wishId));
+    }
+
     @DeleteMapping("/{wishId}")
     @Operation(summary = "取消收藏", description = "软删除（历史保留审计）")
     public ApiResponse<Void> uncollect(

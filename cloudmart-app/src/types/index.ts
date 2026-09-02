@@ -223,6 +223,7 @@ export interface LiveRoom {
   coverImage: string
   anchorName: string
   anchorAvatar: string
+  anchorUserId: number
   viewerCount: number
   status: number
   startTime?: string

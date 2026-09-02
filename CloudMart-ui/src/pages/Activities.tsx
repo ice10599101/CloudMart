@@ -20,7 +20,7 @@ import styles from './Activities.module.css'
 
 export default function Activities() {
   const { message } = App.useApp()
-  const { user } = useAuthStore()
+  const { user, userLoading } = useAuthStore()
 
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,7 +65,7 @@ export default function Activities() {
   }, [])
 
   const handleJoin = async (id: number | string) => {
-    if (!user) {
+    if (!user && !userLoading) {
       history.push('/login?redirect=/wish/activities')
       return
     }

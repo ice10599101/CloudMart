@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea } from '@tarojs/components'
+import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
@@ -60,6 +60,70 @@ export default function WishDetailPage() {
   const [checkinContent, setCheckinContent] = useState('')
   const [checkinSaving, setCheckinSaving] = useState(false)
   const [checkedInToday, setCheckedInToday] = useState(false)
+  // 收藏（B2，非作者）+ 成长记录（B1，仅作者）
+  const [collected, setCollected] = useState(false)
+  const [collectSaving, setCollectSaving] = useState(false)
+  const [growthOpen, setGrowthOpen] = useState(false)
+  const [growthType, setGrowthType] = useState<'TEXT' | 'IMAGE' | 'VIDEO' | 'DIARY'>('TEXT')
+  const [growthContent, setGrowthContent] = useState('')
+  const [growthDelta, setGrowthDelta] = useState('')  // Taro Input 值为字符串
+  const [growthSaving, setGrowthSaving] = useState(false)
+
+  /** 收藏状态回显（非作者；登录态） */
+  useEffect(() => {
+    if (!user || !wish || user.id === wish.authorId) return
+    wishApi.getWishCollectionStatus(wishId)
+      .then((res) => { if (res.data.success) setCollected(res.data.data === true) })
+      .catch(() => setCollected(false))
+  }, [user, wish, wishId])
+
+  /** 收藏/取消收藏 */
+  const handleCollectToggle = async () => {
+    setCollectSaving(true)
+    try {
+      if (collected) {
+        const res = await wishApi.uncollectWish(wishId)
+        if (res.data.success) { setCollected(false); Taro.showToast({ title: '已取消收藏', icon: 'none' }) }
+      } else {
+        const res = await wishApi.collectWish(wishId)
+        if (res.data.success) { setCollected(true); Taro.showToast({ title: '已收藏', icon: 'none' }) }
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '操作失败，请稍后重试', icon: 'none' })
+    } finally {
+      setCollectSaving(false)
+    }
+  }
+
+  /** 提交成长记录：成功后刷新详情（时间线 + 进度） */
+  const handleGrowthSubmit = async () => {
+    if (!growthContent.trim()) {
+      Taro.showToast({ title: '请填写成长记录内容', icon: 'none' })
+      return
+    }
+    setGrowthSaving(true)
+    try {
+      const res = await wishApi.addGrowthRecord(wishId, {
+        type: growthType,
+        content: growthContent.trim(),
+        progressDelta: growthDelta ? Number(growthDelta) : undefined,
+      })
+      if (res.data.success) {
+        Taro.showToast({ title: '成长记录已添加', icon: 'none' })
+        setGrowthOpen(false)
+        setGrowthContent('')
+        setGrowthDelta('')
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data.success) setWish(detailRes.data.data)
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '保存失败，请稍后重试', icon: 'none' })
+    } finally {
+      setGrowthSaving(false)
+    }
+  }
 
   /** 页面 ScrollView 触底 → 加载更多评论（组件内含 hasMore/loadingMore 防抖） */
   const onScrollToLower = () => {
@@ -442,8 +506,20 @@ export default function WishDetailPage() {
       </ScrollView>
 
       {/* 底部操作栏 */}
+      {!isAuthor && (
+        <View className={styles.bottomBar}>
+          <View className={styles.deleteBtn} onClick={collectSaving ? undefined : handleCollectToggle}>
+            <Text className={styles.deleteBtnText}>{collected ? '⭐ 已收藏' : '☆ 收藏心愿'}</Text>
+          </View>
+        </View>
+      )}
       {isAuthor && (
         <View className={styles.bottomBar}>
+          {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+            <View className={styles.deleteBtn} onClick={() => setGrowthOpen(true)}>
+              <Text className={styles.deleteBtnText}>📝 记录成长</Text>
+            </View>
+          )}
           {wish.status === 'ACTIVE' && (
             <View
               className={styles.deleteBtn}
@@ -495,6 +571,49 @@ export default function WishDetailPage() {
               </View>
               <View className={styles.modalOk} onClick={checkinSaving ? undefined : handleCheckinSubmit}>
                 <Text>{checkinSaving ? '打卡中...' : '打卡'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+      {growthOpen && (
+        <View className={styles.modalMask} onClick={() => setGrowthOpen(false)}>
+          <View className={styles.modalBody} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.modalTitle}>记录成长</Text>
+            <Text className={styles.modalText}>记录这一步的成长与心得，可同时推进心愿进度</Text>
+            <View className={styles.growthTypeRow}>
+              {(['TEXT', 'DIARY'] as const).map((t) => (
+                <View
+                  key={t}
+                  className={`${styles.growthTypeBtn} ${growthType === t ? styles.growthTypeBtnActive : ''}`}
+                  onClick={() => setGrowthType(t)}
+                >
+                  <Text>{t === 'TEXT' ? '文字记录' : '心情日记'}</Text>
+                </View>
+              ))}
+            </View>
+            <Textarea
+              className={styles.checkinTextarea}
+              value={growthContent}
+              maxlength={500}
+              placeholder='如：今天完成了第一阶段的目标'
+              placeholderClass='checkinPlaceholder'
+              onInput={(e) => setGrowthContent(e.detail.value)}
+            />
+            <Input
+              className={styles.checkinTextarea}
+              type='number'
+              value={growthDelta}
+              maxlength={3}
+              placeholder='进度推进百分比（可选，0-100）'
+              onInput={(e) => setGrowthDelta(e.detail.value)}
+            />
+            <View className={styles.modalBtns}>
+              <View className={styles.modalCancel} onClick={() => setGrowthOpen(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={styles.modalOk} onClick={growthSaving ? undefined : handleGrowthSubmit}>
+                <Text>{growthSaving ? '保存中...' : '保存'}</Text>
               </View>
             </View>
           </View>

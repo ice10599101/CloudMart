@@ -143,6 +143,14 @@ export default function WishHomePage() {
               <Text className={styles.entryIcon} style={{ color: '#4ecdc4' }}>📍</Text>
               <Text className={styles.entryText}>附近心愿</Text>
             </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/encounterLetters/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#c084fc' }}>✉️</Text>
+              <Text className={styles.entryText}>擦肩而过</Text>
+            </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/notificationPrefs/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#f59e0b' }}>🔔</Text>
+              <Text className={styles.entryText}>通知偏好</Text>
+            </View>
           </View>
 
           {/* 今日推荐 */}

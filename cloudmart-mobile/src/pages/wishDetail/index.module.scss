@@ -555,3 +555,26 @@
     color: #fff;
   }
 }
+
+/* 成长记录类型选择（B1） */
+.growthTypeRow {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.growthTypeBtn {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.2);
+  font-size: 26rpx;
+  color: inherit;
+}
+
+.growthTypeBtnActive {
+  border-color: #4a90d9;
+  background: rgba(74, 144, 217, 0.15);
+  color: #4a90d9;
+}

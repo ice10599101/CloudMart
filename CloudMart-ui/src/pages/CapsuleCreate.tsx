@@ -48,11 +48,11 @@ export default function CapsuleCreate() {
     const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false)
     const [searchParams, setSearchParams] = useSearchParams()
     const { message } = App.useApp()
-    const { user } = useAuthStore()
+    const { user, userLoading } = useAuthStore()
 
     useEffect(() => {
         reportTimezoneIfNeeded()
-        if (!user) {
+        if (!user && !userLoading) {
             message.warning('请先登录后再封存胶囊')
             history.push('/login?redirect=/wish/capsules/create')
         }

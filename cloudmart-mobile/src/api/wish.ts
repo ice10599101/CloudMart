@@ -62,7 +62,32 @@ function buildQuery(params?: Record<string, unknown>): string {
     return qs ? `?${qs}` : ''
 }
 
-export interface CreateWishPayload {
+export interface LiveWidgetData {
+    streamerId: number
+    /** false = 全局降级/主播配置隐藏 */
+    visible: boolean
+    /** false = 主播无进行中心愿 */
+    hasWish: boolean
+    wishId: number | null
+    title: string | null
+    progressCurrent: number | null
+    progressTarget: number | null
+    progressPercentage: number | null
+    checkinDays: number | null
+    starlightBalance: number | null
+    position: string
+    styleConfig: string | null
+}
+
+export interface WishCollectionItem {
+    wishId: number
+    title: string
+    authorNickname: string
+    fruitType: string
+    collectedAt: string
+}
+
+interface CreateWishPayload {
     title: string
     description: string
     categoryId: number
@@ -201,6 +226,41 @@ export const wishApi = {
             data: { content },
         }),
 
+    // ---- 直播心愿挂件（Sprint 3.4，B10：公开；服务端缓存 10s）----
+    getLiveWidget: (streamerId: number) =>
+        request<LiveWidgetData>({ url: `/wish/live/widget/${streamerId}` }),
+
+    // ---- 成长记录（Sprint 1.3，B1：TEXT/IMAGE/VIDEO/DIARY + 进度推进）----
+    addGrowthRecord: (wishId: number | string, data: { type: string; content: string; mediaUrls?: string[]; progressDelta?: number }) =>
+        request<{ recordId: number; newCurrentValue: number }>({
+            url: `/wish/wishes/${wishId}/growth`,
+            method: 'POST',
+            data: data as unknown as Record<string, unknown>,
+        }),
+    getWishProgressDetail: (wishId: number | string) =>
+        request<{ currentValue: number; targetValue: number; percentage: number; version: number }>({
+            url: `/wish/wishes/${wishId}/progress`,
+        }),
+
+    // ---- 心愿收藏（Sprint 1.5，B2）----
+    collectWish: (wishId: number | string) =>
+        request<{ collectionId: number; wishId: number; collectedAt: string }>({
+            url: '/wish/collections',
+            method: 'POST',
+            data: { wishId: wishId as unknown as number },
+        }),
+    uncollectWish: (wishId: number | string) =>
+        request<{ wishId: number; deleted: boolean }>({
+            url: `/wish/collections/${wishId}`,
+            method: 'DELETE',
+        }),
+    listWishCollections: (cursor?: string, pageSize?: number) =>
+        request<WishCollectionItem[]>({
+            url: `/wish/collections${buildQuery({ cursor, pageSize: pageSize ?? 20 } as Record<string, unknown>)}`,
+        }),
+    getWishCollectionStatus: (wishId: number | string) =>
+        request<boolean>({ url: `/wish/collections/${wishId}/status` }),
+
     // ---- 世界树（Sprint 2.1）----
     /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */
     getWorldTree: () => request<WorldTreeAggregation>({ url: '/wish/tree' }),
@@ -323,6 +383,7 @@ export const wishApi = {
     /** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
     setNearbyMode: (enabled: boolean) =>
         request<null>({ url: '/wish/map/nearby-mode', method: 'POST', data: { enabled } }),
+    getNearbyModeStatus: () => request<boolean>({ url: '/wish/map/nearby-mode' }),
     /** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
     reportTrace: (lat: number, lng: number) =>
         request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } }),

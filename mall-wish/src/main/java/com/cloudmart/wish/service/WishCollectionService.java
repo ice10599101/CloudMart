@@ -18,6 +18,9 @@ public interface WishCollectionService {
     /** 收藏列表（含心愿标题/作者/类型，游标分页） */
     List<WishCollectionItemVO> listCollections(Long userId, String cursor, int pageSize);
 
+    /** 单心愿收藏状态查询（详情页收藏按钮回显） */
+    boolean isCollected(Long userId, Long wishId);
+
     /** 收藏条目 VO（含心愿信息） */
     record WishCollectionItemVO(
             Long collectionId, Long wishId, String title,

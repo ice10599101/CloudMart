@@ -229,6 +229,25 @@ public interface WishFeignClient {
     @GetMapping("/activity/{id}/rewards/logs")
     ApiResponse<Object> listActivityRewardLogs(@PathVariable("id") Long id);
 
+    // ---- 虚拟资产 + 品牌审核（Sprint 3.6 管理后台，代理 /admin/collection、/admin/brand）----
+
+    @GetMapping("/collection/assets")
+    ApiResponse<Object> listWishAssets();
+
+    @PostMapping("/collection/assets")
+    ApiResponse<Object> saveWishAsset(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/collection/assets/{id}/active")
+    ApiResponse<Object> toggleWishAssetActive(@PathVariable("id") Long id,
+                                              @RequestParam("active") boolean active);
+
+    @GetMapping("/brand/list")
+    ApiResponse<Object> listAllBrandsForAdmin();
+
+    @PostMapping("/brand/{id}/audit")
+    ApiResponse<Object> auditWishBrand(@PathVariable("id") Long id,
+                                       @RequestParam("status") String status);
+
     // ---- 擦肩而过风控（Sprint 3.3 管理后台，代理 /admin/encounter）----
 
     @GetMapping("/encounter/suspicious")

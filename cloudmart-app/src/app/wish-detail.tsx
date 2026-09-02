@@ -27,6 +27,14 @@ export default function WishDetailScreen() {
   const [checkinContent, setCheckinContent] = useState('')
   const [checkinSaving, setCheckinSaving] = useState(false)
   const [checkedInToday, setCheckedInToday] = useState(false)
+  // 收藏（B2，非作者）+ 成长记录（B1，仅作者）
+  const [collected, setCollected] = useState(false)
+  const [collectSaving, setCollectSaving] = useState(false)
+  const [growthOpen, setGrowthOpen] = useState(false)
+  const [growthType, setGrowthType] = useState<'TEXT' | 'DIARY'>('TEXT')
+  const [growthContent, setGrowthContent] = useState('')
+  const [growthDelta, setGrowthDelta] = useState('')
+  const [growthSaving, setGrowthSaving] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -123,6 +131,62 @@ export default function WishDetailScreen() {
 
   const handleCommentCountChange = (delta: number) => {
     setWish((prev) => (prev ? { ...prev, commentCount: Math.max(0, prev.commentCount + delta) } : prev))
+  }
+
+  // 收藏状态回显（非作者；登录态）
+  useEffect(() => {
+    if (!user || !wish || user.id === wish.authorId) return
+    wishApi.getWishCollectionStatus(wishId)
+      .then((res) => { if (res.data.success) setCollected(res.data.data === true) })
+      .catch(() => setCollected(false))
+  }, [user, wish, wishId])
+
+  /** 收藏/取消收藏 */
+  const handleCollectToggle = async () => {
+    setCollectSaving(true)
+    try {
+      if (collected) {
+        const res = await wishApi.uncollectWish(wishId)
+        if (res.data.success) { setCollected(false); Alert.alert('提示', '已取消收藏') }
+      } else {
+        const res = await wishApi.collectWish(wishId)
+        if (res.data.success) { setCollected(true); Alert.alert('提示', '已收藏') }
+      }
+    } catch (err) {
+      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
+      Alert.alert('提示', errNode?.response?.data?.error?.message || '操作失败，请稍后重试')
+    } finally {
+      setCollectSaving(false)
+    }
+  }
+
+  /** 提交成长记录：成功后刷新详情（时间线 + 进度） */
+  const handleGrowthSubmit = async () => {
+    if (!growthContent.trim()) {
+      Alert.alert('提示', '请填写成长记录内容')
+      return
+    }
+    setGrowthSaving(true)
+    try {
+      const res = await wishApi.addGrowthRecord(wishId, {
+        type: growthType,
+        content: growthContent.trim(),
+        progressDelta: growthDelta ? Number(growthDelta) : undefined,
+      })
+      if (res.data.success) {
+        setGrowthOpen(false)
+        setGrowthContent('')
+        setGrowthDelta('')
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data.success) setWish(detailRes.data.data)
+        Alert.alert('完成', '成长记录已添加')
+      }
+    } catch (err) {
+      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
+      Alert.alert('提示', errNode?.response?.data?.error?.message || '保存失败，请稍后重试')
+    } finally {
+      setGrowthSaving(false)
+    }
   }
 
   const handleDelete = () => {
@@ -523,6 +587,40 @@ export default function WishDetailScreen() {
         headerComponent={detailHeader}
       />
 
+      {!isAuthor && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            padding: Spacing.md,
+            paddingBottom: insets.bottom + Spacing.md,
+            backgroundColor: 'rgba(26,26,46,0.95)',
+            borderTopWidth: 1,
+            borderTopColor: WishColors.border,
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityLabel={collected ? '已收藏' : '收藏心愿'}
+            disabled={collectSaving}
+            onPress={handleCollectToggle}
+            style={{
+              paddingVertical: Spacing.md,
+              borderRadius: 28,
+              alignItems: 'center',
+              backgroundColor: collected ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255,255,255,0.08)',
+              borderWidth: 1,
+              borderColor: collected ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255,255,255,0.25)',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, color: collected ? '#FFD700' : WishColors.text }}>
+              {collected ? '⭐ 已收藏' : '☆ 收藏心愿'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {isAuthor && (
         <View
           style={{
@@ -539,6 +637,24 @@ export default function WishDetailScreen() {
             gap: Spacing.md,
           }}
         >
+          {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              accessibilityLabel="记录成长"
+              onPress={() => setGrowthOpen(true)}
+              style={{
+                flex: 1,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, color: WishColors.text }}>📝 记录成长</Text>
+            </TouchableOpacity>
+          )}
           {wish.status === 'ACTIVE' && (
             <TouchableOpacity
               activeOpacity={0.85}
@@ -611,6 +727,128 @@ export default function WishDetailScreen() {
           >
             <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>删除心愿</Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {growthOpen && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: Spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              backgroundColor: WishColors.bgContainer,
+              borderRadius: BorderRadius.xl,
+              padding: Spacing.lg,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginBottom: 4 }}>
+              记录成长
+            </Text>
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary, marginBottom: Spacing.md }}>
+              记录这一步的成长与心得，可同时推进心愿进度
+            </Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md }}>
+              {(['TEXT', 'DIARY'] as const).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  activeOpacity={0.85}
+                  onPress={() => setGrowthType(t)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: Spacing.sm,
+                    borderRadius: BorderRadius.md,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: growthType === t ? WishColors.accentCyan : WishColors.border,
+                    backgroundColor: growthType === t ? 'rgba(0, 212, 255, 0.12)' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: growthType === t ? WishColors.accentCyan : WishColors.textSecondary }}>
+                    {t === 'TEXT' ? '文字记录' : '心情日记'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              value={growthContent}
+              onChangeText={setGrowthContent}
+              maxLength={500}
+              placeholder="如：今天完成了第一阶段的目标"
+              placeholderTextColor={WishColors.textSecondary}
+              multiline
+              style={{
+                minHeight: 80,
+                borderWidth: 1,
+                borderColor: WishColors.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                marginBottom: Spacing.sm,
+                fontSize: FontSize.sm,
+                color: WishColors.text,
+                textAlignVertical: 'top',
+              }}
+            />
+            <TextInput
+              value={growthDelta}
+              onChangeText={(v) => setGrowthDelta(v.replace(/[^0-9]/g, ''))}
+              maxLength={3}
+              keyboardType="number-pad"
+              placeholder="进度推进百分比（可选，0-100）"
+              placeholderTextColor={WishColors.textSecondary}
+              style={{
+                borderWidth: 1,
+                borderColor: WishColors.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                marginBottom: Spacing.md,
+                fontSize: FontSize.sm,
+                color: WishColors.text,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setGrowthOpen(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm + 2,
+                  borderRadius: BorderRadius.lg,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <Text style={{ fontSize: FontSize.md, color: WishColors.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={growthSaving}
+                onPress={handleGrowthSubmit}
+                style={{
+                  flex: 1,
+                  paddingVertical: Spacing.sm + 2,
+                  borderRadius: BorderRadius.lg,
+                  alignItems: 'center',
+                  backgroundColor: WishColors.accentCyan,
+                  opacity: growthSaving ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: '#0b1026' }}>
+                  {growthSaving ? '保存中...' : '保存'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
 

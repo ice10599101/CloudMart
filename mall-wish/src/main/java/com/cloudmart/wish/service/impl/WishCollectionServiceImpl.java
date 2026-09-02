@@ -56,6 +56,13 @@ public class WishCollectionServiceImpl implements WishCollectionService {
     }
 
     @Override
+    public boolean isCollected(Long userId, Long wishId) {
+        return collectionMapper.selectCount(new LambdaQueryWrapper<WishCollection>()
+                .eq(WishCollection::getUserId, userId)
+                .eq(WishCollection::getWishId, wishId)) > 0;
+    }
+
+    @Override
     @Transactional
     public void uncollect(Long userId, Long wishId) {
         collectionMapper.delete(new LambdaQueryWrapper<WishCollection>()
