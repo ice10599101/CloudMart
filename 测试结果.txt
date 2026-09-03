@@ -1,15 +1,15 @@
-C:\Users\75557\.jdks\openjdk-26.0.1\bin\java.exe -XX:TieredStopAtLevel=1 -Dspring.output.ansi.enabled=always -Dcom.sun.management.jmxremote -Dspring.jmx.enabled=true -Dspring.liveBeansView.mbeanDomain -Dspring.application.admin.enabled=true "-Dmanagement.endpoints.jmx.exposure.include=*" "-javaagent:C:\Program Files\qsdf\IntelliJ IDEA 2025.3.6\lib\idea_rt.jar=59735" -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -classpath C:\Users\75557\AppData\Local\Temp\classpath1838832086.jar com.cloudmart.wish.WishApplication
-00:53:50.047 [main] INFO com.alibaba.nacos.plugin.auth.spi.client.ClientAuthPluginManager -- [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
-00:53:50.047 [main] INFO com.alibaba.nacos.plugin.auth.spi.client.ClientAuthPluginManager -- [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+C:\Users\75557\.jdks\openjdk-26.0.1\bin\java.exe -XX:TieredStopAtLevel=1 -Dspring.output.ansi.enabled=always -Dcom.sun.management.jmxremote -Dspring.jmx.enabled=true -Dspring.liveBeansView.mbeanDomain -Dspring.application.admin.enabled=true "-Dmanagement.endpoints.jmx.exposure.include=*" "-javaagent:C:\Program Files\qsdf\IntelliJ IDEA 2025.3.6\lib\idea_rt.jar=56074" -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -classpath C:\Users\75557\AppData\Local\Temp\classpath416098155.jar com.cloudmart.wish.WishApplication
+01:35:17.334 [main] INFO com.alibaba.nacos.plugin.auth.spi.client.ClientAuthPluginManager -- [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+01:35:17.334 [main] INFO com.alibaba.nacos.plugin.auth.spi.client.ClientAuthPluginManager -- [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
 WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
 WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/C:/Users/75557/.m2/repository/com/alibaba/nacos/nacos-client/3.1.1/nacos-client-3.1.1.jar)
 WARNING: Please consider reporting this to the maintainers of class com.alibaba.nacos.shaded.com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
 WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
-00:53:51.896 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Ready to get current node abilities...
-00:53:51.900 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Ready to initialize current node abilities, support modes: [SDK_CLIENT]
-00:53:51.900 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Initialize current abilities finish...
-00:53:51.900 [main] INFO com.alibaba.nacos.common.ability.discover.NacosAbilityManagerHolder -- [AbilityControlManager] Successfully initialize AbilityControlManager
-WARNING: Final field headers in class com.alibaba.nacos.api.remote.request.Request has been mutated reflectively by class com.fasterxml.jackson.databind.deser.impl.FieldProperty in unnamed module @8909f18 (file:/C:/Users/75557/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.21.2/jackson-databind-2.21.2.jar)
+01:35:19.469 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Ready to get current node abilities...
+01:35:19.472 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Ready to initialize current node abilities, support modes: [SDK_CLIENT]
+01:35:19.472 [main] INFO com.alibaba.nacos.common.ability.AbstractAbilityControlManager -- Initialize current abilities finish...
+01:35:19.473 [main] INFO com.alibaba.nacos.common.ability.discover.NacosAbilityManagerHolder -- [AbilityControlManager] Successfully initialize AbilityControlManager
+WARNING: Final field headers in class com.alibaba.nacos.api.remote.request.Request has been mutated reflectively by class com.fasterxml.jackson.databind.deser.impl.FieldProperty in unnamed module @4944252c (file:/C:/Users/75557/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.21.2/jackson-databind-2.21.2.jar)
 WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
 WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
 
@@ -27,41 +27,41 @@ INFO: Sentinel log charset is: utf-8
 INFO: Sentinel log base directory is: C:\Users\75557\logs\csp\
 INFO: Sentinel log name use pid is: false
 INFO: Sentinel log level is: INFO
-2026-09-04 00:53:52.650 [main] [none] INFO  com.cloudmart.wish.WishApplication - Starting WishApplication using Java 26.0.1 with PID 81156 (C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes started by 75557 in C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart)
-2026-09-04 00:53:52.651 [main] [none] DEBUG com.cloudmart.wish.WishApplication - Running with Spring Boot v4.0.6, Spring v7.0.7
-2026-09-04 00:53:52.651 [main] [none] INFO  com.cloudmart.wish.WishApplication - No active profile set, falling back to 1 default profile: "default"
-2026-09-04 00:53:52.716 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
-2026-09-04 00:53:52.716 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-wish.yml, group=DEFAULT_GROUP] is empty
-2026-09-04 00:53:55.084 [main] [none] DEBUG o.s.c.o.FeignClientsRegistrar$1 - Identified candidate component class: file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\feign\CommunityFeignClient.class]
-2026-09-04 00:53:55.084 [main] [none] DEBUG o.s.c.o.FeignClientsRegistrar$1 - Identified candidate component class: file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\feign\UserFeignClient.class]
-2026-09-04 00:53:55.850 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
-2026-09-04 00:53:55.854 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
-2026-09-04 00:53:55.923 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 46 ms. Found 0 Redis repository interfaces.
-2026-09-04 00:53:56.600 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=dd1c74ab-5ce3-3bc4-988b-d88502027be9
-2026-09-04 00:53:58.247 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9022 (http)
-2026-09-04 00:53:58.269 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-2026-09-04 00:53:58.269 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
-2026-09-04 00:53:58.325 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 5605 ms
-2026-09-04 00:53:58.634 [main] [none] DEBUG c.c.w.c.InternalCallAuthenticationFilter - Filter 'internalCallAuthenticationFilter' configured for use
+2026-09-04 01:35:20.129 [main] [none] INFO  com.cloudmart.wish.WishApplication - Starting WishApplication using Java 26.0.1 with PID 64700 (C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes started by 75557 in C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart)
+2026-09-04 01:35:20.130 [main] [none] DEBUG com.cloudmart.wish.WishApplication - Running with Spring Boot v4.0.6, Spring v7.0.7
+2026-09-04 01:35:20.131 [main] [none] INFO  com.cloudmart.wish.WishApplication - No active profile set, falling back to 1 default profile: "default"
+2026-09-04 01:35:20.203 [main] [none] INFO  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] Load config[dataId=shared-logging.yml, group=DEFAULT_GROUP] success
+2026-09-04 01:35:20.203 [main] [none] WARN  c.a.c.n.c.NacosConfigDataLoader - [Nacos Config] config[dataId=mall-wish.yml, group=DEFAULT_GROUP] is empty
+2026-09-04 01:35:22.577 [main] [none] DEBUG o.s.c.o.FeignClientsRegistrar$1 - Identified candidate component class: file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\feign\CommunityFeignClient.class]
+2026-09-04 01:35:22.577 [main] [none] DEBUG o.s.c.o.FeignClientsRegistrar$1 - Identified candidate component class: file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\feign\UserFeignClient.class]
+2026-09-04 01:35:23.285 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-09-04 01:35:23.290 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-09-04 01:35:23.365 [main] [none] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 50 ms. Found 0 Redis repository interfaces.
+2026-09-04 01:35:24.005 [main] [none] INFO  o.s.cloud.context.scope.GenericScope - BeanFactory id=dd1c74ab-5ce3-3bc4-988b-d88502027be9
+2026-09-04 01:35:25.671 [main] [none] INFO  o.s.boot.tomcat.TomcatWebServer - Tomcat initialized with port 9022 (http)
+2026-09-04 01:35:25.696 [main] [none] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-09-04 01:35:25.697 [main] [none] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-09-04 01:35:25.798 [main] [none] INFO  o.s.b.w.c.s.WebApplicationContextInitializer - Root WebApplicationContext: initialization completed in 5591 ms
+2026-09-04 01:35:26.109 [main] [none] DEBUG c.c.w.c.InternalCallAuthenticationFilter - Filter 'internalCallAuthenticationFilter' configured for use
  _ _   |_  _ _|_. ___ _ |    _ 
 | | |\/|_)(_| | |_\  |_)||_|_\ 
      /               |         
                         3.5.15 
-2026-09-04 00:53:59.055 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Executing Flyway repair to clean failed migration records...
-2026-09-04 00:53:59.089 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2026-09-04 00:53:59.378 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@3e7935f1
-2026-09-04 00:53:59.380 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
-2026-09-04 00:53:59.474 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://127.0.0.1:8306/mall_wish?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
-2026-09-04 00:53:59.490 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
-2026-09-04 00:53:59.655 [main] [none] INFO  o.f.core.internal.command.DbRepair - Successfully repaired schema history table `mall_wish`.`flyway_schema_history` (execution time 00:00.144s).
-2026-09-04 00:53:59.656 [main] [none] INFO  o.f.core.internal.command.DbRepair - Manual cleanup of the remaining effects of the failed migration may still be required.
-2026-09-04 00:53:59.667 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Flyway repair completed
-2026-09-04 00:53:59.667 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Starting Flyway migration...
-2026-09-04 00:53:59.692 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
-2026-09-04 00:53:59.779 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_wish`: 23
-2026-09-04 00:53:59.802 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Migrating schema `mall_wish` to version "24 - data export content"
-2026-09-04 00:53:59.850 [main] [none] ERROR o.f.core.internal.command.DbMigrate - Migration of schema `mall_wish` to version "24 - data export content" failed! Please restore backups and roll back database and code!
-2026-09-04 00:53:59.878 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'accountDeletionController' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\controller\AccountDeletionController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'accountDeletionServiceImpl' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\service\impl\AccountDeletionServiceImpl.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'wishAccountDeletionMapper' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\repository\WishAccountDeletionMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'sqlSessionTemplate' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of SqlSessionTemplate bean 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V24__data_export_content.sql
+2026-09-04 01:35:26.532 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Executing Flyway repair to clean failed migration records...
+2026-09-04 01:35:26.566 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-09-04 01:35:26.831 [main] [none] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@109fff4a
+2026-09-04 01:35:26.834 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-09-04 01:35:26.904 [main] [none] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:mysql://127.0.0.1:8306/mall_wish?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true (MySQL 9.7)
+2026-09-04 01:35:26.919 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-09-04 01:35:27.130 [main] [none] INFO  o.f.core.internal.command.DbRepair - Successfully repaired schema history table `mall_wish`.`flyway_schema_history` (execution time 00:00.183s).
+2026-09-04 01:35:27.131 [main] [none] INFO  o.f.core.internal.command.DbRepair - Manual cleanup of the remaining effects of the failed migration may still be required.
+2026-09-04 01:35:27.142 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Flyway repair completed
+2026-09-04 01:35:27.142 [main] [none] INFO  c.c.wish.config.FlywayRepairConfig - Starting Flyway migration...
+2026-09-04 01:35:27.183 [main] [none] WARN  o.f.c.i.database.base.Database - Using MySQL 9.7 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 8.1.
+2026-09-04 01:35:27.270 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `mall_wish`: 23
+2026-09-04 01:35:27.290 [main] [none] INFO  o.f.core.internal.command.DbMigrate - Migrating schema `mall_wish` to version "24 - data export content"
+2026-09-04 01:35:27.342 [main] [none] ERROR o.f.core.internal.command.DbMigrate - Migration of schema `mall_wish` to version "24 - data export content" failed! Please restore backups and roll back database and code!
+2026-09-04 01:35:27.375 [main] [none] WARN  o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'accountDeletionController' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\controller\AccountDeletionController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'accountDeletionServiceImpl' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\service\impl\AccountDeletionServiceImpl.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'wishAccountDeletionMapper' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\repository\WishAccountDeletionMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'sqlSessionTemplate' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of SqlSessionTemplate bean 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V24__data_export_content.sql
 -----------------------------------------------------
 SQL State  : 42S21
 Error Code : 1060
@@ -70,13 +70,13 @@ Location   : db/migration/V24__data_export_content.sql (C:\Users\75557\Desktop\s
 Line       : 4
 Statement  : Run Flyway with -X option to see the actual statement causing the problem
 
-2026-09-04 00:53:59.878 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
-2026-09-04 00:53:59.883 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
-2026-09-04 00:53:59.888 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
-2026-09-04 00:53:59.904 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+2026-09-04 01:35:27.375 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-09-04 01:35:27.380 [main] [none] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-09-04 01:35:27.384 [main] [none] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-09-04 01:35:27.399 [main] [none] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
 
 Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
-2026-09-04 00:53:59.934 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
+2026-09-04 01:35:27.440 [main] [none] ERROR o.s.boot.SpringApplication - Application run failed
 org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'accountDeletionController' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\controller\AccountDeletionController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'accountDeletionServiceImpl' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\service\impl\AccountDeletionServiceImpl.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'wishAccountDeletionMapper' defined in file [C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-wish\target\classes\com\cloudmart\wish\repository\WishAccountDeletionMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'sqlSessionTemplate' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of SqlSessionTemplate bean 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V24__data_export_content.sql
 -----------------------------------------------------
 SQL State  : 42S21
@@ -247,10 +247,10 @@ Caused by: java.sql.SQLSyntaxErrorException: Duplicate column name 'content'
 	at org.flywaydb.core.internal.sqlscript.ParsedSqlStatement.execute(ParsedSqlStatement.java:88) ~[flyway-core-11.14.1.jar:na]
 	at org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor.executeStatement(DefaultSqlScriptExecutor.java:211) ~[flyway-core-11.14.1.jar:na]
 	... 82 common frames omitted
-2026-09-04 00:53:59.941 [Thread-1] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
-2026-09-04 00:53:59.941 [Thread-9] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
-2026-09-04 00:53:59.941 [Thread-7] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
-2026-09-04 00:53:59.943 [Thread-9] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
-2026-09-04 00:53:59.943 [Thread-1] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
+2026-09-04 01:35:27.448 [Thread-7] [none] INFO  c.a.n.c.http.HttpClientBeanHolder - [HttpClientBeanHolder] Start destroying common HttpClient
+2026-09-04 01:35:27.448 [Thread-1] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Start destroying ThreadPool
+2026-09-04 01:35:27.448 [Thread-9] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Start destroying Publisher
+2026-09-04 01:35:27.448 [Thread-9] [none] INFO  c.a.nacos.common.notify.NotifyCenter - [NotifyCenter] Completed destruction of Publisher
+2026-09-04 01:35:27.448 [Thread-1] [none] INFO  c.a.n.c.executor.ThreadPoolManager - [ThreadPoolManager] Completed destruction of ThreadPool
 
 进程已结束，退出代码为 1

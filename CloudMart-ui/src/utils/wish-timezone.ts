@@ -13,6 +13,8 @@ interface ReportedCache {
  * 不阻断胶囊功能（openAt 判定只用 UTC，与上报无关）。
  */
 export function reportTimezoneIfNeeded(): void {
+    // 未登录不上报：认证接口无 token 必然 401（与 Mobile/APP 端口径一致）
+    if (!localStorage.getItem('access_token')) return
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
     if (!timezone) return
     const offsetMinutes = -new Date().getTimezoneOffset()

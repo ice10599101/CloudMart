@@ -31,8 +31,13 @@ export function getTimezoneId(): string {
  * 时区上报（文档 2.15/26.3）：仅当时区或 UTC 偏移与上次上报不同才调用
  * （服务端幂等，客户端缓存避免重复请求）；失败静默——上报属合规辅助链路，
  * 不阻断胶囊功能（openAt 判定只用 UTC，与上报无关）。
+ * 未登录直接跳过：/wish/my/timezone 为认证接口，冷启动（app.tsx useLaunch）
+ * 无 token 时调用必然 401，并触发 request 封装的 redirectTo 登录跳转。
  */
 export function reportTimezoneIfNeeded(): void {
+    if (!Taro.getStorageSync('access_token')) {
+        return
+    }
     const timezone = getTimezoneId()
     const offsetMinutes = -new Date().getTimezoneOffset()
 

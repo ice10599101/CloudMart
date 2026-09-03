@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import { wishApi } from '@/api/wish'
+import { storage } from '@/utils/storage'
 
 /** 模块级缓存：App 会话内去重，重启后再报一次（服务端幂等，成本可忽略） */
 let reported: { timezone: string; offsetMinutes: number } | null = null
@@ -26,8 +27,16 @@ export function getTimezoneId(): string {
 /**
  * 时区上报（文档 2.15/26.3）：仅当时区或 UTC 偏移与上次上报不同才调用；
  * 失败静默——上报属合规辅助链路，不阻断胶囊功能（openAt 判定只用 UTC）。
+ * 未登录直接跳过：认证接口无 token 必然 401（与 Mobile/WEB 端口径一致）。
  */
 export function reportTimezoneIfNeeded(): void {
+    storage.getItem('access_token').then((token) => {
+        if (!token) return
+        doReport()
+    })
+}
+
+function doReport(): void {
     const timezone = getTimezoneId()
     const offsetMinutes = -new Date().getTimezoneOffset()
     if (reported && reported.timezone === timezone && reported.offsetMinutes === offsetMinutes) {
