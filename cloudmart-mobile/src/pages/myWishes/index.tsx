@@ -90,6 +90,42 @@ export default function MyWishesPage() {
     }
   }
 
+  /** 账号注销（A1 合规）：发送验证码 → editable 弹窗输入 → 申请（30 天宽限期） */
+  const handleDeletion = async () => {
+    try {
+      await wishApi.sendDeletionCode()
+    } catch {
+      Taro.showToast({ title: '验证码发送失败', icon: 'none' })
+      return
+    }
+    // editable/placeholderText 微信端运行时支持，Taro 类型滞后故断言
+    const input = await Taro.showModal({
+      title: '申请注销账号',
+      content: '验证码已发送（30 天宽限期，期间可撤回）。请输入 6 位验证码：',
+      editable: true,
+      placeholderText: '6 位验证码',
+      confirmText: '下一步',
+    } as Taro.showModal.Option & { editable: boolean; placeholderText: string })
+    if (!input.confirm) return
+    const code = ((input as { content?: string }).content || '').trim()
+    const applyRes = await Taro.showModal({
+      title: '确认申请注销？',
+      content: '提交后进入 30 天宽限期，到期将清除心愿等个人数据。是否提交？',
+      cancelText: '取消申请',
+      confirmText: '提交申请',
+    })
+    if (!applyRes.confirm) return
+    try {
+      const res = await wishApi.applyAccountDeletion(code, undefined)
+      if (res.data.success) {
+        Taro.showToast({ title: '注销申请已提交，30 天内可撤回', icon: 'none' })
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '申请失败', icon: 'none' })
+    }
+  }
+
   const handleDelete = async (id: number) => {
     const res = await Taro.showModal({
       title: '确认删除',
@@ -213,6 +249,26 @@ export default function MyWishesPage() {
               <Text>已经到底啦~</Text>
             </View>
           )}
+          <View style={{ padding: '24rpx', textAlign: 'center' }}>
+            <Text
+              style={{ fontSize: 24, color: '#4a90d9', marginRight: 24 }}
+              onClick={() => Taro.navigateTo({ url: '/pages/dataExport/index' })}
+            >
+              数据导出
+            </Text>
+            <Text
+              style={{ fontSize: 24, color: '#ff6b6b' }}
+              onClick={() => {
+                Taro.showModal({
+                  title: '注销账号',
+                  content: '申请后进入 30 天宽限期（期间可撤回），到期将清除心愿等个人数据。继续吗？',
+                  success: (r) => { if (r.confirm) void handleDeletion() },
+                })
+              }}
+            >
+              注销账号
+            </Text>
+          </View>
           <View style={{ height: '120rpx' }} />
         </ScrollView>
       )}

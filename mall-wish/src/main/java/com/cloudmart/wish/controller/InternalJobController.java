@@ -3,7 +3,9 @@ package com.cloudmart.wish.controller;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.CapsuleService;
+import com.cloudmart.wish.service.AccountDeletionService;
 import com.cloudmart.wish.service.CompanionReminderService;
+import com.cloudmart.wish.service.DataExportService;
 import com.cloudmart.wish.service.EncounterService;
 import com.cloudmart.wish.service.ExpectedManagementService;
 import com.cloudmart.wish.service.HomeService;
@@ -37,6 +39,8 @@ import java.util.Map;
 @Tag(name = "心愿宇宙·定时任务内部", description = "mall-job XXL-Job 定时任务专用（外部不可达）")
 @RequiredArgsConstructor
 public class InternalJobController {
+    private final AccountDeletionService accountDeletionService;
+    private final com.cloudmart.wish.service.DataExportService dataExportService;
     private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
     private final EncounterService encounterService;
 
@@ -116,5 +120,21 @@ public class InternalJobController {
     @PostMapping("/trace-cleanup")
     public ApiResponse<EncounterService.CleanupStats> traceCleanup() {
         return ApiResponse.ok(encounterService.cleanupTraces());
+    }
+
+    /** 数据导出过期清理（每日 04:30；SUCCESS 超 7 天清空内容置 FAILED） */
+    @PostMapping("/data-export-purge")
+    @Operation(summary = "数据导出过期清理", description = "内容超 7 天有效期即清空并置 FAILED（惰性清理的兜底扫描）")
+    public ApiResponse<Map<String, Object>> dataExportPurge() {
+        dataExportService.purgeExpired();
+        return ApiResponse.ok(Map.of("done", true));
+    }
+
+    /** 账号注销到期执行（每日 02:00；宽限期到期 → 心愿数据清理 + EXECUTED） */
+    @PostMapping("/account-deletion-scan")
+    @Operation(summary = "注销到期执行", description = "PENDING 且 execute_after 到期 → 清理心愿数据并置 EXECUTED")
+    public ApiResponse<Map<String, Object>> accountDeletionScan() {
+        final int executed = accountDeletionService.executeDue();
+        return ApiResponse.ok(Map.of("executed", executed));
     }
 }

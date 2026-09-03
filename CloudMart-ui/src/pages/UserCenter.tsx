@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
-import { Input, Select, DatePicker, Button, Modal, ConfigProvider } from 'antd'
+import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Popconfirm } from 'antd'
+import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -27,6 +28,13 @@ import {
 } from '@/api/growth'
 import type { UserLevelInfo, LevelConfig, ExpLogRecord } from '@/api/growth'
 import { useAuthStore } from '@/stores/auth'
+import {
+  sendDeletionCode,
+  applyAccountDeletion,
+  cancelAccountDeletion,
+  getAccountDeletionStatus,
+  type AccountDeletionStatus,
+} from '@/api/wish'
 import { uploadFile } from '@/api/file'
 import s from './UserCenter.module.css'
 
@@ -166,8 +174,81 @@ const GENDER_OPTIONS = [
   { value: 'FEMALE', label: '女' },
 ]
 
-function ProfileTab() {
+function ProfileTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
   const { user } = useAuthStore()
+
+  // 注销状态（合规 34.2，四AB A1）
+  const [deletion, setDeletion] = useState<AccountDeletionStatus | null>(null)
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false)
+  const [deletionCode, setDeletionCode] = useState('')
+  const [deletionReason, setDeletionReason] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [deletionBusy, setDeletionBusy] = useState(false)
+
+  const loadDeletion = useCallback(async () => {
+    try {
+      const res = await getAccountDeletionStatus()
+      if (res.data.success) setDeletion(res.data.data)
+    } catch {
+      setDeletion(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (user) loadDeletion()
+  }, [user, loadDeletion])
+
+  const handleSendCode = async () => {
+    setDeletionBusy(true)
+    try {
+      const res = await sendDeletionCode()
+      if (res.data.success) {
+        setCodeSent(true)
+        const devCode = (res.data.data as { devCode?: string })?.devCode
+        onToast(devCode ? `验证码已发送（开发回显：${devCode}）` : '验证码已发送，请查收短信/邮件', 'success')
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setDeletionBusy(false)
+    }
+  }
+
+  const handleApplyDeletion = async () => {
+    if (!/\d{6}/.test(deletionCode)) {
+      onToast('请输入 6 位验证码', 'error')
+      return
+    }
+    setDeletionBusy(true)
+    try {
+      const res = await applyAccountDeletion(deletionCode, deletionReason.trim() || undefined)
+      if (res.data.success) {
+        setDeletionModalOpen(false)
+        setDeletionCode('')
+        onToast('注销申请已提交，30 天宽限期内可撤回', 'success')
+        loadDeletion()
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setDeletionBusy(false)
+    }
+  }
+
+  const handleCancelDeletion = async () => {
+    setDeletionBusy(true)
+    try {
+      const res = await cancelAccountDeletion()
+      if (res.data.success) {
+        onToast('已撤回注销申请', 'success')
+        loadDeletion()
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setDeletionBusy(false)
+    }
+  }
 
   if (!user) return null
 
@@ -188,6 +269,82 @@ function ProfileTab() {
     { label: '注册时间', value: new Date(user.createdAt).toLocaleString() },
   ]
 
+  const dataExportEntry = (
+    <div key="__data_export" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 1em', marginTop: 16, background: 'var(--color-bg-container)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+      <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
+        数据导出：下载你的心愿/成长/互动等个人数据副本（JSON，7 天有效）
+      </span>
+      <Button
+        size="small"
+        icon={<DownloadOutlined />}
+        onClick={() => history.push('/settings/export')}
+      >
+        前往导出
+      </Button>
+    </div>
+  )
+
+  const deletionModalNode = (
+    <Modal
+      open={deletionModalOpen}
+      title="申请注销账号"
+      okText="确认申请"
+      cancelText="取消"
+      okButtonProps={{ danger: true, disabled: !codeSent }}
+      confirmLoading={deletionBusy}
+      onOk={handleApplyDeletion}
+      onCancel={() => setDeletionModalOpen(false)}
+      destroyOnHidden
+    >
+      <p style={{ color: '#ff4d4f', fontSize: 13 }}>
+        注销后 30 天宽限期内可撤回；到期将清除心愿、成长记录等个人数据且不可恢复。
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button onClick={handleSendCode} loading={deletionBusy} disabled={codeSent}>
+          {codeSent ? '验证码已发送' : '发送验证码'}
+        </Button>
+        <Input
+          placeholder="6 位验证码"
+          maxLength={6}
+          value={deletionCode}
+          onChange={(e) => setDeletionCode(e.target.value.replace(/\D/g, ''))}
+          style={{ flex: 1 }}
+        />
+      </div>
+      <Input.TextArea
+        rows={2}
+        maxLength={500}
+        placeholder="注销原因（可选）"
+        value={deletionReason}
+        onChange={(e) => setDeletionReason(e.target.value)}
+      />
+    </Modal>
+  )
+
+  const dangerZone = (
+    <div key="__danger_zone" style={{ marginTop: 24, padding: '16px 1em', borderRadius: 8, border: '1px solid rgba(255, 77, 79, 0.4)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#ff4d4f' }}>危险区 · 注销账号</div>
+          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+            {deletion?.status === 'PENDING'
+              ? `注销申请处理中：${new Date(deletion.executeAfter).toLocaleDateString('zh-CN')} 生效，期间可撤回`
+              : '申请后进入 30 天宽限期，期间可随时撤回；到期将清除心愿等个人数据'}
+          </div>
+        </div>
+        {deletion?.status === 'PENDING' ? (
+          <Popconfirm title="确认撤回注销申请？" onConfirm={handleCancelDeletion}>
+            <Button size="small" loading={deletionBusy}>撤回注销</Button>
+          </Popconfirm>
+        ) : (
+          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => setDeletionModalOpen(true)}>
+            申请注销
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', margin: 0, marginBottom: 16 }}>基本信息</h3>
@@ -198,8 +355,77 @@ function ProfileTab() {
             <span style={{ color: 'var(--color-text-secondary)', fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</span>
           </div>
         ))}
+        {dataExportEntry}
+        {dangerZone}
+        {deletionModalNode}
       </div>
     </div>
+  )
+}
+
+function DeletionModal({ open, onClose, onToast, busy, onApply }: {
+  open: boolean
+  onClose: () => void
+  onToast: (msg: string, type: 'success' | 'error') => void
+  busy: boolean
+  onApply: (code: string, reason: string) => void
+}) {
+  const [code, setCode] = useState('')
+  const [reason, setReason] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const handleSend = async () => {
+    setSending(true)
+    try {
+      const res = await sendDeletionCode()
+      if (res.data.success) {
+        setCodeSent(true)
+        const devCode = (res.data.data as { devCode?: string } | undefined)?.devCode
+        onToast(devCode ? `验证码已发送（开发回显：${devCode}）` : '验证码已发送', 'success')
+      }
+    } catch {
+      onToast('验证码发送失败', 'error')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      title="申请注销账号"
+      okText="确认申请"
+      cancelText="取消"
+      okButtonProps={{ danger: true, disabled: !codeSent }}
+      confirmLoading={busy}
+      onOk={() => onApply(code, reason)}
+      onCancel={onClose}
+      destroyOnHidden
+    >
+      <p style={{ color: '#ff4d4f', fontSize: 13 }}>
+        注销后 30 天宽限期内可撤回；到期将清除心愿、成长记录等个人数据且不可恢复。
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button onClick={handleSend} loading={sending} disabled={codeSent}>
+          {codeSent ? '验证码已发送' : '发送验证码'}
+        </Button>
+        <Input
+          placeholder="6 位验证码"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+          style={{ flex: 1 }}
+        />
+      </div>
+      <Input.TextArea
+        rows={2}
+        maxLength={500}
+        placeholder="注销原因（可选）"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
+    </Modal>
   )
 }
 
@@ -1235,7 +1461,7 @@ export default function UserCenterPage() {
               })}
             </div>
             <div className={s.tabContent}>
-              {activeTab === 'profile' && <ProfileTab />}
+              {activeTab === 'profile' && <ProfileTab onToast={(msg, type) => setToast({ message: msg, type })} />}
               {activeTab === 'posts' && <MyPostsTab />}
               {activeTab === 'drafts' && <MyDraftsTab onToast={(msg, type) => setToast({ message: msg, type })} />}
               {activeTab === 'address' && <AddressTab onToast={(msg, type) => setToast({ message: msg, type })} />}

@@ -1291,3 +1291,62 @@ export function collectWish(wishId: number | string) {
 export function uncollectWish(wishId: number | string) {
   return request.delete<ApiResponse<{ wishId: number; deleted: boolean }>>(`/wish/collections/${wishId}`)
 }
+
+// ========== 数据导出（合规 34.2，四AB B5 WEB 端） ==========
+
+export interface DataExportTask {
+  id: number
+  userId: number
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+  downloadUrl: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function createDataExport() {
+  return request.post<ApiResponse<DataExportTask>>('/wish/my/export')
+}
+
+export function getMyExportTask(taskId: number | string) {
+  return request.get<ApiResponse<DataExportTask>>(`/wish/my/export/${taskId}`)
+}
+
+export function listMyExportTasks() {
+  return request.get<ApiResponse<DataExportTask[]>>('/wish/my/exports')
+}
+
+export function downloadMyExport(taskId: number | string) {
+  return request.get(`/wish/my/export/${taskId}/download`)
+}
+
+// ========== 账号注销宽限期（合规 34.2 / API 2.13，四AB A1 WEB 端） ==========
+
+export interface AccountDeletionStatus {
+  id: number
+  userId: number
+  status: 'PENDING' | 'CANCELED' | 'EXECUTED'
+  reason: string | null
+  requestedAt: string
+  executeAfter: string
+  canceledAt: string | null
+  executedAt: string | null
+}
+
+export function sendDeletionCode() {
+  return request.post<ApiResponse<{ sent: boolean; expiresInSeconds: number; devCode?: string }>>(
+    '/wish/my/account-deletion/code')
+}
+
+export function applyAccountDeletion(confirmCode: string, reason?: string) {
+  return request.post<ApiResponse<{ userId: number; executeAfter: string; canCancel: boolean; cancelDeadline: string }>>(
+    '/wish/my/account-deletion', { confirmCode, reason })
+}
+
+export function cancelAccountDeletion() {
+  return request.post<ApiResponse<{ userId: number; cancelled: boolean; cancelledAt: string }>>(
+    '/wish/my/account/cancel')
+}
+
+export function getAccountDeletionStatus() {
+  return request.get<ApiResponse<AccountDeletionStatus | null>>('/wish/my/account-deletion')
+}

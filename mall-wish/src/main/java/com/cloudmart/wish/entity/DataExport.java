@@ -24,6 +24,9 @@ public class DataExport {
 
     private String downloadUrl;
 
+    /** 导出内容 JSON（SUCCESS 后写入；过期任务由查询时惰性清理） */
+    private String content;
+
     private LocalDateTime expiresAt;
 
     @TableField(fill = FieldFill.INSERT)

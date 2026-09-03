@@ -75,6 +75,15 @@ export interface LiveWidgetData {
     styleConfig: string | null
 }
 
+export interface DataExportTask {
+    id: number
+    userId: number
+    status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
+    downloadUrl: string | null
+    expiresAt: string | null
+    createdAt: string
+}
+
 export interface WishCollectionItem {
     wishId: number
     title: string
@@ -247,6 +256,37 @@ export const wishApi = {
     // ---- 直播心愿挂件（Sprint 3.4，B10）----
     getLiveWidget: (streamerId: number) =>
         request<LiveWidgetData>({ url: `/wish/live/widget/${streamerId}` }),
+
+    // ---- 数据导出（合规 34.2，四AB B5 APP 端）----
+    createDataExport: () =>
+        request<{ id: number; userId: number; status: string }>({
+            url: '/wish/my/export',
+            method: 'POST',
+        }),
+    listDataExports: () =>
+        request<DataExportTask[]>({ url: '/wish/my/exports' }),
+    getDataExportContent: (taskId: number | string) =>
+        request<Record<string, unknown>>({ url: `/wish/my/export/${taskId}/download` }),
+
+    // ---- 账号注销宽限期（合规 34.2，四AB A1）----
+    sendDeletionCode: () =>
+        request<{ sent: boolean; expiresInSeconds: number; devCode?: string }>({
+            url: '/wish/my/account-deletion/code',
+            method: 'POST',
+        }),
+    applyAccountDeletion: (confirmCode: string, reason?: string) =>
+        request<{ userId: number; executeAfter: string; canCancel: boolean }>({
+            url: '/wish/my/account-deletion',
+            method: 'POST',
+            data: { confirmCode, reason } as unknown as Record<string, unknown>,
+        }),
+    cancelAccountDeletion: () =>
+        request<{ userId: number; cancelled: boolean; cancelledAt: string }>({
+            url: '/wish/my/account/cancel',
+            method: 'POST',
+        }),
+    getAccountDeletionStatus: () =>
+        request<{ status: 'PENDING' | 'CANCELED' | 'EXECUTED' } | null>({ url: '/wish/my/account-deletion' }),
 
     // ---- 世界树（Sprint 2.1）----
     /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */

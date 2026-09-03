@@ -43,6 +43,7 @@ export default defineConfig({
         { path: '/chat', component: '@/pages/Chat' },
         { path: '/chat/:conversationId', component: '@/pages/Chat' },
         { path: '/profile', component: '@/pages/UserCenter' },
+        { path: '/settings/export', component: '@/pages/DataExport' },
         { path: '/settings', component: '@/pages/Settings' },
         { path: '/user/:id', component: '@/pages/UserProfile' },
         { path: '/topic/:id', component: '@/pages/TopicDetail' },

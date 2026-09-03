@@ -7,6 +7,9 @@ package com.cloudmart.wish.constant;
  * HTTP 状态映射在 {@code GlobalExceptionHandler} 中配置。</p>
  */
 public final class WishErrorCodes {
+    public static final String WISH_CONFIRM_CODE_INVALID = "WISH_CONFIRM_CODE_INVALID";
+    public static final String WISH_DELETION_PENDING = "WISH_DELETION_PENDING";
+    public static final String WISH_DELETION_EXECUTED = "WISH_DELETION_EXECUTED";
 
     private WishErrorCodes() {}
 

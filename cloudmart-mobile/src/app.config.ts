@@ -41,6 +41,7 @@ export default defineAppConfig({
     'pages/wishCollections/index',
     'pages/encounterLetters/index',
     'pages/notificationPrefs/index',
+    'pages/dataExport/index',
     'pages/badgeWall/index',
     'pages/treeHole/index',
     'pages/worldTree/index',
