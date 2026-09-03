@@ -1,0 +1,261 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+}
+
+.list {
+  height: calc(100vh - 180rpx);
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+/* 顶部三 Tab（虚拟工坊 / 收藏馆 / 品牌许愿池） */
+.tabBar {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+
+.tabItem {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 16rpx 0;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--wish-text-primary, #eaeaf2);
+}
+
+.tabItemActive {
+  background: rgba(255, 215, 0, 0.16);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+/* 工坊资产卡片 */
+.card {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+  flex-wrap: wrap;
+}
+
+.typeTag {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(139, 92, 246, 0.16);
+  color: #a78bfa;
+}
+
+.assetName {
+  font-size: 30rpx;
+  font-weight: 600;
+  flex: 1;
+}
+
+.ownedTag {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(74, 185, 106, 0.16);
+  color: #4ab96a;
+}
+
+.cardDesc {
+  font-size: 24rpx;
+  opacity: 0.65;
+  display: block;
+  margin-bottom: 14rpx;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.priceRow {
+  font-size: 24rpx;
+  color: #ffd700;
+}
+
+.stockRow {
+  font-size: 22rpx;
+  opacity: 0.5;
+  margin-left: 16rpx;
+}
+
+.exchangeBtn {
+  font-size: 24rpx;
+  padding: 10rpx 32rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.exchangeBtnDisabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(234, 234, 242, 0.4);
+  font-weight: 400;
+}
+
+/* 收藏馆分组 */
+.groupCard {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.groupTitle {
+  font-size: 28rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.collectionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.collectionName {
+  font-size: 26rpx;
+  flex: 1;
+}
+
+.activeTag {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(74, 185, 106, 0.16);
+  color: #4ab96a;
+  margin-left: 12rpx;
+}
+
+.useBtn {
+  font-size: 22rpx;
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+}
+
+.useBtnDisabled {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(234, 234, 242, 0.35);
+}
+
+.linkBtn {
+  font-size: 22rpx;
+  color: #4a90d9;
+  padding: 8rpx 16rpx;
+}
+
+/* 品牌卡 */
+.brandTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.brandDesc {
+  font-size: 24rpx;
+  opacity: 0.65;
+  display: block;
+  margin: 10rpx 0 16rpx;
+}
+
+.poolBlock {
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  padding-top: 16rpx;
+  margin-top: 16rpx;
+}
+
+.poolHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.poolName {
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.poolStatus {
+  font-size: 20rpx;
+  opacity: 0.5;
+}
+
+.progressTrack {
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #ffd700, #ffb347);
+}
+
+.poolFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.poolMeta {
+  font-size: 22rpx;
+  opacity: 0.6;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.joinBtn {
+  font-size: 22rpx;
+  padding: 8rpx 28rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.togglePoolsBtn {
+  font-size: 24rpx;
+  color: #4a90d9;
+  padding: 8rpx 0;
+  display: inline-block;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}

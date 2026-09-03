@@ -997,3 +997,92 @@ export interface EncounterLetterItem {
   content: string | null
   deliveredAt: string | null
 }
+
+// ========== 虚拟工坊 + 收藏馆 + 品牌许愿池（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========
+
+export interface WorkshopAsset {
+  assetId: number
+  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'
+  name: string
+  description: string | null
+  icon: string | null
+  priceStarlight: number
+  priceRmb: number
+  payMethod: string
+  stock: number
+  owned: boolean
+}
+
+export interface CollectionAssetItem {
+  id: number
+  assetId: number
+  name: string
+  icon: string
+  isActive: boolean | null
+  refWishId: number | null
+}
+
+/** 收藏馆分组：SKIN / BGM / SPECIAL_FRUIT / BADGE → 资产列表 */
+export interface CollectionAssetGroup {
+  [type: string]: CollectionAssetItem[]
+}
+
+export interface BrandItem {
+  brandId: number
+  brandName: string
+  logo: string | null
+  description: string | null
+  status: string
+}
+
+export interface BrandPoolItem {
+  poolId: number
+  brandId: number
+  poolName: string
+  targetCount: number
+  currentCount: number
+  rewardDescription: string | null
+  status: string
+  endTime: string | null
+}
+
+// ========== 社区活动（Sprint 3.5，契约对齐 mall-wish ActivityController） ==========
+
+export type ActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'
+
+export type ActivityStatus = 'ACTIVE' | 'ARCHIVED'
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  WORLD_EVENT: '世界事件',
+  FESTIVAL: '节日活动',
+  CITY: '城市活动',
+  WISH_PARTNER: '心愿合伙人',
+}
+
+export interface ActivityItem {
+  id: number | string
+  type: ActivityType
+  title: string
+  description: string | null
+  coverImage: string | null
+  cityCode: string | null
+  status: ActivityStatus
+  progressCounter: number
+  createdAt: string
+}
+
+export interface ActivityBoardMember {
+  userId: number
+  role: string
+  title: string | null
+  progressPercentage: number
+  checkinDays: number
+  latestGrowth: string | null
+  latestGrowthAt: string | null
+}
+
+export interface PartnerBoard {
+  activityId: number
+  leaderUserId: number
+  members: ActivityBoardMember[]
+}

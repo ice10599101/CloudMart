@@ -17,6 +17,12 @@ import type {
     FenceCheckResult,
     WarmEventItem,
     EncounterLetterItem,
+    WorkshopAsset,
+    CollectionAssetGroup,
+    BrandItem,
+    BrandPoolItem,
+    ActivityItem,
+    PartnerBoard,
     AiGoal,
     AiGoalStatus,
     CreateAiGoalsPayload,
@@ -428,4 +434,53 @@ export const wishApi = {
             method: 'PUT',
             data: { updates } as unknown as Record<string, unknown>,
         }),
+
+    // ---- 虚拟工坊 + 收藏馆 + 品牌许愿池（Sprint 3.6，四AC R2）----
+    /** 工坊资产列表（含 owned 标记；兑换走星光/RMB） */
+    getWorkshopAssets: () => request<WorkshopAsset[]>({ url: '/wish/workshop/assets' }),
+    /** 兑换资产（默认星光支付；402 余额不足 / 409 已拥有） */
+    exchangeAsset: (assetId: number, paymentMethod = 'STARLIGHT') =>
+        request<{ id: number | string; assetId: number; status: string }>({
+            url: '/wish/workshop/exchange',
+            method: 'POST',
+            data: { assetId, paymentMethod } as unknown as Record<string, unknown>,
+        }),
+    /** 收藏馆（按 SKIN/BGM/SPECIAL_FRUIT/BADGE 分组） */
+    getCollectionAssets: () => request<CollectionAssetGroup>({ url: '/wish/collections/assets' }),
+    /** 激活皮肤 / 激活 BGM（同类互斥切换） */
+    setActiveSkin: (assetId: number) =>
+        request<null>({ url: `/wish/my/active-skin/${assetId}`, method: 'PUT' }),
+    setActiveBgm: (assetId: number) =>
+        request<null>({ url: `/wish/my/active-bgm/${assetId}`, method: 'PUT' }),
+    /** 品牌列表（仅 APPROVED） */
+    listBrands: () => request<BrandItem[]>({ url: '/wish/brands' }),
+    /** 品牌许愿池列表（仅 ACTIVE） */
+    listBrandPools: (brandId: number | string) =>
+        request<BrandPoolItem[]>({ url: `/wish/brands/${brandId}/pools` }),
+    /** 加入品牌许愿池（uk 幂等，重复加入 409） */
+    joinBrandPool: (brandId: number | string, poolId: number | string) =>
+        request<null>({ url: `/wish/brands/${brandId}/pools/${poolId}/join`, method: 'POST' }),
+
+    // ---- 社区活动（Sprint 3.5，四AC R4）----
+    /** 活动列表（仅 ACTIVE 且展示期内；type 过滤可选） */
+    listActivities: (params?: { type?: string; cityCode?: string }) =>
+        request<ActivityItem[]>({ url: `/wish/activities${buildQuery(params as Record<string, unknown>)}` }),
+    /** 活动详情（归档后仍可访问） */
+    getActivity: (id: number | string) => request<ActivityItem>({ url: `/wish/activities/${id}` }),
+    /** 活动实时进度 */
+    getActivityProgress: (id: number | string) =>
+        request<number>({ url: `/wish/activities/${id}/progress` }),
+    /** 参与活动（非 WISH_PARTNER） */
+    joinActivity: (id: number | string) =>
+        request<null>({ url: `/wish/activities/${id}/join`, method: 'POST' }),
+    /** 合伙人申请（提交协作心愿 + 技能标签） */
+    applyPartner: (id: number | string, wishId: number | string, skills?: string[]) =>
+        request<null>({
+            url: `/wish/activities/${id}/apply`,
+            method: 'POST',
+            data: { wishId, skills } as unknown as Record<string, unknown>,
+        }),
+    /** 组队看板（仅组内成员；403 非成员） */
+    getPartnerBoard: (id: number | string) =>
+        request<PartnerBoard>({ url: `/wish/activities/${id}/board` }),
 }

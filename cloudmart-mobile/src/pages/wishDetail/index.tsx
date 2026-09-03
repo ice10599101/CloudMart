@@ -8,6 +8,7 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
 import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
+import WishShareCard from '@/components/WishShareCard'
 import type { WishDetail, FruitType, WishFulfillmentDetail } from '@/types'
 import styles from './index.module.scss'
 
@@ -58,6 +59,8 @@ export default function WishDetailPage() {
   // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，409 由后端幂等兜底）
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [checkinContent, setCheckinContent] = useState('')
+  // 分享卡片（作者/非作者均可生成星空卡片）
+  const [shareOpen, setShareOpen] = useState(false)
   const [checkinSaving, setCheckinSaving] = useState(false)
   const [checkedInToday, setCheckedInToday] = useState(false)
   // 收藏（B2，非作者）+ 成长记录（B1，仅作者）
@@ -511,6 +514,9 @@ export default function WishDetailPage() {
           <View className={styles.deleteBtn} onClick={collectSaving ? undefined : handleCollectToggle}>
             <Text className={styles.deleteBtnText}>{collected ? '⭐ 已收藏' : '☆ 收藏心愿'}</Text>
           </View>
+          <View className={styles.deleteBtn} onClick={() => setShareOpen(true)}>
+            <Text className={styles.deleteBtnText}>✨ 分享</Text>
+          </View>
         </View>
       )}
       {isAuthor && (
@@ -549,6 +555,9 @@ export default function WishDetailPage() {
           )}
           <View className={styles.deleteBtn} onClick={handleDelete}>
             <Text className={styles.deleteBtnText}>删除心愿</Text>
+          </View>
+          <View className={styles.deleteBtn} onClick={() => setShareOpen(true)}>
+            <Text className={styles.deleteBtnText}>✨ 分享</Text>
           </View>
         </View>
       )}
@@ -640,6 +649,15 @@ export default function WishDetailPage() {
           </View>
         </View>
       )}
+      <WishShareCard
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title={wish.title}
+        author={wish.authorNickname}
+        dateText={new Date(wish.createdAt).toLocaleDateString('zh-CN')}
+        fruitLabel={FRUIT_LABELS[wish.fruitType]}
+        fruitColor={FRUIT_COLORS[wish.fruitType]}
+      />
       <WishBGM />
     </View>
   )

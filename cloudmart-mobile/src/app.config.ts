@@ -53,6 +53,8 @@ export default defineAppConfig({
     'pages/matchSquad/index',
     'pages/leaderboard/index',
     'pages/wishMap/index',
+    'pages/workshop/index',
+    'pages/activities/index',
   ],
   tabBar: {
     color: '#86909C',

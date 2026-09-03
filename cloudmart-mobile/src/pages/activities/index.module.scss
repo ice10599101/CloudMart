@@ -1,0 +1,228 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+}
+
+.body {
+  height: calc(100vh - 180rpx);
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.pageTitle {
+  font-size: 36rpx;
+  font-weight: 700;
+  display: block;
+}
+
+.pageSubtitle {
+  font-size: 22rpx;
+  opacity: 0.55;
+  display: block;
+  margin: 8rpx 0 24rpx;
+}
+
+/* 类型筛选 chips */
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+
+.chip {
+  font-size: 22rpx;
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--wish-text-primary, #eaeaf2);
+}
+
+.chipActive {
+  background: rgba(255, 215, 0, 0.16);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+/* 活动卡片 */
+.activityCard {
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.typeTag {
+  display: inline-block;
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(139, 92, 246, 0.16);
+  color: #a78bfa;
+  margin-bottom: 12rpx;
+}
+
+.activityTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.activityDesc {
+  font-size: 24rpx;
+  opacity: 0.65;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.progressNum {
+  font-size: 22rpx;
+  opacity: 0.6;
+}
+
+/* 弹层（详情 / 申请 / 看板 共用遮罩） */
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 75vh;
+  background: #131a35;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.sheetTitle {
+  font-size: 32rpx;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.sheetDesc {
+  font-size: 26rpx;
+  opacity: 0.7;
+  display: block;
+  margin-bottom: 20rpx;
+  line-height: 1.6;
+}
+
+.sheetProgress {
+  font-size: 26rpx;
+  display: block;
+  margin-bottom: 28rpx;
+
+  .num {
+    color: #ffd700;
+    font-weight: 700;
+  }
+}
+
+.actionRow {
+  display: flex;
+  gap: 16rpx;
+}
+
+.primaryBtn {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 18rpx 0;
+  border-radius: 999rpx;
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.plainBtn {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 18rpx 0;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--wish-text-primary, #eaeaf2);
+}
+
+.closeBtn {
+  text-align: center;
+  font-size: 24rpx;
+  opacity: 0.5;
+  padding: 20rpx 0 0;
+}
+
+/* 申请表单 */
+.input {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12rpx;
+  padding: 18rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--wish-text-primary, #eaeaf2);
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 16rpx;
+}
+
+.inputHint {
+  font-size: 22rpx;
+  opacity: 0.5;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+/* 看板成员行 */
+.boardRow {
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.boardRole {
+  font-size: 32rpx;
+}
+
+.boardMain {
+  flex: 1;
+}
+
+.boardTitle {
+  font-size: 26rpx;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.boardStats {
+  font-size: 22rpx;
+  opacity: 0.6;
+  display: block;
+}
+
+.boardGrowth {
+  font-size: 22rpx;
+  opacity: 0.55;
+  display: block;
+  margin-top: 6rpx;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}

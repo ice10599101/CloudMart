@@ -252,6 +252,58 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
+        {/* 虚拟工坊入口（Sprint 3.6，四AC R2） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/workshop')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(147, 112, 219, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#a78bfa' }}>🎁 虚拟工坊</Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              星光兑换树皮肤/BGM · 收藏馆 · 品牌许愿池
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
+        {/* 社区活动入口（Sprint 3.5，四AC R4） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/activities')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 143, 171, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#ff8fab' }}>🎪 社区活动</Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              世界事件 · 节日活动 · 城市活动 · 心愿合伙人
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* 我的心愿摘要 */}
         <SectionTitle title="我的心愿" actionLabel="全部" onAction={() => router.push('/my-wishes')} />
         {data && data.myWishes.length > 0 ? (

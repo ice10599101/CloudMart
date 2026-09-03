@@ -9,6 +9,7 @@ import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount
 import WishInteractionBar from '@/components/WishInteractionBar'
 import WishCommentSection from '@/components/WishCommentSection'
 import WishBGM from '@/components/WishBGM'
+import WishShareCard from '@/components/WishShareCard'
 import type { WishDetail, WishFulfillmentDetail } from '@/types'
 
 export default function WishDetailScreen() {
@@ -35,6 +36,8 @@ export default function WishDetailScreen() {
   const [growthContent, setGrowthContent] = useState('')
   const [growthDelta, setGrowthDelta] = useState('')
   const [growthSaving, setGrowthSaving] = useState(false)
+  // 分享卡片（作者/非作者均可生成星空卡片）
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -599,6 +602,8 @@ export default function WishDetailScreen() {
             backgroundColor: 'rgba(26,26,46,0.95)',
             borderTopWidth: 1,
             borderTopColor: WishColors.border,
+            flexDirection: 'row',
+            gap: Spacing.md,
           }}
         >
           <TouchableOpacity
@@ -607,6 +612,7 @@ export default function WishDetailScreen() {
             disabled={collectSaving}
             onPress={handleCollectToggle}
             style={{
+              flex: 1,
               paddingVertical: Spacing.md,
               borderRadius: 28,
               alignItems: 'center',
@@ -618,6 +624,22 @@ export default function WishDetailScreen() {
             <Text style={{ fontSize: FontSize.md, color: collected ? '#FFD700' : WishColors.text }}>
               {collected ? '⭐ 已收藏' : '☆ 收藏心愿'}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityLabel="分享心愿"
+            onPress={() => setShareOpen(true)}
+            style={{
+              flex: 1,
+              paddingVertical: Spacing.md,
+              borderRadius: 28,
+              alignItems: 'center',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.25)',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, color: WishColors.text }}>✨ 分享</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -726,6 +748,22 @@ export default function WishDetailScreen() {
             }}
           >
             <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>删除心愿</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityLabel="分享心愿"
+            onPress={() => setShareOpen(true)}
+            style={{
+              paddingVertical: Spacing.md,
+              paddingHorizontal: Spacing.lg,
+              borderRadius: 28,
+              alignItems: 'center',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.25)',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, color: WishColors.text }}>✨</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -996,6 +1034,17 @@ export default function WishDetailScreen() {
         </View>
       )}
 
+      {wish && (
+        <WishShareCard
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={wish.title}
+          author={wish.authorNickname}
+          dateText={new Date(wish.createdAt).toLocaleDateString('zh-CN')}
+          fruitLabel={FRUIT_LABELS[wish.fruitType]}
+          fruitColor={FRUIT_COLORS[wish.fruitType]}
+        />
+      )}
       <WishBGM />
     </View>
   )
