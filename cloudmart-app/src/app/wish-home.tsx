@@ -112,6 +112,32 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
+        {/* 时间胶囊入口（Sprint 2.4，对齐 WEB/Mobile wishHome 枢纽） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/capsule/list')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(157, 134, 255, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#9d86ff' }}>⏳ 时间胶囊</Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              给未来的自己写一封信 · 定时开启
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
         {/* AI 心愿助手入口（Sprint 2.5） */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -191,6 +217,34 @@ export default function WishHomeScreen() {
             </Text>
             <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
               坐标已模糊化 · 仅展示公开心愿
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
+        {/* 相遇信笺入口（Sprint 3.3 擦肩而过，对齐 WEB/Mobile） */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/encounter-letters')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 215, 0, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.accentGold }}>
+              ✉️ 相遇信笺
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              与同愿的人擦肩而过 · 收到匿名的温暖
             </Text>
           </View>
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>

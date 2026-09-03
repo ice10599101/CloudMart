@@ -38,6 +38,8 @@ export default function WishDetailScreen() {
   const [growthSaving, setGrowthSaving] = useState(false)
   // 分享卡片（作者/非作者均可生成星空卡片）
   const [shareOpen, setShareOpen] = useState(false)
+  // 星火永久收藏（文档 2.3，仅作者对 FULFILLED+BLOOM 心愿）
+  const [sparkSaving, setSparkSaving] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,6 +208,31 @@ export default function WishDetailScreen() {
             }
           } catch {
             Alert.alert('错误', '删除失败')
+          }
+        },
+      },
+    ])
+  }
+
+  /** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿，幂等，二次确认） */
+  const handleSpark = () => {
+    Alert.alert('设为星火永久收藏', '心愿将以星火形态在世界生命树永久展示，可被他人收藏到收藏馆。确定吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定',
+        onPress: async () => {
+          setSparkSaving(true)
+          try {
+            const res = await wishApi.sparkWish(wishId)
+            if (res.data?.success) {
+              Alert.alert('提示', '已设为星火永久收藏')
+              setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
+            }
+          } catch (err) {
+            const errNode = err as { response?: { data?: { error?: { message?: string } } } }
+            Alert.alert('错误', errNode?.response?.data?.error?.message || '设置失败，请稍后重试')
+          } finally {
+            setSparkSaving(false)
           }
         },
       },
@@ -717,6 +744,41 @@ export default function WishDetailScreen() {
             >
               <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#fff' }}>🌸 我要还愿</Text>
             </TouchableOpacity>
+          )}
+          {/* 星火永久收藏（文档 2.3：FULFILLED+BLOOM 可设置；SPARK 展示已收藏态） */}
+          {wish.status === 'FULFILLED' && wish.fruitType === 'BLOOM' && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              accessibilityLabel="设为星火永久收藏"
+              disabled={sparkSaving}
+              onPress={handleSpark}
+              style={{
+                flex: 2,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: '#ffb727',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#4a3200' }}>
+                {sparkSaving ? '设置中...' : '⭐ 设为星火'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {wish.fruitType === 'SPARK' && (
+            <View
+              style={{
+                flex: 2,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: 'rgba(255,215,0,0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,215,0,0.45)',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: '#ffd700' }}>⭐ 星火永久</Text>
+            </View>
           )}
           {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
             <TouchableOpacity

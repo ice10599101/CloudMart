@@ -164,9 +164,71 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
     }
 
     @Nested
+    @DisplayName("管理端资产维护")
+    class AdminAssetMaintenance {
+
+        @Test
+        @DisplayName("带 id 保存 → 更新原行（不产生新记录）；无 id → 新建")
+        void saveAssetUpdateVsInsert() {
+            Long assetId = seedAsset("SKIN", 10, 0);
+            Integer before = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_virtual_asset", Integer.class);
+
+            // 编辑：带 id 保存 → updateById
+            com.cloudmart.wish.entity.VirtualAsset edit = new com.cloudmart.wish.entity.VirtualAsset();
+            edit.setId(assetId);
+            edit.setName("改名后的资产");
+            edit.setPriceStarlight(88);
+            collectionService.saveAsset(edit);
+
+            Integer afterUpdate = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_virtual_asset", Integer.class);
+            assertThat(afterUpdate).isEqualTo(before);
+
+            String dbName = jdbcTemplate.queryForObject(
+                    "SELECT name FROM wish_virtual_asset WHERE id = ?", String.class, assetId);
+            Integer dbPrice = jdbcTemplate.queryForObject(
+                    "SELECT price_starlight FROM wish_virtual_asset WHERE id = ?", Integer.class, assetId);
+            assertThat(dbName).isEqualTo("改名后的资产");
+            assertThat(dbPrice).isEqualTo(88);
+
+            // 新建：无 id → insert
+            com.cloudmart.wish.entity.VirtualAsset create = new com.cloudmart.wish.entity.VirtualAsset();
+            create.setAssetType(com.cloudmart.wish.enums.AssetType.BGM);
+            create.setName("全新资产");
+            create.setPriceStarlight(5);
+            create.setPayMethod(com.cloudmart.wish.enums.AssetPayMethod.STARLIGHT);
+            create.setStock(0);
+            create.setIsActive(true);
+            Long newId = collectionService.saveAsset(create).getId();
+            assertThat(newId).isNotNull().isNotEqualTo(assetId);
+            Integer afterInsert = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_virtual_asset", Integer.class);
+            assertThat(afterInsert).isEqualTo(before + 1);
+        }
+
+        @Test
+        @DisplayName("下架 → 兑换拒绝；重新上架 → 可兑换")
+        void toggleAssetActive() {
+            seedUserStat(USER, 100);
+            Long assetId = seedAsset("SKIN", 10, 0);
+
+            collectionService.toggleAsset(assetId, false);
+            Boolean dbActive = jdbcTemplate.queryForObject(
+                    "SELECT is_active FROM wish_virtual_asset WHERE id = ?", Boolean.class, assetId);
+            assertThat(dbActive).isFalse();
+            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT"))
+                    .isInstanceOf(BusinessException.class);
+
+            collectionService.toggleAsset(assetId, true);
+            UserAsset ua = collectionService.exchange(USER, assetId, "STARLIGHT");
+            assertThat(ua.getStatus()).isEqualTo("OWNED");
+        }
+    }
+
+    @Nested
     @DisplayName("品牌许愿池")
     class BrandPool {
-
         @Test
         @DisplayName("加入许愿池 → 计数+1；重复加入拒绝（幂等验收）")
         void joinPoolFlow() {

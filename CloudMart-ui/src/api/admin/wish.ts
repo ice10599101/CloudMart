@@ -942,7 +942,8 @@ export function listAdminActivityRewardLogs(id: number) {
 // ========== 心愿虚拟资产 + 品牌审核（Sprint 3.6 管理后台收尾，四AB B3/B4） ==========
 
 export interface AdminWishAsset {
-  assetId: number
+  /** 对齐 mall-wish VirtualAsset 实体主键字段名（列表/编辑/上下架均以此传递） */
+  id: number
   assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'
   name: string
   description: string | null

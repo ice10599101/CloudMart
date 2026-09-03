@@ -36,6 +36,7 @@ import com.cloudmart.wish.vo.WishDeleteResultVO;
 import com.cloudmart.wish.vo.WishGrowthRecordVO;
 import com.cloudmart.wish.vo.WishListItemVO;
 import com.cloudmart.wish.vo.WishProgressVO;
+import com.cloudmart.wish.vo.WishSparkVO;
 import com.cloudmart.wish.vo.WishUpdateResultVO;
 import com.cloudmart.wish.vo.WishVO;
 import lombok.RequiredArgsConstructor;
@@ -242,6 +243,44 @@ public class WishServiceImpl implements WishService {
 
         log.info("心愿软删成功, wishId={}, userId={}", wishId, userId);
         return new WishDeleteResultVO(wishId, LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WishSparkVO sparkWish(Long userId, Long wishId) {
+        Wish wish = getViewableWishOrThrow(wishId, userId);
+        assertAuthor(wish, userId);
+
+        // 幂等：已是星火果实直接返回成功（永久收藏语义，重复点击无害）
+        if (wish.getFruitType() == FruitType.SPARK) {
+            return new WishSparkVO(wishId, FruitType.SPARK, wish.getUpdatedAt());
+        }
+
+        // 状态校验：仅已还愿（FULFILLED + BLOOM）心愿可设为星火（文档 2.3）
+        if (wish.getStatus() != WishStatus.FULFILLED) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FULFILLED, "仅已还愿的心愿可设为星火永久收藏");
+        }
+
+        // 条件 UPDATE 双保险：fruit_type=BLOOM 前置条件防并发重复设置/状态漂移
+        int updated = wishMapper.update(null, new LambdaUpdateWrapper<Wish>()
+                .eq(Wish::getId, wishId)
+                .eq(Wish::getFruitType, FruitType.BLOOM)
+                .set(Wish::getFruitType, FruitType.SPARK));
+        if (updated == 0) {
+            // 并发未命中：他人已并发设为 SPARK → 幂等成功；否则属状态异常
+            Wish fresh = wishMapper.selectById(wishId);
+            if (fresh == null) {
+                throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+            }
+            if (fresh.getFruitType() != FruitType.SPARK) {
+                throw new BusinessException(WishErrorCodes.WISH_SPARK_CONFLICT,
+                        "设置星火失败，心愿状态已变化，请刷新后重试");
+            }
+            return new WishSparkVO(wishId, FruitType.SPARK, fresh.getUpdatedAt());
+        }
+
+        log.info("心愿设为星火永久收藏, wishId={}, userId={}", wishId, userId);
+        return new WishSparkVO(wishId, FruitType.SPARK, LocalDateTime.now());
     }
 
     @Override

@@ -725,4 +725,101 @@ class WishServiceImplTest {
             verify(wishMapper, org.mockito.Mockito.times(2)).update(any(), any());
         }
     }
+
+    // ========== sparkWish（星火永久收藏，文档 2.3） ==========
+
+    @Nested
+    @DisplayName("sparkWish - 设为星火永久收藏")
+    class SparkWishTests {
+
+        @BeforeAll
+        static void initWishEntityMeta() {
+            // LambdaUpdateWrapper.set(SFunction) 构造期解析列名需要 TableInfo 缓存
+            MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+            TableInfoHelper.initTableInfo(assistant, Wish.class);
+        }
+
+        private Wish buildFulfilledWish() {
+            Wish wish = buildWish();
+            wish.setStatus(WishStatus.FULFILLED);
+            wish.setFruitType(FruitType.BLOOM);
+            return wish;
+        }
+
+        @Test
+        @DisplayName("已还愿心愿设为星火：BLOOM→SPARK 条件 UPDATE 成功")
+        void spark_success() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildFulfilledWish());
+            when(wishMapper.update(any(), any())).thenReturn(1);
+
+            var result = wishService.sparkWish(USER_ID, WISH_ID);
+
+            assertThat(result.id()).isEqualTo(WISH_ID);
+            assertThat(result.fruitType()).isEqualTo(FruitType.SPARK);
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), any());
+        }
+
+        @Test
+        @DisplayName("幂等：已是 SPARK 直接返回成功，不执行 UPDATE")
+        void spark_alreadySpark_idempotent() {
+            Wish sparkWish = buildFulfilledWish();
+            sparkWish.setFruitType(FruitType.SPARK);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(sparkWish);
+
+            var result = wishService.sparkWish(USER_ID, WISH_ID);
+
+            assertThat(result.fruitType()).isEqualTo(FruitType.SPARK);
+            verify(wishMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("未还愿心愿（ACTIVE）设置星火：409 WISH_NOT_FULFILLED")
+        void spark_notFulfilled_rejected() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildWish());
+
+            assertThatThrownBy(() -> wishService.sparkWish(USER_ID, WISH_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(ex -> ((BusinessException) ex).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FULFILLED);
+            verify(wishMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("非作者设置星火：403 WISH_NOT_AUTHOR")
+        void spark_notAuthor_rejected() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildFulfilledWish());
+
+            assertThatThrownBy(() -> wishService.sparkWish(OTHER_USER_ID, WISH_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(ex -> ((BusinessException) ex).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR);
+            verify(wishMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("并发未命中但已是 SPARK：幂等成功")
+        void spark_concurrentAlreadySpark_idempotent() {
+            Wish sparkWish = buildFulfilledWish();
+            sparkWish.setFruitType(FruitType.SPARK);
+            // 第一次 selectById 返回 BLOOM 快照，条件 UPDATE 未命中，重查已 SPARK
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildFulfilledWish(), sparkWish);
+            when(wishMapper.update(any(), any())).thenReturn(0);
+
+            var result = wishService.sparkWish(USER_ID, WISH_ID);
+
+            assertThat(result.fruitType()).isEqualTo(FruitType.SPARK);
+        }
+
+        @Test
+        @DisplayName("并发未命中且非 SPARK（状态漂移）：409 WISH_SPARK_CONFLICT")
+        void spark_concurrentStateDrift_conflict() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(buildFulfilledWish());
+            when(wishMapper.update(any(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> wishService.sparkWish(USER_ID, WISH_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(ex -> ((BusinessException) ex).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_SPARK_CONFLICT);
+        }
+    }
 }

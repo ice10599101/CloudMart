@@ -274,9 +274,32 @@ export default function WishDetailPage() {
     }
   }
 
+  /** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿，幂等，二次确认） */
+  const [sparkSaving, setSparkSaving] = useState(false)
+  const handleSpark = async () => {
+    const res = await Taro.showModal({
+      title: '设为星火永久收藏',
+      content: '心愿将以星火形态在世界生命树永久展示，可被他人收藏到收藏馆。确定吗？',
+    })
+    if (!res.confirm) return
+    setSparkSaving(true)
+    try {
+      const result = await wishApi.sparkWish(wishId)
+      if (result.data.success) {
+        Taro.showToast({ title: '已设为星火永久收藏', icon: 'none' })
+        setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '设置失败，请稍后重试', icon: 'none' })
+    } finally {
+      setSparkSaving(false)
+    }
+  }
+
   if (loading) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='心愿详情' back />
         <View className={styles.loading}>
           <View className={styles.spinner} />
@@ -287,7 +310,7 @@ export default function WishDetailPage() {
 
   if (!wish) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='心愿详情' back />
         <View className={styles.empty}>
           <Text className={styles.emptyIcon}>🌌</Text>
@@ -300,7 +323,7 @@ export default function WishDetailPage() {
   const isAuthor = user?.id === wish.authorId
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='心愿详情' back />
       <ScrollView
         scrollY
@@ -551,6 +574,17 @@ export default function WishDetailPage() {
               onClick={() => Taro.navigateTo({ url: `/pages/wishFulfillment/index?id=${wishId}` })}
             >
               <Text className={styles.fulfillBtnText}>🌸 我要还愿</Text>
+            </View>
+          )}
+          {/* 星火永久收藏（文档 2.3：FULFILLED+BLOOM 可设置；SPARK 展示已收藏态） */}
+          {wish.status === 'FULFILLED' && wish.fruitType === 'BLOOM' && (
+            <View className={styles.sparkBtn} onClick={sparkSaving ? undefined : handleSpark}>
+              <Text className={styles.sparkBtnText}>{sparkSaving ? '设置中...' : '⭐ 设为星火'}</Text>
+            </View>
+          )}
+          {wish.fruitType === 'SPARK' && (
+            <View className={styles.sparkDoneBtn}>
+              <Text className={styles.sparkDoneBtnText}>⭐ 星火永久</Text>
             </View>
           )}
           <View className={styles.deleteBtn} onClick={handleDelete}>

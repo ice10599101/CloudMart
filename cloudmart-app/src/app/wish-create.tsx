@@ -33,6 +33,7 @@ const EXPECTED_OPTIONS = [
 const VISIBILITY_OPTIONS: Array<{ value: WishVisibility; label: string; hint: string }> = [
   { value: 'PUBLIC', label: '公开', hint: '展示在心愿广场，所有人可见' },
   { value: 'PRIVATE', label: '私密', hint: '仅自己可见，不公开展示' },
+  { value: 'TREE_HOLE', label: '树洞', hint: '匿名 + AI 治愈回复，仅自己可见' },
 ]
 
 export default function WishCreateScreen() {

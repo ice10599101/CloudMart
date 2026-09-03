@@ -66,6 +66,7 @@ export default defineConfig({
         { path: '/wish/leaderboard', component: '@/pages/Leaderboard' },
         { path: '/wish/map', component: '@/pages/WishMap' },
         { path: '/wish/encounters', component: '@/pages/EncounterLetters' },
+        { path: '/wish/notification-prefs', component: '@/pages/WishNotificationPrefs' },
         { path: '/wish/activities', component: '@/pages/Activities' },
         { path: '/wish/:id/tree-hole', component: '@/pages/TreeHole' },
         { path: '/wish/:id/fulfillment', component: '@/pages/WishFulfillment' },

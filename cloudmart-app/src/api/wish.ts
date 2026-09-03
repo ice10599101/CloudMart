@@ -98,6 +98,13 @@ export interface WishCollectionItem {
     collectedAt: string
 }
 
+/** 设为星火永久收藏结果（POST /wish/wishes/{id}/spark） */
+export interface WishSparkResult {
+    id: number
+    fruitType: 'SPARK'
+    updatedAt: string
+}
+
 export interface CreateWishPayload {
     title: string
     description: string
@@ -157,6 +164,10 @@ export const wishApi = {
     deleteWish: (id: number | string) => request<void>({ url: `/wish/wishes/${id}`, method: 'DELETE' }),
     listMyWishes: (params: MyWishListQuery) =>
         request<MyWishListItem[]>({ url: `/wish/wishes/my${buildQuery(params as Record<string, unknown>)}` }),
+
+    // ---- 星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿可操作，幂等）----
+    sparkWish: (id: number | string) =>
+        request<WishSparkResult>({ url: `/wish/wishes/${id}/spark`, method: 'POST' }),
 
     // ---- 互动（Sprint 1.2）----
     createInteraction: (wishId: number | string, data: { type: WishInteractionType; content?: string }) =>

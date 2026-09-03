@@ -19,7 +19,7 @@ import {
 import { history, useParams, useSearchParams } from 'umi'
 import {
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
-  checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus,
+  checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
 } from '@/api/wish'
 import type { WishDetail as WishDetailData, WishFulfillmentDetail } from '@/api/wish'
 import { uploadFile } from '@/api/file'
@@ -75,6 +75,8 @@ export default function WishDetail() {
   const [shareOpen, setShareOpen] = useState(false)
   const [inheritMessage, setInheritMessage] = useState('')
   const [inheriting, setInheriting] = useState(false)
+  // 星火永久收藏（文档 2.3，仅作者对 FULFILLED+BLOOM 心愿）
+  const [sparkSaving, setSparkSaving] = useState(false)
   // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，刷新页面后重打会 409 由后端幂等兜底）
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [checkinContent, setCheckinContent] = useState('')
@@ -253,6 +255,22 @@ export default function WishDetail() {
     }
   }
 
+  /** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿，幂等） */
+  const handleSpark = async () => {
+    setSparkSaving(true)
+    try {
+      const res = await sparkWish(wishId)
+      if (res.data.success) {
+        message.success('已设为星火永久收藏')
+        setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
+      }
+    } catch {
+      // 错误已由 request 拦截器处理
+    } finally {
+      setSparkSaving(false)
+    }
+  }
+
   /** 互动成功后同步心愿计数（服务端返回的最新值） */
   const handleCountsChange = (partial: Partial<WishInteractionCounts>) => {
     setWish((prev) => (prev ? { ...prev, ...partial } : prev))
@@ -365,6 +383,25 @@ export default function WishDetail() {
                 onClick={() => setInheritOpen(true)}
               >
                 传承给同路人
+              </Button>
+            )}
+            {/* 星火永久收藏（文档 2.3：FULFILLED+BLOOM 可设置；SPARK 展示已收藏态） */}
+            {wish.status === 'FULFILLED' && wish.fruitType === 'BLOOM' && (
+              <Popconfirm
+                title="设为星火永久收藏？"
+                description="心愿将以星火形态在世界生命树永久展示，可被他人收藏到收藏馆"
+                onConfirm={handleSpark}
+                okText="确定"
+                cancelText="取消"
+              >
+                <Button loading={sparkSaving} style={{ borderColor: '#FFB727', color: '#B87A00' }}>
+                  ⭐ 设为星火
+                </Button>
+              </Popconfirm>
+            )}
+            {wish.fruitType === 'SPARK' && (
+              <Button disabled style={{ borderColor: 'rgba(255,215,0,0.45)', color: '#B89400', background: 'rgba(255,215,0,0.08)' }}>
+                ⭐ 星火永久
               </Button>
             )}
             <Popconfirm

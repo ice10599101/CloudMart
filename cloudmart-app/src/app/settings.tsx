@@ -64,7 +64,7 @@ function SwitchRow({ label, desc, value, onValueChange, theme }: {
 
 export default function SettingsPage() {
   const theme = useTheme()
-  const { user, logout } = useAuthStore()
+  const { user, isLoggedIn, logout } = useAuthStore()
   const { mode, toggleTheme } = useThemeStore()
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -132,6 +132,16 @@ export default function SettingsPage() {
     ])
   }
 
+  /** 合规页登录守卫（数据导出/通知偏好/注销均为登录用户功能） */
+  const requireLoginOr = (action: () => void) => {
+    if (!isLoggedIn) {
+      Alert.alert('提示', '请先登录')
+      router.push('/login')
+      return
+    }
+    action()
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.bgBase }}>
       <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxxl }}>
@@ -172,6 +182,41 @@ export default function SettingsPage() {
           </View>
           <TouchableOpacity onPress={changingPassword ? undefined : handleChangePassword} style={{ marginVertical: Spacing.lg, height: 40, borderRadius: BorderRadius.xl, backgroundColor: theme.primary, justifyContent: 'center', alignItems: 'center', opacity: changingPassword ? 0.6 : 1 }}>
             <Text style={{ color: '#FFFFFF', fontSize: FontSize.md, fontWeight: '600' }}>{changingPassword ? '修改中...' : '修改密码'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Data & Account（合规 34.2/34.6，对齐 WEB UserCenter / Mobile myWishes） */}
+        <SectionTitle theme={theme}>数据与账号</SectionTitle>
+        <View style={{ marginHorizontal: Spacing.lg, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, overflow: 'hidden' }}>
+          <TouchableOpacity
+            onPress={() => requireLoginOr(() => router.push('/data-export'))}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}
+          >
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.text }}>数据导出</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>下载心愿/成长/互动等个人数据副本（JSON，7 天有效）</Text>
+            </View>
+            <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => requireLoginOr(() => router.push('/notification-prefs'))}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}
+          >
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.text }}>心愿通知偏好</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>管理心愿宇宙的消息推送开关</Text>
+            </View>
+            <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => requireLoginOr(() => router.push('/account-deletion'))}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl }}
+          >
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.accentRed }}>注销账号</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>申请后 30 天宽限期，期间可撤回</Text>
+            </View>
+            <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
           </TouchableOpacity>
         </View>
 

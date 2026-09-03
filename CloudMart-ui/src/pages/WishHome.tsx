@@ -15,6 +15,7 @@ import {
   EnvironmentOutlined,
   MailOutlined,
   FlagOutlined,
+  BellOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -233,6 +234,17 @@ export default function WishHome() {
               >
                 <FlagOutlined className={styles.entryIcon} style={{ color: '#4ECDC4' }} />
                 <div className={styles.entryText}>社区活动</div>
+              </Card>
+            </Col>
+            {/* 心愿通知偏好（合规 34.6，对齐 Mobile wishHome / APP settings 入口） */}
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/notification-prefs')}
+              >
+                <BellOutlined className={styles.entryIcon} style={{ color: '#9370DB' }} />
+                <div className={styles.entryText}>通知偏好</div>
               </Card>
             </Col>
           </Row>

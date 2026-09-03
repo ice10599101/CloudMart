@@ -216,7 +216,7 @@ export default function WishFulfillmentPage() {
 
   if (loading) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='我要还愿' back />
         <View className={styles.loading}>
           <View className={styles.spinner} />
@@ -227,7 +227,7 @@ export default function WishFulfillmentPage() {
 
   if (!wish) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='我要还愿' back />
         <View className={styles.invalid}>
           <Text className={styles.invalidText}>心愿不存在或已被删除</Text>
@@ -242,7 +242,7 @@ export default function WishFulfillmentPage() {
 
   if (!isAuthor || (!fulfillable && !submitResult)) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='我要还愿' back />
         <View className={styles.invalid}>
           <Text className={styles.invalidText}>
@@ -257,7 +257,7 @@ export default function WishFulfillmentPage() {
   // 提交成功：绽放仪式 + 奖励展示
   if (submitResult) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='我要还愿' back />
         <View className={styles.ceremony}>
           <View className={styles.bloomCore}>
@@ -297,7 +297,7 @@ export default function WishFulfillmentPage() {
   }
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='我要还愿' back />
       <ScrollView scrollY className={styles.scroll}>
         {/* 心愿标题 */}

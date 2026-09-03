@@ -151,7 +151,7 @@ export default function WishSquarePage() {
   )
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='心愿广场' back />
       {/* 搜索栏 */}
       <View className={styles.searchBar}>

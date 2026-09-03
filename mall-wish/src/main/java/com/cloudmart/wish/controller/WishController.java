@@ -17,6 +17,7 @@ import com.cloudmart.wish.vo.MyWishListItemVO;
 import com.cloudmart.wish.vo.WishCreateResultVO;
 import com.cloudmart.wish.vo.WishDeleteResultVO;
 import com.cloudmart.wish.vo.WishListItemVO;
+import com.cloudmart.wish.vo.WishSparkVO;
 import com.cloudmart.wish.vo.WishUpdateResultVO;
 import com.cloudmart.wish.vo.WishVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -92,6 +93,20 @@ public class WishController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
         WishDeleteResultVO vo = wishService.deleteWish(userId, wishId);
+        return ApiResponse.ok(vo);
+    }
+
+    @PostMapping("/{id}/spark")
+    @Operation(summary = "设为星火永久收藏", description = "仅作者可对已还愿（FULFILLED）心愿操作，"
+            + "fruit_type: BLOOM → SPARK，status 保持不变；幂等（已是 SPARK 直接成功）。"
+            + "SPARK 心愿在世界生命树永久展示，可被他人收藏到个人收藏馆。"
+            + "errors: 403 WISH_NOT_AUTHOR / 404 WISH_NOT_FOUND / 409 WISH_NOT_FULFILLED / WISH_SPARK_CONFLICT")
+    @SentinelResource("WISH_SPARK")
+    public ApiResponse<WishSparkVO> sparkWish(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
+        WishSparkVO vo = wishService.sparkWish(userId, wishId);
         return ApiResponse.ok(vo);
     }
 

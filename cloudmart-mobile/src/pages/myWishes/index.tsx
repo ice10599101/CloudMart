@@ -146,7 +146,7 @@ export default function MyWishesPage() {
 
   if (loading) {
     return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='我的心愿' back />
         <View className={styles.loading}>
           <View className={styles.spinner} />
@@ -156,7 +156,7 @@ export default function MyWishesPage() {
   }
 
   return (
-    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+    <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='我的心愿' back />
 
       {/* 状态筛选 */}
@@ -172,6 +172,31 @@ export default function MyWishesPage() {
         ))}
       </ScrollView>
 
+      {/* 快捷入口（对齐 WEB 端：我的收藏/虚拟工坊/我的徽章） */}
+      <View className={styles.quickNav}>
+        <View
+          className={styles.quickNavBtn}
+          onClick={() => Taro.navigateTo({ url: '/pages/wishCollections/index' })}
+        >
+          <Text className={styles.quickNavIcon}>📖</Text>
+          <Text className={styles.quickNavText}>我的收藏</Text>
+        </View>
+        <View
+          className={styles.quickNavBtn}
+          onClick={() => Taro.navigateTo({ url: '/pages/workshop/index' })}
+        >
+          <Text className={styles.quickNavIcon}>🎁</Text>
+          <Text className={styles.quickNavText}>虚拟工坊</Text>
+        </View>
+        <View
+          className={styles.quickNavBtn}
+          onClick={() => Taro.navigateTo({ url: '/pages/badgeWall/index' })}
+        >
+          <Text className={styles.quickNavIcon}>🏆</Text>
+          <Text className={styles.quickNavText}>我的徽章</Text>
+        </View>
+      </View>
+
       {/* 新建按钮 */}
       <View className={styles.toolbar}>
         <View
@@ -185,13 +210,7 @@ export default function MyWishesPage() {
       {wishes.length === 0 ? (
         <View className={styles.empty}>
           <Text className={styles.emptyIcon}>🌟</Text>
-          <Text className={styles.emptyText}>还没有心愿，许下第一个心愿吧</Text>
-          <View
-            className={styles.emptyBtn}
-            onClick={() => Taro.navigateTo({ url: '/pages/wishCreate/index' })}
-          >
-            <Text className={styles.emptyBtnText}>发布心愿</Text>
-          </View>
+          <Text className={styles.emptyText}>还没有心愿，点击上方「新建心愿」许下第一个吧</Text>
         </View>
       ) : (
         <ScrollView

@@ -108,6 +108,8 @@ public final class WishErrorCodes {
     public static final String WISH_NOT_FULFILLED = "WISH_NOT_FULFILLED";
     /** 该还愿已发起过传承（一次还愿一次传承） */
     public static final String WISH_ALREADY_INHERITED = "WISH_ALREADY_INHERITED";
+    /** 星火设置并发冲突（条件 UPDATE 未命中且非幂等场景，409） */
+    public static final String WISH_SPARK_CONFLICT = "WISH_SPARK_CONFLICT";
     /** 排行榜榜单类型非法 */
     public static final String WISH_LEADERBOARD_TYPE_INVALID = "WISH_LEADERBOARD_TYPE_INVALID";
     /** 排行榜配置值非法（管理端） */

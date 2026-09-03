@@ -133,7 +133,7 @@ export default function CapsuleListPage() {
     }
 
     return (
-        <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+        <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
             <CustomNavBar title='我的时间胶囊' back />
 
             {/* 状态 Tabs */}

@@ -233,7 +233,7 @@ export default function WishCreatePage() {
   const categoryIndex = categories.findIndex(c => c.id === categoryId)
 
   return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='许下心愿' back />
         <ScrollView scrollY className={styles.scroll}>
           {/* 标题 */}

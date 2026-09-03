@@ -8,6 +8,7 @@ import com.cloudmart.wish.vo.MyWishListItemVO;
 import com.cloudmart.wish.vo.WishCreateResultVO;
 import com.cloudmart.wish.vo.WishDeleteResultVO;
 import com.cloudmart.wish.vo.WishListItemVO;
+import com.cloudmart.wish.vo.WishSparkVO;
 import com.cloudmart.wish.vo.WishUpdateResultVO;
 import com.cloudmart.wish.vo.WishVO;
 
@@ -69,6 +70,25 @@ public interface WishService {
      * @return 删除结果 VO
      */
     WishDeleteResultVO deleteWish(Long userId, Long wishId);
+
+    /**
+     * 设为星火永久收藏（仅作者可操作，文档 2.3 心愿果实系统）。
+     *
+     * <p>业务规则：</p>
+     * <ul>
+     *   <li>fruit_type: BLOOM → SPARK；status 保持 FULFILLED 不变</li>
+     *   <li>仅 FULFILLED（已还愿）状态可操作，否则 409 WISH_NOT_FULFILLED</li>
+     *   <li>幂等：已是 SPARK 重复调用直接返回成功（永久收藏语义）</li>
+     *   <li>非作者返回 403 WISH_NOT_AUTHOR；心愿不存在返回 404 WISH_NOT_FOUND</li>
+     *   <li>SPARK 心愿在世界生命树永久展示，不受作者归档影响
+     *       （WishStatus 枚举契约：SPARK 不可归档）</li>
+     * </ul>
+     *
+     * @param userId 当前用户 ID
+     * @param wishId 心愿 ID
+     * @return 星火设置结果 VO
+     */
+    WishSparkVO sparkWish(Long userId, Long wishId);
 
     /**
      * 获取心愿详情。

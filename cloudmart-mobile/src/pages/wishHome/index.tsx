@@ -63,7 +63,7 @@ export default function WishHomePage() {
 
   if (loading) {
     return (
-        <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+        <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
           <CustomNavBar title='心愿宇宙' />
           <View className={styles.loading}>
             <View className={styles.spinner} />
@@ -73,7 +73,7 @@ export default function WishHomePage() {
   }
 
   return (
-      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}rpx`, minHeight: '100vh' }}>
+      <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
         <CustomNavBar title='心愿宇宙' />
         <ScrollView scrollY className={styles.scroll}>
           {/* Banner */}

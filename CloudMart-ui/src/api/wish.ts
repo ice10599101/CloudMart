@@ -241,6 +241,11 @@ export function deleteWish(id: number | string) {
   return request.delete<ApiResponse<{ id: number; deletedAt: string }>>(`/wish/wishes/${id}`)
 }
 
+/** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿可操作，幂等） */
+export function sparkWish(id: number | string) {
+  return request.post<ApiResponse<{ id: number; fruitType: 'SPARK'; updatedAt: string }>>(`/wish/wishes/${id}/spark`)
+}
+
 export function listWishes(params: {
   categoryId?: number
   status?: WishStatus

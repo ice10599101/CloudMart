@@ -171,14 +171,7 @@ export default function MyWishes() {
 
       {wishes.length === 0 ? (
         <div className={styles.emptyContainer}>
-          <Empty description="还没有心愿，点击下方按钮许下第一个心愿" />
-          <Button
-            type="primary"
-            size="large"
-            onClick={() => history.push('/wish/create')}
-          >
-            发布心愿
-          </Button>
+          <Empty description="还没有心愿，点击右上角「新建心愿」许下第一个心愿" />
         </div>
       ) : (
         <>

@@ -75,11 +75,13 @@ export default function WishAssetAdmin() {
       const payload: Partial<AdminWishAsset> = {
         assetType: values.assetType,
         name: values.name.trim(),
-        description: values.description?.trim() || null,
-        icon: values.icon?.trim() || null,
+        // 空串而非 null：MyBatis-Plus updateById 忽略 null 字段，清空需空串才能落库
+        description: values.description?.trim() || '',
+        icon: values.icon?.trim() || '',
         priceStarlight: values.priceStarlight,
         stock: values.stock,
-        ...(editing ? { assetId: editing.assetId } : {}),
+        // 编辑时携带 id，后端按 id 走 updateById；缺失则视为新建
+        ...(editing ? { id: editing.id } : {}),
       }
       await saveAdminWishAsset(payload)
       message.success(editing ? '资产已更新' : '资产已创建')
@@ -88,12 +90,25 @@ export default function WishAssetAdmin() {
   }
 
   const assetColumns: ProColumns<AdminWishAsset>[] = [
-    { title: 'ID', dataIndex: 'assetId', width: 150, ellipsis: true },
+    { title: 'ID', dataIndex: 'id', width: 150, ellipsis: true },
     {
       title: '类型',
       dataIndex: 'assetType',
       width: 100,
       render: (_, r) => <Tag color="purple">{ASSET_TYPE_LABELS[r.assetType] ?? r.assetType}</Tag>,
+    },
+    {
+      title: '图标',
+      dataIndex: 'icon',
+      width: 80,
+      render: (_, r) => {
+        if (!r.icon) return <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>
+        // emoji 直接展示；URL 渲染缩略图
+        if (/^https?:\/\//.test(r.icon)) {
+          return <img src={r.icon} alt={r.name} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+        }
+        return <span style={{ fontSize: 22 }}>{r.icon}</span>
+      },
     },
     { title: '名称', dataIndex: 'name', width: 160 },
     { title: '描述', dataIndex: 'description', ellipsis: true, render: (v) => v || '-' },
@@ -125,7 +140,7 @@ export default function WishAssetAdmin() {
           key="toggle"
           title={record.isActive ? '确认下架？用户将不可再获取' : '确认上架？'}
           onConfirm={async () => {
-            const res = await toggleAdminWishAssetActive(record.assetId, !record.isActive)
+            const res = await toggleAdminWishAssetActive(record.id, !record.isActive)
             if (res.data.success) message.success(record.isActive ? '已下架' : '已上架')
             actionRef.current?.reload()
           }}
@@ -158,7 +173,7 @@ export default function WishAssetAdmin() {
         <ProTable<AdminWishAsset>
           headerTitle="心愿虚拟资产"
           actionRef={actionRef}
-          rowKey="assetId"
+          rowKey="id"
           search={false}
           request={async () => safeProTableRequest<AdminWishAsset>(() => listAdminWishAssets())}
           toolBarRender={() => [

@@ -13,6 +13,7 @@ import com.cloudmart.wish.service.WishService;
 import com.cloudmart.wish.vo.WishCreateResultVO;
 import com.cloudmart.wish.vo.WishFulfillmentSubmitVO;
 import com.cloudmart.wish.vo.WishFulfillmentVO;
+import com.cloudmart.wish.vo.WishSparkVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,9 +31,10 @@ import static org.mockito.Mockito.when;
 /**
  * 还愿链路集成测试（真实 MySQL：状态流转/统计联动/星光流水/徽章判定/唯一约束）。
  *
- * <p>覆盖（文档 2.4 + 6.1 + 6.5）：提交即 FULFILLED+BLOOM、还愿星光 +50、
+ * <p>覆盖（文档 2.3 + 2.4 + 6.1 + 6.5）：提交即 FULFILLED+BLOOM、还愿星光 +50、
  * total_fulfilled/active_wishes 统计联动、FIRST_FULFILL 徽章同事务授予、
- * 重复还愿拒绝、作者级防存在性探测、还愿详情可见性。</p>
+ * 重复还愿拒绝、作者级防存在性探测、还愿详情可见性、
+ * 星火永久收藏（BLOOM→SPARK 状态机 + 幂等）。</p>
  */
 @DisplayName("还愿链路集成测试")
 class FulfillmentIntegrationTest extends WishIntegrationTestBase {
@@ -258,6 +260,100 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("星火永久收藏")
+    class SparkWish {
+
+        /** 构造 FULFILLED+BLOOM 心愿（还愿后状态），返回心愿 ID。 */
+        private Long createFulfilledWishId(Long categoryId, WishVisibility visibility) {
+            WishCreateResultVO wish = createWish(categoryId, visibility);
+            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest());
+            return wish.id();
+        }
+
+        @Test
+        @DisplayName("已还愿心愿设为星火：BLOOM→SPARK，status 保持 FULFILLED")
+        void sparkTransitionsFruitTypeOnly() {
+            Long categoryId = seedCategory("IT_SPARK_1");
+            stubUserFeign();
+            Long wishId = createFulfilledWishId(categoryId, WishVisibility.PUBLIC);
+
+            WishSparkVO result = wishService.sparkWish(USER_ID, wishId);
+
+            assertThat(result.id()).isEqualTo(wishId);
+            assertThat(result.fruitType()).isEqualTo(FruitType.SPARK);
+            assertThat(result.updatedAt()).isNotNull();
+
+            // DB 断言：仅果实类型变化，状态保持 FULFILLED（永久收藏不回退状态）
+            String dbFruitType = jdbcTemplate.queryForObject(
+                    "SELECT fruit_type FROM wish WHERE id = ?", String.class, wishId);
+            String dbStatus = jdbcTemplate.queryForObject(
+                    "SELECT status FROM wish WHERE id = ?", String.class, wishId);
+            assertThat(dbFruitType).isEqualTo("SPARK");
+            assertThat(dbStatus).isEqualTo("FULFILLED");
+        }
+
+        @Test
+        @DisplayName("幂等：重复设为星火直接成功，DB 状态稳定")
+        void sparkIsIdempotent() {
+            Long categoryId = seedCategory("IT_SPARK_2");
+            stubUserFeign();
+            Long wishId = createFulfilledWishId(categoryId, WishVisibility.PUBLIC);
+
+            wishService.sparkWish(USER_ID, wishId);
+            WishSparkVO second = wishService.sparkWish(USER_ID, wishId);
+
+            assertThat(second.fruitType()).isEqualTo(FruitType.SPARK);
+            String dbFruitType = jdbcTemplate.queryForObject(
+                    "SELECT fruit_type FROM wish WHERE id = ?", String.class, wishId);
+            assertThat(dbFruitType).isEqualTo("SPARK");
+        }
+
+        @Test
+        @DisplayName("未还愿心愿（ACTIVE/GLOW）设星火：WISH_NOT_FULFILLED 且 DB 不变")
+        void sparkActiveWishRejected() {
+            Long categoryId = seedCategory("IT_SPARK_3");
+            stubUserFeign();
+            WishCreateResultVO wish = createWish(categoryId, WishVisibility.PUBLIC);
+
+            assertThatThrownBy(() -> wishService.sparkWish(USER_ID, wish.id()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FULFILLED);
+
+            String dbFruitType = jdbcTemplate.queryForObject(
+                    "SELECT fruit_type FROM wish WHERE id = ?", String.class, wish.id());
+            assertThat(dbFruitType).isEqualTo("GLOW");
+        }
+
+        @Test
+        @DisplayName("非作者设星火被拒：公开心愿 WISH_NOT_AUTHOR；私密心愿 WISH_NOT_FOUND 防探测")
+        void sparkNonAuthorRejected() {
+            Long categoryId = seedCategory("IT_SPARK_4");
+            stubUserFeign();
+            Long publicWishId = createFulfilledWishId(categoryId, WishVisibility.PUBLIC);
+            Long privateWishId = createFulfilledWishId(categoryId, WishVisibility.PRIVATE);
+
+            assertThatThrownBy(() -> wishService.sparkWish(OTHER_USER_ID, publicWishId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR);
+
+            assertThatThrownBy(() -> wishService.sparkWish(OTHER_USER_ID, privateWishId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+
+            // 两个心愿的果实类型均未被改动
+            String publicFruitType = jdbcTemplate.queryForObject(
+                    "SELECT fruit_type FROM wish WHERE id = ?", String.class, publicWishId);
+            String privateFruitType = jdbcTemplate.queryForObject(
+                    "SELECT fruit_type FROM wish WHERE id = ?", String.class, privateWishId);
+            assertThat(publicFruitType).isEqualTo("BLOOM");
+            assertThat(privateFruitType).isEqualTo("BLOOM");
         }
     }
 }

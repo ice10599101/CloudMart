@@ -30,8 +30,7 @@ public class AdminCollectionController {
     @GetMapping("/admin/collection/assets")
     @Operation(summary = "资产列表（全量含下架）")
     public ApiResponse<List<VirtualAsset>> listAssets() {
-        return ApiResponse.ok(collectionService.workshopAssets(null) == null
-                ? List.of() : collectionService.listAllAssets());
+        return ApiResponse.ok(collectionService.listAllAssets());
     }
 
     @PostMapping("/admin/collection/assets")
