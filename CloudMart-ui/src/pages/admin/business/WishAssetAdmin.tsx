@@ -13,6 +13,7 @@ import {
 } from '@/api/admin/wish'
 import type { AdminWishAsset, AdminWishBrand } from '@/api/admin/wish'
 import { safeProTableRequest } from '@/utils/proTable'
+import AssetIcon from '@/components/AssetIcon'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
 
@@ -102,22 +103,7 @@ export default function WishAssetAdmin() {
       title: '图标',
       dataIndex: 'icon',
       width: 80,
-      render: (_, r) => {
-        if (!r.icon) return <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>
-        // emoji 直接展示；URL 渲染缩略图
-        if (/^https?:\/\//.test(r.icon)) {
-          // no-referrer：外链图床（如 B 站 hdslb）有 Referer 防盗链，带后台 Referer 会被 403
-          return (
-            <img
-              src={r.icon}
-              alt={r.name}
-              referrerPolicy="no-referrer"
-              style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }}
-            />
-          )
-        }
-        return <span style={{ fontSize: 22 }}>{r.icon}</span>
-      },
+      render: (_, r) => r.icon ? <AssetIcon icon={r.icon} alt={r.name} /> : <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>,
     },
     { title: '名称', dataIndex: 'name', width: 160 },
     { title: '描述', dataIndex: 'description', ellipsis: true, render: (v) => v || '-' },

@@ -8,6 +8,7 @@ import {
  SwapOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
+import AssetIcon from '@/components/AssetIcon'
 import {
   getWorkshopAssets,
   exchangeAsset,
@@ -196,18 +197,21 @@ export default function WishWorkshop() {
               {assets.map((asset) => (
                 <Card key={asset.assetId} size="small" className={styles.wishCard}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ marginBottom: 4 }}>
-                        <Tag color="purple">{TYPE_LABELS[asset.assetType] ?? asset.assetType}</Tag>
-                        <span style={{ fontWeight: 600 }}>{asset.name}</span>
-                        {asset.owned && <Tag color="green" style={{ marginLeft: 8 }}>已拥有</Tag>}
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <AssetIcon icon={asset.icon} alt={asset.name} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ marginBottom: 4 }}>
+                          <Tag color="purple">{TYPE_LABELS[asset.assetType] ?? asset.assetType}</Tag>
+                          <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                          {asset.owned && <Tag color="green" style={{ marginLeft: 8 }}>已拥有</Tag>}
+                        </div>
                       <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 6 }}>
                         {asset.description ?? '—'}
                       </div>
                       <div style={{ fontSize: 13 }}>
                         <StarOutlined style={{ color: '#FFD700' }} /> {asset.priceStarlight} 星光
                         <span style={{ color: 'var(--color-text-secondary)', marginLeft: 12 }}>库存 {asset.stock}</span>
+                      </div>
                       </div>
                     </div>
                     <Button
@@ -238,8 +242,8 @@ export default function WishWorkshop() {
                       key={item.id}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}
                     >
-                      <div>
-                        <span style={{ marginRight: 8 }}>{item.icon}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <AssetIcon icon={item.icon} alt={item.name} size={28} />
                         <span style={{ fontWeight: 500 }}>{item.name}</span>
                         {item.isActive && <Tag color="green" style={{ marginLeft: 8 }}>使用中</Tag>}
                       </div>

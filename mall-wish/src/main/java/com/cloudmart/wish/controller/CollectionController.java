@@ -3,6 +3,7 @@ package com.cloudmart.wish.controller;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.wish.dto.ExchangeAssetRequest;
 import com.cloudmart.wish.entity.UserAsset;
 import com.cloudmart.wish.service.CollectionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,10 +52,9 @@ public class CollectionController {
     public ApiResponse<UserAsset> exchange(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @RequestBody Map<String, Object> body) {
-        Long assetId = ((Number) body.get("assetId")).longValue();
-        String paymentMethod = (String) body.getOrDefault("paymentMethod", "STARLIGHT");
-        return ApiResponse.ok(collectionService.exchange(userId, assetId, paymentMethod));
+            @jakarta.validation.Valid @RequestBody ExchangeAssetRequest request) {
+        String paymentMethod = request.paymentMethod() == null ? "STARLIGHT" : request.paymentMethod();
+        return ApiResponse.ok(collectionService.exchange(userId, request.assetId(), paymentMethod));
     }
 
     @PostMapping("/collections/spark/{wishId}")

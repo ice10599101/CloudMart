@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+import AssetIcon from '@/components/AssetIcon'
 import type { WorkshopAsset, CollectionAssetGroup, BrandItem, BrandPoolItem } from '@/types'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -206,6 +207,7 @@ export default function WorkshopScreen() {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap', marginBottom: Spacing.xs }}>
+                  <AssetIcon icon={asset.icon} size={36} />
                   <View style={{ paddingHorizontal: 10, paddingVertical: 2, borderRadius: 12, backgroundColor: 'rgba(139, 92, 246, 0.16)' }}>
                     <Text style={{ fontSize: FontSize.xs, color: '#a78bfa' }}>{TYPE_LABELS[asset.assetType] ?? asset.assetType}</Text>
                   </View>
@@ -280,8 +282,9 @@ export default function WorkshopScreen() {
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: Spacing.xs }}>
+                      <AssetIcon icon={item.icon} size={28} />
                       <Text style={{ fontSize: FontSize.sm, color: WishColors.text }}>
-                        {item.icon} {item.name}
+                        {item.name}
                       </Text>
                       {item.isActive && (
                         <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(74, 185, 106, 0.16)' }}>

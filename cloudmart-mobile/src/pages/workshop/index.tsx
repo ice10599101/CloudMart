@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
+import AssetIcon from '@/components/AssetIcon'
 import type { WorkshopAsset, CollectionAssetGroup, BrandItem, BrandPoolItem } from '@/types'
 import styles from './index.module.scss'
 
@@ -171,6 +172,7 @@ export default function WorkshopPage() {
             assets.map((asset) => (
               <View key={asset.assetId} className={styles.card}>
                 <View className={styles.cardHeader}>
+                  <AssetIcon icon={asset.icon} size={36} />
                   <Text className={styles.typeTag}>{TYPE_LABELS[asset.assetType] ?? asset.assetType}</Text>
                   <Text className={styles.assetName}>{asset.name}</Text>
                   {asset.owned && <Text className={styles.ownedTag}>已拥有</Text>}
@@ -210,9 +212,8 @@ export default function WorkshopPage() {
                 {items.map((item) => (
                   <View key={item.id} className={styles.collectionRow}>
                     <View className={styles.collectionName}>
-                      <Text>
-                        {item.icon} {item.name}
-                      </Text>
+                      <AssetIcon icon={item.icon} size={28} />
+                      <Text>{item.name}</Text>
                       {item.isActive && <Text className={styles.activeTag}>使用中</Text>}
                     </View>
                     {(type === 'SKIN' || type === 'BGM') && (
