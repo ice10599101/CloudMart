@@ -153,7 +153,8 @@ public class GlobalExceptionHandler {
                  "WISH_VERSION_CONFLICT", "WISH_NOT_FULFILLABLE",
                  "WISH_AI_GOAL_STATUS_INVALID",
                  "WISH_GROUP_FULL", "WISH_ALREADY_MEMBER",
-                 "WISH_GROUP_KEYWORD_DUPLICATED" -> HttpStatus.CONFLICT;
+                 "WISH_GROUP_KEYWORD_DUPLICATED",
+                 "WISH_ASSET_IN_USE" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
                  "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",

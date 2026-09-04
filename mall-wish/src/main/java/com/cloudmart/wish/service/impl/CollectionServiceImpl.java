@@ -291,6 +291,23 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Override
     @Transactional
+    public void deleteAsset(Long assetId) {
+        VirtualAsset asset = assetMapper.selectById(assetId);
+        if (asset == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "资产不存在");
+        }
+        // 仍有用户持有 → 拒绝物理删除（防孤儿数据），引导改用下架
+        Long ownedCount = userAssetMapper.selectCount(new LambdaQueryWrapper<UserAsset>()
+                .eq(UserAsset::getAssetId, assetId));
+        if (ownedCount != null && ownedCount > 0) {
+            throw new BusinessException(WishErrorCodes.WISH_ASSET_IN_USE,
+                    "已有 " + ownedCount + " 位用户持有该资产，无法删除；请改用下架");
+        }
+        assetMapper.deleteById(assetId);
+    }
+
+    @Override
+    @Transactional
     public void auditBrand(Long brandId, String status) {
         if (!List.of("APPROVED", "REJECTED").contains(status)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "非法审核状态");

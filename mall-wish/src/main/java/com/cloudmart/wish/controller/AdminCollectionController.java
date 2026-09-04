@@ -48,6 +48,14 @@ public class AdminCollectionController {
         return ApiResponse.ok(null);
     }
 
+    @DeleteMapping("/admin/collection/assets/{id}")
+    @Operation(summary = "删除资产", description = "仅允许删除无用户持有的配置行；已有用户持有返回 409 WISH_ASSET_IN_USE（应改用下架）")
+    public ApiResponse<Void> deleteAsset(
+            @Parameter(description = "资产 ID", required = true) @PathVariable Long id) {
+        collectionService.deleteAsset(id);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/admin/brand/list")
     @Operation(summary = "品牌列表（全状态）", description = "含 PENDING/REJECTED，入驻审核数据源")
     public ApiResponse<List<Brand>> listAllBrandsForAdmin() {

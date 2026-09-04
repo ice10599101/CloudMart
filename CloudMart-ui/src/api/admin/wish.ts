@@ -968,6 +968,11 @@ export function toggleAdminWishAssetActive(id: number, active: boolean) {
   )
 }
 
+/** 删除资产（仅允许删除无用户持有的配置行；已有持有返回 409 WISH_ASSET_IN_USE） */
+export function deleteAdminWishAsset(id: number) {
+  return request.delete<ApiResponse<null>>(`/admin/wish/collection/assets/${id}`)
+}
+
 export interface AdminWishBrand {
   brandId: number
   brandName: string

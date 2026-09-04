@@ -45,6 +45,8 @@ public final class WishErrorCodes {
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */
     public static final String WISH_CAPSULE_NOT_AVAILABLE = "WISH_CAPSULE_NOT_AVAILABLE";
+    /** 虚拟资产仍有用户持有，不可物理删除（管理端，改用下架） */
+    public static final String WISH_ASSET_IN_USE = "WISH_ASSET_IN_USE";
 
     // --- 402 Payment Required ---
     public static final String WISH_STARLIGHT_INSUFFICIENT = "WISH_STARLIGHT_INSUFFICIENT";

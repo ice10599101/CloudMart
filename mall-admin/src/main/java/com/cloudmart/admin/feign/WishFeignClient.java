@@ -241,6 +241,9 @@ public interface WishFeignClient {
     ApiResponse<Object> toggleWishAssetActive(@PathVariable("id") Long id,
                                               @RequestParam("active") boolean active);
 
+    @DeleteMapping("/collection/assets/{id}")
+    ApiResponse<Object> deleteWishAsset(@PathVariable("id") Long id);
+
     @GetMapping("/brand/list")
     ApiResponse<Object> listAllBrandsForAdmin();
 

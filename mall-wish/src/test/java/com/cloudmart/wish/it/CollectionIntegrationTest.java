@@ -224,6 +224,45 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
             UserAsset ua = collectionService.exchange(USER, assetId, "STARLIGHT");
             assertThat(ua.getStatus()).isEqualTo("OWNED");
         }
+
+        @Test
+        @DisplayName("删除：无用户持有 → 物理删除")
+        void deleteAssetNoOwner() {
+            Long assetId = seedAsset("SKIN", 10, 0);
+
+            collectionService.deleteAsset(assetId);
+
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_virtual_asset WHERE id = ?", Integer.class, assetId);
+            assertThat(count).isZero();
+        }
+
+        @Test
+        @DisplayName("删除：已有用户持有 → 409 WISH_ASSET_IN_USE 拒绝（防孤儿数据）")
+        void deleteAssetOwnedRejected() {
+            seedUserStat(USER, 100);
+            Long assetId = seedAsset("SKIN", 10, 0);
+            collectionService.exchange(USER, assetId, "STARLIGHT");
+
+            assertThatThrownBy(() -> collectionService.deleteAsset(assetId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_ASSET_IN_USE);
+
+            // 资产仍在库
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_virtual_asset WHERE id = ?", Integer.class, assetId);
+            assertThat(count).isOne();
+        }
+
+        @Test
+        @DisplayName("删除：不存在 → 404 WISH_NOT_FOUND")
+        void deleteAssetNotFound() {
+            assertThatThrownBy(() -> collectionService.deleteAsset(99999999999L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
     }
 
     @Nested

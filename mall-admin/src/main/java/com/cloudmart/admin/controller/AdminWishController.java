@@ -526,6 +526,14 @@ public class AdminWishController {
         return wishFeignClient.toggleWishAssetActive(id, active);
     }
 
+    @DeleteMapping("/wish/collection/assets/{id}")
+    @OperLog(title = "虚拟资产删除", businessType = 3)
+    @RequiresPermission("business:asset:remove")
+    @Operation(summary = "删除资产", description = "仅允许删除无用户持有的配置行；已有用户持有返回 409（应改用下架）")
+    public ApiResponse<Object> deleteWishAsset(@PathVariable Long id) {
+        return wishFeignClient.deleteWishAsset(id);
+    }
+
     @GetMapping("/wish/brand/list")
     @RequiresPermission("business:asset:list")
     @Operation(summary = "品牌列表（全状态）", description = "含 PENDING/REJECTED，入驻审核数据源")

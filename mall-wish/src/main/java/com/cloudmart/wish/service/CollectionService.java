@@ -49,6 +49,13 @@ public interface CollectionService {
     /** 资产上/下架 */
     void toggleAsset(Long assetId, boolean active);
 
+    /**
+     * 删除资产（配置行）。
+     * 安全约束：任一用户持有该资产（wish_user_asset 存在记录）时拒绝删除，
+     * 提示改用下架，避免用户已拥有的资产变成孤儿数据。
+     */
+    void deleteAsset(Long assetId);
+
     /** 品牌入驻审核 */
     void auditBrand(Long brandId, String status);
 

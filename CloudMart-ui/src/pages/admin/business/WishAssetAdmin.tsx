@@ -7,6 +7,7 @@ import {
   listAdminWishAssets,
   saveAdminWishAsset,
   toggleAdminWishAssetActive,
+  deleteAdminWishAsset,
   listAdminWishBrands,
   auditAdminWishBrand,
 } from '@/api/admin/wish'
@@ -105,7 +106,15 @@ export default function WishAssetAdmin() {
         if (!r.icon) return <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>
         // emoji 直接展示；URL 渲染缩略图
         if (/^https?:\/\//.test(r.icon)) {
-          return <img src={r.icon} alt={r.name} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+          // no-referrer：外链图床（如 B 站 hdslb）有 Referer 防盗链，带后台 Referer 会被 403
+          return (
+            <img
+              src={r.icon}
+              alt={r.name}
+              referrerPolicy="no-referrer"
+              style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }}
+            />
+          )
         }
         return <span style={{ fontSize: 22 }}>{r.icon}</span>
       },
@@ -123,7 +132,7 @@ export default function WishAssetAdmin() {
     {
       title: '操作',
       valueType: 'option',
-      width: 160,
+      width: 200,
       render: (_, record) => [
         <Button
           key="edit"
@@ -147,6 +156,22 @@ export default function WishAssetAdmin() {
         >
           <Button type="link" size="small" danger={record.isActive}>
             {record.isActive ? '下架' : '上架'}
+          </Button>
+        </Popconfirm>,
+        <Popconfirm
+          key="delete"
+          title="确认删除该资产？"
+          description="删除后不可恢复；已有用户持有的资产将无法删除（请改用下架）"
+          onConfirm={async () => {
+            const res = await deleteAdminWishAsset(record.id)
+            if (res.data.success) {
+              message.success(`资产「${record.name}」已删除`)
+              actionRef.current?.reload()
+            }
+          }}
+        >
+          <Button type="link" size="small" danger>
+            删除
           </Button>
         </Popconfirm>,
       ],
