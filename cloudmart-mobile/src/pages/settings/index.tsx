@@ -171,6 +171,32 @@ export default function SettingsPage() {
         ))}
       </View>
 
+      {/* 心愿宇宙合规入口 */}
+      <View className={styles.sectionTitle}>心愿宇宙 · 合规</View>
+      <View className={styles.section}>
+        <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/starlightLog/index' })}>
+          <View className={styles.switchInfo}>
+            <Text className={styles.switchLabel}>星光流水</Text>
+            <Text className={styles.switchDesc}>收入/支出明细，游标分页</Text>
+          </View>
+          <Text style={{ color: '#4a90d9', fontSize: 13 }}>→</Text>
+        </View>
+        <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/dataExport/index' })}>
+          <View className={styles.switchInfo}>
+            <Text className={styles.switchLabel}>数据导出</Text>
+            <Text className={styles.switchDesc}>个人数据副本（JSON），7 天有效</Text>
+          </View>
+          <Text style={{ color: '#4a90d9', fontSize: 13 }}>→</Text>
+        </View>
+        <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/wishCollections/index' })}>
+          <View className={styles.switchInfo}>
+            <Text className={styles.switchLabel}>心愿收藏</Text>
+            <Text className={styles.switchDesc}>已收藏的心愿列表</Text>
+          </View>
+          <Text style={{ color: '#4a90d9', fontSize: 13 }}>→</Text>
+        </View>
+      </View>
+
       {/* Privacy Settings */}
       <View className={styles.sectionTitle}>隐私设置</View>
       <View className={styles.section}>

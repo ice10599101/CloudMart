@@ -193,7 +193,7 @@ public interface WishService {
      *
      * @return 打卡结果（含连续天数/星光入账）
      */
-    CheckinResultVO checkinWish(Long userId, Long wishId, String content);
+    CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood);
 
     /**
      * 添加成长记录（TEXT/IMAGE/VIDEO/DIARY），可选进度增量

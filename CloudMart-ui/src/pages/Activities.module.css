@@ -168,3 +168,57 @@
   padding: 24px 0;
   margin: 0;
 }
+
+/* Sprint 3.5 氛围装饰 */
+.festivalBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,107,107,0.08), rgba(255,217,122,0.08), rgba(0,212,255,0.08));
+  border: 1px solid var(--color-border);
+}
+
+.festivalEmoji {
+  font-size: 28px;
+}
+
+.festivalText {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* 实时滚动条（Sprint 3.5 体验要求：marquee 式展示活动进度） */
+.progressTicker {
+  overflow: hidden;
+  white-space: nowrap;
+  margin-bottom: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tickerContent {
+  display: inline-block;
+  animation: ticker-scroll 30s linear infinite;
+}
+
+.tickerItem {
+  margin-right: 48px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tickerContent { animation: none; }
+  .festivalBanner { animation: none; }
+}

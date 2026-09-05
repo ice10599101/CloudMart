@@ -1,5 +1,5 @@
 -- V28: 补齐缺失权限点 (45 项)
-INSERT INTO admin_menu (id,menu_name,parent_id,order_num,menu_type,visible,status,perms,icon,created_at,updated_at) VALUES
+INSERT IGNORE INTO admin_menu (id,menu_name,parent_id,order_num,menu_type,visible,status,perms,icon,created_at,updated_at) VALUES
 (4100,'强制退出 admin:online:forceLogout',5004,99,'F',1,1,'admin:online:forceLogout','#',NOW(),NOW()),
 (4101,'导出 admin:user:export',1001,99,'F',1,1,'admin:user:export','#',NOW(),NOW()),
 (4102,'导入 admin:user:import',1001,99,'F',1,1,'admin:user:import','#',NOW(),NOW()),

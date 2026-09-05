@@ -202,7 +202,7 @@ class DailySigninIntegrationTest extends WishIntegrationTestBase {
                 userId, new CreateWishRequest("打卡等级联动", "验证打卡累计天数", null, categoryId,
                         List.of("测试"), WishVisibility.PUBLIC, null, null, null, null, null));
 
-        wishService.checkinWish(userId, created.id(), "今日打卡");
+        wishService.checkinWish(userId, created.id(), "今日打卡", null);
 
         Integer totalCheckinDays = jdbcTemplate.queryForObject(
                 "SELECT total_checkin_days FROM wish_user_stat WHERE user_id = ?",

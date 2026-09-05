@@ -291,3 +291,29 @@
     opacity: 0;
   }
 }
+
+/* 1920px 双栏（左表单+右预览）— Sprint 1.5 验收 */
+@media (min-width: 1920px) {
+  .container {
+    max-width: 1400px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .container > [class*="preview"] {
+    position: sticky;
+    top: 80px;
+  }
+}
+
+/* ===== Sprint 1.1/1.6 断点适配：1920px 三列 / 1440px 双列 / 1024px 单列 ===== */
+@media (max-width: 1920px) {
+  .container { max-width: 1200px; }
+}
+@media (max-width: 1440px) {
+  .container { max-width: 960px; }
+}
+@media (max-width: 1024px) {
+  .container { max-width: 100%; padding: 0 12px; }
+}

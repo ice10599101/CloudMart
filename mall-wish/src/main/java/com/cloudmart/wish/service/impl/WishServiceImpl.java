@@ -643,7 +643,7 @@ public class WishServiceImpl implements WishService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public CheckinResultVO checkinWish(Long userId, Long wishId, String content) {
+    public CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood) {
         Wish wish = wishMapper.selectById(wishId);
         if (wish == null || !wish.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");

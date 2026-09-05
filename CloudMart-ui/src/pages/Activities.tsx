@@ -110,6 +110,23 @@ export default function Activities() {
 
   return (
     <div className={styles.container}>
+      {/* Sprint 3.5 氛围装饰 */}
+      <div className={styles.festivalBanner}>
+        <span className={styles.festivalEmoji}>🎪</span>
+        <span className={styles.festivalText}>社区活动</span>
+        <span className={styles.festivalEmoji}>🎉</span>
+      </div>
+      {activities.length > 0 && (
+        <div className={styles.progressTicker}>
+          <div className={styles.tickerContent}>
+            {activities.filter(a => a.status === 'ACTIVE').slice(0, 5).map(a => (
+              <span key={a.id} className={styles.tickerItem}>
+                🔥 {a.title} · {a.progressCounter ?? 0} 人参与
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className={styles.body}>
         <div className={styles.headerBar}>
           <div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Popconfirm } from 'antd'
-import { DownloadOutlined, DeleteOutlined } from '@ant-design/icons'
+import { DownloadOutlined, DeleteOutlined, StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -356,6 +356,17 @@ function ProfileTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
           </div>
         ))}
         {dataExportEntry}
+        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+          <Button size="small" icon={<StarOutlined />} onClick={() => history.push('/wish/starlight-log')}>
+            星光流水
+          </Button>
+          <Button size="small" icon={<TrophyOutlined />} onClick={() => history.push('/wish/badges')}>
+            心愿殿堂
+          </Button>
+          <Button size="small" icon={<BookOutlined />} onClick={() => history.push('/wish/collections')}>
+            心愿收藏
+          </Button>
+        </div>
         {dangerZone}
         {deletionModalNode}
       </div>

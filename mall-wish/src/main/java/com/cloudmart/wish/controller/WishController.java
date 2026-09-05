@@ -188,7 +188,8 @@ public class WishController {
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
             @RequestBody(required = false) java.util.Map<String, String> body) {
         String content = body != null ? body.get("content") : null;
-        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content));
+        String mood = body != null ? body.get("mood") : null;
+        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content, mood));
     }
 
     @PostMapping("/{id}/growth")

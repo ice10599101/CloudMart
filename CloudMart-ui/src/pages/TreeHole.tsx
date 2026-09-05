@@ -13,6 +13,29 @@ import { useAuthStore } from '@/stores/auth'
 import WishBGM from '@/components/WishBGM'
 import styles from './TreeHole.module.css'
 
+/** AI 回复打字机组件（Sprint 2.3 验收：AI 回复有打字机效果） */
+function TypewriterText({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('')
+  const idxRef = useRef(0)
+
+  useEffect(() => {
+    setDisplayed('')
+    idxRef.current = 0
+    const timer = setInterval(() => {
+      idxRef.current += 2
+      if (idxRef.current >= text.length) {
+        setDisplayed(text)
+        clearInterval(timer)
+      } else {
+        setDisplayed(text.slice(0, idxRef.current))
+      }
+    }, 25)
+    return () => clearInterval(timer)
+  }, [text])
+
+  return <>{displayed}</>
+}
+
 /** AI 数据处理协议版本（协议文本管理模块上线前为静态版本） */
 const AI_CONSENT_VERSION = 'v1.0'
 /** 剩余次数提示阈值 */
@@ -207,7 +230,7 @@ export default function TreeHole() {
                 </p>
               </div>
             )}
-            {messages.map((msg) =>
+            {messages.map((msg, mIdx) =>
               msg.role === 'USER' ? (
                 <div key={msg.id} className={styles.userRow}>
                   <div className={styles.userBubble}>{msg.content}</div>
@@ -216,7 +239,7 @@ export default function TreeHole() {
                 <div key={msg.id} className={styles.aiRow}>
                   <div className={styles.aiAvatar}>🌙</div>
                   <div className={`${styles.aiBubble} ${msg.isCrisis ? styles.aiBubbleCrisis : ''}`}>
-                    {msg.content}
+                    {mIdx === messages.length - 1 && !loadingHistory ? <TypewriterText text={msg.content} /> : msg.content}
                     {msg.resources && msg.resources.length > 0 && (
                       <div className={styles.resources}>
                         {msg.resources.map((res) => (

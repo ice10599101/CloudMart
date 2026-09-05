@@ -29,6 +29,9 @@ public class WishCheckin {
 
     private String content;
 
+    /** 打卡心情（HAPPY/CALM/EXCITED/TIRED，可空） */
+    private String mood;
+
     private Boolean isMakeup;
 
     private Boolean starlightGranted;

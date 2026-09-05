@@ -180,3 +180,14 @@
   font-weight: 600;
   margin: 0;
 }
+
+/* 围栏打卡到达动效 — Sprint 3.2 验收 */
+@keyframes checkin-arrive {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.checkResult {
+  animation: checkin-arrive 0.5s ease-out;
+}
