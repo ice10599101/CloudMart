@@ -121,7 +121,7 @@ services:
       - "8191:7091"
       - "8091:8091"
     environment:
-      SEATA_IP: ${SEATA_IP:-127.0.0.1}
+      SEATA_IP: ${SEATA_IP:-0.0.0.0}
       SEATA_PORT: 8091
       JAVA_OPTS: "-Xms256m -Xmx512m"
     entrypoint: ["/bin/bash", "/seata-server/custom-entrypoint.sh"]
