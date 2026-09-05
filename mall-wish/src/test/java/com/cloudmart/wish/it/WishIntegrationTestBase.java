@@ -75,7 +75,7 @@ public abstract class WishIntegrationTestBase {
      *  恢复 16 条种子（管理端 CRUD 用例可放心改库，is_active 强制复位） */
     private static final List<String> BUSINESS_TABLES = List.of(
             "wish", "wish_progress", "wish_interaction", "wish_growth_record",
-            "wish_checkin", "wish_user_stat", "wish_resource_log",
+            "wish_checkin", "wish_user_stat", "wish_resource_log", "wish_daily_signin",
             "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
             "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
             "wish_special_event", "wish_env_config", "time_capsule",

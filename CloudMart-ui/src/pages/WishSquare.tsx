@@ -169,6 +169,7 @@ export default function WishSquare() {
                 cover={
                   wish.mediaUrls && wish.mediaUrls.length > 0 ? (
                     <img
+                      loading="lazy"
                       src={wish.mediaUrls[0]}
                       alt={wish.title}
                       className={styles.cardCover}

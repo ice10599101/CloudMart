@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Spin, message } from 'antd'
+import { Spin } from 'antd'
+import { message } from '@/utils/appMessage'
 import { history, useSearchParams } from 'umi'
 import { fetchOrders, cancelOrder, confirmReceipt } from '@/api/order'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'

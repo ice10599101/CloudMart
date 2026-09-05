@@ -28,6 +28,8 @@ import Skeleton from '@/components/Skeleton'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
 import WishCommentSection from '@/components/WishCommentSection'
 import ShareCardModal from '@/components/ShareCardModal'
+import CheckinCalendar from '@/components/CheckinCalendar'
+import WateringEffect from '@/components/WateringEffect'
 import styles from './WishDetail.module.css'
 import WishBGM from '@/components/WishBGM'
 
@@ -73,6 +75,8 @@ export default function WishDetail() {
   // 传承推送（Sprint 2.7：作者对 FULFILLED 心愿定向推送曾同求用户）
   const [inheritOpen, setInheritOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  // 打卡成功浇水动效（Sprint 1.3 体验要求）：记录触发时的 fruitType
+  const [wateringFruit, setWateringFruit] = useState<'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK' | null>(null)
   const [inheritMessage, setInheritMessage] = useState('')
   const [inheriting, setInheriting] = useState(false)
   // 星火永久收藏（文档 2.3，仅作者对 FULFILLED+BLOOM 心愿）
@@ -292,6 +296,8 @@ export default function WishDetail() {
       const res = await checkinWish(wishId, checkinContent.trim() || undefined)
       if (res.data.success) {
         const { currentStreak, starlightCredited } = res.data.data
+        setWateringFruit(wish?.fruitType ?? null)
+        window.setTimeout(() => setWateringFruit(null), 1800)
         message.success(`打卡成功！已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`)
         setCheckinOpen(false)
         setCheckinContent('')
@@ -426,7 +432,7 @@ export default function WishDetail() {
             <Carousel autoplay className={styles.carousel}>
               {wish.mediaUrls.map(url => (
                 <div key={url}>
-                  <img src={url} alt="media" className={styles.mediaImage} />
+                  <img loading="lazy" src={url} alt="media" className={styles.mediaImage} />
                 </div>
               ))}
             </Carousel>
@@ -556,10 +562,11 @@ export default function WishDetail() {
           />
         </Card>
 
-        {/* 进度 */}
+        {/* 进度 + 打卡日历（作者；浇水动效覆盖层） */}
         {wish.progress && (
           <Card className={styles.progressCard} title="心愿进度">
-            <div className={styles.progressContent}>
+            <div className={styles.progressContent} style={{ position: 'relative' }}>
+              {wateringFruit && <WateringEffect fruitType={wateringFruit} />}
               <Progress
                 percent={wish.progress.percentage}
                 strokeColor={FRUIT_COLORS[wish.fruitType]}
@@ -569,6 +576,14 @@ export default function WishDetail() {
                 <span>当前进度：{wish.progress.currentValue} / {wish.progress.targetValue}</span>
                 <span>打卡天数：{wish.checkinDays} 天</span>
               </div>
+              {isAuthor && (
+                <div style={{ marginTop: 16 }}>
+                  <CheckinCalendar
+                    wishId={wishId}
+                    accentColor={FRUIT_COLORS[wish.fruitType] ?? '#00D4FF'}
+                  />
+                </div>
+              )}
             </div>
           </Card>
         )}

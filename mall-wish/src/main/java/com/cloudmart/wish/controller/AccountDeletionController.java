@@ -76,4 +76,17 @@ public class AccountDeletionController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(accountDeletionService.getStatus(userId));
     }
+
+    /** 文档 1.6 旧客户端别名：DELETE /my/account 与 DELETE /my/account-deletion 均为撤回 */
+    @DeleteMapping({"/account", "/account-deletion"})
+    @Operation(summary = "撤回注销（旧别名）", description = "与 POST /my/account/cancel 等价")
+    public ApiResponse<Map<String, Object>> cancelAlias(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        final WishAccountDeletion deletion = accountDeletionService.cancel(userId);
+        return ApiResponse.ok(Map.of(
+                "userId", deletion.getUserId(),
+                "cancelled", true,
+                "cancelledAt", (deletion.getCanceledAt() == null ? "" : deletion.getCanceledAt().truncatedTo(ChronoUnit.SECONDS).toString())));
+    }
 }

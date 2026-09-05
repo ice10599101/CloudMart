@@ -1,5 +1,6 @@
 package com.cloudmart.wish.service.impl;
 
+import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
@@ -64,6 +65,7 @@ public class ActivityServiceImpl implements ActivityService {
     private static final String PROGRESS_KEY_PREFIX = "activity:progress:";
     private static final int MAX_PAGE_SIZE = 100;
 
+    private final com.cloudmart.wish.repository.ActivityParticipantMapper activityParticipantMapper;
     private final CommunityActivityMapper activityMapper;
     private final ActivityParticipantMapper participantMapper;
     private final ActivityRewardLogMapper rewardLogMapper;
@@ -77,6 +79,28 @@ public class ActivityServiceImpl implements ActivityService {
     private final StringRedisTemplate redisTemplate;
 
     // ---------------- 浏览 ----------------
+
+    @Override
+    public java.util.List<Map<String, Object>> listParticipants(Long activityId, int page, int size) {
+        final var participants = activityParticipantMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.wish.entity.ActivityParticipant>()
+                        .eq(com.cloudmart.wish.entity.ActivityParticipant::getActivityId, activityId)
+                        .in(com.cloudmart.wish.entity.ActivityParticipant::getStatus,
+                                com.cloudmart.wish.enums.ActivityParticipantStatus.JOINED,
+                                com.cloudmart.wish.enums.ActivityParticipantStatus.APPROVED)
+                        .orderByAsc(com.cloudmart.wish.entity.ActivityParticipant::getId)
+                        .last("LIMIT " + Math.min(Math.max(size, 1), 100) + " OFFSET " + Math.max(page - 1, 0) * size));
+        return participants.stream().map(p -> {
+            final Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+            final String uid = String.valueOf(p.getUserId());
+            row.put("userIdMasked", "用户" + uid.substring(Math.max(0, uid.length() - 4)));
+            row.put("role", p.getRole());
+            row.put("status", p.getStatus() != null ? p.getStatus().name() : null);
+            row.put("matchScore", p.getMatchScore());
+            row.put("joinedAt", p.getCreatedAt());
+            return row;
+        }).toList();
+    }
 
     @Override
     public List<CommunityActivity> listActivities(String type, String cityCode) {

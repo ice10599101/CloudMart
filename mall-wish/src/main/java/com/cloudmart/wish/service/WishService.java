@@ -208,4 +208,19 @@ public interface WishService {
     record GrowthRecordVO(Long recordId, int newCurrentValue) {}
     record ProgressDetail(int currentValue, int targetValue, int percentage, int version) {}
     record AddGrowthRequest(String type, String content, List<String> mediaUrls, Short progressDelta) {}
+    record ProgressUpdateRequest(int currentValue, int version) {}
+    record CheckinCalendarVO(List<String> dates) {}
+
+    /** 进度乐观锁更新（作者；version 不符 → WISH_VERSION_CONFLICT 409 + 最新 version） */
+    ProgressDetail updateProgress(Long userId, Long wishId, ProgressUpdateRequest request);
+
+    /** 单心愿打卡日历（作者；month=YYYY-MM，返回当月已打卡日期数组） */
+    CheckinCalendarVO getCheckinCalendar(Long userId, Long wishId, String month);
+
+    /** 编辑成长记录（作者；content/mediaUrls） */
+    GrowthRecordVO updateGrowthRecord(Long userId, Long wishId, Long recordId,
+                                      String content, List<String> mediaUrls);
+
+    /** 删除成长记录（作者；进度为历史事实不回退） */
+    void deleteGrowthRecord(Long userId, Long wishId, Long recordId);
 }

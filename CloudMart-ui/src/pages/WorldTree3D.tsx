@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Card, Spin, Tag } from 'antd'
+import { Button, Card, Spin, Tag, Segmented } from 'antd'
 import { ArrowLeftOutlined, NodeIndexOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import * as THREE from 'three'
@@ -298,16 +298,21 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
 
   const dummy = new THREE.Object3D()
   const fruitColor = new THREE.Color()
+  // 第二章：共鸣果实体积/光效随互动量（点亮数）变大——每实例基础缩放 1.0~1.8
+  const instanceScales: number[] = []
+  const scaleForLight = (lightCount: number | null | undefined) =>
+      1 + Math.min(lightCount ?? 0, 50) / 50 * 0.8
 
   const writeInstance = (index: number, scale: number) => {
     const fruit = fruits[index]
     if (!fruit) return
+    const base = instanceScales[index] ?? 1
     const position = toCartesian(fruit.position.theta, fruit.position.phi, TREE_RADIUS)
     dummy.position.copy(position)
-    dummy.scale.setScalar(scale)
+    dummy.scale.setScalar(scale * base)
     dummy.updateMatrix()
     coreMesh.setMatrixAt(index, dummy.matrix)
-    dummy.scale.setScalar(scale * 1.9)
+    dummy.scale.setScalar(scale * base * 1.9)
     dummy.updateMatrix()
     haloMesh.setMatrixAt(index, dummy.matrix)
   }
@@ -322,6 +327,7 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
       coreMesh.setColorAt(i, fruitColor)
       haloMesh.setColorAt(i, fruitColor)
       instancePhases.push((Number(fruits[i].id) % 97) * 0.35)
+      instanceScales[i] = scaleForLight(fruits[i].lightCount)
       writeInstance(i, 1)
     }
     coreMesh.instanceMatrix.needsUpdate = true
@@ -457,9 +463,9 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     const elapsed = clock.elapsedTime
     controls.update()
 
-    // 果实呼吸脉动
+    // 果实呼吸脉动（基准为互动量缩放）
     for (let i = 0; i < fruits.length; i++) {
-      writeInstance(i, 1 + 0.1 * Math.sin(elapsed * 2 + instancePhases[i]))
+      writeInstance(i, (instanceScales[i] ?? 1) + 0.1 * Math.sin(elapsed * 2 + instancePhases[i]))
     }
     coreMesh.instanceMatrix.needsUpdate = true
     haloMesh.instanceMatrix.needsUpdate = true
@@ -566,6 +572,9 @@ export default function WorldTree3D() {
   const [viewportLoading, setViewportLoading] = useState(false)
   const [selectedFruit, setSelectedFruit] = useState<TreeFruit | null>(null)
   const [flagsReady, setFlagsReady] = useState(false)
+  // Sprint 2.1 验收：手动强制 2D/3D 切换（2D = 果实列表瀑布，低端机/无 WebGL 可用）
+  const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D')
+  const [fruitList, setFruitList] = useState<TreeFruit[]>([])
 
   /** 环境主题（displayEnv 仲裁；快照与配置均失败时保持 null 不覆盖既有视觉） */
   const envTheme = useMemo(
@@ -585,6 +594,7 @@ export default function WorldTree3D() {
     }
     if (hasNew) {
       sceneRef.current?.setFruits([...map.values()])
+      setFruitList([...map.values()])
     }
   }, [])
 
@@ -746,8 +756,18 @@ export default function WorldTree3D() {
           </div>
         </div>
 
-        {/* 3D 画布 */}
-        <div className={styles.canvasWrap}>
+        {/* 3D 画布（2D 降级开关：Sprint 2.1 验收） */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <Segmented
+              value={viewMode}
+              onChange={(v) => setViewMode(v as '3D' | '2D')}
+              options={[
+                { value: '3D', label: '3D 星空' },
+                { value: '2D', label: '2D 列表（降级）' },
+              ]}
+          />
+        </div>
+        <div className={styles.canvasWrap} style={viewMode === '2D' ? { display: 'none' } : undefined}>
           <canvas
               ref={canvasRef}
               className={styles.canvas}
@@ -811,6 +831,27 @@ export default function WorldTree3D() {
               </Card>
           )}
         </div>
+        {viewMode === '2D' && (
+            <div className={styles.canvasWrap} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              {fruitList.length === 0 ? (
+                  <div className={styles.hint}>暂无心愿果实</div>
+              ) : (
+                  fruitList.map((fruit) => (
+                      <Card
+                          key={fruit.id}
+                          size="small"
+                          hoverable
+                          onClick={() => history.push(`/wish/${fruit.id}`)}
+                          title={fruit.title}
+                          extra={<Tag color="cyan">{FRUIT_LABELS[fruit.fruitType] ?? fruit.fruitType}</Tag>}
+                      >
+                        <div className={styles.fruitAuthor}>{fruit.authorNickname}</div>
+                        <span className={styles.fruitLight}>✦ {formatCount(fruit.lightCount)} 点亮</span>
+                      </Card>
+                  ))
+              )}
+            </div>
+        )}
         <WishBGM />
       </div>
   )

@@ -4,6 +4,8 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.CapsuleService;
 import com.cloudmart.wish.service.AccountDeletionService;
+import com.cloudmart.wish.service.CollectionService;
+import com.cloudmart.wish.service.MaintenanceService;
 import com.cloudmart.wish.service.CompanionReminderService;
 import com.cloudmart.wish.service.DataExportService;
 import com.cloudmart.wish.service.EncounterService;
@@ -40,6 +42,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class InternalJobController {
     private final AccountDeletionService accountDeletionService;
+    private final MaintenanceService maintenanceService;
+    private final CollectionService collectionService;
     private final com.cloudmart.wish.service.DataExportService dataExportService;
     private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
     private final EncounterService encounterService;
@@ -105,24 +109,28 @@ public class InternalJobController {
     }
 
     /** 排行榜刷新（Sprint 2.7，建议 Cron 0 0/10 * * * ?，幂等可安全重试） */
+    @PreAuthorize("hasRole('INTERNAL')")
     @PostMapping("/leaderboard-refresh")
     public void leaderboardRefresh() {
         leaderboardService.refreshAll();
     }
 
     /** 擦肩而过匹配+投递（Sprint 3.3，建议 Cron 0 0/30 * * * ?；uk 幂等） */
+    @PreAuthorize("hasRole('INTERNAL')")
     @PostMapping("/encounter-match")
     public ApiResponse<EncounterService.MatchStats> encounterMatch() {
         return ApiResponse.ok(encounterService.matchAndDeliver());
     }
 
     /** 轨迹补偿清理（Sprint 3.3，建议 Cron 0 0 * * * ?；Redis TTL 为主，此为兜底统计） */
+    @PreAuthorize("hasRole('INTERNAL')")
     @PostMapping("/trace-cleanup")
     public ApiResponse<EncounterService.CleanupStats> traceCleanup() {
         return ApiResponse.ok(encounterService.cleanupTraces());
     }
 
     /** 数据导出过期清理（每日 04:30；SUCCESS 超 7 天清空内容置 FAILED） */
+    @PreAuthorize("hasRole('INTERNAL')")
     @PostMapping("/data-export-purge")
     @Operation(summary = "数据导出过期清理", description = "内容超 7 天有效期即清空并置 FAILED（惰性清理的兜底扫描）")
     public ApiResponse<Map<String, Object>> dataExportPurge() {
@@ -131,10 +139,62 @@ public class InternalJobController {
     }
 
     /** 账号注销到期执行（每日 02:00；宽限期到期 → 心愿数据清理 + EXECUTED） */
+    @PreAuthorize("hasRole('INTERNAL')")
     @PostMapping("/account-deletion-scan")
     @Operation(summary = "注销到期执行", description = "PENDING 且 execute_after 到期 → 清理心愿数据并置 EXECUTED")
     public ApiResponse<Map<String, Object>> accountDeletionScan() {
         final int executed = accountDeletionService.executeDue();
         return ApiResponse.ok(Map.of("executed", executed));
+    }
+
+    // ---- Phase 1 运维任务（文档 9.1，四AB P0-4）----
+
+    @PostMapping("/starlight-decay")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "星光衰减", description = "30 天不活跃用户余额 -2（最低 10），写 DECAY 流水")
+    public ApiResponse<MaintenanceService.MapResult> starlightDecay() {
+        return ApiResponse.ok(maintenanceService.starlightDecay());
+    }
+
+    @PostMapping("/starlight-reconcile")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "星光对账", description = "余额与流水求和不一致 → 以流水为准修正 + warn 告警")
+    public ApiResponse<MaintenanceService.MapResult> starlightReconcile() {
+        return ApiResponse.ok(maintenanceService.starlightReconcile());
+    }
+
+    @PostMapping("/level-upgrade")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "等级升级扫描", description = "6.5 晋级条件表，只升不降（同步 highest_level）")
+    public ApiResponse<MaintenanceService.MapResult> levelUpgrade() {
+        return ApiResponse.ok(maintenanceService.levelUpgrade());
+    }
+
+    @PostMapping("/restriction-release")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "限制解除", description = "restricted_until 过期 → is_restricted=0（risk_score 不清零）")
+    public ApiResponse<MaintenanceService.MapResult> restrictionRelease() {
+        return ApiResponse.ok(maintenanceService.restrictionRelease());
+    }
+
+    @PostMapping("/risk-score-decay")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "风控分衰减", description = "无 30 天内新驳回 → risk_score -1（最低 0）")
+    public ApiResponse<MaintenanceService.MapResult> riskScoreDecay() {
+        return ApiResponse.ok(maintenanceService.riskScoreDecay());
+    }
+
+    @PostMapping("/inactive-archive")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "不活跃归档", description = "365 天不活跃用户的 PRIVATE/TREE_HOLE 心愿 → ARCHIVED")
+    public ApiResponse<MaintenanceService.MapResult> inactiveArchive() {
+        return ApiResponse.ok(maintenanceService.inactiveArchive());
+    }
+
+    @PostMapping("/brand-reward-check")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "品牌池达标发奖", description = "current>=target 且 ACTIVE → 发奖 + ENDED；幂等")
+    public ApiResponse<Map<String, Object>> brandRewardCheck() {
+        return ApiResponse.ok(collectionService.brandRewardCheck());
     }
 }

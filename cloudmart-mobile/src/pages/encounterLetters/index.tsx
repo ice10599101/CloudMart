@@ -26,6 +26,8 @@ export default function EncounterLettersPage() {
   const [loading, setLoading] = useState(true)
   const [modeToggling, setModeToggling] = useState(false)
   const [interactingId, setInteractingId] = useState<string | number | null>(null)
+  /** 拆信动效中的信笺（翻转动画 0.9s 后更新状态） */
+  const [openingId, setOpeningId] = useState<string | number | null>(null)
 
   const loadLetters = useCallback(async () => {
     if (!isLoggedIn) return
@@ -90,19 +92,24 @@ export default function EncounterLettersPage() {
     return () => clearInterval(timer)
   }, [nearbyMode])
 
-  /** 拆信：PENDING/DELIVERED → READ，返回内容 */
+  /** 拆信：先播翻转动效 0.9s 再调接口（与 WEB 端 Web Animations 节奏一致） */
   const handleOpen = async (letter: EncounterLetterItem) => {
     if (letter.status === 'READ') return
-    try {
-      const res = await wishApi.readEncounterLetter(letter.letterId)
-      if (res.data.success) {
-        const updated = res.data.data
-        setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? updated : it)))
+    setOpeningId(letter.letterId)
+    setTimeout(async () => {
+      try {
+        const res = await wishApi.readEncounterLetter(letter.letterId)
+        if (res.data.success) {
+          const updated = res.data.data
+          setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? updated : it)))
+        }
+      } catch (err) {
+        const errNode = err as { data?: { error?: { message?: string } } }
+        Taro.showToast({ title: errNode?.data?.error?.message || '拆信失败，请稍后重试', icon: 'none' })
+      } finally {
+        setOpeningId(null)
       }
-    } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '拆信失败，请稍后重试', icon: 'none' })
-    }
+    }, 900)
   }
 
   /** 匿名互动：BLESS（祝福）/ LIGHT（点亮） */
@@ -155,7 +162,10 @@ export default function EncounterLettersPage() {
           </View>
         ) : (
           letters.map((letter) => (
-            <View key={letter.letterId} className={styles.letterCard}>
+            <View
+              key={letter.letterId}
+              className={`${styles.letterCard} ${openingId === letter.letterId ? styles.letterOpening : ''}`}
+            >
               <View className={styles.letterHeader}>
                 <Text className={styles.letterStatus}>
                   {letter.status === 'DELIVERED' ? '✉️ ' : letter.status === 'READ' ? '📬 ' : '🔒 '}

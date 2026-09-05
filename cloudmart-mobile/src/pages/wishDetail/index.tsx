@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
+import WishCheckinCalendar from '@/components/WishCheckinCalendar'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
 import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
 import WishShareCard from '@/components/WishShareCard'
@@ -322,6 +323,12 @@ export default function WishDetailPage() {
 
   const isAuthor = user?.id === wish.authorId
 
+  // 小程序原生分享（Sprint 1.5 体验要求：wx.share AppMessage）
+  useShareAppMessage(() => ({
+    title: wish ? `✨ 「${wish.title}」` : '✨ 心愿宇宙',
+    path: `/pages/wishDetail/index?id=${wishId}`,
+  }))
+
   return (
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='心愿详情' back />
@@ -482,6 +489,9 @@ export default function WishDetailPage() {
                 <Text className={styles.progressDays}>打卡 {wish.checkinDays} 天</Text>
               </View>
             </View>
+            {isAuthor && (
+              <WishCheckinCalendar wishId={wishId} accentColor={FRUIT_COLORS[wish.fruitType]} />
+            )}
           </View>
         )}
 

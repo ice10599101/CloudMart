@@ -1,0 +1,59 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* delta>0 金色上浮 / delta<0 红色下沉（方向差异，文档 L1956） */
+.float {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 700;
+  font-size: 14px;
+  pointer-events: none;
+  animation: starFloat 1.6s ease-out forwards;
+}
+
+.floatUp {
+  color: #ffd700;
+}
+
+.floatDown {
+  color: #ff7875;
+  animation-name: starFloatDown;
+}
+
+@keyframes starFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -22px);
+  }
+}
+
+@keyframes starFloatDown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}

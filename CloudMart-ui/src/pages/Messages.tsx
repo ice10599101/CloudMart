@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { message } from 'antd'
+import {  } from 'antd'
+import { message } from '@/utils/appMessage'
 import {
   HeartOutlined,
   MessageOutlined,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Spin, message } from 'antd'
+import { Spin } from 'antd'
+import { message } from '@/utils/appMessage'
 import { DeleteOutlined, ShoppingCartOutlined, PlusOutlined, MinusOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { useCartStore } from '@/stores/cart'

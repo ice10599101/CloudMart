@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, Empty, Avatar, Input, message, Dropdown, Popconfirm } from 'antd'
+import { Spin, Empty, Avatar, Input, Dropdown, Popconfirm } from 'antd'
+import { message } from '@/utils/appMessage'
 import Skeleton from '@/components/Skeleton'
 import {
   ArrowLeftOutlined,

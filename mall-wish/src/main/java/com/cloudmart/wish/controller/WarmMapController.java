@@ -16,7 +16,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -57,6 +59,23 @@ public class WarmMapController {
             + "用户端访问一律 403（文档 3.2 安全验收）")
     public ApiResponse<Void> fenceForbidden() {
         throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "围栏信息仅管理端可见");
+    }
+
+    @GetMapping("/warm-events/{eventId}")
+    @Operation(summary = "温暖事件详情", description = "仅可见事件；已删/隐藏 → 404")
+    public ApiResponse<com.cloudmart.wish.entity.WarmEvent> warmEventDetail(
+            @Parameter(description = "事件 ID", required = true) @PathVariable Long eventId) {
+        return ApiResponse.ok(warmMapService.getEventDetail(eventId));
+    }
+
+    @DeleteMapping("/warm-events/{eventId}")
+    @Operation(summary = "删除温暖事件", description = "仅发布者软删")
+    public ApiResponse<Void> deleteWarmEvent(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "事件 ID", required = true) @PathVariable Long eventId) {
+        warmMapService.deleteEvent(userId, eventId);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/warm-events")

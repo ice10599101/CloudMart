@@ -306,4 +306,175 @@ public class BusinessJobHandler {
             throw new RuntimeException("轨迹清理失败", e);
         }
     }
+
+    /**
+     * 星光衰减（每日 01:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("starlightDecayHandler")
+    public void starlightDecayHandler() {
+        log.info("XXL-JOB: 开始执行星光衰减...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/starlight-decay")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 星光衰减完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 星光衰减失败: {}", e.getMessage());
+            throw new RuntimeException("星光衰减失败", e);
+        }
+    }
+
+    /**
+     * 星光对账（每日 02:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("starlightReconcileHandler")
+    public void starlightReconcileHandler() {
+        log.info("XXL-JOB: 开始执行星光对账...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/starlight-reconcile")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 星光对账完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 星光对账失败: {}", e.getMessage());
+            throw new RuntimeException("星光对账失败", e);
+        }
+    }
+
+    /**
+     * 等级升级扫描（每日 03:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("levelUpgradeHandler")
+    public void levelUpgradeHandler() {
+        log.info("XXL-JOB: 开始执行等级升级扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/level-upgrade")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 等级升级扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 等级升级扫描失败: {}", e.getMessage());
+            throw new RuntimeException("等级升级扫描失败", e);
+        }
+    }
+
+    /**
+     * 限制解除（每小时（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("restrictionReleaseHandler")
+    public void restrictionReleaseHandler() {
+        log.info("XXL-JOB: 开始执行限制解除...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/restriction-release")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 限制解除完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 限制解除失败: {}", e.getMessage());
+            throw new RuntimeException("限制解除失败", e);
+        }
+    }
+
+    /**
+     * 风控分衰减（每日 08:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("riskScoreDecayHandler")
+    public void riskScoreDecayHandler() {
+        log.info("XXL-JOB: 开始执行风控分衰减...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/risk-score-decay")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 风控分衰减完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 风控分衰减失败: {}", e.getMessage());
+            throw new RuntimeException("风控分衰减失败", e);
+        }
+    }
+
+    /**
+     * 不活跃归档（每日 06:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("inactiveArchiveHandler")
+    public void inactiveArchiveHandler() {
+        log.info("XXL-JOB: 开始执行不活跃归档...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/inactive-archive")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 不活跃归档完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 不活跃归档失败: {}", e.getMessage());
+            throw new RuntimeException("不活跃归档失败", e);
+        }
+    }
+
+    /**
+     * 数据导出过期清理（每日 05:00（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("dataExportPurgeHandler")
+    public void dataExportPurgeHandler() {
+        log.info("XXL-JOB: 开始执行数据导出过期清理...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/data-export-purge")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 数据导出过期清理完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 数据导出过期清理失败: {}", e.getMessage());
+            throw new RuntimeException("数据导出过期清理失败", e);
+        }
+    }
+
+    /**
+     * 注销到期执行（每小时（文档 9.1）；幂等，可安全重试）。
+     */
+    @XxlJob("accountDeletionScanHandler")
+    public void accountDeletionScanHandler() {
+        log.info("XXL-JOB: 开始执行注销到期执行...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/account-deletion-scan")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 注销到期执行完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 注销到期执行失败: {}", e.getMessage());
+            throw new RuntimeException("注销到期执行失败", e);
+        }
+    }
+
+    /**
+     * 品牌池达标发奖（每日 10:00（文档 9.3）；幂等，可安全重试）。
+     */
+    @XxlJob("brandRewardCheckHandler")
+    public void brandRewardCheckHandler() {
+        log.info("XXL-JOB: 开始执行品牌池达标发奖...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/brand-reward-check")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 品牌池达标发奖完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 品牌池达标发奖失败: {}", e.getMessage());
+            throw new RuntimeException("品牌池达标发奖失败", e);
+        }
+    }
 }

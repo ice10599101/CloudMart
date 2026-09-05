@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { wishApi } from '@/api/wish'
+import WishShareCard from '@/components/WishShareCard'
 import { fileApi } from '@/api/file'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -177,6 +178,7 @@ export default function WishFulfillmentScreen() {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [story, setStory] = useState('')
   const [feeling, setFeeling] = useState('')
   const [uploads, setUploads] = useState<UploadItem[]>([])
@@ -357,6 +359,11 @@ export default function WishFulfillmentScreen() {
           }
         >
           <Text style={{ fontSize: FontSize.lg, color: WishColors.textSecondary }}>‹ 返回</Text>
+          {wish && (
+            <TouchableOpacity onPress={() => setShareOpen(true)} accessibilityLabel="分享心愿">
+              <Text style={{ fontSize: FontSize.md, color: WishColors.accentCyan }}>分享</Text>
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
         <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginLeft: Spacing.md }}>
           还愿 · 绽放果实
@@ -540,6 +547,17 @@ export default function WishFulfillmentScreen() {
       </View>
 
       <WishBGM />
+      {wish && (
+        <WishShareCard
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={wish.title}
+          author={wish.authorNickname}
+          dateText={new Date(wish.createdAt).toLocaleDateString('zh-CN')}
+          fruitLabel={wish.fruitType}
+          fruitColor="#FF6B6B"
+        />
+      )}
     </View>
   )
 }
@@ -552,3 +570,4 @@ function FieldLabel({ label, required }: { label: string; required?: boolean }) 
     </View>
   )
 }
+

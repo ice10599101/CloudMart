@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 心愿核心 Controller（对应文档 2.1 节）。
@@ -208,6 +209,52 @@ public class WishController {
     public ApiResponse<WishService.ProgressDetail> getProgress(
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
         return ApiResponse.ok(wishService.getWishProgress(wishId));
+    }
+
+    @PutMapping("/{id}/progress")
+    @Operation(summary = "进度乐观锁更新", description = "作者专用；version 不符 → 409 WISH_VERSION_CONFLICT（含最新进度）")
+    @SentinelResource("WISH_PROGRESS_UPDATE")
+    public ApiResponse<WishService.ProgressDetail> updateProgress(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @RequestBody WishService.ProgressUpdateRequest request) {
+        return ApiResponse.ok(wishService.updateProgress(userId, wishId, request));
+    }
+
+    @GetMapping("/{id}/checkins")
+    @Operation(summary = "心愿打卡日历", description = "作者专用；month=YYYY-MM，返回当月已打卡日期数组")
+    public ApiResponse<WishService.CheckinCalendarVO> checkinCalendar(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "月份 YYYY-MM（必填）") @RequestParam String month) {
+        return ApiResponse.ok(wishService.getCheckinCalendar(userId, wishId, month));
+    }
+
+    @PutMapping("/{id}/growth-records/{recordId}")
+    @Operation(summary = "编辑成长记录", description = "作者专用；content/mediaUrls 可选更新")
+    public ApiResponse<WishService.GrowthRecordVO> updateGrowthRecord(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "记录 ID", required = true) @PathVariable Long recordId,
+            @RequestBody Map<String, Object> body) {
+        final String content = (String) body.get("content");
+        @SuppressWarnings("unchecked")
+        final List<String> mediaUrls = (List<String>) body.get("mediaUrls");
+        return ApiResponse.ok(wishService.updateGrowthRecord(userId, wishId, recordId, content, mediaUrls));
+    }
+
+    @DeleteMapping("/{id}/growth-records/{recordId}")
+    @Operation(summary = "删除成长记录", description = "作者专用；进度为历史事实不回退")
+    public ApiResponse<Void> deleteGrowthRecord(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "记录 ID", required = true) @PathVariable Long recordId) {
+        wishService.deleteGrowthRecord(userId, wishId, recordId);
+        return ApiResponse.ok(null);
     }
 
     /** 传承发起请求。 */

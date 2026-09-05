@@ -44,6 +44,7 @@ export default function MatchSquad() {
   const { user, userLoading } = useAuthStore()
 
   const [keyword, setKeyword] = useState('')
+  const [city, setCity] = useState('')
   const [loading, setLoading] = useState(true)
   const [recommend, setRecommend] = useState<MatchGroupItem[]>([])
   const [myGroups, setMyGroups] = useState<MatchGroupDetail[]>([])
@@ -56,11 +57,12 @@ export default function MatchSquad() {
   const [ceremony, setCeremony] = useState<string | null>(null)
 
   /** 加载推荐列表（登录态下服务端自动去重已加入的组 + 同城优先） */
-  const loadRecommend = useCallback(async (kw?: string) => {
+  const loadRecommend = useCallback(async (kw?: string, cityCode?: string) => {
     setLoading(true)
     try {
       const res = await recommendMatchGroups({
         keyword: kw?.trim() || undefined,
+        city: cityCode?.trim() || undefined,
         pageSize: 20,
       })
       if (res.data.success) setRecommend(res.data.data ?? [])
@@ -93,7 +95,7 @@ export default function MatchSquad() {
     loadMyGroups()
   }, [loadRecommend, loadMyGroups])
 
-  const handleSearch = () => loadRecommend(keyword)
+  const handleSearch = () => loadRecommend(keyword, city)
 
   const handleJoin = async (item: MatchGroupItem) => {
     if (!user && !userLoading) {
@@ -225,6 +227,15 @@ export default function MatchSquad() {
                 placeholder="想和谁一起？输入关键词，如「看极光」"
                 maxLength={MAX_KEYWORD}
                 allowClear
+              />
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onPressEnter={handleSearch}
+                placeholder="城市（可选，同城优先）"
+                maxLength={12}
+                allowClear
+                style={{ maxWidth: 200 }}
               />
               <Button icon={<AimOutlined />} onClick={handleSearch}>
                 匹配

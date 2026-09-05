@@ -22,6 +22,9 @@ import java.util.List;
  *   <li>HOME_AGGREGATION：首页聚合 QPS ≤ 20（保护推荐算法）</li>
  *   <li>WISH_INTERACTION：互动操作 QPS ≤ 10（限频见 InteractionType 枚举注释）</li>
  *   <li>WISH_CHECKIN：打卡 QPS ≤ 5</li>
+ *   <li>WISH_MY_SIGNIN：每日签到 QPS ≤ 5</li>
+ *   <li>WISH_MY_SIGNIN_CALENDAR：签到日历查询 QPS ≤ 30</li>
+ *   <li>WISH_MY_LEVEL：等级进度查询 QPS ≤ 30</li>
  *   <li>WISH_AUDIT：审核操作 QPS ≤ 10（管理后台）</li>
  * </ul>
  *
@@ -45,6 +48,9 @@ public class SentinelConfig {
         rules.add(buildRule("HOME_AGGREGATION", 20));
         rules.add(buildRule("WISH_INTERACTION", 10));
         rules.add(buildRule("WISH_CHECKIN", 5));
+        rules.add(buildRule("WISH_MY_SIGNIN", 5));
+        rules.add(buildRule("WISH_MY_SIGNIN_CALENDAR", 30));
+        rules.add(buildRule("WISH_MY_LEVEL", 30));
         rules.add(buildRule("WISH_AUDIT", 10));
 
         FlowRuleManager.loadRules(rules);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, message } from 'antd'
+import { Spin } from 'antd'
+import { message } from '@/utils/appMessage'
 import {
   AlipayCircleOutlined,
   WechatOutlined,

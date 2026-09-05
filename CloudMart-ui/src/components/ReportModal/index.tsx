@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Modal, Select, Input, message } from 'antd'
+import { Modal, Select, Input } from 'antd'
+import { message } from '@/utils/appMessage'
 import { WarningOutlined } from '@ant-design/icons'
 import { createReport } from '@/api/community'
 

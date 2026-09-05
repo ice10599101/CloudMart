@@ -27,6 +27,15 @@ public class CollectionController {
 
     private final CollectionService collectionService;
 
+    @GetMapping("/collections/assets/{assetId}")
+    @Operation(summary = "资产详情", description = "上架中或已拥有可见；含 obtainMethod")
+    public ApiResponse<Object> assetDetail(
+            @Parameter(description = "资产 ID", required = true) @PathVariable Long assetId,
+            @Parameter(description = "当前用户 ID（网关注入，可空）")
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) Long userId) {
+        return ApiResponse.ok(collectionService.assetDetail(assetId, userId));
+    }
+
     @GetMapping("/collections/assets")
     @Operation(summary = "收藏馆", description = "按 BADGE/SKIN/BGM/SPECIAL_FRUIT 分组；星火收藏品含关联心愿")
     @SentinelResource("WISH_COLLECTIONS")

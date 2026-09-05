@@ -11,6 +11,7 @@ import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.BadgeService;
+import com.cloudmart.wish.vo.LevelUpVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -171,6 +172,105 @@ class UserStatServiceImplTest {
             assertThatThrownBy(() -> userStatService.earnStarlight(
                     USER_ID, -1, ResourceLogSource.LIGHTED, null))
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("evaluateLevel - 等级判定（文档 6.5）")
+    class LevelEvaluationTests {
+
+        @Test
+        @DisplayName("L1 默认：无任何行为指标")
+        void evaluate_defaultL1() {
+            assertThat(UserStatServiceImpl.evaluateLevel(0, 0, 0, 0)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("L2 梦想家：许愿 ≥ 3 且打卡 ≥ 7（任一不足仍 L1）")
+        void evaluate_l2() {
+            assertThat(UserStatServiceImpl.evaluateLevel(3, 7, 0, 0)).isEqualTo(2);
+            assertThat(UserStatServiceImpl.evaluateLevel(2, 7, 0, 0)).isEqualTo(1);
+            assertThat(UserStatServiceImpl.evaluateLevel(3, 6, 0, 0)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("L3 追光者：许愿 ≥ 10 且还愿 ≥ 1 且帮助 ≥ 50")
+        void evaluate_l3() {
+            assertThat(UserStatServiceImpl.evaluateLevel(10, 7, 1, 50)).isEqualTo(3);
+            assertThat(UserStatServiceImpl.evaluateLevel(10, 99, 1, 49)).isEqualTo(2);
+            assertThat(UserStatServiceImpl.evaluateLevel(10, 99, 0, 100)).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("L4 星火引路人：许愿 ≥ 30 且还愿 ≥ 5 且帮助 ≥ 200")
+        void evaluate_l4() {
+            assertThat(UserStatServiceImpl.evaluateLevel(30, 99, 5, 200)).isEqualTo(4);
+            assertThat(UserStatServiceImpl.evaluateLevel(29, 99, 5, 300)).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("L5 宇宙守护者：许愿 ≥ 100 且还愿 ≥ 20 且帮助 ≥ 1000")
+        void evaluate_l5() {
+            assertThat(UserStatServiceImpl.evaluateLevel(100, 99, 20, 1000)).isEqualTo(5);
+            assertThat(UserStatServiceImpl.evaluateLevel(100, 99, 20, 999)).isEqualTo(4);
+        }
+    }
+
+    @Nested
+    @DisplayName("checkAndLevelUp - 等级提升检测")
+    class CheckAndLevelUpTests {
+
+        @Test
+        @DisplayName("达标升级：更新 level/highest_level/level_title 并返回事件")
+        void levelUp_upgrade() {
+            WishUserStat stat = buildStat(100);
+            stat.setTotalWishes(3);
+            stat.setTotalCheckinDays(7);
+            stat.setHighestLevel((byte) 1);
+            when(wishUserStatMapper.selectOne(any())).thenReturn(stat);
+            when(wishUserStatMapper.update(any(), any())).thenReturn(1);
+
+            LevelUpVO levelUp = userStatService.checkAndLevelUp(USER_ID);
+
+            assertThat(levelUp).isNotNull();
+            assertThat(levelUp.previousLevel()).isEqualTo(1);
+            assertThat(levelUp.newLevel()).isEqualTo(2);
+            assertThat(levelUp.newLevelTitle()).isEqualTo("梦想家");
+        }
+
+        @Test
+        @DisplayName("未达标 / 已是最高满足等级：返回 null 不更新")
+        void levelUp_notQualified() {
+            WishUserStat stat = buildStat(100);
+            stat.setTotalWishes(3);
+            stat.setTotalCheckinDays(6);
+            stat.setHighestLevel((byte) 1);
+            when(wishUserStatMapper.selectOne(any())).thenReturn(stat);
+
+            assertThat(userStatService.checkAndLevelUp(USER_ID)).isNull();
+            verify(wishUserStatMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("统计记录不存在：返回 null（首次签到等场景由 earnStarlight 先初始化）")
+        void levelUp_missingStat() {
+            when(wishUserStatMapper.selectOne(any())).thenReturn(null);
+
+            assertThat(userStatService.checkAndLevelUp(USER_ID)).isNull();
+        }
+
+        @Test
+        @DisplayName("指标回落（highest_level 已为 2，当前指标仅满足 L1）：只升不降，返回 null")
+        void levelUp_neverDowngrade() {
+            WishUserStat stat = buildStat(100);
+            stat.setTotalWishes(1);
+            stat.setTotalCheckinDays(2);
+            stat.setLevel((byte) 2);
+            stat.setHighestLevel((byte) 2);
+            when(wishUserStatMapper.selectOne(any())).thenReturn(stat);
+
+            assertThat(userStatService.checkAndLevelUp(USER_ID)).isNull();
+            verify(wishUserStatMapper, never()).update(any(), any());
         }
     }
 

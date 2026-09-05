@@ -486,6 +486,17 @@ public class EncounterServiceImpl implements EncounterService {
     }
 
     @Override
+    public java.util.List<com.cloudmart.wish.entity.LetterInteraction> listLetterInteractions(Long userId, Long letterId) {
+        final var letter = letterMapper.selectById(letterId);
+        if (letter == null || !letter.getOwnerUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "信笺不存在");
+        }
+        return interactionMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.LetterInteraction>()
+                .eq(com.cloudmart.wish.entity.LetterInteraction::getLetterId, letterId)
+                .orderByDesc(com.cloudmart.wish.entity.LetterInteraction::getInteractDate));
+    }
+
+    @Override
     public EncounterLetterVO markRead(Long userId, Long letterId) {
         EncounterLetter letter = requireOwnedLetter(userId, letterId);
         if (letter.getStatus() == EncounterLetterStatus.PENDING) {

@@ -1,0 +1,81 @@
+.page {
+  min-height: 100vh;
+  background: var(--wish-bg-base, #0b1026);
+  color: var(--wish-text-primary, #eaeaf2);
+  box-sizing: border-box;
+  padding-bottom: 120rpx;
+}
+
+.list {
+  height: calc(100vh - 180rpx);
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.logCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 14rpx;
+}
+
+.logLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.logSource {
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.logTime {
+  font-size: 22rpx;
+  opacity: 0.55;
+}
+
+.logDelta {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}
+
+.filterBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 40rpx;
+  padding: 20rpx 0 calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--wish-bg-base, #0b1026);
+}
+
+.filterItem {
+  font-size: 26rpx;
+  opacity: 0.6;
+  padding: 8rpx 32rpx;
+  border-radius: 999rpx;
+}
+
+.filterActive {
+  background: rgba(74, 144, 217, 0.18);
+  color: #4a90d9;
+  opacity: 1;
+}
+
+.filterRow {
+  text-align: center;
+  padding: 12rpx;
+}

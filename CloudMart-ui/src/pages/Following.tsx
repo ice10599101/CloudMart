@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, history } from 'umi'
-import { Spin, Empty, Avatar, message } from 'antd'
+import { Spin, Empty, Avatar } from 'antd'
+import { message } from '@/utils/appMessage'
 import {
   ArrowLeftOutlined,
   TeamOutlined,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Spin, message, Modal, Input } from 'antd'
+import { Spin, Modal, Input } from 'antd'
+import { message } from '@/utils/appMessage'
 import {
   EnvironmentOutlined,
   CheckCircleOutlined,

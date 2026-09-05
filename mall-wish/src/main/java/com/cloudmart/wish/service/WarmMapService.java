@@ -24,6 +24,17 @@ public interface WarmMapService {
     FenceCheckVO checkFence(Long userId, Long wishId, Double lat, Double lng);
 
     /**
+     * 温暖事件详情（文档 2.20）：仅 isVisible=true 的可公开查看；
+     * 不可见/已删 → 404。
+     */
+    com.cloudmart.wish.entity.WarmEvent getEventDetail(Long eventId);
+
+    /**
+     * 温暖事件删除（文档 2.20：仅作者软删；管理端删除走审核链路）。
+     */
+    void deleteEvent(Long userId, Long eventId);
+
+    /**
      * 发布温暖事件（DFA 敏感词命中 → AUTO_HIDDEN 不可见；未命中 →
      * PENDING 先发后审）。坐标服务端 geohash7 编码，原始坐标不留存。
      */

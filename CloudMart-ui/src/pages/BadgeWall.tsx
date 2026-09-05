@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Button, Empty, Progress, Tag } from 'antd'
 import { LoginOutlined, TrophyOutlined } from '@ant-design/icons'
 import { history } from 'umi'
-import { getMyBadges } from '@/api/wish'
+import { getMyBadges, getMyLevel } from '@/api/wish'
 import type { BadgeWallItem, BadgeRarity } from '@/api/wish'
+import type { MyLevelData } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import WishBGM from '@/components/WishBGM'
@@ -25,6 +26,7 @@ export default function BadgeWall() {
   const { user, userLoading } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [badges, setBadges] = useState<BadgeWallItem[]>([])
+  const [levelData, setLevelData] = useState<MyLevelData | null>(null)
 
   useEffect(() => {
     if (!user) {
@@ -33,9 +35,12 @@ export default function BadgeWall() {
     }
     const load = async () => {
       try {
-        const res = await getMyBadges()
-        if (res.data.success) {
-          setBadges(res.data.data)
+        const [badgesRes, levelRes] = await Promise.all([getMyBadges(), getMyLevel()])
+        if (badgesRes.data.success) {
+          setBadges(badgesRes.data.data)
+        }
+        if (levelRes.data.success) {
+          setLevelData(levelRes.data.data)
         }
       } catch {
         // 错误已由 request 拦截器处理
@@ -80,6 +85,39 @@ export default function BadgeWall() {
           已点亮 {earnedCount} / {badges.length} 枚徽章
         </span>
       </div>
+
+      {/* 等级与晋级进度（文档 L1912：心愿殿堂式等级展示） */}
+      {levelData && (
+        <div className={styles.levelCard}>
+          <div className={styles.levelHeader}>
+            <div className={styles.levelBadge}>Lv.{levelData.level}</div>
+            <div className={styles.levelInfo}>
+              <div className={styles.levelTitle}>{levelData.levelTitle}</div>
+              <div className={styles.levelNext}>
+                {levelData.nextLevel
+                  ? `距 Lv.${levelData.nextLevel} ${levelData.nextLevelTitle}`
+                  : '已达最高等级 ✨'}
+              </div>
+            </div>
+          </div>
+          {levelData.nextLevelRequirements.map((req) => (
+            <div key={req.metric} className={styles.levelReqRow}>
+              <div className={styles.levelReqLabelRow}>
+                <span className={styles.levelReqLabel}>{req.label}</span>
+                <span className={styles.levelReqValue}>
+                  {req.current}/{req.threshold}
+                </span>
+              </div>
+              <Progress
+                percent={Math.min(Math.max(req.percentage, 0), 100)}
+                showInfo={false}
+                strokeColor={{ from: '#00D4FF', to: '#FFD700' }}
+                trailColor="rgba(255,255,255,0.08)"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {badges.length === 0 ? (
         <div className={styles.emptyContainer}>

@@ -28,6 +28,8 @@ export default function EncounterLettersScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [interactingId, setInteractingId] = useState<string | number | null>(null)
+  /** 拆信动效中的信笺（翻转 0.9s 与 WEB 节奏一致） */
+  const [openingId, setOpeningId] = useState<string | number | null>(null)
 
   const loadLetters = useCallback(async () => {
     if (!isLoggedIn) return
@@ -96,16 +98,21 @@ export default function EncounterLettersScreen() {
 
   const handleOpen = async (letter: EncounterLetterItem) => {
     if (letter.status === 'READ') return
-    try {
-      const res = await wishApi.readEncounterLetter(letter.letterId)
-      if (res.data?.success) {
-        const updated = res.data.data
-        setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? updated : it)))
+    setOpeningId(letter.letterId)
+    setTimeout(async () => {
+      try {
+        const res = await wishApi.readEncounterLetter(letter.letterId)
+        if (res.data?.success) {
+          const updated = res.data.data
+          setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? updated : it)))
+        }
+      } catch (err) {
+        const errNode = err as { response?: { data?: { error?: { message?: string } } } }
+        alert(errNode?.response?.data?.error?.message || '拆信失败，请稍后重试')
+      } finally {
+        setOpeningId(null)
       }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '拆信失败，请稍后重试')
-    }
+    }, 900)
   }
 
   const handleInteract = async (letter: EncounterLetterItem, type: 'BLESS' | 'LIGHT') => {
@@ -190,6 +197,7 @@ export default function EncounterLettersScreen() {
               key={letter.letterId}
               style={{
                 backgroundColor: WishColors.bgContainer,
+                opacity: openingId === letter.letterId ? 0.6 : 1,
                 borderRadius: BorderRadius.lg,
                 padding: Spacing.md,
                 marginBottom: Spacing.sm,

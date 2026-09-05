@@ -1,0 +1,247 @@
+.scroll {
+  height: calc(100vh - 220rpx);
+}
+
+/* ---- 签到卡片 ---- */
+.signinCard {
+  margin: 24rpx 32rpx;
+  padding: 40rpx 32rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(160deg, rgba(255, 215, 0, 0.10), rgba(147, 112, 219, 0.08));
+  border: 1rpx solid rgba(255, 215, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.signinStats {
+  display: flex;
+  align-items: center;
+  gap: 48rpx;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statValue {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.statLabel {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.statDivider {
+  width: 1rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.signinBtn {
+  margin-top: 40rpx;
+  min-width: 400rpx;
+  padding: 24rpx 48rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(120deg, #ffd700, #ffa500);
+  box-shadow: 0 8rpx 32rpx rgba(255, 215, 0, 0.35);
+}
+
+.signinBtn:active {
+  transform: scale(0.97);
+}
+
+.signinBtnDone {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.signinBtnText {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #0c1b3a;
+}
+
+.signinBtnDone .signinBtnText {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.rewardLine {
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---- 星光余额卡片 ---- */
+.balanceCard {
+  margin: 0 32rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.balanceLabel {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.balanceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.balanceIcon {
+  font-size: 32rpx;
+}
+
+.balanceValue {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.balanceToday {
+  display: flex;
+  gap: 32rpx;
+  margin-top: 16rpx;
+}
+
+.balanceEarn {
+  font-size: 24rpx;
+  color: #52c41a;
+}
+
+.balanceSpend {
+  font-size: 24rpx;
+  color: #ff7875;
+}
+
+/* ---- 签到日历 ---- */
+.calendarCard {
+  margin: 0 32rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monthNav {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.monthNavDisabled {
+  opacity: 0.3;
+}
+
+.monthNavText {
+  font-size: 36rpx;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.monthTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.weekHeader {
+  display: flex;
+  margin-top: 24rpx;
+}
+
+.weekDay {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.calendarGrid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.dayCell {
+  position: relative;
+  width: calc(100% / 7);
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+}
+
+.dayCellEmpty {
+  background: transparent;
+}
+
+.dayText {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dayCellSigned {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 165, 0, 0.18));
+  border: 1rpx solid rgba(255, 215, 0, 0.5);
+}
+
+.dayCellSigned .dayText {
+  color: #ffd700;
+  font-weight: 700;
+}
+
+.dayCellToday {
+  border: 1rpx solid rgba(0, 212, 255, 0.6);
+}
+
+.dayCellFuture .dayText {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ---- 签到规则 ---- */
+.rulesCard {
+  margin: 0 32rpx 48rpx;
+  padding: 32rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1rpx dashed rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.rulesTitle {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rulesText {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.5);
+}

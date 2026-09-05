@@ -128,7 +128,7 @@ export default function WishInteractionBar({
         onCountsChange({ lightCount: res.data.data.lightCount })
         refreshMyInteractions()
         setBurstKey((k) => k + 1)
-        message.success('已点亮，为 TA 加了一束光 ✨')
+        message.success('已点亮，为 TA 加了一束光 ✨（-2 星光）')
       }
     } catch (err) {
       handleBusinessError(err, '点亮')

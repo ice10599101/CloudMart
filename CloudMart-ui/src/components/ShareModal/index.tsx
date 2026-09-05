@@ -1,4 +1,5 @@
-import { Modal, Input, Button, message, Tooltip } from 'antd'
+import { Modal, Input, Button, Tooltip } from 'antd'
+import { message } from '@/utils/appMessage'
 import { CopyOutlined, WechatOutlined, ShareAltOutlined, CloseOutlined } from '@ant-design/icons'
 import { sharePost } from '@/api/community'
 

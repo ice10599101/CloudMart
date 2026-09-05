@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Rate, InputNumber, Spin, Empty, message } from 'antd'
+import { Rate, InputNumber, Spin, Empty } from 'antd'
+import { message } from '@/utils/appMessage'
 import DOMPurify from 'dompurify'
 import { history, useParams } from 'umi'
 import { getProductById, listCategories } from '@/api/product'

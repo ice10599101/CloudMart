@@ -1,0 +1,36 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  position: absolute;
+  top: -22rpx;
+  left: 100%;
+  margin-left: 4rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.16);
+  border: 1rpx solid rgba(255, 215, 0, 0.4);
+  white-space: nowrap;
+  animation: star-badge-pop 0.3s ease-out;
+}
+
+@keyframes star-badge-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

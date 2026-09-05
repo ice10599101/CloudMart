@@ -1,0 +1,191 @@
+.container {
+  min-height: 100vh;
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 14px;
+}
+
+.signinCard {
+  border-radius: 16px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(0, 212, 255, 0.08));
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  text-align: center;
+}
+
+.signinStats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statValue {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffd700;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rewardLine {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 14px;
+}
+
+.calendarCard {
+  border-radius: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 16px;
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.monthTitle {
+  font-size: 17px;
+  font-weight: 600;
+  min-width: 110px;
+  text-align: center;
+}
+
+.weekHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.weekDay {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.dayCell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dayCellEmpty {
+  background: transparent;
+}
+
+.dayCellFuture {
+  color: rgba(255, 255, 255, 0.25);
+  background: transparent;
+}
+
+.dayCellToday {
+  border: 1px solid rgba(0, 212, 255, 0.7);
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+.dayCellSigned {
+  background: linear-gradient(160deg, rgba(255, 215, 0, 0.28), rgba(255, 215, 0, 0.12));
+  border: 1px solid rgba(255, 215, 0, 0.55);
+  color: #ffd700;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.25);
+}
+
+.dayCellSigned::after {
+  content: '✓';
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: rgba(255, 215, 0, 0.9);
+}
+
+.rulesCard {
+  border-radius: 16px;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 2;
+}
+
+.rulesTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 6px;
+}
+
+.balanceCard {
+  margin-top: 16px;
+  border-radius: 16px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.balanceValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffd700;
+}

@@ -2,6 +2,11 @@ package com.cloudmart.wish.service;
 
 import com.cloudmart.wish.entity.WishBadge;
 import com.cloudmart.wish.enums.ResourceLogSource;
+import com.cloudmart.wish.enums.ResourceLogType;
+import com.cloudmart.wish.vo.LevelUpVO;
+import com.cloudmart.wish.vo.MyLevelVO;
+import com.cloudmart.wish.vo.MyResourcesVO;
+import com.cloudmart.wish.vo.ResourceLogVO;
 
 import java.util.List;
 
@@ -114,4 +119,61 @@ public interface UserStatService {
      * @param userId 点亮者用户 ID
      */
     void incrementTotalHelped(Long userId);
+
+    /**
+     * 个人星光概览（文档 L848：GET /wish/my/resources）。
+     * 只读：余额取 stat 快照，今日收支按流水聚合（当日零点边界，
+     * 与 createdAt 的 MetaObjectHandler 填充时区一致，自洽不跨时区错位）。
+     *
+     * @param userId 用户 ID
+     * @return 余额 + 今日已获取/已消耗
+     */
+    MyResourcesVO getMyResources(Long userId);
+
+    /**
+     * 星光流水分页（文档 L848：GET /wish/my/resources/logs）。
+     * 只读：按 id DESC（雪花 ID 恒等时序倒序），游标为上一页末条 id。
+     *
+     * @param userId   用户 ID
+     * @param type     类型过滤（EARN / SPEND，null = 全部）
+     * @param cursor   游标（上一页末条流水 ID，null = 第一页）
+     * @param pageSize 页大小（默认 20，上限 50）
+     * @return 流水列表（时间倒序）
+     */
+    List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, Long cursor, Integer pageSize);
+
+    /**
+     * 心愿打卡时：total_checkin_days +1（文档 6.5：打卡时 +1，历史事实只增不减）。
+     * 必须与 wish_checkin 插入同事务。
+     *
+     * @param userId 用户 ID
+     */
+    void incrementOnWishCheckin(Long userId);
+
+    /**
+     * 等级提升检测（文档 6.5：基于累计行为指标，与星光余额独立）。
+     *
+     * <p>按 total_wishes / total_checkin_days / total_fulfilled / total_helped
+     * 计算当前可达等级，仅当高于 {@code highest_level} 时同步升级 level +
+     * highest_level + level_title（只升不降），并返回提升事件；否则返回 null。
+     * mall-job 每日扫描与本方法共用同一判定规则（结果幂等）。</p>
+     *
+     * <p>必须在调用方事务上下文中执行（如签到事务内），保证升级与触发动作原子。</p>
+     *
+     * @param userId 用户 ID
+     * @return 等级提升事件（未提升返回 null）
+     */
+    LevelUpVO checkAndLevelUp(Long userId);
+
+    /**
+     * 我的等级与晋级进度（文档 L1930：等级查询返回 level + level_title + 距下一级进度）。
+     *
+     * <p>四端「心愿殿堂/等级进度条」统一数据源：当前等级取 highest_level
+     * （只升不降口径）；满级（L5）时 nextLevel 为 null、进度列表为空。
+     * 只读：统计记录不存在时按 L1 初始态返回（不落记录）。</p>
+     *
+     * @param userId 用户 ID
+     * @return 等级 + 累计指标 + 距下一级各维度进度
+     */
+    MyLevelVO getMyLevel(Long userId);
 }

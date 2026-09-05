@@ -105,6 +105,68 @@ export interface WishSparkResult {
     updatedAt: string
 }
 
+/** 个人星光概览（文档 L848） */
+export interface MyResourcesData {
+    balance: number
+    todayEarned: number
+    todaySpent: number
+}
+
+/** 星光流水条目（文档 L848；amount 恒为正，方向由 type 表达） */
+export interface ResourceLogItem {
+    id: number | string
+    type: 'EARN' | 'SPEND'
+    amount: number
+    reason: string
+    balanceAfter: number
+    createdAt: string
+}
+
+/** 等级提升事件（签到瞬间检测；未提升为 null，庆祝弹窗/本地推送依据） */
+export interface LevelUpEvent {
+    previousLevel: number
+    newLevel: number
+    newLevelTitle: string
+}
+
+/** 用户维度每日签到结果（与心愿打卡独立；+5 星光） */
+export interface DailySigninResult {
+    signed: boolean
+    consecutiveDays: number
+    starlightReward: number
+    tomorrowReward: number
+    levelUp: LevelUpEvent | null
+}
+
+/** 签到日历（month 格式 yyyy-MM） */
+export interface SigninCalendarData {
+    signedDates: string[]
+    consecutiveDays: number
+    totalDays: number
+}
+
+/** 晋级单维度进度 */
+export interface LevelRequirementItem {
+    metric: string
+    label: string
+    current: number
+    threshold: number
+    percentage: number
+}
+
+/** 我的等级与晋级进度（文档 6.5 / L1930；满级时 nextLevel 为 null） */
+export interface MyLevelData {
+    level: number
+    levelTitle: string
+    totalWishes: number
+    totalCheckinDays: number
+    totalFulfilled: number
+    totalHelped: number
+    nextLevel: number | null
+    nextLevelTitle: string | null
+    nextLevelRequirements: LevelRequirementItem[]
+}
+
 export interface CreateWishPayload {
     title: string
     description: string
@@ -168,6 +230,18 @@ export const wishApi = {
     // ---- 星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿可操作，幂等）----
     sparkWish: (id: number | string) =>
         request<WishSparkResult>({ url: `/wish/wishes/${id}/spark`, method: 'POST' }),
+
+    // ---- 个人星光资源（文档 L848：余额概览 + 流水）----
+    getMyResources: () => request<MyResourcesData>({ url: '/wish/my/resources' }),
+    getMyResourceLogs: (params?: { type?: 'EARN' | 'SPEND'; cursor?: string | number; pageSize?: number }) =>
+        request<ResourceLogItem[]>({ url: `/wish/my/resources/logs${buildQuery((params ?? {}) as Record<string, unknown>)}` }),
+
+    // ---- 每日签到（文档 2.6 / L1916：签到 +5 星光 + 等级提升事件）----
+    dailySignin: () =>
+        request<DailySigninResult>({ url: '/wish/my/checkin', method: 'POST' }),
+    getSigninCalendar: (month: string) =>
+        request<SigninCalendarData>({ url: `/wish/my/checkin/calendar${buildQuery({ month })}` }),
+    getMyLevel: () => request<MyLevelData>({ url: '/wish/my/level' }),
 
     // ---- 互动（Sprint 1.2）----
     createInteraction: (wishId: number | string, data: { type: WishInteractionType; content?: string }) =>
@@ -250,6 +324,10 @@ export const wishApi = {
         request<{ currentValue: number; targetValue: number; percentage: number; version: number }>({
             url: `/wish/wishes/${wishId}/progress`,
         }),
+
+    // ---- 心愿打卡日历（Sprint 1.3 验收）----
+    getWishCheckinCalendar: (wishId: number | string, month: string) =>
+        request<{ dates: string[] }>({ url: `/wish/wishes/${wishId}/checkins${buildQuery({ month } as Record<string, unknown>)}` }),
 
     // ---- 心愿收藏（Sprint 1.5，B2）----
     collectWish: (wishId: number | string) =>

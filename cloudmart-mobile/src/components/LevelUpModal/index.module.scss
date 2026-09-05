@@ -1,0 +1,148 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(4, 10, 28, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-fade 0.25s ease-out;
+}
+
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  position: relative;
+  width: 560rpx;
+  padding: 64rpx 48rpx 48rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(165deg, #101a3a 0%, #0a1230 100%);
+  border: 1rpx solid rgba(255, 215, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: modal-pop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  overflow: visible;
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 光环扩散 */
+.ring {
+  position: absolute;
+  top: -30rpx;
+  left: 50%;
+  width: 120rpx;
+  height: 120rpx;
+  margin-left: -60rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(255, 215, 0, 0.6);
+  animation: ring-expand 1.6s ease-out infinite;
+}
+
+@keyframes ring-expand {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.levelRow {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-top: 40rpx;
+}
+
+.levelBadge {
+  min-width: 120rpx;
+  padding: 16rpx 24rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 165, 0, 0.18));
+  border: 1rpx solid rgba(255, 215, 0, 0.55);
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #ffd700;
+  text-align: center;
+}
+
+.levelBadgeOld {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.arrow {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.newTitle {
+  margin-top: 32rpx;
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.confirmBtn {
+  margin-top: 48rpx;
+  padding: 20rpx 72rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(120deg, #ffd700, #ffa500);
+  animation: confirm-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes confirm-glow {
+  0%, 100% { box-shadow: 0 0 16rpx rgba(255, 215, 0, 0.35); }
+  50% { box-shadow: 0 0 40rpx rgba(255, 215, 0, 0.65); }
+}
+
+.confirmText {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0c1b3a;
+}
+
+/* ---- 粒子炸裂层（transition 驱动，位移由内联 transform 控制） ---- */
+.particleLayer {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  /* 位移/透明度由 JS 内联 transform 控制，此处只声明缓动 */
+  transition-property: transform, opacity;
+  transition-timing-function: cubic-bezier(0.16, 0.84, 0.44, 1);
+}

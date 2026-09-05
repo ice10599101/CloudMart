@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Switch, Input, Button, message } from 'antd'
-import { LockOutlined, MailOutlined } from '@ant-design/icons'
+import { Switch, Input, Button } from 'antd'
+import { message } from '@/utils/appMessage'
+import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined, DeleteOutlined,
+  StarOutlined,
+} from '@ant-design/icons'
+import { history } from 'umi'
 import { getUserProfile, changePassword } from '@/api/user'
 import type { UserProfile } from '@/api/user'
 import { getUserSettings, updateUserSettings } from '@/api/community'
@@ -296,6 +300,66 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        <div style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>心愿宇宙 · 合规</h2>
+
+          <div
+            style={toggleRowStyle}
+            onClick={() => history.push('/wish/ai')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BellOutlined /> 通知偏好矩阵
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>13 类提醒 × 4 渠道，逐项开关</div>
+            </div>
+            <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
+          </div>
+
+          <div
+            style={toggleRowStyle}
+            onClick={() => history.push('/wish/starlight-log')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <StarOutlined /> 星光流水
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>收入/支出明细，游标分页</div>
+            </div>
+            <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
+          </div>
+
+          <div
+            style={toggleRowStyle}
+            onClick={() => history.push('/settings/export')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <DownloadOutlined /> 数据导出
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>个人数据副本（JSON），7 天有效</div>
+            </div>
+            <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
+          </div>
+
+          <div
+            style={toggleRowStyle}
+            onClick={() => history.push('/profile')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: '#ff4d4f', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <DeleteOutlined /> 注销账号
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>30 天宽限期，期间可撤回</div>
+            </div>
+            <span style={{ color: '#ff4d4f', fontSize: 13 }}>前往 →</span>
+          </div>
+        </div>
+
       </div>
 
       <style>{`

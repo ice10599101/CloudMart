@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Spin, Empty, Pagination, Tag, message } from 'antd'
+import { Spin, Empty, Pagination, Tag } from 'antd'
+import { message } from '@/utils/appMessage'
 import { history, useSearchParams } from 'umi'
 import { searchProducts } from '@/api/product'
 import { searchPosts, getSearchHistory, clearSearchHistory, getHotSearches } from '@/api/community'

@@ -22,6 +22,9 @@ public interface ActivityService {
      * 活动列表（入口展示）：仅 ACTIVE 且在展示期内；type/cityCode 过滤可选；
      * 归档活动不出现在列表（验收）。
      */
+    /** 参与者列表（文档 2.21）：JOINED/APPROVED，昵称脱敏为 ID 尾号 */
+    java.util.List<java.util.Map<String, Object>> listParticipants(Long activityId, int page, int size);
+
     List<CommunityActivity> listActivities(String type, String cityCode);
 
     /** 活动详情（归档后仍可访问——验收） */

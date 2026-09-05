@@ -2,13 +2,17 @@ package com.cloudmart.wish.controller;
 
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.wish.entity.LiveWidgetConfig;
 import com.cloudmart.wish.service.LiveWidgetService;
 import com.cloudmart.wish.vo.LiveWidgetVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +31,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class LiveWidgetController {
 
     private final LiveWidgetService liveWidgetService;
+
+    @PostMapping("/widgets/config")
+    @Operation(summary = "主播自助配置挂件", description = "streamerId 强制为当前用户；403 WISH_FORBIDDEN 若非本人")
+    public ApiResponse<com.cloudmart.wish.entity.LiveWidgetConfig> selfConfig(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestBody com.cloudmart.wish.entity.LiveWidgetConfig config) {
+        config.setStreamerId(userId);
+        config.setUpdatedBy(userId);
+        return ApiResponse.ok(liveWidgetService.saveConfig(config));
+    }
 
     @GetMapping("/{streamerId}")
     @Operation(summary = "挂件数据", description = "公开；Redis 缓存 TTL 10s；"

@@ -273,7 +273,7 @@ export default function WishHome() {
                           className={styles.wishCard}
                           cover={
                             item.coverUrl ? (
-                                <img src={item.coverUrl} alt={item.title} className={styles.cardCover} />
+                                <img loading="lazy" src={item.coverUrl} alt={item.title} className={styles.cardCover} />
                             ) : (
                                 <div className={styles.cardCoverPlaceholder}>
                                   <StarOutlined style={{ fontSize: 32, color: '#5A6F8E' }} />

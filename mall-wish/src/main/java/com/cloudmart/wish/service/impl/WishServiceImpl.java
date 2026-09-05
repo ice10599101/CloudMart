@@ -681,8 +681,9 @@ public class WishServiceImpl implements WishService {
                     .set(WishProgress::getMaxStreak, maxStreak)
                     .eq(WishProgress::getWishId, wishId));
         }
-        // 星光 +2（CHECKIN 流水）
+        // 星光 +2（CHECKIN 流水）+ 累计打卡天数 +1（文档 6.5，等级 L2 判定依据）
         int credited = userStatService.earnStarlight(userId, 2, ResourceLogSource.CHECKIN, wishId);
+        userStatService.incrementOnWishCheckin(userId);
         log.info("打卡成功, wishId={}, userId={}, streak={}, starlight={}", wishId, userId, currentStreak, credited);
         return new CheckinResultVO(checkin.getId(), currentStreak, maxStreak, credited);
     }
@@ -738,6 +739,104 @@ public class WishServiceImpl implements WishService {
         int pct = target > 0 ? Math.min(100, Math.round(current * 100.0f / target)) : 0;
         return new WishService.ProgressDetail(current, target, pct,
                 progress.getVersion() != null ? progress.getVersion() : 0);
+    }
+
+    @Override
+    public WishService.ProgressDetail updateProgress(Long userId, Long wishId,
+                                                     WishService.ProgressUpdateRequest request) {
+        final Wish wish = wishMapper.selectById(wishId);
+        if (wish == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (!wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可操作此心愿");
+        }
+        final var progress = wishProgressMapper.selectById(wishId);
+        if (progress == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿进度未初始化");
+        }
+        final int current = Math.max(0, request.currentValue());
+        final int updated = wishProgressMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.wish.entity.WishProgress>()
+                .set(com.cloudmart.wish.entity.WishProgress::getCurrentValue, current)
+                .set(com.cloudmart.wish.entity.WishProgress::getVersion, request.version() + 1)
+                .eq(com.cloudmart.wish.entity.WishProgress::getWishId, wishId)
+                .eq(com.cloudmart.wish.entity.WishProgress::getVersion, request.version()));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT,
+                    "进度已被并发修改，请刷新重试");
+        }
+        return getWishProgress(wishId);
+    }
+
+    @Override
+    public WishService.CheckinCalendarVO getCheckinCalendar(Long userId, Long wishId, String month) {
+        final Wish wish = wishMapper.selectById(wishId);
+        if (wish == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (!wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可查看打卡日历");
+        }
+        if (month == null || !month.matches("\\d{4}-\\d{2}")) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "month 须为 YYYY-MM 格式");
+        }
+        final LocalDate start = LocalDate.parse(month + "-01");
+        final LocalDate end = start.plusMonths(1);
+        final var records = wishCheckinMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.WishCheckin>()
+                .eq(com.cloudmart.wish.entity.WishCheckin::getWishId, wishId)
+                .ge(com.cloudmart.wish.entity.WishCheckin::getCheckinDate, start)
+                .lt(com.cloudmart.wish.entity.WishCheckin::getCheckinDate, end));
+        final List<String> dates = records.stream()
+                .map(r -> r.getCheckinDate().toString())
+                .sorted()
+                .toList();
+        return new WishService.CheckinCalendarVO(dates);
+    }
+
+    @Override
+    public WishService.GrowthRecordVO updateGrowthRecord(Long userId, Long wishId, Long recordId,
+                                                         String content, List<String> mediaUrls) {
+        final Wish wish = wishMapper.selectById(wishId);
+        if (wish == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (!wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可操作此心愿");
+        }
+        final var record = wishGrowthRecordMapper.selectById(recordId);
+        if (record == null || !record.getWishId().equals(wishId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "成长记录不存在");
+        }
+        if (content != null && !content.isBlank()) {
+            record.setContent(content.trim());
+        }
+        if (mediaUrls != null) {
+            record.setMediaUrls(com.cloudmart.wish.util.WishJsonUtils.stringifyList(mediaUrls));
+        }
+        wishGrowthRecordMapper.updateById(record);
+        int newCurrent = 0;
+        final var progress = wishProgressMapper.selectById(wishId);
+        if (progress != null && progress.getCurrentValue() != null) {
+            newCurrent = progress.getCurrentValue();
+        }
+        return new WishService.GrowthRecordVO(record.getId(), newCurrent);
+    }
+
+    @Override
+    public void deleteGrowthRecord(Long userId, Long wishId, Long recordId) {
+        final Wish wish = wishMapper.selectById(wishId);
+        if (wish == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (!wish.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可操作此心愿");
+        }
+        final var record = wishGrowthRecordMapper.selectById(recordId);
+        if (record == null || !record.getWishId().equals(wishId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "成长记录不存在");
+        }
+        // 进度为历史事实不回退（与文档 6.5 total* 只增语义一致）
+        wishGrowthRecordMapper.deleteById(recordId);
     }
 
     @Override

@@ -39,14 +39,49 @@ public class CollectionServiceImpl implements CollectionService {
     private final UserAssetMapper userAssetMapper;
     private final BrandMapper brandMapper;
     private final BrandPoolMapper poolMapper;
-    private final BrandPoolMemberMapper poolMemberMapper;
+    private final com.cloudmart.wish.repository.BrandRewardLogMapper brandRewardLogMapper;
+    private final com.cloudmart.wish.repository.BrandPoolMemberMapper poolMemberMapper;
+    private final com.cloudmart.wish.service.UserStatService userStatService;
     private final WishBadgeMapper badgeMapper;
     private final WishUserBadgeMapper userBadgeMapper;
     private final WishMapper wishMapper;
-    private final UserStatService userStatService;
     private final StringRedisTemplate redisTemplate;
 
     // ---------------- 虚拟工坊 ----------------
+
+    @Override
+    public Map<String, Object> assetDetail(Long assetId, Long userId) {
+        final VirtualAsset asset = assetMapper.selectById(assetId);
+        if (asset == null || !Boolean.TRUE.equals(asset.getIsActive())) {
+            // 已拥有者仍可见；未上架且未拥有 → 404
+            if (userId != null) {
+                final Long owned = userAssetMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.wish.entity.UserAsset>()
+                        .eq(com.cloudmart.wish.entity.UserAsset::getUserId, userId)
+                        .eq(com.cloudmart.wish.entity.UserAsset::getAssetId, assetId));
+                if (owned == 0) {
+                    throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "资产不存在或已下架");
+                }
+            } else {
+                throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "资产不存在或已下架");
+            }
+        }
+        boolean owned = false;
+        if (userId != null) {
+            owned = userAssetMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.wish.entity.UserAsset>()
+                    .eq(com.cloudmart.wish.entity.UserAsset::getUserId, userId)
+                    .eq(com.cloudmart.wish.entity.UserAsset::getAssetId, assetId)) > 0;
+        }
+        final Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+        row.put("assetId", asset.getId());
+        row.put("assetType", asset.getAssetType() != null ? asset.getAssetType().name() : null);
+        row.put("name", asset.getName());
+        row.put("description", asset.getDescription());
+        row.put("icon", asset.getIcon());
+        row.put("priceStarlight", asset.getPriceStarlight());
+        row.put("owned", owned);
+        row.put("obtainMethod", owned ? "EXCHANGE" : "WORKSHOP");
+        return row;
+    }
 
     @Override
     public List<Map<String, Object>> workshopAssets(Long userId) {
@@ -364,6 +399,96 @@ public class CollectionServiceImpl implements CollectionService {
         pool.setStatus("ACTIVE");
         poolMapper.insert(pool);
         return pool;
+    }
+
+    @Override
+    public BrandPool updatePool(Long poolId, BrandPool patch, Long adminUserId) {
+        final BrandPool pool = poolMapper.selectById(poolId);
+        if (pool == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "许愿池不存在");
+        }
+        if (patch.getName() != null) {
+            pool.setName(patch.getName());
+        }
+        if (patch.getTargetCount() != null && patch.getTargetCount() >= 1) {
+            pool.setTargetCount(patch.getTargetCount());
+        }
+        if (patch.getRewardJson() != null) {
+            pool.setRewardJson(patch.getRewardJson());
+        }
+        if (patch.getEndAt() != null) {
+            pool.setEndAt(patch.getEndAt());
+        }
+        poolMapper.updateById(pool);
+        return pool;
+    }
+
+    @Override
+    public void endPool(Long poolId) {
+        final BrandPool pool = poolMapper.selectById(poolId);
+        if (pool == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "许愿池不存在");
+        }
+        final BrandPool update = new BrandPool();
+        update.setId(poolId);
+        update.setStatus("ENDED");
+        poolMapper.updateById(update);
+    }
+
+    /**
+     * 达标发奖（文档 9.3 wish-brand-reward-check）：current_count >= target_count
+     * 且 status=ACTIVE 的池 → 按 rewardJson 发星光（简化：仅星光通道，徽章/实物
+     * 奖励待品牌方确认后扩展）→ 池置 ENDED。幂等：置 ENDED 后不再命中。
+     */
+    @Override
+    @Transactional
+    public Map<String, Object> brandRewardCheck() {
+        final var pools = poolMapper.selectList(new LambdaQueryWrapper<BrandPool>()
+                .eq(BrandPool::getStatus, "ACTIVE"));
+        int rewarded = 0;
+        int skipped = 0;
+        for (final BrandPool pool : pools) {
+            final int target = pool.getTargetCount() != null ? pool.getTargetCount() : 0;
+            final int current = pool.getCurrentCount() != null ? pool.getCurrentCount() : 0;
+            if (target <= 0 || current < target) {
+                skipped++;
+                continue;
+            }
+            // 简化发奖：奖励写入池 rewardJson 的星光金额（无 rewardJson 视为无奖励直接 ENDED）
+            int starlight = 0;
+            try {
+                if (pool.getRewardJson() != null && !pool.getRewardJson().isBlank()) {
+                    final var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(pool.getRewardJson());
+                    starlight = node.path("starlight").asInt(0);
+                }
+            } catch (Exception ex) {
+                log.warn("品牌池 rewardJson 解析失败 poolId={}", pool.getId(), ex);
+            }
+            final var members = poolMemberMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.BrandPoolMember>()
+                    .eq(com.cloudmart.wish.entity.BrandPoolMember::getPoolId, pool.getId()));
+            for (final var member : members) {
+                if (starlight > 0) {
+                    final var rewardLog = new com.cloudmart.wish.entity.BrandRewardLog();
+                    rewardLog.setPoolId(pool.getId());
+                    rewardLog.setUserId(member.getUserId());
+                    rewardLog.setRewardType("STARLIGHT");
+                    rewardLog.setRewardAmount(starlight);
+                    rewardLog.setGrantedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("UTC")));
+                    brandRewardLogMapper.insert(rewardLog);
+                    userStatService.earnStarlight(member.getUserId(), starlight,
+                            com.cloudmart.wish.enums.ResourceLogSource.ACTIVITY_REWARD, pool.getId());
+                }
+            }
+            final BrandPool end = new BrandPool();
+            end.setId(pool.getId());
+            end.setStatus("ENDED");
+            poolMapper.updateById(end);
+            rewarded++;
+            log.info("[wish-brand-reward-check] 池 {} 达标发放完成：成员 {} 人 × 星光 {}",
+                    pool.getId(), members.size(), starlight);
+        }
+        log.info("[wish-brand-reward-check] 完成 rewarded={} skipped={}", rewarded, skipped);
+        return Map.of("rewarded", rewarded, "skipped", skipped);
     }
 
     @Override

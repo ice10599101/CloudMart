@@ -10,7 +10,8 @@ import {
   ShoppingOutlined,
 } from '@ant-design/icons'
 import { history, useSearchParams } from 'umi'
-import { message, Spin, Modal } from 'antd'
+import { Spin, Modal } from 'antd'
+import { message } from '@/utils/appMessage'
 import TiptapEditor from '@/components/TiptapEditor'
 import { createPost, getPostDetail, updatePost, saveDraft } from '@/api/community'
 import { uploadFile } from '@/api/file'

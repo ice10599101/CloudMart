@@ -7,12 +7,14 @@ import {
   TrophyOutlined,
   BookOutlined,
   GiftOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
-import { listMyWishes, deleteWish } from '@/api/wish'
-import type { MyWishListItem, WishStatus } from '@/api/wish'
+import { listMyWishes, deleteWish, getMyResources } from '@/api/wish'
+import type { MyWishListItem, WishStatus, MyResourcesData } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
+import StarCountUp from '@/components/StarCountUp'
 import styles from './MyWishes.module.css'
 import WishBGM from '@/components/WishBGM'
 
@@ -46,6 +48,7 @@ export default function MyWishes() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [resources, setResources] = useState<MyResourcesData | null>(null)
   const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -93,6 +96,18 @@ export default function MyWishes() {
     fetchWishes(true)
   }, [user, statusFilter])
 
+  // 星光余额概览（文档 L1910：星光余额展示）
+  useEffect(() => {
+    if (!user) return
+    getMyResources()
+      .then((res) => {
+        if (res.data.success) setResources(res.data.data)
+      })
+      .catch(() => {
+        // 余额卡片加载失败不阻塞心愿列表
+      })
+  }, [user])
+
   // IntersectionObserver 无限滚动
   useEffect(() => {
     if (!hasMore || loading || loadingMore) return
@@ -139,7 +154,36 @@ export default function MyWishes() {
     <div className={`${styles.container} wish-universe-theme`}>
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>我的心愿</h1>
+        {resources && (
+          <Card
+            size="small"
+            style={{
+              marginBottom: 16,
+              background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(0, 212, 255, 0.08))',
+              borderColor: 'rgba(255, 215, 0, 0.35)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <StarCountUp
+                  value={resources.balance}
+                  showIcon
+                  style={{ fontSize: 26, fontWeight: 700, color: '#FFD700' }}
+                />
+                <span style={{ color: 'var(--color-text-secondary)' }}>星光余额</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                今日 <span style={{ color: '#52c41a' }}>+{resources.todayEarned}</span>
+                {' / '}
+                <span style={{ color: '#ff7875' }}>-{resources.todaySpent}</span>
+              </div>
+            </div>
+          </Card>
+        )}
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <Button icon={<CalendarOutlined />} onClick={() => history.push('/wish/signin')}>
+            每日签到
+          </Button>
           <Button icon={<BookOutlined />} onClick={() => history.push('/wish/collections')}>
             我的收藏
           </Button>

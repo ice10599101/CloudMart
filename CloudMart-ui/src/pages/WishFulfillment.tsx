@@ -371,7 +371,7 @@ export default function WishFulfillment() {
                   </div>
                 ))}
                 {uploadedUrls.length < MAX_MEDIA && (
-                  <Upload accept="image/*" showUploadList={false} beforeUpload={handleUpload} disabled={isUploading} multiple>
+                  <Upload accept="image/*,video/*" showUploadList={false} beforeUpload={handleUpload} disabled={isUploading} multiple>
                     <div className={styles.uploadTrigger}>
                       <PlusOutlined />
                     </div>

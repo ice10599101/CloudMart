@@ -26,6 +26,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import styles from './MyWishes.module.css'
+import Collections3DShowcase from '@/components/Collections3DShowcase'
 
 /**
  * 虚拟工坊（Sprint 3.6，四AB B3/B4 用户侧）：
@@ -232,7 +233,9 @@ export default function WishWorkshop() {
           Object.keys(groups).length === 0 ? (
             <Empty description="收藏馆还是空的，去工坊兑换或完成星火收藏吧" />
           ) : (
-            Object.entries(groups).map(([type, items]) => (
+            <>
+            <Collections3DShowcase groups={groups} />
+            {Object.entries(groups).map(([type, items]) => (
               <Card key={type} size="small" title={GROUP_LABELS[type] ?? type} style={{ marginBottom: 16 }}>
                 {items.length === 0 ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无" />
@@ -266,7 +269,8 @@ export default function WishWorkshop() {
                   ))
                 )}
               </Card>
-            ))
+            ))}
+            </>
           )
         ) : brands.length === 0 ? (
           <Empty description="暂无合作品牌" />

@@ -151,6 +151,16 @@ export default function CheckInPage() {
         </View>
       )}
 
+      {/* 星光流水入口（B12 P1：流水列表三端一致） */}
+      <View style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 24px 8px' }}>
+        <Text
+          style={{ fontSize: 13, color: '#4a90d9' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/starlightLog/index' })}
+        >
+          星光流水 →
+        </Text>
+      </View>
+
       {/* Check In Button */}
       <View className={styles.checkInCard}>
         <View className={styles.checkInInfo}>

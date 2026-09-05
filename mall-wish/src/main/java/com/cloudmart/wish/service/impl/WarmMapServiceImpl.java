@@ -117,6 +117,30 @@ public class WarmMapServiceImpl implements WarmMapService {
     // ---------------- 温暖事件 ----------------
 
     @Override
+    public WarmEvent getEventDetail(Long eventId) {
+        final WarmEvent event = warmEventMapper.selectById(eventId);
+        if (event == null || Boolean.FALSE.equals(event.getIsVisible()) || event.getDeletedAt() != null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "温暖事件不存在");
+        }
+        return event;
+    }
+
+    @Override
+    public void deleteEvent(Long userId, Long eventId) {
+        final WarmEvent event = warmEventMapper.selectById(eventId);
+        if (event == null || event.getDeletedAt() != null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "温暖事件不存在");
+        }
+        if (!event.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅发布者可删除");
+        }
+        final WarmEvent update = new WarmEvent();
+        update.setId(eventId);
+        update.setDeletedAt(LocalDateTime.now(ZoneId.of("UTC")));
+        warmEventMapper.updateById(update);
+    }
+
+    @Override
     @Transactional
     public WarmEventVO publishWarmEvent(Long userId, String title, String content, Double lat, Double lng) {
         if (lat == null || lng == null || isBlankCoordinate(lat, lng)) {

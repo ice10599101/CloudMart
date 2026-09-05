@@ -1,7 +1,9 @@
 package com.cloudmart.wish.controller;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.wish.entity.Brand;
+import java.util.Map;
 import com.cloudmart.wish.entity.VirtualAsset;
 import com.cloudmart.wish.service.CollectionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,6 +70,50 @@ public class AdminCollectionController {
             @Parameter(description = "品牌 ID", required = true) @PathVariable Long id,
             @RequestParam String status) {
         collectionService.auditBrand(id, status);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/admin/brand/{brandId}/pools")
+    @Operation(summary = "创建品牌许愿池", description = "brandId 须为 APPROVED 品牌")
+    public ApiResponse<Object> createPool(
+            @PathVariable Long brandId,
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        final com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setBrandId(brandId);
+        pool.setCategoryId(((Number) body.getOrDefault("categoryId", 1)).longValue());
+        pool.setName((String) body.get("name"));
+        pool.setTargetCount(((Number) body.getOrDefault("targetCount", 0)).intValue());
+        pool.setRewardJson((String) body.get("rewardJson"));
+        pool.setEndAt(body.get("endAt") != null
+                ? java.time.LocalDateTime.parse((String) body.get("endAt"))
+                : null);
+        pool.setStatus("ACTIVE");
+        return ApiResponse.ok(collectionService.createPool(pool, adminUserId));
+    }
+
+    @PutMapping("/admin/brand/{brandId}/pools/{poolId}")
+    @Operation(summary = "更新品牌许愿池", description = "name/targetCount/rewardJson/endAt 可变")
+    public ApiResponse<Object> updatePool(
+            @PathVariable Long brandId,
+            @PathVariable Long poolId,
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        final com.cloudmart.wish.entity.BrandPool patch = new com.cloudmart.wish.entity.BrandPool();
+        patch.setId(poolId);
+        if (body.get("name") != null) patch.setName((String) body.get("name"));
+        if (body.get("targetCount") != null) patch.setTargetCount(((Number) body.get("targetCount")).intValue());
+        if (body.get("rewardJson") != null) patch.setRewardJson((String) body.get("rewardJson"));
+        if (body.get("endAt") != null) patch.setEndAt(java.time.LocalDateTime.parse((String) body.get("endAt")));
+        return ApiResponse.ok(collectionService.updatePool(poolId, patch, adminUserId));
+    }
+
+    @PostMapping("/admin/brand/{brandId}/pools/{poolId}/end")
+    @Operation(summary = "终止品牌许愿池", description = "ACTIVE → ENDED，不再接受加入")
+    public ApiResponse<Void> endPool(
+            @PathVariable Long brandId,
+            @PathVariable Long poolId) {
+        collectionService.endPool(poolId);
         return ApiResponse.ok(null);
     }
 }

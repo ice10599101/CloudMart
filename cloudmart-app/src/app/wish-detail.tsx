@@ -1,8 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Share } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import WishCheckinCalendar from '@/components/WishCheckinCalendar'
+import { isOnline, enqueueCheckin, flushQueue } from '@/utils/offlineCheckin'
+import NetInfo from '@react-native-community/netinfo'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
@@ -76,10 +79,34 @@ export default function WishDetailScreen() {
     }
   }, [params.extend, wish, user])
 
-  /** 提交每日打卡：成功后刷新详情（打卡天数/连续打卡来自服务端聚合） */
+  // 离线打卡队列：网络恢复时静默补传（Sprint 1.3 APP 验收）
+  useEffect(() => {
+    const unsub = NetInfo.addEventListener((state) => {
+      if (state.isConnected && state.isInternetReachable) {
+        void flushQueue((wishId, ok) => {
+          if (ok && wishId === wishId) {
+            // 打卡补传成功后刷新对应详情
+          }
+        })
+      }
+    })
+    return () => unsub()
+  }, [])
+
+  void isOnline()
+
+  /** 提交每日打卡：断网入队（恢复后静默补传）；成功后刷新详情 */
   const handleCheckinSubmit = async () => {
     setCheckinSaving(true)
     try {
+      if (!(await isOnline())) {
+        await enqueueCheckin(wishId, checkinContent.trim() || null)
+        Alert.alert('已离线保存 📴', '当前无网络，打卡已存入离线队列，联网后自动补传')
+        setCheckinOpen(false)
+        setCheckinContent('')
+        setCheckedInToday(true)
+        return
+      }
       const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
       if (res.data?.success) {
         const { currentStreak, starlightCredited } = res.data.data
@@ -263,6 +290,18 @@ export default function WishDetailScreen() {
 
   const isAuthor = user?.id === wish.authorId
 
+  /** 系统分享面板（Sprint 1.5 体验要求：APP 走系统分享） */
+  const handleWishShare = async () => {
+    if (!wish) return
+    try {
+      await Share.share({ message: `✦ 心愿宇宙 ✦
+「${wish.title}」
+许愿人：${wish.authorNickname}` })
+    } catch {
+      // 用户取消
+    }
+  }
+
   //心愿内容 + 互动按钮组，作为评论 FlatList 的头部插槽
   const detailHeader = (
     <View>
@@ -406,6 +445,9 @@ export default function WishDetailScreen() {
           <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: Spacing.xs }}>
             打卡 {wish.checkinDays} 天
           </Text>
+          {isAuthor && (
+            <WishCheckinCalendar wishId={wishId} accentColor={FRUIT_COLORS[wish.fruitType]} />
+          )}
         </View>
       )}
 

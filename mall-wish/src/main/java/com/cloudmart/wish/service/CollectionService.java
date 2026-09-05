@@ -19,6 +19,9 @@ public interface CollectionService {
 
     /** 虚拟工坊资产列表（公开；上架中 + 已拥有标记） */
     List<Map<String, Object>> workshopAssets(Long userId);
+    /** 单资产详情（文档 2.22；上架中或已拥有可见，含 obtainMethod） */
+    Map<String, Object> assetDetail(Long assetId, Long userId);
+
 
     /**
      * 星光兑换（幂等：重复兑换抛 WISH_ALREADY_OWNED；限量 Redis DECR
@@ -69,6 +72,14 @@ public interface CollectionService {
     List<BrandPool> listPools(Long brandId);
 
     BrandPool createPool(BrandPool pool, Long adminUserId);
+    /** 池更新（管理端；仅 name/targetCount/rewardJson/endAt 可变） */
+    BrandPool updatePool(Long poolId, BrandPool patch, Long adminUserId);
+
+    /** 池终止（管理端；ACTIVE → ENDED，不再接受加入） */
+    void endPool(Long poolId);
+
+    /** 达标发奖（文档 9.3 wish-brand-reward-check：current>=target 且 ACTIVE → 发奖 + ENDED；幂等） */
+    Map<String, Object> brandRewardCheck();
 
     void joinPool(Long userId, Long poolId);
 

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Modal } from 'react-native'
 import { useMemo } from 'react'
 import * as Clipboard from 'expo-clipboard'
+import * as Sharing from 'expo-sharing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 
@@ -69,6 +70,27 @@ export default function WishShareCard({ visible, onClose, title, author, dateTex
     await Clipboard.setStringAsync(
       `✦ 心愿宇宙 ✦\n「${title}」\n许愿人：${author} · 许愿于 ${dateText}\n—— 愿望终会实现 ——`,
     )
+  }
+  const shareText = `✦ 心愿宇宙 ✦
+「${title}」
+许愿人：${author} · 许愿于 ${dateText}
+—— 愿望终会实现 ——`
+
+  /** 系统分享面板（Sprint 1.5 验收：APP 走系统分享面板） */
+  const handleSystemShare = async () => {
+    try {
+      const available = await Sharing.isAvailableAsync()
+      if (!available) {
+        await Clipboard.setStringAsync(shareText)
+        return
+      }
+      await Sharing.shareAsync(`data:text/plain;charset=utf-8,${encodeURIComponent(shareText)}`, {
+        mimeType: 'text/plain',
+        dialogTitle: '分享心愿',
+      })
+    } catch {
+      // 用户取消或不可用：静默
+    }
   }
 
   return (
@@ -139,6 +161,20 @@ export default function WishShareCard({ visible, onClose, title, author, dateTex
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleCopy}
+          style={{
+            marginTop: Spacing.lg,
+            paddingVertical: Spacing.md,
+            borderRadius: 28,
+            alignItems: 'center',
+            backgroundColor: 'rgba(233, 69, 96, 0.25)',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>复制分享文案</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleSystemShare}
           style={{
             marginTop: Spacing.lg,
             paddingVertical: Spacing.md,

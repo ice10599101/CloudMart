@@ -150,6 +150,7 @@ public class GlobalExceptionHandler {
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
             case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
                  "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
+                 "WISH_ALREADY_SIGNED_IN",
                  "WISH_VERSION_CONFLICT", "WISH_NOT_FULFILLABLE",
                  "WISH_AI_GOAL_STATUS_INVALID",
                  "WISH_GROUP_FULL", "WISH_ALREADY_MEMBER",

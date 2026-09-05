@@ -1150,6 +1150,35 @@ export function getPartnerBoard(id: number | string) {
   )
 }
 
+// ========== 我的星光资源（文档 L848，契约对齐 mall-wish MyResourceController） ==========
+
+export interface MyResourcesData {
+  /** 当前星光余额（上限 5000，文档 6.3 防囤积） */
+  balance: number
+  todayEarned: number
+  todaySpent: number
+}
+
+export interface ResourceLogItem {
+  id: number | string
+  type: 'EARN' | 'SPEND'
+  /** 数量恒为正，方向由 type 表达 */
+  amount: number
+  reason: string
+  balanceAfter: number
+  createdAt: string
+}
+
+/** 星光余额概览（四端「星光余额展示」统一数据源） */
+export function getMyResources() {
+  return request.get<ApiResponse<MyResourcesData>>('/wish/my/resources')
+}
+
+/** 星光流水（时间倒序 cursor 分页） */
+export function getMyResourceLogs(params?: { type?: 'EARN' | 'SPEND'; cursor?: string | number; pageSize?: number }) {
+  return request.get<ApiResponse<ResourceLogItem[]>>('/wish/my/resources/logs', { params })
+}
+
 // ========== 虚拟收藏 + 品牌（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========
 
 export interface UserAssetData {
@@ -1242,6 +1271,69 @@ export function getBrandPoolRewards(brandId: number | string, poolId: number | s
   return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/wish/brands/${brandId}/pools/${poolId}/rewards`)
 }
 
+// ========== 每日签到（文档 2.6，契约对齐 mall-wish MySigninController/DailySigninVO） ==========
+
+/** 等级提升事件（签到瞬间检测；未提升为 null，三端庆祝弹窗/APP 本地推送依据） */
+export interface LevelUpEvent {
+  previousLevel: number
+  newLevel: number
+  newLevelTitle: string
+}
+
+export interface DailySigninResult {
+  signed: boolean
+  consecutiveDays: number
+  starlightReward: number
+  tomorrowReward: number
+  levelUp: LevelUpEvent | null
+}
+
+export interface SigninCalendarData {
+  /** 当月已签到日期（yyyy-MM-dd 升序） */
+  signedDates: string[]
+  consecutiveDays: number
+  totalDays: number
+}
+
+/** 用户维度每日签到（与心愿打卡独立；+5 星光，重复签到 409 WISH_ALREADY_SIGNED_IN） */
+export function dailySignin() {
+  return request.post<ApiResponse<DailySigninResult>>('/wish/my/checkin')
+}
+
+/** 签到日历（month 格式 yyyy-MM） */
+export function getSigninCalendar(month: string) {
+  return request.get<ApiResponse<SigninCalendarData>>('/wish/my/checkin/calendar', {
+    params: { month },
+  })
+}
+
+// ========== 我的等级与晋级进度（文档 6.5 / L1930） ==========
+
+export interface LevelRequirementItem {
+  metric: string
+  label: string
+  current: number
+  threshold: number
+  percentage: number
+}
+
+export interface MyLevelData {
+  level: number
+  levelTitle: string
+  totalWishes: number
+  totalCheckinDays: number
+  totalFulfilled: number
+  totalHelped: number
+  nextLevel: number | null
+  nextLevelTitle: string | null
+  nextLevelRequirements: LevelRequirementItem[]
+}
+
+/** 当前等级 + 距下一级各维度进度（满级时 nextLevel 为 null） */
+export function getMyLevel() {
+  return request.get<ApiResponse<MyLevelData>>('/wish/my/level')
+}
+
 // ========== 打卡 + 成长记录 + 进度（Sprint 1.3 补齐） ==========
 
 export interface CheckinResult {
@@ -1260,6 +1352,12 @@ export function addGrowthRecord(wishId: number | string, data: {
 }) {
   return request.post<ApiResponse<{ recordId: number; newCurrentValue: number }>>(
     `/wish/wishes/${wishId}/growth`, data)
+}
+
+export function getWishCheckinCalendar(wishId: number | string, month: string) {
+  return request.get<ApiResponse<{ dates: string[] }>>(`/wish/wishes/${wishId}/checkins`, {
+    params: { month },
+  })
 }
 
 export function getWishProgressDetail(wishId: number | string) {
@@ -1354,4 +1452,54 @@ export function cancelAccountDeletion() {
 
 export function getAccountDeletionStatus() {
   return request.get<ApiResponse<AccountDeletionStatus | null>>('/wish/my/account-deletion')
+}
+
+// ========== 四AB 审计修复新增端点（progress CAS/checkins/growth 编辑删除/温暖事件/信笺互动/参与者/资产详情/主播自配/品牌池创建） ==========
+
+export function updateWishProgress(wishId: number | string, data: { currentValue: number; version: number }) {
+  return request.put<ApiResponse<{ currentValue: number; targetValue: number; percentage: number; version: number }>>(
+    `/wish/wishes/${wishId}/progress`, data)
+}
+
+export function updateGrowthRecord(wishId: number | string, recordId: number | string, data: {
+  content?: string; mediaUrls?: string[]
+}) {
+  return request.put<ApiResponse<{ recordId: number; newCurrentValue: number }>>(
+    `/wish/wishes/${wishId}/growth-records/${recordId}`, data)
+}
+
+export function deleteGrowthRecord(wishId: number | string, recordId: number | string) {
+  return request.delete<ApiResponse<null>>(`/wish/wishes/${wishId}/growth-records/${recordId}`)
+}
+
+export function getWarmEventDetail(eventId: number | string) {
+  return request.get<ApiResponse<WarmEventItem>>(`/wish/map/warm-events/${eventId}`)
+}
+
+export function deleteWarmEvent(eventId: number | string) {
+  return request.delete<ApiResponse<null>>(`/wish/map/warm-events/${eventId}`)
+}
+
+export function listLetterInteractions(letterId: number | string) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/wish/encounter-letters/${letterId}/interactions`)
+}
+
+export function listActivityParticipants(activityId: number | string, page = 1, size = 20) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/wish/activities/${activityId}/participants`, {
+    params: { page, size },
+  })
+}
+
+export function getAssetDetail(assetId: number | string) {
+  return request.get<ApiResponse<Record<string, unknown>>>(`/wish/collections/assets/${assetId}`)
+}
+
+export function selfConfigLiveWidget(data: { position: string; styleConfig?: string; isVisible?: boolean }) {
+  return request.post<ApiResponse<Record<string, unknown>>>('/wish/live/widgets/config', data)
+}
+
+export function createBrandPool(brandId: number | string, data: {
+  name: string; targetCount: number; rewardJson?: string; endAt?: string
+}) {
+  return request.post<ApiResponse<Record<string, unknown>>>(`/wish/brands/${brandId}/pools`, data)
 }

@@ -48,6 +48,9 @@ public interface EncounterService {
     List<EncounterLetterVO> listLetters(Long userId);
 
     /** 拆信（DELIVERED → READ，记录 read_at） */
+    /** 信笺互动列表（文档 2.19：仅信笺归属者可见，匿名化不含互动者 ID） */
+    java.util.List<com.cloudmart.wish.entity.LetterInteraction> listLetterInteractions(Long userId, Long letterId);
+
     EncounterLetterVO markRead(Long userId, Long letterId);
 
     /**

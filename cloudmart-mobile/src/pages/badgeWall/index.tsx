@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import type { MyLevelData } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -21,12 +22,19 @@ export default function BadgeWallPage() {
   const { isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [badges, setBadges] = useState<BadgeWallItem[]>([])
+  const [levelData, setLevelData] = useState<MyLevelData | null>(null)
 
   const fetchBadges = useCallback(async () => {
     try {
-      const res = await wishApi.getMyBadges()
-      if (res.data.success) {
-        setBadges(res.data.data)
+      const [badgesRes, levelRes] = await Promise.all([
+        wishApi.getMyBadges(),
+        wishApi.getMyLevel(),
+      ])
+      if (badgesRes.data.success) {
+        setBadges(badgesRes.data.data)
+      }
+      if (levelRes.data.success) {
+        setLevelData(levelRes.data.data)
       }
     } catch {
       // 错误已由 request 处理
@@ -66,6 +74,39 @@ export default function BadgeWallPage() {
             <Text className={styles.pageTitle}>🏅 我的徽章墙</Text>
             <Text className={styles.summary}>已点亮 {earnedCount} / {badges.length} 枚徽章</Text>
           </View>
+
+          {/* 等级与晋级进度（文档 L1915：心愿殿堂式等级展示） */}
+          {levelData && (
+            <View className={styles.levelCard}>
+              <View className={styles.levelHeader}>
+                <View className={styles.levelBadge}>
+                  <Text className={styles.levelBadgeText}>Lv.{levelData.level}</Text>
+                </View>
+                <View className={styles.levelInfo}>
+                  <Text className={styles.levelTitle}>{levelData.levelTitle}</Text>
+                  {levelData.nextLevel ? (
+                    <Text className={styles.levelNext}>距 Lv.{levelData.nextLevel} {levelData.nextLevelTitle}</Text>
+                  ) : (
+                    <Text className={styles.levelNext}>已达最高等级 ✨</Text>
+                  )}
+                </View>
+              </View>
+              {levelData.nextLevelRequirements.map((req) => (
+                <View key={req.metric} className={styles.levelReqRow}>
+                  <View className={styles.levelReqLabelRow}>
+                    <Text className={styles.levelReqLabel}>{req.label}</Text>
+                    <Text className={styles.levelReqValue}>{req.current}/{req.threshold}</Text>
+                  </View>
+                  <View className={styles.levelReqBg}>
+                    <View
+                      className={styles.levelReqBar}
+                      style={{ width: `${Math.min(Math.max(req.percentage, 0), 100)}%` }}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {badges.length === 0 ? (
             <View className={styles.empty}>

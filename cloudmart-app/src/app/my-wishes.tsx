@@ -3,10 +3,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import type { MyResourcesData } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, formatCount } from '@/constants/wish-theme'
 import WishBGM from '@/components/WishBGM'
+import StarCountUp from '@/components/StarCountUp'
 import type { MyWishListItem, WishStatus } from '@/types'
 
 const PAGE_SIZE = 10
@@ -29,11 +31,24 @@ export default function MyWishesScreen() {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'' | WishStatus>('')
+  const [resources, setResources] = useState<MyResourcesData | null>(null)
 
   useEffect(() => {
     if (!isLoggedIn) {
       router.replace('/login')
     }
+  }, [isLoggedIn])
+
+  // 星光余额概览（文档 L1916：APP 星光余额展示）
+  useEffect(() => {
+    if (!isLoggedIn) return
+    wishApi.getMyResources()
+      .then(res => {
+        if (res.data?.success) setResources(res.data.data)
+      })
+      .catch(() => {
+        // 余额卡片加载失败不阻塞心愿列表
+      })
   }, [isLoggedIn])
 
   const loadWishes = useCallback(async (nextCursor?: string | null, reset = false) => {
@@ -192,9 +207,38 @@ export default function MyWishesScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 快捷入口（对齐 WEB/Mobile：我的收藏/虚拟工坊/我的徽章） */}
+      {/* 星光余额卡片（文档 L1916：APP 星光余额展示 + 数字滚动动效） */}
+      {resources && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.sm,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(255, 215, 0, 0.10)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 215, 0, 0.35)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs }}>
+            <Text style={{ fontSize: 22 }}>⭐</Text>
+            <StarCountUp value={resources.balance} fontSize={30} />
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>星光余额</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Text style={{ fontSize: FontSize.xs, color: '#52c41a' }}>今日 +{resources.todayEarned}</Text>
+            <Text style={{ fontSize: FontSize.xs, color: '#ff7875' }}>支出 -{resources.todaySpent}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* 快捷入口（对齐 WEB/Mobile：每日签到/我的收藏/虚拟工坊/我的徽章） */}
       <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
         {([
+          { icon: '📅', label: '每日签到', path: '/daily-signin' as const },
           { icon: '📖', label: '我的收藏', path: '/wish-collections' },
           { icon: '🎁', label: '虚拟工坊', path: '/workshop' },
           { icon: '🏆', label: '我的徽章', path: '/badge-wall' },
@@ -204,7 +248,7 @@ export default function MyWishesScreen() {
             activeOpacity={0.7}
             accessibilityLabel={entry.label}
             accessibilityRole="button"
-            onPress={() => router.push(entry.path)}
+            onPress={() => router.push(entry.path as `/wish-detail?id=${string}`)}
             style={{
               flex: 1,
               alignItems: 'center',

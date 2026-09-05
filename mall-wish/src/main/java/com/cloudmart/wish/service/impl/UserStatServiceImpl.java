@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
@@ -13,14 +14,22 @@ import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.UserStatService;
+import com.cloudmart.wish.vo.LevelRequirementVO;
+import com.cloudmart.wish.vo.LevelUpVO;
+import com.cloudmart.wish.vo.MyLevelVO;
+import com.cloudmart.wish.vo.MyResourcesVO;
+import com.cloudmart.wish.vo.ResourceLogVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户心愿统计服务实现。
@@ -38,6 +47,36 @@ public class UserStatServiceImpl implements UserStatService {
 
     /** 默认时区（用户统计记录不存在时） */
     static final String DEFAULT_TIMEZONE = "Asia/Shanghai";
+
+    /** 等级标题（文档 6.5：L1 追梦新人 → L5 宇宙守护者） */
+    static final Map<Integer, String> LEVEL_TITLES = Map.of(
+            1, "追梦新人",
+            2, "梦想家",
+            3, "追光者",
+            4, "星火引路人",
+            5, "宇宙守护者");
+
+    /** 晋级指标中文名（四端进度条展示文案，与 metric 键一一对应） */
+    static final Map<String, String> LEVEL_METRIC_LABELS = Map.of(
+            "totalWishes", "累计许愿",
+            "totalCheckinDays", "累计打卡",
+            "totalFulfilled", "累计还愿",
+            "totalHelped", "累计帮助");
+
+    /**
+     * 晋级条件表（文档 6.5：等级判定与进度查询共用同一数据源，避免双写漂移）。
+     * LinkedHashMap 保持展示顺序；未出现的指标表示该级不要求。
+     */
+    static final Map<Integer, Map<String, Integer>> LEVEL_REQUIREMENTS = buildLevelRequirements();
+
+    private static Map<Integer, Map<String, Integer>> buildLevelRequirements() {
+        Map<Integer, Map<String, Integer>> requirements = new LinkedHashMap<>();
+        requirements.put(2, new LinkedHashMap<>(Map.of("totalWishes", 3, "totalCheckinDays", 7)));
+        requirements.put(3, new LinkedHashMap<>(Map.of("totalWishes", 10, "totalFulfilled", 1, "totalHelped", 50)));
+        requirements.put(4, new LinkedHashMap<>(Map.of("totalWishes", 30, "totalFulfilled", 5, "totalHelped", 200)));
+        requirements.put(5, new LinkedHashMap<>(Map.of("totalWishes", 100, "totalFulfilled", 20, "totalHelped", 1000)));
+        return requirements;
+    }
 
     private final WishUserStatMapper wishUserStatMapper;
     private final WishResourceLogMapper wishResourceLogMapper;
@@ -209,6 +248,51 @@ public class UserStatServiceImpl implements UserStatService {
         badgeService.evaluateAndAward(userId);
     }
 
+    @Override
+    public MyResourcesVO getMyResources(Long userId) {
+        int balance = getStarlightBalance(userId);
+        // 今日边界：与流水 createdAt 的 MetaObjectHandler 填充时区一致（同为服务器默认时区），避免错位
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        return new MyResourcesVO(balance,
+                sumTodayDelta(userId, ResourceLogType.EARN, todayStart),
+                Math.abs(sumTodayDelta(userId, ResourceLogType.SPEND, todayStart)));
+    }
+
+    @Override
+    public List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, Long cursor, Integer pageSize) {
+        int size = pageSize == null ? 20 : Math.min(pageSize, 50);
+        if (size <= 0) {
+            size = 20;
+        }
+        LambdaQueryWrapper<WishResourceLog> wrapper = new LambdaQueryWrapper<WishResourceLog>()
+                .eq(WishResourceLog::getUserId, userId)
+                .orderByDesc(WishResourceLog::getId)
+                .last("LIMIT " + size);
+        if (type != null) {
+            wrapper.eq(WishResourceLog::getType, type);
+        }
+        if (cursor != null) {
+            wrapper.lt(WishResourceLog::getId, cursor);
+        }
+        return wishResourceLogMapper.selectList(wrapper).stream()
+                .map(ResourceLogVO::from)
+                .toList();
+    }
+
+    /** 聚合指定类型今日流水 delta 之和（SPEND 的 delta 为负数，取绝对值前先求和） */
+    private int sumTodayDelta(Long userId, ResourceLogType type, LocalDateTime todayStart) {
+        QueryWrapper<WishResourceLog> wrapper = new QueryWrapper<WishResourceLog>()
+                .select("COALESCE(SUM(delta), 0)")
+                .eq("user_id", userId)
+                .eq("type", type.name())
+                .ge("created_at", todayStart);
+        List<Object> result = wishResourceLogMapper.selectObjs(wrapper);
+        if (result.isEmpty() || result.get(0) == null) {
+            return 0;
+        }
+        return ((Number) result.get(0)).intValue();
+    }
+
     private int requireBalance(Long userId) {
         WishUserStat stat = wishUserStatMapper.selectById(userId);
         if (stat == null) {
@@ -227,5 +311,125 @@ public class UserStatServiceImpl implements UserStatService {
         logEntry.setRefId(refId);
         logEntry.setBalanceAfter(balanceAfter);
         wishResourceLogMapper.insert(logEntry);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void incrementOnWishCheckin(Long userId) {
+        int affected = wishUserStatMapper.update(null,
+                new LambdaUpdateWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .setSql("total_checkin_days = total_checkin_days + 1")
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+        );
+        if (affected == 0) {
+            log.warn("打卡统计+1失败（用户统计记录不存在）, userId={}", userId);
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public LevelUpVO checkAndLevelUp(Long userId) {
+        // FOR UPDATE：与统计写入串行化，避免并发判定互相覆盖（只升不降下最坏为漏报，下轮扫描兜底）
+        WishUserStat stat = wishUserStatMapper.selectOne(
+                new LambdaQueryWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .last("FOR UPDATE"));
+        if (stat == null) {
+            return null;
+        }
+
+        int earnedLevel = evaluateLevel(
+                nullSafe(stat.getTotalWishes()),
+                nullSafe(stat.getTotalCheckinDays()),
+                nullSafe(stat.getTotalFulfilled()),
+                nullSafe(stat.getTotalHelped()));
+        int currentHighest = stat.getHighestLevel() != null ? stat.getHighestLevel() : 1;
+        if (earnedLevel <= currentHighest) {
+            return null; // 只升不降：未达更高等级保持现状
+        }
+
+        String newTitle = LEVEL_TITLES.get(earnedLevel);
+        wishUserStatMapper.update(null,
+                new LambdaUpdateWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .set(WishUserStat::getLevel, (byte) earnedLevel)
+                        .set(WishUserStat::getHighestLevel, (byte) earnedLevel)
+                        .set(WishUserStat::getLevelTitle, newTitle));
+        log.info("等级提升, userId={}, {} -> {} ({})", userId, currentHighest, earnedLevel, newTitle);
+        return new LevelUpVO(currentHighest, earnedLevel, newTitle);
+    }
+
+    /**
+     * 等级判定（文档 6.5）：基于累计行为指标，与星光余额独立。
+     * 自高向低取首个满足等级（等级间无前置依赖，与原硬编码判定语义一致）；
+     * 条件阈值见 {@link #LEVEL_REQUIREMENTS}（表驱动，进度查询共用）。
+     */
+    /** 等级标题查询（表驱动；供运维任务/外部调用） */
+    static String levelTitleOf(int level) {
+        return LEVEL_TITLES.getOrDefault(level, LEVEL_TITLES.get(1));
+    }
+
+    static int evaluateLevel(int totalWishes, int totalCheckinDays, int totalFulfilled, int totalHelped) {
+        Map<String, Integer> metrics = Map.of(
+                "totalWishes", totalWishes,
+                "totalCheckinDays", totalCheckinDays,
+                "totalFulfilled", totalFulfilled,
+                "totalHelped", totalHelped);
+        for (int level = 5; level >= 2; level--) {
+            Map<String, Integer> requirements = LEVEL_REQUIREMENTS.get(level);
+            boolean satisfied = requirements.entrySet().stream()
+                    .allMatch(entry -> metrics.getOrDefault(entry.getKey(), 0) >= entry.getValue());
+            if (satisfied) {
+                return level;
+            }
+        }
+        return 1;
+    }
+
+    @Override
+    public MyLevelVO getMyLevel(Long userId) {
+        WishUserStat stat = wishUserStatMapper.selectById(userId);
+        if (stat == null) {
+            // 只读接口不落统计记录：无记录按 L1 初始态返回
+            return buildMyLevelVO(1, 0, 0, 0, 0);
+        }
+        int highest = stat.getHighestLevel() != null ? stat.getHighestLevel() : 1;
+        return buildMyLevelVO(highest,
+                nullSafe(stat.getTotalWishes()),
+                nullSafe(stat.getTotalCheckinDays()),
+                nullSafe(stat.getTotalFulfilled()),
+                nullSafe(stat.getTotalHelped()));
+    }
+
+    /** 组装等级进度 VO：nextLevel 取 current+1（满级为 null），进度按各维度 threshold 计算百分比 */
+    private MyLevelVO buildMyLevelVO(int currentLevel, int totalWishes, int totalCheckinDays,
+                                     int totalFulfilled, int totalHelped) {
+        Map<String, Integer> metrics = Map.of(
+                "totalWishes", totalWishes,
+                "totalCheckinDays", totalCheckinDays,
+                "totalFulfilled", totalFulfilled,
+                "totalHelped", totalHelped);
+        boolean maxLevel = currentLevel >= 5;
+        Integer nextLevel = maxLevel ? null : currentLevel + 1;
+
+        List<LevelRequirementVO> requirements = maxLevel ? List.of()
+                : LEVEL_REQUIREMENTS.get(nextLevel).entrySet().stream()
+                        .map(entry -> {
+                            int current = metrics.getOrDefault(entry.getKey(), 0);
+                            int percentage = (int) Math.min(100L, 100L * current / entry.getValue());
+                            return new LevelRequirementVO(entry.getKey(),
+                                    LEVEL_METRIC_LABELS.getOrDefault(entry.getKey(), entry.getKey()),
+                                    current, entry.getValue(), percentage);
+                        })
+                        .toList();
+
+        return new MyLevelVO(currentLevel, LEVEL_TITLES.get(currentLevel),
+                totalWishes, totalCheckinDays, totalFulfilled, totalHelped,
+                nextLevel, maxLevel ? null : LEVEL_TITLES.get(nextLevel), requirements);
+    }
+
+    private static int nullSafe(Integer value) {
+        return value != null ? value : 0;
     }
 }

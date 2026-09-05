@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import type { MyLevelData } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -20,6 +21,7 @@ export default function BadgeWallScreen() {
   const insets = useSafeAreaInsets()
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const [badges, setBadges] = useState<BadgeWallItem[]>([])
+  const [levelData, setLevelData] = useState<MyLevelData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -31,9 +33,15 @@ export default function BadgeWallScreen() {
 
   const loadBadges = useCallback(async () => {
     try {
-      const res = await wishApi.getMyBadges()
-      if (res.data?.success) {
-        setBadges(res.data.data)
+      const [badgesRes, levelRes] = await Promise.all([
+        wishApi.getMyBadges(),
+        wishApi.getMyLevel(),
+      ])
+      if (badgesRes.data?.success) {
+        setBadges(badgesRes.data.data)
+      }
+      if (levelRes.data?.success) {
+        setLevelData(levelRes.data.data)
       }
     } catch {
       // 错误已由 request 处理
@@ -203,6 +211,74 @@ export default function BadgeWallScreen() {
               <Text style={{ marginTop: 4, fontSize: FontSize.sm, color: WishColors.textTertiary }}>
                 已点亮 {earnedCount} / {badges.length} 枚徽章
               </Text>
+
+              {/* 等级与晋级进度（文档 L1916：心愿殿堂式等级展示） */}
+              {levelData && (
+                <View
+                  style={{
+                    marginTop: Spacing.md,
+                    padding: Spacing.lg,
+                    borderRadius: BorderRadius.lg,
+                    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 215, 0, 0.3)',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+                    <View
+                      style={{
+                        paddingVertical: 8,
+                        paddingHorizontal: Spacing.md,
+                        borderRadius: BorderRadius.md,
+                        backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 215, 0, 0.55)',
+                      }}
+                    >
+                      <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#ffd700' }}>
+                        Lv.{levelData.level}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.text }}>
+                        {levelData.levelTitle}
+                      </Text>
+                      <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 2 }}>
+                        {levelData.nextLevel
+                          ? `距 Lv.${levelData.nextLevel} ${levelData.nextLevelTitle}`
+                          : '已达最高等级 ✨'}
+                      </Text>
+                    </View>
+                  </View>
+                  {levelData.nextLevelRequirements.map((req) => (
+                    <View key={req.metric} style={{ marginTop: Spacing.md }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>{req.label}</Text>
+                        <Text style={{ fontSize: FontSize.xs, color: '#ffd700' }}>
+                          {req.current}/{req.threshold}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: `${Math.min(Math.max(req.percentage, 0), 100)}%`,
+                            height: '100%',
+                            borderRadius: 3,
+                            backgroundColor: '#00d4ff',
+                          }}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           }
           ListEmptyComponent={

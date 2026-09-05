@@ -44,7 +44,8 @@ import {
   UploadOutlined,
   LoadingOutlined,
 } from '@ant-design/icons'
-import { Tooltip, Input, Modal, Popover, InputNumber, message } from 'antd'
+import { Tooltip, Input, Modal, Popover, InputNumber } from 'antd'
+import { message } from '@/utils/appMessage'
 import { uploadFile } from '@/api/file'
 import { FontSize } from './extensions/fontSize'
 import { FontFamily } from './extensions/fontFamily'

@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import type { MyResourcesData } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
+import StarCountUp from '@/components/StarCountUp'
 import type { MyWishListItem, WishStatus, FruitType } from '@/types'
 import styles from './index.module.scss'
 
@@ -41,6 +43,7 @@ export default function MyWishesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [resources, setResources] = useState<MyResourcesData | null>(null)
 
   const fetchWishes = useCallback(async (reset: boolean) => {
     if (!isLoggedIn) {
@@ -84,9 +87,53 @@ export default function MyWishesPage() {
     fetchWishes(true)
   }, [isLoggedIn, statusFilter])
 
+  // 星光余额概览（文档 L1915：移动三端星光余额展示）
+  useEffect(() => {
+    if (!isLoggedIn) return
+    wishApi.getMyResources()
+      .then(res => {
+        if (res.data.success) setResources(res.data.data)
+      })
+      .catch(() => {
+        // 余额卡片加载失败不阻塞心愿列表
+      })
+  }, [isLoggedIn])
+
   const onScrollToLower = () => {
     if (hasMore && !loading && !loadingMore) {
       fetchWishes(false)
+    }
+  }
+
+  // 注销状态（A1）：PENDING 时显示撤回入口
+  const [deletionPending, setDeletionPending] = useState(false)
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+    wishApi.getAccountDeletionStatus()
+      .then((res) => {
+        if (res.data.success && res.data.data) setDeletionPending(res.data.data.status === 'PENDING')
+      })
+      .catch(() => undefined)
+  }, [isLoggedIn])
+
+  /** 撤回注销申请 */
+  const handleCancelDeletion = async () => {
+    const res = await Taro.showModal({
+      title: '撤回注销申请',
+      content: '撤回后账号恢复正常，确定撤回吗？',
+      confirmText: '撤回',
+    })
+    if (!res.confirm) return
+    try {
+      const r = await wishApi.cancelAccountDeletion()
+      if (r.data.success) {
+        setDeletionPending(false)
+        Taro.showToast({ title: '已撤回，账号恢复正常', icon: 'none' })
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '撤回失败', icon: 'none' })
     }
   }
 
@@ -159,6 +206,21 @@ export default function MyWishesPage() {
     <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
       <CustomNavBar title='我的心愿' back />
 
+      {/* 星光余额卡片（文档 L1915：移动三端星光余额展示 + 数字滚动动效） */}
+      {resources && (
+        <View className={styles.starlightCard}>
+          <View className={styles.starlightLeft}>
+            <Text className={styles.starlightIcon}>⭐</Text>
+            <StarCountUp value={resources.balance} className={styles.starlightValue} />
+            <Text className={styles.starlightLabel}>星光余额</Text>
+          </View>
+          <View className={styles.starlightToday}>
+            <Text className={styles.starlightEarn}>今日 +{resources.todayEarned}</Text>
+            <Text className={styles.starlightSpend}>支出 -{resources.todaySpent}</Text>
+          </View>
+        </View>
+      )}
+
       {/* 状态筛选 */}
       <ScrollView scrollX className={styles.filterBar}>
         {STATUS_FILTERS.map(filter => (
@@ -172,8 +234,15 @@ export default function MyWishesPage() {
         ))}
       </ScrollView>
 
-      {/* 快捷入口（对齐 WEB 端：我的收藏/虚拟工坊/我的徽章） */}
+      {/* 快捷入口（对齐 WEB 端：每日签到/我的收藏/虚拟工坊/我的徽章） */}
       <View className={styles.quickNav}>
+        <View
+          className={styles.quickNavBtn}
+          onClick={() => Taro.navigateTo({ url: '/pages/dailySignin/index' })}
+        >
+          <Text className={styles.quickNavIcon}>📅</Text>
+          <Text className={styles.quickNavText}>每日签到</Text>
+        </View>
         <View
           className={styles.quickNavBtn}
           onClick={() => Taro.navigateTo({ url: '/pages/wishCollections/index' })}
@@ -276,8 +345,12 @@ export default function MyWishesPage() {
               数据导出
             </Text>
             <Text
-              style={{ fontSize: 24, color: '#ff6b6b' }}
+              style={{ fontSize: 24, color: deletionPending ? '#ffa940' : '#ff6b6b' }}
               onClick={() => {
+                if (deletionPending) {
+                  void handleCancelDeletion()
+                  return
+                }
                 Taro.showModal({
                   title: '注销账号',
                   content: '申请后进入 30 天宽限期（期间可撤回），到期将清除心愿等个人数据。继续吗？',
@@ -285,7 +358,7 @@ export default function MyWishesPage() {
                 })
               }}
             >
-              注销账号
+              {deletionPending ? '⚠ 注销宽限期中（点击撤回）' : '注销账号'}
             </Text>
           </View>
           <View style={{ height: '120rpx' }} />

@@ -7,6 +7,8 @@ import com.cloudmart.wish.dto.NotificationPreferenceUpdateRequest;
 import com.cloudmart.wish.dto.ReportTimezoneRequest;
 import com.cloudmart.wish.service.CapsuleService;
 import com.cloudmart.wish.service.NotificationPreferenceService;
+import com.cloudmart.wish.service.UserStatService;
+import com.cloudmart.wish.vo.MyLevelVO;
 import com.cloudmart.wish.vo.NotificationPreferenceMatrixVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,6 +40,17 @@ public class MyProfileController {
 
     private final CapsuleService capsuleService;
     private final NotificationPreferenceService notificationPreferenceService;
+    private final UserStatService userStatService;
+
+    @GetMapping("/level")
+    @Operation(summary = "我的等级与晋级进度", description = "当前等级（取 highest_level，只升不降）+ 累计指标 "
+            + "+ 距下一级各维度进度；满级（L5）时 nextLevel 为 null、进度列表为空（文档 6.5 / L1930）")
+    @SentinelResource("WISH_MY_LEVEL")
+    public ApiResponse<MyLevelVO> getMyLevel(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(userStatService.getMyLevel(userId));
+    }
 
     @PostMapping("/timezone")
     @Operation(summary = "上报时区", description = "写入 wish_user_stat.timezone，重复上报幂等；"

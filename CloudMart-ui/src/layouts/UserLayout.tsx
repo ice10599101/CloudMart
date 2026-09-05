@@ -27,7 +27,6 @@ import AppMessageBinder from '@/components/AppMessageBinder'
 import type { ThemeMode } from '@/stores/theme'
 import { getThemeTokens, applyCssVariables } from '@/theme/tokens'
 import type { ThemeTokens } from '@/theme/tokens'
-import CheckInModal from '@/components/CheckInModal'
 import pageStyles from './UserLayout.module.css'
 
 const NAV_ITEMS = [
@@ -628,7 +627,6 @@ export default function UserLayout() {
         </div>
       </footer>
     </div>
-    <CheckInModal visible={checkInVisible} onClose={() => setCheckInVisible(false)} />
     </App>
     </ConfigProvider>
   )

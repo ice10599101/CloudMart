@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Spin, message, Popconfirm } from 'antd'
+import { Spin, Popconfirm } from 'antd'
+import { message } from '@/utils/appMessage'
 import {
   HeartOutlined,
   HeartFilled,

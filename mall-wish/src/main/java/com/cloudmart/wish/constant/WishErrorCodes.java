@@ -41,6 +41,8 @@ public final class WishErrorCodes {
     public static final String WISH_STATUS_CONFLICT = "WISH_STATUS_CONFLICT";
     public static final String WISH_ALREADY_INTERACTED = "WISH_ALREADY_INTERACTED";
     public static final String WISH_ALREADY_CHECKIN_TODAY = "WISH_ALREADY_CHECKIN_TODAY";
+    /** 每日签到今日已完成（文档 2.6 errors：409 WISH_ALREADY_SIGNED_IN） */
+    public static final String WISH_ALREADY_SIGNED_IN = "WISH_ALREADY_SIGNED_IN";
     public static final String WISH_VERSION_CONFLICT = "WISH_VERSION_CONFLICT";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */
