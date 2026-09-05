@@ -305,7 +305,7 @@ export default function SettingsPage() {
 
           <div
             style={toggleRowStyle}
-            onClick={() => history.push('/wish/ai')}
+            onClick={() => history.push('/wish/assistant')}
             role="link"
           >
             <div>
