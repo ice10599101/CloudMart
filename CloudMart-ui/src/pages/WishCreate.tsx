@@ -163,7 +163,7 @@ export default function WishCreate() {
         expectedAt: values.expectedAt?.toISOString(),
       })
       if (res.data.success) {
-        message.success('心愿发布成功！')
+        message.success('心愿发布成功！审核通过后将展示在心愿广场')
         history.push(`/wish/${res.data.data.id}`)
       }
     } catch {

@@ -160,7 +160,7 @@ export default function WishWorkshop() {
     }
   }
 
-  const assetCards = assets.filter((a) => (tab === 'workshop' ? true : false))
+  const assetCards = tab === 'workshop' ? assets : []
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>

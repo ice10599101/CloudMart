@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
@@ -10,11 +11,13 @@ import com.cloudmart.wish.dto.UpdateWishRequest;
 import com.cloudmart.wish.dto.WishListQuery;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishCategory;
+import com.cloudmart.wish.entity.WishComment;
 import com.cloudmart.wish.entity.WishGrowthRecord;
 import com.cloudmart.wish.entity.WishProgress;
 import com.cloudmart.wish.enums.AuditStatus;
 import com.cloudmart.wish.enums.AuditStrategy;
 import com.cloudmart.wish.enums.FruitType;
+import com.cloudmart.wish.enums.WishCommentStatus;
 import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
@@ -23,6 +26,7 @@ import com.cloudmart.wish.entity.WishCheckin;
 import com.cloudmart.wish.enums.GrowthRecordType;
 import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.repository.WishCheckinMapper;
+import com.cloudmart.wish.repository.WishCommentMapper;
 import com.cloudmart.wish.repository.WishGrowthRecordMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
@@ -48,7 +52,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,6 +85,7 @@ public class WishServiceImpl implements WishService {
     private final WishMapper wishMapper;
     private final WishCategoryMapper wishCategoryMapper;
     private final WishCheckinMapper wishCheckinMapper;
+    private final WishCommentMapper wishCommentMapper;
     private final WishGrowthRecordMapper wishGrowthRecordMapper;
     private final WishProgressMapper wishProgressMapper;
     private final UserStatService userStatService;
@@ -315,9 +322,9 @@ public class WishServiceImpl implements WishService {
                 .map(this::toGrowthRecordVO)
                 .toList();
 
-        // 打卡天数
-        Long checkinDays = 0L; // Sprint 1.1 不含打卡功能，返回 0
-        // TODO Sprint 1.3: 从 wish_checkin 表 count
+        // 打卡天数：该心愿的累计打卡记录数（uk_checkin_daily 保证每天至多一条）
+        Long checkinDays = wishCheckinMapper.selectCount(new LambdaQueryWrapper<WishCheckin>()
+                .eq(WishCheckin::getWishId, wishId));
 
         // 作者信息
         AuthorInfo authorInfo = fetchAuthorInfo(Set.of(wish.getUserId()))
@@ -333,6 +340,7 @@ public class WishServiceImpl implements WishService {
                 WishJsonUtils.parseStringList(wish.getTags()),
                 wish.getVisibility(),
                 wish.getStatus(),
+                wish.getAuditStatus(),
                 wish.getFruitType(),
                 wish.getUserId(),
                 authorInfo.nickname(),
@@ -342,7 +350,7 @@ public class WishServiceImpl implements WishService {
                 wish.getBlessCount(),
                 wish.getAnonStarCount(),
                 wish.getSupportCount(),
-                0, // commentCount: Sprint 1.2 接入 mall-community Feign
+                countVisibleComments(Set.of(wishId)).getOrDefault(wishId, 0L).intValue(),
                 wish.getExpectedAt(),
                 wish.getEnableAiReply(),
                 wish.getCreatedAt(),
@@ -405,8 +413,12 @@ public class WishServiceImpl implements WishService {
         Set<Long> userIds = wishes.stream().map(Wish::getUserId).collect(Collectors.toSet());
         Map<Long, AuthorInfo> authorMap = fetchAuthorInfo(userIds);
 
+        // 批量填充可见评论数
+        Map<Long, Long> commentCounts = countVisibleComments(wishes.stream().map(Wish::getId).collect(Collectors.toSet()));
+
         List<WishListItemVO> items = wishes.stream()
-                .map(w -> toListItemVO(w, categoryNameMap, authorMap))
+                .map(w -> toListItemVO(w, categoryNameMap, authorMap,
+                        commentCounts.getOrDefault(w.getId(), 0L).intValue()))
                 .toList();
 
         String nextCursor = hasMore ? String.valueOf(wishes.get(wishes.size() - 1).getId()) : null;
@@ -543,8 +555,24 @@ public class WishServiceImpl implements WishService {
                 .collect(Collectors.toMap(WishCategory::getId, WishCategory::getName));
     }
 
-    private Map<Long, AuthorInfo> fetchAuthorInfo(Set<Long> userIds) {
-        if (userIds.isEmpty()) {
+    /** 批量统计心愿可见评论数（GROUP BY 一次查询，避免列表页逐条 COUNT 的 N+1） */
+    private Map<Long, Long> countVisibleComments(Collection<Long> wishIds) {
+        if (wishIds == null || wishIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Map<String, Object>> rows = wishCommentMapper.selectMaps(new QueryWrapper<WishComment>()
+                .select("wish_id", "COUNT(*) AS cnt")
+                .eq("status", WishCommentStatus.VISIBLE.name())
+                .in("wish_id", wishIds)
+                .groupBy("wish_id"));
+        Map<Long, Long> result = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            result.put(((Number) row.get("wish_id")).longValue(), ((Number) row.get("cnt")).longValue());
+        }
+        return result;
+    }
+
+    private Map<Long, AuthorInfo> fetchAuthorInfo(Set<Long> userIds) {        if (userIds.isEmpty()) {
             return Collections.emptyMap();
         }
         try {
@@ -572,7 +600,7 @@ public class WishServiceImpl implements WishService {
     }
 
     private WishListItemVO toListItemVO(Wish wish, Map<Long, String> categoryNameMap,
-                                        Map<Long, AuthorInfo> authorMap) {
+                                        Map<Long, AuthorInfo> authorMap, int commentCount) {
         AuthorInfo author = authorMap.getOrDefault(wish.getUserId(),
                 new AuthorInfo(wish.getUserId(), "心愿旅人", ""));
         return new WishListItemVO(
@@ -593,13 +621,12 @@ public class WishServiceImpl implements WishService {
                 wish.getSameWishCount(),
                 wish.getBlessCount(),
                 wish.getSupportCount(),
-                0, // commentCount: Sprint 1.2 接入
+                commentCount,
                 wish.getExpectedAt(),
                 wish.getCreatedAt(),
                 wish.getUpdatedAt()
         );
     }
-
     private WishProgressVO toProgressVO(WishProgress progress) {
         if (progress == null) {
             return new WishProgressVO(0, DEFAULT_TARGET_VALUE, 0, 0);
@@ -651,7 +678,8 @@ public class WishServiceImpl implements WishService {
         if (wish.getStatus() != WishStatus.ACTIVE) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅进行中的心愿可打卡");
         }
-        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+        // 打卡日按用户时区计算（与每日签到一致）：硬编码 UTC 会导致东八区用户 0:00-7:59 打卡被记为前一天
+        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
         // uk_checkin_daily 幂等
         Long existing = wishCheckinMapper.selectCount(new LambdaQueryWrapper<WishCheckin>()
                 .eq(WishCheckin::getWishId, wishId)

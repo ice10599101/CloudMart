@@ -108,7 +108,11 @@ public class ActivityServiceImpl implements ActivityService {
         query.eq(CommunityActivity::getStatus, ActivityStatus.ACTIVE);
         applyTypeAndCity(query, type, cityCode);
         query.orderByDesc(CommunityActivity::getId);
-        return activityMapper.selectList(query.last("LIMIT 100"));
+        List<CommunityActivity> activities = activityMapper.selectList(query.last("LIMIT 100"));
+        // 进度统一走 getProgress（Redis 优先、DB 兜底）：参与只更新 Redis，
+        // 若列表直接读 DB progressCounter 会与详情弹窗出现计数不一致
+        activities.forEach(a -> a.setProgressCounter(getProgress(a.getId())));
+        return activities;
     }
 
     @Override

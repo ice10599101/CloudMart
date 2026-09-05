@@ -47,7 +47,7 @@ export default function CheckinCalendar({ wishId, accentColor }: CheckinCalendar
     const cells = useMemo(() => {
         const first = month.startOf('month')
         const daysInMonth = month.daysInMonth()
-        const blanks = Array.from({ length: first.day() }, (_, i) => null)
+        const blanks = Array.from({ length: first.day() }, () => null)
         const days = Array.from({ length: daysInMonth }, (_, i) => first.add(i, 'day'))
         return [...blanks, ...days]
     }, [month])

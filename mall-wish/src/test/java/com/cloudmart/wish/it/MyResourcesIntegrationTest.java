@@ -38,10 +38,13 @@ class MyResourcesIntegrationTest extends WishIntegrationTestBase {
                 { 9004L, -5, "SPEND", "ANON_STAR", 146 },
         };
         for (Object[] row : rows) {
+            // 用 JVM 本地时间填充：生产写入经 MetaObjectHandler 也是 JVM 默认时区；
+            // 若用 DB 的 NOW()（容器通常为 UTC），北京时间 0:00-7:59 会与聚合的本地零点错位 8 小时导致 flaky
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
             jdbcTemplate.update(
                     "INSERT INTO wish_resource_log (id, user_id, delta, type, source, balance_after, created_at, updated_at) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                    row[0], USER_ID, row[1], row[2], row[3], row[4]);
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    row[0], USER_ID, row[1], row[2], row[3], row[4], now, now);
         }
     }
 

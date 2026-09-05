@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Card, Empty, Segmented, Table, App } from 'antd'
+import { Button, Card, Empty, Segmented, Table } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { getMyResourceLogs, type ResourceLogItem } from '@/api/wish'
@@ -12,7 +12,6 @@ const STATUS_COLORS: Record<string, string> = { EARN: '#52c41a', SPEND: '#ff6b6b
  * EARN/SPEND 筛选 + 游标分页。
  */
 export default function StarlightLog() {
-  const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
   const [logs, setLogs] = useState<ResourceLogItem[]>([])
   const [filter, setFilter] = useState<'' | 'EARN' | 'SPEND'>('')

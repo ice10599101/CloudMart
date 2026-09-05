@@ -75,6 +75,15 @@ export default function DailySignin() {
     [todayStr],
   )
 
+  const loadResources = useCallback(async () => {
+    try {
+      const res = await getMyResources()
+      if (res.data.success) setResources(res.data.data)
+    } catch {
+      // 余额卡片加载失败不阻塞签到
+    }
+  }, [])
+
   useEffect(() => {
     if (!user && !userLoading) {
       message.warning('请先登录')
@@ -87,16 +96,7 @@ export default function DailySignin() {
       setLoading(false),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
-
-  const loadResources = useCallback(async () => {
-    try {
-      const res = await getMyResources()
-      if (res.data.success) setResources(res.data.data)
-    } catch {
-      // 余额卡片加载失败不阻塞签到
-    }
-  }, [])
+  }, [user, loadResources])
 
   const switchMonth = (direction: 1 | -1) => {
     let nextYear = year

@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { Button } from 'antd'
 import { ReloadOutlined, WifiOutlined, CloudServerOutlined } from '@ant-design/icons'
 import styles from './index.module.css'

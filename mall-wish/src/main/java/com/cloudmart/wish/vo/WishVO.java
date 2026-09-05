@@ -1,5 +1,6 @@
 package com.cloudmart.wish.vo;
 
+import com.cloudmart.wish.enums.AuditStatus;
 import com.cloudmart.wish.enums.FruitType;
 import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
@@ -25,6 +26,7 @@ public record WishVO(
         @Schema(description = "标签列表") List<String> tags,
         @Schema(description = "可见性") WishVisibility visibility,
         @Schema(description = "心愿状态") WishStatus status,
+        @Schema(description = "审核状态（PENDING=审核中，作者可见提示）") AuditStatus auditStatus,
         @Schema(description = "果实类型") FruitType fruitType,
         @Schema(description = "作者用户 ID") Long authorId,
         @Schema(description = "作者昵称") String authorNickname,

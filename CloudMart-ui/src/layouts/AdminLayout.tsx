@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
+import zhCN from 'antd/locale/zh_CN'
+import 'dayjs/locale/zh-cn'
 import { ConfigProvider, theme, Dropdown, Spin, Alert, Button, App } from 'antd'
 import {
   LogoutOutlined,
@@ -183,7 +185,7 @@ export default function AdminLayout() {
 
   if (accessToken && !adminInfo) {
     return (
-      <ConfigProvider
+      <ConfigProvider locale={zhCN}
         theme={{
           algorithm: tokens.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: { colorPrimary: tokens.colorPrimary, colorBgContainer: tokens.colorBgContainer, colorBgElevated: tokens.colorBgElevated, colorBgLayout: tokens.colorBgBase, colorBorder: tokens.colorBorder, colorText: tokens.colorText, colorTextSecondary: tokens.colorTextSecondary },
@@ -197,7 +199,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <ConfigProvider
+    <ConfigProvider locale={zhCN}
       theme={{
         algorithm: tokens.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {

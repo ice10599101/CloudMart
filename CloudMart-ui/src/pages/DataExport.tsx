@@ -4,7 +4,6 @@ import { ArrowLeftOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design
 import { history } from 'umi'
 import {
   createDataExport,
-  getMyExportTask,
   listMyExportTasks,
   downloadMyExport,
   type DataExportTask,

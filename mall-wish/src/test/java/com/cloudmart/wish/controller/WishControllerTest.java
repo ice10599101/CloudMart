@@ -146,6 +146,7 @@ class WishControllerTest {
                 1L, "标题", "描述", List.of(), 100L, "学习",
                 List.of(), WishVisibility.PUBLIC,
                 com.cloudmart.wish.enums.WishStatus.ACTIVE,
+                com.cloudmart.wish.enums.AuditStatus.APPROVED,
                 com.cloudmart.wish.enums.FruitType.GLOW,
                 1L, "作者", "avatar.png",
                 0, 0, 0, 0, 0, 0,

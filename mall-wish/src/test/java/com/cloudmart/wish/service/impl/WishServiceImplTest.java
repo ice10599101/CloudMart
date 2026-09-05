@@ -70,6 +70,8 @@ class WishServiceImplTest {
     private UserFeignClient userFeignClient;
     @Mock
     private com.cloudmart.wish.repository.WishCheckinMapper wishCheckinMapper;
+    @Mock
+    private com.cloudmart.wish.repository.WishCommentMapper wishCommentMapper;
 
     @InjectMocks
     private WishServiceImpl wishService;
@@ -82,7 +84,7 @@ class WishServiceImplTest {
     @BeforeEach
     void setUp() {
         wishService = new WishServiceImpl(
-                wishMapper, wishCategoryMapper, wishCheckinMapper, wishGrowthRecordMapper,
+                wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper, wishGrowthRecordMapper,
                 wishProgressMapper, userStatService, userFeignClient
         );
     }

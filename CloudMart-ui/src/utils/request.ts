@@ -35,52 +35,6 @@ function isAdminRequest(url: string): boolean {
   return url.startsWith('/admin/') || url.startsWith('/auth/admin/')
 }
 
-const USER_PUBLIC_PATH_PREFIXES = [
-  '/auth/login',
-  '/auth/refresh',
-  '/user/users/register',
-  '/product/products/search',
-  '/product/categories',
-  '/product/reviews/product/',
-  '/product/reviews/stats/',
-  '/product/products/',
-  '/coupon/coupon-templates',
-  '/seckill/activities',
-  '/seckill/products/activity/',
-  '/live/rooms',
-  '/marketing/group/activities',
-  '/marketing/group/orders',
-  '/payment/payments/callback',
-  '/file/uploads/',
-  '/community/users/recommend',
-  '/community/posts/hot',
-  '/community/posts/',
-  '/community/topics/',
-  '/wish/wishes',
-  '/wish/categories',
-  '/wish/home',
-]
-
-const ADMIN_PUBLIC_PATH_PREFIXES = [
-  '/auth/admin/login',
-  '/auth/admin/refresh',
-]
-
-// 依赖网关注入用户身份头的心愿接口（登录态）：
-// /wish/wishes/my（我的心愿）、/wish/wishes/{id}/interactions、/wish/wishes/{id}/comments
-const WISH_AUTH_REQUIRED_REGEX = /^\/wish\/wishes\/(my|\d+\/(interactions|comments))/
-
-function isPublicPath(url: string): boolean {
-  if (!url) return false
-  if (WISH_AUTH_REQUIRED_REGEX.test(url)) return false
-  const prefixes = isAdminRequest(url) ? ADMIN_PUBLIC_PATH_PREFIXES : USER_PUBLIC_PATH_PREFIXES
-  for (const prefix of prefixes) {
-    if (url.startsWith(prefix)) return true
-  }
-  if (!isAdminRequest(url) && /\/product\/products\/\d+/.test(url)) return true
-  return false
-}
-
 /** 构造携带业务错误码的 Error（组件需按 code 区分 402/409/429 等场景） */
 function toBusinessError(code: string, messageText: string): Error & { code: string } {
   const error = new Error(messageText) as Error & { code: string }
@@ -88,15 +42,11 @@ function toBusinessError(code: string, messageText: string): Error & { code: str
   return error
 }
 
-/** 公开路径仅对 GET 跳过身份头；写操作（如发布心愿 POST /wish/wishes）必须携带 token，否则网关因无身份注入返回 UNAUTHORIZED */
-function isPublicGet(config: { url?: string; method?: string }): boolean {
-  return (config.method ?? 'get').toLowerCase() === 'get' && isPublicPath(config.url ?? '')
-}
-
+// 已登录则一律附带身份头：公开接口带 token 无害（服务端忽略或用于个性化），
+// 而心愿宇宙存在大量「路径公开、语义私有」的 GET（checkins/fulfillment/tree-hole 等），
+// 若按前缀跳过会导致这些接口缺身份头而 401。token 过期由响应拦截器的刷新流程自愈。
 request.interceptors.request.use(
   (config) => {
-    if (isPublicGet(config)) return config
-
     const url = config.url ?? ''
     const tokenKey = isAdminRequest(url) ? 'admin_access_token' : 'access_token'
     const token = localStorage.getItem(tokenKey)
@@ -148,10 +98,6 @@ request.interceptors.response.use(
         )
       }
       const url = error.config.url ?? ''
-      // 公开路径的 GET（匿名浏览）401 不触发 refresh；公开路径上的写操作仍走 refresh 流程
-      if (isPublicGet(error.config)) {
-        return Promise.reject(error)
-      }
       const admin = isAdminRequest(url)
       const refreshTokenKey = admin ? 'admin_refresh_token' : 'refresh_token'
       const accessTokenKey = admin ? 'admin_access_token' : 'access_token'

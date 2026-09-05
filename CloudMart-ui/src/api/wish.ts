@@ -55,6 +55,8 @@ export interface WishDetail extends WishListItem {
   checkinDays: number
   progress: WishProgress | null
   enableAiReply?: boolean
+  /** 审核状态（PENDING=审核中，审核通过后才在广场可见） */
+  auditStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'
 }
 
 export interface WishCreateResult {

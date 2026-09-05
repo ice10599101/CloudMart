@@ -157,8 +157,9 @@ export default function TreeHole() {
         } else if (code === 'WISH_AI_UNAVAILABLE') {
           message.warning('树洞守护者暂时不在，请稍后再来')
         }
-        // 发送失败移除本地用户消息，避免误导已送达
+        // 发送失败移除本地用户消息，避免误导已送达；文本放回输入框便于重试
         setMessages((prev) => prev.filter((m) => m.content !== text || m.role !== 'USER' || !String(m.id).startsWith('local-')))
+        setInput((cur) => (cur.trim() ? cur : text))
       } finally {
         setSending(false)
       }

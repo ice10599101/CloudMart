@@ -447,6 +447,9 @@ export default function WishDetail() {
                 {FRUIT_LABELS[wish.fruitType]}
               </Tag>
               <Tag>{STATUS_LABELS[wish.status] || wish.status}</Tag>
+              {wish.auditStatus === 'PENDING' && (
+                <Tag color="orange">审核中，审核通过后将展示在心愿广场</Tag>
+              )}
               {wish.tags?.map(tag => (
                 <Tag key={tag} className={styles.tag}>{tag}</Tag>
               ))}

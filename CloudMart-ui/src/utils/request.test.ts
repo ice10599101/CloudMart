@@ -65,12 +65,12 @@ describe('request 请求拦截器（真实实例）', () => {
     expect(config.headers.Authorization).toBe('Bearer admin-token')
   })
 
-  it('公开路径 GET（匿名浏览）不携带 token', () => {
+  it('已登录时公开路径 GET 也携带 token（BUG-A 回归：路径公开语义私有的心愿接口需身份头）', () => {
     localStorage.setItem('access_token', 'user-token')
 
     const config = runRequestInterceptor({ url: '/wish/wishes', method: 'get' })
 
-    expect(config.headers.Authorization).toBeUndefined()
+    expect(config.headers.Authorization).toBe('Bearer user-token')
   })
 
   it('公开路径写操作（发布心愿 POST /wish/wishes）必须携带 token 与幂等键', () => {
@@ -92,13 +92,24 @@ describe('request 请求拦截器（真实实例）', () => {
     expect(config.headers.Authorization).toBe('Bearer user-token')
   })
 
-  it('公开路径 POST 不携带 token 时登录态为空也不报错（匿名允许失败由后端判定）', () => {
+  it('未登录时公开路径 POST 不携带 token（匿名允许失败由后端判定）', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'fixed-uuid' })
 
     const config = runRequestInterceptor({ url: '/wish/wishes', method: 'post' })
 
     expect(config.headers.Authorization).toBeUndefined()
     expect(config.headers['X-Idempotency-Key']).toBe('fixed-uuid')
+  })
+
+  it('作者私有 GET（/wish/wishes/{id}/checkins）携带 token（BUG-A 回归）', () => {
+    localStorage.setItem('access_token', 'user-token')
+
+    const config = runRequestInterceptor({
+      url: '/wish/wishes/2096298677604798465/checkins',
+      method: 'get',
+    })
+
+    expect(config.headers.Authorization).toBe('Bearer user-token')
   })
 })
 

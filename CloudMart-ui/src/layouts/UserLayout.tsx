@@ -1,4 +1,6 @@
 import { useState, useEffect, type CSSProperties } from 'react'
+import zhCN from 'antd/locale/zh_CN'
+import 'dayjs/locale/zh-cn'
 import { ConfigProvider, theme, Input, Badge, Avatar, Dropdown, App } from 'antd'
 import {
   ShoppingCartOutlined,
@@ -328,7 +330,6 @@ export default function UserLayout() {
   const [searchValue, setSearchValue] = useState('')
   const [hoveredNav, setHoveredNav] = useState<string | null>(null)
   const [avatarHovered, setAvatarHovered] = useState(false)
-  const [checkInVisible, setCheckInVisible] = useState(false)
 
   const tokens = getThemeTokens(mode)
   const styles = buildStyles(tokens)
@@ -396,7 +397,7 @@ export default function UserLayout() {
   const selectedKey = getSelectedKey(location.pathname)
 
   return (
-    <ConfigProvider
+    <ConfigProvider locale={zhCN}
       theme={{
         algorithm: tokens.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
@@ -534,7 +535,7 @@ export default function UserLayout() {
             <>
               <CalendarOutlined
                 style={styles.iconBtn}
-                onClick={() => setCheckInVisible(true)}
+                onClick={() => history.push('/wish/signin')}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = tokens.colorPrimary
                   e.currentTarget.style.textShadow = `0 0 12px rgba(${tokens.colorPrimaryRgb}, 0.4)`
