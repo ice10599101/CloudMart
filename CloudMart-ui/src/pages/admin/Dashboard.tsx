@@ -1,56 +1,31 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useMessage } from '@/utils/useMessage'
-import { Card, Col, Row, Statistic, Table, Spin, Tag, Button, Select } from 'antd'
+import { Card, Col, Row, Statistic, Table, Spin, Tag, Button, Select, Empty } from 'antd'
 import {
   ShoppingCartOutlined,
   DollarOutlined,
   UserOutlined,
-  AppstoreOutlined,
+  StarOutlined,
   AlertOutlined,
   FileTextOutlined,
   BarChartOutlined,
   CommentOutlined,
   DownloadOutlined,
+  HeartOutlined,
+  CheckCircleOutlined,
+  FireOutlined,
 } from '@ant-design/icons'
-import { getDashboardStats, getRecentOrders, getSalesTrend } from '@/api/admin/system'
+import { getDashboardStats } from '@/api/admin/system'
 import { getAdminPosts, getCommunityStats, getCommunityTrend } from '@/api/admin/community'
 import type { AdminPostRecord } from '@/api/admin/community'
+import { getAdminWishes, getAdminWishStats } from '@/api/admin/wish'
+import type { AdminWishRecord, AdminWishStats } from '@/api/admin/wish'
 
 interface DashboardStats {
   userCount: number
-  roleCount: number
-  menuCount: number
   onlineCount: number
   todayOrderCount: number
   todayRevenue: number
-  productCount: number
-  memberCount: number
-}
-
-interface RecentOrder {
-  id: number
-  orderNo: string
-  username: string
-  totalAmount: number
-  status: string
-  createdAt: string
-}
-
-interface SalesTrendItem {
-  date: string
-  sales: number
-  orders: number
-}
-
-interface CommunityStats {
-  totalPostCount: number
-  todayPostCount: number
-  pendingReviewCount: number
-  rejectedPostCount: number
-  totalCommentCount: number
-  todayCommentCount: number
-  pendingReportCount: number
-  totalReportCount: number
 }
 
 interface CommunityTrendItem {
@@ -60,15 +35,6 @@ interface CommunityTrendItem {
   reportCount: number
 }
 
-const ORDER_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PENDING: { label: '待付款', color: 'default' },
-  PAID: { label: '已付款', color: 'processing' },
-  SHIPPED: { label: '已发货', color: 'warning' },
-  COMPLETED: { label: '已完成', color: 'success' },
-  CANCELLED: { label: '已取消', color: 'error' },
-  REFUNDING: { label: '退款中', color: 'warning' },
-}
-
 const POST_STATUS_MAP: Record<number, { label: string; color: string }> = {
   0: { label: '草稿', color: 'default' },
   1: { label: '已发布', color: 'green' },
@@ -76,22 +42,28 @@ const POST_STATUS_MAP: Record<number, { label: string; color: string }> = {
   3: { label: '已删除', color: 'red' },
 }
 
-const STAT_CARDS = [
-  { title: '今日订单', key: 'todayOrderCount', icon: ShoppingCartOutlined, accentColor: 'var(--color-primary)', prefix: '' },
+const WISH_STATUS_COLOR: Record<string, string> = {
+  ACTIVE: 'processing',
+  FULFILLING: 'cyan',
+  FULFILLED: 'success',
+  OVERDUE: 'warning',
+}
+
+// 顶部综合指标：社区内容生态优先，电商弱化为辅助指标（综合娱乐社区定位）
+const OVERVIEW_CARDS = [
+  { title: '用户总数', key: 'userCount', icon: UserOutlined, accentColor: 'var(--color-primary)', prefix: '' },
+  { title: '今日新帖', key: 'todayPostCount', icon: FileTextOutlined, accentColor: '#2ED573', prefix: '' },
+  { title: '今日新心愿', key: 'todayWishCount', icon: StarOutlined, accentColor: '#A78BFA', prefix: '' },
+  { title: '今日评论', key: 'todayCommentCount', icon: CommentOutlined, accentColor: '#70A1FF', prefix: '' },
+  { title: '今日订单', key: 'todayOrderCount', icon: ShoppingCartOutlined, accentColor: '#FFA502', prefix: '' },
   { title: '今日销售额', key: 'todayRevenue', icon: DollarOutlined, accentColor: '#2ED573', prefix: '¥' },
-  { title: '会员总数', key: 'memberCount', icon: UserOutlined, accentColor: '#A78BFA', prefix: '' },
-  { title: '商品总数', key: 'productCount', icon: AppstoreOutlined, accentColor: '#FFA502', prefix: '' },
 ] as const
 
-const COMMUNITY_STAT_CARDS = [
-  { title: '今日新帖', key: 'todayPostCount' as const, icon: FileTextOutlined, accentColor: 'var(--color-primary)' },
-  { title: '待审核', key: 'pendingReviewCount' as const, icon: AlertOutlined, accentColor: '#FFA502' },
-  { title: '待处理举报', key: 'pendingReportCount' as const, icon: AlertOutlined, accentColor: '#FF6B6B' },
-  { title: '总帖子数', key: 'totalPostCount' as const, icon: BarChartOutlined, accentColor: '#2ED573' },
-  { title: '今日评论', key: 'todayCommentCount' as const, icon: CommentOutlined, accentColor: '#A78BFA' },
-  { title: '总评论数', key: 'totalCommentCount' as const, icon: CommentOutlined, accentColor: '#70A1FF' },
-  { title: '总举报数', key: 'totalReportCount' as const, icon: AlertOutlined, accentColor: '#FF6348' },
-  { title: '已驳回帖', key: 'rejectedPostCount' as const, icon: FileTextOutlined, accentColor: '#FF4757' },
+const WISH_CARDS = [
+  { title: '心愿总数', key: 'totalWishCount', icon: StarOutlined, accentColor: '#A78BFA' },
+  { title: '已实现', key: 'fulfilledWishCount', icon: CheckCircleOutlined, accentColor: '#2ED573' },
+  { title: '今日打卡', key: 'todayCheckinCount', icon: FireOutlined, accentColor: '#FFA502' },
+  { title: '今日互动', key: 'todayInteractionCount', icon: HeartOutlined, accentColor: '#FF6B6B' },
 ] as const
 
 function exportToCsv(filename: string, headers: string[], rows: string[][]) {
@@ -109,7 +81,13 @@ function exportToCsv(filename: string, headers: string[], rows: string[][]) {
 }
 
 function MiniBarChart({ data, dataKey, color, height = 120 }: { data: number[]; dataKey: string; color: string; height?: number }) {
-  if (data.length === 0) return null
+  if (data.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height }}>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+      </div>
+    )
+  }
   const maxVal = Math.max(...data, 1)
   const barWidth = Math.max(8, Math.floor(280 / data.length) - 4)
 
@@ -135,57 +113,61 @@ function MiniBarChart({ data, dataKey, color, height = 120 }: { data: number[]; 
 
 export default function Dashboard() {
   const message = useMessage()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
-  const [salesTrend, setSalesTrend] = useState<SalesTrendItem[]>([])
-  const [communityStats, setCommunityStats] = useState<CommunityStats>({
-    totalPostCount: 0, todayPostCount: 0, pendingReviewCount: 0, rejectedPostCount: 0,
-    totalCommentCount: 0, todayCommentCount: 0, pendingReportCount: 0, totalReportCount: 0,
-  })
+  const [overview, setOverview] = useState<Record<string, number>>({})
   const [communityTrend, setCommunityTrend] = useState<CommunityTrendItem[]>([])
-  const [trendDays, setTrendDays] = useState(7)
+  const [wishStats, setWishStats] = useState<AdminWishStats | null>(null)
+  const [latestWishes, setLatestWishes] = useState<AdminWishRecord[]>([])
   const [latestPosts, setLatestPosts] = useState<AdminPostRecord[]>([])
+  const [trendDays, setTrendDays] = useState(7)
   const [loading, setLoading] = useState(true)
 
   async function fetchData() {
     setLoading(true)
     try {
-      const [statsRes, ordersRes, trendRes, postsRes, communityRes] = await Promise.allSettled([
+      // allSettled 容错：无对应模块权限/服务降级时对应分区显示空态，不阻塞整页
+      const [statsRes, postsRes, communityRes, wishStatsRes, wishListRes] = await Promise.allSettled([
         getDashboardStats(),
-        getRecentOrders({ pageSize: 10 }),
-        getSalesTrend({ days: 7 }),
-        getAdminPosts({ page: 1, pageSize: 5 }),
+        getAdminPosts({ page: 1, pageSize: 6 }),
         getCommunityStats(),
+        getAdminWishStats(),
+        getAdminWishes({ page: 1, pageSize: 5 }),
       ])
 
       if (statsRes.status === 'fulfilled' && statsRes.value.data) {
         const resData = (statsRes.value.data as { data: DashboardStats }).data
-        setStats(resData)
-      }
-      if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
-        const resData = (ordersRes.value.data as { data: RecentOrder[] }).data
-        setRecentOrders(resData ?? [])
-      }
-      if (trendRes.status === 'fulfilled' && trendRes.value.data) {
-        const resData = (trendRes.value.data as { data: SalesTrendItem[] }).data
-        setSalesTrend(resData ?? [])
+        setOverview({
+          userCount: resData?.userCount ?? 0,
+          todayOrderCount: resData?.todayOrderCount ?? 0,
+          todayRevenue: resData?.todayRevenue ?? 0,
+        })
       }
       if (postsRes.status === 'fulfilled' && postsRes.value.data) {
-        const resData = postsRes.value.data as { data: AdminPostRecord[]; meta?: { total?: number } }
+        const resData = postsRes.value.data as { data: AdminPostRecord[] }
         setLatestPosts(resData.data ?? [])
       }
       if (communityRes.status === 'fulfilled' && communityRes.value.data) {
         const resData = (communityRes.value.data as { data: Record<string, number> }).data
-        setCommunityStats({
-          totalPostCount: resData.totalPostCount ?? 0,
-          todayPostCount: resData.todayPostCount ?? 0,
-          pendingReviewCount: resData.pendingReviewCount ?? 0,
-          rejectedPostCount: resData.rejectedPostCount ?? 0,
-          totalCommentCount: resData.totalCommentCount ?? 0,
-          todayCommentCount: resData.todayCommentCount ?? 0,
-          pendingReportCount: resData.pendingReportCount ?? 0,
-          totalReportCount: resData.totalReportCount ?? 0,
-        })
+        setOverview((prev) => ({
+          ...prev,
+          todayPostCount: resData?.todayPostCount ?? 0,
+          todayCommentCount: resData?.todayCommentCount ?? 0,
+          pendingReviewCount: resData?.pendingReviewCount ?? 0,
+          pendingReportCount: resData?.pendingReportCount ?? 0,
+          totalPostCount: resData?.totalPostCount ?? 0,
+          totalCommentCount: resData?.totalCommentCount ?? 0,
+        }))
+      }
+      if (wishStatsRes.status === 'fulfilled' && wishStatsRes.value.data) {
+        const resData = (wishStatsRes.value.data as { data: AdminWishStats }).data
+        setWishStats(resData)
+        setOverview((prev) => ({
+          ...prev,
+          todayWishCount: resData?.todayWishCount ?? 0,
+        }))
+      }
+      if (wishListRes.status === 'fulfilled' && wishListRes.value.data) {
+        const resData = wishListRes.value.data as { data: AdminWishRecord[] }
+        setLatestWishes(resData.data ?? [])
       }
     } finally {
       setLoading(false)
@@ -222,52 +204,29 @@ export default function Dashboard() {
       String(item.commentCount),
       String(item.reportCount),
     ])
-    exportToCsv(`社区趋势_${trendDays}天.csv`, headers, rows)
+    exportToCsv(`内容趋势_${trendDays}天.csv`, headers, rows)
     message.success('导出成功')
   }, [communityTrend, trendDays])
 
-  const handleExportOrders = useCallback(() => {
-    if (recentOrders.length === 0) {
-      message.warning('暂无订单数据可导出')
-      return
-    }
-    const headers = ['订单号', '用户', '金额', '状态', '下单时间']
-    const rows = recentOrders.map((o) => [
-      o.orderNo,
-      o.username,
-      String(o.totalAmount),
-      ORDER_STATUS_MAP[o.status]?.label ?? o.status,
-      o.createdAt,
-    ])
-    exportToCsv('最近订单.csv', headers, rows)
-    message.success('导出成功')
-  }, [recentOrders])
+  const postColumns = [
+    { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
+    { title: '作者ID', dataIndex: 'userId', key: 'userId', width: 90 },
+    { title: '点赞', dataIndex: 'likeCount', key: 'likeCount', width: 70 },
+    { title: '评论', dataIndex: 'commentCount', key: 'commentCount', width: 70 },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 90, render: (v: number) => <Tag color={POST_STATUS_MAP[v]?.color ?? 'default'}>{POST_STATUS_MAP[v]?.label ?? '未知'}</Tag> },
+    { title: '发布时间', dataIndex: 'createdAt', key: 'createdAt', width: 160 },
+  ]
 
-  const orderColumns = [
-    { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 180 },
-    { title: '用户', dataIndex: 'username', key: 'username', width: 120 },
-    { title: '金额', dataIndex: 'totalAmount', key: 'totalAmount', width: 120, render: (v: number) => `¥${v?.toFixed(2) ?? '0.00'}` },
-    { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (v: string) => <Tag color={ORDER_STATUS_MAP[v]?.color ?? 'default'}>{ORDER_STATUS_MAP[v]?.label ?? v}</Tag> },
-    { title: '下单时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
+  const wishColumns = [
+    { title: '心愿', dataIndex: 'title', key: 'title', ellipsis: true },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 90, render: (v: string) => <Tag color={WISH_STATUS_COLOR[v] ?? 'default'}>{v}</Tag> },
+    { title: '点亮', dataIndex: 'lightCount', key: 'lightCount', width: 60 },
+    { title: '祝福', dataIndex: 'blessCount', key: 'blessCount', width: 60 },
+    { title: '公开', dataIndex: 'visibility', key: 'visibility', width: 80, render: (v: string) => (v === 'PUBLIC' ? <Tag color="purple">公开</Tag> : <Tag>私密</Tag>) },
+    { title: '发布时间', dataIndex: 'createdAt', key: 'createdAt', width: 160 },
   ]
 
   const trendColumns = [
-    { title: '日期', dataIndex: 'date', key: 'date' },
-    { title: '销售额', dataIndex: 'sales', key: 'sales', render: (v: number) => `¥${v?.toFixed(2) ?? '0.00'}` },
-    { title: '订单数', dataIndex: 'orders', key: 'orders' },
-  ]
-
-  const communityColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
-    { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
-    { title: '作者ID', dataIndex: 'userId', key: 'userId', width: 100 },
-    { title: '点赞', dataIndex: 'likeCount', key: 'likeCount', width: 80 },
-    { title: '评论', dataIndex: 'commentCount', key: 'commentCount', width: 80 },
-    { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (v: number) => <Tag color={POST_STATUS_MAP[v]?.color ?? 'default'}>{POST_STATUS_MAP[v]?.label ?? '未知'}</Tag> },
-    { title: '发布时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
-  ]
-
-  const communityTrendColumns = [
     { title: '日期', dataIndex: 'date', key: 'date', width: 120 },
     { title: '帖子数', dataIndex: 'postCount', key: 'postCount', width: 100 },
     { title: '评论数', dataIndex: 'commentCount', key: 'commentCount', width: 100 },
@@ -284,19 +243,20 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: 24 }}>
+      {/* 综合概览：社区内容生态 + 电商辅助 */}
       <Row gutter={[16, 16]}>
-        {STAT_CARDS.map((card) => {
+        {OVERVIEW_CARDS.map((card) => {
           const IconComp = card.icon
-          const value = stats?.[card.key] ?? 0
+          const value = overview[card.key] ?? 0
           return (
-            <Col xs={24} sm={12} lg={6} key={card.key}>
+            <Col xs={24} sm={12} lg={4} key={card.key}>
               <Card hoverable style={{ borderRadius: 10, border: '1px solid var(--color-border)', background: 'linear-gradient(145deg, rgba(21, 32, 56, 0.8), rgba(11, 18, 32, 0.9))' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <Statistic title={card.title} value={value} prefix={card.prefix} styles={{ content: { color: card.accentColor, fontSize: 28 } }} />
+                    <Statistic title={card.title} value={value} prefix={card.prefix} styles={{ content: { color: card.accentColor, fontSize: 26 } }} />
                   </div>
-                  <div style={{ width: 56, height: 56, borderRadius: 12, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <IconComp style={{ fontSize: 28, color: card.accentColor }} />
+                  <div style={{ width: 52, height: 52, borderRadius: 12, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconComp style={{ fontSize: 26, color: card.accentColor }} />
                   </div>
                 </div>
               </Card>
@@ -305,48 +265,11 @@ export default function Dashboard() {
         })}
       </Row>
 
+      {/* 内容创作趋势 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={14}>
-          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>销售趋势（近7天）</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
-            <Table dataSource={salesTrend} columns={trendColumns} rowKey="date" pagination={false} size="small" />
-          </Card>
-        </Col>
-        <Col xs={24} lg={10}>
           <Card
-            title={<span style={{ color: 'var(--color-text-secondary)' }}>最近订单</span>}
-            extra={<Button size="small" icon={<DownloadOutlined />} onClick={handleExportOrders}>导出</Button>}
-            style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
-          >
-            <Table dataSource={recentOrders} columns={orderColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 700 }} />
-          </Card>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        {COMMUNITY_STAT_CARDS.map((card) => {
-          const IconComp = card.icon
-          const value = communityStats[card.key]
-          return (
-            <Col xs={24} sm={12} lg={6} key={card.key}>
-              <Card hoverable style={{ borderRadius: 10, border: '1px solid var(--color-border)', background: 'linear-gradient(145deg, rgba(21, 32, 56, 0.8), rgba(11, 18, 32, 0.9))' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <Statistic title={card.title} value={value} styles={{ content: { color: card.accentColor, fontSize: 28 } }} />
-                  </div>
-                  <div style={{ width: 56, height: 56, borderRadius: 12, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <IconComp style={{ fontSize: 28, color: card.accentColor }} />
-                  </div>
-                </div>
-              </Card>
-            </Col>
-          )
-        })}
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} lg={12}>
-          <Card
-            title={<span style={{ color: 'var(--color-text-secondary)' }}>社区趋势</span>}
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>内容创作趋势</span>}
             extra={
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Select value={trendDays} onChange={setTrendDays} size="small" style={{ width: 80 }} options={[{ value: 7, label: '7天' }, { value: 14, label: '14天' }, { value: 30, label: '30天' }]} />
@@ -369,15 +292,88 @@ export default function Dashboard() {
                 <MiniBarChart data={communityTrend.map((d) => d.reportCount)} dataKey="report" color="#FF6B6B" height={80} />
               </div>
             </div>
-            <Table dataSource={communityTrend} columns={communityTrendColumns} rowKey="date" pagination={false} size="small" />
+            <Table dataSource={communityTrend} columns={trendColumns} rowKey="date" pagination={false} size="small" />
+          </Card>
+        </Col>
+        <Col xs={24} lg={10}>
+          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>心愿宇宙</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)', height: '100%' }}>
+            <Row gutter={[12, 12]}>
+              {WISH_CARDS.map((card) => {
+                const IconComp = card.icon
+                const value = wishStats?.[card.key] ?? 0
+                return (
+                  <Col span={12} key={card.key}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(21, 32, 56, 0.6)' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconComp style={{ fontSize: 22, color: card.accentColor }} />
+                      </div>
+                      <Statistic title={card.title} value={value} styles={{ content: { color: card.accentColor, fontSize: 22 } }} />
+                    </div>
+                  </Col>
+                )
+              })}
+            </Row>
+            <div style={{ marginTop: 12, color: 'var(--color-text-tertiary)', fontSize: 12, textAlign: 'center' }}>
+              进行中 {wishStats?.activeWishCount ?? 0} 个心愿正在被守护
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 最新动态：社区帖子 + 心愿流 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24} lg={12}>
+          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>最新社区动态</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Table dataSource={latestPosts} columns={postColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 700 }} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card
-            title={<span style={{ color: 'var(--color-text-secondary)' }}>社区动态</span>}
-            style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
-          >
-            <Table dataSource={latestPosts} columns={communityColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 800 }} />
+          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>最新心愿</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Table dataSource={latestWishes} columns={wishColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 700 }} />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 待办提醒 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Statistic
+              title="待审核帖子"
+              value={overview.pendingReviewCount ?? 0}
+              prefix={<AlertOutlined style={{ color: '#FFA502' }} />}
+              styles={{ content: { color: '#FFA502' } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Statistic
+              title="待处理举报"
+              value={overview.pendingReportCount ?? 0}
+              prefix={<AlertOutlined style={{ color: '#FF6B6B' }} />}
+              styles={{ content: { color: '#FF6B6B' } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Statistic
+              title="总帖子数"
+              value={overview.totalPostCount ?? 0}
+              prefix={<BarChartOutlined style={{ color: '#2ED573' }} />}
+              styles={{ content: { color: '#2ED573' } }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+            <Statistic
+              title="总评论数"
+              value={overview.totalCommentCount ?? 0}
+              prefix={<CommentOutlined style={{ color: '#70A1FF' }} />}
+              styles={{ content: { color: '#70A1FF' } }}
+            />
           </Card>
         </Col>
       </Row>

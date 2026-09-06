@@ -86,6 +86,19 @@ export const FRUIT_TYPE_MAP: Record<AdminFruitType, { label: string; emoji: stri
 
 // ========== 心愿列表与审核 ==========
 
+export interface AdminWishStats {
+  totalWishCount: number
+  todayWishCount: number
+  activeWishCount: number
+  fulfilledWishCount: number
+  todayCheckinCount: number
+  todayInteractionCount: number
+}
+
+export function getAdminWishStats() {
+  return request.get<ApiResponse<AdminWishStats>>('/admin/wish/wishes/stats')
+}
+
 export function getAdminWishes(params: AdminWishListParams) {
   return request.get<ApiResponse<AdminWishRecord[]>>('/admin/wish/wishes', { params })
 }

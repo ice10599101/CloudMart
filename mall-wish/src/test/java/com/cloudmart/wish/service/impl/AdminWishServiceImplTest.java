@@ -13,6 +13,8 @@ import com.cloudmart.wish.enums.FruitType;
 import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.repository.WishCategoryMapper;
+import com.cloudmart.wish.repository.WishCheckinMapper;
+import com.cloudmart.wish.repository.WishInteractionMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +44,10 @@ class AdminWishServiceImplTest {
     private WishMapper wishMapper;
     @Mock
     private WishCategoryMapper wishCategoryMapper;
+    @Mock
+    private WishCheckinMapper wishCheckinMapper;
+    @Mock
+    private WishInteractionMapper wishInteractionMapper;
 
     @InjectMocks
     private AdminWishServiceImpl adminWishService;
@@ -52,7 +58,8 @@ class AdminWishServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        adminWishService = new AdminWishServiceImpl(wishMapper, wishCategoryMapper);
+        adminWishService = new AdminWishServiceImpl(wishMapper, wishCategoryMapper,
+                wishCheckinMapper, wishInteractionMapper);
     }
 
     @Nested
@@ -169,13 +176,34 @@ class AdminWishServiceImplTest {
         }
 
         @Test
-        @DisplayName("已审核状态再次审核抛出 WISH_STATUS_CONFLICT")
-        void auditWish_alreadyAudited_throwsConflict() {
+        @DisplayName("发布免审后的后置下架：APPROVED → REJECTED 流转成功")
+        void auditWish_postModeration_reject_success() {
+            Wish wish = buildWish();
+            wish.setAuditStatus(AuditStatus.APPROVED);
+            wish.setIsVisible(true);
+            Wish rejectedWish = buildWish();
+            rejectedWish.setAuditStatus(AuditStatus.REJECTED);
+            rejectedWish.setIsVisible(false);
+
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, rejectedWish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.REJECTED, "内容违规");
+            var result = adminWishService.auditWish(WISH_ID, request);
+
+            assertThat(result.auditStatus()).isEqualTo(AuditStatus.REJECTED);
+            verify(wishMapper).updateById(any(Wish.class));
+        }
+
+        @Test
+        @DisplayName("同审核状态重复操作抛出 WISH_STATUS_CONFLICT")
+        void auditWish_sameStatus_throwsConflict() {
             Wish wish = buildWish();
             wish.setAuditStatus(AuditStatus.APPROVED);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
 
-            AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.REJECTED, null);
+            AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.APPROVED, null);
 
             assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request))
                     .isInstanceOf(BusinessException.class)

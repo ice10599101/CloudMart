@@ -8,17 +8,25 @@ import com.cloudmart.wish.dto.AdminAuditWishRequest;
 import com.cloudmart.wish.dto.AdminWishListQuery;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishCategory;
+import com.cloudmart.wish.entity.WishCheckin;
+import com.cloudmart.wish.entity.WishInteraction;
 import com.cloudmart.wish.enums.AuditStatus;
+import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.repository.WishCategoryMapper;
+import com.cloudmart.wish.repository.WishCheckinMapper;
+import com.cloudmart.wish.repository.WishInteractionMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.service.AdminWishService;
 import com.cloudmart.wish.util.WishJsonUtils;
+import com.cloudmart.wish.vo.AdminWishStatsVO;
 import com.cloudmart.wish.vo.AdminWishVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +46,8 @@ public class AdminWishServiceImpl implements AdminWishService {
 
     private final WishMapper wishMapper;
     private final WishCategoryMapper wishCategoryMapper;
+    private final WishCheckinMapper wishCheckinMapper;
+    private final WishInteractionMapper wishInteractionMapper;
 
     @Override
     public Page<AdminWishVO> listWishes(AdminWishListQuery query) {
@@ -104,13 +114,14 @@ public class AdminWishServiceImpl implements AdminWishService {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
         }
 
-        // 已审核状态再次审核返回冲突
-        if (wish.getAuditStatus() != AuditStatus.PENDING) {
+        AuditStatus newStatus = request.auditStatus();
+        // 发布免审（2026-09-07）后审核语义转为后置管控：同状态重复操作返回冲突，
+        // APPROVED↔REJECTED 允许双向流转（下架违规内容 / 恢复上架）
+        if (wish.getAuditStatus() == newStatus) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
-                    "心愿已审核，不可重复审核");
+                    "心愿已是该审核状态: " + newStatus);
         }
 
-        AuditStatus newStatus = request.auditStatus();
         boolean visible;
         switch (newStatus) {
             case APPROVED -> visible = true;
@@ -135,6 +146,30 @@ public class AdminWishServiceImpl implements AdminWishService {
         Wish updated = wishMapper.selectById(wishId);
         Map<Long, String> categoryNameMap = fetchCategoryNames(Set.of(updated.getCategoryId()));
         return toAdminWishVO(updated, categoryNameMap);
+    }
+
+    @Override
+    public AdminWishStatsVO stats() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime todayStart = today.atStartOfDay();
+
+        Long totalWishCount = wishMapper.selectCount(null);
+        Long todayWishCount = wishMapper.selectCount(
+                new LambdaQueryWrapper<Wish>().ge(Wish::getCreatedAt, todayStart));
+        Long activeWishCount = wishMapper.selectCount(
+                new LambdaQueryWrapper<Wish>().eq(Wish::getStatus, WishStatus.ACTIVE));
+        Long fulfilledWishCount = wishMapper.selectCount(
+                new LambdaQueryWrapper<Wish>().eq(Wish::getStatus, WishStatus.FULFILLED));
+        Long todayCheckinCount = wishCheckinMapper.selectCount(
+                new LambdaQueryWrapper<WishCheckin>().eq(WishCheckin::getCheckinDate, today));
+        // 互动统计排除已取消（软删）记录，与用户端互动热度口径一致
+        Long todayInteractionCount = wishInteractionMapper.selectCount(
+                new LambdaQueryWrapper<WishInteraction>()
+                        .isNull(WishInteraction::getDeletedAt)
+                        .ge(WishInteraction::getCreatedAt, todayStart));
+
+        return new AdminWishStatsVO(totalWishCount, todayWishCount, activeWishCount,
+                fulfilledWishCount, todayCheckinCount, todayInteractionCount);
     }
 
     private Map<Long, String> fetchCategoryNames(Set<Long> categoryIds) {

@@ -6,6 +6,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.dto.AdminAuditWishRequest;
 import com.cloudmart.wish.dto.AdminWishListQuery;
 import com.cloudmart.wish.service.AdminWishService;
+import com.cloudmart.wish.vo.AdminWishStatsVO;
 import com.cloudmart.wish.vo.AdminWishVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,6 +43,13 @@ public class AdminWishController {
                 (int) page.getSize(),
                 page.getTotal()
         ));
+    }
+
+    @GetMapping("/stats")
+    @Operation(summary = "心愿宇宙综合统计", description = "管理工作台数据源：心愿总量/今日发布/"
+            + "进行中/已实现/今日打卡/今日互动")
+    public ApiResponse<AdminWishStatsVO> stats() {
+        return ApiResponse.ok(adminWishService.stats());
     }
 
     @GetMapping("/{id}")

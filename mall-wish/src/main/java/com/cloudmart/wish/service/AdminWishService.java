@@ -3,6 +3,7 @@ package com.cloudmart.wish.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.wish.dto.AdminAuditWishRequest;
 import com.cloudmart.wish.dto.AdminWishListQuery;
+import com.cloudmart.wish.vo.AdminWishStatsVO;
 import com.cloudmart.wish.vo.AdminWishVO;
 
 /**
@@ -47,4 +48,17 @@ public interface AdminWishService {
      * @return 审核后的心愿 VO
      */
     AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request);
+
+    /**
+     * 心愿宇宙综合统计（管理工作台数据源）。
+     *
+     * <p>统计口径：</p>
+     * <ul>
+     *   <li>总数类：全量心愿（软删已由 @TableLogic 过滤）按 status 分组计数</li>
+     *   <li>今日类：created_at / checkin_date 落在服务器当前日期</li>
+     * </ul>
+     *
+     * @return 统计 VO
+     */
+    AdminWishStatsVO stats();
 }

@@ -22,6 +22,9 @@ public interface WishFeignClient {
     @GetMapping("/wishes")
     ApiResponse<Object> listWishes(@SpringQueryMap AdminWishSearchRequest request);
 
+    @GetMapping("/wishes/stats")
+    ApiResponse<Object> getWishStats();
+
     @GetMapping("/wishes/{id}")
     ApiResponse<Object> getWish(@PathVariable("id") Long id);
 

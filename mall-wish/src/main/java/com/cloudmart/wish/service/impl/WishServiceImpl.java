@@ -134,8 +134,10 @@ public class WishServiceImpl implements WishService {
         wish.setSameWishCount(0);
         wish.setLightCount(0);
         wish.setBlessCount(0);
-        wish.setAuditStatus(AuditStatus.PENDING);
-        wish.setIsVisible(true); // LAZY 审核策略下先可见，STRICT 策略下由审核流程控制
+        // 发布免审（2026-09-07 用户决策）：创建即 APPROVED 直接显示，
+        // 管理端审核接口保留作后置下架通道（REJECTED 仍可下架）
+        wish.setAuditStatus(AuditStatus.APPROVED);
+        wish.setIsVisible(true);
 
         // LBS（Sprint 3.1）：PUBLIC 心愿携带坐标时 geohash7 编码存储——
         // 原始坐标仅在本次请求内存中存在，不落库不落日志（隐私验收）

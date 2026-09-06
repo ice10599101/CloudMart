@@ -37,6 +37,14 @@ public class AdminWishController {
         return wishFeignClient.listWishes(request);
     }
 
+    @GetMapping("/wish/wishes/stats")
+    @RequiresPermission("business:wish:list")
+    @Operation(summary = "心愿宇宙综合统计", description = "管理工作台数据源：心愿总量/今日发布/"
+            + "进行中/已实现/今日打卡/今日互动")
+    public ApiResponse<Object> getWishStats() {
+        return wishFeignClient.getWishStats();
+    }
+
     @GetMapping("/wish/wishes/{id}")
     @RequiresPermission("business:wish:query")
     @Operation(summary = "心愿详情", description = "含审核字段与软删时间")
