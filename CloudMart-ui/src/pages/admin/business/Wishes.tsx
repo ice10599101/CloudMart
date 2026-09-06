@@ -3,6 +3,7 @@ import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Descriptions, Image, Modal, Popconfirm, Tag } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
+import DOMPurify from 'dompurify'
 import {
   getAdminWishes,
   getAdminWishDetail,
@@ -17,6 +18,9 @@ import {
 import type { AdminWishRecord } from '@/api/admin/wish'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
+
+/** 与 WishDetail 保持一致：历史数据为纯文本，新版编辑器产出富文本 HTML，按是否含 HTML 标签分流渲染 */
+const RICH_TEXT_PATTERN = /<\/?(p|div|br|h[1-6]|ul|ol|li|blockquote|pre|img|table|strong|em|u|s|span|a|code)\b/i
 
 /**
  * 心愿管理（管理后台）：对齐帖子管理模式。
@@ -285,7 +289,16 @@ export default function Wishes() {
               {detail.expectedAt ?? '-'}
             </Descriptions.Item>
             <Descriptions.Item label="描述" span={2}>
-              {detail.description || '-'}
+              {detail.description
+                ? (RICH_TEXT_PATTERN.test(detail.description)
+                  ? (
+                      <div
+                        style={{ maxHeight: 280, overflowY: 'auto', wordBreak: 'break-word', whiteSpace: 'normal' }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(detail.description) }}
+                      />
+                    )
+                  : detail.description)
+                : '-'}
             </Descriptions.Item>
             <Descriptions.Item label="媒体" span={2}>
               {detail.mediaUrls?.length ? (

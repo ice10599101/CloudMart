@@ -5,6 +5,7 @@ import { history } from 'umi'
 import { WeakNetworkBanner, pageSizeForNetwork } from '@/components/StateFeedback'
 import { listWishes, getCategories } from '@/api/wish'
 import type { WishListItem, Category } from '@/api/wish'
+import { stripHtml } from '@/utils/format'
 import Skeleton from '@/components/Skeleton'
 import styles from './WishSquare.module.css'
 import WishBGM from '@/components/WishBGM'
@@ -181,7 +182,7 @@ export default function WishSquare() {
               >
                 <div className={styles.cardBody}>
                   <h3 className={styles.cardTitle}>{wish.title}</h3>
-                  <p className={styles.cardDesc}>{wish.description}</p>
+                  <p className={styles.cardDesc}>{stripHtml(wish.description)}</p>
                   {wish.tags && wish.tags.length > 0 && (
                     <div className={styles.cardTags}>
                       {wish.tags.slice(0, 3).map(tag => (

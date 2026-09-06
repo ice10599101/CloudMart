@@ -17,7 +17,7 @@ public record UpdateWishRequest(
         @Size(max = 120, message = "心愿标题不能超过120字符")
         String title,
 
-        @Size(max = 2000, message = "心愿描述不能超过2000字符")
+        @Size(max = 20000, message = "心愿描述不能超过20000字符")
         String description,
 
         List<String> mediaUrls,

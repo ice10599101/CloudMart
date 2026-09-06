@@ -1,5 +1,38 @@
 import { describe, it, expect } from 'vitest'
-import { formatCount, timeAgo } from '@/utils/format'
+import { formatCount, timeAgo, stripHtml } from '@/utils/format'
+
+describe('stripHtml', () => {
+  it('returns empty string for null/undefined/empty input', () => {
+    expect(stripHtml(null)).toBe('')
+    expect(stripHtml(undefined)).toBe('')
+    expect(stripHtml('')).toBe('')
+  })
+
+  it('returns plain text unchanged', () => {
+    expect(stripHtml('普通文本')).toBe('普通文本')
+  })
+
+  it('strips HTML tags from rich text', () => {
+    expect(stripHtml('<p>你好<strong>世界</strong></p>')).toBe('你好世界')
+    expect(stripHtml('<h1>标题</h1><p>段落</p>')).toBe('标题 段落')
+  })
+
+  it('treats Tiptap empty document as empty', () => {
+    expect(stripHtml('<p></p>')).toBe('')
+    expect(stripHtml('<p><br></p>')).toBe('')
+    expect(stripHtml('<p>&nbsp;</p>')).toBe('')
+  })
+
+  it('decodes common HTML entities', () => {
+    expect(stripHtml('a &amp; b')).toBe('a & b')
+    expect(stripHtml('&lt;tag&gt;')).toBe('<tag>')
+    expect(stripHtml('&quot;q&quot;')).toBe('"q"')
+  })
+
+  it('collapses whitespace between block tags', () => {
+    expect(stripHtml('<p>a</p>\n<p>b</p>')).toBe('a b')
+  })
+})
 
 describe('formatCount', () => {
   it('returns number as string for values < 1000', () => {

@@ -8,13 +8,16 @@ import { createWish, getCategories } from '@/api/wish'
 import type { Category, WishVisibility } from '@/api/wish'
 import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
+import { stripHtml } from '@/utils/format'
 import styles from './WishCreate.module.css'
 import WishBGM from '@/components/WishBGM'
+import TiptapEditor from '@/components/TiptapEditor'
 
-const { TextArea } = Input
 const MAX_TAGS = 5
 const MAX_MEDIA = 9
 const MAX_FILE_SIZE = 10 * 1024 * 1024
+// 富文本 HTML 长度上限，与后端 CreateWishRequest.description @Size(max = 20000) 对齐
+const MAX_DESCRIPTION_HTML_LENGTH = 20000
 
 type UploadStatus = 'uploading' | 'success' | 'error' | 'canceled'
 
@@ -260,16 +263,18 @@ export default function WishCreate() {
               name="description"
               label="心愿描述"
               rules={[
-                { required: true, message: '请描述你的心愿' },
-                { max: 2000, message: '描述不超过 2000 字符' },
+                {
+                  required: true,
+                  // Tiptap 空文档的 HTML 是 <p></p>，必须剥掉标签后判断是否真的有内容
+                  validator: (_, value: string) => {
+                    if (!stripHtml(value)) return Promise.reject(new Error('请描述你的心愿'))
+                    return Promise.resolve()
+                  },
+                },
+                { max: MAX_DESCRIPTION_HTML_LENGTH, message: `描述不超过 ${MAX_DESCRIPTION_HTML_LENGTH} 字符` },
               ]}
             >
-              <TextArea
-                placeholder="详细描述你的心愿、计划或梦想..."
-                showCount
-                maxLength={2000}
-                rows={6}
-              />
+              <TiptapEditor placeholder="详细描述你的心愿、计划或梦想..." />
             </Form.Item>
 
             <Form.Item

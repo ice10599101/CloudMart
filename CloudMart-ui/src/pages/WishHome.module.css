@@ -2,6 +2,8 @@
   min-height: 100vh;
   background: var(--color-gradient-hero);
   padding-bottom: 40px;
+  /* 与 entryNav/section 的 1200px 列对齐：限制宽度后必须水平居中，否则整体偏左 */
+  margin: 0 auto;
 }
 
 .loadingContainer,

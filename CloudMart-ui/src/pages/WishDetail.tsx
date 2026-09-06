@@ -17,6 +17,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
+import DOMPurify from 'dompurify'
 import {
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
@@ -55,6 +56,9 @@ const STATUS_LABELS: Record<string, string> = {
   FULFILLED: '已还愿',
   ARCHIVED: '已归档',
 }
+
+/** 历史心愿描述为纯文本（含 \n 换行），新版编辑器产出富文本 HTML；按是否含常见 HTML 标签分流渲染 */
+const RICH_TEXT_PATTERN = /<\/?(p|div|br|h[1-6]|ul|ol|li|blockquote|pre|img|table|strong|em|u|s|span|a|code)\b/i
 
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
@@ -477,9 +481,16 @@ export default function WishDetail() {
             </div>
           </div>
 
-          <div className={styles.description}>
-            {wish.description}
-          </div>
+          {RICH_TEXT_PATTERN.test(wish.description) ? (
+            <div
+              className={`${styles.description} ${styles.descriptionRich}`}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(wish.description) }}
+            />
+          ) : (
+            <div className={styles.description}>
+              {wish.description}
+            </div>
+          )}
 
           {wish.expectedAt && (
             <div className={styles.expectedAt}>

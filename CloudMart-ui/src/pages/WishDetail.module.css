@@ -138,6 +138,104 @@
   border-bottom: 1px solid var(--color-divider);
 }
 
+/* 富文本描述（TiptapEditor 产出的 HTML，渲染前经 DOMPurify 消毒） */
+.descriptionRich {
+  white-space: normal;
+}
+
+.descriptionRich img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
+.descriptionRich p {
+  margin: 0 0 0.5em;
+}
+
+.descriptionRich p:last-child {
+  margin-bottom: 0;
+}
+
+.descriptionRich h1,
+.descriptionRich h2,
+.descriptionRich h3,
+.descriptionRich h4,
+.descriptionRich h5,
+.descriptionRich h6 {
+  margin: 0.6em 0 0.4em;
+  line-height: 1.4;
+}
+
+.descriptionRich h1 { font-size: 1.5em; }
+.descriptionRich h2 { font-size: 1.3em; }
+.descriptionRich h3 { font-size: 1.15em; }
+
+.descriptionRich ul,
+.descriptionRich ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.descriptionRich ul { list-style: disc; }
+.descriptionRich ol { list-style: decimal; }
+
+.descriptionRich blockquote {
+  border-left: 4px solid var(--color-primary);
+  padding: 0.5em 1em;
+  margin: 0.5em 0;
+  color: var(--color-text-secondary);
+  background: var(--color-badge-bg, rgba(0, 212, 255, 0.05));
+  border-radius: 0 8px 8px 0;
+}
+
+.descriptionRich pre {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.descriptionRich code {
+  background: var(--color-bg-elevated);
+  border-radius: 3px;
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+
+.descriptionRich pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.descriptionRich a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.descriptionRich hr {
+  border: none;
+  border-top: 1px solid var(--color-divider);
+  margin: 1em 0;
+}
+
+.descriptionRich table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.descriptionRich table td,
+.descriptionRich table th {
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  word-break: break-word;
+}
+
 .expectedAt {
   display: flex;
   align-items: center;

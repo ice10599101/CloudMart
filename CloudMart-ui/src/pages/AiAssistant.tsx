@@ -29,6 +29,7 @@ import {
   type NotificationType,
 } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
+import { stripHtml } from '@/utils/format'
 import WishBGM from '@/components/WishBGM'
 import styles from './AiAssistant.module.css'
 
@@ -115,7 +116,7 @@ export default function AiAssistant() {
         if (cancelled || !res.data.success) return
         const detail = res.data.data
         if (detail) {
-          setText(`${detail.title}${detail.description ? `\n${detail.description}` : ''}`)
+          setText(`${detail.title}${detail.description ? `\n${stripHtml(detail.description)}` : ''}`)
         }
       })
       .catch(() => {
