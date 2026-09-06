@@ -61,6 +61,9 @@ export default function TreeHole() {
   const [sending, setSending] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [consentOpen, setConsentOpen] = useState(false)
+  /** 危机拦截独立关怀页：AI 回复命中危机时全屏展示（规格 Sprint 2.3），关闭后仍可回看气泡 */
+  const [crisisOverlayOpen, setCrisisOverlayOpen] = useState(false)
+  const [crisisResources, setCrisisResources] = useState<ChatMessage['resources']>([])
   const [consentAgreeing, setConsentAgreeing] = useState(false)
   /** 同意弹窗确认后待发送的消息 */
   const pendingMessageRef = useRef<string | null>(null)
@@ -142,6 +145,10 @@ export default function TreeHole() {
               isCrisis: sentimentScore !== null && sentimentScore <= -0.9 && resources.some((r) => r.type === 'HOTLINE'),
             },
           ])
+          if (sentimentScore !== null && sentimentScore <= -0.9 && resources.some((r) => r.type === 'HOTLINE')) {
+            setCrisisResources(resources.filter((r) => r.type === 'HOTLINE'))
+            setCrisisOverlayOpen(true)
+          }
           const remaining = DAILY_LIMIT - sentTodayRef.current
           if (remaining > 0 && remaining <= 3) {
             message.info(`今天还可以倾诉 ${remaining} 次`)
@@ -194,6 +201,36 @@ export default function TreeHole() {
   }
 
   const remaining = DAILY_LIMIT - sentTodayRef.current
+
+  if (crisisOverlayOpen) {
+    return (
+      <div className={`${styles.crisisOverlay} wish-universe-theme`} role="alertdialog" aria-label="专业支持">
+        <div className={styles.crisisCard}>
+          <div className={styles.crisisMoon} aria-hidden>🌙</div>
+          <h2 className={styles.crisisTitle}>你此刻的坚强，值得被认真对待</h2>
+          <p className={styles.crisisText}>
+            树洞守护者听到了你话语里的重量。有些时刻，专业的陪伴比倾听更有力量——
+            这不代表软弱，而是对自己的温柔。
+          </p>
+          <div className={styles.crisisHotlines}>
+            {(crisisResources ?? []).map((res: AiResource) => (
+              <a key={res.url} className={styles.crisisHotlineCard} href={res.url}>
+                <PhoneOutlined className={styles.crisisPhoneIcon} />
+                <div>
+                  <div className={styles.crisisHotlineName}>{res.title}</div>
+                  <div className={styles.crisisHotlineHint}>24 小时 · 免费 · 保密</div>
+                </div>
+              </a>
+            ))}
+          </div>
+          <p className={styles.crisisFootnote}>你并不孤单。身边信任的人，也可以是照亮你的光。</p>
+          <Button type="text" className={styles.crisisBack} onClick={() => setCrisisOverlayOpen(false)}>
+            我需要树洞继续陪伴
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>

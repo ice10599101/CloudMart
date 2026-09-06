@@ -9,6 +9,32 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import type { AiResource } from '@/types'
 
+/** AI 回复逐字浮现（打字机）；仅列表最后一条 AI 消息播放入场 */
+function TypeText({ text, active }: { text: string; active: boolean }) {
+  const [shown, setShown] = useState(active ? '' : text)
+  useEffect(() => {
+    if (!active) {
+      setShown(text)
+      return
+    }
+    setShown('')
+    let i = 0
+    const timer = setInterval(() => {
+      i += 1
+      setShown(text.slice(0, i))
+      if (i >= text.length) clearInterval(timer)
+    }, 35)
+    return () => clearInterval(timer)
+  }, [text, active])
+  return <Text style={{ fontSize: FontSize.sm, lineHeight: 22, color: '#fff' }}>{shown}</Text>
+}
+
+function isLastAiMessage(item: { id: number | string; role?: string }, list?: Array<{ id: number | string; role?: string }>): boolean {
+  if (!list || list.length === 0) return false
+  const last = list[list.length - 1]
+  return last.id === item.id && item.role !== 'USER'
+}
+
 /** AI 数据处理协议版本（协议文本管理模块上线前为静态版本） */
 const AI_CONSENT_VERSION = 'v1.0'
 const DAILY_LIMIT = 10
@@ -222,7 +248,7 @@ export default function TreeHoleScreen() {
             backgroundColor: WishColors.accentPurple,
           }}
         >
-          <Text style={{ fontSize: FontSize.sm, lineHeight: 22, color: '#fff' }}>{item.content}</Text>
+          <TypeText text={item.content} active={isLastAiMessage(item, messages)} />
         </View>
       </View>
     ) : (

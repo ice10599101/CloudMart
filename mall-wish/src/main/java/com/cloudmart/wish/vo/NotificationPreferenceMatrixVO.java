@@ -13,7 +13,8 @@ import java.util.Map;
  */
 @Schema(description = "用户通知偏好矩阵")
 public record NotificationPreferenceMatrixVO(
-        @Schema(description = "偏好列表") List<PreferenceItemVO> preferences
+        @Schema(description = "偏好列表") List<PreferenceItemVO> preferences,
+        @Schema(description = "本次写入的偏好项数量（查询时为 0）") int updated
 ) {
 
     /**

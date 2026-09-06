@@ -166,6 +166,7 @@ export default function WishHome() {
                 <div className={styles.entryText}>发布心愿</div>
               </Card>
             </Col>
+            {data?.entries?.aiAssistantEntry !== false && (
             <Col xs={12} md={6}>
               <Card
                   hoverable
@@ -176,6 +177,7 @@ export default function WishHome() {
                 <div className={styles.entryText}>AI 助手</div>
               </Card>
             </Col>
+            )}
             <Col xs={12} md={6}>
               <Card
                   hoverable
@@ -206,6 +208,7 @@ export default function WishHome() {
                 <div className={styles.entryText}>排行榜</div>
               </Card>
             </Col>
+            {data?.entries?.mapEntry !== false && (
             <Col xs={12} md={6}>
               <Card
                   hoverable
@@ -216,6 +219,7 @@ export default function WishHome() {
                 <div className={styles.entryText}>附近心愿</div>
               </Card>
             </Col>
+            )}
             <Col xs={12} md={6}>
               <Card
                   hoverable

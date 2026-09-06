@@ -392,19 +392,20 @@ public class UserStatServiceImpl implements UserStatService {
         WishUserStat stat = wishUserStatMapper.selectById(userId);
         if (stat == null) {
             // 只读接口不落统计记录：无记录按 L1 初始态返回
-            return buildMyLevelVO(1, 0, 0, 0, 0);
+            return buildMyLevelVO(1, 0, 0, 0, 0, 1);
         }
         int highest = stat.getHighestLevel() != null ? stat.getHighestLevel() : 1;
         return buildMyLevelVO(highest,
                 nullSafe(stat.getTotalWishes()),
                 nullSafe(stat.getTotalCheckinDays()),
                 nullSafe(stat.getTotalFulfilled()),
-                nullSafe(stat.getTotalHelped()));
+                nullSafe(stat.getTotalHelped()),
+                highest);
     }
 
     /** 组装等级进度 VO：nextLevel 取 current+1（满级为 null），进度按各维度 threshold 计算百分比 */
     private MyLevelVO buildMyLevelVO(int currentLevel, int totalWishes, int totalCheckinDays,
-                                     int totalFulfilled, int totalHelped) {
+                                     int totalFulfilled, int totalHelped, int highestLevel) {
         Map<String, Integer> metrics = Map.of(
                 "totalWishes", totalWishes,
                 "totalCheckinDays", totalCheckinDays,
@@ -424,9 +425,17 @@ public class UserStatServiceImpl implements UserStatService {
                         })
                         .toList();
 
+        // 整体进度取百分比最低（最受限）的维度
+        MyLevelVO.LevelProgressVO levelProgress = requirements.isEmpty() ? null
+                : requirements.stream()
+                        .min(java.util.Comparator.comparingInt(LevelRequirementVO::percentage))
+                        .map(r -> new MyLevelVO.LevelProgressVO(r.current(), r.threshold(), r.percentage()))
+                        .orElse(null);
+
         return new MyLevelVO(currentLevel, LEVEL_TITLES.get(currentLevel),
                 totalWishes, totalCheckinDays, totalFulfilled, totalHelped,
-                nextLevel, maxLevel ? null : LEVEL_TITLES.get(nextLevel), requirements);
+                nextLevel, maxLevel ? null : LEVEL_TITLES.get(nextLevel), requirements,
+                levelProgress, String.valueOf(highestLevel));
     }
 
     private static int nullSafe(Integer value) {

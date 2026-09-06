@@ -186,9 +186,17 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Override
     public Map<String, List<Map<String, Object>>> collections(Long userId) {
+        return collections(userId, null);
+    }
+
+    @Override
+    public Map<String, List<Map<String, Object>>> collections(Long userId, String type) {
+        String wanted = type == null || type.isBlank() ? null : type.trim().toUpperCase();
         Map<String, List<Map<String, Object>>> result = new HashMap<>();
-        for (String type : List.of("BADGE", "SKIN", "BGM", "SPECIAL_FRUIT")) {
-            result.put(type, new ArrayList<>());
+        for (String assetType : List.of("BADGE", "SKIN", "BGM", "SPECIAL_FRUIT")) {
+            if (wanted == null || wanted.equals(assetType)) {
+                result.put(assetType, new ArrayList<>());
+            }
         }
 
         // 徽章（wish_user_badge × wish_badge）
@@ -209,18 +217,18 @@ public class CollectionServiceImpl implements CollectionService {
         for (UserAsset ua : assets) {
             VirtualAsset asset = assetMapper.selectById(ua.getAssetId());
             if (asset == null) continue;
-            String type = asset.getAssetType().name();
-            if (!result.containsKey(type)) continue;
+            String assetTypeName = asset.getAssetType().name();
+            if (!result.containsKey(assetTypeName)) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("id", ua.getId());
             item.put("assetId", asset.getId());
             item.put("name", asset.getName());
             item.put("icon", asset.getIcon());
             item.put("resourceUrl", asset.getResourceUrl());
-            item.put("isActive", type.equals("SKIN") ? ua.getIsActiveSkin()
-                    : type.equals("BGM") ? ua.getIsActiveBgm() : null);
+            item.put("isActive", assetTypeName.equals("SKIN") ? ua.getIsActiveSkin()
+                    : assetTypeName.equals("BGM") ? ua.getIsActiveBgm() : null);
             item.put("refWishId", ua.getRefWishId());
-            result.get(type).add(item);
+            result.get(assetTypeName).add(item);
         }
         return result;
     }

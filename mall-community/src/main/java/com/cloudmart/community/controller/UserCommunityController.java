@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -25,6 +26,21 @@ public class UserCommunityController {
     private final UserCommunityService userCommunityService;
     private final UserFollowService userFollowService;
     private final PostService postService;
+    private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService;
+
+    /**
+     * 用户搜索（私信发起会话等场景）。
+     * 必须声明在 /{userId} 类路径段之前，避免 "search" 被当作 userId 解析。
+     */
+    @GetMapping("/search")
+    @Operation(summary = "搜索用户", description = "按昵称关键词搜索用户，用于发起私信等场景")
+    public ApiResponse<List<Map<String, Object>>> searchUsers(
+            @Parameter(description = "昵称/小答号关键词", required = true) @RequestParam("keyword") String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        var response = userEnrichmentService.searchUsersByKeyword(keyword, page, pageSize);
+        return ApiResponse.ok(response);
+    }
 
     @GetMapping("/{userId}/profile")
     @Operation(summary = "用户社区资料", description = "获取指定用户的社区资料，含发帖数、关注数、粉丝数、徽章等")

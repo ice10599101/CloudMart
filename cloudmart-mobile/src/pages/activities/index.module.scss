@@ -226,3 +226,39 @@
   font-size: 26rpx;
   opacity: 0.6;
 }
+
+/* 全站实时进度滚动条（规格 3333） */
+.progressTicker {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 12rpx 24rpx 0;
+  padding: 12rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(233, 69, 96, 0.1);
+  overflow: hidden;
+}
+.progressTickerLabel {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #e94560;
+  font-weight: 600;
+}
+.progressTickerTrack {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.progressTickerInner {
+  display: inline-block;
+  animation: tickerScroll 18s linear infinite;
+}
+.progressTickerText {
+  font-size: 22rpx;
+  color: rgba(245, 245, 245, 0.8);
+  margin-right: 48rpx;
+}
+@keyframes tickerScroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}

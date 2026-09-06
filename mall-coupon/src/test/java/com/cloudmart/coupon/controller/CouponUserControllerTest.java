@@ -55,8 +55,8 @@ class CouponUserControllerTest {
 
         given(couponService.claimCoupon(1L, 10L)).willReturn(dto);
 
-        UserCouponVO vo = new UserCouponVO(1L, 10L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), "UNUSED", null, null);
+        UserCouponVO vo = new UserCouponVO(1L, 1L, 10L, "满100减20", "AMOUNT_OFF",
+                new BigDecimal("20.00"), null, new BigDecimal("100.00"), "UNUSED", null, null, null, null);
         given(userCouponConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/user-coupons/claim")
@@ -78,8 +78,8 @@ class CouponUserControllerTest {
         given(couponService.listUserCoupons(1L, null, 1, 20)).willReturn(List.of(dto));
         given(couponService.countUserCoupons(1L, null)).willReturn(1L);
 
-        UserCouponVO vo = new UserCouponVO(1L, 10L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), "UNUSED", null, null);
+        UserCouponVO vo = new UserCouponVO(1L, 1L, 10L, "满100减20", "AMOUNT_OFF",
+                new BigDecimal("20.00"), null, new BigDecimal("100.00"), "UNUSED", null, null, null, null);
         given(userCouponConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/user-coupons")
@@ -102,8 +102,8 @@ class CouponUserControllerTest {
 
         given(couponService.getUserCouponById(1L)).willReturn(dto);
 
-        UserCouponVO vo = new UserCouponVO(1L, 10L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), "UNUSED", null, null);
+        UserCouponVO vo = new UserCouponVO(1L, 1L, 10L, "满100减20", "AMOUNT_OFF",
+                new BigDecimal("20.00"), null, new BigDecimal("100.00"), "UNUSED", null, null, null, null);
         given(userCouponConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/user-coupons/1"))

@@ -206,6 +206,15 @@ public interface WishService {
 
     record CheckinResultVO(Long checkinId, int currentStreak, int maxStreak, int starlightCredited) {}
     record GrowthRecordVO(Long recordId, int newCurrentValue) {}
+
+    /** 成长记录完整时间轴分页（GET /wish/wishes/{id}/growth-records） */
+    record GrowthTimelinePage(java.util.List<com.cloudmart.wish.vo.WishGrowthRecordVO> records,
+                              String nextCursor, boolean hasMore) {}
+
+    /**
+     * 成长记录完整时间轴（cursor 分页；可见性与详情内嵌记录一致：is_visible=true）。
+     */
+    GrowthTimelinePage listGrowthTimeline(Long wishId, String cursor, Integer pageSize);
     record ProgressDetail(int currentValue, int targetValue, int percentage, int version) {}
     record AddGrowthRequest(String type, String content, List<String> mediaUrls, Short progressDelta) {}
     record ProgressUpdateRequest(int currentValue, int version) {}

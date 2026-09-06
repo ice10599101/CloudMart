@@ -121,6 +121,20 @@ export default function ActivitiesPage() {
 
   return (
     <View className={styles.page} style={{ paddingTop: statusBarHeight + navBarHeight }}>
+      {activities.length > 0 && (
+        <View className={styles.progressTicker}>
+          <Text className={styles.progressTickerLabel}>🔥 进行中</Text>
+          <View className={styles.progressTickerTrack}>
+            <View className={styles.progressTickerInner}>
+              {activities.map((a) => (
+                <Text key={a.id} className={styles.progressTickerText}>
+                  {a.title} · {a.progressCounter ?? 0} 人参与
+                </Text>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
       <CustomNavBar title="社区活动" back />
       <ScrollView className={styles.body} scrollY>
         <Text className={styles.pageTitle}>🎪 社区活动</Text>

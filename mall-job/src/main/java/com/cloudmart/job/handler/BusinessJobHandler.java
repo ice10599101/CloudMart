@@ -462,6 +462,22 @@ public class BusinessJobHandler {
     /**
      * 品牌池达标发奖（每日 10:00（文档 9.3）；幂等，可安全重试）。
      */
+    @XxlJob("activityRewardCheckHandler")
+    public void activityRewardCheckHandler() {
+        log.info("XXL-JOB: 开始执行活动达标自动发奖扫描...");
+        try {
+            restClient.post()
+                    .uri("http://mall-wish/internal/jobs/activity-reward-check")
+                    .header("X-Internal-Call", "true")
+                    .retrieve()
+                    .body(Map.class);
+            log.info("XXL-JOB: 活动达标自动发奖扫描完成");
+        } catch (Exception e) {
+            log.error("XXL-JOB: 活动达标自动发奖扫描失败: {}", e.getMessage());
+            throw new RuntimeException("活动达标自动发奖扫描失败", e);
+        }
+    }
+
     @XxlJob("brandRewardCheckHandler")
     public void brandRewardCheckHandler() {
         log.info("XXL-JOB: 开始执行品牌池达标发奖...");

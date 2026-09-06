@@ -75,6 +75,14 @@ public interface ActivityService {
      */
     RewardIssueStats issueRewards(Long activityId, Long adminUserId);
 
+    /**
+     * 达标活动自动发奖扫描（规格 3336"自动发奖"）：遍历 ACTIVE/ENDED 活动，
+     * condition 达成且有参与者即发放（uk 幂等，重复扫描自动跳过）。
+     *
+     * @return {checked, rewarded, skipped} 统计
+     */
+    java.util.Map<String, Integer> autoIssueEligibleRewards();
+
     /** 奖励发放日志（审计：活动维度倒序） */
     List<ActivityRewardLog> listRewardLogs(Long activityId);
 

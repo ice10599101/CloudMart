@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Spin, Empty, Card, Tag, Select, Input, Button, Avatar } from 'antd'
 import { StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
 import { history } from 'umi'
+import { WeakNetworkBanner, pageSizeForNetwork } from '@/components/StateFeedback'
 import { listWishes, getCategories } from '@/api/wish'
 import type { WishListItem, Category } from '@/api/wish'
 import Skeleton from '@/components/Skeleton'
@@ -47,7 +48,7 @@ export default function WishSquare() {
         categoryId,
         keyword: keyword || undefined,
         cursor: reset ? undefined : cursor ?? undefined,
-        pageSize: PAGE_SIZE,
+        pageSize: pageSizeForNetwork(PAGE_SIZE),
       })
 
       if (res.data.success) {
@@ -126,6 +127,7 @@ export default function WishSquare() {
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>
+      <WeakNetworkBanner />
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>心愿广场</h1>
         <div className={styles.filters}>

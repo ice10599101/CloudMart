@@ -4,7 +4,6 @@ import com.cloudmart.coupon.dto.CouponTemplateDTO;
 import com.cloudmart.coupon.entity.CouponTemplate;
 import com.cloudmart.coupon.vo.CouponTemplateVO;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 import java.util.List;
 
@@ -15,18 +14,10 @@ public interface CouponTemplateConverter {
 
     List<CouponTemplateDTO> toDTOList(List<CouponTemplate> templates);
 
-    @Mapping(target = "discountValue", source = "discountAmount")
-    @Mapping(target = "minOrderAmount", source = "thresholdAmount")
-    @Mapping(target = "totalCount", source = "totalQuantity")
-    @Mapping(target = "remainingCount", source = "remainingQuantity")
     CouponTemplateVO toVO(CouponTemplate template);
 
     List<CouponTemplateVO> toVOList(List<CouponTemplate> templates);
 
-    @Mapping(target = "discountValue", source = "discountAmount")
-    @Mapping(target = "minOrderAmount", source = "thresholdAmount")
-    @Mapping(target = "totalCount", source = "totalQuantity")
-    @Mapping(target = "remainingCount", source = "remainingQuantity")
     CouponTemplateVO dtoToVO(CouponTemplateDTO dto);
 
     default List<CouponTemplateVO> dtoListToVOList(List<CouponTemplateDTO> dtos) {

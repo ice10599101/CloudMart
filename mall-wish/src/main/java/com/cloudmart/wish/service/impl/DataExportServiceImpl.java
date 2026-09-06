@@ -8,6 +8,8 @@ import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishCollection;
 import com.cloudmart.wish.entity.WishFulfillment;
 import com.cloudmart.wish.entity.WishGrowthRecord;
+import com.cloudmart.wish.enums.GrowthRecordType;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.entity.WishInteraction;
 import com.cloudmart.wish.entity.WishUserStat;
 import com.cloudmart.wish.repository.DataExportMapper;
@@ -23,9 +25,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,6 +50,7 @@ public class DataExportServiceImpl implements DataExportService {
     private static final long EXPIRE_DAYS = 7;
 
     private final DataExportMapper exportMapper;
+    private final ContentCipher contentCipher;
     private final WishMapper wishMapper;
     private final WishGrowthRecordMapper growthRecordMapper;
     private final WishFulfillmentMapper fulfillmentMapper;
@@ -60,6 +65,26 @@ public class DataExportServiceImpl implements DataExportService {
         thread.setDaemon(true);
         return thread;
     });
+
+    /**
+     * PENDING 任务恢复：内存执行器队列在实例重启时会丢任务（DB 状态停在 PENDING），
+     * 启动后延迟扫描一次，把遗留 PENDING 任务重新入队，保证合规导出最终可完成。
+     */
+    @PostConstruct
+    public void recoverPendingTasks() {
+        exportExecutor.execute(() -> {
+            try {
+                final List<DataExport> stuck = exportMapper.selectList(
+                        new LambdaQueryWrapper<DataExport>().eq(DataExport::getStatus, "PENDING"));
+                for (DataExport task : stuck) {
+                    log.info("恢复遗留导出任务 taskId={} userId={}", task.getId(), task.getUserId());
+                    exportExecutor.execute(() -> generate(task.getId(), task.getUserId()));
+                }
+            } catch (Exception ex) {
+                log.error("恢复遗留导出任务失败", ex);
+            }
+        });
+    }
 
     @Override
     public DataExport createExport(Long userId) {
@@ -91,8 +116,11 @@ public class DataExportServiceImpl implements DataExportService {
                     new LambdaQueryWrapper<WishUserStat>().eq(WishUserStat::getUserId, userId)));
             payload.put("wishes", wishMapper.selectList(
                     new LambdaQueryWrapper<Wish>().eq(Wish::getUserId, userId)));
-            payload.put("growthRecords", growthRecordMapper.selectList(
-                    new LambdaQueryWrapper<WishGrowthRecord>().eq(WishGrowthRecord::getUserId, userId)));
+            List<WishGrowthRecord> exportRecords = growthRecordMapper.selectList(
+                    new LambdaQueryWrapper<WishGrowthRecord>().eq(WishGrowthRecord::getUserId, userId));
+            exportRecords.forEach(r -> r.setContent(contentCipher.decryptGrowth(
+                    GrowthRecordType.DIARY == r.getType(), r.getContent())));
+            payload.put("growthRecords", exportRecords);
             payload.put("fulfillments", fulfillmentMapper.selectList(
                     new LambdaQueryWrapper<WishFulfillment>().eq(WishFulfillment::getUserId, userId)));
             payload.put("interactions", interactionMapper.selectList(

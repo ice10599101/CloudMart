@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import com.cloudmart.wish.config.WishCryptoProperties;
+import com.cloudmart.wish.util.ContentCipher;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -70,7 +72,7 @@ class AnnualReportServiceImplTest {
     @BeforeEach
     void setUp() {
         reportService = new AnnualReportServiceImpl(
-                wishMapper, checkinMapper, growthRecordMapper, categoryMapper, reportGenerator);
+                wishMapper, new ContentCipher(new WishCryptoProperties()), checkinMapper, growthRecordMapper, categoryMapper, reportGenerator);
     }
 
     private AnnualReportVO cachedReport() {

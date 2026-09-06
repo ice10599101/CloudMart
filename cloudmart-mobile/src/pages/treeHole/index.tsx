@@ -8,6 +8,26 @@ import WishBGM from '@/components/WishBGM'
 import { useAuthStore } from '@/store/auth'
 import styles from './index.module.scss'
 
+/** AI 回复逐字浮现（打字机，规格 2459/30.1 流式的降级实现）；仅最后一条消息启用 */
+function TypeText({ text, active }: { text: string; active: boolean }) {
+  const [shown, setShown] = useState(active ? '' : text)
+  useEffect(() => {
+    if (!active) {
+      setShown(text)
+      return
+    }
+    setShown('')
+    let i = 0
+    const timer = setInterval(() => {
+      i += 1
+      setShown(text.slice(0, i))
+      if (i >= text.length) clearInterval(timer)
+    }, 35)
+    return () => clearInterval(timer)
+  }, [text, active])
+  return <Text>{shown}</Text>
+}
+
 /** AI 数据处理协议版本（协议文本管理模块上线前为静态版本） */
 const AI_CONSENT_VERSION = 'v1.0'
 const DAILY_LIMIT = 10
@@ -242,7 +262,7 @@ export default function TreeHolePage() {
                     <Text>🌙</Text>
                   </View>
                   <View className={`${styles.aiBubble} ${msg.isCrisis ? styles.aiBubbleCrisis : ''}`}>
-                    <Text>{msg.content}</Text>
+                    <TypeText text={msg.content} active={msg === messages[messages.length - 1]} />
                     {msg.resources && msg.resources.length > 0 && (
                       <View className={styles.resources}>
                         {msg.resources.map((res) => (

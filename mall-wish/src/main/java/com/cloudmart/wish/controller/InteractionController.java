@@ -52,8 +52,10 @@ public class InteractionController {
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable Long wishId,
-            @Parameter(description = "互动请求") @Valid @RequestBody CreateInteractionRequest request) {
-        InteractionResultVO vo = interactionService.createInteraction(userId, wishId, request);
+            @Parameter(description = "互动请求") @Valid @RequestBody CreateInteractionRequest request,
+            @Parameter(description = "设备指纹（风控基线，前端生成）")
+            @RequestHeader(value = "X-Device-Id", required = false) String deviceId) {
+        InteractionResultVO vo = interactionService.createInteraction(userId, wishId, request, deviceId);
         return ApiResponse.ok(vo);
     }
 

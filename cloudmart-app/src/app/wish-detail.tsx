@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import { fileApi } from '@/api/file'
+import * as ImagePicker from 'expo-image-picker'
 import WishCheckinCalendar from '@/components/WishCheckinCalendar'
 import { isOnline, enqueueCheckin, flushQueue } from '@/utils/offlineCheckin'
 import NetInfo from '@react-native-community/netinfo'
@@ -35,7 +37,10 @@ export default function WishDetailScreen() {
   const [collected, setCollected] = useState(false)
   const [collectSaving, setCollectSaving] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
-  const [growthType, setGrowthType] = useState<'TEXT' | 'DIARY'>('TEXT')
+  const [growthType, setGrowthType] = useState<'TEXT' | 'DIARY' | 'IMAGE'>('TEXT')
+  // IMAGE 类型：本地上传列表（key/base64/url/status），复用发布页上传链路
+  const [growthUploads, setGrowthUploads] = useState<Array<{ key: string; base64: string; url?: string; status: 'uploading' | 'success' | 'error' }>>([])
+  const [growthPicking, setGrowthPicking] = useState(false)
   const [growthContent, setGrowthContent] = useState('')
   const [growthDelta, setGrowthDelta] = useState('')
   const [growthSaving, setGrowthSaving] = useState(false)
@@ -192,6 +197,71 @@ export default function WishDetailScreen() {
     }
   }
 
+  /** 选图（最多 9 张）并逐张上传：IMAGE 成长记录媒体 */
+  const pickGrowthImages = async () => {
+    if (growthPicking) return
+    setGrowthPicking(true)
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert('提示', '需要相册权限才能上传图片')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+        allowsMultipleSelection: true,
+        selectionLimit: 9 - growthUploads.length,
+      })
+      if (result.canceled) return
+      const remaining = 9 - growthUploads.length
+      const items = result.assets.slice(0, remaining).map((a, i) => ({
+        key: `g-${Date.now()}-${i}`,
+        base64: a.base64 ?? '',
+        status: 'uploading' as const,
+      }))
+      setGrowthUploads((prev) => [...prev, ...items])
+      items.forEach((item) => uploadGrowthImage(item.key, item.base64))
+    } finally {
+      setGrowthPicking(false)
+    }
+  }
+
+  const uploadGrowthImage = async (key: string, base64: string) => {
+    try {
+      const res = await fileApi.upload({ file: base64, type: 'image/jpeg' })
+      const url = res.data?.data?.url
+      if (!url) throw new Error('upload failed')
+      setGrowthUploads((prev) => prev.map((u) => (u.key === key ? { ...u, url, status: 'success' } : u)))
+    } catch {
+      setGrowthUploads((prev) => prev.map((u) => (u.key === key ? { ...u, status: 'error' } : u)))
+    }
+  }
+
+  /** 传承给同路人（Sprint 2.7）：还愿后定向推曾同求用户 */
+  const [legacySaving, setLegacySaving] = useState(false)
+  const handleLegacy = () => {
+    Alert.alert('传承给同路人', '将你的故事推送给曾与你同求这个心愿的人，鼓励他们继续前行。确定传承吗？', [
+      { text: '再想想', style: 'cancel' },
+      {
+        text: '确定传承',
+        onPress: async () => {
+          setLegacySaving(true)
+          try {
+            const res = await wishApi.inheritFulfillment(wishId)
+            if (res.data.success) Alert.alert('完成', '传承成功，故事正在照亮同路人 ✨')
+          } catch (err) {
+            const e = err as { data?: { error?: { message?: string } } }
+            Alert.alert('失败', e?.data?.error?.message || '传承失败，请稍后重试')
+          } finally {
+            setLegacySaving(false)
+          }
+        },
+      },
+    ])
+  }
+
   /** 提交成长记录：成功后刷新详情（时间线 + 进度） */
   const handleGrowthSubmit = async () => {
     if (!growthContent.trim()) {
@@ -200,15 +270,24 @@ export default function WishDetailScreen() {
     }
     setGrowthSaving(true)
     try {
+      const mediaUrls = growthUploads
+        .filter((u) => u.status === 'success' && u.url)
+        .map((u) => u.url as string)
+      if (growthType === 'IMAGE' && mediaUrls.length === 0) {
+        Alert.alert('提示', '图片记录需至少上传 1 张图片')
+        return
+      }
       const res = await wishApi.addGrowthRecord(wishId, {
         type: growthType,
-        content: growthContent.trim(),
+        content: growthContent.trim() || (growthType === 'IMAGE' ? '📷 图片记录' : ''),
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         progressDelta: growthDelta ? Number(growthDelta) : undefined,
       })
       if (res.data.success) {
         setGrowthOpen(false)
         setGrowthContent('')
         setGrowthDelta('')
+        setGrowthUploads([])
         const detailRes = await wishApi.getWishDetail(wishId)
         if (detailRes.data.success) setWish(detailRes.data.data)
         Alert.alert('完成', '成长记录已添加')
@@ -807,6 +886,26 @@ export default function WishDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
+          {wish.status === 'FULFILLED' && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={legacySaving}
+              onPress={handleLegacy}
+              style={{
+                flex: 2,
+                paddingVertical: Spacing.md,
+                borderRadius: 28,
+                alignItems: 'center',
+                backgroundColor: 'rgba(80, 200, 120, 0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(80, 200, 120, 0.45)',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.sm, color: '#50c878' }}>
+                {legacySaving ? '传承中...' : '🌱 传承给同路人'}
+              </Text>
+            </TouchableOpacity>
+          )}
           {wish.fruitType === 'SPARK' && (
             <View
               style={{
@@ -901,7 +1000,7 @@ export default function WishDetailScreen() {
               记录这一步的成长与心得，可同时推进心愿进度
             </Text>
             <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md }}>
-              {(['TEXT', 'DIARY'] as const).map((t) => (
+              {(['TEXT', 'DIARY', 'IMAGE'] as const).map((t) => (
                 <TouchableOpacity
                   key={t}
                   activeOpacity={0.85}
@@ -917,7 +1016,7 @@ export default function WishDetailScreen() {
                   }}
                 >
                   <Text style={{ fontSize: FontSize.sm, color: growthType === t ? WishColors.accentCyan : WishColors.textSecondary }}>
-                    {t === 'TEXT' ? '文字记录' : '心情日记'}
+                    {t === 'TEXT' ? '文字记录' : t === 'DIARY' ? '心情日记' : '图片记录'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -926,7 +1025,7 @@ export default function WishDetailScreen() {
               value={growthContent}
               onChangeText={setGrowthContent}
               maxLength={500}
-              placeholder="如：今天完成了第一阶段的目标"
+              placeholder={growthType === 'IMAGE' ? '给这组图片写点文字（可留空）' : '如：今天完成了第一阶段的目标'}
               placeholderTextColor={WishColors.textSecondary}
               multiline
               style={{
@@ -941,6 +1040,31 @@ export default function WishDetailScreen() {
                 textAlignVertical: 'top',
               }}
             />
+            {growthType === 'IMAGE' && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm }}>
+                {growthUploads.map((u) => (
+                  <View key={u.key} style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
+                    {u.status === 'success' && u.url ? (
+                      <Image source={{ uri: u.url }} style={{ width: 64, height: 64 }} />
+                    ) : (
+                      <Text style={{ fontSize: FontSize.xs, color: u.status === 'error' ? '#ff6b6b' : WishColors.textSecondary }}>
+                        {u.status === 'error' ? '失败' : '上传中'}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+                {growthUploads.length < 9 && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    disabled={growthPicking}
+                    onPress={pickGrowthImages}
+                    style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: WishColors.border, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: FontSize.xl, color: WishColors.textSecondary }}>＋</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             <TextInput
               value={growthDelta}
               onChangeText={(v) => setGrowthDelta(v.replace(/[^0-9]/g, ''))}

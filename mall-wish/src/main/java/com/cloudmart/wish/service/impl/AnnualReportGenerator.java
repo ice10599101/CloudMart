@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.cloudmart.wish.entity.WishAiConversation;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.enums.AiConversationRole;
 import com.cloudmart.wish.enums.AiPromptScene;
 import com.cloudmart.wish.enums.AiScene;
@@ -46,6 +47,7 @@ public class AnnualReportGenerator {
     private static final String SESSION_PREFIX = "report-";
 
     private final StringRedisTemplate redisTemplate;
+    private final ContentCipher contentCipher;
     private final ObjectMapper objectMapper;
     private final AssistantAiClient assistantAiClient;
     private final AiPromptService aiPromptService;
@@ -155,7 +157,7 @@ public class AnnualReportGenerator {
             userRecord.setSessionId(sessionId);
             userRecord.setScene(AiScene.ANNUAL_REPORT);
             userRecord.setRole(AiConversationRole.USER);
-            userRecord.setContent(userContext);
+            userRecord.setContent(contentCipher.encrypt(userContext));
             conversationMapper.insert(userRecord);
 
             WishAiConversation assistantRecord = new WishAiConversation();
@@ -163,7 +165,7 @@ public class AnnualReportGenerator {
             assistantRecord.setSessionId(sessionId);
             assistantRecord.setScene(AiScene.ANNUAL_REPORT);
             assistantRecord.setRole(AiConversationRole.ASSISTANT);
-            assistantRecord.setContent(summary);
+            assistantRecord.setContent(contentCipher.encrypt(summary));
             conversationMapper.insert(assistantRecord);
         });
     }

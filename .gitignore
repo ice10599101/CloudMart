@@ -1,0 +1,63 @@
+# 项目级排除
+/CloudMart 全栈微服务开发文档.md
+/AGENTS.md
+
+# 环境变量（保留 .env.example）
+.env
+.env.*
+!.env.example
+
+# 构建产物
+**/target/
+**/dist/
+**/build/
+**/.next/
+**/.nuxt/
+**/.expo/
+
+# 依赖目录
+**/node_modules/
+**/.venv/
+**/__pycache__/
+
+# 日志
+logs/
+**/*.log
+
+# IDE / 编辑器
+/.vscode/
+/.trae/
+/.idea/
+/.mvn/
+*.iml
+*.ipr
+*.iws
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# 测试覆盖率
+**/coverage/
+**/.nyc_output/
+
+# 缓存
+**/.cache/
+**/.eslintcache
+
+# 密钥与证书
+**/*.keystore
+**/*.jks
+**/*.p12
+**/*.pem
+**/*.key
+/前端页面访问.txt
+/.ice/
+/CloudMart-ui/src/.umi/

@@ -35,6 +35,13 @@ public interface CollectionService {
      */
     Map<String, List<Map<String, Object>>> collections(Long userId);
 
+    /**
+     * 收藏馆分组视图（可按类型过滤）。
+     *
+     * @param type 可选：BADGE/SKIN/BGM/SPECIAL_FRUIT；空返回全部分组
+     */
+    Map<String, List<Map<String, Object>>> collections(Long userId, String type);
+
     /** 星火收藏品：收藏 SPARK 心愿为 SPECIAL_FRUIT 资产（幂等） */
     UserAsset collectSpark(Long userId, Long wishId);
 

@@ -233,6 +233,21 @@ public class WishController {
         return ApiResponse.ok(wishService.getCheckinCalendar(userId, wishId, month));
     }
 
+    @GetMapping("/{id}/growth-records")
+    @Operation(summary = "成长记录完整时间轴（cursor 分页）", description = "按记录 ID 倒序；"
+            + "可见性与详情内嵌记录一致（is_visible=true）；DIARY 内容已按需解密")
+    @SentinelResource("WISH_GROWTH_TIMELINE")
+    public ApiResponse<List<com.cloudmart.wish.vo.WishGrowthRecordVO>> growthTimeline(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "分页游标（上一页最后一条记录 ID）")
+            @RequestParam(required = false) String cursor,
+            @Parameter(description = "每页数量，默认 20 上限 50")
+            @RequestParam(required = false) Integer pageSize) {
+        WishService.GrowthTimelinePage page = wishService.listGrowthTimeline(wishId, cursor, pageSize);
+        return ApiResponse.okWithCursor(page.records(), pageSize == null ? 20 : pageSize,
+                page.nextCursor(), page.hasMore());
+    }
+
     @PutMapping("/{id}/growth-records/{recordId}")
     @Operation(summary = "编辑成长记录", description = "作者专用；content/mediaUrls 可选更新")
     public ApiResponse<WishService.GrowthRecordVO> updateGrowthRecord(

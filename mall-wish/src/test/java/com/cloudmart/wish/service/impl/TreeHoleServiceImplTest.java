@@ -3,6 +3,8 @@ package com.cloudmart.wish.service.impl;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.config.WishAiProperties;
+import com.cloudmart.wish.config.WishCryptoProperties;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.dto.AiConversationListQuery;
 import com.cloudmart.wish.dto.TreeHoleMessageRequest;
 import com.cloudmart.wish.entity.Wish;
@@ -103,7 +105,7 @@ class TreeHoleServiceImplTest {
         treeHoleService = new TreeHoleServiceImpl(
                 wishMapper, conversationMapper, consentService, userStatService,
                 aiRateLimiter, new AiPrivacySanitizer(), treeHoleAiClient,
-                aiProperties, transactionTemplate);
+                aiProperties, transactionTemplate, new ContentCipher(new WishCryptoProperties()));
 
         // TransactionTemplate 直接执行回调体（单测无真实事务上下文）
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {

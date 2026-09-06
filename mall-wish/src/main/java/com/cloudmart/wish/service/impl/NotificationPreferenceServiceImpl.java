@@ -42,7 +42,7 @@ public class NotificationPreferenceServiceImpl implements NotificationPreference
                 .map(type -> new NotificationPreferenceMatrixVO.PreferenceItemVO(
                         type.name(), buildChannels(type.name(), overrides)))
                 .toList();
-        return new NotificationPreferenceMatrixVO(items);
+        return new NotificationPreferenceMatrixVO(items, 0);
     }
 
     @Override
@@ -53,7 +53,8 @@ public class NotificationPreferenceServiceImpl implements NotificationPreference
             upsert(userId, item.type(), item.channel(), item.enabled());
         }
         log.info("更新通知偏好, userId={}, count={}", userId, request.updates().size());
-        return getMatrix(userId);
+        NotificationPreferenceMatrixVO matrix = getMatrix(userId);
+        return new NotificationPreferenceMatrixVO(matrix.preferences(), request.updates().size());
     }
 
     @Override

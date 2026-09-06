@@ -50,8 +50,8 @@ class CouponControllerTest {
         given(couponService.createTemplate(Mockito.any(CreateCouponTemplateRequest.class))).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/coupon-templates")
@@ -74,8 +74,8 @@ class CouponControllerTest {
         given(couponService.countTemplates(null, null)).willReturn(1L);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoListToVOList(List.of(dto))).willReturn(List.of(vo));
 
         mockMvc.perform(get("/coupon-templates"))
@@ -98,8 +98,8 @@ class CouponControllerTest {
         given(couponService.getTemplateById(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/coupon-templates/1"))
@@ -119,8 +119,8 @@ class CouponControllerTest {
         given(couponService.disableTemplate(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "DISABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "DISABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/coupon-templates/1/disable"))

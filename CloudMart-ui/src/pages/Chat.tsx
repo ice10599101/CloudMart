@@ -17,16 +17,20 @@ import {
 import { searchUsers, type SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { timeAgo } from '@/utils/format'
+import { timeAgo, parseServerTime } from '@/utils/format'
 import styles from './Chat.module.css'
 
 function formatMessageTime(dateStr: string): string {
-  const date = new Date(dateStr)
+  const ts = parseServerTime(dateStr)
+  if (ts === null) return ''
+  const date = new Date(ts)
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
 
 function formatDateSeparator(dateStr: string): string {
-  const date = new Date(dateStr)
+  const ts = parseServerTime(dateStr)
+  if (ts === null) return ''
+  const date = new Date(ts)
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
@@ -36,8 +40,10 @@ function formatDateSeparator(dateStr: string): string {
 }
 
 function isSameDay(a: string, b: string): boolean {
-  if (!a || !b) return false
-  return new Date(a).toDateString() === new Date(b).toDateString()
+  const ta = parseServerTime(a)
+  const tb = parseServerTime(b)
+  if (ta === null || tb === null) return false
+  return new Date(ta).toDateString() === new Date(tb).toDateString()
 }
 
 function AvatarCircle({ name, avatar, size = 48 }: { name: string; avatar: string; size?: number }) {
@@ -359,7 +365,7 @@ export default function Chat() {
       }
 
       const isSelf = msg.senderId === (currentUser?.id ?? 0)
-      const canRecall = isSelf && !msg.isRecalled && (Date.now() - new Date(msg.createdAt).getTime() < 120000)
+      const canRecall = isSelf && !msg.isRecalled && (Date.now() - (parseServerTime(msg.createdAt) ?? 0) < 120000)
 
       if (msg.isRecalled) {
         elements.push(

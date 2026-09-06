@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button, Card, Empty, Segmented, Table } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history } from 'umi'
+import { WeakNetworkBanner } from '@/components/StateFeedback'
 import { getMyResourceLogs, type ResourceLogItem } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 
@@ -49,6 +50,7 @@ export default function StarlightLog() {
 
   return (
     <div style={{ maxWidth: 860, margin: '24px auto', padding: '0 16px' }}>
+      <WeakNetworkBanner />
       <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => history.push('/profile')} style={{ marginBottom: 12 }}>
         个人中心
       </Button>

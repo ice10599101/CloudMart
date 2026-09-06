@@ -2,6 +2,7 @@ package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.config.WishAiProperties;
 import com.cloudmart.wish.dto.AiAssistantRequest;
@@ -63,6 +64,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final WishAiGoalMapper goalMapper;
     private final WishAiConversationMapper conversationMapper;
     private final WishExpectedAtActionMapper expectedAtActionMapper;
+    private final ContentCipher contentCipher;
+
     private final WishMapper wishMapper;
     private final ConsentService consentService;
     private final UserStatService userStatService;
@@ -234,7 +237,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             userRecord.setSessionId(sessionId);
             userRecord.setScene(AiScene.GOAL_BREAKDOWN);
             userRecord.setRole(AiConversationRole.USER);
-            userRecord.setContent(userText);
+            userRecord.setContent(contentCipher.encrypt(userText));
             conversationMapper.insert(userRecord);
 
             String assistantContent = breakdown.goals().stream()
@@ -246,8 +249,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             assistantRecord.setSessionId(sessionId);
             assistantRecord.setScene(AiScene.GOAL_BREAKDOWN);
             assistantRecord.setRole(AiConversationRole.ASSISTANT);
-            assistantRecord.setContent("【意图】" + breakdown.intent() + "\n" + assistantContent
-                    + "\n【建议】" + breakdown.suggestion());
+            assistantRecord.setContent(contentCipher.encrypt("【意图】" + breakdown.intent() + "\n" + assistantContent
+                    + "\n【建议】" + breakdown.suggestion()));
             conversationMapper.insert(assistantRecord);
         });
     }

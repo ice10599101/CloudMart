@@ -120,7 +120,9 @@ export default function AnnualReport() {
                   <div
                     key={category.name}
                     className={styles.categoryRow}
-                    title={`${category.name}：${category.count} 个心愿`}
+                    title={`${category.name}：${category.count} 个心愿 · 点击去广场看看`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => history.push('/wish/list')}
                   >
                     <span className={styles.categoryName}>{category.name}</span>
                     <div className={styles.categoryTrack}>

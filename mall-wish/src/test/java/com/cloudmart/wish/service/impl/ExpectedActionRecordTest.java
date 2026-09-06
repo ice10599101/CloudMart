@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import com.cloudmart.wish.config.WishCryptoProperties;
+import com.cloudmart.wish.util.ContentCipher;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -64,7 +66,7 @@ class ExpectedActionRecordTest {
     @BeforeEach
     void setUp() {
         aiAssistantService = new AiAssistantServiceImpl(goalMapper, conversationMapper,
-                expectedAtActionMapper, wishMapper, consentService, userStatService,
+                expectedAtActionMapper, new ContentCipher(new WishCryptoProperties()), wishMapper, consentService, userStatService,
                 aiRateLimiter, new AiPrivacySanitizer(), assistantAiClient,
                 aiPromptService, new WishAiProperties(), transactionTemplate);
     }

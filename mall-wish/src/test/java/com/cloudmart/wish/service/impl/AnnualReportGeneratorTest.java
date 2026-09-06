@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import com.cloudmart.wish.config.WishCryptoProperties;
+import com.cloudmart.wish.util.ContentCipher;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -72,7 +74,8 @@ class AnnualReportGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        generator = new AnnualReportGenerator(redisTemplate, objectMapper, assistantAiClient,
+        generator = new AnnualReportGenerator(redisTemplate, new ContentCipher(new WishCryptoProperties()),
+                objectMapper, assistantAiClient,
                 aiPromptService, consentService, aiConfigService, privacySanitizer,
                 conversationMapper, transactionTemplate);
     }

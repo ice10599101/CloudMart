@@ -53,8 +53,8 @@ class AdminCouponControllerTest {
         given(couponService.countTemplates(null, null)).willReturn(1L);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoListToVOList(List.of(dto))).willReturn(List.of(vo));
 
         mockMvc.perform(get("/admin/coupon-templates"))
@@ -76,8 +76,8 @@ class AdminCouponControllerTest {
         given(couponService.getTemplateById(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/admin/coupon-templates/1"))
@@ -96,8 +96,8 @@ class AdminCouponControllerTest {
         given(couponService.createTemplate(Mockito.any(CreateCouponTemplateRequest.class))).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满200减50", "AMOUNT_OFF",
-                new BigDecimal("50.00"), new BigDecimal("200.00"), 500, 500, 1,
-                null, null, "ENABLED");
+                new BigDecimal("200.00"), new BigDecimal("50.00"), null, 500, 500, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/admin/coupon-templates")
@@ -118,8 +118,8 @@ class AdminCouponControllerTest {
         given(couponService.disableTemplate(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "DISABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "DISABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/coupon-templates/1/disable"))
@@ -138,8 +138,8 @@ class AdminCouponControllerTest {
         given(couponService.enableTemplate(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("20.00"), new BigDecimal("100.00"), 1000, 980, 1,
-                null, null, "ENABLED");
+                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
+                null, null, null, null, "ENABLED");
         given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/coupon-templates/1/enable"))

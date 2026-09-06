@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, Empty, Avatar, Input, Dropdown, Popconfirm } from 'antd'
+import { Spin, Empty, Avatar, Input, Dropdown, Popconfirm, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import Skeleton from '@/components/Skeleton'
 import {
@@ -31,6 +31,7 @@ import {
   uncollectPost,
   getPostComments,
   createComment,
+  deleteComment,
   likeComment,
   unlikeComment,
   getFeedPosts,
@@ -252,12 +253,18 @@ function CommentItem({
   onToggleLike,
   onReply,
   onReport,
+  isOwnComment,
+  onDelete,
+  currentUserId,
 }: {
   comment: PostComment
   commentLikedIds: Set<number>
   onToggleLike: (id: number) => void
   onReply: (nickname: string, parentId: number, replyToUserId: number) => void
   onReport: (commentId: number) => void
+  isOwnComment: boolean
+  onDelete: (commentId: number) => void
+  currentUserId: number | undefined
 }) {
   const isLiked = commentLikedIds.has(comment.id)
 
@@ -299,6 +306,17 @@ function CommentItem({
                     label: '举报',
                     onClick: () => onReport(comment.id),
                   },
+                  ...(isOwnComment
+                    ? [
+                        {
+                          key: 'delete',
+                          icon: <DeleteOutlined />,
+                          label: '删除',
+                          danger: true,
+                          onClick: () => onDelete(comment.id),
+                        },
+                      ]
+                    : []),
                 ],
               }}
               placement="bottomRight"
@@ -380,6 +398,9 @@ function CommentItem({
                   onToggleLike={onToggleLike}
                   onReply={onReply}
                   onReport={onReport}
+                  isOwnComment={reply.userId === currentUserId}
+                  onDelete={onDelete}
+                  currentUserId={currentUserId}
                 />
               ))}
             </div>
@@ -651,6 +672,29 @@ export default function PostDetail() {
       setSubmitting(false)
     }
   }, [id, commentText, replyTarget, isAuthenticated, fetchComments, post])
+
+  /** 删除自己的评论：确认后调删除接口并刷新列表与计数 */
+  const handleDeleteComment = useCallback((commentId: number) => {
+    Modal.confirm({
+      title: '确认删除评论',
+      content: '删除后无法恢复',
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteComment(id!, commentId)
+          message.success('评论已删除')
+          await fetchComments()
+          if (post) {
+            setPost((prev) => prev ? { ...prev, commentCount: Math.max(0, prev.commentCount - 1) } : prev)
+          }
+        } catch {
+          message.error('删除失败')
+        }
+      },
+    })
+  }, [fetchComments, post])
 
   const handleShare = useCallback(() => {
     setShareModalVisible(true)
@@ -1199,6 +1243,9 @@ export default function PostDetail() {
                   onToggleLike={handleToggleCommentLike}
                   onReply={handleReply}
                   onReport={handleReportComment}
+                  isOwnComment={comment.userId === currentUser?.id}
+                  onDelete={handleDeleteComment}
+                  currentUserId={currentUser?.id}
                 />
               ))}
             </div>

@@ -60,6 +60,8 @@ export default function WishWorkshop() {
   const [assets, setAssets] = useState<WorkshopAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [exchangingId, setExchangingId] = useState<number | null>(null)
+  /** 刚兑换成功的资产：卡片播放星光脉冲（兑换动效，规格 3471） */
+  const [justExchangedId, setJustExchangedId] = useState<number | null>(null)
 
   // 收藏馆
   const [groups, setGroups] = useState<CollectionGroup>({})
@@ -120,6 +122,8 @@ export default function WishWorkshop() {
           const res = await exchangeAsset(asset.assetId)
           if (res.data.success) {
             message.success('兑换成功，已放入收藏馆 🎉')
+            setJustExchangedId(asset.assetId)
+            setTimeout(() => setJustExchangedId((cur) => (cur === asset.assetId ? null : cur)), 2600)
             await loadWorkshop()
             await loadCollections()
           }
@@ -196,7 +200,8 @@ export default function WishWorkshop() {
           ) : (
             <div className={styles.wishList}>
               {assets.map((asset) => (
-                <Card key={asset.assetId} size="small" className={styles.wishCard}>
+                <Card key={asset.assetId} size="small"
+                      className={`${styles.wishCard} ${justExchangedId === asset.assetId ? styles.justExchanged : ''}`}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
                       <AssetIcon icon={asset.icon} alt={asset.name} />
@@ -222,7 +227,7 @@ export default function WishWorkshop() {
                       loading={exchangingId === asset.assetId}
                       onClick={() => handleExchange(asset)}
                     >
-                      {asset.owned ? '已拥有' : asset.stock <= 0 ? '已售罄' : '兑换'}
+                      {justExchangedId === asset.assetId ? '✨ 已入馆' : asset.owned ? '已拥有' : asset.stock <= 0 ? '已售罄' : '兑换'}
                     </Button>
                   </div>
                 </Card>

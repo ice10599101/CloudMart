@@ -57,6 +57,12 @@ public class UserCommunityServiceImpl implements UserCommunityService {
 
         UserInfo userInfo = userEnrichmentService.getSingleUser(userId);
 
+        // 填充当前用户的关注状态（null 会导致前端关注按钮状态不同步，无法取关）；
+        // 未登录或查看自己主页时保持 null（自己无关注语义）
+        Boolean isFollowed = (currentUserId == null || currentUserId.equals(userId))
+                ? null
+                : userFollowService.isFollowing(currentUserId, userId);
+
         return new UserCommunityVO(
                 userId,
                 userInfo.nickname(),
@@ -67,7 +73,7 @@ public class UserCommunityServiceImpl implements UserCommunityService {
                 followerCount,
                 collectCount,
                 badges,
-                null
+                isFollowed
         );
     }
 }

@@ -30,5 +30,18 @@ public record MyLevelVO(
         @Schema(description = "累计帮助次数") int totalHelped,
         @Schema(description = "下一等级（满级为 null）") Integer nextLevel,
         @Schema(description = "下一等级称号（满级为 null）") String nextLevelTitle,
-        @Schema(description = "距下一级各维度进度（满级为空）") List<LevelRequirementVO> nextLevelRequirements) {
+        @Schema(description = "距下一级各维度进度（满级为空）") List<LevelRequirementVO> nextLevelRequirements,
+        @Schema(description = "整体升级进度（取最受限维度；满级为 null）") LevelProgressVO levelProgress,
+        @Schema(description = "历史最高等级（只升不降）") String highestLevel) {
+
+    /**
+     * 整体升级进度（规格 846：levelProgress {current, required, percentage}），
+     * 取各维度中百分比最低（最受限）的一维。
+     */
+    @Schema(description = "整体升级进度")
+    public record LevelProgressVO(
+            @Schema(description = "当前值") int current,
+            @Schema(description = "要求值") int required,
+            @Schema(description = "百分比 0-100") int percentage) {
+    }
 }

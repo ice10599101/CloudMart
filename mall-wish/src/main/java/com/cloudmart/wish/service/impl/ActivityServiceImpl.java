@@ -570,4 +570,44 @@ public class ActivityServiceImpl implements ActivityService {
             log.warn("活动进度 INCR 失败（DB 镜像兜底）: {}", ex.getMessage());
         }
     }
+
+    @Override
+    @Transactional
+    public java.util.Map<String, Integer> autoIssueEligibleRewards() {
+        int checked = 0;
+        int rewarded = 0;
+        int skipped = 0;
+        List<CommunityActivity> activities = activityMapper.selectList(
+                new LambdaQueryWrapper<CommunityActivity>()
+                        .in(CommunityActivity::getStatus, ActivityStatus.ACTIVE, ActivityStatus.ENDED));
+        for (CommunityActivity activity : activities) {
+            checked++;
+            try {
+                long progress = getProgress(activity.getId());
+                long participantCount = participantMapper.selectCount(
+                        new LambdaQueryWrapper<ActivityParticipant>()
+                                .eq(ActivityParticipant::getActivityId, activity.getId())
+                                .in(ActivityParticipant::getStatus,
+                                        ActivityParticipantStatus.JOINED, ActivityParticipantStatus.APPROVED));
+                if (participantCount == 0
+                        || !ActivityConditionParser.isMet(activity.getConditionJson(),
+                                progress, participantCount, hasMemberFulfilled(activity.getId()))) {
+                    continue;
+                }
+                // SYSTEM 自动发放（adminUserId=0，审计日志可区分于管理员手动触达）
+                RewardIssueStats stats = issueRewards(activity.getId(), 0L);
+                rewarded += (int) stats.eligible();
+                skipped += (int) stats.skipped();
+            } catch (Exception ex) {
+                // 单活动失败不阻断整批（下一轮扫描按 uk 幂等补偿）
+                log.warn("活动自动发奖单活动失败, activityId={}, error={}", activity.getId(), ex.getMessage());
+            }
+        }
+        java.util.Map<String, Integer> stats = new java.util.LinkedHashMap<>();
+        stats.put("checked", checked);
+        stats.put("rewarded", rewarded);
+        stats.put("skipped", skipped);
+        log.info("活动自动发奖扫描完成: {}", stats);
+        return stats;
+    }
 }

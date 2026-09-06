@@ -87,9 +87,16 @@ public class InteractionServiceImpl implements InteractionService {
     private final WishStatEventProducer statEventProducer;
     private final UserFeignClient userFeignClient;
     private final TransactionTemplate transactionTemplate;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Override
     public InteractionResultVO createInteraction(Long userId, Long wishId, CreateInteractionRequest request) {
+        return createInteraction(userId, wishId, request, null);
+    }
+
+    @Override
+    public InteractionResultVO createInteraction(Long userId, Long wishId, CreateInteractionRequest request,
+                                                 String deviceId) {
         InteractionType type = request.type();
 
         // ---- 前置校验（无 DB 写、无锁持有）----
@@ -121,8 +128,10 @@ public class InteractionServiceImpl implements InteractionService {
 
         try {
             // 编程式事务：限频等前置检查在事务外执行，避免事务内做 Redis 网络调用
-            return transactionTemplate.execute(status ->
+            InteractionResultVO vo = transactionTemplate.execute(status ->
                     doCreateInteraction(userId, wish, type, blessContent));
+            registerDeviceBaseline(deviceId, userId);
+            return vo;
         } catch (BusinessException ex) {
             // 同求占位成功但落库失败（唯一约束冲突等）：释放占位，允许客户端重试
             if (sameWishAcquired && ex.getCode() != null
@@ -443,6 +452,28 @@ public class InteractionServiceImpl implements InteractionService {
     private record UserInfo(Long userId, String nickname, String avatar) {
         static UserInfo placeholder(Long userId) {
             return new UserInfo(userId, "心愿旅人", "");
+        }
+    }
+
+    /**
+     * 设备指纹风控基线（规格 1188-1191）：设备哈希 → 关联用户集合，90 天滚动窗口；
+     * 同设备关联超过 3 个账号时打预警日志。Redis 失效静默跳过（基线数据不阻塞业务）。
+     */
+    private void registerDeviceBaseline(String deviceId, Long userId) {
+        if (deviceId == null || deviceId.isBlank() || deviceId.length() > 128) {
+            return;
+        }
+        try {
+            String deviceHash = org.apache.commons.codec.digest.DigestUtils.sha256Hex(deviceId).substring(0, 32);
+            String key = "wish:device:" + deviceHash;
+            redisTemplate.opsForSet().add(key, String.valueOf(userId));
+            redisTemplate.expire(key, java.time.Duration.ofDays(90));
+            Long users = redisTemplate.opsForSet().size(key);
+            if (users != null && users > 3) {
+                log.warn("同设备多账号预警: device={}, associatedUsers={}", deviceHash, users);
+            }
+        } catch (Exception ex) {
+            log.debug("设备指纹登记跳过（Redis 不可用）: {}", ex.getMessage());
         }
     }
 }

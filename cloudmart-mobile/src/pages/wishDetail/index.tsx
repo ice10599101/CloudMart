@@ -275,7 +275,29 @@ export default function WishDetailPage() {
     }
   }
 
-  /** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿，幂等，二次确认） */
+  /** 传承给同路人（Sprint 2.7：还愿后定向推曾同求用户） */
+  const [legacySaving, setLegacySaving] = useState(false)
+  const handleLegacy = async () => {
+    const res = await Taro.showModal({
+      title: '传承给同路人',
+      content: '将你的故事推送给曾与你同求这个心愿的人，鼓励他们继续前行。确定传承吗？',
+    })
+    if (!res.confirm) return
+    setLegacySaving(true)
+    try {
+      const result = await wishApi.inheritFulfillment(wishId)
+      if (result.data.success) {
+        Taro.showToast({ title: '传承成功，故事正在照亮同路人 ✨', icon: 'none' })
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '传承失败，请稍后重试', icon: 'none' })
+    } finally {
+      setLegacySaving(false)
+    }
+  }
+
+  /** 设为星火永久收藏（文档 2.3：仅作者对 FULFILLED+BLOOM 心愿，幂等，二次确认) */
   const [sparkSaving, setSparkSaving] = useState(false)
   const handleSpark = async () => {
     const res = await Taro.showModal({
@@ -595,6 +617,11 @@ export default function WishDetailPage() {
           {wish.fruitType === 'SPARK' && (
             <View className={styles.sparkDoneBtn}>
               <Text className={styles.sparkDoneBtnText}>⭐ 星火永久</Text>
+            </View>
+          )}
+          {wish.status === 'FULFILLED' && (
+            <View className={styles.sparkBtn} onClick={legacySaving ? undefined : handleLegacy}>
+              <Text className={styles.sparkBtnText}>{legacySaving ? '传承中...' : '🌱 传承给同路人'}</Text>
             </View>
           )}
           <View className={styles.deleteBtn} onClick={handleDelete}>

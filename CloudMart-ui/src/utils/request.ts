@@ -4,6 +4,7 @@ import { message as staticMessage } from 'antd'
 import { history } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { getAppMessage } from '@/utils/appMessage'
+import { getDeviceId } from '@/utils/deviceFingerprint'
 
 /** 拦截器是非组件环境，优先用 App 桥实例；桥未挂载时退回静态实例 */
 function notify(kind: 'error' | 'warning', content: string) {
@@ -53,6 +54,8 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 设备指纹风控基线（规格 1188-1191）
+    config.headers['X-Device-Id'] = getDeviceId()
 
     const method = (config.method ?? 'GET').toUpperCase()
     if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

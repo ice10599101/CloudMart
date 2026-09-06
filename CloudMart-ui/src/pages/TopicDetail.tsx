@@ -10,7 +10,7 @@ import {
   TagOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
-import { getPostsByTopic, getHotTopics, subscribeTag, unsubscribeTag, checkTagSubscription } from '@/api/community'
+import { getPostsByTopic, getHotTopics, getTagDetail, subscribeTag, unsubscribeTag, checkTagSubscription } from '@/api/community'
 import type { Post, HotTopic } from '@/api/community'
 
 function formatCount(n: number): string {
@@ -132,14 +132,15 @@ export default function TopicDetail() {
   const fetchTagInfo = useCallback(async () => {
     if (!tagId) return
     try {
-      const { data: res } = await getHotTopics()
-      const tags = res.data ?? []
-      const found = tags.find((t) => String(t.id) === tagId)
-      if (found) {
-        setTagInfo(found)
-      } else {
-        setTagInfo({ id: tagId, name: `话题#${tagId}`, icon: '', postCount: 0, isHot: false })
+      // 优先取话题详情接口（热榜可能不含该话题导致名称回退为占位符）
+      const { data: res } = await getTagDetail(tagId)
+      if (res.data?.id) {
+        setTagInfo(res.data)
+        return
       }
+      const { data: hotRes } = await getHotTopics()
+      const found = (hotRes.data ?? []).find((t) => String(t.id) === tagId)
+      setTagInfo(found ?? { id: tagId, name: `话题#${tagId}`, icon: '', postCount: 0, isHot: false })
     } catch {
       setTagInfo({ id: tagId, name: `话题#${tagId}`, icon: '', postCount: 0, isHot: false })
     }

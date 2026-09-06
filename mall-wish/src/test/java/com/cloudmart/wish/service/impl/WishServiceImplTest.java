@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.cloudmart.wish.config.WishCryptoProperties;
+import com.cloudmart.wish.util.ContentCipher;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -84,7 +86,8 @@ class WishServiceImplTest {
     @BeforeEach
     void setUp() {
         wishService = new WishServiceImpl(
-                wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper, wishGrowthRecordMapper,
+                wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper,
+                new ContentCipher(new WishCryptoProperties()), wishGrowthRecordMapper,
                 wishProgressMapper, userStatService, userFeignClient
         );
     }

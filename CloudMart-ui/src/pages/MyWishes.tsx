@@ -10,6 +10,7 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
+import { WeakNetworkBanner } from '@/components/StateFeedback'
 import { listMyWishes, deleteWish, getMyResources } from '@/api/wish'
 import type { MyWishListItem, WishStatus, MyResourcesData } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
@@ -152,6 +153,7 @@ export default function MyWishes() {
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>
+      <WeakNetworkBanner />
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>我的心愿</h1>
         {resources && (

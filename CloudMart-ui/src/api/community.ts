@@ -208,6 +208,10 @@ export function unlikeComment(commentId: number) {
   return request.delete<ApiResponse<void>>(`/community/comments/${commentId}/like`)
 }
 
+export function deleteComment(postId: number | string, commentId: number | string) {
+  return request.delete<ApiResponse<void>>(`/community/posts/${postId}/comments/${commentId}`)
+}
+
 export function searchPosts(keyword: string, page = 1, size = 20) {
   return request.get<ApiResponse<Post[]>>('/community/posts/search', { params: { keyword, page, size } })
 }
@@ -226,6 +230,10 @@ export function getHotSearches(limit = 10) {
 
 export function getHotTopics() {
   return request.get<ApiResponse<HotTopic[]>>('/community/tags/hot')
+}
+
+export function getTagDetail(tagId: number | string) {
+  return request.get<ApiResponse<HotTopic>>(`/community/tags/${tagId}`)
 }
 
 export function getTrendingTopics(limit = 10) {

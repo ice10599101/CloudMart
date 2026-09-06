@@ -32,6 +32,7 @@ import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishProgressMapper;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.service.WishService;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.util.GeoHashUtils;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.MyWishListItemVO;
@@ -86,6 +87,7 @@ public class WishServiceImpl implements WishService {
     private final WishCategoryMapper wishCategoryMapper;
     private final WishCheckinMapper wishCheckinMapper;
     private final WishCommentMapper wishCommentMapper;
+    private final ContentCipher contentCipher;
     private final WishGrowthRecordMapper wishGrowthRecordMapper;
     private final WishProgressMapper wishProgressMapper;
     private final UserStatService userStatService;
@@ -642,11 +644,33 @@ public class WishServiceImpl implements WishService {
         );
     }
 
+    @Override
+    public GrowthTimelinePage listGrowthTimeline(Long wishId, String cursor, Integer pageSize) {
+        int size = pageSize == null ? 20 : Math.min(Math.max(pageSize, 1), 50);
+        Long cursorId = parseCursor(cursor);
+        LambdaQueryWrapper<WishGrowthRecord> wrapper = new LambdaQueryWrapper<WishGrowthRecord>()
+                .eq(WishGrowthRecord::getWishId, wishId)
+                .eq(WishGrowthRecord::getIsVisible, true)
+                .orderByDesc(WishGrowthRecord::getId)
+                .last("LIMIT " + (size + 1));
+        if (cursorId != null) {
+            wrapper.lt(WishGrowthRecord::getId, cursorId);
+        }
+        List<WishGrowthRecord> records = wishGrowthRecordMapper.selectList(wrapper);
+        boolean hasMore = records.size() > size;
+        List<WishGrowthRecord> pageItems = hasMore ? records.subList(0, size) : records;
+        List<com.cloudmart.wish.vo.WishGrowthRecordVO> vos = pageItems.stream()
+                .map(this::toGrowthRecordVO)
+                .toList();
+        String nextCursor = hasMore ? String.valueOf(pageItems.getLast().getId()) : null;
+        return new GrowthTimelinePage(vos, nextCursor, hasMore);
+    }
+
     private WishGrowthRecordVO toGrowthRecordVO(WishGrowthRecord record) {
         return new WishGrowthRecordVO(
                 record.getId(),
                 record.getType(),
-                record.getContent(),
+                contentCipher.decryptGrowth(GrowthRecordType.DIARY == record.getType(), record.getContent()),
                 WishJsonUtils.parseStringList(record.getMediaUrls()),
                 record.getProgressDelta(),
                 record.getCreatedAt()
@@ -727,7 +751,8 @@ public class WishServiceImpl implements WishService {
         record.setWishId(wishId);
         record.setUserId(userId);
         record.setType(GrowthRecordType.valueOf(request.type()));
-        record.setContent(request.content().trim());
+        record.setContent(contentCipher.encryptGrowth(
+                GrowthRecordType.DIARY == record.getType(), request.content().trim()));
         if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
             record.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         }
@@ -836,7 +861,8 @@ public class WishServiceImpl implements WishService {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "成长记录不存在");
         }
         if (content != null && !content.isBlank()) {
-            record.setContent(content.trim());
+            record.setContent(contentCipher.encryptGrowth(
+                    GrowthRecordType.DIARY == record.getType(), content.trim()));
         }
         if (mediaUrls != null) {
             record.setMediaUrls(com.cloudmart.wish.util.WishJsonUtils.stringifyList(mediaUrls));

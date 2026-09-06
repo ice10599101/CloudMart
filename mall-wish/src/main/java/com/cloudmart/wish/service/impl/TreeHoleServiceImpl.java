@@ -2,6 +2,7 @@ package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.config.WishAiProperties;
 import com.cloudmart.wish.dto.AiConversationListQuery;
@@ -71,6 +72,8 @@ public class TreeHoleServiceImpl implements TreeHoleService {
     private final TreeHoleAiClient treeHoleAiClient;
     private final WishAiProperties aiProperties;
     private final TransactionTemplate transactionTemplate;
+    private final ContentCipher contentCipher;
+
 
     @Override
     public TreeHoleReplyVO sendTreeHoleMessage(Long userId, TreeHoleMessageRequest request) {
@@ -191,7 +194,7 @@ public class TreeHoleServiceImpl implements TreeHoleService {
             userRecord.setSessionId(sessionId);
             userRecord.setScene(AiScene.TREE_HOLE);
             userRecord.setRole(AiConversationRole.USER);
-            userRecord.setContent(userMessage);
+            userRecord.setContent(contentCipher.encrypt(userMessage));
             conversationMapper.insert(userRecord);
 
             WishAiConversation assistantRecord = new WishAiConversation();
@@ -199,7 +202,7 @@ public class TreeHoleServiceImpl implements TreeHoleService {
             assistantRecord.setSessionId(sessionId);
             assistantRecord.setScene(AiScene.TREE_HOLE);
             assistantRecord.setRole(AiConversationRole.ASSISTANT);
-            assistantRecord.setContent(reply);
+            assistantRecord.setContent(contentCipher.encrypt(reply));
             assistantRecord.setSentimentScore(storedSentiment);
             assistantRecord.setResources(resourcesJson);
             conversationMapper.insert(assistantRecord);
@@ -209,7 +212,7 @@ public class TreeHoleServiceImpl implements TreeHoleService {
     private AiConversationVO toConversationVO(WishAiConversation record) {
         Double sentimentScore = record.getSentimentScore() != null
                 ? record.getSentimentScore() / (double) SENTIMENT_SCALE : null;
-        return new AiConversationVO(record.getId(), record.getRole(), record.getContent(),
+        return new AiConversationVO(record.getId(), record.getRole(), contentCipher.decrypt(record.getContent()),
                 sentimentScore, parseResources(record.getResources()), record.getCreatedAt());
     }
 

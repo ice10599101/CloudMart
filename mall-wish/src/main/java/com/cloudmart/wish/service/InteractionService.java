@@ -35,6 +35,14 @@ public interface InteractionService {
     InteractionResultVO createInteraction(Long userId, Long wishId, CreateInteractionRequest request);
 
     /**
+     * 创建互动并登记设备指纹基线（规格 1188-1191：同设备多账号风控数据）。
+     *
+     * @param deviceId 前端设备指纹，可为空（老客户端）
+     */
+    InteractionResultVO createInteraction(Long userId, Long wishId, CreateInteractionRequest request,
+                                          String deviceId);
+
+    /**
      * 取消互动（按 interactionId 定位，仅可取消自己的互动）。
      *
      * <p>计数回滚（light_count/same_wish_count/bless_count -1），

@@ -27,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -69,6 +70,9 @@ class InteractionServiceImplTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
     private InteractionServiceImpl interactionService;
 
     private static final Long USER_ID = 1001L;
@@ -82,7 +86,8 @@ class InteractionServiceImplTest {
         WishContentSanitizer sanitizer = new WishContentSanitizer(List.of("违禁词"));
         interactionService = new InteractionServiceImpl(
                 wishMapper, wishInteractionMapper, userStatService,
-                rateLimiter, sanitizer, statEventProducer, userFeignClient, transactionTemplate
+                rateLimiter, sanitizer, statEventProducer, userFeignClient, transactionTemplate,
+                redisTemplate
         );
 
         // TransactionTemplate 直接执行回调体（单测无真实事务上下文）

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { View, Text } from '@tarojs/components'
+import type { CommonEventFunction } from '@tarojs/components'
 import { wishApi } from '@/api/wish'
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
@@ -51,8 +52,21 @@ export default function WishCheckinCalendar({ wishId, accentColor }: { wishId: s
 
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
+  // 横滑切月（H5/小程序手势）：横向位移超过 40px 触发
+  const touchStartX = { current: 0 }
+  const handleTouchStart: CommonEventFunction = (e) => {
+    const touches = (e as unknown as { touches?: { clientX: number }[] }).touches
+    touchStartX.current = touches?.[0]?.clientX ?? 0
+  }
+  const handleTouchEnd: CommonEventFunction = (e) => {
+    const changed = (e as unknown as { changedTouches?: { clientX: number }[] }).changedTouches
+    const dx = (changed?.[0]?.clientX ?? 0) - touchStartX.current
+    if (Math.abs(dx) > 40) shift(dx < 0 ? 1 : -1)
+    touchStartX.current = 0
+  }
+
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <View style={styles.navRow}>
         <Text style={styles.navBtn} onClick={() => shift(-1)}>‹</Text>
         <Text style={styles.monthLabel}>{year}年{month}月</Text>

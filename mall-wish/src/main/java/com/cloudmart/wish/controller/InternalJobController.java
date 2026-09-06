@@ -9,6 +9,7 @@ import com.cloudmart.wish.service.MaintenanceService;
 import com.cloudmart.wish.service.CompanionReminderService;
 import com.cloudmart.wish.service.DataExportService;
 import com.cloudmart.wish.service.EncounterService;
+import com.cloudmart.wish.service.ActivityService;
 import com.cloudmart.wish.service.ExpectedManagementService;
 import com.cloudmart.wish.service.HomeService;
 import com.cloudmart.wish.service.WishService;
@@ -47,6 +48,7 @@ public class InternalJobController {
     private final com.cloudmart.wish.service.DataExportService dataExportService;
     private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
     private final EncounterService encounterService;
+    private final ActivityService activityService;
 
     private final WishService wishService;
     private final HomeService homeService;
@@ -189,6 +191,14 @@ public class InternalJobController {
     @Operation(summary = "不活跃归档", description = "365 天不活跃用户的 PRIVATE/TREE_HOLE 心愿 → ARCHIVED")
     public ApiResponse<MaintenanceService.MapResult> inactiveArchive() {
         return ApiResponse.ok(maintenanceService.inactiveArchive());
+    }
+
+    @PostMapping("/activity-reward-check")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "活动达标自动发奖扫描", description = "遍历 ACTIVE/ENDED 活动，"
+            + "condition 达成且有参与者即发放（uk 幂等）；adminUserId=0 标记 SYSTEM 发放")
+    public ApiResponse<Map<String, Integer>> activityRewardCheck() {
+        return ApiResponse.ok(activityService.autoIssueEligibleRewards());
     }
 
     @PostMapping("/brand-reward-check")

@@ -9,6 +9,7 @@ import com.cloudmart.wish.entity.WishCheckin;
 import com.cloudmart.wish.entity.WishGrowthRecord;
 import com.cloudmart.wish.enums.AuditStatus;
 import com.cloudmart.wish.enums.GrowthRecordType;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.repository.WishCategoryMapper;
 import com.cloudmart.wish.repository.WishCheckinMapper;
@@ -49,6 +50,7 @@ public class AnnualReportServiceImpl implements AnnualReportService {
     private static final int DESCRIPTION_MAX_LENGTH = 100;
 
     private final WishMapper wishMapper;
+    private final ContentCipher contentCipher;
     private final WishCheckinMapper checkinMapper;
     private final WishGrowthRecordMapper growthRecordMapper;
     private final WishCategoryMapper categoryMapper;
@@ -143,7 +145,8 @@ public class AnnualReportServiceImpl implements AnnualReportService {
                 .map(record -> new AnnualReportVO.Milestone(
                         record.getCreatedAt().toLocalDate(),
                         milestoneTitle(record.getType()),
-                        truncate(record.getContent())))
+                        truncate(contentCipher.decryptGrowth(
+                                GrowthRecordType.DIARY == record.getType(), record.getContent()))))
                 .toList();
     }
 

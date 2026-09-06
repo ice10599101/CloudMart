@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Empty, List, Tag, App } from 'antd'
 import { BookOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { history } from 'umi'
+import { WeakNetworkBanner } from '@/components/StateFeedback'
 import { listWishCollections, uncollectWish, type WishCollectionItem } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
@@ -71,6 +72,7 @@ export default function WishCollections() {
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>
+      <WeakNetworkBanner />
       <div className={styles.backBar}>
         <Button
           type="text"

@@ -8,6 +8,8 @@ import com.cloudmart.wish.entity.FulfillmentInherit;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishFulfillment;
 import com.cloudmart.wish.entity.WishGrowthRecord;
+import com.cloudmart.wish.enums.GrowthRecordType;
+import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.entity.WishInteraction;
 import com.cloudmart.wish.entity.WishProgress;
 import com.cloudmart.wish.enums.ContentFlowStatus;
@@ -63,6 +65,7 @@ public class LegacyFlowServiceImpl implements LegacyFlowService {
     private static final int STORY_SUMMARY_LEN = 60;
 
     private final WishMapper wishMapper;
+    private final ContentCipher contentCipher;
     private final WishFulfillmentMapper fulfillmentMapper;
     private final WishInteractionMapper interactionMapper;
     private final WishGrowthRecordMapper growthRecordMapper;
@@ -251,7 +254,8 @@ public class LegacyFlowServiceImpl implements LegacyFlowService {
             content.append("\n【成长记录时间轴】\n");
             for (WishGrowthRecord record : records) {
                 content.append("- ").append(record.getCreatedAt().toLocalDate())
-                        .append(" ").append(record.getContent()).append("\n");
+                        .append(" ").append(contentCipher.decryptGrowth(
+                                GrowthRecordType.DIARY == record.getType(), record.getContent())).append("\n");
             }
         }
 

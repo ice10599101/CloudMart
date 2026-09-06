@@ -85,6 +85,25 @@ public class UserEnrichmentService {
         return Map.of();
     }
 
+    /**
+     * 关键词搜索用户（宽松匹配：昵称或小答号包含即命中），
+     * 供私信发起会话等场景选择目标用户。
+     */
+    public List<Map<String, Object>> searchUsersByKeyword(String keyword, int page, int pageSize) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        try {
+            var response = userFeignClient.searchUsers(keyword.trim(), page, pageSize);
+            if (response != null && response.data() != null) {
+                return response.data();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to search users by keyword '{}': {}", keyword, e.getMessage());
+        }
+        return List.of();
+    }
+
     @SuppressWarnings("unchecked")
     private UserInfo extractUserInfo(Object userMap) {
         if (userMap instanceof Map map) {

@@ -73,6 +73,20 @@ export default function NotificationsPage() {
             <View className={styles.notificationBody}>
               <Text className={styles.notificationContent}>{n.content}</Text>
               <Text className={styles.notificationTime}>{formatTime(n.createdAt)}</Text>
+              {n.type === 'WISH_FULFILL' && n.bizType === 'FULFILLMENT_LEGACY' && n.bizId && (
+                <View className={styles.expectedActions} onClick={() => Taro.navigateTo({ url: `/pages/wishDetail/index?id=${n.bizId}` })}>
+                  <View className={styles.expectedBtn}>
+                    <Text className={styles.expectedBtnText}>查看同愿的故事</Text>
+                  </View>
+                </View>
+              )}
+              {n.type === 'ENCOUNTER_LETTER' && (
+                <View className={styles.expectedActions} onClick={() => Taro.navigateTo({ url: '/pages/encounterLetters/index' })}>
+                  <View className={styles.expectedBtn}>
+                    <Text className={styles.expectedBtnText}>查看相遇信笺</Text>
+                  </View>
+                </View>
+              )}
               {n.type === 'CHECKIN_REMINDER' && n.bizType === 'EXPECTED_MANAGEMENT' && n.bizId && (
                 <View className={styles.expectedActions}>
                   <View className={styles.expectedBtn} onClick={() => handleExpectedAction(n, 'EXTEND')}>

@@ -41,8 +41,10 @@ public class CollectionController {
     @SentinelResource("WISH_COLLECTIONS")
     public ApiResponse<Map<String, List<Map<String, Object>>>> collections(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
-            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(collectionService.collections(userId));
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "资产类型过滤（可选）：BADGE/SKIN/BGM/SPECIAL_FRUIT")
+            @RequestParam(required = false) String type) {
+        return ApiResponse.ok(collectionService.collections(userId, type));
     }
 
     @GetMapping("/workshop/assets")

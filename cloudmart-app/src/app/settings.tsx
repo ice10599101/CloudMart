@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
+import { storage } from '@/utils/storage'
 import { useThemeStore } from '@/store/theme'
 import { userApi } from '@/api/user'
+import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -68,6 +70,51 @@ export default function SettingsPage() {
   const { mode, toggleTheme } = useThemeStore()
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+
+  // AI 数据处理协议状态（合规 30.4：可随时撤回同意）
+  const [aiConsentGranted, setAiConsentGranted] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!useAuthStore.getState().isLoggedIn) return
+    wishApi.getConsentStatus()
+      .then((res) => setAiConsentGranted(res.data?.data?.granted ?? null))
+      .catch(() => setAiConsentGranted(null))
+  }, [])
+
+  const handleAiConsentWithdraw = () => {
+    if (aiConsentGranted === false) {
+      Alert.alert('提示', '你尚未同意 AI 数据处理协议')
+      return
+    }
+    Alert.alert('撤回 AI 数据处理同意', '撤回后树洞 AI 回复与目标拆解将不可用（基础功能不受影响）。确定撤回吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定撤回',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await wishApi.grantConsent({ consentType: 'AI_DATA_PROCESSING', version: 'v1', action: 'WITHDRAW' })
+            if (res.data.success) {
+              setAiConsentGranted(false)
+              Alert.alert('完成', '已撤回 AI 数据处理同意')
+            }
+          } catch {
+            Alert.alert('失败', '操作失败，请稍后重试')
+          }
+        },
+      },
+    ])
+  }
+
+  // 树洞背景音乐开关（本地偏好，WishBGM 组件读取）
+  const bgmKey = 'wish_bgm_enabled'
+  const [bgmEnabled, setBgmEnabled] = useState(true)
+  useEffect(() => {
+    storage.getItem(bgmKey).then((v) => setBgmEnabled(v !== 'false')).catch(() => {})
+  }, [])
+  const toggleBgm = (v: boolean) => {
+    setBgmEnabled(v)
+    storage.setItem(bgmKey, String(v)).catch(() => {})
+  }
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -205,6 +252,23 @@ export default function SettingsPage() {
             <View style={{ flex: 1, marginRight: Spacing.md }}>
               <Text style={{ fontSize: FontSize.lg, color: theme.text }}>心愿通知偏好</Text>
               <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>管理心愿宇宙的消息推送开关</Text>
+            </View>
+            <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
+          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.text }}>树洞背景音乐</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>进入树洞页时播放的氛围音乐</Text>
+            </View>
+            <Switch value={bgmEnabled} onValueChange={toggleBgm} />
+          </View>
+          <TouchableOpacity
+            onPress={() => requireLoginOr(handleAiConsentWithdraw)}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}
+          >
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.text }}>AI 数据处理协议</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }} id="ai-consent-status">{aiConsentGranted === null ? '查询中…' : aiConsentGranted ? '已同意 · 点击撤回' : '未同意 · 使用 AI 功能时将再次询问'}</Text>
             </View>
             <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
           </TouchableOpacity>
