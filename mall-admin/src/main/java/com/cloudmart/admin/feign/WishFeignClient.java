@@ -31,6 +31,15 @@ public interface WishFeignClient {
     @PutMapping("/wishes/{id}/audit")
     ApiResponse<Object> auditWish(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
 
+    @PutMapping("/wishes/{id}/visibility")
+    ApiResponse<Object> updateWishVisibility(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    @PutMapping("/wishes/{id}/top")
+    ApiResponse<Object> updateWishTop(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    @DeleteMapping("/wishes/{id}")
+    ApiResponse<Void> deleteWish(@PathVariable("id") Long id);
+
     @GetMapping("/categories")
     ApiResponse<Object> listCategories();
 

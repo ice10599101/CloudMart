@@ -92,6 +92,9 @@ public class Wish {
 
     private Boolean isVisible;
 
+    /** 管理端置顶（V26）：置中心愿在用户端广场优先展示 */
+    private Boolean isTop;
+
     @TableLogic
     private LocalDateTime deletedAt;
 

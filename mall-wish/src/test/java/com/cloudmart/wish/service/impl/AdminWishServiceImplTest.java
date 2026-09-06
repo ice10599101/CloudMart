@@ -231,6 +231,146 @@ class AdminWishServiceImplTest {
         }
     }
 
+    @Nested
+    @DisplayName("updateVisibility - 上架/下架（对齐帖子管理模式）")
+    class UpdateVisibilityTests {
+
+        @Test
+        @DisplayName("下架成功：is_visible 更新为 false 并返回最新 VO")
+        void updateVisibility_off_success() {
+            Wish wish = buildWish();
+            wish.setIsVisible(true);
+            Wish offWish = buildWish();
+            offWish.setIsVisible(false);
+
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, offWish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            var result = adminWishService.updateVisibility(WISH_ID, false);
+
+            assertThat(result.isVisible()).isFalse();
+            verify(wishMapper).updateById(any(Wish.class));
+        }
+
+        @Test
+        @DisplayName("上架成功：is_visible 更新为 true")
+        void updateVisibility_on_success() {
+            Wish wish = buildWish();
+            wish.setIsVisible(false);
+            Wish onWish = buildWish();
+            onWish.setIsVisible(true);
+
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, onWish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            var result = adminWishService.updateVisibility(WISH_ID, true);
+
+            assertThat(result.isVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("心愿不存在抛出 WISH_NOT_FOUND")
+        void updateVisibility_notFound_throwsException() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(null);
+
+            assertThatThrownBy(() -> adminWishService.updateVisibility(WISH_ID, false))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> {
+                        BusinessException be = (BusinessException) ex;
+                        assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+                    });
+
+            verify(wishMapper, never()).updateById(any(Wish.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("updateTop - 置顶/取消置顶（对齐帖子管理模式）")
+    class UpdateTopTests {
+
+        @Test
+        @DisplayName("置顶成功：is_top 更新为 true")
+        void updateTop_on_success() {
+            Wish wish = buildWish();
+            wish.setIsTop(false);
+            Wish topWish = buildWish();
+            topWish.setIsTop(true);
+
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, topWish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            var result = adminWishService.updateTop(WISH_ID, true);
+
+            assertThat(result.isTop()).isTrue();
+            verify(wishMapper).updateById(any(Wish.class));
+        }
+
+        @Test
+        @DisplayName("取消置顶成功：is_top 更新为 false")
+        void updateTop_off_success() {
+            Wish wish = buildWish();
+            wish.setIsTop(true);
+            Wish normalWish = buildWish();
+            normalWish.setIsTop(false);
+
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, normalWish);
+            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            var result = adminWishService.updateTop(WISH_ID, false);
+
+            assertThat(result.isTop()).isFalse();
+        }
+
+        @Test
+        @DisplayName("心愿不存在抛出 WISH_NOT_FOUND")
+        void updateTop_notFound_throwsException() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(null);
+
+            assertThatThrownBy(() -> adminWishService.updateTop(WISH_ID, true))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> {
+                        BusinessException be = (BusinessException) ex;
+                        assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteWish - 删除心愿（软删）")
+    class DeleteWishTests {
+
+        @Test
+        @DisplayName("删除成功：调用 deleteById（@TableLogic 软删）")
+        void deleteWish_success() {
+            Wish wish = buildWish();
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.deleteById(WISH_ID)).thenReturn(1);
+
+            adminWishService.deleteWish(WISH_ID);
+
+            verify(wishMapper).deleteById(WISH_ID);
+        }
+
+        @Test
+        @DisplayName("心愿不存在抛出 WISH_NOT_FOUND")
+        void deleteWish_notFound_throwsException() {
+            when(wishMapper.selectById(WISH_ID)).thenReturn(null);
+
+            assertThatThrownBy(() -> adminWishService.deleteWish(WISH_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> {
+                        BusinessException be = (BusinessException) ex;
+                        assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+                    });
+
+            verify(wishMapper, never()).deleteById(any(Long.class));
+        }
+    }
+
     // ========== Helper methods ==========
 
     private WishCategory buildCategory() {

@@ -84,7 +84,7 @@ class AdminWishControllerTest {
                 vo.id(), vo.userId(), vo.title(), vo.description(), vo.mediaUrls(),
                 vo.categoryId(), vo.categoryName(), vo.tags(), vo.visibility(),
                 vo.status(), vo.fruitType(),
-                AuditStatus.APPROVED, vo.auditStrategy(), true,
+                AuditStatus.APPROVED, vo.auditStrategy(), true, vo.isTop(),
                 vo.lightCount(), vo.sameWishCount(), vo.blessCount(), vo.supportCount(),
                 vo.expectedAt(), vo.fulfilledAt(), vo.createdAt(), vo.updatedAt(), vo.deletedAt()
         );
@@ -119,7 +119,7 @@ class AdminWishControllerTest {
                 com.cloudmart.wish.enums.FruitType.GLOW,
                 AuditStatus.PENDING,
                 com.cloudmart.wish.enums.AuditStrategy.LAZY,
-                true, 0, 0, 0, 0,
+                true, false, 0, 0, 0, 0,
                 null, null, LocalDateTime.now(), LocalDateTime.now(), null
         );
     }

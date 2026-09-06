@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react'
-import { ProTable, ModalForm, ProFormTextArea } from '@ant-design/pro-components'
+import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Descriptions, Image, Modal, Popconfirm, Tag } from 'antd'
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { DownloadOutlined } from '@ant-design/icons'
 import {
   getAdminWishes,
   getAdminWishDetail,
-  auditAdminWish,
   getAdminWishCategories,
+  updateWishVisibility,
+  toggleWishTop,
+  deleteAdminWish,
   WISH_STATUS_MAP,
-  AUDIT_STATUS_MAP,
   VISIBILITY_MAP,
   FRUIT_TYPE_MAP,
 } from '@/api/admin/wish'
@@ -18,15 +19,14 @@ import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
 /**
- * 心愿管理（管理后台）：列表查看 + 审核。
+ * 心愿管理（管理后台）：对齐帖子管理模式。
  *
- * 仅 PENDING 状态可执行审核（通过/拒绝），已审核记录后端返回 409 冲突。
+ * 发布免审（新心愿默认 APPROVED 直接上架显示），管理端操作为
+ * 查看详情 / 隐藏(下架) / 置顶 / 删除(软删)。
  */
 export default function Wishes() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
-  const [rejectModalOpen, setRejectModalOpen] = useState(false)
-  const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [detail, setDetail] = useState<AdminWishRecord | null>(null)
 
   const loadDetail = async (id: number) => {
@@ -38,27 +38,33 @@ export default function Wishes() {
     }
   }
 
-  const handleApprove = async (id: number) => {
+  const handleToggleVisibility = async (record: AdminWishRecord) => {
     try {
-      await auditAdminWish(id, { auditStatus: 'APPROVED' })
-      message.success('已通过审核')
+      await updateWishVisibility(record.id, { visible: !record.isVisible })
+      message.success(record.isVisible ? '下架成功' : '上架成功')
       actionRef.current?.reload()
     } catch {
-      message.error('审核操作失败')
+      message.error(record.isVisible ? '下架失败' : '上架失败')
     }
   }
 
-  const handleReject = async (reason: string) => {
-    if (rejectingId === null) return false
+  const handleToggleTop = async (record: AdminWishRecord) => {
     try {
-      await auditAdminWish(rejectingId, { auditStatus: 'REJECTED', rejectReason: reason })
-      message.success('已拒绝')
-      setRejectingId(null)
+      await toggleWishTop(record.id, { isTop: !record.isTop })
+      message.success(record.isTop ? '取消置顶成功' : '置顶成功')
       actionRef.current?.reload()
-      return true
     } catch {
-      message.error('审核操作失败')
-      return false
+      message.error('置顶操作失败')
+    }
+  }
+
+  const handleDelete = async (record: AdminWishRecord) => {
+    try {
+      await deleteAdminWish(record.id)
+      message.success('删除成功')
+      actionRef.current?.reload()
+    } catch {
+      message.error('删除失败')
     }
   }
 
@@ -109,58 +115,75 @@ export default function Wishes() {
       },
     },
     {
-      title: '审核状态',
-      dataIndex: 'auditStatus',
-      width: 100,
-      valueType: 'select',
-      valueEnum: Object.fromEntries(
-        Object.entries(AUDIT_STATUS_MAP).map(([value, info]) => [value, { text: info.label }]),
-      ),
+      title: '状态',
+      dataIndex: 'isVisible',
+      width: 90,
+      search: false,
       render: (_, record) => {
-        const info = AUDIT_STATUS_MAP[record.auditStatus]
-        return info ? <Tag color={info.color}>{info.label}</Tag> : record.auditStatus
+        if (record.deletedAt) return <Tag color="error">已删除</Tag>
+        return record.isVisible ? <Tag color="success">上架</Tag> : <Tag color="warning">已下架</Tag>
       },
+    },
+    {
+      title: '置顶',
+      dataIndex: 'isTop',
+      width: 70,
+      search: false,
+      render: (_, record) => (record.isTop ? <Tag color="blue">置顶</Tag> : <Tag>否</Tag>),
     },
     { title: '互动数', dataIndex: 'supportCount', width: 85, search: false, sorter: true },
     { title: '点亮数', dataIndex: 'lightCount', width: 85, search: false },
     { title: '创建时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },
     {
+      title: '标题搜索',
+      dataIndex: 'keyword',
+      hideInTable: true,
+      fieldProps: { placeholder: '请输入心愿标题或描述' },
+    },
+    {
       title: '操作',
       valueType: 'option',
-      width: 200,
+      width: 260,
       fixed: 'right',
-      render: (_, record) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button type="link" size="small" onClick={() => loadDetail(record.id)}>
-            详情
-          </Button>
-          {record.auditStatus === 'PENDING' && (
-            <>
-              <Popconfirm
-                title="确认通过审核？"
-                onConfirm={() => handleApprove(record.id)}
-                okText="确认"
-                cancelText="取消"
-              >
-                <Button type="primary" size="small" icon={<CheckOutlined />}>
-                  通过
-                </Button>
-              </Popconfirm>
-              <Button
-                danger
-                size="small"
-                icon={<CloseOutlined />}
-                onClick={() => {
-                  setRejectingId(record.id)
-                  setRejectModalOpen(true)
-                }}
-              >
-                拒绝
+      render: (_, record) => {
+        const actions: React.ReactNode[] = [
+          <Button key="detail" type="link" size="small" onClick={() => loadDetail(record.id)}>
+            查看详情
+          </Button>,
+        ]
+        if (!record.deletedAt) {
+          actions.push(
+            <Popconfirm
+              key="visibility"
+              title={record.isVisible ? '确认下架该心愿？用户端将不可见' : '确认上架该心愿？'}
+              onConfirm={() => handleToggleVisibility(record)}
+            >
+              <Button type="link" size="small">
+                {record.isVisible ? '隐藏' : '上架'}
               </Button>
-            </>
-          )}
-        </div>
-      ),
+            </Popconfirm>,
+            <Popconfirm
+              key="top"
+              title={record.isTop ? '确认取消置顶？' : '确认置顶该心愿？置顶后将优先展示在广场'}
+              onConfirm={() => handleToggleTop(record)}
+            >
+              <Button type="link" size="small">
+                {record.isTop ? '取消置顶' : '顶置'}
+              </Button>
+            </Popconfirm>,
+            <Popconfirm
+              key="delete"
+              title="确定删除该心愿吗？"
+              onConfirm={() => handleDelete(record)}
+            >
+              <Button type="link" size="small" danger>
+                删除
+              </Button>
+            </Popconfirm>,
+          )
+        }
+        return actions
+      },
     },
   ]
 
@@ -170,7 +193,47 @@ export default function Wishes() {
         headerTitle="心愿管理"
         actionRef={actionRef}
         rowKey="id"
-        scroll={{ x: 1300 }}
+        scroll={{ x: 1400 }}
+        toolBarRender={() => [
+          <Button
+            key="export"
+            icon={<DownloadOutlined />}
+            onClick={async () => {
+              try {
+                const res = await getAdminWishes({ page: 1, pageSize: 100 })
+                const data = res.data.data ?? []
+                if (data.length === 0) {
+                  message.warning('暂无数据可导出')
+                  return
+                }
+                const bom = '\uFEFF'
+                const headers = ['ID', '标题', '作者ID', '分类', '状态', '置顶', '互动数', '创建时间']
+                const rows = data.map((r) => [
+                  String(r.id),
+                  r.title ?? '',
+                  String(r.userId),
+                  r.categoryName ?? '-',
+                  r.deletedAt ? '已删除' : r.isVisible ? '上架' : '已下架',
+                  r.isTop ? '是' : '否',
+                  String(r.supportCount ?? 0),
+                  r.createdAt ?? '',
+                ])
+                const csv = [headers.join(','), ...rows.map((row) => row.map((c) => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n')
+                const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+                link.download = '心愿数据.csv'
+                link.click()
+                URL.revokeObjectURL(link.href)
+                message.success('导出成功')
+              } catch {
+                message.error('导出失败')
+              }
+            }}
+          >
+            导出CSV
+          </Button>,
+        ]}
         request={async (params) => {
           return safeProTableRequest<AdminWishRecord>(() =>
             getAdminWishes({
@@ -179,7 +242,6 @@ export default function Wishes() {
               keyword: params.keyword || undefined,
               categoryId: params.categoryId,
               status: params.status,
-              auditStatus: params.auditStatus,
               visibility: params.visibility,
             }),
           )
@@ -187,28 +249,6 @@ export default function Wishes() {
         columns={columns}
         pagination={{ defaultPageSize: 20, showSizeChanger: true }}
       />
-
-      <ModalForm
-        title="拒绝原因"
-        open={rejectModalOpen}
-        onOpenChange={(open) => {
-          setRejectModalOpen(open)
-          if (!open) setRejectingId(null)
-        }}
-        onFinish={async (values) => handleReject(values.reason as string)}
-        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}
-        width={480}
-      >
-        <ProFormTextArea
-          name="reason"
-          label="拒绝原因"
-          rules={[
-            { required: true, message: '请输入拒绝原因' },
-            { max: 200, message: '原因不能超过200字符' },
-          ]}
-          fieldProps={{ rows: 3, placeholder: '请输入拒绝原因，将展示给作者' }}
-        />
-      </ModalForm>
 
       <Modal
         title={`心愿详情 #${detail?.id ?? ''}`}
@@ -233,11 +273,10 @@ export default function Wishes() {
             <Descriptions.Item label="心愿状态">
               {WISH_STATUS_MAP[detail.status]?.label ?? detail.status}
             </Descriptions.Item>
-            <Descriptions.Item label="审核状态">
-              {AUDIT_STATUS_MAP[detail.auditStatus]?.label ?? detail.auditStatus}
+            <Descriptions.Item label="状态">
+              {detail.deletedAt ? '已删除' : detail.isVisible ? '上架' : '已下架'}
             </Descriptions.Item>
-            <Descriptions.Item label="审核策略">{detail.auditStrategy}</Descriptions.Item>
-            <Descriptions.Item label="是否用户可见">{detail.isVisible ? '是' : '否'}</Descriptions.Item>
+            <Descriptions.Item label="置顶">{detail.isTop ? '是' : '否'}</Descriptions.Item>
             <Descriptions.Item label="点亮/同愿/祝福">
               {detail.lightCount} / {detail.sameWishCount} / {detail.blessCount}
             </Descriptions.Item>

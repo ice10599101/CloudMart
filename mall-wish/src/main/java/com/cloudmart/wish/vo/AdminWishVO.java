@@ -37,6 +37,7 @@ public record AdminWishVO(
         @Schema(description = "审核状态") AuditStatus auditStatus,
         @Schema(description = "审核策略") AuditStrategy auditStrategy,
         @Schema(description = "是否对用户可见") Boolean isVisible,
+        @Schema(description = "是否管理端置顶") Boolean isTop,
         @Schema(description = "点亮数") Integer lightCount,
         @Schema(description = "同求数") Integer sameWishCount,
         @Schema(description = "祝福数") Integer blessCount,

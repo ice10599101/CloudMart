@@ -68,7 +68,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "preset",
@@ -81,7 +81,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 78
+        "register": 103
       },
       "enableBy": "register",
       "type": "preset",
@@ -98,7 +98,7 @@
             0
           ]
         },
-        "register": 12
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -112,10 +112,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            11
+            14
           ]
         },
-        "register": 8
+        "register": 11
       },
       "enableBy": "register",
       "type": "plugin",
@@ -145,7 +145,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -159,10 +159,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            561
+            709
           ]
         },
-        "register": 42
+        "register": 51
       },
       "enableBy": "register",
       "type": "plugin",
@@ -175,7 +175,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -192,10 +192,10 @@
             0
           ],
           "onCheck": [
-            0
+            1
           ]
         },
-        "register": 5
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -225,7 +225,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -239,10 +239,10 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            1
+            0
           ]
         },
-        "register": 29
+        "register": 37
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1124,7 +1124,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1137,7 +1137,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 76
+        "register": 88
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1150,7 +1150,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 126
+        "register": 160
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1163,7 +1163,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 38
+        "register": 50
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1193,7 +1193,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1206,7 +1206,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 7
+        "register": 8
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1219,7 +1219,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 43
+        "register": 52
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
@@ -1231,7 +1231,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 6
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1244,7 +1244,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1269,7 +1269,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 5
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1283,10 +1283,10 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            4
+            6
           ]
         },
-        "register": 9
+        "register": 11
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
@@ -1324,7 +1324,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1363,7 +1363,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 19
+        "register": 21
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1376,7 +1376,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 6
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1389,7 +1389,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
@@ -1401,7 +1401,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 12
+        "register": 17
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1414,7 +1414,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 12
+        "register": 15
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1427,7 +1427,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 14
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1440,7 +1440,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 10
+        "register": 16
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1466,7 +1466,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 33
+        "register": 38
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1478,7 +1478,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 35
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1491,7 +1491,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 7
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/test/test.js",
@@ -1515,7 +1515,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1299
+        "register": 1650
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1541,7 +1541,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 4
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
@@ -1570,7 +1570,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 9
+        "register": 13
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1582,7 +1582,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1608,7 +1608,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1620,7 +1620,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
@@ -1632,7 +1632,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 9
+        "register": 10
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian.js",
@@ -1644,7 +1644,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 32
+        "register": 39
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1656,7 +1656,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 6
+        "register": 8
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1669,7 +1669,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 13
+        "register": 17
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1682,7 +1682,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 60
+        "register": 80
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1695,7 +1695,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 141
+        "register": 179
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1733,7 +1733,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1759,7 +1759,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1785,7 +1785,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1811,7 +1811,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1876,7 +1876,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1941,7 +1941,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 10
+        "register": 9
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1954,7 +1954,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 6
       },
       "enableBy": "register",
       "type": "plugin",
@@ -4041,7 +4041,7 @@
       "parentId": "54",
       "id": "91",
       "absPath": "/admin/business/wishes",
-      "__content": "import { useRef, useState } from 'react'\nimport { ProTable, ModalForm, ProFormTextArea } from '@ant-design/pro-components'\nimport type { ActionType, ProColumns } from '@ant-design/pro-components'\nimport { Button, Descriptions, Image, Modal, Popconfirm, Tag } from 'antd'\nimport { CheckOutlined, CloseOutlined } from '@ant-design/icons'\nimport {\n  getAdminWishes,\n  getAdminWishDetail,\n  auditAdminWish,\n  getAdminWishCategories,\n  WISH_STATUS_MAP,\n  AUDIT_STATUS_MAP,\n  VISIBILITY_MAP,\n  FRUIT_TYPE_MAP,\n} from '@/api/admin/wish'\nimport type { AdminWishRecord } from '@/api/admin/wish'\nimport { safeProTableRequest } from '@/utils/proTable'\nimport { useMessage } from '@/utils/useMessage'\n\n/**\n * 心愿管理（管理后台）：列表查看 + 审核。\n *\n * 仅 PENDING 状态可执行审核（通过/拒绝），已审核记录后端返回 409 冲突。\n */\nexport default function Wishes() {\n  const message = useMessage()\n  const actionRef = useRef<ActionType>(null)\n  const [rejectModalOpen, setRejectModalOpen] = useState(false)\n  const [rejectingId, setRejectingId] = useState<number | null>(null)\n  const [detail, setDetail] = useState<AdminWishRecord | null>(null)\n\n  const loadDetail = async (id: number) => {\n    try {\n      const res = await getAdminWishDetail(id)\n      setDetail(res.data.data)\n    } catch {\n      message.error('加载详情失败')\n    }\n  }\n\n  const handleApprove = async (id: number) => {\n    try {\n      await auditAdminWish(id, { auditStatus: 'APPROVED' })\n      message.success('已通过审核')\n      actionRef.current?.reload()\n    } catch {\n      message.error('审核操作失败')\n    }\n  }\n\n  const handleReject = async (reason: string) => {\n    if (rejectingId === null) return false\n    try {\n      await auditAdminWish(rejectingId, { auditStatus: 'REJECTED', rejectReason: reason })\n      message.success('已拒绝')\n      setRejectingId(null)\n      actionRef.current?.reload()\n      return true\n    } catch {\n      message.error('审核操作失败')\n      return false\n    }\n  }\n\n  const columns: ProColumns<AdminWishRecord>[] = [\n    { title: 'ID', dataIndex: 'id', width: 90, search: false },\n    { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },\n    { title: '作者ID', dataIndex: 'userId', width: 90, search: false },\n    {\n      title: '分类',\n      dataIndex: 'categoryId',\n      width: 120,\n      valueType: 'select',\n      fieldProps: { showSearch: true },\n      request: async () => {\n        try {\n          const res = await getAdminWishCategories()\n          return (res.data.data ?? []).map((c) => ({ label: c.name, value: c.id }))\n        } catch {\n          return []\n        }\n      },\n      render: (_, record) => record.categoryName ?? '-',\n    },\n    {\n      title: '可见性',\n      dataIndex: 'visibility',\n      width: 90,\n      valueType: 'select',\n      valueEnum: Object.fromEntries(\n        Object.entries(VISIBILITY_MAP).map(([value, info]) => [value, { text: info.label }]),\n      ),\n      render: (_, record) => {\n        const info = VISIBILITY_MAP[record.visibility]\n        return info ? <Tag color={info.color}>{info.label}</Tag> : record.visibility\n      },\n    },\n    {\n      title: '心愿状态',\n      dataIndex: 'status',\n      width: 100,\n      valueType: 'select',\n      valueEnum: Object.fromEntries(\n        Object.entries(WISH_STATUS_MAP).map(([value, info]) => [value, { text: info.label }]),\n      ),\n      render: (_, record) => {\n        const info = WISH_STATUS_MAP[record.status]\n        return info ? <Tag color={info.color}>{info.label}</Tag> : record.status\n      },\n    },\n    {\n      title: '审核状态',\n      dataIndex: 'auditStatus',\n      width: 100,\n      valueType: 'select',\n      valueEnum: Object.fromEntries(\n        Object.entries(AUDIT_STATUS_MAP).map(([value, info]) => [value, { text: info.label }]),\n      ),\n      render: (_, record) => {\n        const info = AUDIT_STATUS_MAP[record.auditStatus]\n        return info ? <Tag color={info.color}>{info.label}</Tag> : record.auditStatus\n      },\n    },\n    { title: '互动数', dataIndex: 'supportCount', width: 85, search: false, sorter: true },\n    { title: '点亮数', dataIndex: 'lightCount', width: 85, search: false },\n    { title: '创建时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },\n    {\n      title: '操作',\n      valueType: 'option',\n      width: 200,\n      fixed: 'right',\n      render: (_, record) => (\n        <div style={{ display: 'flex', gap: 8 }}>\n          <Button type=\"link\" size=\"small\" onClick={() => loadDetail(record.id)}>\n            详情\n          </Button>\n          {record.auditStatus === 'PENDING' && (\n            <>\n              <Popconfirm\n                title=\"确认通过审核？\"\n                onConfirm={() => handleApprove(record.id)}\n                okText=\"确认\"\n                cancelText=\"取消\"\n              >\n                <Button type=\"primary\" size=\"small\" icon={<CheckOutlined />}>\n                  通过\n                </Button>\n              </Popconfirm>\n              <Button\n                danger\n                size=\"small\"\n                icon={<CloseOutlined />}\n                onClick={() => {\n                  setRejectingId(record.id)\n                  setRejectModalOpen(true)\n                }}\n              >\n                拒绝\n              </Button>\n            </>\n          )}\n        </div>\n      ),\n    },\n  ]\n\n  return (\n    <>\n      <ProTable<AdminWishRecord>\n        headerTitle=\"心愿管理\"\n        actionRef={actionRef}\n        rowKey=\"id\"\n        scroll={{ x: 1300 }}\n        request={async (params) => {\n          return safeProTableRequest<AdminWishRecord>(() =>\n            getAdminWishes({\n              page: params.current,\n              pageSize: params.pageSize,\n              keyword: params.keyword || undefined,\n              categoryId: params.categoryId,\n              status: params.status,\n              auditStatus: params.auditStatus,\n              visibility: params.visibility,\n            }),\n          )\n        }}\n        columns={columns}\n        pagination={{ defaultPageSize: 20, showSizeChanger: true }}\n      />\n\n      <ModalForm\n        title=\"拒绝原因\"\n        open={rejectModalOpen}\n        onOpenChange={(open) => {\n          setRejectModalOpen(open)\n          if (!open) setRejectingId(null)\n        }}\n        onFinish={async (values) => handleReject(values.reason as string)}\n        modalProps={{ destroyOnClose: true, mask: { closable: false }, keyboard: false }}\n        width={480}\n      >\n        <ProFormTextArea\n          name=\"reason\"\n          label=\"拒绝原因\"\n          rules={[\n            { required: true, message: '请输入拒绝原因' },\n            { max: 200, message: '原因不能超过200字符' },\n          ]}\n          fieldProps={{ rows: 3, placeholder: '请输入拒绝原因，将展示给作者' }}\n        />\n      </ModalForm>\n\n      <Modal\n        title={`心愿详情 #${detail?.id ?? ''}`}\n        open={!!detail}\n        onCancel={() => setDetail(null)}\n        footer={null}\n        width={680}\n      >\n        {detail && (\n          <Descriptions column={2} bordered size=\"small\">\n            <Descriptions.Item label=\"标题\" span={2}>\n              {detail.title}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"作者ID\">{detail.userId}</Descriptions.Item>\n            <Descriptions.Item label=\"分类\">{detail.categoryName}</Descriptions.Item>\n            <Descriptions.Item label=\"果实类型\">\n              {FRUIT_TYPE_MAP[detail.fruitType]?.emoji} {FRUIT_TYPE_MAP[detail.fruitType]?.label ?? detail.fruitType}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"可见性\">\n              {VISIBILITY_MAP[detail.visibility]?.label ?? detail.visibility}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"心愿状态\">\n              {WISH_STATUS_MAP[detail.status]?.label ?? detail.status}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"审核状态\">\n              {AUDIT_STATUS_MAP[detail.auditStatus]?.label ?? detail.auditStatus}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"审核策略\">{detail.auditStrategy}</Descriptions.Item>\n            <Descriptions.Item label=\"是否用户可见\">{detail.isVisible ? '是' : '否'}</Descriptions.Item>\n            <Descriptions.Item label=\"点亮/同愿/祝福\">\n              {detail.lightCount} / {detail.sameWishCount} / {detail.blessCount}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"总互动数\">{detail.supportCount}</Descriptions.Item>\n            <Descriptions.Item label=\"预计完成\" span={2}>\n              {detail.expectedAt ?? '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"描述\" span={2}>\n              {detail.description || '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"媒体\" span={2}>\n              {detail.mediaUrls?.length ? (\n                <Image.PreviewGroup>\n                  {detail.mediaUrls.map((url) => (\n                    <Image key={url} src={url} width={80} height={80} style={{ objectFit: 'cover', marginRight: 8 }} />\n                  ))}\n                </Image.PreviewGroup>\n              ) : (\n                '-'\n              )}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"标签\" span={2}>\n              {detail.tags?.length ? detail.tags.join('、') : '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"创建时间\">{detail.createdAt}</Descriptions.Item>\n            <Descriptions.Item label=\"软删时间\">{detail.deletedAt ?? '未删除'}</Descriptions.Item>\n          </Descriptions>\n        )}\n      </Modal>\n    </>\n  )\n}\n",
+      "__content": "import { useRef, useState } from 'react'\nimport { ProTable } from '@ant-design/pro-components'\nimport type { ActionType, ProColumns } from '@ant-design/pro-components'\nimport { Button, Descriptions, Image, Modal, Popconfirm, Tag } from 'antd'\nimport { DownloadOutlined } from '@ant-design/icons'\nimport {\n  getAdminWishes,\n  getAdminWishDetail,\n  getAdminWishCategories,\n  updateWishVisibility,\n  toggleWishTop,\n  deleteAdminWish,\n  WISH_STATUS_MAP,\n  VISIBILITY_MAP,\n  FRUIT_TYPE_MAP,\n} from '@/api/admin/wish'\nimport type { AdminWishRecord } from '@/api/admin/wish'\nimport { safeProTableRequest } from '@/utils/proTable'\nimport { useMessage } from '@/utils/useMessage'\n\n/**\n * 心愿管理（管理后台）：对齐帖子管理模式。\n *\n * 发布免审（新心愿默认 APPROVED 直接上架显示），管理端操作为\n * 查看详情 / 隐藏(下架) / 置顶 / 删除(软删)。\n */\nexport default function Wishes() {\n  const message = useMessage()\n  const actionRef = useRef<ActionType>(null)\n  const [detail, setDetail] = useState<AdminWishRecord | null>(null)\n\n  const loadDetail = async (id: number) => {\n    try {\n      const res = await getAdminWishDetail(id)\n      setDetail(res.data.data)\n    } catch {\n      message.error('加载详情失败')\n    }\n  }\n\n  const handleToggleVisibility = async (record: AdminWishRecord) => {\n    try {\n      await updateWishVisibility(record.id, { visible: !record.isVisible })\n      message.success(record.isVisible ? '下架成功' : '上架成功')\n      actionRef.current?.reload()\n    } catch {\n      message.error(record.isVisible ? '下架失败' : '上架失败')\n    }\n  }\n\n  const handleToggleTop = async (record: AdminWishRecord) => {\n    try {\n      await toggleWishTop(record.id, { isTop: !record.isTop })\n      message.success(record.isTop ? '取消置顶成功' : '置顶成功')\n      actionRef.current?.reload()\n    } catch {\n      message.error('置顶操作失败')\n    }\n  }\n\n  const handleDelete = async (record: AdminWishRecord) => {\n    try {\n      await deleteAdminWish(record.id)\n      message.success('删除成功')\n      actionRef.current?.reload()\n    } catch {\n      message.error('删除失败')\n    }\n  }\n\n  const columns: ProColumns<AdminWishRecord>[] = [\n    { title: 'ID', dataIndex: 'id', width: 90, search: false },\n    { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },\n    { title: '作者ID', dataIndex: 'userId', width: 90, search: false },\n    {\n      title: '分类',\n      dataIndex: 'categoryId',\n      width: 120,\n      valueType: 'select',\n      fieldProps: { showSearch: true },\n      request: async () => {\n        try {\n          const res = await getAdminWishCategories()\n          return (res.data.data ?? []).map((c) => ({ label: c.name, value: c.id }))\n        } catch {\n          return []\n        }\n      },\n      render: (_, record) => record.categoryName ?? '-',\n    },\n    {\n      title: '可见性',\n      dataIndex: 'visibility',\n      width: 90,\n      valueType: 'select',\n      valueEnum: Object.fromEntries(\n        Object.entries(VISIBILITY_MAP).map(([value, info]) => [value, { text: info.label }]),\n      ),\n      render: (_, record) => {\n        const info = VISIBILITY_MAP[record.visibility]\n        return info ? <Tag color={info.color}>{info.label}</Tag> : record.visibility\n      },\n    },\n    {\n      title: '心愿状态',\n      dataIndex: 'status',\n      width: 100,\n      valueType: 'select',\n      valueEnum: Object.fromEntries(\n        Object.entries(WISH_STATUS_MAP).map(([value, info]) => [value, { text: info.label }]),\n      ),\n      render: (_, record) => {\n        const info = WISH_STATUS_MAP[record.status]\n        return info ? <Tag color={info.color}>{info.label}</Tag> : record.status\n      },\n    },\n    {\n      title: '状态',\n      dataIndex: 'isVisible',\n      width: 90,\n      search: false,\n      render: (_, record) => {\n        if (record.deletedAt) return <Tag color=\"error\">已删除</Tag>\n        return record.isVisible ? <Tag color=\"success\">上架</Tag> : <Tag color=\"warning\">已下架</Tag>\n      },\n    },\n    {\n      title: '置顶',\n      dataIndex: 'isTop',\n      width: 70,\n      search: false,\n      render: (_, record) => (record.isTop ? <Tag color=\"blue\">置顶</Tag> : <Tag>否</Tag>),\n    },\n    { title: '互动数', dataIndex: 'supportCount', width: 85, search: false, sorter: true },\n    { title: '点亮数', dataIndex: 'lightCount', width: 85, search: false },\n    { title: '创建时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },\n    {\n      title: '标题搜索',\n      dataIndex: 'keyword',\n      hideInTable: true,\n      fieldProps: { placeholder: '请输入心愿标题或描述' },\n    },\n    {\n      title: '操作',\n      valueType: 'option',\n      width: 260,\n      fixed: 'right',\n      render: (_, record) => {\n        const actions: React.ReactNode[] = [\n          <Button key=\"detail\" type=\"link\" size=\"small\" onClick={() => loadDetail(record.id)}>\n            查看详情\n          </Button>,\n        ]\n        if (!record.deletedAt) {\n          actions.push(\n            <Popconfirm\n              key=\"visibility\"\n              title={record.isVisible ? '确认下架该心愿？用户端将不可见' : '确认上架该心愿？'}\n              onConfirm={() => handleToggleVisibility(record)}\n            >\n              <Button type=\"link\" size=\"small\">\n                {record.isVisible ? '隐藏' : '上架'}\n              </Button>\n            </Popconfirm>,\n            <Popconfirm\n              key=\"top\"\n              title={record.isTop ? '确认取消置顶？' : '确认置顶该心愿？置顶后将优先展示在广场'}\n              onConfirm={() => handleToggleTop(record)}\n            >\n              <Button type=\"link\" size=\"small\">\n                {record.isTop ? '取消置顶' : '顶置'}\n              </Button>\n            </Popconfirm>,\n            <Popconfirm\n              key=\"delete\"\n              title=\"确定删除该心愿吗？\"\n              onConfirm={() => handleDelete(record)}\n            >\n              <Button type=\"link\" size=\"small\" danger>\n                删除\n              </Button>\n            </Popconfirm>,\n          )\n        }\n        return actions\n      },\n    },\n  ]\n\n  return (\n    <>\n      <ProTable<AdminWishRecord>\n        headerTitle=\"心愿管理\"\n        actionRef={actionRef}\n        rowKey=\"id\"\n        scroll={{ x: 1400 }}\n        toolBarRender={() => [\n          <Button\n            key=\"export\"\n            icon={<DownloadOutlined />}\n            onClick={async () => {\n              try {\n                const res = await getAdminWishes({ page: 1, pageSize: 100 })\n                const data = res.data.data ?? []\n                if (data.length === 0) {\n                  message.warning('暂无数据可导出')\n                  return\n                }\n                const bom = '\\uFEFF'\n                const headers = ['ID', '标题', '作者ID', '分类', '状态', '置顶', '互动数', '创建时间']\n                const rows = data.map((r) => [\n                  String(r.id),\n                  r.title ?? '',\n                  String(r.userId),\n                  r.categoryName ?? '-',\n                  r.deletedAt ? '已删除' : r.isVisible ? '上架' : '已下架',\n                  r.isTop ? '是' : '否',\n                  String(r.supportCount ?? 0),\n                  r.createdAt ?? '',\n                ])\n                const csv = [headers.join(','), ...rows.map((row) => row.map((c) => `\"${c.replace(/\"/g, '\"\"')}\"`).join(','))].join('\\n')\n                const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })\n                const link = document.createElement('a')\n                link.href = URL.createObjectURL(blob)\n                link.download = '心愿数据.csv'\n                link.click()\n                URL.revokeObjectURL(link.href)\n                message.success('导出成功')\n              } catch {\n                message.error('导出失败')\n              }\n            }}\n          >\n            导出CSV\n          </Button>,\n        ]}\n        request={async (params) => {\n          return safeProTableRequest<AdminWishRecord>(() =>\n            getAdminWishes({\n              page: params.current,\n              pageSize: params.pageSize,\n              keyword: params.keyword || undefined,\n              categoryId: params.categoryId,\n              status: params.status,\n              visibility: params.visibility,\n            }),\n          )\n        }}\n        columns={columns}\n        pagination={{ defaultPageSize: 20, showSizeChanger: true }}\n      />\n\n      <Modal\n        title={`心愿详情 #${detail?.id ?? ''}`}\n        open={!!detail}\n        onCancel={() => setDetail(null)}\n        footer={null}\n        width={680}\n      >\n        {detail && (\n          <Descriptions column={2} bordered size=\"small\">\n            <Descriptions.Item label=\"标题\" span={2}>\n              {detail.title}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"作者ID\">{detail.userId}</Descriptions.Item>\n            <Descriptions.Item label=\"分类\">{detail.categoryName}</Descriptions.Item>\n            <Descriptions.Item label=\"果实类型\">\n              {FRUIT_TYPE_MAP[detail.fruitType]?.emoji} {FRUIT_TYPE_MAP[detail.fruitType]?.label ?? detail.fruitType}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"可见性\">\n              {VISIBILITY_MAP[detail.visibility]?.label ?? detail.visibility}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"心愿状态\">\n              {WISH_STATUS_MAP[detail.status]?.label ?? detail.status}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"状态\">\n              {detail.deletedAt ? '已删除' : detail.isVisible ? '上架' : '已下架'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"置顶\">{detail.isTop ? '是' : '否'}</Descriptions.Item>\n            <Descriptions.Item label=\"点亮/同愿/祝福\">\n              {detail.lightCount} / {detail.sameWishCount} / {detail.blessCount}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"总互动数\">{detail.supportCount}</Descriptions.Item>\n            <Descriptions.Item label=\"预计完成\" span={2}>\n              {detail.expectedAt ?? '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"描述\" span={2}>\n              {detail.description || '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"媒体\" span={2}>\n              {detail.mediaUrls?.length ? (\n                <Image.PreviewGroup>\n                  {detail.mediaUrls.map((url) => (\n                    <Image key={url} src={url} width={80} height={80} style={{ objectFit: 'cover', marginRight: 8 }} />\n                  ))}\n                </Image.PreviewGroup>\n              ) : (\n                '-'\n              )}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"标签\" span={2}>\n              {detail.tags?.length ? detail.tags.join('、') : '-'}\n            </Descriptions.Item>\n            <Descriptions.Item label=\"创建时间\">{detail.createdAt}</Descriptions.Item>\n            <Descriptions.Item label=\"软删时间\">{detail.deletedAt ?? '未删除'}</Descriptions.Item>\n          </Descriptions>\n        )}\n      </Modal>\n    </>\n  )\n}\n",
       "__isJSFile": true,
       "__absFile": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/src/pages/admin/business/Wishes.tsx"
     },
@@ -4530,7 +4530,7 @@
       "id": "admin/wish",
       "file": "admin/wish.ts",
       "absPath": "/admin/wish",
-      "__content": "import request from '@/utils/request'\nimport type { ApiResponse } from '@/types/api'\n\n// ========== Types（与 mall-wish AdminWishVO / CategoryVO 对齐） ==========\n\nexport type AdminWishStatus = 'DRAFT' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED'\nexport type AdminAuditStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\nexport type AdminWishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'\nexport type AdminFruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'\n\nexport interface AdminWishCategoryRecord {\n  id: number\n  code: string\n  name: string\n  icon: string | null\n  sortOrder: number\n}\n\nexport interface AdminWishRecord {\n  id: number\n  userId: number\n  title: string\n  description: string\n  mediaUrls: string[]\n  categoryId: number\n  categoryName: string\n  tags: string[]\n  visibility: AdminWishVisibility\n  status: AdminWishStatus\n  fruitType: AdminFruitType\n  auditStatus: AdminAuditStatus\n  auditStrategy: string\n  isVisible: boolean\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  supportCount: number\n  expectedAt: string | null\n  fulfilledAt: string | null\n  createdAt: string\n  updatedAt: string\n  deletedAt: string | null\n}\n\nexport interface AdminWishListParams {\n  userId?: number\n  categoryId?: number\n  status?: AdminWishStatus\n  auditStatus?: AdminAuditStatus\n  visibility?: AdminWishVisibility\n  keyword?: string\n  page?: number\n  pageSize?: number\n}\n\n// ========== 枚举展示映射 ==========\n\nexport const WISH_STATUS_MAP: Record<AdminWishStatus, { label: string; color: string }> = {\n  DRAFT: { label: '草稿', color: 'default' },\n  ACTIVE: { label: '进行中', color: 'processing' },\n  OVERDUE: { label: '已逾期', color: 'warning' },\n  FULFILLING: { label: '还愿中', color: 'cyan' },\n  FULFILLED: { label: '已还愿', color: 'success' },\n  ARCHIVED: { label: '已归档', color: 'default' },\n}\n\nexport const AUDIT_STATUS_MAP: Record<AdminAuditStatus, { label: string; color: string }> = {\n  PENDING: { label: '待审核', color: 'warning' },\n  APPROVED: { label: '已通过', color: 'success' },\n  REJECTED: { label: '已拒绝', color: 'error' },\n  AUTO_HIDDEN: { label: '自动隐藏', color: 'default' },\n}\n\nexport const VISIBILITY_MAP: Record<AdminWishVisibility, { label: string; color: string }> = {\n  PUBLIC: { label: '公开', color: 'green' },\n  PRIVATE: { label: '私密', color: 'default' },\n  TREE_HOLE: { label: '树洞', color: 'purple' },\n}\n\nexport const FRUIT_TYPE_MAP: Record<AdminFruitType, { label: string; emoji: string }> = {\n  GLOW: { label: '微光', emoji: '🌱' },\n  RESONANCE: { label: '共鸣', emoji: '💫' },\n  BLOOM: { label: '绽放', emoji: '🌸' },\n  SPARK: { label: '星光', emoji: '⭐' },\n}\n\n// ========== 心愿列表与审核 ==========\n\nexport interface AdminWishStats {\n  totalWishCount: number\n  todayWishCount: number\n  activeWishCount: number\n  fulfilledWishCount: number\n  todayCheckinCount: number\n  todayInteractionCount: number\n}\n\nexport function getAdminWishStats() {\n  return request.get<ApiResponse<AdminWishStats>>('/admin/wish/wishes/stats')\n}\n\nexport function getAdminWishes(params: AdminWishListParams) {\n  return request.get<ApiResponse<AdminWishRecord[]>>('/admin/wish/wishes', { params })\n}\n\nexport function getAdminWishDetail(id: number) {\n  return request.get<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}`)\n}\n\nexport function auditAdminWish(id: number, data: { auditStatus: 'APPROVED' | 'REJECTED'; rejectReason?: string }) {\n  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/audit`, data)\n}\n\n// ========== 心愿分类管理 ==========\n\nexport function getAdminWishCategories() {\n  return request.get<ApiResponse<AdminWishCategoryRecord[]>>('/admin/wish/categories')\n}\n\nexport function createAdminWishCategory(data: { code: string; name: string; sort?: number; icon?: string }) {\n  return request.post<ApiResponse<AdminWishCategoryRecord>>('/admin/wish/categories', data)\n}\n\nexport function updateAdminWishCategory(id: number, data: { name?: string; sort?: number; icon?: string }) {\n  return request.put<ApiResponse<AdminWishCategoryRecord>>(`/admin/wish/categories/${id}`, data)\n}\n\nexport function deleteAdminWishCategory(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/categories/${id}`)\n}\n\n// ========== 互动记录审计（Sprint 1.2，与 mall-wish AdminInteractionVO 对齐） ==========\n\nexport type AdminInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'\n\nexport interface AdminInteractionRecord {\n  id: number\n  wishId: number\n  wishTitle: string\n  userId: number\n  nickname: string\n  type: AdminInteractionType\n  content: string | null\n  starlightCost: number\n  deletedAt: string | null\n  createdAt: string\n}\n\nexport interface AdminInteractionListParams {\n  wishId?: number | string\n  userId?: number | string\n  type?: AdminInteractionType\n  /** ISO 8601，如 2026-08-18T00:00:00 */\n  startTime?: string\n  /** ISO 8601（含） */\n  endTime?: string\n  page?: number\n  pageSize?: number\n}\n\nexport const INTERACTION_TYPE_MAP: Record<AdminInteractionType, { label: string; emoji: string; color: string }> = {\n  LIGHT: { label: '点亮', emoji: '💡', color: 'gold' },\n  SAME_WISH: { label: '同求', emoji: '🤝', color: 'blue' },\n  BLESS: { label: '祝福', emoji: '🌟', color: 'purple' },\n}\n\nexport function getAdminWishInteractions(params: AdminInteractionListParams) {\n  return request.get<ApiResponse<AdminInteractionRecord[]>>('/admin/wish/interactions', { params })\n}\n\n// ========== 评论审核（Sprint 1.2，与 mall-wish AdminCommentVO 对齐） ==========\n\nexport type AdminWishCommentStatus = 'VISIBLE' | 'HIDDEN'\n\nexport interface AdminWishCommentRecord {\n  id: number\n  wishId: number\n  wishTitle: string\n  userId: number\n  nickname: string\n  content: string\n  parentId: number | null\n  status: AdminWishCommentStatus\n  sensitiveHit: boolean\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminWishCommentListParams {\n  wishId?: number | string\n  userId?: number | string\n  sensitiveHit?: boolean\n  status?: AdminWishCommentStatus\n  page?: number\n  pageSize?: number\n}\n\nexport const WISH_COMMENT_STATUS_MAP: Record<AdminWishCommentStatus, { label: string; color: string }> = {\n  VISIBLE: { label: '已上架', color: 'success' },\n  HIDDEN: { label: '已下架', color: 'error' },\n}\n\nexport function getAdminWishComments(params: AdminWishCommentListParams) {\n  return request.get<ApiResponse<AdminWishCommentRecord[]>>('/admin/wish/comments', { params })\n}\n\nexport function updateAdminWishCommentStatus(id: number, data: { status: AdminWishCommentStatus }) {\n  return request.put<ApiResponse<AdminWishCommentRecord>>(`/admin/wish/comments/${id}/status`, data)\n}\n\n// ========== 徽章管理（Sprint 1.8，与 mall-wish AdminBadgeVO 对齐） ==========\n\nexport type AdminBadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'\nexport type AdminBadgeConditionType = 'WISH_CREATED' | 'WISH_FULFILLED' | 'TOTAL_HELPED' | 'TOTAL_CHECKIN_DAYS'\n\nexport interface AdminBadgeRecord {\n  id: number\n  code: string\n  name: string\n  icon: string | null\n  rarity: AdminBadgeRarity\n  isActive: boolean\n  /** 原始 condition JSON 字符串（编辑器回显） */\n  condition: string\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminBadgeCondition {\n  type: AdminBadgeConditionType\n  threshold: number\n  description: string\n}\n\nexport const BADGE_RARITY_MAP: Record<AdminBadgeRarity, { label: string; color: string }> = {\n  COMMON: { label: '普通', color: 'default' },\n  RARE: { label: '稀有', color: 'blue' },\n  EPIC: { label: '史诗', color: 'purple' },\n  LEGENDARY: { label: '传说', color: 'gold' },\n}\n\nexport const BADGE_CONDITION_TYPE_MAP: Record<AdminBadgeConditionType, { label: string }> = {\n  WISH_CREATED: { label: '累计许愿数' },\n  WISH_FULFILLED: { label: '累计还愿数' },\n  TOTAL_HELPED: { label: '累计帮助人数' },\n  TOTAL_CHECKIN_DAYS: { label: '累计打卡天数' },\n}\n\nexport function getAdminWishBadges() {\n  return request.get<ApiResponse<AdminBadgeRecord[]>>('/admin/wish/badges')\n}\n\nexport function createAdminWishBadge(data: {\n  code: string\n  name: string\n  icon?: string\n  rarity: AdminBadgeRarity\n  condition: string\n}) {\n  return request.post<ApiResponse<AdminBadgeRecord>>('/admin/wish/badges', data)\n}\n\nexport function updateAdminWishBadge(\n    id: number,\n    data: { name: string; icon?: string; rarity: AdminBadgeRarity; condition: string }\n) {\n  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}`, data)\n}\n\nexport function updateAdminWishBadgeStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}/status`, { active })\n}\n\n// ========== 生命树环境管理（Sprint 2.2，与 mall-wish EnvConfigVO/SpecialEventVO 对齐） ==========\n\nexport type AdminEnvCategory = 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'\nexport type AdminEnvParticle =\n    | 'NONE'\n    | 'RAIN'\n    | 'SNOWFLAKE'\n    | 'PETAL'\n    | 'SUNBURST'\n    | 'LEAF'\n    | 'METEOR'\n    | 'AURORA'\n    | 'STAR'\n\nexport interface AdminEnvConfigRecord {\n  id: number\n  envCode: string\n  category: AdminEnvCategory\n  name: string\n  description: string | null\n  priority: number\n  visual: { skyColor?: string; crownColor?: string; lightCoreColor?: string; particle?: AdminEnvParticle } | null\n  isActive: boolean\n}\n\nexport interface AdminSpecialEventRecord {\n  id: number\n  eventCode: string\n  title: string\n  description: string | null\n  status: 'ACTIVE' | 'ENDED'\n  triggeredAt: string\n  expiresAt: string | null\n}\n\nexport const ENV_CATEGORY_MAP: Record<AdminEnvCategory, { label: string; color: string }> = {\n  WEATHER: { label: '天气', color: 'blue' },\n  SEASON: { label: '季节', color: 'green' },\n  TIME: { label: '时段', color: 'orange' },\n  SPECIAL_EVENT: { label: '特殊事件', color: 'purple' },\n}\n\nexport const ENV_PARTICLE_MAP: Record<AdminEnvParticle, { label: string }> = {\n  NONE: { label: '无' },\n  RAIN: { label: '雨滴' },\n  SNOWFLAKE: { label: '雪花' },\n  PETAL: { label: '花瓣' },\n  SUNBURST: { label: '光斑' },\n  LEAF: { label: '落叶' },\n  METEOR: { label: '流星' },\n  AURORA: { label: '极光' },\n  STAR: { label: '星辰' },\n}\n\nexport function getAdminEnvConfigs() {\n  return request.get<ApiResponse<AdminEnvConfigRecord[]>>('/admin/wish/tree-env/configs')\n}\n\nexport function createAdminEnvConfig(data: {\n  envCode: string\n  category: AdminEnvCategory\n  name: string\n  description?: string\n  priority: number\n  visual: string\n  active?: boolean\n}) {\n  return request.post<ApiResponse<AdminEnvConfigRecord>>('/admin/wish/tree-env/configs', data)\n}\n\n// ========== 背景音乐曲库管理（Sprint 2.3，与 mall-wish BgmSongVO 对齐） ==========\n\nexport interface AdminBgmSongRecord {\n  id: number\n  title: string\n  url: string\n  fileSize: number\n  sort: number\n  active: boolean\n  createdAt: string\n}\n\nexport function getAdminWishBgmSongs() {\n  return request.get<ApiResponse<AdminBgmSongRecord[]>>('/admin/wish/bgm')\n}\n\nexport function createAdminWishBgmSong(data: {\n  title: string\n  url: string\n  fileSize?: number\n  sort?: number\n}) {\n  return request.post<ApiResponse<AdminBgmSongRecord>>('/admin/wish/bgm', data)\n}\n\nexport function updateAdminWishBgmSong(id: number, data: { title: string; sort?: number }) {\n  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}`, data)\n}\n\nexport function updateAdminWishBgmSongStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}/status`, { active })\n}\n\nexport function deleteAdminWishBgmSong(id: number) {\n  return request.delete<ApiResponse<void>>(`/admin/wish/bgm/${id}`)\n}\n\nexport function updateAdminEnvConfig(\n    id: number,\n    data: {\n      envCode: string\n      category: AdminEnvCategory\n      name: string\n      description?: string\n      priority: number\n      visual: string\n    }\n) {\n  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}`, data)\n}\n\nexport function updateAdminEnvConfigStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}/status`, { active })\n}\n\nexport function triggerAdminSpecialEvent(data: {\n  eventCode: string\n  title?: string\n  description?: string\n  durationMinutes?: number\n}) {\n  return request.post<ApiResponse<AdminSpecialEventRecord>>('/admin/wish/tree-env/special-events', data)\n}\n\nexport function endAdminSpecialEvent(id: number) {\n  return request.put<ApiResponse<AdminSpecialEventRecord>>(`/admin/wish/tree-env/special-events/${id}/end`)\n}\n\nexport function getAdminSpecialEvents(limit = 50) {\n  return request.get<ApiResponse<AdminSpecialEventRecord[]>>('/admin/wish/tree-env/special-events', {\n    params: { limit },\n  })\n}\n\n// ========== 时间胶囊统计（Sprint 2.4，与 mall-wish AdminCapsuleController / mall-admin 代理对齐） ==========\n\nexport interface AdminCapsuleStats {\n  total: number\n  sealed: number\n  available: number\n  opened: number\n  cancelled: number\n  todayCreated: number\n}\n\n/** 通知推送记录（转发 mall-notification 通知列表，字段与全站通知一致） */\nexport interface AdminCapsulePushRecord {\n  id: number\n  userId: number\n  username: string | null\n  type: string\n  title: string | null\n  content: string | null\n  isRead: number\n  createdAt: string\n}\n\nexport interface AdminCapsulePushParams {\n  userId?: number | string\n  type?: string\n  page?: number\n  pageSize?: number\n}\n\nexport const CAPSULE_STATUS_STAT_META: Array<{ key: keyof AdminCapsuleStats; label: string; emoji: string }> = [\n  { key: 'sealed', label: '封印中', emoji: '🔒' },\n  { key: 'available', label: '待开启', emoji: '🎁' },\n  { key: 'opened', label: '已开启', emoji: '💌' },\n  { key: 'cancelled', label: '已取消', emoji: '🌑' },\n]\n\nexport function getAdminCapsuleStats() {\n  return request.get<ApiResponse<AdminCapsuleStats>>('/admin/wish/capsules/stats')\n}\n\nexport function getAdminCapsulePushRecords(params: AdminCapsulePushParams) {\n  return request.get<ApiResponse<AdminCapsulePushRecord[]>>('/admin/wish/capsules/notifications', { params })\n}\n\n// ========== AI 心愿助手（Sprint 2.5，代理 mall-wish /admin/ai/**） ==========\n\nexport type AdminAiPromptScene = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'\nexport type AdminAiPromptStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'\n\nexport interface AdminAiPromptRecord {\n  id: number\n  scene: AdminAiPromptScene\n  version: number\n  name: string\n  content: string\n  abGroup: 'ALL' | 'A' | 'B'\n  trafficPercent: number\n  status: AdminAiPromptStatus\n  remark: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport const AI_PROMPT_SCENE_LABELS: Record<AdminAiPromptScene, string> = {\n  GOAL_BREAKDOWN: '目标拆解',\n  TREE_HOLE: '树洞',\n  ANNUAL_REPORT: '年度报告',\n  EXPECTED_GUIDE: '预期管理引导',\n}\n\nexport const AI_PROMPT_STATUS_LABELS: Record<AdminAiPromptStatus, string> = {\n  DRAFT: '草稿',\n  ACTIVE: '生效中',\n  ARCHIVED: '已归档',\n}\n\nexport function listAdminAiPrompts(scene?: AdminAiPromptScene) {\n  return request.get<ApiResponse<AdminAiPromptRecord[]>>('/admin/wish/ai/prompts', {\n    params: { scene },\n  })\n}\n\nexport function createAdminAiPrompt(data: {\n  scene: AdminAiPromptScene\n  name: string\n  content: string\n  abGroup?: 'ALL' | 'A' | 'B'\n  trafficPercent?: number\n  remark?: string\n}) {\n  return request.post<ApiResponse<AdminAiPromptRecord>>('/admin/wish/ai/prompts', data)\n}\n\nexport function updateAdminAiPromptStatus(\n  id: number,\n  data: { status: 'ACTIVE' | 'ARCHIVED'; trafficPercent?: number; remark?: string },\n) {\n  return request.put<ApiResponse<AdminAiPromptRecord>>(`/admin/wish/ai/prompts/${id}/status`, data)\n}\n\nexport interface AdminAiConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminAiConfigs() {\n  return request.get<ApiResponse<AdminAiConfigRecord[]>>('/admin/wish/ai/configs')\n}\n\nexport function updateAdminAiConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminAiConfigRecord>>(`/admin/wish/ai/configs/${configKey}`, {\n    configValue,\n  })\n}\n\n// ========== 同愿匹配 + 监督小队（Sprint 2.6，代理 mall-wish /admin/match/**） ==========\n\nexport interface AdminMatchGroupRow {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  status: 'OPEN' | 'FULL' | 'CLOSED'\n  cityCode: string | null\n  leaderId: number\n  leaderNickname: string\n  createdAt: string\n  /** 最近一次组内成员活跃时间（活跃度监控；null=全部成员从未活跃） */\n  lastActiveAt: string | null\n}\n\nexport interface AdminMatchConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminMatchGroups(params: { status?: string; keyword?: string }) {\n  return request.get<ApiResponse<AdminMatchGroupRow[]>>('/admin/wish/match/groups', { params })\n}\n\nexport function forceDissolveMatchGroup(groupId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/match/groups/${groupId}/dissolution`)\n}\n\nexport function listAdminMatchConfigs() {\n  return request.get<ApiResponse<AdminMatchConfigRecord[]>>('/admin/wish/match/configs')\n}\n\nexport function updateAdminMatchConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminMatchConfigRecord>>(`/admin/wish/match/configs/${configKey}`, {\n    configValue,\n  })\n}\n\n// ========== 传承 + 排行榜（Sprint 2.7，代理 mall-wish /admin/legacy、/admin/leaderboard） ==========\n\nexport type AdminContentFlowStatus = 'SUCCESS' | 'FAILED' | 'HIDDEN'\n\nexport interface AdminContentFlowLog {\n  id: number\n  wishId: number\n  fulfillmentId: number\n  postId: number | null\n  status: AdminContentFlowStatus\n  retryCount: number\n  errorMsg: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminLegacyStats {\n  inheritCount: number\n  totalTargets: number\n  totalPushed: number\n  /** 推送成功率（0-1）；查看率需 mall-notification 阅读埋点 */\n  pushedRate: number\n  flowSuccess: number\n  flowFailed: number\n  flowHidden: number\n}\n\nexport interface AdminLeaderboardConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminContentFlowLogs(params: { status?: string; page?: number; size?: number }) {\n  return request.get<ApiResponse<AdminContentFlowLog[]>>('/admin/wish/legacy/flows', { params })\n}\n\nexport function retryAdminContentFlow(logId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/legacy/flows/${logId}/retry`)\n}\n\nexport function getAdminLegacyStats() {\n  return request.get<ApiResponse<AdminLegacyStats>>('/admin/wish/legacy/stats')\n}\n\nexport function listAdminLeaderboardConfigs() {\n  return request.get<ApiResponse<AdminLeaderboardConfigRecord[]>>('/admin/wish/leaderboard/configs')\n}\n\nexport function updateAdminLeaderboardConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminLeaderboardConfigRecord>>(\n    `/admin/wish/leaderboard/configs/${configKey}`,\n    { configValue },\n  )\n}\n\n// ========== 灰度控制台 + AI 质量抽检（Sprint 2.8，代理 mall-wish） ==========\n\nexport interface AdminGrayscaleConfigRecord {\n  featureKey: string\n  grayRatio: number\n  description: string | null\n  updatedAt: string\n}\n\nexport const GRAYSCALE_FEATURE_LABELS: Record<string, string> = {\n  wish_ai_assistant: 'AI 心愿助手',\n  wish_tree_hole: 'AI 树洞',\n  wish_time_capsule: '时间胶囊',\n  wish_match_squad: '同路人小队',\n  wish_leaderboard: '排行榜',\n  wish_legacy_flow: '还愿传承',\n  wish_world_tree_enhanced: '世界树 3D 增强效果',\n}\n\nexport function listAdminGrayscaleConfigs() {\n  return request.get<ApiResponse<AdminGrayscaleConfigRecord[]>>('/admin/wish/grayscale/configs')\n}\n\nexport function updateAdminGrayscaleRatio(featureKey: string, grayRatio: number) {\n  return request.put<ApiResponse<AdminGrayscaleConfigRecord>>(\n    `/admin/wish/grayscale/configs/${featureKey}`,\n    { grayRatio },\n  )\n}\n\nexport type AdminAiReviewIssueType = 'MECHANICAL' | 'ERROR' | 'IRRELEVANT'\n\nexport interface AdminAiReviewSample {\n  id: number\n  conversationId: number\n  scene: string\n  content: string\n  result: 'PASS' | 'FAIL' | null\n  issueType: AdminAiReviewIssueType | null\n  note: string | null\n  reviewedBy: number | null\n  reviewedAt: string | null\n  createdAt: string\n}\n\nexport interface AdminAiReviewStats {\n  totalSamples: number\n  reviewedCount: number\n  passCount: number\n  failCount: number\n  passRate: number\n  issueMechanical: number\n  issueError: number\n  issueIrrelevant: number\n}\n\nexport function generateAiReviewSamples(data: { scenes?: string[]; sampleSize?: number }) {\n  return request.post<ApiResponse<number>>('/admin/wish/ai-review/generate', data)\n}\n\nexport function listAiReviewSamples(params: { scene?: string; result?: string; page?: number; size?: number }) {\n  return request.get<ApiResponse<AdminAiReviewSample[]>>('/admin/wish/ai-review/samples', { params })\n}\n\nexport function scoreAiReviewSample(\n  id: number,\n  data: { result: 'PASS' | 'FAIL'; issueType?: AdminAiReviewIssueType; note?: string },\n) {\n  return request.put<ApiResponse<AdminAiReviewSample>>(`/admin/wish/ai-review/samples/${id}`, data)\n}\n\nexport function getAiReviewStats() {\n  return request.get<ApiResponse<AdminAiReviewStats>>('/admin/wish/ai-review/stats')\n}\n\n// ========== LBS 隐私审计（Sprint 3.1，代理 mall-wish /admin/map/audit） ==========\n\nexport interface AdminMapAudit {\n  publicWishCount: number\n  geohashCovered: number\n  geohashMissing: number\n  distinctCell6: number\n  strategy: Record<string, string>\n}\n\nexport function getAdminMapAudit() {\n  return request.get<ApiResponse<AdminMapAudit>>('/admin/wish/map/audit')\n}\n\n// ========== 围栏 + 温暖事件审核（Sprint 3.2，代理 mall-wish /admin/warm-map/**） ==========\n\nexport interface AdminFenceRecord {\n  id: number\n  name: string\n  wishId: number\n  centerGeohash: string\n  radiusM: number\n  validFrom: string | null\n  validTo: string | null\n  isActive: boolean\n  createdBy: number\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface SaveFencePayload {\n  name: string\n  wishId: number\n  centerLat: number\n  centerLng: number\n  radiusM: number\n  validFrom?: string\n  validTo?: string\n  isActive?: boolean\n}\n\nexport function listAdminFences(params: { wishId?: number } = {}) {\n  return request.get<ApiResponse<AdminFenceRecord[]>>('/admin/wish/warm-map/fences', { params })\n}\n\nexport function createAdminFence(data: SaveFencePayload) {\n  return request.post<ApiResponse<AdminFenceRecord>>('/admin/wish/warm-map/fences', data)\n}\n\nexport function updateAdminFence(id: number, data: SaveFencePayload) {\n  return request.put<ApiResponse<AdminFenceRecord>>(`/admin/wish/warm-map/fences/${id}`, data)\n}\n\nexport function toggleAdminFence(id: number, active: boolean) {\n  return request.put<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}/active`, undefined, {\n    params: { active },\n  })\n}\n\nexport function deleteAdminFence(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}`)\n}\n\nexport interface AdminWarmEventRecord {\n  id: number\n  userId: number\n  title: string\n  content: string\n  geohash: string | null\n  cityCode: string | null\n  auditStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\n  isVisible: boolean\n  deletedAt: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport function listAdminWarmEvents(params: { auditStatus?: string; page?: number; size?: number } = {}) {\n  return request.get<ApiResponse<AdminWarmEventRecord[]>>('/admin/wish/warm-map/warm-events', { params })\n}\n\nexport function auditAdminWarmEvent(id: number, auditStatus: 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN') {\n  return request.put<ApiResponse<AdminWarmEventRecord>>(\n    `/admin/wish/warm-map/warm-events/${id}/audit`,\n    undefined,\n    { params: { auditStatus } },\n  )\n}\n\n// ========== 擦肩而过风控（Sprint 3.3，代理 mall-wish /admin/encounter/**） ==========\n\nexport interface AdminLbsSuspicious {\n  id: number\n  userId: number\n  speedKmh: number\n  fromCell: string\n  toCell: string\n  createdAt: string\n}\n\nexport interface AdminLbsFreeze {\n  id: number\n  userId: number\n  reason: string | null\n  frozenUntil: string\n  createdAt: string\n}\n\nexport function listAdminSuspicious(userId?: number) {\n  return request.get<ApiResponse<AdminLbsSuspicious[]>>('/admin/wish/encounter/suspicious', {\n    params: { userId },\n  })\n}\n\nexport function listAdminFreezes() {\n  return request.get<ApiResponse<AdminLbsFreeze[]>>('/admin/wish/encounter/freezes')\n}\n\nexport function unfreezeAdminUser(userId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/encounter/freezes/${userId}/unfreeze`)\n}\n\n// ========== 直播挂件配置（Sprint 3.4，代理 mall-wish /admin/live/widget/**） ==========\n\nexport interface AdminLiveWidgetConfig {\n  id?: number\n  streamerId: number\n  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'\n  styleConfig: string | null\n  isVisible: boolean\n  updatedAt: string\n}\n\nexport function listAdminLiveWidgetConfigs() {\n  return request.get<ApiResponse<AdminLiveWidgetConfig[]>>('/admin/wish/live/widget/configs')\n}\n\nexport function saveAdminLiveWidgetConfig(\n  streamerId: number,\n  data: { position: string; styleConfig?: string; isVisible?: boolean },\n) {\n  return request.put<ApiResponse<AdminLiveWidgetConfig>>(\n    `/admin/wish/live/widget/${streamerId}`,\n    data,\n  )\n}\n\nexport function toggleAdminLiveWidgetVisible(streamerId: number, visible: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/admin/wish/live/widget/${streamerId}/visible`,\n    undefined,\n    { params: { visible } },\n  )\n}\n\n// ========== 社区活动管理（Sprint 3.5，代理 mall-wish /admin/activity/**） ==========\n\nexport type AdminActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'\nexport type AdminActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'\nexport type AdminActivityConditionType = 'PROGRESS_COUNTER' | 'PARTICIPANT_COUNT' | 'MEMBER_FULFILLED'\n\nexport const ADMIN_ACTIVITY_TYPE_MAP: Record<AdminActivityType, { label: string; color: string }> = {\n  WORLD_EVENT: { label: '世界事件', color: 'purple' },\n  FESTIVAL: { label: '节日活动', color: 'volcano' },\n  CITY: { label: '城市活动', color: 'geekblue' },\n  WISH_PARTNER: { label: '心愿合伙人', color: 'gold' },\n}\n\nexport const ADMIN_ACTIVITY_STATUS_MAP: Record<AdminActivityStatus, { label: string; color: string }> = {\n  DRAFT: { label: '筹备中', color: 'default' },\n  ACTIVE: { label: '进行中', color: 'processing' },\n  ENDED: { label: '已结束', color: 'warning' },\n  ARCHIVED: { label: '已归档', color: 'default' },\n}\n\nexport const ADMIN_ACTIVITY_CONDITION_TYPE_MAP: Record<AdminActivityConditionType, string> = {\n  PROGRESS_COUNTER: '活动进度达标',\n  PARTICIPANT_COUNT: '参与人数达标',\n  MEMBER_FULFILLED: '组内心愿达成',\n}\n\nexport interface AdminActivityRecord {\n  id: number\n  type: AdminActivityType\n  title: string\n  description?: string | null\n  coverImage?: string | null\n  conditionJson?: string | null\n  rewardJson?: string | null\n  cityCode?: string | null\n  status: AdminActivityStatus\n  validFrom?: string | null\n  validTo?: string | null\n  progressCounter?: number\n  createdBy?: number\n  createdAt: string\n  updatedAt?: string\n}\n\nexport interface AdminActivityRewardLog {\n  id: number\n  activityId: number\n  userId: number\n  rewardType: 'STARLIGHT' | 'BADGE'\n  amount: number\n  refId?: number | null\n  createdAt: string\n}\n\nexport interface AdminActivityRewardStats {\n  eligible: number\n  starlightIssued: number\n  badgeIssued: number\n  skipped: number\n}\n\nexport function listAdminActivities(params: { status?: string; type?: string; page?: number; size?: number } = {}) {\n  return request.get<ApiResponse<AdminActivityRecord[]>>('/admin/wish/activity/list', { params })\n}\n\nexport function createAdminActivity(data: Partial<AdminActivityRecord>) {\n  return request.post<ApiResponse<AdminActivityRecord>>('/admin/wish/activity', data)\n}\n\nexport function updateAdminActivity(id: number, data: Partial<AdminActivityRecord>) {\n  return request.put<ApiResponse<AdminActivityRecord>>(`/admin/wish/activity/${id}`, data)\n}\n\nexport function transitionAdminActivity(id: number, action: 'start' | 'end' | 'archive') {\n  return request.post<ApiResponse<AdminActivityRecord>>(\n    `/admin/wish/activity/${id}/transition`, undefined, { params: { action } },\n  )\n}\n\nexport function deleteAdminActivity(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/activity/${id}`)\n}\n\nexport function issueAdminActivityRewards(id: number) {\n  return request.post<ApiResponse<AdminActivityRewardStats>>(`/admin/wish/activity/${id}/rewards`)\n}\n\nexport function listAdminActivityRewardLogs(id: number) {\n  return request.get<ApiResponse<AdminActivityRewardLog[]>>(`/admin/wish/activity/${id}/rewards/logs`)\n}\n\n// ========== 心愿虚拟资产 + 品牌审核（Sprint 3.6 管理后台收尾，四AB B3/B4） ==========\n\nexport interface AdminWishAsset {\n  /** 对齐 mall-wish VirtualAsset 实体主键字段名（列表/编辑/上下架均以此传递） */\n  id: number\n  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'\n  name: string\n  description: string | null\n  icon: string | null\n  priceStarlight: number\n  priceRmb: number | null\n  stock: number\n  isActive: boolean\n}\n\nexport function listAdminWishAssets() {\n  return request.get<ApiResponse<AdminWishAsset[]>>('/admin/wish/collection/assets')\n}\n\nexport function saveAdminWishAsset(data: Partial<AdminWishAsset>) {\n  return request.post<ApiResponse<null>>('/admin/wish/collection/assets', data)\n}\n\nexport function toggleAdminWishAssetActive(id: number, active: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/admin/wish/collection/assets/${id}/active`, undefined, { params: { active } },\n  )\n}\n\n/** 删除资产（仅允许删除无用户持有的配置行；已有持有返回 409 WISH_ASSET_IN_USE） */\nexport function deleteAdminWishAsset(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/collection/assets/${id}`)\n}\n\nexport interface AdminWishBrand {\n  brandId: number\n  brandName: string\n  logo: string | null\n  description: string | null\n  status: 'PENDING' | 'APPROVED' | 'REJECTED'\n}\n\nexport function listAdminWishBrands() {\n  return request.get<ApiResponse<AdminWishBrand[]>>('/admin/wish/brand/list')\n}\n\nexport function auditAdminWishBrand(brandId: number, status: 'APPROVED' | 'REJECTED') {\n  return request.post<ApiResponse<null>>(\n    `/admin/wish/brand/${brandId}/audit`, undefined, { params: { status } },\n  )\n}\n"
+      "__content": "import request from '@/utils/request'\nimport type { ApiResponse } from '@/types/api'\n\n// ========== Types（与 mall-wish AdminWishVO / CategoryVO 对齐） ==========\n\nexport type AdminWishStatus = 'DRAFT' | 'ACTIVE' | 'OVERDUE' | 'FULFILLING' | 'FULFILLED' | 'ARCHIVED'\nexport type AdminAuditStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\nexport type AdminWishVisibility = 'PUBLIC' | 'PRIVATE' | 'TREE_HOLE'\nexport type AdminFruitType = 'GLOW' | 'RESONANCE' | 'BLOOM' | 'SPARK'\n\nexport interface AdminWishCategoryRecord {\n  id: number\n  code: string\n  name: string\n  icon: string | null\n  sortOrder: number\n}\n\nexport interface AdminWishRecord {\n  id: number\n  userId: number\n  title: string\n  description: string\n  mediaUrls: string[]\n  categoryId: number\n  categoryName: string\n  tags: string[]\n  visibility: AdminWishVisibility\n  status: AdminWishStatus\n  fruitType: AdminFruitType\n  auditStatus: AdminAuditStatus\n  auditStrategy: string\n  isVisible: boolean\n  isTop: boolean\n  lightCount: number\n  sameWishCount: number\n  blessCount: number\n  supportCount: number\n  expectedAt: string | null\n  fulfilledAt: string | null\n  createdAt: string\n  updatedAt: string\n  deletedAt: string | null\n}\n\nexport interface AdminWishListParams {\n  userId?: number\n  categoryId?: number\n  status?: AdminWishStatus\n  auditStatus?: AdminAuditStatus\n  visibility?: AdminWishVisibility\n  keyword?: string\n  page?: number\n  pageSize?: number\n}\n\n// ========== 枚举展示映射 ==========\n\nexport const WISH_STATUS_MAP: Record<AdminWishStatus, { label: string; color: string }> = {\n  DRAFT: { label: '草稿', color: 'default' },\n  ACTIVE: { label: '进行中', color: 'processing' },\n  OVERDUE: { label: '已逾期', color: 'warning' },\n  FULFILLING: { label: '还愿中', color: 'cyan' },\n  FULFILLED: { label: '已还愿', color: 'success' },\n  ARCHIVED: { label: '已归档', color: 'default' },\n}\n\nexport const VISIBILITY_MAP: Record<AdminWishVisibility, { label: string; color: string }> = {\n  PUBLIC: { label: '公开', color: 'green' },\n  PRIVATE: { label: '私密', color: 'default' },\n  TREE_HOLE: { label: '树洞', color: 'purple' },\n}\n\nexport const FRUIT_TYPE_MAP: Record<AdminFruitType, { label: string; emoji: string }> = {\n  GLOW: { label: '微光', emoji: '🌱' },\n  RESONANCE: { label: '共鸣', emoji: '💫' },\n  BLOOM: { label: '绽放', emoji: '🌸' },\n  SPARK: { label: '星光', emoji: '⭐' },\n}\n\n// ========== 心愿列表与审核 ==========\n\nexport interface AdminWishStats {\n  totalWishCount: number\n  todayWishCount: number\n  activeWishCount: number\n  fulfilledWishCount: number\n  todayCheckinCount: number\n  todayInteractionCount: number\n}\n\nexport function getAdminWishStats() {\n  return request.get<ApiResponse<AdminWishStats>>('/admin/wish/wishes/stats')\n}\n\nexport function getAdminWishes(params: AdminWishListParams) {\n  return request.get<ApiResponse<AdminWishRecord[]>>('/admin/wish/wishes', { params })\n}\n\nexport function getAdminWishDetail(id: number) {\n  return request.get<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}`)\n}\n\n/** 上架/下架（对齐帖子管理模式）：visible=false 下架后用户端不可见 */\nexport function updateWishVisibility(id: number, data: { visible: boolean }) {\n  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/visibility`, data)\n}\n\n/** 置顶/取消置顶（对齐帖子管理模式）：置顶心愿在用户端广场优先展示 */\nexport function toggleWishTop(id: number, data: { isTop: boolean }) {\n  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/top`, data)\n}\n\n/** 删除心愿（软删，对齐帖子管理模式） */\nexport function deleteAdminWish(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/wishes/${id}`)\n}\n\n// ========== 心愿分类管理 ==========\n\nexport function getAdminWishCategories() {\n  return request.get<ApiResponse<AdminWishCategoryRecord[]>>('/admin/wish/categories')\n}\n\nexport function createAdminWishCategory(data: { code: string; name: string; sort?: number; icon?: string }) {\n  return request.post<ApiResponse<AdminWishCategoryRecord>>('/admin/wish/categories', data)\n}\n\nexport function updateAdminWishCategory(id: number, data: { name?: string; sort?: number; icon?: string }) {\n  return request.put<ApiResponse<AdminWishCategoryRecord>>(`/admin/wish/categories/${id}`, data)\n}\n\nexport function deleteAdminWishCategory(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/categories/${id}`)\n}\n\n// ========== 互动记录审计（Sprint 1.2，与 mall-wish AdminInteractionVO 对齐） ==========\n\nexport type AdminInteractionType = 'LIGHT' | 'SAME_WISH' | 'BLESS'\n\nexport interface AdminInteractionRecord {\n  id: number\n  wishId: number\n  wishTitle: string\n  userId: number\n  nickname: string\n  type: AdminInteractionType\n  content: string | null\n  starlightCost: number\n  deletedAt: string | null\n  createdAt: string\n}\n\nexport interface AdminInteractionListParams {\n  wishId?: number | string\n  userId?: number | string\n  type?: AdminInteractionType\n  /** ISO 8601，如 2026-08-18T00:00:00 */\n  startTime?: string\n  /** ISO 8601（含） */\n  endTime?: string\n  page?: number\n  pageSize?: number\n}\n\nexport const INTERACTION_TYPE_MAP: Record<AdminInteractionType, { label: string; emoji: string; color: string }> = {\n  LIGHT: { label: '点亮', emoji: '💡', color: 'gold' },\n  SAME_WISH: { label: '同求', emoji: '🤝', color: 'blue' },\n  BLESS: { label: '祝福', emoji: '🌟', color: 'purple' },\n}\n\nexport function getAdminWishInteractions(params: AdminInteractionListParams) {\n  return request.get<ApiResponse<AdminInteractionRecord[]>>('/admin/wish/interactions', { params })\n}\n\n// ========== 评论审核（Sprint 1.2，与 mall-wish AdminCommentVO 对齐） ==========\n\nexport type AdminWishCommentStatus = 'VISIBLE' | 'HIDDEN'\n\nexport interface AdminWishCommentRecord {\n  id: number\n  wishId: number\n  wishTitle: string\n  userId: number\n  nickname: string\n  content: string\n  parentId: number | null\n  status: AdminWishCommentStatus\n  sensitiveHit: boolean\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminWishCommentListParams {\n  wishId?: number | string\n  userId?: number | string\n  sensitiveHit?: boolean\n  status?: AdminWishCommentStatus\n  page?: number\n  pageSize?: number\n}\n\nexport const WISH_COMMENT_STATUS_MAP: Record<AdminWishCommentStatus, { label: string; color: string }> = {\n  VISIBLE: { label: '已上架', color: 'success' },\n  HIDDEN: { label: '已下架', color: 'error' },\n}\n\nexport function getAdminWishComments(params: AdminWishCommentListParams) {\n  return request.get<ApiResponse<AdminWishCommentRecord[]>>('/admin/wish/comments', { params })\n}\n\nexport function updateAdminWishCommentStatus(id: number, data: { status: AdminWishCommentStatus }) {\n  return request.put<ApiResponse<AdminWishCommentRecord>>(`/admin/wish/comments/${id}/status`, data)\n}\n\n// ========== 徽章管理（Sprint 1.8，与 mall-wish AdminBadgeVO 对齐） ==========\n\nexport type AdminBadgeRarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'\nexport type AdminBadgeConditionType = 'WISH_CREATED' | 'WISH_FULFILLED' | 'TOTAL_HELPED' | 'TOTAL_CHECKIN_DAYS'\n\nexport interface AdminBadgeRecord {\n  id: number\n  code: string\n  name: string\n  icon: string | null\n  rarity: AdminBadgeRarity\n  isActive: boolean\n  /** 原始 condition JSON 字符串（编辑器回显） */\n  condition: string\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminBadgeCondition {\n  type: AdminBadgeConditionType\n  threshold: number\n  description: string\n}\n\nexport const BADGE_RARITY_MAP: Record<AdminBadgeRarity, { label: string; color: string }> = {\n  COMMON: { label: '普通', color: 'default' },\n  RARE: { label: '稀有', color: 'blue' },\n  EPIC: { label: '史诗', color: 'purple' },\n  LEGENDARY: { label: '传说', color: 'gold' },\n}\n\nexport const BADGE_CONDITION_TYPE_MAP: Record<AdminBadgeConditionType, { label: string }> = {\n  WISH_CREATED: { label: '累计许愿数' },\n  WISH_FULFILLED: { label: '累计还愿数' },\n  TOTAL_HELPED: { label: '累计帮助人数' },\n  TOTAL_CHECKIN_DAYS: { label: '累计打卡天数' },\n}\n\nexport function getAdminWishBadges() {\n  return request.get<ApiResponse<AdminBadgeRecord[]>>('/admin/wish/badges')\n}\n\nexport function createAdminWishBadge(data: {\n  code: string\n  name: string\n  icon?: string\n  rarity: AdminBadgeRarity\n  condition: string\n}) {\n  return request.post<ApiResponse<AdminBadgeRecord>>('/admin/wish/badges', data)\n}\n\nexport function updateAdminWishBadge(\n    id: number,\n    data: { name: string; icon?: string; rarity: AdminBadgeRarity; condition: string }\n) {\n  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}`, data)\n}\n\nexport function updateAdminWishBadgeStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminBadgeRecord>>(`/admin/wish/badges/${id}/status`, { active })\n}\n\n// ========== 生命树环境管理（Sprint 2.2，与 mall-wish EnvConfigVO/SpecialEventVO 对齐） ==========\n\nexport type AdminEnvCategory = 'WEATHER' | 'SEASON' | 'TIME' | 'SPECIAL_EVENT'\nexport type AdminEnvParticle =\n    | 'NONE'\n    | 'RAIN'\n    | 'SNOWFLAKE'\n    | 'PETAL'\n    | 'SUNBURST'\n    | 'LEAF'\n    | 'METEOR'\n    | 'AURORA'\n    | 'STAR'\n\nexport interface AdminEnvConfigRecord {\n  id: number\n  envCode: string\n  category: AdminEnvCategory\n  name: string\n  description: string | null\n  priority: number\n  visual: { skyColor?: string; crownColor?: string; lightCoreColor?: string; particle?: AdminEnvParticle } | null\n  isActive: boolean\n}\n\nexport interface AdminSpecialEventRecord {\n  id: number\n  eventCode: string\n  title: string\n  description: string | null\n  status: 'ACTIVE' | 'ENDED'\n  triggeredAt: string\n  expiresAt: string | null\n}\n\nexport const ENV_CATEGORY_MAP: Record<AdminEnvCategory, { label: string; color: string }> = {\n  WEATHER: { label: '天气', color: 'blue' },\n  SEASON: { label: '季节', color: 'green' },\n  TIME: { label: '时段', color: 'orange' },\n  SPECIAL_EVENT: { label: '特殊事件', color: 'purple' },\n}\n\nexport const ENV_PARTICLE_MAP: Record<AdminEnvParticle, { label: string }> = {\n  NONE: { label: '无' },\n  RAIN: { label: '雨滴' },\n  SNOWFLAKE: { label: '雪花' },\n  PETAL: { label: '花瓣' },\n  SUNBURST: { label: '光斑' },\n  LEAF: { label: '落叶' },\n  METEOR: { label: '流星' },\n  AURORA: { label: '极光' },\n  STAR: { label: '星辰' },\n}\n\nexport function getAdminEnvConfigs() {\n  return request.get<ApiResponse<AdminEnvConfigRecord[]>>('/admin/wish/tree-env/configs')\n}\n\nexport function createAdminEnvConfig(data: {\n  envCode: string\n  category: AdminEnvCategory\n  name: string\n  description?: string\n  priority: number\n  visual: string\n  active?: boolean\n}) {\n  return request.post<ApiResponse<AdminEnvConfigRecord>>('/admin/wish/tree-env/configs', data)\n}\n\n// ========== 背景音乐曲库管理（Sprint 2.3，与 mall-wish BgmSongVO 对齐） ==========\n\nexport interface AdminBgmSongRecord {\n  id: number\n  title: string\n  url: string\n  fileSize: number\n  sort: number\n  active: boolean\n  createdAt: string\n}\n\nexport function getAdminWishBgmSongs() {\n  return request.get<ApiResponse<AdminBgmSongRecord[]>>('/admin/wish/bgm')\n}\n\nexport function createAdminWishBgmSong(data: {\n  title: string\n  url: string\n  fileSize?: number\n  sort?: number\n}) {\n  return request.post<ApiResponse<AdminBgmSongRecord>>('/admin/wish/bgm', data)\n}\n\nexport function updateAdminWishBgmSong(id: number, data: { title: string; sort?: number }) {\n  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}`, data)\n}\n\nexport function updateAdminWishBgmSongStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminBgmSongRecord>>(`/admin/wish/bgm/${id}/status`, { active })\n}\n\nexport function deleteAdminWishBgmSong(id: number) {\n  return request.delete<ApiResponse<void>>(`/admin/wish/bgm/${id}`)\n}\n\nexport function updateAdminEnvConfig(\n    id: number,\n    data: {\n      envCode: string\n      category: AdminEnvCategory\n      name: string\n      description?: string\n      priority: number\n      visual: string\n    }\n) {\n  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}`, data)\n}\n\nexport function updateAdminEnvConfigStatus(id: number, active: boolean) {\n  return request.put<ApiResponse<AdminEnvConfigRecord>>(`/admin/wish/tree-env/configs/${id}/status`, { active })\n}\n\nexport function triggerAdminSpecialEvent(data: {\n  eventCode: string\n  title?: string\n  description?: string\n  durationMinutes?: number\n}) {\n  return request.post<ApiResponse<AdminSpecialEventRecord>>('/admin/wish/tree-env/special-events', data)\n}\n\nexport function endAdminSpecialEvent(id: number) {\n  return request.put<ApiResponse<AdminSpecialEventRecord>>(`/admin/wish/tree-env/special-events/${id}/end`)\n}\n\nexport function getAdminSpecialEvents(limit = 50) {\n  return request.get<ApiResponse<AdminSpecialEventRecord[]>>('/admin/wish/tree-env/special-events', {\n    params: { limit },\n  })\n}\n\n// ========== 时间胶囊统计（Sprint 2.4，与 mall-wish AdminCapsuleController / mall-admin 代理对齐） ==========\n\nexport interface AdminCapsuleStats {\n  total: number\n  sealed: number\n  available: number\n  opened: number\n  cancelled: number\n  todayCreated: number\n}\n\n/** 通知推送记录（转发 mall-notification 通知列表，字段与全站通知一致） */\nexport interface AdminCapsulePushRecord {\n  id: number\n  userId: number\n  username: string | null\n  type: string\n  title: string | null\n  content: string | null\n  isRead: number\n  createdAt: string\n}\n\nexport interface AdminCapsulePushParams {\n  userId?: number | string\n  type?: string\n  page?: number\n  pageSize?: number\n}\n\nexport const CAPSULE_STATUS_STAT_META: Array<{ key: keyof AdminCapsuleStats; label: string; emoji: string }> = [\n  { key: 'sealed', label: '封印中', emoji: '🔒' },\n  { key: 'available', label: '待开启', emoji: '🎁' },\n  { key: 'opened', label: '已开启', emoji: '💌' },\n  { key: 'cancelled', label: '已取消', emoji: '🌑' },\n]\n\nexport function getAdminCapsuleStats() {\n  return request.get<ApiResponse<AdminCapsuleStats>>('/admin/wish/capsules/stats')\n}\n\nexport function getAdminCapsulePushRecords(params: AdminCapsulePushParams) {\n  return request.get<ApiResponse<AdminCapsulePushRecord[]>>('/admin/wish/capsules/notifications', { params })\n}\n\n// ========== AI 心愿助手（Sprint 2.5，代理 mall-wish /admin/ai/**） ==========\n\nexport type AdminAiPromptScene = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'\nexport type AdminAiPromptStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'\n\nexport interface AdminAiPromptRecord {\n  id: number\n  scene: AdminAiPromptScene\n  version: number\n  name: string\n  content: string\n  abGroup: 'ALL' | 'A' | 'B'\n  trafficPercent: number\n  status: AdminAiPromptStatus\n  remark: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport const AI_PROMPT_SCENE_LABELS: Record<AdminAiPromptScene, string> = {\n  GOAL_BREAKDOWN: '目标拆解',\n  TREE_HOLE: '树洞',\n  ANNUAL_REPORT: '年度报告',\n  EXPECTED_GUIDE: '预期管理引导',\n}\n\nexport const AI_PROMPT_STATUS_LABELS: Record<AdminAiPromptStatus, string> = {\n  DRAFT: '草稿',\n  ACTIVE: '生效中',\n  ARCHIVED: '已归档',\n}\n\nexport function listAdminAiPrompts(scene?: AdminAiPromptScene) {\n  return request.get<ApiResponse<AdminAiPromptRecord[]>>('/admin/wish/ai/prompts', {\n    params: { scene },\n  })\n}\n\nexport function createAdminAiPrompt(data: {\n  scene: AdminAiPromptScene\n  name: string\n  content: string\n  abGroup?: 'ALL' | 'A' | 'B'\n  trafficPercent?: number\n  remark?: string\n}) {\n  return request.post<ApiResponse<AdminAiPromptRecord>>('/admin/wish/ai/prompts', data)\n}\n\nexport function updateAdminAiPromptStatus(\n  id: number,\n  data: { status: 'ACTIVE' | 'ARCHIVED'; trafficPercent?: number; remark?: string },\n) {\n  return request.put<ApiResponse<AdminAiPromptRecord>>(`/admin/wish/ai/prompts/${id}/status`, data)\n}\n\nexport interface AdminAiConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminAiConfigs() {\n  return request.get<ApiResponse<AdminAiConfigRecord[]>>('/admin/wish/ai/configs')\n}\n\nexport function updateAdminAiConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminAiConfigRecord>>(`/admin/wish/ai/configs/${configKey}`, {\n    configValue,\n  })\n}\n\n// ========== 同愿匹配 + 监督小队（Sprint 2.6，代理 mall-wish /admin/match/**） ==========\n\nexport interface AdminMatchGroupRow {\n  groupId: number\n  keyword: string\n  memberCount: number\n  maxMembers: number\n  status: 'OPEN' | 'FULL' | 'CLOSED'\n  cityCode: string | null\n  leaderId: number\n  leaderNickname: string\n  createdAt: string\n  /** 最近一次组内成员活跃时间（活跃度监控；null=全部成员从未活跃） */\n  lastActiveAt: string | null\n}\n\nexport interface AdminMatchConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminMatchGroups(params: { status?: string; keyword?: string }) {\n  return request.get<ApiResponse<AdminMatchGroupRow[]>>('/admin/wish/match/groups', { params })\n}\n\nexport function forceDissolveMatchGroup(groupId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/match/groups/${groupId}/dissolution`)\n}\n\nexport function listAdminMatchConfigs() {\n  return request.get<ApiResponse<AdminMatchConfigRecord[]>>('/admin/wish/match/configs')\n}\n\nexport function updateAdminMatchConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminMatchConfigRecord>>(`/admin/wish/match/configs/${configKey}`, {\n    configValue,\n  })\n}\n\n// ========== 传承 + 排行榜（Sprint 2.7，代理 mall-wish /admin/legacy、/admin/leaderboard） ==========\n\nexport type AdminContentFlowStatus = 'SUCCESS' | 'FAILED' | 'HIDDEN'\n\nexport interface AdminContentFlowLog {\n  id: number\n  wishId: number\n  fulfillmentId: number\n  postId: number | null\n  status: AdminContentFlowStatus\n  retryCount: number\n  errorMsg: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface AdminLegacyStats {\n  inheritCount: number\n  totalTargets: number\n  totalPushed: number\n  /** 推送成功率（0-1）；查看率需 mall-notification 阅读埋点 */\n  pushedRate: number\n  flowSuccess: number\n  flowFailed: number\n  flowHidden: number\n}\n\nexport interface AdminLeaderboardConfigRecord {\n  configKey: string\n  configValue: string\n  description: string | null\n  updatedAt: string\n}\n\nexport function listAdminContentFlowLogs(params: { status?: string; page?: number; size?: number }) {\n  return request.get<ApiResponse<AdminContentFlowLog[]>>('/admin/wish/legacy/flows', { params })\n}\n\nexport function retryAdminContentFlow(logId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/legacy/flows/${logId}/retry`)\n}\n\nexport function getAdminLegacyStats() {\n  return request.get<ApiResponse<AdminLegacyStats>>('/admin/wish/legacy/stats')\n}\n\nexport function listAdminLeaderboardConfigs() {\n  return request.get<ApiResponse<AdminLeaderboardConfigRecord[]>>('/admin/wish/leaderboard/configs')\n}\n\nexport function updateAdminLeaderboardConfig(configKey: string, configValue: string) {\n  return request.put<ApiResponse<AdminLeaderboardConfigRecord>>(\n    `/admin/wish/leaderboard/configs/${configKey}`,\n    { configValue },\n  )\n}\n\n// ========== 灰度控制台 + AI 质量抽检（Sprint 2.8，代理 mall-wish） ==========\n\nexport interface AdminGrayscaleConfigRecord {\n  featureKey: string\n  grayRatio: number\n  description: string | null\n  updatedAt: string\n}\n\nexport const GRAYSCALE_FEATURE_LABELS: Record<string, string> = {\n  wish_ai_assistant: 'AI 心愿助手',\n  wish_tree_hole: 'AI 树洞',\n  wish_time_capsule: '时间胶囊',\n  wish_match_squad: '同路人小队',\n  wish_leaderboard: '排行榜',\n  wish_legacy_flow: '还愿传承',\n  wish_world_tree_enhanced: '世界树 3D 增强效果',\n}\n\nexport function listAdminGrayscaleConfigs() {\n  return request.get<ApiResponse<AdminGrayscaleConfigRecord[]>>('/admin/wish/grayscale/configs')\n}\n\nexport function updateAdminGrayscaleRatio(featureKey: string, grayRatio: number) {\n  return request.put<ApiResponse<AdminGrayscaleConfigRecord>>(\n    `/admin/wish/grayscale/configs/${featureKey}`,\n    { grayRatio },\n  )\n}\n\nexport type AdminAiReviewIssueType = 'MECHANICAL' | 'ERROR' | 'IRRELEVANT'\n\nexport interface AdminAiReviewSample {\n  id: number\n  conversationId: number\n  scene: string\n  content: string\n  result: 'PASS' | 'FAIL' | null\n  issueType: AdminAiReviewIssueType | null\n  note: string | null\n  reviewedBy: number | null\n  reviewedAt: string | null\n  createdAt: string\n}\n\nexport interface AdminAiReviewStats {\n  totalSamples: number\n  reviewedCount: number\n  passCount: number\n  failCount: number\n  passRate: number\n  issueMechanical: number\n  issueError: number\n  issueIrrelevant: number\n}\n\nexport function generateAiReviewSamples(data: { scenes?: string[]; sampleSize?: number }) {\n  return request.post<ApiResponse<number>>('/admin/wish/ai-review/generate', data)\n}\n\nexport function listAiReviewSamples(params: { scene?: string; result?: string; page?: number; size?: number }) {\n  return request.get<ApiResponse<AdminAiReviewSample[]>>('/admin/wish/ai-review/samples', { params })\n}\n\nexport function scoreAiReviewSample(\n  id: number,\n  data: { result: 'PASS' | 'FAIL'; issueType?: AdminAiReviewIssueType; note?: string },\n) {\n  return request.put<ApiResponse<AdminAiReviewSample>>(`/admin/wish/ai-review/samples/${id}`, data)\n}\n\nexport function getAiReviewStats() {\n  return request.get<ApiResponse<AdminAiReviewStats>>('/admin/wish/ai-review/stats')\n}\n\n// ========== LBS 隐私审计（Sprint 3.1，代理 mall-wish /admin/map/audit） ==========\n\nexport interface AdminMapAudit {\n  publicWishCount: number\n  geohashCovered: number\n  geohashMissing: number\n  distinctCell6: number\n  strategy: Record<string, string>\n}\n\nexport function getAdminMapAudit() {\n  return request.get<ApiResponse<AdminMapAudit>>('/admin/wish/map/audit')\n}\n\n// ========== 围栏 + 温暖事件审核（Sprint 3.2，代理 mall-wish /admin/warm-map/**） ==========\n\nexport interface AdminFenceRecord {\n  id: number\n  name: string\n  wishId: number\n  centerGeohash: string\n  radiusM: number\n  validFrom: string | null\n  validTo: string | null\n  isActive: boolean\n  createdBy: number\n  createdAt: string\n  updatedAt: string\n}\n\nexport interface SaveFencePayload {\n  name: string\n  wishId: number\n  centerLat: number\n  centerLng: number\n  radiusM: number\n  validFrom?: string\n  validTo?: string\n  isActive?: boolean\n}\n\nexport function listAdminFences(params: { wishId?: number } = {}) {\n  return request.get<ApiResponse<AdminFenceRecord[]>>('/admin/wish/warm-map/fences', { params })\n}\n\nexport function createAdminFence(data: SaveFencePayload) {\n  return request.post<ApiResponse<AdminFenceRecord>>('/admin/wish/warm-map/fences', data)\n}\n\nexport function updateAdminFence(id: number, data: SaveFencePayload) {\n  return request.put<ApiResponse<AdminFenceRecord>>(`/admin/wish/warm-map/fences/${id}`, data)\n}\n\nexport function toggleAdminFence(id: number, active: boolean) {\n  return request.put<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}/active`, undefined, {\n    params: { active },\n  })\n}\n\nexport function deleteAdminFence(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}`)\n}\n\nexport interface AdminWarmEventRecord {\n  id: number\n  userId: number\n  title: string\n  content: string\n  geohash: string | null\n  cityCode: string | null\n  auditStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'\n  isVisible: boolean\n  deletedAt: string | null\n  createdAt: string\n  updatedAt: string\n}\n\nexport function listAdminWarmEvents(params: { auditStatus?: string; page?: number; size?: number } = {}) {\n  return request.get<ApiResponse<AdminWarmEventRecord[]>>('/admin/wish/warm-map/warm-events', { params })\n}\n\nexport function auditAdminWarmEvent(id: number, auditStatus: 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN') {\n  return request.put<ApiResponse<AdminWarmEventRecord>>(\n    `/admin/wish/warm-map/warm-events/${id}/audit`,\n    undefined,\n    { params: { auditStatus } },\n  )\n}\n\n// ========== 擦肩而过风控（Sprint 3.3，代理 mall-wish /admin/encounter/**） ==========\n\nexport interface AdminLbsSuspicious {\n  id: number\n  userId: number\n  speedKmh: number\n  fromCell: string\n  toCell: string\n  createdAt: string\n}\n\nexport interface AdminLbsFreeze {\n  id: number\n  userId: number\n  reason: string | null\n  frozenUntil: string\n  createdAt: string\n}\n\nexport function listAdminSuspicious(userId?: number) {\n  return request.get<ApiResponse<AdminLbsSuspicious[]>>('/admin/wish/encounter/suspicious', {\n    params: { userId },\n  })\n}\n\nexport function listAdminFreezes() {\n  return request.get<ApiResponse<AdminLbsFreeze[]>>('/admin/wish/encounter/freezes')\n}\n\nexport function unfreezeAdminUser(userId: number) {\n  return request.post<ApiResponse<null>>(`/admin/wish/encounter/freezes/${userId}/unfreeze`)\n}\n\n// ========== 直播挂件配置（Sprint 3.4，代理 mall-wish /admin/live/widget/**） ==========\n\nexport interface AdminLiveWidgetConfig {\n  id?: number\n  streamerId: number\n  position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'\n  styleConfig: string | null\n  isVisible: boolean\n  updatedAt: string\n}\n\nexport function listAdminLiveWidgetConfigs() {\n  return request.get<ApiResponse<AdminLiveWidgetConfig[]>>('/admin/wish/live/widget/configs')\n}\n\nexport function saveAdminLiveWidgetConfig(\n  streamerId: number,\n  data: { position: string; styleConfig?: string; isVisible?: boolean },\n) {\n  return request.put<ApiResponse<AdminLiveWidgetConfig>>(\n    `/admin/wish/live/widget/${streamerId}`,\n    data,\n  )\n}\n\nexport function toggleAdminLiveWidgetVisible(streamerId: number, visible: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/admin/wish/live/widget/${streamerId}/visible`,\n    undefined,\n    { params: { visible } },\n  )\n}\n\n// ========== 社区活动管理（Sprint 3.5，代理 mall-wish /admin/activity/**） ==========\n\nexport type AdminActivityType = 'WORLD_EVENT' | 'FESTIVAL' | 'CITY' | 'WISH_PARTNER'\nexport type AdminActivityStatus = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'ARCHIVED'\nexport type AdminActivityConditionType = 'PROGRESS_COUNTER' | 'PARTICIPANT_COUNT' | 'MEMBER_FULFILLED'\n\nexport const ADMIN_ACTIVITY_TYPE_MAP: Record<AdminActivityType, { label: string; color: string }> = {\n  WORLD_EVENT: { label: '世界事件', color: 'purple' },\n  FESTIVAL: { label: '节日活动', color: 'volcano' },\n  CITY: { label: '城市活动', color: 'geekblue' },\n  WISH_PARTNER: { label: '心愿合伙人', color: 'gold' },\n}\n\nexport const ADMIN_ACTIVITY_STATUS_MAP: Record<AdminActivityStatus, { label: string; color: string }> = {\n  DRAFT: { label: '筹备中', color: 'default' },\n  ACTIVE: { label: '进行中', color: 'processing' },\n  ENDED: { label: '已结束', color: 'warning' },\n  ARCHIVED: { label: '已归档', color: 'default' },\n}\n\nexport const ADMIN_ACTIVITY_CONDITION_TYPE_MAP: Record<AdminActivityConditionType, string> = {\n  PROGRESS_COUNTER: '活动进度达标',\n  PARTICIPANT_COUNT: '参与人数达标',\n  MEMBER_FULFILLED: '组内心愿达成',\n}\n\nexport interface AdminActivityRecord {\n  id: number\n  type: AdminActivityType\n  title: string\n  description?: string | null\n  coverImage?: string | null\n  conditionJson?: string | null\n  rewardJson?: string | null\n  cityCode?: string | null\n  status: AdminActivityStatus\n  validFrom?: string | null\n  validTo?: string | null\n  progressCounter?: number\n  createdBy?: number\n  createdAt: string\n  updatedAt?: string\n}\n\nexport interface AdminActivityRewardLog {\n  id: number\n  activityId: number\n  userId: number\n  rewardType: 'STARLIGHT' | 'BADGE'\n  amount: number\n  refId?: number | null\n  createdAt: string\n}\n\nexport interface AdminActivityRewardStats {\n  eligible: number\n  starlightIssued: number\n  badgeIssued: number\n  skipped: number\n}\n\nexport function listAdminActivities(params: { status?: string; type?: string; page?: number; size?: number } = {}) {\n  return request.get<ApiResponse<AdminActivityRecord[]>>('/admin/wish/activity/list', { params })\n}\n\nexport function createAdminActivity(data: Partial<AdminActivityRecord>) {\n  return request.post<ApiResponse<AdminActivityRecord>>('/admin/wish/activity', data)\n}\n\nexport function updateAdminActivity(id: number, data: Partial<AdminActivityRecord>) {\n  return request.put<ApiResponse<AdminActivityRecord>>(`/admin/wish/activity/${id}`, data)\n}\n\nexport function transitionAdminActivity(id: number, action: 'start' | 'end' | 'archive') {\n  return request.post<ApiResponse<AdminActivityRecord>>(\n    `/admin/wish/activity/${id}/transition`, undefined, { params: { action } },\n  )\n}\n\nexport function deleteAdminActivity(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/activity/${id}`)\n}\n\nexport function issueAdminActivityRewards(id: number) {\n  return request.post<ApiResponse<AdminActivityRewardStats>>(`/admin/wish/activity/${id}/rewards`)\n}\n\nexport function listAdminActivityRewardLogs(id: number) {\n  return request.get<ApiResponse<AdminActivityRewardLog[]>>(`/admin/wish/activity/${id}/rewards/logs`)\n}\n\n// ========== 心愿虚拟资产 + 品牌审核（Sprint 3.6 管理后台收尾，四AB B3/B4） ==========\n\nexport interface AdminWishAsset {\n  /** 对齐 mall-wish VirtualAsset 实体主键字段名（列表/编辑/上下架均以此传递） */\n  id: number\n  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT'\n  name: string\n  description: string | null\n  icon: string | null\n  priceStarlight: number\n  priceRmb: number | null\n  stock: number\n  isActive: boolean\n}\n\nexport function listAdminWishAssets() {\n  return request.get<ApiResponse<AdminWishAsset[]>>('/admin/wish/collection/assets')\n}\n\nexport function saveAdminWishAsset(data: Partial<AdminWishAsset>) {\n  return request.post<ApiResponse<null>>('/admin/wish/collection/assets', data)\n}\n\nexport function toggleAdminWishAssetActive(id: number, active: boolean) {\n  return request.put<ApiResponse<null>>(\n    `/admin/wish/collection/assets/${id}/active`, undefined, { params: { active } },\n  )\n}\n\n/** 删除资产（仅允许删除无用户持有的配置行；已有持有返回 409 WISH_ASSET_IN_USE） */\nexport function deleteAdminWishAsset(id: number) {\n  return request.delete<ApiResponse<null>>(`/admin/wish/collection/assets/${id}`)\n}\n\nexport interface AdminWishBrand {\n  brandId: number\n  brandName: string\n  logo: string | null\n  description: string | null\n  status: 'PENDING' | 'APPROVED' | 'REJECTED'\n}\n\nexport function listAdminWishBrands() {\n  return request.get<ApiResponse<AdminWishBrand[]>>('/admin/wish/brand/list')\n}\n\nexport function auditAdminWishBrand(brandId: number, status: 'APPROVED' | 'REJECTED') {\n  return request.post<ApiResponse<null>>(\n    `/admin/wish/brand/${brandId}/audit`, undefined, { params: { status } },\n  )\n}\n"
     },
     "order.test": {
       "path": "order/test",

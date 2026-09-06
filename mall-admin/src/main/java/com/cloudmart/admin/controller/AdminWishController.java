@@ -60,6 +60,30 @@ public class AdminWishController {
         return wishFeignClient.auditWish(id, data);
     }
 
+    @PutMapping("/wish/wishes/{id}/visibility")
+    @OperLog(title = "心愿上下架", businessType = 2)
+    @RequiresPermission("business:wish:edit")
+    @Operation(summary = "上架/下架心愿", description = "对齐帖子管理模式：下架后用户端不可见，管理端仍可查看")
+    public ApiResponse<Object> updateWishVisibility(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateWishVisibility(id, data);
+    }
+
+    @PutMapping("/wish/wishes/{id}/top")
+    @OperLog(title = "心愿置顶", businessType = 2)
+    @RequiresPermission("business:wish:edit")
+    @Operation(summary = "置顶/取消置顶", description = "置顶心愿在用户端广场优先展示")
+    public ApiResponse<Object> updateWishTop(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateWishTop(id, data);
+    }
+
+    @DeleteMapping("/wish/wishes/{id}")
+    @OperLog(title = "心愿删除", businessType = 3)
+    @RequiresPermission("business:wish:delete")
+    @Operation(summary = "删除心愿", description = "软删，管理端列表仍可查看（deletedAt 非空）")
+    public ApiResponse<Void> deleteWish(@PathVariable Long id) {
+        return wishFeignClient.deleteWish(id);
+    }
+
     // ========== 心愿分类管理 ==========
 
     @GetMapping("/wish/categories")

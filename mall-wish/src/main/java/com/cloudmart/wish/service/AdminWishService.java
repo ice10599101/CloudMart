@@ -50,6 +50,32 @@ public interface AdminWishService {
     AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request);
 
     /**
+     * 上架/下架心愿（对齐帖子管理模式）：直接控制 is_visible，
+     * 下架后用户端广场/详情不可见，管理端仍可查看。
+     *
+     * @param wishId  心愿 ID
+     * @param visible true=上架 false=下架
+     * @return 更新后的心愿 VO
+     */
+    AdminWishVO updateVisibility(Long wishId, Boolean visible);
+
+    /**
+     * 置顶/取消置顶（对齐帖子管理模式）：置顶心愿在用户端广场优先展示。
+     *
+     * @param wishId 心愿 ID
+     * @param isTop  true=置顶 false=取消置顶
+     * @return 更新后的心愿 VO
+     */
+    AdminWishVO updateTop(Long wishId, Boolean isTop);
+
+    /**
+     * 删除心愿（软删，对齐帖子管理模式）。
+     *
+     * @param wishId 心愿 ID
+     */
+    void deleteWish(Long wishId);
+
+    /**
      * 心愿宇宙综合统计（管理工作台数据源）。
      *
      * <p>统计口径：</p>

@@ -375,8 +375,15 @@ public class WishServiceImpl implements WishService {
         LambdaQueryWrapper<Wish> wrapper = new LambdaQueryWrapper<Wish>()
                 .eq(Wish::getVisibility, WishVisibility.PUBLIC)
                 .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
-                .eq(Wish::getIsVisible, true)
-                .orderByDesc(Wish::getCreatedAt)
+                .eq(Wish::getIsVisible, true);
+
+        // 管理端置顶（V26）：仅第一页置顶优先；翻页排除置顶项防止跨页重复
+        if (cursor == null) {
+            wrapper.orderByDesc(Wish::getIsTop);
+        } else {
+            wrapper.eq(Wish::getIsTop, false);
+        }
+        wrapper.orderByDesc(Wish::getCreatedAt)
                 .orderByDesc(Wish::getId)
                 .last("LIMIT " + fetchSize);
 

@@ -31,6 +31,7 @@ export interface AdminWishRecord {
   auditStatus: AdminAuditStatus
   auditStrategy: string
   isVisible: boolean
+  isTop: boolean
   lightCount: number
   sameWishCount: number
   blessCount: number
@@ -62,13 +63,6 @@ export const WISH_STATUS_MAP: Record<AdminWishStatus, { label: string; color: st
   FULFILLING: { label: '还愿中', color: 'cyan' },
   FULFILLED: { label: '已还愿', color: 'success' },
   ARCHIVED: { label: '已归档', color: 'default' },
-}
-
-export const AUDIT_STATUS_MAP: Record<AdminAuditStatus, { label: string; color: string }> = {
-  PENDING: { label: '待审核', color: 'warning' },
-  APPROVED: { label: '已通过', color: 'success' },
-  REJECTED: { label: '已拒绝', color: 'error' },
-  AUTO_HIDDEN: { label: '自动隐藏', color: 'default' },
 }
 
 export const VISIBILITY_MAP: Record<AdminWishVisibility, { label: string; color: string }> = {
@@ -107,8 +101,19 @@ export function getAdminWishDetail(id: number) {
   return request.get<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}`)
 }
 
-export function auditAdminWish(id: number, data: { auditStatus: 'APPROVED' | 'REJECTED'; rejectReason?: string }) {
-  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/audit`, data)
+/** 上架/下架（对齐帖子管理模式）：visible=false 下架后用户端不可见 */
+export function updateWishVisibility(id: number, data: { visible: boolean }) {
+  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/visibility`, data)
+}
+
+/** 置顶/取消置顶（对齐帖子管理模式）：置顶心愿在用户端广场优先展示 */
+export function toggleWishTop(id: number, data: { isTop: boolean }) {
+  return request.put<ApiResponse<AdminWishRecord>>(`/admin/wish/wishes/${id}/top`, data)
+}
+
+/** 删除心愿（软删，对齐帖子管理模式） */
+export function deleteAdminWish(id: number) {
+  return request.delete<ApiResponse<null>>(`/admin/wish/wishes/${id}`)
 }
 
 // ========== 心愿分类管理 ==========

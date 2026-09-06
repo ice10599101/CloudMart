@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.dto.AdminAuditWishRequest;
 import com.cloudmart.wish.dto.AdminWishListQuery;
+import com.cloudmart.wish.dto.AdminWishTopRequest;
+import com.cloudmart.wish.dto.AdminWishVisibilityRequest;
 import com.cloudmart.wish.service.AdminWishService;
 import com.cloudmart.wish.vo.AdminWishStatsVO;
 import com.cloudmart.wish.vo.AdminWishVO;
@@ -68,5 +70,32 @@ public class AdminWishController {
             @Parameter(description = "审核请求") @Valid @RequestBody AdminAuditWishRequest request) {
         AdminWishVO vo = adminWishService.auditWish(wishId, request);
         return ApiResponse.ok(vo);
+    }
+
+    @PutMapping("/{id}/visibility")
+    @Operation(summary = "上架/下架心愿", description = "对齐帖子管理模式：直接控制 is_visible，"
+            + "下架后用户端不可见，管理端仍可查看")
+    public ApiResponse<AdminWishVO> updateVisibility(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "上下架请求") @Valid @RequestBody AdminWishVisibilityRequest request) {
+        AdminWishVO vo = adminWishService.updateVisibility(wishId, request.visible());
+        return ApiResponse.ok(vo);
+    }
+
+    @PutMapping("/{id}/top")
+    @Operation(summary = "置顶/取消置顶", description = "对齐帖子管理模式：置顶心愿在用户端广场优先展示")
+    public ApiResponse<AdminWishVO> updateTop(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "置顶请求") @Valid @RequestBody AdminWishTopRequest request) {
+        AdminWishVO vo = adminWishService.updateTop(wishId, request.isTop());
+        return ApiResponse.ok(vo);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除心愿", description = "软删（deleted_at），对齐帖子管理模式")
+    public ApiResponse<Void> deleteWish(
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
+        adminWishService.deleteWish(wishId);
+        return ApiResponse.ok(null);
     }
 }

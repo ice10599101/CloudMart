@@ -149,6 +149,56 @@ public class AdminWishServiceImpl implements AdminWishService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AdminWishVO updateVisibility(Long wishId, Boolean visible) {
+        Wish wish = requireWish(wishId);
+        // 使用 updateById 避免 LambdaUpdateWrapper 在单元测试中的 lambda cache 问题
+        Wish updateEntity = new Wish();
+        updateEntity.setId(wishId);
+        updateEntity.setIsVisible(visible);
+        wishMapper.updateById(updateEntity);
+
+        log.info("心愿上下架完成, wishId={}, visible={}", wishId, visible);
+        return requeryWishVO(wish.getCategoryId(), wishId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AdminWishVO updateTop(Long wishId, Boolean isTop) {
+        Wish wish = requireWish(wishId);
+        Wish updateEntity = new Wish();
+        updateEntity.setId(wishId);
+        updateEntity.setIsTop(isTop);
+        wishMapper.updateById(updateEntity);
+
+        log.info("心愿置顶变更完成, wishId={}, isTop={}", wishId, isTop);
+        return requeryWishVO(wish.getCategoryId(), wishId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteWish(Long wishId) {
+        requireWish(wishId);
+        // @TableLogic 自动转为软删（UPDATE deleted_at），与项目删除策略一致
+        wishMapper.deleteById(wishId);
+        log.info("心愿已软删, wishId={}", wishId);
+    }
+
+    private Wish requireWish(Long wishId) {
+        Wish wish = wishMapper.selectById(wishId);
+        if (wish == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        return wish;
+    }
+
+    private AdminWishVO requeryWishVO(Long categoryId, Long wishId) {
+        Wish updated = wishMapper.selectById(wishId);
+        Map<Long, String> categoryNameMap = fetchCategoryNames(Set.of(categoryId));
+        return toAdminWishVO(updated, categoryNameMap);
+    }
+
+    @Override
     public AdminWishStatsVO stats() {
         LocalDate today = LocalDate.now();
         LocalDateTime todayStart = today.atStartOfDay();
@@ -197,6 +247,7 @@ public class AdminWishServiceImpl implements AdminWishService {
                 wish.getAuditStatus(),
                 wish.getAuditStrategy(),
                 wish.getIsVisible(),
+                Boolean.TRUE.equals(wish.getIsTop()),
                 wish.getLightCount(),
                 wish.getSameWishCount(),
                 wish.getBlessCount(),
