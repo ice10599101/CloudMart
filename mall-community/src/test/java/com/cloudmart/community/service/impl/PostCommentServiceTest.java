@@ -114,7 +114,7 @@ class PostCommentServiceTest {
         void createComment_success() {
             Post post = buildPublishedPost();
             CreateCommentRequest request = new CreateCommentRequest(
-                    POST_ID, null, null, "Nice post!"
+                    null, null, "Nice post!"
             );
 
             ContentReviewService.ReviewResult reviewResult = new ContentReviewService.ReviewResult(
@@ -146,7 +146,7 @@ class PostCommentServiceTest {
         void createComment_reviewNeeded() {
             Post post = buildPublishedPost();
             CreateCommentRequest request = new CreateCommentRequest(
-                    POST_ID, null, null, "Bad content here"
+                    null, null, "Bad content here"
             );
 
             ContentReviewService.ReviewResult reviewResult = new ContentReviewService.ReviewResult(

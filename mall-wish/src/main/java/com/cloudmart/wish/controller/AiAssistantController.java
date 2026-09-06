@@ -35,7 +35,7 @@ import java.util.List;
  * AI 心愿助手 Controller（文档 2.5/2.11，Sprint 2.5）。
  *
  * <p>链路：AI 数据同意校验 → Redis 日限频（用户时区）→ PII 脱敏 →
- * Prompt 模板（DB A/B 优先）→ DashScope 5-10 步骤拆解 → 对话持久化。</p>
+ * Prompt 模板（DB A/B 优先）→ 大模型 5-10 步骤拆解 → 对话持久化。</p>
  *
  * <p>错误码：403 WISH_CONSENT_REQUIRED（未同意 AI 数据处理协议）/
  * 429 WISH_AI_RATE_LIMITED（拆解日限频）/ 503 WISH_AI_UNAVAILABLE

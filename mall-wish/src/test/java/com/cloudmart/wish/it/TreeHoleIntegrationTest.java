@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
  * 树洞 AI 链路集成测试（真实 MySQL 对话/同意记录 + 真实 Redis 限频）。
  *
  * <p>覆盖合规闭环：consent 前置（未同意 403 / 撤回后 403）→ 限频（Redis 计数超限 429）
- * → 危机词本地拦截（绝不外发 DashScope）→ PII 脱敏外发 → 对话双记录持久化
+ * → 危机词本地拦截（绝不外发大模型服务）→ PII 脱敏外发 → 对话双记录持久化
  * （USER 原文 + ASSISTANT 回复，sentiment 整数换算，session 维度）。</p>
  *
  * <p>TreeHoleAiClient 以 MockitoBean 替换（外部付费 API；危机链路需断言"未外发"），
@@ -184,7 +184,7 @@ class TreeHoleIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("PII 脱敏：手机号不外发 DashScope，DB 保留用户原文")
+        @DisplayName("PII 脱敏：手机号不外发大模型服务，DB 保留用户原文")
         void sanitizesPiiBeforeSendingToAi() {
             when(treeHoleAiClient.generateReply(anyString(), anyString()))
                     .thenReturn(new ParsedReply("好的", 0.1, List.of()));

@@ -89,11 +89,15 @@ export default function StarlightLog() {
                   title: '变动',
                   dataIndex: 'amount',
                   width: 90,
-                  render: (v: number) => (
-                    <span style={{ color: v > 0 ? '#52c41a' : '#ff6b6b', fontWeight: 600 }}>
-                      {v > 0 ? '+' : ''}{v}
-                    </span>
-                  ),
+                  // 契约约定 amount 恒为正、方向由 type（EARN/SPEND）表达
+                  render: (v: number, record: ResourceLogItem) => {
+                    const signed = record.type === 'SPEND' ? -Math.abs(v) : Math.abs(v)
+                    return (
+                      <span style={{ color: signed >= 0 ? '#52c41a' : '#ff6b6b', fontWeight: 600 }}>
+                        {signed > 0 ? '+' : ''}{signed}
+                      </span>
+                    )
+                  },
                 },
                 { title: '余额', dataIndex: 'balanceAfter', width: 90 },
                 {

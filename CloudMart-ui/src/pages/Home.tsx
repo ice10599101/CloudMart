@@ -16,7 +16,6 @@ import {
   TeamOutlined,
   VideoCameraOutlined,
   ThunderboltOutlined,
-  CrownOutlined,
   RiseOutlined,
   EyeOutlined,
   CloseOutlined,
@@ -82,7 +81,7 @@ function PostCard({
 }) {
   const isVideo = post.type === 'VIDEO'
   const isProduct = post.type === 'PRODUCT'
-  const isOwnPost = currentUserId !== null && post.author.id === currentUserId
+  const isOwnPost = currentUserId !== null && post.userId === currentUserId
 
   const mediaIndicator = isVideo
     ? <span className={styles.mediaIndicator}><VideoCameraOutlined /> 视频</span>
@@ -117,18 +116,14 @@ function PostCard({
       <div className={styles.postHeader}>
         <Avatar
           size={40}
-          src={post.author.avatar || undefined}
+          src={post.authorAvatar || undefined}
           style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}
         >
-          {post.author.nickname[0]}
+          {post.authorNickname?.charAt(0) || '?'}
         </Avatar>
         <div className={styles.postAuthorInfo}>
           <div className={styles.postAuthorName}>
-            {post.author.nickname}
-            <span className={styles.levelBadge}>
-              <CrownOutlined style={{ fontSize: 10, marginRight: 2 }} />
-              LV{post.author.level}
-            </span>
+            {post.authorNickname || '未知用户'}
           </div>
           <div className={styles.postTime}>{timeAgo(post.createdAt)}</div>
         </div>
@@ -188,7 +183,7 @@ function PostCard({
       </div>
 
       <div className={styles.postTags}>
-        {post.tags.map((tag, index) => (
+        {(post.tags ?? []).map((tag, index) => (
           <span
             key={tag.id}
             className={styles.tagChip}
@@ -222,15 +217,15 @@ function PostCard({
           onClick={(e) => { e.stopPropagation(); onCollect(post.id) }}
         >
           {post.isCollected ? <StarFilled /> : <StarOutlined />}
-          <span>{formatCount(post.collectCount)}</span>
+          <span>{formatCount(post.collectCount ?? 0)}</span>
         </button>
         <button type="button" className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); onShare(post.id, post.title) }}>
           <ShareAltOutlined />
-          <span>{formatCount(post.shareCount)}</span>
+          <span>{formatCount(post.shareCount ?? 0)}</span>
         </button>
         <span className={styles.viewCount}>
           <EyeOutlined />
-          <span>{formatCount(post.viewCount)}</span>
+          <span>{formatCount(post.viewCount ?? 0)}</span>
         </span>
       </div>
     </div>
@@ -435,8 +430,8 @@ export default function Home() {
 
       if (tab === 'hot') {
         newPosts = [...newPosts].sort((a, b) => {
-          const scoreA = a.likeCount * 3 + a.commentCount * 2 + a.collectCount + a.viewCount * 0.01
-          const scoreB = b.likeCount * 3 + b.commentCount * 2 + b.collectCount + b.viewCount * 0.01
+          const scoreA = a.likeCount * 3 + a.commentCount * 2 + (a.collectCount ?? 0) + (a.viewCount ?? 0) * 0.01
+          const scoreB = b.likeCount * 3 + b.commentCount * 2 + (b.collectCount ?? 0) + (b.viewCount ?? 0) * 0.01
           return scoreB - scoreA
         })
       }
@@ -534,7 +529,7 @@ export default function Home() {
         return {
           ...p,
           isCollected: willCollect,
-          collectCount: willCollect ? p.collectCount + 1 : p.collectCount - 1,
+          collectCount: willCollect ? (p.collectCount ?? 0) + 1 : (p.collectCount ?? 0) - 1,
         }
       }),
     )

@@ -216,7 +216,8 @@ function PublishForm() {
         title: title.trim(),
         content,
         coverImage,
-        mediaUrls: JSON.stringify(uploadedUrls),
+        // 后端 CreatePostRequest.mediaUrls 为 List<String>，必须传数组而非字符串化 JSON
+        mediaUrls: uploadedUrls,
         mediaType,
         tagIds: [] as number[],
       }

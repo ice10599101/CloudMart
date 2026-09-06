@@ -34,7 +34,7 @@ import java.util.List;
  * <p>关键设计：</p>
  * <ul>
  *   <li>通知必达：限频/偏好过滤后逐心愿下发；AI 文案失败降级模板</li>
- *   <li>合规：未同意 AI 数据处理的用户走模板文案，心愿内容不外发 DashScope</li>
+ *   <li>合规：未同意 AI 数据处理的用户走模板文案，心愿内容不外发大模型服务</li>
  *   <li>限频：{@code expected.daily_limit}（默认 3）条/日/用户（用户时区），
  *       Redis Fail-Open（超限仅产生额外推送，不破坏一致性）</li>
  *   <li>MQ 发送 Fail-Open：失败不阻断后续心愿处理（文档允许推送降级）</li>
@@ -107,7 +107,7 @@ public class ExpectedManagementServiceImpl implements ExpectedManagementService 
     }
 
     /**
-     * 生成引导文案：AI 同意 + DashScope 可用 → 个性化文案；
+     * 生成引导文案：AI 同意 + 大模型可用 → 个性化文案；
      * 否则模板降级（通知必达，文案是增强）。
      */
     private String buildGuideText(WishService.OverdueWishInfo wish) {
@@ -134,7 +134,7 @@ public class ExpectedManagementServiceImpl implements ExpectedManagementService 
     }
 
     /**
-     * 模板降级文案（不依赖 DashScope；与 Prompt 契约同构：提及心愿 + 鼓励 + 引导问句）。
+     * 模板降级文案（不依赖大模型；与 Prompt 契约同构：提及心愿 + 鼓励 + 引导问句）。
      */
     private String templateGuide(String title, long overdueDays) {
         return "你的心愿《" + title + "》已到期 " + overdueDays

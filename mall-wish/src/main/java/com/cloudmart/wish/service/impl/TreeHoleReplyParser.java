@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 树洞 AI 回复解析组件。
  *
- * <p>DashScope（qwen-turbo）按 Prompt 契约返回 JSON：
+ * <p>大模型按 Prompt 契约返回 JSON：
  * {@code {"reply": "...", "sentimentScore": -1.0~1.0, "resources": [...]}}。
  * 解析容错策略（文档 30.1 兜底原则）：</p>
  * <ul>

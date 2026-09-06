@@ -3,10 +3,10 @@ package com.cloudmart.wish.service;
 import com.cloudmart.wish.service.impl.TreeHoleReplyParser;
 
 /**
- * 树洞 AI 客户端抽象（DashScope qwen-turbo，文档 30.1）。
+ * 树洞 AI 客户端抽象（Spring AI ChatClient / OpenAI 兼容协议，文档 30.1）。
  *
  * <p>接口隔离便于单元测试 mock 与未来更换模型供应商；
- * 实现见 {@code DashScopeTreeHoleAiClient}。</p>
+ * 实现见 {@code RemoteTreeHoleAiClient}。</p>
  */
 public interface TreeHoleAiClient {
 

@@ -9,7 +9,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
 /**
- * DashScope 树洞 AI 客户端实现（qwen-turbo，文档 30.1/30.3）。
+ * 树洞 AI 客户端实现（Spring AI ChatClient，OpenAI 兼容协议，默认智谱 GLM；文档 30.1/30.3）。
  *
  * <p>调用策略：</p>
  * <ul>
@@ -21,13 +21,13 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-public class DashScopeTreeHoleAiClient implements TreeHoleAiClient {
+public class RemoteTreeHoleAiClient implements TreeHoleAiClient {
 
     private final ChatClient chatClient;
     private final TreeHoleReplyParser replyParser;
     private final WishAiProperties aiProperties;
 
-    public DashScopeTreeHoleAiClient(ChatClient.Builder chatClientBuilder,
+    public RemoteTreeHoleAiClient(ChatClient.Builder chatClientBuilder,
                                      TreeHoleReplyParser replyParser,
                                      WishAiProperties aiProperties) {
         this.chatClient = chatClientBuilder.build();

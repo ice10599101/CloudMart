@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
  *   <li>RocketMQ：排除 auto-configuration（消费者不连 broker，避免误消费业务 Topic），
  *       RocketMQTemplate 以 MockitoBean 替换（生产者发送失败本身 Fail-Open）</li>
  *   <li>mall-user Feign：MockitoBean 替换（跨服务边界属单测/契约测试职责）</li>
- *   <li>DashScope：TreeHoleAiClient 以 MockitoBean 替换（外部付费 API，且危机链路
+ *   <li>大模型 API：TreeHoleAiClient 以 MockitoBean 替换（外部付费 API，且危机链路
  *       需断言"未外发"）</li>
  *   <li>Sentinel：关闭 eager 上报（规则源为空时注解直接放行，不影响链路覆盖）</li>
  * </ul></p>

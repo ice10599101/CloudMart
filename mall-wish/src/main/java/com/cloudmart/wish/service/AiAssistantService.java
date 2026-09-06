@@ -14,7 +14,7 @@ import java.util.List;
  * AI 心愿助手服务（Sprint 2.5，文档 2.11 / 2.5）。
  *
  * <p>链路对齐树洞：AI 数据同意校验 → Redis 限频 → PII 脱敏 →
- * Prompt 模板（DB 优先/代码回退）→ DashScope → 对话持久化。</p>
+ * Prompt 模板（DB 优先/代码回退）→ 大模型 → 对话持久化。</p>
  */
 public interface AiAssistantService {
 

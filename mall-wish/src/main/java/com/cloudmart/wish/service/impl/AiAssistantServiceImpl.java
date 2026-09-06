@@ -45,7 +45,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <ul>
  *   <li>合规前置：未同意 AI 数据处理协议 → 403 WISH_CONSENT_REQUIRED</li>
  *   <li>限频：goalBreakdownDailyLimit 次/日（用户时区），超限 429；Fail-Open</li>
- *   <li>PII 脱敏：外发 DashScope 前移除手机号/邮箱/身份证号（对齐树洞）</li>
+ *   <li>PII 脱敏：外发大模型前移除手机号/邮箱/身份证号（对齐树洞）</li>
  *   <li>Prompt：DB ACTIVE 模板（A/B 分流）优先，空表回退代码默认值</li>
  *   <li>拆解失败（goals 空）→ 503 WISH_AI_UNAVAILABLE，不返回不可执行步骤</li>
  *   <li>对话持久化：USER + ASSISTANT 同事务（scene=GOAL_BREAKDOWN）</li>

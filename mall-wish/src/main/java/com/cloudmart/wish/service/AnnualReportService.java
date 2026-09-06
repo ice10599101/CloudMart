@@ -8,11 +8,11 @@ import com.cloudmart.wish.vo.AnnualReportVO;
  * <p>设计要点：</p>
  * <ul>
  *   <li>任务化：统计聚合同步返回（P95 &lt; 500ms），growthSummary 由
- *       异步任务调 DashScope 生成（耗时目标 &lt; 60s）</li>
+ *       异步任务调大模型生成（耗时目标 &lt; 60s）</li>
  *   <li>幂等：Redis SETNX 任务锁，生成中不重复提交；结果缓存命中直接返回</li>
  *   <li>可重试：异步任务失败清除任务锁，下次请求自动重新触发</li>
  *   <li>不持久化：报告结果仅存 Redis（TTL = annual_report.ttl_hours，默认 168h）</li>
- *   <li>降级：未同意 AI 协议 / DashScope 失败 → 模板文案（报告必达）</li>
+ *   <li>降级：未同意 AI 协议 / 大模型失败 → 模板文案（报告必达）</li>
  * </ul>
  */
 public interface AnnualReportService {

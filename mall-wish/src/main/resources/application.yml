@@ -74,12 +74,17 @@ spring:
       timeout: 3s
       connect-timeout: 2s
   ai:
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
+    # OpenAI 兼容协议（Spring AI OpenAI starter）：默认指向智谱开放平台 GLM 系列。
+    # 切换其他 OpenAI 兼容服务商（DashScope compatible-mode / DeepSeek / Kimi 等）
+    # 仅需改 base-url、completions-path、model 三个值，代码零改动。
+    openai:
+      base-url: ${AI_BASE_URL:https://open.bigmodel.cn}
+      api-key: ${AI_API_KEY:sk-placeholder}
       chat:
+        completions-path: ${AI_CHAT_COMPLETIONS_PATH:/api/paas/v4/chat/completions}
         options:
-          # 树洞治愈回复场景模型（文档 28.1.3 / 30.1：qwen-turbo，低成本低延迟）
-          model: qwen-turbo
+          # 树洞治愈回复场景模型（低成本低延迟；GLM-4.5-Flash 免费档可作降级备选）
+          model: ${AI_CHAT_MODEL:glm-4.5-air}
           temperature: 0.8
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
@@ -166,11 +171,11 @@ wish:
   ai:
     # 树洞单用户每日调用上限（文档 30.3：10 次/日）
     tree-hole-daily-limit: 10
-    # DashScope 调用失败重试次数（不含首次；文档 30.3：重试 2 次）
+    # 大模型调用失败重试次数（不含首次；文档 30.3：重试 2 次）
     max-retries: 2
     # 重试间隔毫秒（文档 30.3：间隔 1s；测试环境可置 0）
     retry-interval-ms: 1000
-    # 危机关键词：命中后本地拦截，不发送 DashScope（文档 30.4 数据安全）
+    # 危机关键词：命中后本地拦截，不发送大模型服务（文档 30.4 数据安全）
     crisis-keywords:
       - 自杀
       - 自残

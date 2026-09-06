@@ -51,7 +51,7 @@ class PostCommentControllerTest {
     @Test
     @DisplayName("POST /posts/{postId}/comments - 发表评论成功")
     void createComment_ShouldReturnSuccess() throws Exception {
-        CreateCommentRequest request = new CreateCommentRequest(100L, null, null, "测试评论");
+        CreateCommentRequest request = new CreateCommentRequest(null, null, "测试评论");
         PostCommentVO vo = buildCommentVO();
         given(postCommentService.createComment(eq(1L), eq(100L), any(CreateCommentRequest.class))).willReturn(vo);
 
@@ -68,7 +68,7 @@ class PostCommentControllerTest {
     @Test
     @DisplayName("POST /posts/{postId}/comments - 缺少X-User-Id头返回401")
     void createComment_WithoutUserId_ShouldReturn401() throws Exception {
-        CreateCommentRequest request = new CreateCommentRequest(100L, null, null, "测试评论");
+        CreateCommentRequest request = new CreateCommentRequest(null, null, "测试评论");
 
         mockMvc.perform(post("/posts/100/comments")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +81,7 @@ class PostCommentControllerTest {
     @Test
     @DisplayName("POST /posts/{postId}/comments - 内容为空返回校验失败")
     void createComment_WithBlankContent_ShouldReturnValidationError() throws Exception {
-        CreateCommentRequest request = new CreateCommentRequest(100L, null, null, "");
+        CreateCommentRequest request = new CreateCommentRequest(null, null, "");
 
         mockMvc.perform(post("/posts/100/comments")
                         .header(USER_ID_HEADER, 1)

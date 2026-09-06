@@ -58,6 +58,37 @@ public interface ProductConverter {
     @Mapping(target = "sales", ignore = true)
     ProductVO productDtoToVO(ProductDTO dto);
 
+    /**
+     * 商品详情 VO：携带 SKU 列表，并从 SKU 汇总价格/原价/库存，
+     * 保证无 SKU 选中时详情接口也返回可用的兜底价格。
+     */
+    default ProductVO productDetailToVO(ProductDTO dto) {
+        ProductVO base = productDtoToVO(dto);
+        List<SkuDTO> skus = dto.skus();
+        if (skus == null || skus.isEmpty()) {
+            return new ProductVO(base.id(), base.name(), base.mainImage(),
+                    base.price(), base.originalPrice(), base.stock(), base.sales(),
+                    base.categoryName(), base.brandName(), base.status(), base.createdAt(), null);
+        }
+        BigDecimal price = skus.stream()
+                .map(SkuDTO::price)
+                .filter(Objects::nonNull)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+        BigDecimal originalPrice = skus.stream()
+                .map(SkuDTO::originalPrice)
+                .filter(Objects::nonNull)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+        Integer stock = skus.stream()
+                .map(SkuDTO::stock)
+                .filter(Objects::nonNull)
+                .reduce(0, Integer::sum);
+        return new ProductVO(base.id(), base.name(), base.mainImage(),
+                price, originalPrice, stock, base.sales(),
+                base.categoryName(), base.brandName(), base.status(), base.createdAt(), skus);
+    }
+
     default List<ProductVO> productDtoListToVOList(List<ProductDTO> dtos) {
         return dtos.stream().map(dto -> {
             BigDecimal price = dto.skus() != null ? dto.skus().stream()
@@ -77,7 +108,7 @@ public interface ProductConverter {
             ProductVO base = productDtoToVO(dto);
             return new ProductVO(base.id(), base.name(), base.mainImage(),
                     price, originalPrice, stock, null, base.categoryName(),
-                    base.brandName(), base.status(), base.createdAt());
+                    base.brandName(), base.status(), base.createdAt(), null);
         }).toList();
     }
 

@@ -15,20 +15,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * 许愿、互动、打卡、成长记录、还愿、星光、成就等。
  * 用户/文件/通知/评论等基础能力复用现有微服务（Feign 调用）。</p>
  *
- * <p>DashScope 排除项：spring-ai-alibaba 2.0.0-M1.1 的 autoconfigure jar 打包缺陷——
- * imports 引用了 DashScopeMultimodalEmbeddingAutoConfiguration 但类未打入 jar，
- * 启动排序时读取类文件会抛 FileNotFoundException；同时排除本服务用不到的
- * 视频/语音/图片/Rerank 自动配置（与 mall-ai AiApplication 保持一致，仅保留 Chat）。</p>
- 
+ * <p>AI 能力走 Spring AI OpenAI 兼容协议（默认智谱 GLM），仅使用 ChatClient 通用抽象，
+ * 不引入厂商私有自动配置，无需额外排除项。</p>
  */
-@SpringBootApplication(excludeName = {
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeMultimodalEmbeddingAutoConfiguration",
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeVideoAutoConfiguration",
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioSpeechAutoConfiguration",
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioTranscriptionAutoConfiguration",
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeRerankAutoConfiguration",
-        "com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeImageAutoConfiguration"
-})
+@SpringBootApplication
 @MapperScan("com.cloudmart.wish.repository")
 @EnableFeignClients(basePackages = "com.cloudmart.wish.feign")
 @EnableScheduling

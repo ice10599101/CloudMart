@@ -42,7 +42,7 @@ import java.util.Locale;
  *   <li>合规前置：未同意 AI 数据处理协议（GRANT 有效）→ 403 WISH_CONSENT_REQUIRED</li>
  *   <li>限频：单用户 10 次/日（用户时区），超限 429；Redis Fail-Open</li>
  *   <li>危机拦截：命中危机关键词 → 本地兜底回复 + 心理援助热线，
- *       绝不外发 DashScope（文档 30.4：高危内容不外发第三方）</li>
+ *       绝不外发大模型服务（文档 30.4：高危内容不外发第三方）</li>
  *   <li>PII 脱敏：外发前移除手机号/邮箱/身份证号</li>
  *   <li>情感分数：AI 输出 -1.0~1.0，DB 存 -100~100 整数（㊲c TINYINT 契约）</li>
  *   <li>对话持久化：USER + ASSISTANT 两条记录同事务写入（含 session 维度会话）</li>
@@ -97,7 +97,7 @@ public class TreeHoleServiceImpl implements TreeHoleService {
             return new TreeHoleReplyVO(aiProperties.getCrisisFallbackReply(), -1.0, hotlineResources);
         }
 
-        // ---- PII 脱敏后调用 DashScope（文档 30.4）----
+        // ---- PII 脱敏后调用大模型（文档 30.4）----
         String sanitizedMessage = privacySanitizer.sanitize(rawMessage);
         ParsedReply reply = treeHoleAiClient.generateReply(
                 aiProperties.getTreeHoleSystemPrompt(), sanitizedMessage);

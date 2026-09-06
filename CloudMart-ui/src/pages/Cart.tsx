@@ -199,7 +199,7 @@ function CartItemRow({
 
       <div style={{ width: 100, textAlign: 'center', flexShrink: 0 }}>
         <span style={{ color: tokens.colorPrimary, fontWeight: 600, fontSize: 15 }}>
-          ¥{item.price.toFixed(2)}
+          ¥{(item.price ?? 0).toFixed(2)}
         </span>
       </div>
 
@@ -209,7 +209,7 @@ function CartItemRow({
 
       <div style={{ width: 110, textAlign: 'right', flexShrink: 0 }}>
         <span style={{ color: tokens.colorTextSecondary, fontWeight: 700, fontSize: 16 }}>
-          ¥{(item.price * item.quantity).toFixed(2)}
+          ¥{((item.price ?? 0) * item.quantity).toFixed(2)}
         </span>
       </div>
 
@@ -324,7 +324,7 @@ export default function Cart() {
   }, [fetchCart])
 
   const checkedItems = items.filter((item) => selectedSkuIds.includes(item.skuId))
-  const totalPrice = checkedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalPrice = checkedItems.reduce((sum, item) => sum + (item.price ?? 0) * item.quantity, 0)
   const totalQuantity = checkedItems.reduce((sum, item) => sum + item.quantity, 0)
   const isAllSelected = items.length > 0 && selectedSkuIds.length === items.length
 

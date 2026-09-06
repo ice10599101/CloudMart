@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * AI 目标拆解输出解析组件（Sprint 2.5）。
  *
- * <p>DashScope 按 Prompt 契约返回 JSON：
+ * <p>大模型按 Prompt 契约返回 JSON：
  * {@code {"intent": "...", "goals": [...], "suggestion": "..."}}。
  * 解析容错策略（对齐 TreeHoleReplyParser）：</p>
  * <ul>

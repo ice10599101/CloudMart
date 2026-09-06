@@ -400,6 +400,8 @@ export default function PostDetail() {
   const [loading, setLoading] = useState(true)
   const [liked, setLiked] = useState(false)
   const [collected, setCollected] = useState(false)
+  /** 点赞请求进行中标记：连点防抖（见 handleToggleLike） */
+  const likeInFlightRef = useRef(false)
   const [commentLikedIds, setCommentLikedIds] = useState<Set<number>>(new Set())
   const [commentText, setCommentText] = useState('')
   const [replyTarget, setReplyTarget] = useState<{
@@ -513,6 +515,9 @@ export default function PostDetail() {
       message.warning('请先登录')
       return
     }
+    // 防连点：上一条点赞/取消请求未返回前忽略新点击，避免乱序请求导致计数与状态漂移
+    if (likeInFlightRef.current) return
+    likeInFlightRef.current = true
     const willLike = !liked
     setLiked(willLike)
     setPost((prev) => prev ? {
@@ -531,6 +536,8 @@ export default function PostDetail() {
         ...prev,
         likeCount: !willLike ? prev.likeCount + 1 : Math.max(0, prev.likeCount - 1),
       } : prev)
+    } finally {
+      likeInFlightRef.current = false
     }
   }, [post, liked, isAuthenticated])
 

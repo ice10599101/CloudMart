@@ -47,7 +47,7 @@ public class ProductController {
     public ApiResponse<ProductVO> getProductById(
             @Parameter(description = "商品ID", required = true) @PathVariable("id") Long id) {
         ProductDTO dto = productService.getProductById(id);
-        return ApiResponse.ok(productConverter.productDtoToVO(dto));
+        return ApiResponse.ok(productConverter.productDetailToVO(dto));
     }
 
     @PutMapping("/{id}")

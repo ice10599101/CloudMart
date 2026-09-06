@@ -116,10 +116,12 @@
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
         </dependency>
-        <!-- Sprint 1.3 AI 树洞治愈回复：DashScope 通义千问（文档 28.1.3 / 30 章） -->
+        <!-- AI 树洞/助手/年报（文档 28.1.3 / 30 章）：走 Spring AI OpenAI 兼容协议，
+             默认指向智谱开放平台 GLM 系列；切换其他 OpenAI 兼容服务商仅改配置 -->
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+            <version>${spring-ai.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

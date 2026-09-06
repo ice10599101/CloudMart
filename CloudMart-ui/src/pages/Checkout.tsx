@@ -14,7 +14,7 @@ import { useCartStore } from '@/stores/cart'
 import { listAddresses, getDefaultAddress } from '@/api/user'
 import { listUserCoupons } from '@/api/coupon'
 import { createOrder } from '@/api/order'
-import type { ShippingAddress, UserCoupon, CreateOrderRequest } from '@/types'
+import type { CartItem, ShippingAddress, UserCoupon, CreateOrderRequest } from '@/types'
 
 const cssVars = {
   '--color-bg-primary': 'var(--color-bg-base)',
@@ -312,9 +312,11 @@ export default function Checkout() {
     .filter(Boolean)
     .map(Number)
 
-  const checkedItems = selectedSkuIds.length
+  // 后端可能返回 price=null 的购物车项（SKU 缺失/服务降级），结算页直接剔除
+  const checkedItems = (selectedSkuIds.length
     ? items.filter((item) => selectedSkuIds.includes(item.skuId))
     : items
+  ).filter((item): item is CartItem & { price: number } => item.price !== null)
 
   useEffect(() => {
     async function fetchData() {

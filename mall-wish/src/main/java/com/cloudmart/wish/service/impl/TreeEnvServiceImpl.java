@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
  * 生命树环境服务实现（文档 2.2 气象情绪联动 / Sprint 2.2 动态环境扩展）。
  *
  * <p><b>数据源决策（对文档 2.2 原文的偏差）</b>：文档原文为 mall-job 每
- * 5 分钟拉取 TREE_HOLE 心愿文本调 DashScope 情感分析；实际复用 Sprint 1.3
+ * 5 分钟拉取 TREE_HOLE 心愿文本调大模型情感分析；实际复用 Sprint 1.3
  * 树洞 AI 回复已产出的 {@code wish_ai_conversation.sentiment_score}
  * （仅 TREE_HOLE 场景 ASSISTANT 记录）——零额外 AI 成本、避免重复外发
  * 用户文本、隐私链路更短。详见 docs/tree-env-mood-design.md。</p>

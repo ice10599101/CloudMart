@@ -257,7 +257,7 @@ class TreeHoleServiceImplTest {
             assertThat(vo.resources().getFirst().type()).isEqualTo("HOTLINE");
             assertThat(vo.resources().getFirst().url()).isEqualTo("tel:12356");
 
-            // 关键断言：危机内容绝不外发 DashScope（文档 30.4）
+            // 关键断言：危机内容绝不外发大模型服务（文档 30.4）
             verify(treeHoleAiClient, never()).generateReply(anyString(), anyString());
             // 仍持久化对话（USER 原文 + ASSISTANT 兜底，sentiment=-100）
             ArgumentCaptor<WishAiConversation> recordCaptor = ArgumentCaptor.forClass(WishAiConversation.class);

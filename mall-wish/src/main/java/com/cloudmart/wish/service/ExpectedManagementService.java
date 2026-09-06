@@ -20,7 +20,7 @@ public interface ExpectedManagementService {
      * <ul>
      *   <li>单用户每日最多 {@code expected.daily_limit}（默认 3）条，超过不推送</li>
      *   <li>通知偏好 CHECKIN_REMINDER×IN_APP 关闭的用户跳过</li>
-     *   <li>未同意 AI 数据处理协议的用户使用模板文案（心愿内容不外发 DashScope）</li>
+     *   <li>未同意 AI 数据处理协议的用户使用模板文案（心愿内容不外发大模型服务）</li>
      *   <li>AI 生成失败降级模板文案（通知必达，文案是增强）</li>
      * </ul>
      *

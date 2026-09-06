@@ -40,13 +40,13 @@ public class WishAiProperties {
     /** 预期管理到期引导文案生成 Prompt（Sprint 2.5；DB 模板优先） */
     private String expectedGuideSystemPrompt = DEFAULT_EXPECTED_GUIDE_SYSTEM_PROMPT;
 
-    /** DashScope 调用失败重试次数（不含首次，文档 30.3：重试 2 次） */
+    /** 大模型调用失败重试次数（不含首次，文档 30.3：重试 2 次） */
     private int maxRetries = 2;
 
     /** 重试间隔毫秒（文档 30.3：间隔 1s；测试置 0） */
     private long retryIntervalMs = 1000;
 
-    /** 危机关键词：命中后本地拦截，不发送 DashScope（文档 30.4 数据安全） */
+    /** 危机关键词：命中后本地拦截，不发送大模型服务（文档 30.4 数据安全） */
     private List<String> crisisKeywords = List.of();
 
     /** 心理援助热线资源（危机场景返回，文档 12.2 树洞专用） */
@@ -55,7 +55,7 @@ public class WishAiProperties {
     /** 树洞系统 Prompt（要求 JSON 结构化输出） */
     private String treeHoleSystemPrompt = DEFAULT_TREE_HOLE_SYSTEM_PROMPT;
 
-    /** 危机命中时的本地兜底回复（不经过 DashScope） */
+    /** 危机命中时的本地兜底回复（不经过大模型服务） */
     private String crisisFallbackReply = DEFAULT_CRISIS_FALLBACK_REPLY;
 
     /**

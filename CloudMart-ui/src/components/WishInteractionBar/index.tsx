@@ -197,13 +197,15 @@ export default function WishInteractionBar({
       message.warning('写一句祝福吧')
       return
     }
+    if (blessing) return
     setBlessing(true)
     try {
       const res = await createInteraction(wishId, { type: 'BLESS', content })
       if (res.data.success) {
+        // 先关闭弹窗再做后续刷新，确保成功后弹窗立即关闭，避免重复提交
+        setBlessModalOpen(false)
         onCountsChange({ blessCount: res.data.data.blessCount })
         refreshMyInteractions()
-        setBlessModalOpen(false)
         message.success('祝福已送达 🌟')
       }
     } catch (err) {

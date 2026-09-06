@@ -22,21 +22,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * DashScopeTreeHoleAiClient 单元测试（文档 30.3：失败重试 2 次）。
+ * RemoteTreeHoleAiClient 单元测试（文档 30.3：失败重试 2 次）。
  *
  * <p>通过 mock ChatClient 流式接口验证：首次成功不重试、失败重试后成功、
  * 重试耗尽抛 503、中断异常直接失败。</p>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("DashScopeTreeHoleAiClient 单元测试")
-class DashScopeTreeHoleAiClientTest {
+@DisplayName("RemoteTreeHoleAiClient 单元测试")
+class RemoteTreeHoleAiClientTest {
 
     @Mock
     private ChatClient.Builder chatClientBuilder;
 
     private ChatClient chatClient;
-    private DashScopeTreeHoleAiClient aiClient;
+    private RemoteTreeHoleAiClient aiClient;
 
     private static final String SYSTEM_PROMPT = "system";
     private static final String USER_MESSAGE = "message";
@@ -50,7 +50,7 @@ class DashScopeTreeHoleAiClientTest {
 
         chatClient = mock(ChatClient.class);
         when(chatClientBuilder.build()).thenReturn(chatClient);
-        aiClient = new DashScopeTreeHoleAiClient(chatClientBuilder, new TreeHoleReplyParser(), properties);
+        aiClient = new RemoteTreeHoleAiClient(chatClientBuilder, new TreeHoleReplyParser(), properties);
     }
 
     private void stubCallContent(String content) {

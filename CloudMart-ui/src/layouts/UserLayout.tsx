@@ -353,6 +353,14 @@ export default function UserLayout() {
     }
   }, [isAuthenticated, fetchCart, fetchUnreadCount, connect, disconnect, accessToken])
 
+  // 路由变化时以服务端为准重取未读数：页面内（如消息中心）的已读操作
+  // 与本组件可能分属不同 chunk 的 store 副本（dev 分包），导航回本布局后必须重同步
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUnreadCount()
+    }
+  }, [location.pathname, isAuthenticated, fetchUnreadCount])
+
   const handleSearch = (value: string) => {
     if (value.trim()) {
       history.push(`/search?q=${encodeURIComponent(value.trim())}`)

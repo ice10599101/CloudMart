@@ -21,7 +21,6 @@
         <skywalking.version>10.4.0</skywalking.version>
         <skywalking-agent.version>9.6.0</skywalking-agent.version>
         <checkstyle.version>13.4.2</checkstyle.version>
-        <spring-ai-alibaba.version>2.0.0-M1.1</spring-ai-alibaba.version>
         <lombok.version>1.18.46</lombok.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <spring-ai.version>2.0.0-M1</spring-ai.version>
@@ -102,16 +101,6 @@
                 <groupId>org.apache.skywalking</groupId>
                 <artifactId>apm-toolkit-trace</artifactId>
                 <version>${skywalking-agent.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.alibaba.cloud.ai</groupId>
-                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
-                <version>${spring-ai-alibaba.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.alibaba.cloud.ai</groupId>
-                <artifactId>spring-ai-alibaba-agent-framework</artifactId>
-                <version>${spring-ai-alibaba.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba</groupId>

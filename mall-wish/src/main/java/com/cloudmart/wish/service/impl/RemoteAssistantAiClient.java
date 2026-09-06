@@ -9,9 +9,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
 /**
- * DashScope AI 心愿助手客户端实现（qwen-plus，Sprint 2.5）。
+ * AI 心愿助手客户端实现（Spring AI ChatClient，OpenAI 兼容协议；Sprint 2.5）。
  *
- * <p>调用策略（对齐 DashScopeTreeHoleAiClient）：</p>
+ * <p>调用策略（对齐 RemoteTreeHoleAiClient）：</p>
  * <ul>
  *   <li>失败重试 {@code maxRetries} 次，间隔 {@code retryIntervalMs}</li>
  *   <li>重试后仍失败 → 抛 {@code WISH_AI_UNAVAILABLE}（503）</li>
@@ -20,13 +20,13 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-public class DashScopeAssistantAiClient implements AssistantAiClient {
+public class RemoteAssistantAiClient implements AssistantAiClient {
 
     private final ChatClient chatClient;
     private final GoalBreakdownParser breakdownParser;
     private final WishAiProperties aiProperties;
 
-    public DashScopeAssistantAiClient(ChatClient.Builder chatClientBuilder,
+    public RemoteAssistantAiClient(ChatClient.Builder chatClientBuilder,
                                       GoalBreakdownParser breakdownParser,
                                       WishAiProperties aiProperties) {
         this.chatClient = chatClientBuilder.build();

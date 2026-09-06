@@ -203,7 +203,7 @@ class AiAssistantIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("PII 脱敏：手机号不外发 DashScope，落库内容同为脱敏文本")
+        @DisplayName("PII 脱敏：手机号不外发大模型服务，落库内容同为脱敏文本")
         void sanitizesPiiBeforeSendingToAi() {
             when(assistantAiClient.generateBreakdown(anyString(), anyString()))
                     .thenReturn(mockBreakdown(5));

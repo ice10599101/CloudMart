@@ -189,7 +189,8 @@ export interface CartItem {
   productName: string
   skuImage: string
   skuAttributes: string
-  price: number
+  /** 商品服务不可用或 SKU 缺失时后端可能返回 null */
+  price: number | null
   quantity: number
   checked: number
 }
@@ -328,27 +329,30 @@ export interface PostTag {
 
 export interface Post {
   id: number
-  type: PostType
+  type?: PostType
   title: string
   content: string
-  summary: string
-  coverImage: string
-  images: string[]
-  videoUrl: string | null
-  videoCover: string | null
-  author: PostAuthor
-  tags: PostTag[]
-  productId: number | null
-  productName: string | null
-  productPrice: number | null
+  summary?: string
+  coverImage?: string
+  images?: string[]
+  videoUrl?: string | null
+  videoCover?: string | null
+  /** 与后端 PostVO 对齐：作者信息为扁平字段，无嵌套 author 对象 */
+  userId?: number
+  authorNickname?: string
+  authorAvatar?: string | null
+  tags?: PostTag[]
+  productId?: number | null
+  productName?: string | null
+  productPrice?: number | null
   likeCount: number
   commentCount: number
-  collectCount: number
-  shareCount: number
-  viewCount: number
-  isLiked: boolean
-  isCollected: boolean
-  status: PostStatus
+  collectCount?: number
+  shareCount?: number
+  viewCount?: number
+  isLiked?: boolean
+  isCollected?: boolean
+  status?: PostStatus
   createdAt: string
 }
 

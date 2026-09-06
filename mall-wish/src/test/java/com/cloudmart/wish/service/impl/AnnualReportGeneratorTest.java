@@ -159,7 +159,7 @@ class AnnualReportGeneratorTest {
         }
 
         @Test
-        @DisplayName("未同意 AI 协议 → 不调 DashScope，直接缓存模板版")
+        @DisplayName("未同意 AI 协议 → 不调大模型，直接缓存模板版")
         void fallbackToTemplateWhenNoConsent() {
             when(consentService.hasGrantedAiDataProcessing(USER_ID)).thenReturn(false);
             when(aiConfigService.getIntConfig(AiConfigService.KEY_ANNUAL_REPORT_TTL_HOURS, 168))

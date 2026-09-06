@@ -25,15 +25,23 @@ spring:
         file-extension: yml
         refresh-enabled: true
   ai:
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
+    # OpenAI 兼容协议（Spring AI OpenAI starter）：默认指向智谱开放平台 GLM 系列。
+    # 切换其他 OpenAI 兼容服务商仅改 base-url / completions-path / embeddings-path / model。
+    openai:
+      base-url: ${AI_BASE_URL:https://open.bigmodel.cn}
+      api-key: ${AI_API_KEY:sk-placeholder}
       chat:
+        completions-path: ${AI_CHAT_COMPLETIONS_PATH:/api/paas/v4/chat/completions}
         options:
-          model: qwen-plus
+          model: ${AI_CHAT_MODEL:glm-4.5-air}
           temperature: 0.7
+      # 注意前缀是单数 embedding（spring-ai 2.0.0-M1 属性元数据如此定义）
       embedding:
+        embeddings-path: ${AI_EMBEDDINGS_PATH:/api/paas/v4/embeddings}
         options:
-          model: text-embedding-v3
+          model: ${AI_EMBEDDING_MODEL:embedding-3}
+          # 与历史 text-embedding-v3（1024 维）对齐，保证已建 ES 向量索引维度兼容
+          dimensions: 1024
   elasticsearch:
     uris: ${ES_URIS:http://127.0.0.1:9200}
     username: ${ES_USERNAME:}

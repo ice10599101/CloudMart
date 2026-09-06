@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 年度报告 AI 生成器（Sprint 2.5，异步任务）。
  *
- * <p>职责：DashScope 生成 growthSummary → 写对话记录
+ * <p>职责：大模型生成 growthSummary → 写对话记录
  * （scene=ANNUAL_REPORT）→ 完整报告写 Redis 缓存。失败清任务锁，
  * 用户下次请求自动重试（可重试）；结果不持久化 DB。</p>
  */
@@ -75,7 +75,7 @@ public class AnnualReportGenerator {
     /**
      * 异步生成 growthSummary 并缓存完整报告。
      *
-     * <p>未同意 AI 数据处理协议：不调 DashScope（统计数字无 PII，
+     * <p>未同意 AI 数据处理协议：不调大模型（统计数字无 PII，
      * 但 growth 记录文案可能含个人信息），直接缓存模板版。</p>
      */
     @Async("annualReportExecutor")
@@ -123,7 +123,7 @@ public class AnnualReportGenerator {
     }
 
     /**
-     * 构建发送给 DashScope 的年度数据摘要（统计数字 + 脱敏后的成长记录）。
+     * 构建发送给大模型服务的年度数据摘要（统计数字 + 脱敏后的成长记录）。
      */
     private String buildUserContext(AnnualReportVO report) {
         StringBuilder context = new StringBuilder(256);

@@ -295,11 +295,17 @@ public class ProductServiceImpl implements ProductService {
         wrapper.eq(Product::getStatus, 1);
 
         if (request.keyword() != null && !request.keyword().isBlank()) {
-            wrapper.and(w -> w
-                    .like(Product::getName, request.keyword())
-                    .or()
-                    .like(Product::getDescription, request.keyword())
-            );
+            // 关键词按空白分词后取 AND 语义（如「戴森 吸尘器」），
+            // 避免整串 LIKE 在分词场景漏召回；单 token 行为不变
+            String[] tokens = request.keyword().trim().split("\\s+");
+            for (String token : tokens) {
+                String kw = token;
+                wrapper.and(w -> w
+                        .like(Product::getName, kw)
+                        .or()
+                        .like(Product::getDescription, kw)
+                );
+            }
         }
 
         if (request.categoryId() != null) {

@@ -345,7 +345,12 @@ export default function Messages() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
     resetUnread()
     message.success('已全部标为已读')
-  }, [resetUnread])
+    // 服务端可能在 read-all 事务提交前计算并推送 UNREAD_COUNT（旧值），
+    // 延迟重取一次以服务端为准纠正被 WS 旧值覆盖的徽章
+    setTimeout(() => {
+      fetchUnreadCount()
+    }, 1500)
+  }, [resetUnread, fetchUnreadCount])
 
   const handleNotificationClick = useCallback(async (item: EnrichedNotification) => {
     if (!item.isRead) {
