@@ -100,6 +100,11 @@ request.interceptors.response.use(
           toBusinessError(errCode, error.response?.data?.error?.message || '请求失败'),
         )
       }
+      // 防循环：refresh 重放后仍 401 的请求不再触发下一轮 refresh，
+      // 避免无限循环打爆认证接口限流并导致强制登出
+      if ((error.config as { _authRetried?: boolean })?._authRetried) {
+        return Promise.reject(toBusinessError('UNAUTHORIZED', '登录状态已失效'))
+      }
       const url = error.config.url ?? ''
       const admin = isAdminRequest(url)
       const refreshTokenKey = admin ? 'admin_refresh_token' : 'refresh_token'
@@ -129,6 +134,7 @@ request.interceptors.response.use(
           localStorage.setItem(refreshTokenKey, data.data.refreshToken)
           processPendingRequests(data.data.accessToken)
           error.config.headers.Authorization = `Bearer ${data.data.accessToken}`
+          ;(error.config as { _authRetried?: boolean })._authRetried = true
           return request(error.config)
         } catch {
           localStorage.removeItem(accessTokenKey)

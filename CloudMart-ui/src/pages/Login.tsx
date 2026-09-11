@@ -230,8 +230,15 @@ function LoginContent() {
     try {
       await loginAction(values.account, values.password, redirect)
       message.success('登录成功')
-    } catch {
-      message.error('登录失败，请检查账号和密码')
+    } catch (err) {
+      const code = (err as { code?: string })?.code
+      if (code === 'RATE_LIMIT_EXCEEDED') {
+        message.error('操作过于频繁，请稍后再试')
+      } else if (code === 'AUTH_FAILED') {
+        message.error('登录失败，请检查账号和密码')
+      } else {
+        message.error((err as { message?: string })?.message || '登录失败，请稍后再试')
+      }
     } finally {
       setLoading(false)
     }

@@ -25,11 +25,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private static final String AUTH_PATH_PREFIX = "/api/auth/";
+    private static final String REFRESH_PATH = "/api/auth/refresh";
     private static final String ADMIN_AUTH_PATH_PREFIX = "/api/admin/auth/";
     private static final String SECKILL_PATH_PREFIX = "/api/seckill/";
 
     private static final int AUTH_CAPACITY = 10;
     private static final Duration AUTH_REFILL_PERIOD = Duration.ofMinutes(1);
+
+    /** token 静默续期是正常高频操作，与登录/验证码分开计数，避免挤占登录配额导致误锁 */
+    private static final int REFRESH_CAPACITY = 30;
+    private static final Duration REFILL_REFRESH_PERIOD = Duration.ofMinutes(1);
 
     private static final int SECKILL_CAPACITY = 20;
     private static final Duration SECKILL_REFILL_PERIOD = Duration.ofSeconds(1);
@@ -40,7 +45,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
 
-        if (path.startsWith(AUTH_PATH_PREFIX) || path.startsWith(ADMIN_AUTH_PATH_PREFIX)) {
+        if (path.startsWith(ADMIN_AUTH_PATH_PREFIX) || (path.startsWith(AUTH_PATH_PREFIX) && !path.equals(REFRESH_PATH))) {
             String clientIp = resolveClientIp(exchange);
             Bucket bucket = buckets.computeIfAbsent("auth:" + clientIp, key -> createAuthBucket());
             if (!bucket.tryConsume(1)) {
@@ -48,6 +53,20 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                 return writeRateLimitResponse(exchange, "RATE_LIMIT_EXCEEDED",
                         "认证接口请求过于频繁，请稍后再试");
             }
+        }
+
+        if (REFRESH_PATH.equals(path)) {
+            String clientIp = resolveClientIp(exchange);
+            Bucket bucket = buckets.computeIfAbsent("refresh:" + clientIp, key -> createRefreshBucket());
+            if (!bucket.tryConsume(1)) {
+                log.warn("Refresh rate limit exceeded for IP: {}", clientIp);
+                return writeRateLimitResponse(exchange, "RATE_LIMIT_EXCEEDED",
+                        "登录状态刷新过于频繁，请稍后再试");
+            }
+        }
+
+        if (buckets.size() > 50_000) {
+            buckets.clear();
         }
 
         if (path.startsWith(SECKILL_PATH_PREFIX) && !path.startsWith("/api/seckill/admin/")) {
@@ -66,6 +85,12 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE + 1;
+    }
+
+    private Bucket createRefreshBucket() {
+        Bandwidth bandwidth = Bandwidth.classic(REFRESH_CAPACITY,
+                Refill.intervally(REFRESH_CAPACITY, REFILL_REFRESH_PERIOD));
+        return Bucket.builder().addLimit(bandwidth).build();
     }
 
     private Bucket createAuthBucket() {
