@@ -1,3 +1,4 @@
+import RichText from '@/components/RichText'
 import { useRef, useState } from 'react'
 import {
   ProTable,
@@ -77,8 +78,8 @@ export default function Notifications() {
       title: '内容',
       dataIndex: 'content',
       width: 300,
-      ellipsis: true,
       search: false,
+      render: (_, record) => <RichText content={record.content} clamp={3} variant="preview" />,
     },
     {
       title: '已读',

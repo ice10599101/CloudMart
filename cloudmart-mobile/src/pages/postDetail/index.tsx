@@ -1,3 +1,4 @@
+import RichText from '@/components/RichText'
 import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -171,7 +172,7 @@ export default function PostDetailPage() {
         {/* Content */}
         <View className={styles.postContent}>
           <Text className={styles.postTitle}>{post.title}</Text>
-          <Text className={styles.postText}>{post.content}</Text>
+          <RichText content={post.content} className={styles.postText} />
           {post.images && post.images.map((img, i) => (
             <Image key={i} className={styles.postImage} src={img} mode='widthFix' />
           ))}

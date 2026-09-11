@@ -1,3 +1,4 @@
+import RichText from '@/components/RichText'
 import { useRef, useState } from 'react'
 import {
   ProTable,
@@ -64,7 +65,7 @@ export default function Notifications() {
       },
     },
     { title: '标题', dataIndex: 'title', width: 180, ellipsis: true },
-    { title: '内容', dataIndex: 'content', width: 260, search: false, ellipsis: true },
+    { title: '内容', dataIndex: 'content', width: 260, search: false, render: (_, record) => <RichText content={record.content} clamp={2} variant="preview" /> },
     {
       title: '已读',
       dataIndex: 'isRead',
@@ -186,7 +187,7 @@ export default function Notifications() {
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="标题">{detailRecord.title}</Descriptions.Item>
-            <Descriptions.Item label="内容">{detailRecord.content}</Descriptions.Item>
+            <Descriptions.Item label="内容"><RichText content={detailRecord.content} variant="full" /></Descriptions.Item>
             <Descriptions.Item label="已读">
               <Tag color={detailRecord.isRead === 1 ? 'green' : 'default'}>
                 {detailRecord.isRead === 1 ? '已读' : '未读'}

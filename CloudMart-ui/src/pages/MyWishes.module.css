@@ -161,3 +161,35 @@
 @media (max-width: 1024px) {
   .container { max-width: 100%; padding: 0 12px; }
 }
+
+
+/* ===== WishCollections / WishWorkshop 复用样式 ===== */
+.backBar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.backBtn {
+  padding-left: 0;
+  color: var(--color-text-secondary);
+}
+
+.listCard {
+  border-radius: 12px;
+}
+
+.wishItem {
+  cursor: default;
+}
+
+.wishList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.justExchanged {
+  border-color: rgba(var(--color-primary-rgb), 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.25);
+}

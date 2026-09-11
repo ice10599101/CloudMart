@@ -4,6 +4,7 @@ import { StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { WeakNetworkBanner, pageSizeForNetwork } from '@/components/StateFeedback'
 import { listWishes, getCategories } from '@/api/wish'
+import RichText from '@/components/RichText'
 import type { WishListItem, Category } from '@/api/wish'
 import { stripHtml } from '@/utils/format'
 import Skeleton from '@/components/Skeleton'
@@ -182,7 +183,7 @@ export default function WishSquare() {
               >
                 <div className={styles.cardBody}>
                   <h3 className={styles.cardTitle}>{wish.title}</h3>
-                  <p className={styles.cardDesc}>{stripHtml(wish.description)}</p>
+                  <RichText content={wish.description} clamp={3} variant="preview" className={styles.cardDesc} />
                   {wish.tags && wish.tags.length > 0 && (
                     <div className={styles.cardTags}>
                       {wish.tags.slice(0, 3).map(tag => (

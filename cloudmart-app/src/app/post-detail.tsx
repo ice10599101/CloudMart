@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+import RichHtml from '@/components/RichHtml'
+import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
@@ -30,6 +31,7 @@ interface CommentData {
 }
 
 export default function PostDetailScreen() {
+  const { width: contentWidth } = useWindowDimensions()
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const postId = Number(id)
@@ -209,7 +211,7 @@ export default function PostDetailScreen() {
         {/* Content */}
         <View style={{ paddingHorizontal: Spacing.lg }}>
           <Text style={{ fontSize: FontSize.xl, fontWeight: '600', color: theme.text, lineHeight: 28, marginBottom: Spacing.md }}>{post.title}</Text>
-          <Text style={{ fontSize: FontSize.md, color: theme.text, lineHeight: 24, marginBottom: Spacing.md }}>{post.content}</Text>
+          <RichHtml content={post.content} width={contentWidth} color={theme.text} fontSize={FontSize.md} />
 
           {post.images?.map((img, i) => (
             <Image key={i} source={{ uri: img }} style={{ width: '100%', height: 200, borderRadius: BorderRadius.md, marginBottom: Spacing.sm, resizeMode: 'cover' }} />

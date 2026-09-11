@@ -87,7 +87,7 @@ export default function Posts() {
       fixed: 'right',
       render: (_, record) => {
         const actions: React.ReactNode[] = [
-          <Button key="detail" type="link" size="small" href={`/community/post/${record.id}`} target="_blank">
+          <Button key="detail" type="link" size="small" href={`/post/${record.id}`} target="_blank">
             查看详情
           </Button>,
         ]

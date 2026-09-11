@@ -1,6 +1,7 @@
 package com.cloudmart.admin.controller;
 
 import com.cloudmart.admin.dto.feign.*;
+import jakarta.validation.Valid;
 import com.cloudmart.admin.feign.AiFeignClient;
 import com.cloudmart.admin.feign.BrandFeignClient;
 import com.cloudmart.admin.feign.CartFeignClient;
@@ -447,7 +448,7 @@ public class AdminBusinessController {
     @OperLog(title = "通知管理", businessType = 1)
     @RequiresPermission("business:notification:send")
     @Operation(summary = "发送通知", description = "发送通知给用户")
-    public ApiResponse<Object> sendNotification(@RequestBody SendNotificationRequest request) {
+    public ApiResponse<Object> sendNotification(@Valid @RequestBody SendNotificationRequest request) {
         return notificationFeignClient.sendNotification(request);
     }
 

@@ -1,7 +1,8 @@
+import AccountDeletionSection from '@/components/AccountDeletionSection'
 import { useState, useEffect } from 'react'
 import { Switch, Input, Button } from 'antd'
 import { message } from '@/utils/appMessage'
-import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined, DeleteOutlined,
+import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined,
   StarOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
@@ -345,19 +346,7 @@ export default function SettingsPage() {
             <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
           </div>
 
-          <div
-            style={toggleRowStyle}
-            onClick={() => history.push('/profile')}
-            role="link"
-          >
-            <div>
-              <div style={{ fontSize: 14, color: '#ff4d4f', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <DeleteOutlined /> 注销账号
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>30 天宽限期，期间可撤回</div>
-            </div>
-            <span style={{ color: '#ff4d4f', fontSize: 13 }}>前往 →</span>
-          </div>
+          <AccountDeletionSection />
         </div>
 
       </div>

@@ -687,3 +687,33 @@ html, body, #root {
     padding: 0 16px;
   }
 }
+
+/* ============================================
+   RichText 统一富文本排版（编辑器发布内容渲染）
+   ============================================ */
+.rich-text-full { line-height: 1.75; word-break: break-word; }
+.rich-text-preview { line-height: 1.6; word-break: break-word; }
+.rich-text-full p, .rich-text-preview p { margin: 0 0 8px; }
+.rich-text-full p:last-child, .rich-text-preview p:last-child { margin-bottom: 0; }
+.rich-text-full h1, .rich-text-full h2, .rich-text-full h3,
+.rich-text-full h4, .rich-text-full h5, .rich-text-full h6 { margin: 14px 0 8px; line-height: 1.4; }
+.rich-text-full h1 { font-size: 20px; }
+.rich-text-full h2 { font-size: 18px; }
+.rich-text-full h3 { font-size: 16px; }
+.rich-text-full h4, .rich-text-full h5, .rich-text-full h6 { font-size: 15px; }
+.rich-text-preview h1, .rich-text-preview h2, .rich-text-preview h3,
+.rich-text-preview h4, .rich-text-preview h5, .rich-text-preview h6 { font-size: inherit; margin: 0 0 6px; }
+.rich-text-full ul, .rich-text-preview ul, .rich-text-full ol, .rich-text-preview ol { padding-left: 22px; margin: 8px 0; }
+.rich-text-full li, .rich-text-preview li { margin: 2px 0; }
+.rich-text-full img, .rich-text-preview img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+.rich-text-full blockquote, .rich-text-preview blockquote {
+  margin: 8px 0; padding: 6px 12px; border-left: 3px solid rgba(var(--color-primary-rgb, 0, 212, 255), 0.5);
+  background: rgba(var(--color-primary-rgb, 0, 212, 255), 0.06); border-radius: 0 6px 6px 0;
+}
+.rich-text-full a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+.rich-text-preview a { color: inherit; }
+.rich-text-full code { background: rgba(127, 127, 127, 0.15); padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+.rich-text-full pre { background: rgba(127, 127, 127, 0.12); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+.rich-text-full table { border-collapse: collapse; margin: 8px 0; max-width: 100%; }
+.rich-text-full th, .rich-text-full td { border: 1px solid rgba(127, 127, 127, 0.3); padding: 6px 10px; }
+.rich-text-full hr { border: none; border-top: 1px solid rgba(127, 127, 127, 0.25); margin: 14px 0; }

@@ -1,3 +1,4 @@
+import RichText from '@/components/RichText'
 import { useState, useEffect, useRef } from 'react'
 import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
@@ -404,7 +405,7 @@ export default function WishDetailPage() {
             <Text className={styles.date}>{new Date(wish.createdAt).toLocaleString('zh-CN')}</Text>
           </View>
 
-          <Text className={styles.description}>{wish.description}</Text>
+          <RichText content={wish.description} className={styles.description} />
 
           {wish.expectedAt && (
             <View className={styles.expectedRow}>

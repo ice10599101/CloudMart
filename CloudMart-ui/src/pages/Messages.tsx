@@ -16,6 +16,7 @@ import {
   RobotOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
+import RichText from '@/components/RichText'
 import Skeleton from '@/components/Skeleton'
 import {
   listNotifications,
@@ -202,11 +203,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   }
 
   if (item.type === 'TAG_NEW_POST') {
-    return (
-      <p className={styles.notificationText}>
-        {item.content}
-      </p>
-    )
+    return <RichText content={item.content} variant="preview" className={styles.notificationText} />
   }
 
   if (item.type === 'FOLLOW') {
@@ -217,7 +214,8 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
     )
   }
 
-  return <p className={styles.notificationText}>{item.content}</p>
+  // 编辑器发布的公告/系统通知为 HTML：必须富文本渲染，禁止原样输出标签或剥离为纯文本
+  return <RichText content={item.content} variant="preview" className={styles.notificationText} />
 }
 
 function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNotification; followedMap: Record<number, boolean>; onToggleFollow: (userId: number) => void }) {

@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Share } from 'react-native'
+import RichHtml from '@/components/RichHtml'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Share, useWindowDimensions } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -18,6 +19,7 @@ import WishShareCard from '@/components/WishShareCard'
 import type { WishDetail, WishFulfillmentDetail } from '@/types'
 
 export default function WishDetailScreen() {
+  const { width: contentWidth } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ id?: string; extend?: string }>()
   const wishId = String(params.id ?? '')
@@ -462,9 +464,9 @@ export default function WishDetailScreen() {
           </Text>
         </View>
 
-        <Text style={{ fontSize: FontSize.md, color: WishColors.textSecondary, lineHeight: 24, marginTop: Spacing.md }}>
-          {wish.description}
-        </Text>
+        <View style={{ marginTop: Spacing.md }}>
+          <RichHtml content={wish.description} width={contentWidth} color={WishColors.textSecondary} fontSize={FontSize.md} />
+        </View>
 
         {wish.expectedAt && (
           <Text style={{ fontSize: FontSize.sm, color: WishColors.accentGold, marginTop: Spacing.md }}>

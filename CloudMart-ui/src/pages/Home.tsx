@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { Post, HotTopic, RecommendUser, ProductSearchItem } from '@/types'
 import styles from './Home.module.css'
 import ShareModal from '@/components/ShareModal'
+import RichText from '@/components/RichText'
 
 const FEED_TABS = [
   { key: 'recommend', label: '推荐', icon: <CompassOutlined /> },
@@ -166,7 +167,12 @@ function PostCard({
 
       <div className={styles.postBody}>
         <h3 className={styles.postTitle}>{post.title}</h3>
-        <p className={styles.postSummary}>{post.summary}</p>
+        <RichText
+          content={post.content || post.summary}
+          clamp={3}
+          variant="preview"
+          className={styles.postSummary}
+        />
         {post.coverImage && (
           <div className={`${styles.postCover} ${isVideo ? styles.postCoverVideo : ''}`}>
             <img src={post.coverImage} alt={post.title} />

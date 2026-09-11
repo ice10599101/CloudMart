@@ -4,6 +4,7 @@ import { message } from '@/utils/appMessage'
 import { history, useSearchParams } from 'umi'
 import { searchProducts } from '@/api/product'
 import { searchPosts, getSearchHistory, clearSearchHistory, getHotSearches } from '@/api/community'
+import RichText from '@/components/RichText'
 import type { ProductSearchItem, BrandBucket, CategoryBucket } from '@/types'
 import type { Post } from '@/api/community'
 
@@ -198,7 +199,6 @@ function ProductCard({ product }: { product: ProductSearchItem }) {
 }
 
 function PostCard({ post }: { post: Post }) {
-  const preview = stripHtml(post.content).slice(0, 100)
 
   return (
     <div
@@ -290,7 +290,7 @@ function PostCard({ post }: { post: Post }) {
               WebkitBoxOrient: 'vertical',
             }}
           >
-            {preview}
+            <RichText content={post.content} clamp={2} variant="preview" />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
