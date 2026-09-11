@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react'
 import zhCN from 'antd/locale/zh_CN'
 import 'dayjs/locale/zh-cn'
-import { ConfigProvider, theme, Input, Badge, Avatar, Dropdown, App } from 'antd'
+import { ConfigProvider, theme, Input, Badge, Avatar, Dropdown, App, Drawer } from 'antd'
 import {
   ShoppingCartOutlined,
   BellOutlined,
@@ -19,6 +19,7 @@ import {
   CalendarOutlined,
   SettingOutlined,
   StarOutlined,
+  MenuOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAuthStore } from '@/stores/auth'
@@ -330,6 +331,27 @@ export default function UserLayout() {
   const [searchValue, setSearchValue] = useState('')
   const [hoveredNav, setHoveredNav] = useState<string | null>(null)
   const [avatarHovered, setAvatarHovered] = useState(false)
+  // 移动端（≤768px）：header 收纳为汉堡菜单，避免桌面导航/搜索/操作条撑破窄视口
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches)
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 768px)')
+    const sync = () => {
+      setIsMobile(mql.matches)
+      if (!mql.matches) setNavDrawerOpen(false)
+    }
+    sync()
+    // resize / visualViewport 双通道：覆盖窗口拖拽、设备旋转及模拟视口（CDP）
+    window.addEventListener('resize', sync)
+    mql.addEventListener?.('change', sync)
+    window.visualViewport?.addEventListener('resize', sync)
+    return () => {
+      window.removeEventListener('resize', sync)
+      mql.removeEventListener?.('change', sync)
+      window.visualViewport?.removeEventListener('resize', sync)
+    }
+  }, [])
 
   const tokens = getThemeTokens(mode)
   const styles = buildStyles(tokens)
@@ -435,12 +457,13 @@ export default function UserLayout() {
     <App>
     <AppMessageBinder />
     <div style={styles.layout}>
-      <header style={styles.header}>
-        <div style={styles.logo} onClick={() => history.push('/')}>
+      <header style={{ ...styles.header, padding: isMobile ? '0 16px' : styles.header.padding }}>
+        <div style={{ ...styles.logo, marginRight: isMobile ? 0 : 40 }} onClick={() => history.push('/')}>
           <AppstoreOutlined style={styles.logoIcon} />
           <span style={styles.logoText}>宝贝小答</span>
         </div>
 
+        {!isMobile && (
         <nav style={styles.nav}>
           {NAV_ITEMS.map((item) => {
             const isActive = selectedKey === item.key
@@ -474,7 +497,9 @@ export default function UserLayout() {
             )
           })}
         </nav>
+        )}
 
+        {!isMobile && (
         <div style={styles.searchWrapper}>
           <Input
             placeholder="搜索商品..."
@@ -492,8 +517,9 @@ export default function UserLayout() {
             }}
           />
         </div>
+        )}
 
-        <div style={styles.actions}>
+        <div style={{ ...styles.actions, ...(isMobile ? { marginLeft: 'auto', gap: 16 } : {}) }}>
           <ThemeToggle mode={mode} onToggle={toggleMode} />
 
           <Badge count={totalCount} size="small" offset={[2, -2]} color={tokens.colorPrimary}>
@@ -511,19 +537,6 @@ export default function UserLayout() {
             />
           </Badge>
 
-          <RobotOutlined
-            style={styles.iconBtn}
-            onClick={() => history.push('/ai-chat')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = tokens.colorPrimary
-              e.currentTarget.style.textShadow = `0 0 12px rgba(${tokens.colorPrimaryRgb}, 0.4)`
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = tokens.colorTextSecondary
-              e.currentTarget.style.textShadow = 'none'
-            }}
-          />
-
           <Badge count={unreadCount} size="small" offset={[2, -2]} color={tokens.colorAccentRed}>
             <BellOutlined
               style={styles.iconBtn}
@@ -539,38 +552,28 @@ export default function UserLayout() {
             />
           </Badge>
 
-          {isAuthenticated ? (
-            <>
-              <CalendarOutlined
-                style={styles.iconBtn}
-                onClick={() => history.push('/wish/signin')}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = tokens.colorPrimary
-                  e.currentTarget.style.textShadow = `0 0 12px rgba(${tokens.colorPrimaryRgb}, 0.4)`
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = tokens.colorTextSecondary
-                  e.currentTarget.style.textShadow = 'none'
-                }}
-              />
-              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-                <span
-                  style={{ display: 'inline-flex', cursor: 'pointer' }}
-                  onMouseEnter={() => setAvatarHovered(true)}
-                  onMouseLeave={() => setAvatarHovered(false)}
-                >
-                  <Avatar
-                    icon={<UserOutlined />}
-                    src={user?.avatar}
-                    style={{
-                      ...styles.avatar,
-                      borderColor: avatarHovered ? tokens.colorPrimary : tokens.colorBorder,
-                    }}
-                  />
-                </span>
-              </Dropdown>
-            </>
-          ) : (
+          {!isMobile && (
+            <RobotOutlined
+              style={styles.iconBtn}
+              onClick={() => history.push('/ai-chat')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = tokens.colorPrimary
+                e.currentTarget.style.textShadow = `0 0 12px rgba(${tokens.colorPrimaryRgb}, 0.4)`
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = tokens.colorTextSecondary
+                e.currentTarget.style.textShadow = 'none'
+              }}
+            />
+          )}
+
+          {isMobile ? (
+            <MenuOutlined
+              style={styles.iconBtn}
+              aria-label="打开菜单"
+              onClick={() => setNavDrawerOpen(true)}
+            />
+          ) : !isAuthenticated ? (
             <button
               type="button"
               style={styles.loginBtn}
@@ -586,9 +589,143 @@ export default function UserLayout() {
             >
               登录
             </button>
+          ) : (
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+              <span
+                style={{ display: 'inline-flex', cursor: 'pointer' }}
+                onMouseEnter={() => setAvatarHovered(true)}
+                onMouseLeave={() => setAvatarHovered(false)}
+              >
+                <Avatar
+                  icon={<UserOutlined />}
+                  src={user?.avatar}
+                  style={{
+                    ...styles.avatar,
+                    borderColor: avatarHovered ? tokens.colorPrimary : tokens.colorBorder,
+                  }}
+                />
+              </span>
+            </Dropdown>
           )}
         </div>
       </header>
+
+      <Drawer
+        title="宝贝小答"
+        placement="right"
+        width={300}
+        open={isMobile && navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        styles={{ body: { padding: '16px' } }}
+      >
+        <Input
+          placeholder="搜索商品..."
+          prefix={<SearchOutlined style={{ color: tokens.colorTextTertiary, fontSize: 14 }} />}
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          onPressEnter={() => {
+            handleSearch(searchValue)
+            setNavDrawerOpen(false)
+          }}
+          allowClear
+          style={{
+            height: 38,
+            borderRadius: 16,
+            marginBottom: 16,
+            background: tokens.colorBgInput,
+            border: `1px solid ${tokens.colorBorder}`,
+            color: tokens.colorText,
+          }}
+        />
+        {NAV_ITEMS.map((item) => {
+          const isActive = selectedKey === item.key
+          return (
+            <div
+              key={item.key}
+              style={{
+                ...styles.navItem(isActive),
+                marginBottom: 4,
+              }}
+              onClick={() => {
+                history.push(item.key)
+                setNavDrawerOpen(false)
+              }}
+            >
+              <span style={{ fontSize: 16, display: 'flex', alignItems: 'center' }}>{item.icon}</span>
+              {item.key === '/messages' ? (
+                <Badge dot={unreadCount > 0} color={tokens.colorAccentRed} offset={[2, 0]}>
+                  <span style={{ color: isActive ? tokens.colorPrimary : 'var(--color-text-secondary)' }}>{item.label}</span>
+                </Badge>
+              ) : (
+                <span>{item.label}</span>
+              )}
+            </div>
+          )
+        })}
+        <div
+          style={{ ...styles.navItem(false), marginBottom: 4 }}
+          onClick={() => {
+            history.push('/ai-chat')
+            setNavDrawerOpen(false)
+          }}
+        >
+          <span style={{ fontSize: 16, display: 'flex', alignItems: 'center' }}><RobotOutlined /></span>
+          <span>AI 助手</span>
+        </div>
+        {isAuthenticated && (
+          <div
+            style={{ ...styles.navItem(false), marginBottom: 4 }}
+            onClick={() => {
+              history.push('/wish/signin')
+              setNavDrawerOpen(false)
+            }}
+          >
+            <span style={{ fontSize: 16, display: 'flex', alignItems: 'center' }}><CalendarOutlined /></span>
+            <span>每日签到</span>
+          </div>
+        )}
+        <div
+          style={{ ...styles.navItem(false), marginBottom: 4 }}
+          onClick={() => {
+            toggleMode()
+          }}
+        >
+          <span style={{ fontSize: 16, display: 'flex', alignItems: 'center' }}>🌸</span>
+          <span>{mode === 'ocean' ? '切换到樱花粉' : '切换到深海蓝'}</span>
+        </div>
+        <div style={{ height: 1, background: tokens.colorBorder, margin: '12px 0' }} />
+        {isAuthenticated ? (
+          <>
+            {userMenuItems.map((mi) => {
+              const handler = mi.onClick as (() => void) | undefined
+              return (
+                <div
+                  key={mi.key}
+                  style={{ ...styles.navItem(false), marginBottom: 4 }}
+                  onClick={() => {
+                    setNavDrawerOpen(false)
+                    handler?.()
+                  }}
+                >
+                  <span style={{ fontSize: 16, display: 'flex', alignItems: 'center', width: 22 }}>{mi.icon}</span>
+                  <span>{mi.label}</span>
+                </div>
+              )
+            })}
+          </>
+        ) : (
+          <button
+            type="button"
+            style={{ ...styles.loginBtn, width: '100%' }}
+            onClick={() => {
+              setNavDrawerOpen(false)
+              history.push('/login')
+            }}
+          >
+            登录
+          </button>
+        )}
+      </Drawer>
 
       <main style={styles.content}>
         <div key={location.pathname} className={pageStyles.pageTransitionWrap}>
@@ -598,7 +735,7 @@ export default function UserLayout() {
 
       <footer style={styles.footer}>
         <div style={styles.footerInner}>
-          <div style={styles.footerGrid}>
+          <div style={{ ...styles.footerGrid, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 } : {}) }}>
             {FOOTER_COLUMNS.map((col) => (
               <div key={col.title}>
                 <div style={styles.footerColTitle}>{col.title}</div>

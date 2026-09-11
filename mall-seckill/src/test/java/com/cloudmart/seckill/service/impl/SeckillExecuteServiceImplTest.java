@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 class SeckillExecuteServiceImplTest {
 
     private SeckillActivityMapper activityMapper;
+    private com.cloudmart.seckill.service.SeckillProductService seckillProductService;
     private SeckillProductMapper productMapper;
     private StringRedisTemplate redisTemplate;
     private SeckillMQProducer mqProducer;
@@ -57,13 +58,14 @@ class SeckillExecuteServiceImplTest {
     void setUp() {
         activityMapper = mock(SeckillActivityMapper.class);
         productMapper = mock(SeckillProductMapper.class);
+        seckillProductService = mock(com.cloudmart.seckill.service.SeckillProductService.class);
         redisTemplate = mock(StringRedisTemplate.class);
         mqProducer = mock(SeckillMQProducer.class);
         valueOperations = mock(ValueOperations.class);
         setOperations = mock(SetOperations.class);
 
         seckillService = new SeckillExecuteServiceImpl(
-                activityMapper, productMapper, redisTemplate, mqProducer
+                activityMapper, productMapper, seckillProductService, redisTemplate, mqProducer
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

@@ -11,12 +11,15 @@ import com.cloudmart.seckill.repository.SeckillActivityMapper;
 import com.cloudmart.seckill.repository.SeckillProductMapper;
 import com.cloudmart.seckill.service.SeckillProductService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
+@Slf4j
 public class SeckillProductServiceImpl implements SeckillProductService {
 
     private static final String STOCK_KEY_PREFIX = "seckill:stock:";
@@ -24,15 +27,18 @@ public class SeckillProductServiceImpl implements SeckillProductService {
     private final SeckillProductMapper productMapper;
     private final SeckillActivityMapper activityMapper;
     private final SeckillConverter seckillConverter;
+    private final com.cloudmart.seckill.feign.ProductFeignClient productFeignClient;
     private final StringRedisTemplate redisTemplate;
 
     public SeckillProductServiceImpl(SeckillProductMapper productMapper,
                                      SeckillActivityMapper activityMapper,
                                      SeckillConverter seckillConverter,
+                                     com.cloudmart.seckill.feign.ProductFeignClient productFeignClient,
                                      StringRedisTemplate redisTemplate) {
         this.productMapper = productMapper;
         this.activityMapper = activityMapper;
         this.seckillConverter = seckillConverter;
+        this.productFeignClient = productFeignClient;
         this.redisTemplate = redisTemplate;
     }
 
@@ -83,7 +89,53 @@ public class SeckillProductServiceImpl implements SeckillProductService {
                         .eq(SeckillProduct::getActivityId, activityId)
                         .eq(SeckillProduct::getStatus, "ON_SHELF")
         );
-        return seckillConverter.toProductDTOList(products);
+        List<SeckillProductDTO> dtos = seckillConverter.toProductDTOList(products);
+        enrichProductInfo(dtos);
+        return dtos;
+    }
+
+    /**
+     * 用 mall-product 批量查询补齐商品名称/图片/商品ID；
+     * enrich 失败仅记日志，列表仍按库存数据返回（名称为空由前端兜底展示）。
+     */
+    private void enrichProductInfo(List<SeckillProductDTO> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+        List<Long> skuIds = dtos.stream()
+                .map(SeckillProductDTO::skuId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (skuIds.isEmpty()) {
+            return;
+        }
+        try {
+            var response = productFeignClient.getSkusBatch(skuIds);
+            if (response == null || response.data() == null) {
+                return;
+            }
+            Map<Long, com.cloudmart.seckill.feign.ProductFeignClient.SkuBatchItem> infoMap = response.data().stream()
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toMap(
+                            com.cloudmart.seckill.feign.ProductFeignClient.SkuBatchItem::skuId, item -> item,
+                            (a, b) -> a));
+            for (SeckillProductDTO dto : dtos) {
+                var info = infoMap.get(dto.skuId());
+                if (info != null) {
+                    // 通过 MapStruct 生成的 record 访问器无法就地修改，使用反射不可取，
+                    // 这里直接以新的 DTO 实例替换列表元素
+                    int idx = dtos.indexOf(dto);
+                    dtos.set(idx, new SeckillProductDTO(
+                            dto.id(), dto.activityId(), dto.skuId(),
+                            info.productId(), info.productName(), info.image(),
+                            dto.seckillPrice(), dto.originalPrice(),
+                            dto.totalStock(), dto.availableStock(), dto.perUserLimit(),
+                            dto.status(), dto.createdAt()));
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("秒杀商品信息 enrich 失败: {}", ex.getMessage());
+        }
     }
 
     @Override

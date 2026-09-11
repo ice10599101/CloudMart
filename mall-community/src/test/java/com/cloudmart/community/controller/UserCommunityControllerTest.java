@@ -31,12 +31,13 @@ class UserCommunityControllerTest {
     private final UserCommunityService userCommunityService = Mockito.mock(UserCommunityService.class);
     private final UserFollowService userFollowService = Mockito.mock(UserFollowService.class);
     private final PostService postService = Mockito.mock(PostService.class);
+    private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService = Mockito.mock(com.cloudmart.community.service.UserEnrichmentService.class);
 
     private static final String USER_ID_HEADER = "X-User-Id";
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService, userEnrichmentService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -50,8 +50,7 @@ class AdminSeckillProductControllerTest {
         @Test
         @DisplayName("查询活动下的秒杀商品成功返回信封格式")
         void listProductsByActivity_ShouldReturnSuccessEnvelope() throws Exception {
-            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L,
-                    new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
+            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L, null, null, null, new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
             given(productService.listProductsByActivity(1L)).willReturn(List.of(dto));
 
             SeckillProductVO vo = new SeckillProductVO(1L, 200L, "商品A", "img.jpg",
@@ -74,8 +73,7 @@ class AdminSeckillProductControllerTest {
         @Test
         @DisplayName("查询秒杀商品详情成功返回信封格式")
         void getProduct_ShouldReturnSuccessEnvelope() throws Exception {
-            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L,
-                    new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
+            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L, null, null, null, new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
             given(productService.getProduct(1L)).willReturn(dto);
 
             SeckillProductVO vo = new SeckillProductVO(1L, 200L, "商品A", "img.jpg",
@@ -109,8 +107,7 @@ class AdminSeckillProductControllerTest {
         @Test
         @DisplayName("添加秒杀商品成功返回信封格式")
         void addProduct_ShouldReturnSuccessEnvelope() throws Exception {
-            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L,
-                    new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
+            SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L, null, null, null, new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ON_SHELF", LocalDateTime.now());
             given(productService.addProduct(Mockito.eq(1L), Mockito.any(AddSeckillProductRequest.class))).willReturn(dto);
 
             SeckillProductVO vo = new SeckillProductVO(1L, 200L, "商品A", "img.jpg",

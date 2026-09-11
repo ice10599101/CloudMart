@@ -51,6 +51,10 @@ public class GroupActivityController {
             @Parameter(description = "用户ID") @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody JoinGroupRequest request) {
         GroupOrderDTO dto = groupActivityService.joinGroup(userId, request);
+        // 降级/fallback 会返回 null：必须显式失败而非静默伪装成功
+        if (dto == null) {
+            return ApiResponse.fail("GROUP_JOIN_FAILED", "参团暂时不可用，请稍后重试");
+        }
         return ApiResponse.ok(marketingConverter.groupOrderDtoToVO(dto));
     }
 

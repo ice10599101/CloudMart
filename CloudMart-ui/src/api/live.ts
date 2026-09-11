@@ -11,9 +11,8 @@ export interface LiveRoom {
   streamUrl: string
   productId: number | null
   seckillActivityId: number | null
-  maxViewers: number
-  currentViewers: number
-  totalViewers: number
+  /** 后端 LiveRoomVO 仅返回 viewerCount（当前观看数） */
+  viewerCount: number
   status: string
   startTime: string | null
   endTime: string | null

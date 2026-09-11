@@ -232,7 +232,7 @@ export default function LiveRoomPage() {
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              <span style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{room.currentViewers + likes}</span>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{(room.viewerCount ?? 0) + likes}</span>
             </div>
             <div style={{
               padding: '4px 10px', borderRadius: 12,
@@ -412,7 +412,7 @@ export default function LiveRoomPage() {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 8 }}>直播间信息</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', lineHeight: 1.8 }}>
             <div>主播：{room.anchorName}</div>
-            <div>观看：{room.currentViewers + likes}</div>
+            <div>观看：{(room.viewerCount ?? 0) + likes}</div>
             {room.startTime && <div>开播：{new Date(room.startTime).toLocaleString()}</div>}
           </div>
         </div>

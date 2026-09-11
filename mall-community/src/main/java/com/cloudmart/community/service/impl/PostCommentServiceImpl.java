@@ -86,7 +86,10 @@ public class PostCommentServiceImpl implements PostCommentService {
         postMapper.updateById(post);
 
         growthService.addExp(userId, 10, "COMMENT", comment.getId(), "发表评论");
-        communityEventProducer.publishCommentEvent(post.getUserId(), userId, postId, post.getTitle(), request.content());
+        // 自评论（评论自己帖子）不产生通知
+        if (!post.getUserId().equals(userId)) {
+            communityEventProducer.publishCommentEvent(post.getUserId(), userId, postId, post.getTitle(), request.content());
+        }
 
         publishMentionNotifications(request.content(), userId, postId, post.getTitle());
 

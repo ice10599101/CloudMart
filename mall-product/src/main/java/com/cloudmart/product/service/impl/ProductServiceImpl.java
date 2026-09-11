@@ -167,6 +167,33 @@ public class ProductServiceImpl implements ProductService {
         return dto;
     }
 
+    @Override
+    public List<com.cloudmart.product.vo.SkuBatchItemVO> getSkuBatchInfo(List<Long> skuIds) {
+        if (skuIds == null || skuIds.isEmpty()) {
+            return List.of();
+        }
+        List<ProductSku> skus = productSkuMapper.selectByIds(skuIds);
+        if (skus.isEmpty()) {
+            return List.of();
+        }
+        java.util.Set<Long> productIds = skus.stream()
+                .map(ProductSku::getProductId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        Map<Long, Product> productMap = productIds.isEmpty() ? Map.of()
+                : productMapper.selectBatchIds(productIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+        return skus.stream()
+                .map(sku -> {
+                    Product product = productMap.get(sku.getProductId());
+                    return new com.cloudmart.product.vo.SkuBatchItemVO(
+                            sku.getId(), sku.getProductId(),
+                            product != null ? product.getName() : null,
+                            sku.getImage());
+                })
+                .toList();
+    }
+
     private ProductDTO loadProductFromDb(Long id) {
         Product product = productMapper.selectById(id);
         if (product == null) {

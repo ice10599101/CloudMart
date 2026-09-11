@@ -37,6 +37,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/products/search", "/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/{id}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/skus/batch").permitAll()
                 .requestMatchers(HttpMethod.GET, "/reviews/product/**", "/reviews/stats/**").permitAll()
                 .requestMatchers("/products/es/reindex", "/products/es/sync/**", "/products/es/index", "/products/es/index/**").authenticated()
                 .requestMatchers("/error", "/actuator/**").permitAll()

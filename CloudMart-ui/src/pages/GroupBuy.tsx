@@ -19,7 +19,9 @@ function GroupActivityCard({
   const progressPercent = activity.targetNumber > 0
     ? Math.round((activity.currentGroups / activity.targetNumber) * 100)
     : 0
-  const isActive = activity.status === 'ENABLED'
+  // 启用中且未过 endTime 才可参与（与倒计时"已结束"判断保持一致）
+  const isExpired = activity.endTime ? new Date(activity.endTime).getTime() <= Date.now() : false
+  const isActive = activity.status === 'ENABLED' && !isExpired
 
   const handleJoin = async () => {
     setJoining(true)

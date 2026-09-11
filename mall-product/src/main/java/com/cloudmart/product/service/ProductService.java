@@ -15,6 +15,11 @@ public interface ProductService {
 
     ProductDTO getProductById(Long id);
 
+    /**
+     * 批量查询 SKU 及其所属商品信息（名称/图片），供秒杀等跨服务 enrich 使用。
+     */
+    List<com.cloudmart.product.vo.SkuBatchItemVO> getSkuBatchInfo(List<Long> skuIds);
+
     ProductDTO updateProduct(Long id, UpdateProductRequest request);
 
     void deleteProduct(Long id);

@@ -29,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SeckillExecuteServiceImpl implements SeckillExecuteService {
 
     private static final Logger log = LoggerFactory.getLogger(SeckillExecuteServiceImpl.class);
+    private final com.cloudmart.seckill.service.SeckillProductService seckillProductService;
+
     private static final String STOCK_KEY_PREFIX = "seckill:stock:";
     private static final String USER_SET_KEY_PREFIX = "seckill:users:";
     private static final String RESULT_KEY_PREFIX = "seckill:result:";
@@ -45,10 +47,12 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
 
     public SeckillExecuteServiceImpl(SeckillActivityMapper activityMapper,
                                      SeckillProductMapper productMapper,
+                                     com.cloudmart.seckill.service.SeckillProductService seckillProductService,
                                      StringRedisTemplate redisTemplate,
                                      SeckillMQProducer mqProducer) {
         this.activityMapper = activityMapper;
         this.productMapper = productMapper;
+        this.seckillProductService = seckillProductService;
         this.redisTemplate = redisTemplate;
         this.mqProducer = mqProducer;
 
@@ -84,6 +88,12 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
 
         if (soldOutMarkers.containsKey(stockKey)) {
             return new SeckillResultDTO("FAILED", null, "商品已售罄");
+        }
+
+        // 兜底：Redis 库存 key 缺失（实例重启后未预热）时从 DB 回填一次，
+        // 避免把"未预热"误判为"已售罄"
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(stockKey))) {
+            seckillProductService.loadStockToRedis(request.activityId(), request.seckillProductId());
         }
 
         Long result = redisTemplate.execute(

@@ -97,11 +97,7 @@ class SeckillProductServiceImplTest {
     }
 
     private SeckillProductDTO buildProductDTO(SeckillProduct product) {
-        return new SeckillProductDTO(
-                product.getId(), product.getActivityId(), product.getSkuId(),
-                product.getSeckillPrice(), product.getOriginalPrice(),
-                product.getTotalStock(), product.getAvailableStock(),
-                product.getPerUserLimit(), product.getStatus(), product.getCreatedAt()
+        return new SeckillProductDTO(product.getId(), product.getActivityId(), product.getSkuId(), null, null, null, product.getSeckillPrice(), product.getOriginalPrice(), product.getTotalStock(), product.getAvailableStock(), product.getPerUserLimit(), product.getStatus(), product.getCreatedAt()
         );
     }
 

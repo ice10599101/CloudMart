@@ -17,6 +17,15 @@ public record SeckillProductDTO(
     @Schema(description = "SKU ID")
     Long skuId,
 
+    @Schema(description = "商品ID")
+    Long productId,
+
+    @Schema(description = "商品名称")
+    String productName,
+
+    @Schema(description = "商品图片")
+    String productImage,
+
     @Schema(description = "秒杀价格")
     BigDecimal seckillPrice,
 

@@ -50,6 +50,13 @@ public class ProductController {
         return ApiResponse.ok(productConverter.productDetailToVO(dto));
     }
 
+    @GetMapping("/skus/batch")
+    @Operation(summary = "批量查询SKU商品信息", description = "按 SKU ID 批量返回商品名称/图片，供秒杀等跨服务 enrich 使用；须置于 /{id} 前声明以避免路径歧义")
+    public ApiResponse<List<com.cloudmart.product.vo.SkuBatchItemVO>> getSkusBatch(
+            @Parameter(description = "SKU ID 列表", required = true) @RequestParam("ids") List<Long> ids) {
+        return ApiResponse.ok(productService.getSkuBatchInfo(ids));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "更新商品", description = "更新商品基本信息")
     public ApiResponse<ProductVO> updateProduct(

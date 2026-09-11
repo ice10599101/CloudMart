@@ -108,7 +108,7 @@ function LiveRoomCard({ room }: { room: LiveRoom }) {
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: 11, fontWeight: 500 }}>{formatCount(room.currentViewers)}</span>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: 11, fontWeight: 500 }}>{formatCount(room.viewerCount ?? 0)}</span>
           </div>
         )}
 
