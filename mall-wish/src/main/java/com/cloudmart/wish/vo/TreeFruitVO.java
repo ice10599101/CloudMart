@@ -29,6 +29,9 @@ public record TreeFruitVO(
         @Schema(description = "果实类型（GLOW/RESONANCE/BLOOM/SPARK）", example = "GLOW")
         FruitType fruitType,
 
+        @Schema(description = "作者用户 ID（前端跳转用户主页）")
+        Long authorId,
+
         @Schema(description = "作者昵称（Feign 降级时为「心愿旅人」）", example = "追光少女")
         String authorNickname,
 

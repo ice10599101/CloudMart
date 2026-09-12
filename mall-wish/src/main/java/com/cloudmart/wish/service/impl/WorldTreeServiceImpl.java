@@ -169,6 +169,7 @@ public class WorldTreeServiceImpl implements WorldTreeService {
                 wish.getId(),
                 wish.getTitle(),
                 wish.getFruitType(),
+                wish.getUserId(),
                 nicknameMap.getOrDefault(wish.getUserId(), "心愿旅人"),
                 wish.getLightCount(),
                 new TreePositionVO(

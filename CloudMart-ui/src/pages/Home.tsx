@@ -120,12 +120,17 @@ function PostCard({
         <Avatar
           size={40}
           src={post.authorAvatar || undefined}
-          style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}
+          style={{ background: 'var(--color-gradient-primary)', flexShrink: 0, cursor: 'pointer' }}
+          onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
         >
           {post.authorNickname?.charAt(0) || '?'}
         </Avatar>
         <div className={styles.postAuthorInfo}>
-          <div className={styles.postAuthorName}>
+          <div
+            className={styles.postAuthorName}
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
+          >
             <span
               title={isWishPost ? '来自心愿宇宙' : '社区帖子'}
               style={{

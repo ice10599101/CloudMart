@@ -21,6 +21,8 @@ import {
 import {
   getUserProfile as getCommunityProfile,
   getUserCommunityStats,
+  getUserComments,
+  getUserLikedPosts,
   followUser,
   unfollowUser,
   getUserPosts,
@@ -29,7 +31,7 @@ import {
   unblockUser,
   checkBlockStatus,
 } from '@/api/community'
-import type { Post, UserCommunityStats } from '@/api/community'
+import type { Post, UserCommunityStats, MyComment } from '@/api/community'
 import { getUserPublicProfile } from '@/api/user'
 import type { UserProfile } from '@/api/user'
 import { createConversation } from '@/api/chat'
@@ -156,25 +158,28 @@ function PostCard({ post }: { post: Post }) {
   )
 }
 
-/** 详细资料字段：全字段展示，未填写显示「—」（与个人中心基本信息面板风格一致） */
+/** 详细资料字段：仅展示用户已填写的项，未填不显示 */
 function buildDetailFields(user: UserProfile): Array<{ label: string; value: string }> {
-  const empty = '—'
-  const get = (value: string | undefined | null) => (value ?? '').trim()
+  const fields: Array<{ label: string; value: string }> = []
+  const push = (label: string, value: string | undefined | null) => {
+    const v = (value ?? '').trim()
+    if (v) fields.push({ label, value: v })
+  }
   const genderMap: Record<string, string> = { MALE: '男', FEMALE: '女', UNKNOWN: '保密', SECRET: '保密' }
-  const genderRaw = get(user.gender)
-  const birthday = get(user.birthday)
-  const constellation = get(user.constellation)
+  const genderRaw = (user.gender ?? '').trim()
+  // 后端存枚举码，展示层转中文
+  push('性别', genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : '')
+  push('小答号', user.username)
+  if ((user.birthday ?? '').trim()) {
+    push('生日', user.constellation?.trim() ? `${user.birthday}（${user.constellation}）` : user.birthday)
+  }
+  push('职业', user.occupation)
+  push('学校', user.school)
+  push('所在地区', user.location)
+  push('兴趣爱好', user.hobbies)
   const joined = formatJoinDate(user.createdAt)
-  return [
-    { label: '小答号', value: get(user.username) || empty },
-    { label: '性别', value: genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : empty },
-    { label: '生日', value: birthday ? (constellation ? `${birthday}（${constellation}）` : birthday) : empty },
-    { label: '职业', value: get(user.occupation) || empty },
-    { label: '学校', value: get(user.school) || empty },
-    { label: '所在地区', value: get(user.location) || empty },
-    { label: '兴趣爱好', value: get(user.hobbies) || empty },
-    { label: '加入时间', value: joined || empty },
-  ]
+  if (joined) fields.push({ label: '加入时间', value: joined })
+  return fields
 }
 
 const WISH_STATUS_LABELS: Record<string, string> = {
@@ -289,8 +294,10 @@ export default function UserProfile() {
   const [chatLoading, setChatLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes'>('posts')
+  const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes' | 'comments' | 'liked'>('posts')
   const [wishes, setWishes] = useState<WishListItem[] | null>(null)
+  const [userComments, setUserComments] = useState<MyComment[] | null>(null)
+  const [likedPosts, setLikedPosts] = useState<Post[] | null>(null)
 
   const isOwnProfile = String(currentUser?.id ?? '') === (id ?? '')
 
@@ -383,6 +390,26 @@ export default function UserProfile() {
     }
   }, [id])
 
+  const fetchUserComments = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data: res } = await getUserComments(id, 1, 50)
+      setUserComments(res.data ?? [])
+    } catch {
+      setUserComments([])
+    }
+  }, [id])
+
+  const fetchLikedPosts = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data: res } = await getUserLikedPosts(id, 1, 50)
+      setLikedPosts(res.data ?? [])
+    } catch {
+      setLikedPosts([])
+    }
+  }, [id])
+
   useEffect(() => {
     fetchProfile()
     fetchPosts()
@@ -402,6 +429,18 @@ export default function UserProfile() {
       fetchWishes()
     }
   }, [activeTab, wishes, fetchWishes])
+
+  useEffect(() => {
+    if (activeTab === 'comments' && userComments === null) {
+      fetchUserComments()
+    }
+  }, [activeTab, userComments, fetchUserComments])
+
+  useEffect(() => {
+    if (activeTab === 'liked' && likedPosts === null) {
+      fetchLikedPosts()
+    }
+  }, [activeTab, likedPosts, fetchLikedPosts])
 
   const handleToggleFollow = useCallback(async () => {
     if (!isAuthenticated) {
@@ -523,7 +562,7 @@ export default function UserProfile() {
   }
 
   const stats = [
-    { label: '帖子', value: profile.postCount, icon: <FileTextOutlined />, action: () => setActiveTab('posts') },
+    { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined />, action: () => setActiveTab('posts') },
     { label: '粉丝', value: profile.followerCount, icon: <TeamOutlined />, action: () => history.push(`/user/${id}/following?tab=followers`) },
     { label: '关注', value: profile.followCount, icon: <UserAddOutlined />, action: () => history.push(`/user/${id}/following?tab=following`) },
   ]
@@ -531,10 +570,11 @@ export default function UserProfile() {
   const detailFields = detail ? buildDetailFields(detail) : []
   const joinedDays = detail ? formatJoinedDays(detail.createdAt) : null
 
-  const metricPanels = [
-    { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined /> },
-    { label: 'TA的评论', value: communityStats ? communityStats.commentsMade : null, icon: <CommentOutlined /> },
-    { label: 'TA赞过', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined /> },
+  // 面板可点击：TA的评论/TA赞过/获赞总数 跳转到对应列表
+  const metricPanels: Array<{ label: string; value: number | null; icon: React.ReactNode; action?: () => void }> = [
+    { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined />, action: () => setActiveTab('posts') },
+    { label: isOwnProfile ? '我的评论' : 'TA的评论', value: communityStats ? communityStats.commentsMade : null, icon: <CommentOutlined />, action: () => setActiveTab('comments') },
+    { label: isOwnProfile ? '我赞过的' : 'TA赞过', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined />, action: () => setActiveTab('liked') },
     { label: '加入天数', value: joinedDays, icon: <CalendarOutlined /> },
   ]
 
@@ -778,7 +818,7 @@ export default function UserProfile() {
                   fontWeight: 700,
                   letterSpacing: '-0.5px',
                 }}>
-                  {formatCount(stat.value)}
+                  {stat.value === null || stat.value === undefined ? '-' : formatCount(stat.value)}
                 </span>
                 <span style={{
                   color: 'var(--color-text-secondary)',
@@ -808,12 +848,13 @@ export default function UserProfile() {
       </div>
 
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 24px 0' }}>
-        {/* 数据面板：获赞 / 收到评论 / 浏览 / 加入天数 */}
+        {/* 数据面板：获赞 / TA的评论 / TA赞过 / 加入天数 */}
         <div style={cardSectionStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             {metricPanels.map((panel) => (
               <div
                 key={panel.label}
+                onClick={panel.action}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -822,6 +863,14 @@ export default function UserProfile() {
                   padding: '10px 4px',
                   borderRadius: 10,
                   background: 'rgba(var(--color-primary-rgb), 0.04)',
+                  cursor: panel.action ? 'pointer' : 'default',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (panel.action) e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.1)'
+                }}
+                onMouseLeave={(e) => {
+                  if (panel.action) e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.04)'
                 }}
               >
                 <span style={{ color: 'var(--color-primary)', fontSize: 18, fontWeight: 700 }}>
@@ -910,6 +959,8 @@ export default function UserProfile() {
             { key: 'posts' as const, label: '帖子', icon: <FileTextOutlined /> },
             { key: 'collections' as const, label: '收藏', icon: <StarOutlined /> },
             { key: 'wishes' as const, label: isOwnProfile ? '我的心愿' : 'TA的心愿', icon: <span style={{ fontSize: 13 }}>🌟</span> },
+            { key: 'comments' as const, label: isOwnProfile ? '我的评论' : 'TA的评论', icon: <CommentOutlined /> },
+            { key: 'liked' as const, label: isOwnProfile ? '我赞过的' : 'TA赞过', icon: <HeartOutlined /> },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1013,6 +1064,88 @@ export default function UserProfile() {
                 fontSize: 14,
               }}>
                 {isOwnProfile ? '你还没有公开的心愿' : 'TA还没有公开的心愿'}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'comments' && (
+          <>
+            {userComments === null ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}><Skeleton variant="list" count={3} /></div>
+            ) : userComments.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 80 }}>
+                {userComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    onClick={() => history.push(`/post/${comment.postId}`)}
+                    style={{
+                      background: 'var(--color-bg-container)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+                      {comment.postTitle || '原帖已删除'}
+                    </div>
+                    <RichText
+                      content={comment.content}
+                      clamp={2}
+                      variant="preview"
+                      style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 6 }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                        <HeartOutlined /> {formatCount(comment.likeCount)}
+                      </span>
+                      <span style={{ marginLeft: 'auto', color: 'var(--color-text-tertiary)', fontSize: 11 }}>
+                        {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '60px 0',
+                color: 'var(--color-text-tertiary)',
+                fontSize: 14,
+              }}>
+                {isOwnProfile ? '你还没有发表过评论' : 'TA还没有发表过评论'}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'liked' && (
+          <>
+            {likedPosts === null ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}><Skeleton variant="card" count={3} /></div>
+            ) : likedPosts.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                gap: 14,
+                paddingBottom: 80,
+              }}>
+                {likedPosts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '60px 0',
+                color: 'var(--color-text-tertiary)',
+                fontSize: 14,
+              }}>
+                {isOwnProfile ? '你还没有点赞过内容' : 'TA还没有点赞过内容'}
               </div>
             )}
           </>

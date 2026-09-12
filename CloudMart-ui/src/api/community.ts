@@ -277,9 +277,19 @@ export interface UserCommunityStats {
   likesGiven: number
 }
 
-/** 用户社区数据面板（获赞/收到评论/浏览总量，仅统计已发布帖子）；可选数据，失败静默由页面兜底 */
+/** 用户社区数据面板（获赞/TA的评论/TA赞过，仅统计已发布帖子）；可选数据，失败静默由页面兜底 */
 export function getUserCommunityStats(userId: number | string) {
   return request.get<ApiResponse<UserCommunityStats>>(`/community/users/${userId}/stats`, { silentError: true })
+}
+
+/** TA 的评论（指定用户在社区发表的评论，含所属帖子） */
+export function getUserComments(userId: number | string, page = 1, size = 20) {
+  return request.get<ApiResponse<MyComment[]>>(`/community/users/${userId}/comments`, { params: { page, size } })
+}
+
+/** TA 赞过的帖子 */
+export function getUserLikedPosts(userId: number | string, page = 1, size = 20) {
+  return request.get<ApiResponse<Post[]>>(`/community/users/${userId}/liked`, { params: { page, size } })
 }
 
 export function createReport(data: { targetType: string; targetId: number; reason: string; description?: string }) {

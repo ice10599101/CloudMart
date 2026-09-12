@@ -193,6 +193,7 @@ public class HomeServiceImpl implements HomeService {
                             w.getId(),
                             w.getTitle(),
                             coverUrl,
+                            w.getUserId(),
                             nicknameMap.getOrDefault(w.getUserId(), "心愿旅人"),
                             w.getSupportCount(),
                             w.getFruitType()

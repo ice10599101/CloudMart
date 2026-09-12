@@ -89,6 +89,7 @@ export interface TodayRecommendItem {
   wishId: number
   title: string
   coverUrl: string | null
+  authorId: number
   authorNickname: string
   supportCount: number
   fruitType: FruitType
@@ -478,6 +479,7 @@ export interface TreeFruit {
   id: number | string
   title: string
   fruitType: FruitType
+  authorId: number
   authorNickname: string
   lightCount: number
   position: TreeFruitPosition
@@ -1375,6 +1377,7 @@ export interface WishCollectionItem {
   collectionId: number
   wishId: number
   title: string
+  authorId: number
   authorNickname: string
   fruitType: string
   collectedAt: string

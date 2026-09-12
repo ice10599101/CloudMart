@@ -91,7 +91,10 @@ function PostCard({ post }: { post: Post }) {
           {post.title}
         </h4>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
+          >
             <Avatar
               size={20}
               src={post.authorAvatar || undefined}

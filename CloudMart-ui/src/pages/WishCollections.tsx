@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Empty, List, Tag, App } from 'antd'
 import { BookOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { history } from 'umi'
-import { WeakNetworkBanner } from '@/components/StateFeedback'
 import { listWishCollections, uncollectWish, type WishCollectionItem } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
@@ -72,7 +71,6 @@ export default function WishCollections() {
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>
-      <WeakNetworkBanner />
       <div className={styles.backBar}>
         <Button
           type="text"
@@ -120,7 +118,18 @@ export default function WishCollections() {
                       {item.title}
                     </span>
                   }
-                  description={`作者：${item.authorNickname || '匿名'} · 收藏于 ${new Date(item.collectedAt).toLocaleDateString('zh-CN')}`}
+                  description={
+                    <>
+                      作者：
+                      <span
+                        style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+                        onClick={() => item.authorId && history.push(`/user/${item.authorId}`)}
+                      >
+                        {item.authorNickname || '匿名'}
+                      </span>
+                      {' · 收藏于 '}{new Date(item.collectedAt).toLocaleDateString('zh-CN')}
+                    </>
+                  }
                 />
                 <Tag>{FRUIT_LABELS[item.fruitType] ?? item.fruitType}</Tag>
               </List.Item>

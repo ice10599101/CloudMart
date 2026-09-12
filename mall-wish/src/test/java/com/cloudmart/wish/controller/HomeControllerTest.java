@@ -71,7 +71,7 @@ class HomeControllerTest {
 
     private HomeAggregationVO buildHomeAggregation() {
         TodayRecommendItemVO todayItem = new TodayRecommendItemVO(
-                1L, "推荐心愿", "cover.png", "用户A", 50,
+                1L, "推荐心愿", "cover.png", 100L, "用户A", 50,
                 com.cloudmart.wish.enums.FruitType.GLOW
         );
         MyWishSummaryVO myWish = new MyWishSummaryVO(

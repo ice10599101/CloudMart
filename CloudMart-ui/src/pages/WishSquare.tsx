@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Spin, Empty, Card, Tag, Select, Input, Button, Avatar } from 'antd'
 import { StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
 import { history } from 'umi'
-import { WeakNetworkBanner, pageSizeForNetwork } from '@/components/StateFeedback'
+import { pageSizeForNetwork } from '@/components/StateFeedback'
 import { listWishes, getCategories } from '@/api/wish'
 import RichText from '@/components/RichText'
 import type { WishListItem, Category } from '@/api/wish'
@@ -129,7 +129,6 @@ export default function WishSquare() {
 
   return (
     <div className={`${styles.container} wish-universe-theme`}>
-      <WeakNetworkBanner />
       <div className={styles.header}>
         <h1 className={styles.pageTitle}>心愿广场</h1>
         <div className={styles.filters}>
@@ -192,7 +191,11 @@ export default function WishSquare() {
                     </div>
                   )}
                   <div className={styles.cardFooter}>
-                    <div className={styles.author}>
+                    <div
+                      className={styles.author}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); history.push(`/user/${wish.authorId}`) }}
+                    >
                       <Avatar
                         size={24}
                         src={wish.authorAvatar || undefined}

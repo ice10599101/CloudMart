@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param wishId          心愿 ID
  * @param title           心愿标题
  * @param coverUrl        封面图 URL（取 mediaUrls 第一张，无则 null）
+ * @param authorId        作者用户 ID（前端头像/昵称跳转用户主页）
  * @param authorNickname  作者昵称
  * @param supportCount    总互动数（用于推荐算法展示）
  * @param fruitType       果实类型
@@ -21,6 +22,7 @@ public record TodayRecommendItemVO(
         @Schema(description = "心愿 ID") Long wishId,
         @Schema(description = "心愿标题") String title,
         @Schema(description = "封面图 URL") String coverUrl,
+        @Schema(description = "作者用户 ID") Long authorId,
         @Schema(description = "作者昵称") String authorNickname,
         @Schema(description = "总互动数") Integer supportCount,
         @Schema(description = "果实类型") FruitType fruitType

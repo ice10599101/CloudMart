@@ -2,10 +2,13 @@ package com.cloudmart.community.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.community.service.PostCommentService;
 import com.cloudmart.community.service.PostService;
 import com.cloudmart.community.service.UserCommunityService;
 import com.cloudmart.community.service.UserFollowService;
+import com.cloudmart.community.vo.CommentVO;
 import com.cloudmart.community.vo.PostVO;
 import com.cloudmart.community.vo.UserCommunityVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +29,7 @@ public class UserCommunityController {
     private final UserCommunityService userCommunityService;
     private final UserFollowService userFollowService;
     private final PostService postService;
+    private final PostCommentService postCommentService;
     private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService;
 
     /**
@@ -56,6 +60,26 @@ public class UserCommunityController {
     public ApiResponse<com.cloudmart.community.vo.UserCommunityStatsVO> getUserStats(
             @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId) {
         return ApiResponse.ok(userCommunityService.getUserStats(userId));
+    }
+
+    @GetMapping("/{userId}/comments")
+    @Operation(summary = "TA 的评论", description = "获取指定用户在社区发表的评论列表（评论内容与所属帖子）")
+    public ApiResponse<List<CommentVO>> getUserComments(
+            @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+        Page<CommentVO> result = postCommentService.getMyComments(userId, page, size);
+        return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
+    }
+
+    @GetMapping("/{userId}/liked")
+    @Operation(summary = "TA 赞过的帖子", description = "获取指定用户点赞过的帖子列表")
+    public ApiResponse<List<PostVO>> getUserLikedPosts(
+            @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+        Page<PostVO> result = postService.getLikedPosts(userId, page, size);
+        return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
 
     @PostMapping("/{userId}/follow")

@@ -293,7 +293,10 @@ function PostCard({ post }: { post: Post }) {
             <RichText content={post.content} clamp={2} variant="preview" />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+              onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
+            >
               {post.authorAvatar ? (
                 <img
                   alt={post.authorNickname}

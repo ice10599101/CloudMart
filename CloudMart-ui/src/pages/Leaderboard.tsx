@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Skeleton } from 'antd'
 import { history } from 'umi'
-import { WeakNetworkBanner } from '@/components/StateFeedback'
 import { getLeaderboard, LEADERBOARD_LABELS, type LeaderboardEntry, type LeaderboardType } from '@/api/wish'
 import WishBGM from '@/components/WishBGM'
 import styles from './Leaderboard.module.css'
@@ -97,7 +96,6 @@ function BoardPanel({ type }: { type: LeaderboardType }) {
 export default function Leaderboard() {
   return (
     <div className={`${styles.container} wish-universe-theme`}>
-      <WeakNetworkBanner />
       <div className={styles.body}>
         <div className={styles.headerBar}>
           <div>

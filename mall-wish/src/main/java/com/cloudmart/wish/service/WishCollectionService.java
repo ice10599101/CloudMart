@@ -21,9 +21,9 @@ public interface WishCollectionService {
     /** 单心愿收藏状态查询（详情页收藏按钮回显） */
     boolean isCollected(Long userId, Long wishId);
 
-    /** 收藏条目 VO（含心愿信息） */
+    /** 收藏条目 VO（含心愿信息与作者身份，供前端跳转用户主页） */
     record WishCollectionItemVO(
             Long collectionId, Long wishId, String title,
-            String authorNickname, String fruitType, String collectedAt) {
+            Long authorId, String authorNickname, String fruitType, String collectedAt) {
     }
 }

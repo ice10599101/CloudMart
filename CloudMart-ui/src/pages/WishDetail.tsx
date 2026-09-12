@@ -460,7 +460,11 @@ export default function WishDetail() {
             </div>
             <h1 className={styles.title}>{wish.title}</h1>
             <div className={styles.meta}>
-              <div className={styles.author}>
+              <div
+                className={styles.author}
+                style={{ cursor: 'pointer' }}
+                onClick={() => history.push(`/user/${wish.authorId}`)}
+              >
                 <Avatar
                   size={32}
                   src={wish.authorAvatar || undefined}
@@ -516,7 +520,11 @@ export default function WishDetail() {
         {fulfillment && (
           <Card className={styles.fulfillmentCard} title="🌸 还愿故事">
             <div className={styles.fulfillmentHeader}>
-              <div className={styles.author}>
+              <div
+                className={styles.author}
+                style={{ cursor: 'pointer' }}
+                onClick={() => history.push(`/user/${fulfillment.authorId}`)}
+              >
                 <Avatar
                   size={32}
                   src={fulfillment.authorAvatar || undefined}

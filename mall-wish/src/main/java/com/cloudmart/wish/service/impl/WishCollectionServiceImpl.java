@@ -5,6 +5,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishCollection;
+import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishCollectionMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.service.WishCollectionService;
@@ -32,6 +33,7 @@ public class WishCollectionServiceImpl implements WishCollectionService {
 
     private final WishCollectionMapper collectionMapper;
     private final WishMapper wishMapper;
+    private final UserFeignClient userFeignClient;
 
     @Override
     @Transactional
@@ -91,10 +93,27 @@ public class WishCollectionServiceImpl implements WishCollectionService {
                     collection.getId(),
                     wish.getId(),
                     wish.getTitle(),
-                    wish.getGeohash() != null ? wish.getGeohash() : "",
+                    wish.getUserId(),
+                    resolveAuthorNickname(wish.getUserId()),
                     wish.getFruitType() != null ? wish.getFruitType().name() : "GLOW",
                     collection.getCollectedAt() != null ? collection.getCollectedAt().toString() : ""));
         }
         return result;
+    }
+
+    /** 作者昵称经 Feign 解析；mall-user 不可用时 Fail-Open 降级为占位昵称 */
+    private String resolveAuthorNickname(Long userId) {
+        try {
+            var response = userFeignClient.batchGetUsers(List.of(userId));
+            if (response.success() && response.data() != null && !response.data().isEmpty()) {
+                Object nickname = response.data().get(0).get("nickname");
+                if (nickname != null && !nickname.toString().isBlank()) {
+                    return nickname.toString();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("收藏列表作者昵称获取失败，降级占位: {}", e.getMessage());
+        }
+        return "心愿旅人";
     }
 }

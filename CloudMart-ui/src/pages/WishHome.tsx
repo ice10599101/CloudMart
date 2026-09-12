@@ -293,7 +293,12 @@ export default function WishHome() {
                         <span style={{ color: FRUIT_TYPE_COLORS[item.fruitType] }}>
                           {FRUIT_TYPE_LABELS[item.fruitType]}
                         </span>
-                                <span>{item.authorNickname}</span>
+                        <span
+                          style={{ cursor: 'pointer' }}
+                          onClick={(e) => { e.stopPropagation(); history.push(`/user/${item.authorId}`) }}
+                        >
+                          {item.authorNickname}
+                        </span>
                                 <span>{formatCount(item.supportCount)} 互动</span>
                               </div>
                             }

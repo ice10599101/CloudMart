@@ -1,10 +1,10 @@
 import { Button } from 'antd'
-import { ReloadOutlined, WifiOutlined, CloudServerOutlined } from '@ant-design/icons'
+import { ReloadOutlined, CloudServerOutlined } from '@ant-design/icons'
 import styles from './index.module.css'
 
 /**
  * 统一状态组件（Sprint 1.6 验收：EmptyState/ErrorState/LoadingState）。
- * 替代散落在各页面的裸 Empty/文字加载，提供空态/错误态(含重试)/弱网提示。
+ * 替代散落在各页面的裸 Empty/文字加载，提供空态/错误态(含重试)/弱网降载。
  */
 
 export function ErrorState({ message = '加载失败', onRetry }: { message?: string; onRetry?: () => void }) {
@@ -15,15 +15,6 @@ export function ErrorState({ message = '加载失败', onRetry }: { message?: st
             {onRetry && (
                 <Button size="small" icon={<ReloadOutlined />} onClick={onRetry}>重试</Button>
             )}
-        </div>
-    )
-}
-
-export function WeakNetworkBanner() {
-    return (
-        <div className={styles.weakBanner}>
-            <WifiOutlined style={{ marginRight: 6 }} />
-            当前网络较慢，已降低图片质量与加载数量
         </div>
     )
 }

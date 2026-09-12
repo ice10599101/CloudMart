@@ -815,7 +815,7 @@ export default function WorldTree3D() {
               >
                 <div className={styles.fruitCardMeta}>
                   <Tag color="cyan">{FRUIT_LABELS[selectedFruit.fruitType] ?? selectedFruit.fruitType}</Tag>
-                  <span className={styles.fruitAuthor}>{selectedFruit.authorNickname}</span>
+                  <span className={styles.fruitAuthor} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); history.push(`/user/${selectedFruit.authorId}`) }}>{selectedFruit.authorNickname}</span>
                   <span className={styles.fruitLight}>
                 ✦ {formatCount(selectedFruit.lightCount)} 点亮
               </span>
@@ -845,7 +845,7 @@ export default function WorldTree3D() {
                           title={fruit.title}
                           extra={<Tag color="cyan">{FRUIT_LABELS[fruit.fruitType] ?? fruit.fruitType}</Tag>}
                       >
-                        <div className={styles.fruitAuthor}>{fruit.authorNickname}</div>
+                        <div className={styles.fruitAuthor} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); history.push(`/user/${fruit.authorId}`) }}>{fruit.authorNickname}</div>
                         <span className={styles.fruitLight}>✦ {formatCount(fruit.lightCount)} 点亮</span>
                       </Card>
                   ))

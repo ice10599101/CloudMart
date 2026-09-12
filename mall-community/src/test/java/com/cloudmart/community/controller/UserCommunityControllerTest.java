@@ -2,9 +2,11 @@ package com.cloudmart.community.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
+import com.cloudmart.community.service.PostCommentService;
 import com.cloudmart.community.service.PostService;
 import com.cloudmart.community.service.UserCommunityService;
 import com.cloudmart.community.service.UserFollowService;
+import com.cloudmart.community.vo.CommentVO;
 import com.cloudmart.community.vo.PostVO;
 import com.cloudmart.community.vo.TagVO;
 import com.cloudmart.community.vo.UserCommunityVO;
@@ -18,6 +20,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -31,13 +35,14 @@ class UserCommunityControllerTest {
     private final UserCommunityService userCommunityService = Mockito.mock(UserCommunityService.class);
     private final UserFollowService userFollowService = Mockito.mock(UserFollowService.class);
     private final PostService postService = Mockito.mock(PostService.class);
+    private final PostCommentService postCommentService = Mockito.mock(PostCommentService.class);
     private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService = Mockito.mock(com.cloudmart.community.service.UserEnrichmentService.class);
 
     private static final String USER_ID_HEADER = "X-User-Id";
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService, userEnrichmentService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService, postCommentService, userEnrichmentService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -176,6 +181,35 @@ class UserCommunityControllerTest {
         given(userFollowService.getRecommendedUsers(null, 6)).willReturn(List.of(vo));
 
         mockMvc.perform(get("/users/recommend"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("GET /users/{userId}/comments - TA 的评论返回信封与分页 meta")
+    void getUserComments_ShouldReturnSuccessEnvelope() throws Exception {
+        CommentVO comment = new CommentVO(9L, 3L, "帖子标题", "<p>评论内容</p>",
+                null, null, 2, 1, LocalDateTime.now());
+        Page<CommentVO> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(comment));
+        given(postCommentService.getMyComments(2L, 1, 20)).willReturn(page);
+
+        mockMvc.perform(get("/users/2/comments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].postTitle").value("帖子标题"));
+    }
+
+    @Test
+    @DisplayName("GET /users/{userId}/liked - TA 赞过的帖子返回信封与分页 meta")
+    void getUserLikedPosts_ShouldReturnSuccessEnvelope() throws Exception {
+        PostVO post = Mockito.mock(PostVO.class);
+        Page<PostVO> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(post));
+        given(postService.getLikedPosts(2L, 1, 20)).willReturn(page);
+
+        mockMvc.perform(get("/users/2/liked"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray());
