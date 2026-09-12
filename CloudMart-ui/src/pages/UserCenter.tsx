@@ -19,8 +19,7 @@ import {
 import type { ShippingAddress, CreateAddressRequest, UpdateAddressRequest } from '@/types'
 import { getWishlistList, removeWishlist } from '@/api/wishlist'
 import type { WishlistItem } from '@/api/wishlist'
-import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments } from '@/api/community'
-import type { Post, MyComment } from '@/api/community'
+import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments, type Post } from '@/api/community'
 import {
   getUserLevel,
   getExpLogs,
@@ -29,6 +28,7 @@ import {
   getContinuousDays,
 } from '@/api/growth'
 import type { UserLevelInfo, LevelConfig, ExpLogRecord } from '@/api/growth'
+import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { uploadFile } from '@/api/file'
 import s from './UserCenter.module.css'
@@ -1055,7 +1055,8 @@ export default function UserCenterPage() {
   const [communityProfile, setCommunityProfile] = useState<CommunityProfileData>({ postCount: 0, followerCount: 0, followCount: 0, collectCount: 0, badges: [] })
   const [levelInfo, setLevelInfo] = useState<UserLevelInfo | null>(null)
   const [levelConfigs, setLevelConfigs] = useState<LevelConfig[]>([])
-  const [expLogs, setExpLogs] = useState<ExpLogRecord[]>([])
+  // 最近动态：社区行为流（发帖/评论）
+  const [activities, setActivities] = useState<Array<{ key: string; type: 'post' | 'comment'; postId: number; title: string; preview?: string; createdAt: string }> | null>(null)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [continuousDays, setContinuousDays] = useState(0)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -1079,10 +1080,38 @@ export default function UserCenterPage() {
     }
     const fetchLevelInfo = async () => { try { const { data: res } = await getUserLevel(); if (res.data) setLevelInfo(res.data) } catch { setLevelInfo(null) } }
     const fetchLevelConfigs = async () => { try { const { data: res } = await getLevelConfigs(); if (res.data) setLevelConfigs(res.data) } catch { setLevelConfigs([]) } }
-    const fetchExpLogs = async () => { try { const { data: res } = await getExpLogs(1, 8); if (res.data) setExpLogs(res.data) } catch { setExpLogs([]) } }
+    const fetchRecentActivities = async () => {
+      try {
+        // 聚合最新帖子与评论，按时间倒序组成社区行为流
+        const [postsRes, commentsRes] = await Promise.all([
+          getUserPosts(user!.id, 1, 3),
+          getMyComments(1, 3),
+        ])
+        const postActs = (postsRes.data.data ?? []).map((p) => ({
+          key: `post-${p.id}`,
+          type: 'post' as const,
+          postId: p.id,
+          title: p.title,
+          createdAt: p.createdAt,
+        }))
+        const commentActs = (commentsRes.data.data ?? []).map((c: MyComment) => ({
+          key: `comment-${c.id}`,
+          type: 'comment' as const,
+          postId: c.postId,
+          title: c.postTitle,
+          preview: stripHtml(c.content).slice(0, 40),
+          createdAt: c.createdAt,
+        }))
+        setActivities([...postActs, ...commentActs]
+          .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+          .slice(0, 6))
+      } catch {
+        setActivities([])
+      }
+    }
     const fetchCheckInStatus = async () => { try { const { data: res } = await getCheckInStatus(); if (res.data !== null && res.data !== undefined) setCheckedInToday(res.data) } catch { setCheckedInToday(false) } }
     const fetchContinuousDays = async () => { try { const { data: res } = await getContinuousDays(); if (res.data !== null && res.data !== undefined) setContinuousDays(res.data) } catch { setContinuousDays(0) } }
-    fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchExpLogs(); fetchCheckInStatus(); fetchContinuousDays()
+    fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchRecentActivities(); fetchCheckInStatus(); fetchContinuousDays()
   }, [user?.id])
 
   if (loading) {
@@ -1382,26 +1411,34 @@ export default function UserCenterPage() {
                 <span className={s.panelIcon}>⚡</span>
                 <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)' }}>最近动态</span>
               </div>
-              <div className={s.panelBody}>
-                {expLogs.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '16px 0' }}><div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>暂无经验记录</div></div>
+              <div className={s.panelBody} style={{ padding: '8px 12px' }}>
+                {!activities ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}><div className={s.spinner} style={{ width: 28, height: 28 }} /></div>
+                ) : activities.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}><div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>暂无社区动态</div></div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'center' }}>
-                    {expLogs.map((log, index) => {
-                      const sourceInfo = EXP_SOURCE_MAP[log.source] || { label: log.source, icon: '📋' }
-                      return (
-                        <div key={log.id} className={`${s.expLogRow} ${index < expLogs.length - 1 ? s.expLogDivider : ''}`}>
-                          <span style={{ fontSize: 16 }}>{sourceInfo.icon}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.description || sourceInfo.label}</div>
-                            <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{new Date(log.createdAt).toLocaleDateString()}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {activities.map((act, index) => (
+                      <div
+                        key={act.key}
+                        onClick={() => history.push(`/post/${act.postId}`)}
+                        className={`${s.expLogRow} ${index < activities.length - 1 ? s.expLogDivider : ''}`}
+                        style={{ cursor: 'pointer' }}
+                        title="查看详情"
+                      >
+                        <span style={{ fontSize: 16 }}>{act.type === 'post' ? '📝' : '💬'}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {act.type === 'post' ? '发布了帖子' : '评论了'}《{act.title}》
                           </div>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: log.expChange > 0 ? 'var(--color-accent-green)' : 'var(--color-accent-red)', flexShrink: 0 }}>
-                            {log.expChange > 0 ? '+' : ''}{log.expChange}
-                          </span>
+                          {act.preview && (
+                            <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.preview}</div>
+                          )}
+                          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{new Date(act.createdAt).toLocaleDateString()}</div>
                         </div>
-                      )
-                    })}
+                        <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>→</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

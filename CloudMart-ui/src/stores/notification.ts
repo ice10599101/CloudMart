@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getUnreadCount, type NotificationItem } from '@/api/notification'
+import request from '@/utils/request'
 
 interface NotificationState {
   unreadCount: number
@@ -87,17 +88,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     socket.onclose = () => {
       set({ ws: null })
       if (token && get().ws === null) {
-        // 重连取最新 token（旧 token 可能已过期被服务端握手拒绝）+ 指数退避防刷屏
-        const latest = localStorage.getItem('access_token')
-        if (latest) {
-          const delay = Math.min(WS_RECONNECT_BASE_MS * 2 ** reconnectAttempts, WS_RECONNECT_MAX_MS)
-          reconnectAttempts += 1
-          setTimeout(() => {
-            if (get().ws === null) {
-              get().connect(latest)
-            }
-          }, delay)
-        }
+        const delay = Math.min(WS_RECONNECT_BASE_MS * 2 ** reconnectAttempts, WS_RECONNECT_MAX_MS)
+        reconnectAttempts += 1
+        setTimeout(async () => {
+          if (get().ws !== null) return
+          // 重连前先走一次轻量鉴权请求：access token 过期时 axios 拦截器会自动 refresh
+          // 并同步 localStorage/store，然后才能用新 token 完成握手（过期 token 握手必被拒）
+          try {
+            await request.get('/user/users/me')
+          } catch {
+            // 刷新也失败（重新登录场景）→ 本轮不重连，等下次 API 401 流程
+          }
+          if (get().ws !== null) return
+          const latest = localStorage.getItem('access_token')
+          if (latest) get().connect(latest)
+        }, delay)
       }
     }
 
