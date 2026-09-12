@@ -51,6 +51,8 @@ describe('RichText component', () => {
     const { container } = render(<RichText content="<p>长内容</p>" clamp={3} />)
     const el = container.querySelector('.rich-text-full') as HTMLElement
     expect(el.style.display).toBe('-webkit-box')
+    expect(el.style.webkitLineClamp).toBe('3')
+    expect(el.style.overflow).toBe('hidden')
   })
 
   it('sanitizes script tags from editor HTML', () => {

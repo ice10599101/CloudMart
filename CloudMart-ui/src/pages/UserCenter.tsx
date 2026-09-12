@@ -24,10 +24,9 @@ import {
   getUserLevel,
   getExpLogs,
   getLevelConfigs,
-  getCheckInStatus,
-  getContinuousDays,
 } from '@/api/growth'
 import type { UserLevelInfo, LevelConfig, ExpLogRecord } from '@/api/growth'
+import { getSigninCalendar } from '@/api/wish'
 import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { uploadFile } from '@/api/file'
@@ -617,36 +616,42 @@ function MyDraftsTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
           <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12, marginTop: 6 }}>发布内容时可保存为草稿稍后编辑</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
           {drafts.map((draft) => (
-            <div key={draft.id} className={s.addressCard} style={{ cursor: 'pointer' }} onClick={() => history.push(`/publish?edit=${draft.id}`)}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
-                    {draft.title || '未命名草稿'}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-                    {draft.summary || stripHtml(draft.content).slice(0, 80) || '暂无内容'}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
-                    最后编辑：{new Date(draft.createdAt).toLocaleString()}
-                  </div>
+            <div key={draft.id} className={s.postCard} onClick={() => history.push(`/publish?edit=${draft.id}`)}>
+              <div style={{ padding: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+                  {draft.title || '未命名草稿'}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handlePublishDraft(draft.id) }}
-                    style={{ padding: '4px 12px', border: '1px solid rgba(var(--color-primary-rgb), 0.3)', borderRadius: 6, background: 'rgba(var(--color-primary-rgb), 0.08)', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}
-                  >
-                    发布
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteDraft(draft.id) }}
-                    style={{ padding: '4px 12px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 12, cursor: 'pointer' }}
-                  >
-                    删除
-                  </button>
+                <RichText
+                  content={draft.content}
+                  clamp={2}
+                  variant="preview"
+                  style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 8 }}
+                />
+                {!draft.content?.trim() && (
+                  <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 8 }}>暂无内容</div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                    {new Date(draft.createdAt).toLocaleDateString()}
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handlePublishDraft(draft.id) }}
+                      style={{ padding: '2px 10px', border: '1px solid rgba(var(--color-primary-rgb), 0.3)', borderRadius: 6, background: 'rgba(var(--color-primary-rgb), 0.08)', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer' }}
+                    >
+                      发布
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDraft(draft.id) }}
+                      style={{ padding: '2px 10px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 12, cursor: 'pointer' }}
+                    >
+                      删除
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1057,6 +1062,8 @@ export default function UserCenterPage() {
   const [levelConfigs, setLevelConfigs] = useState<LevelConfig[]>([])
   // 最近动态：社区行为流（发帖/评论）
   const [activities, setActivities] = useState<Array<{ key: string; type: 'post' | 'comment'; postId: number; title: string; preview?: string; createdAt: string }> | null>(null)
+  const [expLogs, setExpLogs] = useState<ExpLogRecord[]>([])
+  const [expLogsOpen, setExpLogsOpen] = useState(false)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [continuousDays, setContinuousDays] = useState(0)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -1105,13 +1112,30 @@ export default function UserCenterPage() {
         setActivities([...postActs, ...commentActs]
           .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
           .slice(0, 6))
+        // 经验变动折叠小节数据
+        try { const logRes = await getExpLogs(1, 8); if (logRes.data) setExpLogs(logRes.data.data ?? []) } catch { setExpLogs([]) }
       } catch {
         setActivities([])
       }
     }
-    const fetchCheckInStatus = async () => { try { const { data: res } = await getCheckInStatus(); if (res.data !== null && res.data !== undefined) setCheckedInToday(res.data) } catch { setCheckedInToday(false) } }
-    const fetchContinuousDays = async () => { try { const { data: res } = await getContinuousDays(); if (res.data !== null && res.data !== undefined) setContinuousDays(res.data) } catch { setContinuousDays(0) } }
-    fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchRecentActivities(); fetchCheckInStatus(); fetchContinuousDays()
+    // 连续签到徽章数据来自心愿每日签到（用户实际使用的签到入口），
+    // 社区成长签到是独立数据源，无 UI 入口，不反映真实签到行为
+    const fetchSigninOverview = async () => {
+      try {
+        const now = new Date()
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+        const todayStr = `${month}-${String(now.getDate()).padStart(2, '0')}`
+        const { data: res } = await getSigninCalendar(month)
+        if (res.data) {
+          setContinuousDays(res.data.consecutiveDays)
+          setCheckedInToday(res.data.signedDates.includes(todayStr))
+        }
+      } catch {
+        setCheckedInToday(false)
+        setContinuousDays(0)
+      }
+    }
+    fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchRecentActivities(); fetchSigninOverview()
   }, [user?.id])
 
   if (loading) {
@@ -1195,19 +1219,22 @@ export default function UserCenterPage() {
                     {user.email}
                   </span>
                 )}
-                <span style={{
-                  padding: '3px 10px',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  background: checkedInToday ? 'rgba(50, 205, 50, 0.1)' : 'rgba(255, 165, 0, 0.1)',
-                  border: `1px solid ${checkedInToday ? 'rgba(50, 205, 50, 0.2)' : 'rgba(255, 165, 0, 0.2)'}`,
-                  color: checkedInToday ? 'var(--color-accent-green)' : 'var(--color-accent-orange)',
-                }}>
-                  {checkedInToday ? '✅ 今日已签到' : `🔥 连续${continuousDays}天`}
+                <span
+                  onClick={() => history.push('/wish/signin')}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    cursor: 'pointer',
+                    background: checkedInToday ? 'rgba(50, 205, 50, 0.1)' : 'rgba(255, 165, 0, 0.1)',
+                    border: `1px solid ${checkedInToday ? 'rgba(50, 205, 50, 0.2)' : 'rgba(255, 165, 0, 0.2)'}`,
+                    color: checkedInToday ? 'var(--color-accent-green)' : 'var(--color-accent-orange)',
+                  }}>
+                  {checkedInToday ? `✅ 已签 · 连续${continuousDays}天` : `🔥 连续${continuousDays}天`}
                 </span>
               </div>
 
@@ -1441,6 +1468,31 @@ export default function UserCenterPage() {
                     ))}
                   </div>
                 )}
+
+                <details
+                  onToggle={(e) => setExpLogsOpen((e.target as HTMLDetailsElement).open)}
+                  style={{ marginTop: 10, borderTop: '1px dashed var(--color-border)', paddingTop: 8 }}
+                >
+                  <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--color-text-tertiary)', userSelect: 'none' }}>
+                    {expLogsOpen ? '收起经验变动' : '经验变动'}
+                  </summary>
+                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column' }}>
+                    {expLogs.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', textAlign: 'center', padding: '8px 0' }}>暂无经验变动</div>
+                    ) : (
+                      expLogs.map((log) => (
+                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 }}>
+                          <span style={{ color: 'var(--color-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                            {EXP_SOURCE_MAP[log.source]?.label ?? log.description ?? log.source}
+                          </span>
+                          <span style={{ fontWeight: 600, color: log.expChange > 0 ? 'var(--color-accent-green)' : 'var(--color-accent-red)', flexShrink: 0 }}>
+                            {log.expChange > 0 ? '+' : ''}{log.expChange} 经验
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </details>
               </div>
             </div>
           </div>

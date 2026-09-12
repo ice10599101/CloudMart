@@ -48,6 +48,13 @@ public class PublicPathAuthStripFilter implements WebFilter {
             "/api/community/search"
     );
 
+    /** 以公开前缀 /api/community/posts 开头、但实际需要登录身份的子路径：绝不能剥离 Authorization，
+     * 否则 JwtAuthenticationFilter 拿不到令牌、无法注入 X-User-Id，服务端必返 401 */
+    private static final Set<String> COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES = Set.of(
+            "/api/community/posts/drafts",
+            "/api/community/posts/liked"
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
@@ -72,6 +79,11 @@ public class PublicPathAuthStripFilter implements WebFilter {
     }
 
     private boolean isPublicPath(String path, HttpMethod method) {
+        for (String prefix : COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return false;
+            }
+        }
         for (String prefix : ANY_METHOD_PUBLIC_PREFIXES) {
             if (path.startsWith(prefix)) {
                 return true;

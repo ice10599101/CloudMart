@@ -42,11 +42,12 @@ function ensureLinkSafetyHook() {
   hookRegistered = true
 }
 
-const CLAMP_STYLE: React.CSSProperties = {
+const clampStyle = (lines: number): React.CSSProperties => ({
   display: '-webkit-box',
   WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: lines,
   overflow: 'hidden',
-}
+})
 
 export interface RichTextProps {
   /** 编辑器产出的 HTML 或历史纯文本 */
@@ -72,7 +73,6 @@ export default function RichText({ content, clamp, className, variant = 'full', 
   ensureLinkSafetyHook()
 
   const isHtml = isRichText(content)
-  const clampStyle = clamp ? CLAMP_STYLE : undefined
 
   const html = useMemo(() => {
     if (!content) return ''
@@ -85,7 +85,7 @@ export default function RichText({ content, clamp, className, variant = 'full', 
     return (
       <div
         className={`rich-text rich-text-${variant} ${className ?? ''}`}
-        style={{ ...(clamp ? clampStyle : undefined), ...style }}
+        style={{ ...(clamp ? clampStyle(clamp) : undefined), ...style }}
         onClick={onClick}
         dangerouslySetInnerHTML={{ __html: html }}
       />
@@ -99,7 +99,7 @@ export default function RichText({ content, clamp, className, variant = 'full', 
       style={{
         whiteSpace: 'pre-line',
         wordBreak: 'break-word',
-        ...(clamp ? clampStyle : undefined),
+        ...(clamp ? clampStyle(clamp) : undefined),
         ...style,
       }}
       onClick={onClick}

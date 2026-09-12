@@ -30,9 +30,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 锁定网关身份注入与验签关键语义：
- * 1. public 路径携带有效签名 JWT 时仍注入 X-User-Id（/posts/drafts 这类"路径公开但语义私有"接口依赖）
+ * 1. 携带有效签名 JWT 时注入 X-User-Id（/posts/drafts 这类需登录身份的接口依赖此语义）
  * 2. alg=none 明文 JWT、错误签名、过期 token 一律拒绝注入（防伪造/防过期 token 永久有效）
  * 3. 客户端伪造的身份头被剥离
+ * 4. /posts/drafts、/posts/liked 不算公开路径：无 token 时不得发放 X-Internal-Call（服务端须 401）
  */
 class JwtAuthenticationFilterTest {
 
@@ -113,10 +114,19 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void publicPath_withoutToken_addsInternalCallOnly() {
+    void identityRequiredSubPath_withValidSignedToken_injectsUserId() {
+        run(MockServerHttpRequest.get("/api/community/posts/liked")
+                .header("Authorization", "Bearer " + signedToken("1", new Date(System.currentTimeMillis() + 60_000)))
+                .build());
+        assertThat(exchange.getRequest().getHeaders().getFirst("X-User-Id")).isEqualTo("1");
+    }
+
+    @Test
+    void identityRequiredSubPath_withoutToken_noIdentityAndNoInternalCall() {
+        // /drafts、/liked 语义私有：匿名访问不得携带 X-Internal-Call，服务端必须 401 而非放行为匿名
         run(MockServerHttpRequest.get("/api/community/posts/drafts").build());
         assertThat(exchange.getRequest().getHeaders().getFirst("X-User-Id")).isNull();
-        assertThat(exchange.getRequest().getHeaders().getFirst("X-Internal-Call")).isEqualTo("true");
+        assertThat(exchange.getRequest().getHeaders().getFirst("X-Internal-Call")).isNull();
     }
 
     @Test

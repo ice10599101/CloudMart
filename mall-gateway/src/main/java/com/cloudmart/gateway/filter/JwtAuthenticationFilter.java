@@ -197,8 +197,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         }
     }
 
+    /** 以公开前缀 /api/community/posts 开头、但实际需要登录身份的子路径：不算公开路径，
+     * 匿名访问时服务端必须 401，带有效令牌时必须注入 X-User-Id */
+    private static final Set<String> COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES = Set.of(
+            "/api/community/posts/drafts",
+            "/api/community/posts/liked"
+    );
+
     private boolean isPublicPath(String path, org.springframework.http.HttpMethod method) {
         if (path == null) return false;
+        for (String prefix : COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES) {
+            if (path.startsWith(prefix)) return false;
+        }
         for (String prefix : ANY_METHOD_PUBLIC_PREFIXES) {
             if (path.startsWith(prefix)) return true;
         }
