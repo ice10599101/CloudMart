@@ -26,7 +26,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final NotificationWebSocketHandler notificationWebSocketHandler;
     private final JwtDecoder jwtDecoder;
 
-    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001}")
+    /** 白名单必须包含前端实际访问 Origin（本地 dev server 为 8000 端口）；
+     * 浏览器 WS 握手必带 Origin，不在名单内会被 Spring 静默 403（且与 token 是否有效无关） */
+    @Value("${cors.allowed-origins:http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001}")
     private String allowedOrigins;
 
     public WebSocketConfig(NotificationWebSocketHandler notificationWebSocketHandler,
