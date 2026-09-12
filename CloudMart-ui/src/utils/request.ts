@@ -3,6 +3,7 @@ import type { ApiResponse } from '@/types/api'
 import { message as staticMessage } from 'antd'
 import { history } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
+import { useAuthStore } from '@/stores/auth'
 import { getAppMessage } from '@/utils/appMessage'
 import { getDeviceId } from '@/utils/deviceFingerprint'
 
@@ -132,6 +133,12 @@ request.interceptors.response.use(
           })
           localStorage.setItem(accessTokenKey, data.data.accessToken)
           localStorage.setItem(refreshTokenKey, data.data.refreshToken)
+          if (admin) {
+            useAdminAuthStore.setState({ accessToken: data.data.accessToken, refreshToken: data.data.refreshToken })
+          } else {
+            // 同步 zustand store：UserLayout 等依赖 accessToken 的 WS 连接才能用新 token 重连
+            useAuthStore.setState({ accessToken: data.data.accessToken, refreshToken: data.data.refreshToken, isAuthenticated: true })
+          }
           processPendingRequests(data.data.accessToken)
           error.config.headers.Authorization = `Bearer ${data.data.accessToken}`
           ;(error.config as { _authRetried?: boolean })._authRetried = true
