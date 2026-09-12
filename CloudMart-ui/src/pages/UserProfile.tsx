@@ -15,7 +15,6 @@ import {
   SendOutlined,
   StopOutlined,
   CommentOutlined,
-  FireOutlined,
   IdcardOutlined,
   CalendarOutlined,
 } from '@ant-design/icons'
@@ -34,6 +33,8 @@ import type { Post, UserCommunityStats } from '@/api/community'
 import { getUserPublicProfile } from '@/api/user'
 import type { UserProfile } from '@/api/user'
 import { createConversation } from '@/api/chat'
+import { listWishes } from '@/api/wish'
+import type { WishListItem } from '@/api/wish'
 import { stripHtml } from '@/utils/format'
 import RichText from '@/components/RichText'
 import { useAuthStore } from '@/stores/auth'
@@ -155,28 +156,121 @@ function PostCard({ post }: { post: Post }) {
   )
 }
 
-/** 详细资料字段（仅展示已填写项） */
+/** 详细资料字段：全字段展示，未填写显示「—」（与个人中心基本信息面板风格一致） */
 function buildDetailFields(user: UserProfile): Array<{ label: string; value: string }> {
-  const fields: Array<{ label: string; value: string }> = []
-  const push = (label: string, value: string | undefined | null) => {
-    const v = (value ?? '').trim()
-    if (v) fields.push({ label, value: v })
-  }
+  const empty = '—'
+  const get = (value: string | undefined | null) => (value ?? '').trim()
   const genderMap: Record<string, string> = { MALE: '男', FEMALE: '女', UNKNOWN: '保密', SECRET: '保密' }
-  const genderRaw = (user.gender ?? '').trim()
-  // 后端存枚举码，展示层转中文
-  push('性别', genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : '')
-  push('小答号', user.username)
-  if ((user.birthday ?? '').trim()) {
-    push('生日', user.constellation?.trim() ? `${user.birthday}（${user.constellation}）` : user.birthday)
-  }
-  push('职业', user.occupation)
-  push('学校', user.school)
-  push('所在地区', user.location)
-  push('兴趣爱好', user.hobbies)
+  const genderRaw = get(user.gender)
+  const birthday = get(user.birthday)
+  const constellation = get(user.constellation)
   const joined = formatJoinDate(user.createdAt)
-  if (joined) fields.push({ label: '加入时间', value: joined })
-  return fields
+  return [
+    { label: '小答号', value: get(user.username) || empty },
+    { label: '性别', value: genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : empty },
+    { label: '生日', value: birthday ? (constellation ? `${birthday}（${constellation}）` : birthday) : empty },
+    { label: '职业', value: get(user.occupation) || empty },
+    { label: '学校', value: get(user.school) || empty },
+    { label: '所在地区', value: get(user.location) || empty },
+    { label: '兴趣爱好', value: get(user.hobbies) || empty },
+    { label: '加入时间', value: joined || empty },
+  ]
+}
+
+const WISH_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: '进行中',
+  FULFILLING: '还愿中',
+  FULFILLED: '已还愿',
+}
+
+const WISH_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  ACTIVE: { bg: 'rgba(var(--color-primary-rgb), 0.12)', text: 'var(--color-primary)' },
+  FULFILLING: { bg: 'rgba(255, 165, 0, 0.12)', text: 'var(--color-accent-orange)' },
+  FULFILLED: { bg: 'rgba(46, 213, 115, 0.12)', text: 'var(--color-accent-green)' },
+}
+
+/** TA 的心愿卡片：与帖子卡片同尺寸风格 */
+function WishCard({ wish }: { wish: WishListItem }) {
+  const statusLabel = WISH_STATUS_LABELS[wish.status] ?? wish.status
+  const statusColor = WISH_STATUS_COLORS[wish.status] ?? WISH_STATUS_COLORS.ACTIVE
+  return (
+    <div
+      onClick={() => history.push(`/wish/${wish.id}`)}
+      style={{
+        background: 'var(--color-bg-container)',
+        borderRadius: '10px',
+        border: '1px solid var(--color-border)',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)'
+        e.currentTarget.style.transform = 'translateY(-3px)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-border)'
+        e.currentTarget.style.transform = 'translateY(0)'
+      }}
+    >
+      {wish.mediaUrls && wish.mediaUrls.length > 0 && (
+        <div style={{ height: 110, overflow: 'hidden', background: 'var(--color-bg-input)', flexShrink: 0 }}>
+          <img src={wish.mediaUrls[0]} alt={wish.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        </div>
+      )}
+      <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{
+            padding: '1px 8px',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 600,
+            background: statusColor.bg,
+            color: statusColor.text,
+            flexShrink: 0,
+          }}>
+            {statusLabel}
+          </span>
+          <h4 style={{
+            color: 'var(--color-text-secondary)',
+            fontSize: 13,
+            fontWeight: 600,
+            lineHeight: 1.4,
+            margin: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {wish.title}
+          </h4>
+        </div>
+        {wish.description && (
+          <RichText
+            content={wish.description}
+            clamp={2}
+            variant="preview"
+            style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}
+          />
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+            🌟 {formatCount(wish.lightCount)}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+            🙏 {formatCount(wish.blessCount)}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+            💬 {formatCount(wish.commentCount)}
+          </span>
+          <span style={{ marginLeft: 'auto', color: 'var(--color-text-tertiary)', fontSize: 11 }}>
+            {wish.createdAt ? new Date(wish.createdAt).toLocaleDateString() : ''}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function UserProfile() {
@@ -195,7 +289,8 @@ export default function UserProfile() {
   const [chatLoading, setChatLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'collections'>('posts')
+  const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes'>('posts')
+  const [wishes, setWishes] = useState<WishListItem[] | null>(null)
 
   const isOwnProfile = String(currentUser?.id ?? '') === (id ?? '')
 
@@ -277,6 +372,17 @@ export default function UserProfile() {
     }
   }, [id])
 
+  // TA 的心愿：仅公开心愿（服务端强制 visibility=PUBLIC）
+  const fetchWishes = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data: res } = await listWishes({ userId: Number(id), pageSize: 50 })
+      setWishes(res.data ?? [])
+    } catch {
+      setWishes([])
+    }
+  }, [id])
+
   useEffect(() => {
     fetchProfile()
     fetchPosts()
@@ -290,6 +396,12 @@ export default function UserProfile() {
       fetchCollections()
     }
   }, [activeTab, collections.length, fetchCollections])
+
+  useEffect(() => {
+    if (activeTab === 'wishes' && wishes === null) {
+      fetchWishes()
+    }
+  }, [activeTab, wishes, fetchWishes])
 
   const handleToggleFollow = useCallback(async () => {
     if (!isAuthenticated) {
@@ -414,7 +526,6 @@ export default function UserProfile() {
     { label: '帖子', value: profile.postCount, icon: <FileTextOutlined />, action: () => setActiveTab('posts') },
     { label: '粉丝', value: profile.followerCount, icon: <TeamOutlined />, action: () => history.push(`/user/${id}/following?tab=followers`) },
     { label: '关注', value: profile.followCount, icon: <UserAddOutlined />, action: () => history.push(`/user/${id}/following?tab=following`) },
-    { label: '收藏', value: profile.collectCount, icon: <StarOutlined />, action: () => setActiveTab('collections') },
   ]
 
   const detailFields = detail ? buildDetailFields(detail) : []
@@ -422,8 +533,8 @@ export default function UserProfile() {
 
   const metricPanels = [
     { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined /> },
-    { label: '收到评论', value: communityStats ? communityStats.commentsReceived : null, icon: <CommentOutlined /> },
-    { label: '内容浏览', value: communityStats ? communityStats.viewsTotal : null, icon: <FireOutlined /> },
+    { label: 'TA的评论', value: communityStats ? communityStats.commentsMade : null, icon: <CommentOutlined /> },
+    { label: 'TA赞过', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined /> },
     { label: '加入天数', value: joinedDays, icon: <CalendarOutlined /> },
   ]
 
@@ -798,6 +909,7 @@ export default function UserProfile() {
           {[
             { key: 'posts' as const, label: '帖子', icon: <FileTextOutlined /> },
             { key: 'collections' as const, label: '收藏', icon: <StarOutlined /> },
+            { key: 'wishes' as const, label: isOwnProfile ? '我的心愿' : 'TA的心愿', icon: <span style={{ fontSize: 13 }}>🌟</span> },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -871,6 +983,36 @@ export default function UserProfile() {
                 fontSize: 14,
               }}>
                 {isOwnProfile ? '你还没有收藏内容' : '暂无公开收藏'}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'wishes' && (
+          <>
+            {wishes === null ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <Skeleton variant="card" count={3} />
+              </div>
+            ) : wishes.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                gap: 14,
+                paddingBottom: 80,
+              }}>
+                {wishes.map((wish) => (
+                  <WishCard key={wish.id} wish={wish} />
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '60px 0',
+                color: 'var(--color-text-tertiary)',
+                fontSize: 14,
+              }}>
+                {isOwnProfile ? '你还没有公开的心愿' : 'TA还没有公开的心愿'}
               </div>
             )}
           </>

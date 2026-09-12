@@ -269,9 +269,12 @@ export function checkBlockStatus(targetUserId: number | string) {
 }
 
 export interface UserCommunityStats {
+  /** 获赞总数（他人给 TA 的帖子点的赞） */
   likesReceived: number
-  commentsReceived: number
-  viewsTotal: number
+  /** TA 的评论数 */
+  commentsMade: number
+  /** TA 赞过数 */
+  likesGiven: number
 }
 
 /** 用户社区数据面板（获赞/收到评论/浏览总量，仅统计已发布帖子）；可选数据，失败静默由页面兜底 */

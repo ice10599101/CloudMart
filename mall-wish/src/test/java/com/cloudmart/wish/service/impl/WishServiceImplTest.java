@@ -535,7 +535,7 @@ class WishServiceImplTest {
                             Map.of("id", USER_ID, "nickname", "用户", "avatar", "a.png")
                     )));
 
-            WishListQuery query = new WishListQuery(null, null, null, null, null, 5);
+            WishListQuery query = new WishListQuery(null, null, null, null, null, null, 5);
             var result = wishService.listWishes(query);
 
             assertThat(result.records()).hasSize(5);
@@ -557,7 +557,7 @@ class WishServiceImplTest {
                             Map.of("id", USER_ID, "nickname", "用户", "avatar", "a.png")
                     )));
 
-            WishListQuery query = new WishListQuery(null, null, null, null, null, 5);
+            WishListQuery query = new WishListQuery(null, null, null, null, null, null, 5);
             var result = wishService.listWishes(query);
 
             assertThat(result.records()).hasSize(5);
@@ -570,7 +570,7 @@ class WishServiceImplTest {
         void listWishes_emptyResult_returnsEmptyList() {
             when(wishMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-            WishListQuery query = new WishListQuery(null, null, null, null, null, 20);
+            WishListQuery query = new WishListQuery(null, null, null, null, null, null, 20);
             var result = wishService.listWishes(query);
 
             assertThat(result.records()).isEmpty();
@@ -581,7 +581,7 @@ class WishServiceImplTest {
         @Test
         @DisplayName("无效 cursor 抛出 WISH_VALIDATION_ERROR")
         void listWishes_invalidCursor_throwsException() {
-            WishListQuery query = new WishListQuery(null, null, null, null, "abc", 20);
+            WishListQuery query = new WishListQuery(null, null, null, null, null, "abc", 20);
 
             assertThatThrownBy(() -> wishService.listWishes(query))
                     .isInstanceOf(BusinessException.class)

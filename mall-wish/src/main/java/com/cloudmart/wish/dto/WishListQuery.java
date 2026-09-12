@@ -19,6 +19,9 @@ public record WishListQuery(
         @Schema(description = "分类 ID 筛选（可空）")
         Long categoryId,
 
+        @Schema(description = "作者用户 ID 筛选（可空，他人主页「TA 的心愿」场景；仍强制 PUBLIC）")
+        Long userId,
+
         @Schema(description = "心愿状态筛选（默认 ACTIVE）")
         WishStatus status,
 

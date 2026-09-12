@@ -396,6 +396,10 @@ public class WishServiceImpl implements WishService {
         if (query.categoryId() != null) {
             wrapper.eq(Wish::getCategoryId, query.categoryId());
         }
+        if (query.userId() != null) {
+            // 他人主页「TA 的心愿」：仅该作者的 PUBLIC 心愿（visibility 强制不受影响）
+            wrapper.eq(Wish::getUserId, query.userId());
+        }
         if (query.status() != null) {
             wrapper.eq(Wish::getStatus, query.status());
         } else {

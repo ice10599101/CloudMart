@@ -4,12 +4,17 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.community.entity.Post;
 import com.cloudmart.community.entity.PostCollection;
+import com.cloudmart.community.entity.PostComment;
+import com.cloudmart.community.entity.PostLike;
 import com.cloudmart.community.repository.PostCollectionMapper;
+import com.cloudmart.community.repository.PostCommentMapper;
+import com.cloudmart.community.repository.PostLikeMapper;
 import com.cloudmart.community.repository.PostMapper;
 import com.cloudmart.community.service.BadgeService;
 import com.cloudmart.community.service.UserEnrichmentService;
 import com.cloudmart.community.service.UserFollowService;
 import com.cloudmart.community.vo.BadgeVO;
+import com.cloudmart.community.vo.UserCommunityStatsVO;
 import com.cloudmart.community.vo.UserCommunityVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +43,12 @@ class UserCommunityServiceImplTest {
 
     @Mock
     private PostCollectionMapper postCollectionMapper;
+
+    @Mock
+    private PostCommentMapper postCommentMapper;
+
+    @Mock
+    private PostLikeMapper postLikeMapper;
 
     @Mock
     private BadgeService badgeService;
@@ -56,12 +68,15 @@ class UserCommunityServiceImplTest {
     static void initTableInfo() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Post.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), PostCollection.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), PostComment.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), PostLike.class);
     }
 
     @BeforeEach
     void setUp() {
         userCommunityService = new UserCommunityServiceImpl(
-                postMapper, postCollectionMapper, badgeService, userFollowService, userEnrichmentService
+                postMapper, postCollectionMapper, postCommentMapper, postLikeMapper,
+                badgeService, userFollowService, userEnrichmentService
         );
     }
 
@@ -158,6 +173,52 @@ class UserCommunityServiceImplTest {
             UserCommunityVO result = userCommunityService.getUserProfile(USER_ID, CURRENT_USER_ID);
 
             assertThat(result.postCount()).isEqualTo(2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserStats")
+    class GetUserStatsTests {
+
+        @Test
+        @DisplayName("should aggregate likes received, comments made and likes given")
+        void getUserStats_returnsAggregates() {
+            when(postMapper.selectMaps(any())).thenReturn(List.of(Map.of("likes_received", 12L)));
+            when(postCommentMapper.selectCount(any())).thenReturn(7L);
+            when(postLikeMapper.selectCount(any())).thenReturn(4L);
+
+            UserCommunityStatsVO result = userCommunityService.getUserStats(USER_ID);
+
+            assertThat(result.likesReceived()).isEqualTo(12L);
+            assertThat(result.commentsMade()).isEqualTo(7L);
+            assertThat(result.likesGiven()).isEqualTo(4L);
+        }
+
+        @Test
+        @DisplayName("should return zeros when user has no activity")
+        void getUserStats_noActivity_returnsZeros() {
+            when(postMapper.selectMaps(any())).thenReturn(List.of(Map.of("likes_received", 0L)));
+            when(postCommentMapper.selectCount(any())).thenReturn(0L);
+            when(postLikeMapper.selectCount(any())).thenReturn(0L);
+
+            UserCommunityStatsVO result = userCommunityService.getUserStats(USER_ID);
+
+            assertThat(result.likesReceived()).isZero();
+            assertThat(result.commentsMade()).isZero();
+            assertThat(result.likesGiven()).isZero();
+        }
+
+        @Test
+        @DisplayName("should handle null aggregate row (no published posts)")
+        void getUserStats_nullAggregateRow_treatsAsZero() {
+            when(postMapper.selectMaps(any())).thenReturn(List.of());
+            when(postCommentMapper.selectCount(any())).thenReturn(2L);
+            when(postLikeMapper.selectCount(any())).thenReturn(0L);
+
+            UserCommunityStatsVO result = userCommunityService.getUserStats(USER_ID);
+
+            assertThat(result.likesReceived()).isZero();
+            assertThat(result.commentsMade()).isEqualTo(2L);
         }
     }
 }

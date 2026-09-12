@@ -250,6 +250,8 @@ export function sparkWish(id: number | string) {
 
 export function listWishes(params: {
   categoryId?: number
+  /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端仍强制仅返回 PUBLIC） */
+  userId?: number
   status?: WishStatus
   keyword?: string
   cursor?: string
