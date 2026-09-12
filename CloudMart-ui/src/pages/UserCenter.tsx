@@ -1,8 +1,10 @@
+import RichText from '@/components/RichText'
+import { stripHtml } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Popconfirm } from 'antd'
-import { DownloadOutlined, StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
+import { StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -114,6 +116,7 @@ function ConfirmDialog({
 const TABS = [
   { key: 'profile', label: '基本信息', icon: '👤' },
   { key: 'posts', label: '我的帖子', icon: '📝' },
+  { key: 'wishPosts', label: '心愿帖子', icon: '🌟' },
   { key: 'drafts', label: '我的草稿', icon: '📋' },
   { key: 'address', label: '收货地址', icon: '📍' },
   { key: 'wishlist', label: '我的收藏', icon: '❤️' },
@@ -143,6 +146,7 @@ const BADGE_COLORS = [
 const EXP_SOURCE_MAP: Record<string, { label: string; icon: string }> = {
   CHECK_IN: { label: '每日签到', icon: '📅' },
   POST: { label: '发布帖子', icon: '📝' },
+  COMMENT: { label: '发表评论', icon: '💬' },
   LIKE_RECEIVED: { label: '获得点赞', icon: '❤️' },
   COMMENT_RECEIVED: { label: '获得评论', icon: '💬' },
   FOLLOW_RECEIVED: { label: '获得关注', icon: '👥' },
@@ -189,20 +193,6 @@ function ProfileTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
     { label: '注册时间', value: new Date(user.createdAt).toLocaleString() },
   ]
 
-  const dataExportEntry = (
-    <div key="__data_export" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 1em', marginTop: 16, background: 'var(--color-bg-container)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-      <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
-        数据导出：下载你的心愿/成长/互动等个人数据副本（JSON，7 天有效）
-      </span>
-      <Button
-        size="small"
-        icon={<DownloadOutlined />}
-        onClick={() => history.push('/settings/export')}
-      >
-        前往导出
-      </Button>
-    </div>
-  )
 
 
 
@@ -216,7 +206,6 @@ function ProfileTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
             <span style={{ color: 'var(--color-text-secondary)', fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</span>
           </div>
         ))}
-        {dataExportEntry}
         <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           <Button size="small" icon={<StarOutlined />} onClick={() => history.push('/wish/starlight-log')}>
             星光流水
@@ -419,6 +408,11 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
   )
 }
 
+/** 心愿帖判定：心愿宇宙同步帖的标签含"心愿"（如 ✨ 心愿完成） */
+function isWishPost(post: Post): boolean {
+  return !!post.tags?.some((t) => (t.name ?? '').includes('心愿'))
+}
+
 function MyPostsTab() {
   const { user } = useAuthStore()
   const [posts, setPosts] = useState<Post[]>([])
@@ -432,7 +426,8 @@ function MyPostsTab() {
       const list = res.data ?? []
       // 最新发布的帖子排在最前（后端返回顺序不保证）
       list.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-      setPosts(list)
+      // 我的帖子面板只展示普通社区帖，心愿帖在"心愿帖子"面板
+      setPosts(list.filter((p) => !isWishPost(p)))
     } catch {
       setPosts([])
     } finally {
@@ -456,22 +451,20 @@ function MyPostsTab() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
-          {posts.map((post) => (
+          {posts.map((post) => {
+            const preview = stripHtml(post.content).slice(0, 80)
+            return (
             <div key={post.id} className={s.postCard} onClick={() => history.push(`/post/${post.id}`)}>
-              <div style={{ height: 160, background: 'rgba(var(--color-primary-rgb), 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {post.coverImage ? (
+              {post.coverImage && (
+                <div style={{ height: 110, background: 'rgba(var(--color-primary-rgb), 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   <img src={post.coverImage} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.3)" strokeWidth="1.5">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
+                </div>
+              )}
+              <div style={{ padding: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{post.title}</div>
+                {preview && (
+                  <RichText content={post.content} clamp={2} variant="preview" style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 8 }} />
                 )}
-              </div>
-              <div style={{ padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 8 }}>{post.title}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: 12 }}>
                     <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>❤️ {post.likeCount}</span>
@@ -481,7 +474,75 @@ function MyPostsTab() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WishPostsTab() {
+  const { user } = useAuthStore()
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchPosts = useCallback(async () => {
+    if (!user?.id) return
+    setLoading(true)
+    try {
+      const { data: res } = await getUserPosts(user.id, 1, 50)
+      const list = res.data ?? []
+      list.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      setPosts(list.filter((p) => isWishPost(p)))
+    } catch {
+      setPosts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => { fetchPosts() }, [fetchPosts])
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 16 }}>心愿帖子</h3>
+      {posts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>🌟</div>
+          <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>还没有心愿帖子</div>
+          <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12, marginTop: 6 }}>完成心愿并发布还愿故事后，会同步到这里</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
+          {posts.map((post) => {
+            const preview = stripHtml(post.content).slice(0, 80)
+            return (
+            <div key={post.id} className={s.postCard} onClick={() => history.push(`/post/${post.id}`)}>
+              {post.coverImage && (
+                <div style={{ height: 110, background: 'rgba(var(--color-primary-rgb), 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <img src={post.coverImage} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
+              <div style={{ padding: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(var(--color-accent-purple-rgb, 156, 108, 255), 0.15)', color: 'var(--color-accent-purple, #9c6cff)', fontWeight: 600 }}>🌟 心愿宇宙</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.title}</span>
+                </div>
+                {preview && (
+                  <RichText content={post.content} clamp={2} variant="preview" style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 8 }} />
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>❤️ {post.likeCount}</span>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>💬 {post.commentCount}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{new Date(post.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -565,7 +626,7 @@ function MyDraftsTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
                     {draft.title || '未命名草稿'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-                    {draft.summary || draft.content?.substring(0, 80) || '暂无内容'}
+                    {draft.summary || stripHtml(draft.content).slice(0, 80) || '暂无内容'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
                     最后编辑：{new Date(draft.createdAt).toLocaleString()}
@@ -860,7 +921,7 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
         open={modalOpen}
         title={editingAddress ? '编辑地址' : '新增地址'}
         width={520}
-        onCancel={() => setConfirmState({ type: 'close', open: false })}
+        onCancel={() => setConfirmState({ type: 'close', open: true })}
         mask={{ closable: false }}
         footer={null}
         destroyOnClose
@@ -883,7 +944,7 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
           <textarea className={s.inputField} value={form.detailAddress} onChange={(e) => setForm({ ...form, detailAddress: e.target.value })} placeholder="请输入详细地址" rows={2} style={{ resize: 'vertical' }} />
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={() => setConfirmState({ type: 'close', open: false })} style={{ padding: '10px 24px', border: '1px solid var(--color-border)', borderRadius: 10, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
+          <button type="button" onClick={() => setConfirmState({ type: 'close', open: true })} style={{ padding: '10px 24px', border: '1px solid var(--color-border)', borderRadius: 10, background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
           <button type="button" className={s.primaryBtn} onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', fontSize: 14, borderRadius: 10 }}>{saving ? '保存中...' : '保存'}</button>
         </div>
       </Modal>
@@ -1030,9 +1091,9 @@ export default function UserCenterPage() {
 
   const statsItems = [
     { label: '帖子', value: communityProfile.postCount, config: STAT_ITEMS_CONFIG[0], onClick: () => { setActiveTab('posts') } },
-    { label: '粉丝', value: communityProfile.followerCount, config: STAT_ITEMS_CONFIG[1], onClick: undefined },
-    { label: '关注', value: communityProfile.followCount, config: STAT_ITEMS_CONFIG[2], onClick: undefined },
-    { label: '收藏', value: communityProfile.collectCount, config: STAT_ITEMS_CONFIG[3], onClick: undefined },
+    { label: '粉丝', value: communityProfile.followerCount, config: STAT_ITEMS_CONFIG[1], onClick: () => { history.push(`/user/${user?.id}/following?tab=followers`) } },
+    { label: '关注', value: communityProfile.followCount, config: STAT_ITEMS_CONFIG[2], onClick: () => { history.push(`/user/${user?.id}/following?tab=following`) } },
+    { label: '收藏', value: communityProfile.collectCount, config: STAT_ITEMS_CONFIG[3], onClick: () => { history.push('/collections') } },
   ]
 
   const nextLevelConfig = levelConfigs.find((c) => c.level === (levelInfo?.level ?? 0) + 1)
@@ -1168,7 +1229,7 @@ export default function UserCenterPage() {
                 className={s.statCard}
                 style={{
                   background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15), rgba(var(--color-primary-rgb), 0.05))`,
-                  cursor: stat.onClick ? 'pointer' : 'default',
+                  cursor: !!stat.onClick ? 'pointer' : 'default',
                   borderRadius: 20,
                   textAlign: 'center',
                 }}
@@ -1273,6 +1334,7 @@ export default function UserCenterPage() {
             <div className={s.tabContent}>
               {activeTab === 'profile' && <ProfileTab onToast={(msg, type) => setToast({ message: msg, type })} />}
               {activeTab === 'posts' && <MyPostsTab />}
+              {activeTab === 'wishPosts' && <WishPostsTab />}
               {activeTab === 'drafts' && <MyDraftsTab onToast={(msg, type) => setToast({ message: msg, type })} />}
               {activeTab === 'address' && <AddressTab onToast={(msg, type) => setToast({ message: msg, type })} />}
               {activeTab === 'wishlist' && <WishlistTab onToast={(msg, type) => setToast({ message: msg, type })} />}

@@ -61,7 +61,9 @@ class UserFollowServiceImplTest {
     @BeforeEach
     void setUp() {
         userFollowService = new UserFollowServiceImpl(
-                userFollowMapper, communityEventProducer, growthService, userEnrichmentService
+                userFollowMapper,
+                org.mockito.Mockito.mock(com.cloudmart.community.repository.PostMapper.class),
+                communityEventProducer, growthService, userEnrichmentService
         );
     }
 

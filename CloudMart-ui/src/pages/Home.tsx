@@ -83,6 +83,8 @@ function PostCard({
   const isVideo = post.type === 'VIDEO'
   const isProduct = post.type === 'PRODUCT'
   const isOwnPost = currentUserId !== null && post.userId === currentUserId
+  // 来源区分：心愿宇宙同步帖（标签含"心愿"）与普通社区帖
+  const isWishPost = !!post.tags?.some((t) => (t.name ?? '').includes('心愿'))
 
   const mediaIndicator = isVideo
     ? <span className={styles.mediaIndicator}><VideoCameraOutlined /> 视频</span>
@@ -124,6 +126,20 @@ function PostCard({
         </Avatar>
         <div className={styles.postAuthorInfo}>
           <div className={styles.postAuthorName}>
+            <span
+              title={isWishPost ? '来自心愿宇宙' : '社区帖子'}
+              style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                borderRadius: 5,
+                marginRight: 6,
+                fontWeight: 600,
+                background: isWishPost ? 'rgba(var(--color-accent-purple-rgb, 156, 108, 255), 0.15)' : 'rgba(var(--color-primary-rgb), 0.12)',
+                color: isWishPost ? 'var(--color-accent-purple, #9c6cff)' : 'var(--color-primary)',
+              }}
+            >
+              {isWishPost ? '🌟 心愿宇宙' : '📝 社区'}
+            </span>
             {post.authorNickname || '未知用户'}
           </div>
           <div className={styles.postTime}>{timeAgo(post.createdAt)}</div>
@@ -265,7 +281,7 @@ function SidebarTopics({ topics }: { topics: HotTopic[] }) {
   )
 }
 
-function SidebarUsers({ users, onFollow }: { users: RecommendUser[]; onFollow: (userId: number) => void }) {
+function SidebarUsers({ users, currentUserId, onFollow }: { users: RecommendUser[]; currentUserId?: number; onFollow: (userId: number) => void }) {
   return (
     <div className={styles.sidebarCard}>
       <div className={styles.sidebarCardHeader}>
@@ -274,20 +290,20 @@ function SidebarUsers({ users, onFollow }: { users: RecommendUser[]; onFollow: (
       </div>
       <div className={styles.userList}>
         {users.map((user) => (
-          <div key={user.userId} className={styles.userItem}>
+          <div key={user.userId} className={styles.userItem} onClick={() => history.push(`/user/${user.userId}`)}>
             <Avatar
               size={36}
               src={user.avatar || undefined}
-              style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}
+              style={{ background: 'var(--color-gradient-primary)', flexShrink: 0, cursor: 'pointer' }}
             >
               {user.nickname[0]}
             </Avatar>
-            <div className={styles.userInfo}>
+            <div className={styles.userInfo} style={{ cursor: 'pointer' }}>
               <div className={styles.userName}>
                 {user.nickname}
-                <span className={styles.userLevel}>{formatCount(user.followerCount)}粉丝</span>
+                <span className={styles.userLevel}>{formatCount(user.followerCount ?? 0)}粉丝</span>
               </div>
-              <div className={styles.userBio}>{formatCount(user.postCount)}篇内容</div>
+              <div className={styles.userBio}>{formatCount(user.postCount ?? 0)}篇内容</div>
             </div>
             <button
               type="button"
@@ -644,7 +660,7 @@ export default function Home() {
 
         <div className={styles.sidebarColumn}>
           <SidebarTopics topics={topics} />
-          <SidebarUsers users={recommendUsers} onFollow={handleFollow} />
+          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} currentUserId={user?.id} onFollow={handleFollow} />
           <SidebarHotProducts products={hotProducts} />
 
           <div className={styles.sidebarCard}>
@@ -692,7 +708,7 @@ export default function Home() {
       {sidebarVisible && (
         <div className={styles.mobileSidebar}>
           <SidebarTopics topics={topics} />
-          <SidebarUsers users={recommendUsers} onFollow={handleFollow} />
+          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} currentUserId={user?.id} onFollow={handleFollow} />
           <SidebarHotProducts products={hotProducts} />
         </div>
       )}

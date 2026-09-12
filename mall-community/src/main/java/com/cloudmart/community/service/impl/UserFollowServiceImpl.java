@@ -1,6 +1,7 @@
 package com.cloudmart.community.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.cloudmart.community.entity.Post;
 import com.cloudmart.community.entity.UserFollow;
 import com.cloudmart.community.mq.CommunityEventProducer;
 import com.cloudmart.community.repository.UserFollowMapper;
@@ -20,15 +21,18 @@ import java.util.stream.Collectors;
 public class UserFollowServiceImpl implements UserFollowService {
 
     private final UserFollowMapper userFollowMapper;
+    private final com.cloudmart.community.repository.PostMapper postMapper;
     private final CommunityEventProducer communityEventProducer;
     private final GrowthService growthService;
     private final UserEnrichmentService userEnrichmentService;
 
     public UserFollowServiceImpl(UserFollowMapper userFollowMapper,
+                                 com.cloudmart.community.repository.PostMapper postMapper,
                                  CommunityEventProducer communityEventProducer,
                                  GrowthService growthService,
                                  UserEnrichmentService userEnrichmentService) {
         this.userFollowMapper = userFollowMapper;
+        this.postMapper = postMapper;
         this.communityEventProducer = communityEventProducer;
         this.growthService = growthService;
         this.userEnrichmentService = userEnrichmentService;
@@ -228,23 +232,45 @@ public class UserFollowServiceImpl implements UserFollowService {
 
         Map<Long, UserInfo> userMap = userEnrichmentService.batchGetUsers(new HashSet<>(recommendedIds));
 
+        // 批量统计发帖数（仅统计已发布）与粉丝数，避免推荐卡片显示 null
+        Map<Long, Long> postCountMap = recommendedIds.isEmpty() ? Map.of()
+                : postMapper.selectList(
+                        new LambdaQueryWrapper<Post>()
+                                .select(Post::getUserId)
+                                .in(Post::getUserId, recommendedIds)
+                                .eq(Post::getStatus, 1))
+                .stream()
+                .collect(Collectors.groupingBy(Post::getUserId, Collectors.counting()));
+        Map<Long, Long> followerCountMap = recommendedIds.isEmpty() ? Map.of()
+                : userFollowMapper.selectList(
+                        new LambdaQueryWrapper<UserFollow>()
+                                .select(UserFollow::getFollowingId)
+                                .in(UserFollow::getFollowingId, recommendedIds))
+                .stream()
+                .collect(Collectors.groupingBy(UserFollow::getFollowingId, Collectors.counting()));
+
         return recommendedIds.stream()
                 .map(id -> {
                     UserInfo user = userMap.getOrDefault(id, new UserInfo(id, "未知用户", "", null, null));
                     boolean isFollowed = followingIds.contains(id) && !id.equals(userId);
+                    // 排除自己（双保险：候选集构建处已过滤）
+                    if (userId != null && id.equals(userId)) {
+                        return null;
+                    }
                     return new UserCommunityVO(
                             id,
                             user.nickname(),
                             user.avatar(),
                             user.signature(),
-                            null,
-                            null,
-                            null,
+                            postCountMap.getOrDefault(id, 0L),
+                            followerCountMap.getOrDefault(id, 0L),
+                            followerCountMap.getOrDefault(id, 0L),
                             mutualCountMap.getOrDefault(id, 0).longValue(),
                             null,
                             isFollowed
                     );
                 })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 }

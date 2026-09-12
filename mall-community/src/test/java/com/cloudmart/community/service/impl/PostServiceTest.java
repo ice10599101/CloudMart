@@ -163,7 +163,7 @@ class PostServiceTest {
             assertThat(result.title()).isEqualTo("Test Title");
             assertThat(result.status()).isEqualTo(1);
             verify(contentReviewService).reviewContent("Test content");
-            verify(growthService).addExp(USER_ID, 20, "POST", POST_ID, "发布帖子");
+            verify(growthService).addExp(USER_ID, 20, "POST", POST_ID, "发布帖子《Test Title》");
             verify(communityCacheService).evictFeedPosts();
         }
 

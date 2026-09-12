@@ -146,7 +146,8 @@ public class PostServiceImpl implements PostService {
         }
 
         if (status != 0) {
-            growthService.addExp(userId, 20, "POST", post.getId(), "发布帖子");
+            // 经验记录带上帖子标题，避免"最近动态"里多条发布记录无法区分
+            growthService.addExp(userId, 20, "POST", post.getId(), "发布帖子《" + post.getTitle() + "》");
             communityCacheService.evictFeedPosts();
             notifyTagSubscribers(userId, post, request.tagIds());
         }
@@ -217,7 +218,7 @@ public class PostServiceImpl implements PostService {
         postMapper.updateById(post);
 
         if (request.status() != null && request.status() == 1 && originalStatus == 0) {
-            growthService.addExp(userId, 20, "POST", postId, "发布帖子");
+            growthService.addExp(userId, 20, "POST", postId, "发布帖子《" + post.getTitle() + "》");
         }
 
         if (request.tagIds() != null) {

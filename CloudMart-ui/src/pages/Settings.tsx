@@ -49,6 +49,13 @@ const toggleRowStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--color-border)',
 }
 
+/** 可点击跳转的行：手型光标 + hover 反馈（与开关行区分，开关行整行不可点） */
+const linkRowStyle: React.CSSProperties = {
+  ...toggleRowStyle,
+  cursor: 'pointer',
+  transition: 'background 0.2s ease',
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -305,7 +312,7 @@ export default function SettingsPage() {
           <h2 style={sectionTitleStyle}>心愿宇宙 · 合规</h2>
 
           <div
-            style={toggleRowStyle}
+            style={linkRowStyle}
             onClick={() => history.push('/wish/assistant')}
             role="link"
           >
@@ -319,7 +326,7 @@ export default function SettingsPage() {
           </div>
 
           <div
-            style={toggleRowStyle}
+            style={linkRowStyle}
             onClick={() => history.push('/wish/starlight-log')}
             role="link"
           >
@@ -333,7 +340,7 @@ export default function SettingsPage() {
           </div>
 
           <div
-            style={toggleRowStyle}
+            style={linkRowStyle}
             onClick={() => history.push('/settings/export')}
             role="link"
           >
