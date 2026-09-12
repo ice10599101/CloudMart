@@ -51,6 +51,13 @@ public class UserCommunityController {
         return ApiResponse.ok(vo);
     }
 
+    @GetMapping("/{userId}/stats")
+    @Operation(summary = "用户社区数据面板", description = "获赞/收到评论/浏览总量（仅统计已发布帖子），用于他人主页数据面板")
+    public ApiResponse<com.cloudmart.community.vo.UserCommunityStatsVO> getUserStats(
+            @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId) {
+        return ApiResponse.ok(userCommunityService.getUserStats(userId));
+    }
+
     @PostMapping("/{userId}/follow")
     @Operation(summary = "关注用户", description = "当前用户关注目标用户")
     public ApiResponse<Void> follow(

@@ -41,6 +41,11 @@ export function getUserProfile() {
   return request.get<ApiResponse<UserProfile>>('/user/users/me')
 }
 
+/** 他人用户资料（需登录；含小答号/性别/生日/职业/学校/地区/爱好/加入时间，邮箱仅本人可见语义由后端控制） */
+export function getUserPublicProfile(userId: number | string) {
+  return request.get<ApiResponse<UserProfile>>(`/user/users/${userId}`)
+}
+
 export function updateProfile(data: Partial<UserProfile>) {
   return request.put<ApiResponse<UserProfile>>('/user/users/profile', data)
 }

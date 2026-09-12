@@ -14,9 +14,14 @@ import {
   TrophyOutlined,
   SendOutlined,
   StopOutlined,
+  CommentOutlined,
+  FireOutlined,
+  IdcardOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons'
 import {
   getUserProfile as getCommunityProfile,
+  getUserCommunityStats,
   followUser,
   unfollowUser,
   getUserPosts,
@@ -25,8 +30,12 @@ import {
   unblockUser,
   checkBlockStatus,
 } from '@/api/community'
+import type { Post, UserCommunityStats } from '@/api/community'
+import { getUserPublicProfile } from '@/api/user'
+import type { UserProfile } from '@/api/user'
 import { createConversation } from '@/api/chat'
-import type { Post } from '@/api/community'
+import { stripHtml } from '@/utils/format'
+import RichText from '@/components/RichText'
 import { useAuthStore } from '@/stores/auth'
 
 interface CommunityUserProfile {
@@ -48,6 +57,19 @@ function formatCount(n: number): string {
   return String(n)
 }
 
+function formatJoinDate(value: string | undefined): string {
+  if (!value) return ''
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+function formatJoinedDays(value: string | undefined): number | null {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.max(1, Math.ceil((Date.now() - d.getTime()) / 86400000))
+}
+
 const BADGE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   default: { bg: 'rgba(var(--color-primary-rgb), 0.12)', border: 'rgba(var(--color-primary-rgb), 0.25)', text: 'var(--color-primary)' },
   gold: { bg: 'rgba(255, 215, 0, 0.12)', border: 'rgba(255, 215, 0, 0.25)', text: '#FFD700' },
@@ -62,87 +84,99 @@ function getBadgeColor(index: number) {
 }
 
 function PostCard({ post }: { post: Post }) {
+  const preview = stripHtml(post.content).slice(0, 60)
   return (
     <div
       onClick={() => history.push(`/post/${post.id}`)}
       style={{
         background: 'var(--color-bg-container)',
-        borderRadius: '12px',
+        borderRadius: '10px',
         border: '1px solid var(--color-border)',
         overflow: 'hidden',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)'
-        e.currentTarget.style.transform = 'translateY(-4px)'
-        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(var(--color-primary-rgb), 0.08)'
+        e.currentTarget.style.transform = 'translateY(-3px)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = 'var(--color-border)'
         e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = 'none'
       }}
     >
+      {/* 封面按需显示且限高：无图不再撑出大面积空占位 */}
       {post.coverImage && (
-        <div style={{
-          width: '100%',
-          aspectRatio: '4/3',
-          overflow: 'hidden',
-          background: 'var(--color-bg-input)',
-        }}>
+        <div style={{ height: 110, overflow: 'hidden', background: 'var(--color-bg-input)', flexShrink: 0 }}>
           <img
             src={post.coverImage}
             alt={post.title}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.3s ease',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            loading="lazy"
           />
         </div>
       )}
-      {!post.coverImage && (
-        <div style={{
-          width: '100%',
-          aspectRatio: '4/3',
-          background: 'linear-gradient(135deg, var(--color-bg-input) 0%, var(--color-bg-container) 50%, var(--color-bg-elevated) 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <FileTextOutlined style={{ fontSize: 32, color: 'rgba(var(--color-primary-rgb), 0.2)' }} />
-        </div>
-      )}
-      <div style={{ padding: '12px 14px' }}>
+      <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
         <h4 style={{
           color: 'var(--color-text-secondary)',
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: 600,
           lineHeight: 1.4,
-          marginBottom: 8,
+          margin: 0,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
+          whiteSpace: 'nowrap',
         }}>
           {post.title}
         </h4>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {preview && (
+          <RichText
+            content={post.content}
+            clamp={2}
+            variant="preview"
+            style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}
+          />
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
             <HeartOutlined /> {formatCount(post.likeCount)}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-            <EyeOutlined /> {formatCount(post.viewCount)}
+            <CommentOutlined /> {formatCount(post.commentCount)}
+          </span>
+          <span style={{ marginLeft: 'auto', color: 'var(--color-text-tertiary)', fontSize: 11 }}>
+            {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ''}
           </span>
         </div>
       </div>
     </div>
   )
+}
+
+/** 详细资料字段（仅展示已填写项） */
+function buildDetailFields(user: UserProfile): Array<{ label: string; value: string }> {
+  const fields: Array<{ label: string; value: string }> = []
+  const push = (label: string, value: string | undefined | null) => {
+    const v = (value ?? '').trim()
+    if (v) fields.push({ label, value: v })
+  }
+  const genderMap: Record<string, string> = { MALE: '男', FEMALE: '女', UNKNOWN: '保密', SECRET: '保密' }
+  const genderRaw = (user.gender ?? '').trim()
+  // 后端存枚举码，展示层转中文
+  push('性别', genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : '')
+  push('小答号', user.username)
+  if ((user.birthday ?? '').trim()) {
+    push('生日', user.constellation?.trim() ? `${user.birthday}（${user.constellation}）` : user.birthday)
+  }
+  push('职业', user.occupation)
+  push('学校', user.school)
+  push('所在地区', user.location)
+  push('兴趣爱好', user.hobbies)
+  const joined = formatJoinDate(user.createdAt)
+  if (joined) fields.push({ label: '加入时间', value: joined })
+  return fields
 }
 
 export default function UserProfile() {
@@ -151,6 +185,8 @@ export default function UserProfile() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   const [profile, setProfile] = useState<CommunityUserProfile | null>(null)
+  const [detail, setDetail] = useState<UserProfile | null>(null)
+  const [communityStats, setCommunityStats] = useState<UserCommunityStats | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [collections, setCollections] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
@@ -189,11 +225,33 @@ export default function UserProfile() {
     }
   }, [id])
 
+  // 详细资料（mall-user）；未登录/接口失败时静默隐藏，不影响主资料
+  const fetchDetail = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data: res } = await getUserPublicProfile(id)
+      setDetail(res.data ?? null)
+    } catch {
+      setDetail(null)
+    }
+  }, [id])
+
+  const fetchStats = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data: res } = await getUserCommunityStats(id)
+      setCommunityStats(res.data ?? null)
+    } catch {
+      setCommunityStats(null)
+    }
+  }, [id])
+
   const checkBlock = useCallback(async () => {
     if (!id || isOwnProfile) return
     try {
       const { data: res } = await checkBlockStatus(id)
-      setIsBlocked(res.data ?? false)
+      // 后端返回 { blocked: boolean }，取字段而非整体（对象恒为真值会导致按钮状态永远显示"取消拉黑"）
+      setIsBlocked(res.data?.blocked ?? false)
     } catch {
       setIsBlocked(false)
     }
@@ -222,8 +280,10 @@ export default function UserProfile() {
   useEffect(() => {
     fetchProfile()
     fetchPosts()
+    fetchStats()
+    fetchDetail()
     checkBlock()
-  }, [fetchProfile, fetchPosts, checkBlock])
+  }, [fetchProfile, fetchPosts, fetchStats, fetchDetail, checkBlock])
 
   useEffect(() => {
     if (activeTab === 'collections' && collections.length === 0) {
@@ -357,6 +417,24 @@ export default function UserProfile() {
     { label: '收藏', value: profile.collectCount, icon: <StarOutlined />, action: () => setActiveTab('collections') },
   ]
 
+  const detailFields = detail ? buildDetailFields(detail) : []
+  const joinedDays = detail ? formatJoinedDays(detail.createdAt) : null
+
+  const metricPanels = [
+    { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined /> },
+    { label: '收到评论', value: communityStats ? communityStats.commentsReceived : null, icon: <CommentOutlined /> },
+    { label: '内容浏览', value: communityStats ? communityStats.viewsTotal : null, icon: <FireOutlined /> },
+    { label: '加入天数', value: joinedDays, icon: <CalendarOutlined /> },
+  ]
+
+  const cardSectionStyle: React.CSSProperties = {
+    background: 'var(--color-bg-container)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 12,
+    padding: '16px 18px',
+    marginBottom: 16,
+  }
+
   return (
     <div style={{ background: 'var(--color-bg-base)', minHeight: '100vh' }}>
       <div style={{
@@ -414,15 +492,32 @@ export default function UserProfile() {
               {profile.nickname?.charAt(0) || '?'}
             </Avatar>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{
-                color: 'var(--color-text-secondary)',
-                fontSize: 26,
-                fontWeight: 800,
-                marginBottom: 6,
-                lineHeight: 1.3,
-              }}>
-                {profile.nickname}
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <h1 style={{
+                  color: 'var(--color-text-secondary)',
+                  fontSize: 26,
+                  fontWeight: 800,
+                  margin: 0,
+                  lineHeight: 1.3,
+                }}>
+                  {profile.nickname}
+                </h1>
+                {detail?.username && (
+                  <span style={{
+                    padding: '2px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(var(--color-primary-rgb), 0.1)',
+                    border: '1px solid rgba(var(--color-primary-rgb), 0.2)',
+                    color: 'var(--color-text-tertiary)',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}>
+                    <IdcardOutlined /> 小答号 {detail.username}
+                  </span>
+                )}
+              </div>
               {profile.signature && (
                 <p style={{
                   color: 'var(--color-text-secondary)',
@@ -601,16 +696,69 @@ export default function UserProfile() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 24px 0' }}>
+        {/* 数据面板：获赞 / 收到评论 / 浏览 / 加入天数 */}
+        <div style={cardSectionStyle}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {metricPanels.map((panel) => (
+              <div
+                key={panel.label}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '10px 4px',
+                  borderRadius: 10,
+                  background: 'rgba(var(--color-primary-rgb), 0.04)',
+                }}
+              >
+                <span style={{ color: 'var(--color-primary)', fontSize: 18, fontWeight: 700 }}>
+                  {panel.value === null || panel.value === undefined ? '-' : formatCount(panel.value)}
+                </span>
+                <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {panel.icon}
+                  {panel.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 详细资料：仅展示已填写项 */}
+        {detail && (
+          <div style={cardSectionStyle}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-secondary)', margin: '0 0 12px' }}>
+              详细资料
+            </h3>
+            {detailFields.length === 0 ? (
+              <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13, padding: '4px 0' }}>
+                {isOwnProfile ? '你还没有填写详细资料，去编辑资料补充吧' : 'TA还没有填写详细资料'}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 20px' }}>
+                {detailFields.map((field) => (
+                  <div key={field.label} style={{ display: 'flex', gap: 8, fontSize: 13, minWidth: 0 }}>
+                    <span style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }}>{field.label}</span>
+                    <span style={{ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {field.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {profile.badges && profile.badges.length > 0 && (
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
+            alignItems: 'center',
             gap: 8,
-            padding: '20px 0',
-            borderBottom: '1px solid var(--color-border)',
+            marginBottom: 16,
           }}>
-            <TrophyOutlined style={{ color: '#FFD700', fontSize: 16, marginRight: 4, marginTop: 4 }} />
+            <TrophyOutlined style={{ color: '#FFD700', fontSize: 16, marginRight: 4 }} />
             {profile.badges.map((badge, index) => {
               const colorSet = getBadgeColor(index)
               return (
@@ -638,12 +786,14 @@ export default function UserProfile() {
             })}
           </div>
         )}
+      </div>
 
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 24px' }}>
         <div style={{
           display: 'flex',
           gap: 0,
           borderBottom: '1px solid var(--color-border)',
-          marginBottom: 24,
+          marginBottom: 16,
         }}>
           {[
             { key: 'posts' as const, label: '帖子', icon: <FileTextOutlined /> },
@@ -654,7 +804,7 @@ export default function UserProfile() {
               type="button"
               onClick={() => setActiveTab(tab.key)}
               style={{
-                padding: '16px 28px',
+                padding: '12px 28px',
                 border: 'none',
                 background: 'transparent',
                 color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-secondary)',
@@ -688,8 +838,8 @@ export default function UserProfile() {
             ) : (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 16,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                gap: 14,
                 paddingBottom: 80,
               }}>
                 {posts.map((post) => (
@@ -705,8 +855,9 @@ export default function UserProfile() {
             {collections.length > 0 ? (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                gap: 16,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                gap: 14,
+                paddingBottom: 80,
               }}>
                 {collections.map((post) => (
                   <PostCard key={post.id} post={post} />

@@ -265,7 +265,18 @@ export function unblockUser(userId: number | string) {
 }
 
 export function checkBlockStatus(targetUserId: number | string) {
-  return request.get<ApiResponse<boolean>>('/community/blocks/check', { params: { targetUserId } })
+  return request.get<ApiResponse<{ blocked: boolean }>>('/community/blocks/check', { params: { targetUserId } })
+}
+
+export interface UserCommunityStats {
+  likesReceived: number
+  commentsReceived: number
+  viewsTotal: number
+}
+
+/** 用户社区数据面板（获赞/收到评论/浏览总量，仅统计已发布帖子）；可选数据，失败静默由页面兜底 */
+export function getUserCommunityStats(userId: number | string) {
+  return request.get<ApiResponse<UserCommunityStats>>(`/community/users/${userId}/stats`, { silentError: true })
 }
 
 export function createReport(data: { targetType: string; targetId: number; reason: string; description?: string }) {

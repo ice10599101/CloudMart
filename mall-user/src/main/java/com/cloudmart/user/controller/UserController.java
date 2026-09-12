@@ -47,10 +47,22 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "获取用户信息")
+    @Operation(summary = "获取用户信息", description = "邮箱为 PII，仅本人可见；非本人访问时置空（内部服务调用不受影响）")
     public ApiResponse<UserVO> getUserById(
-            @Parameter(description = "用户ID") @PathVariable Long id) {
-        return ApiResponse.ok(userService.getUserById(id));
+            @Parameter(description = "用户ID") @PathVariable Long id,
+            @Parameter(hidden = true) @RequestHeader(name = com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        UserVO vo = userService.getUserById(id);
+        if (currentUserId == null || !currentUserId.equals(id)) {
+            vo = withoutEmail(vo);
+        }
+        return ApiResponse.ok(vo);
+    }
+
+    /** 复制 VO 并剔除邮箱（record 无 setter，显式重建） */
+    private UserVO withoutEmail(UserVO vo) {
+        return new UserVO(vo.id(), vo.username(), vo.nickname(), null, vo.avatar(), vo.signature(),
+                vo.gender(), vo.birthday(), vo.constellation(), vo.occupation(), vo.school(),
+                vo.location(), vo.hobbies(), vo.status(), vo.nicknameUpdatedAt(), vo.createdAt());
     }
 
     @GetMapping("/search")

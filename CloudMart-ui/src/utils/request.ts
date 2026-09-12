@@ -44,6 +44,17 @@ function toBusinessError(code: string, messageText: string): Error & { code: str
   return error
 }
 
+/** 请求级静默开关：可选型请求（如数据面板）失败时由组件自行兜底，不弹全局错误提示 */
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    silentError?: boolean
+  }
+}
+
+function isSilent(config: { silentError?: boolean } | undefined): boolean {
+  return config?.silentError === true
+}
+
 // 已登录则一律附带身份头：公开接口带 token 无害（服务端忽略或用于个性化），
 // 而心愿宇宙存在大量「路径公开、语义私有」的 GET（checkins/fulfillment/tree-hole 等），
 // 若按前缀跳过会导致这些接口缺身份头而 401。token 过期由响应拦截器的刷新流程自愈。
@@ -84,6 +95,9 @@ request.interceptors.response.use(
           if (serviceUnavailableTimer) clearTimeout(serviceUnavailableTimer)
           serviceUnavailableTimer = setTimeout(() => SERVICE_UNAVAILABLE_CODES.clear(), 5000)
         }
+        return Promise.reject(businessError)
+      }
+      if (isSilent(response.config as { silentError?: boolean })) {
         return Promise.reject(businessError)
       }
       notify('error', data.error?.message || '请求失败')
@@ -178,7 +192,9 @@ request.interceptors.response.use(
         return Promise.reject(error)
       }
     }
-    notify('error', error.response?.data?.error?.message || '网络错误')
+    if (!isSilent(error.config as { silentError?: boolean } | undefined)) {
+      notify('error', error.response?.data?.error?.message || '网络错误')
+    }
     return Promise.reject(error)
   },
 )

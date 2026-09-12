@@ -132,6 +132,16 @@ describe('request 响应拦截器（信封处理，真实实例）', () => {
     expect(message.error).toHaveBeenCalledWith('标题过长')
   })
 
+  it('success=false 且 silentError：不弹全局错误，仅透传业务码', async () => {
+    const response = {
+      data: { success: false, error: { code: 'RESOURCE_NOT_FOUND', message: '资源不存在' } },
+      config: { silentError: true },
+    }
+
+    await expect(responseFulfilled(response)).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
+    expect(message.error).not.toHaveBeenCalled()
+  })
+
   it('success=true 正常放行', async () => {
     const response = { data: { success: true, data: { id: 1 } } }
 

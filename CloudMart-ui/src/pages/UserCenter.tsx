@@ -142,6 +142,19 @@ const BADGE_COLORS = [
   { bg: 'rgba(255,215,0,0.12)', border: 'rgba(255,215,0,0.25)', text: 'var(--color-accent-gold)', glow: 'rgba(255,215,0,0.15)' },
 ]
 
+/** 权益名称 → 功能明细。level_configs.benefits 只存标签，具体内容由前端语义化展开 */
+const BENEFIT_DETAILS: Record<string, string> = {
+  基础功能: '发帖、评论、点赞、收藏、关注、私信、每日签到领星光',
+  自定义头像框: '解锁头像框装扮，主页与评论区展示个性化头像边框',
+  专属标签: '昵称旁展示当前等级专属标签，身份一目了然',
+  优先推荐: '发布的帖子在首页推荐流中获得更高曝光权重',
+  官方活动优先: '官方活动报名通道优先开放，名额优先分配',
+  全部功能: '解锁社区全部功能，无任何限制',
+  专属标识: '全站展示传奇专属标识与特效',
+  官方认证: '可申请官方认证标识，认证后展示认证徽章',
+  活动特权: '专享活动通道与稀有装扮特权',
+}
+
 const EXP_SOURCE_MAP: Record<string, { label: string; icon: string }> = {
   CHECK_IN: { label: '每日签到', icon: '📅' },
   POST: { label: '发布帖子', icon: '📝' },
@@ -1064,6 +1077,8 @@ export default function UserCenterPage() {
   const [activities, setActivities] = useState<Array<{ key: string; type: 'post' | 'comment'; postId: number; title: string; preview?: string; createdAt: string }> | null>(null)
   const [expLogs, setExpLogs] = useState<ExpLogRecord[]>([])
   const [expLogsOpen, setExpLogsOpen] = useState(false)
+  // 当前权益面板：手风琴展开的权益名
+  const [expandedBenefit, setExpandedBenefit] = useState<string | null>(null)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [continuousDays, setContinuousDays] = useState(0)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -1342,13 +1357,54 @@ export default function UserCenterPage() {
                     <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, marginTop: 4 }}>提升等级解锁更多权益</div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                    {currentBenefits.map((benefit, index) => (
-                      <div key={index} className={s.benefitRow}>
-                        <span style={{ color: 'var(--color-accent-gold)', fontSize: 12 }}>✦</span>
-                        <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>{benefit}</span>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {currentBenefits.map((benefit) => {
+                      const isExpanded = expandedBenefit === benefit
+                      const detail = BENEFIT_DETAILS[benefit] ?? '提升等级即可享受该权益'
+                      return (
+                        <div key={benefit}>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedBenefit(isExpanded ? null : benefit)}
+                            aria-expanded={isExpanded}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '8px 6px',
+                              border: 'none',
+                              background: isExpanded ? 'rgba(var(--color-primary-rgb), 0.08)' : 'transparent',
+                              borderRadius: 8,
+                              cursor: 'pointer',
+                              transition: 'background 0.2s',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <span style={{ color: 'var(--color-accent-gold)', fontSize: 12 }}>✦</span>
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: 13, flex: 1 }}>{benefit}</span>
+                            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11, transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▸</span>
+                          </button>
+                          {isExpanded && (
+                            <div style={{
+                              margin: '4px 6px 6px 26px',
+                              padding: '8px 10px',
+                              borderRadius: 8,
+                              background: 'rgba(var(--color-primary-rgb), 0.05)',
+                              border: '1px solid rgba(var(--color-primary-rgb), 0.12)',
+                              color: 'var(--color-text-tertiary)',
+                              fontSize: 12,
+                              lineHeight: 1.7,
+                            }}>
+                              {detail}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, textAlign: 'center', padding: '4px 0 2px' }}>
+                      点击权益查看具体功能
+                    </div>
                   </div>
                 )}
               </div>

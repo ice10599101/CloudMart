@@ -11,6 +11,7 @@ import com.cloudmart.community.service.UserEnrichmentService;
 import com.cloudmart.community.service.UserEnrichmentService.UserInfo;
 import com.cloudmart.community.service.UserFollowService;
 import com.cloudmart.community.vo.BadgeVO;
+import com.cloudmart.community.vo.UserCommunityStatsVO;
 import com.cloudmart.community.vo.UserCommunityVO;
 import org.springframework.stereotype.Service;
 
@@ -75,5 +76,29 @@ public class UserCommunityServiceImpl implements UserCommunityService {
                 badges,
                 isFollowed
         );
+    }
+
+    @Override
+    public UserCommunityStatsVO getUserStats(Long userId) {
+        // 单行聚合（COALESCE 保证无帖子时返回 0 而非 null），无用户输入参与，无注入面
+        List<java.util.Map<String, Object>> rows = postMapper.selectMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Post>()
+                        .select(
+                                "COALESCE(SUM(like_count), 0) AS likes_received",
+                                "COALESCE(SUM(comment_count), 0) AS comments_received",
+                                "COALESCE(SUM(view_count), 0) AS views_total")
+                        .eq("user_id", userId)
+                        .eq("status", 1));
+        java.util.Map<String, Object> row = (rows == null || rows.isEmpty()) ? java.util.Map.of() : rows.get(0);
+        return new UserCommunityStatsVO(
+                toLong(row.get("likes_received")),
+                toLong(row.get("comments_received")),
+                toLong(row.get("views_total")));
+    }
+
+    /** 聚合结果兼容 Number/null（SUM 在部分驱动下返回 BigDecimal/Long） */
+    private Long toLong(Object value) {
+        if (value == null) return 0L;
+        return value instanceof Number number ? number.longValue() : Long.parseLong(value.toString());
     }
 }
