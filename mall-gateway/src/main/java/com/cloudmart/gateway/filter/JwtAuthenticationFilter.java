@@ -60,7 +60,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @org.springframework.beans.factory.annotation.Autowired
     public JwtAuthenticationFilter(
-            @Value("${gateway.jwt.jwks-uri:http://mall-auth:9001/oauth2/jwks}") String jwksUri) {
+            @Value("${gateway.jwt.jwks-uri:http://127.0.0.1:9001/oauth2/jwks}") String jwksUri) {
         try {
             this.jwkSource = new RemoteJWKSet<>(new URL(jwksUri));
         } catch (java.net.MalformedURLException e) {
