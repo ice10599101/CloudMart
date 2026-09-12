@@ -156,16 +156,7 @@ export default function WishHome() {
                 <div className={styles.entryText}>我的心愿</div>
               </Card>
             </Col>
-            <Col xs={12} md={6}>
-              <Card
-                  hoverable
-                  className={styles.entryCard}
-                  onClick={() => history.push('/wish/create')}
-              >
-                <PlusOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
-                <div className={styles.entryText}>发布心愿</div>
-              </Card>
-            </Col>
+            {/* 发布心愿入口与顶部「许下心愿」按钮重复，仅保留横幅按钮 */}
             {data?.entries?.aiAssistantEntry !== false && (
             <Col xs={12} md={6}>
               <Card

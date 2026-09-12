@@ -25,10 +25,6 @@ import WishBGM from '@/components/WishBGM'
 const TREE_RADIUS = 1.6
 /** InstancedMesh 容量：单屏渲染果实上限（超出按加载序截断） */
 const MAX_RENDER_FRUITS = 600
-/** 单页拉取上限（与后端 pageSize 上限对齐） */
-const PAGE_SIZE = 200
-/** 单次视口加载最多翻页数（防失控，200×5=1000 条足够覆盖任何单视口） */
-const MAX_PAGES_PER_VIEWPORT = 5
 /** 视角变化触发阈值（rad）：autoRotate 0.3 速度下约 5s 触发一次 */
 const VIEWPORT_TRIGGER_ANGLE = 0.6
 /** 视口请求节流（ms） */
@@ -130,7 +126,7 @@ function computeViewportBounds(camera: THREE.PerspectiveCamera): TreeFruitsQuery
   const maxLat = Math.min(Math.PI, phi + span)
   const minLng = (theta - span + twoPi) % twoPi
   const maxLng = (theta + span) % twoPi
-  return { minLat, maxLat, minLng, maxLng, pageSize: PAGE_SIZE }
+  return { minLat, maxLat, minLng, maxLng }
 }
 
 // ========== Three.js 场景封装（副作用与 React 解耦） ==========
@@ -582,43 +578,29 @@ export default function WorldTree3D() {
       [envSnapshot, envConfigs],
   )
 
-  /** 合并去重（果实位置一经写入不变更，仅新增）并同步到 3D 场景 */
-  const mergeFruits = useCallback((items: TreeFruit[]) => {
-    const map = fruitsMapRef.current
-    let hasNew = false
-    for (const item of items) {
-      if (!map.has(item.id)) {
-        map.set(item.id, item)
-        hasNew = true
-      }
-    }
-    if (hasNew) {
-      sceneRef.current?.setFruits([...map.values()])
-      setFruitList([...map.values()])
-    }
+  /** 快照替换：后端返回的是树上全量封顶列表（含新旧更替），整表替换使离树果实同步消失 */
+  const replaceFruits = useCallback((items: TreeFruit[]) => {
+    fruitsMapRef.current = new Map(items.map((item) => [item.id, item]))
+    sceneRef.current?.setFruits(items)
+    setFruitList(items)
   }, [])
 
-  /** 视口增量加载：游标翻页直到 hasMore=false 或达单次上限 */
-  const loadViewport = useCallback(
-      async (query: TreeFruitsQuery) => {
+  /** 拉取树上果实快照（后端容量封顶单页全量，cursor/bounds 参数已不被服务端消费） */
+  const loadFruitsSnapshot = useCallback(
+      async () => {
         setViewportLoading(true)
         try {
-          let cursor: string | undefined
-          for (let page = 0; page < MAX_PAGES_PER_VIEWPORT; page++) {
-            const res = await listTreeFruits({ ...query, cursor })
-            if (!res.data.success) break
-            mergeFruits(res.data.data)
-            const meta = res.data.meta
-            if (!meta?.hasMore || !meta.nextCursor) break
-            cursor = meta.nextCursor
+          const res = await listTreeFruits({ pageSize: 100 })
+          if (res.data.success) {
+            replaceFruits(res.data.data)
           }
         } catch {
-          // 动态加载失败静默降级（全局拦截器已提示，已渲染果实不受影响）
+          // 动态加载失败静默降级（已渲染果实不受影响）
         } finally {
           setViewportLoading(false)
         }
       },
-      [mergeFruits],
+      [replaceFruits],
   )
 
   // 预取灰度开关：场景创建以 flags 就绪为门控（机型分档 + 降级开关同步读取）
@@ -631,8 +613,9 @@ export default function WorldTree3D() {
     if (!canvas || !flagsReady) return
     const scene = createTreeScene(canvas)
     sceneRef.current = scene
-    scene.onViewportChange((query) => {
-      loadViewport(query)
+    // 相机转动触发重新拉取快照：果实集已容量封顶，重复拉取为幂等快照替换
+    scene.onViewportChange(() => {
+      loadFruitsSnapshot()
     })
     scene.onFruitClick((fruit) => {
       setSelectedFruit(fruit)
@@ -641,7 +624,7 @@ export default function WorldTree3D() {
       scene.dispose()
       sceneRef.current = null
     }
-  }, [flagsReady, loadViewport])
+  }, [flagsReady, loadFruitsSnapshot])
 
   useEffect(() => {
     if (envTheme) sceneRef.current?.applyTheme(envTheme)
@@ -652,7 +635,7 @@ export default function WorldTree3D() {
       try {
         const [treeRes, fruitsRes, envRes, configsRes] = await Promise.all([
           getWorldTree(),
-          listTreeFruits({ pageSize: PAGE_SIZE }),
+          listTreeFruits({ pageSize: 100 }),
           getTreeEnv(),
           listEnvConfigs(),
         ])
@@ -666,12 +649,7 @@ export default function WorldTree3D() {
           setEnvConfigs(configsRes.data.data)
         }
         if (fruitsRes.data.success) {
-          mergeFruits(fruitsRes.data.data)
-          // 全量首屏同样翻页补齐（无 bounds 视口）
-          const meta = fruitsRes.data.meta
-          if (meta?.hasMore && meta.nextCursor) {
-            loadViewport({ cursor: meta.nextCursor, pageSize: PAGE_SIZE })
-          }
+          replaceFruits(fruitsRes.data.data)
         }
       } catch {
         // 错误已由 request 拦截器处理
@@ -680,7 +658,7 @@ export default function WorldTree3D() {
       }
     }
     fetchInitial()
-  }, [loadViewport, mergeFruits])
+  }, [replaceFruits])
 
   /** 环境快照轮询：特殊事件全站同步 + 情绪环境 5 分钟扫描，1 分钟拉取足够实时 */
   useEffect(() => {

@@ -13,8 +13,8 @@ import java.util.List;
  * <ul>
  *   <li>{@link #getTreeAggregation()}：树整体聚合状态（计数走 Redis 缓存
  *       TTL 5 分钟，环境/季节实时读取）</li>
- *   <li>{@link #listFruits(TreeFruitsQuery)}：果实视口分页（cursor + bounds，
- *       视口外果实不返回，支持前端动态加载）</li>
+ *   <li>{@link #listFruits(TreeFruitsQuery)}：树上果实列表（容量封顶单页全量，
+ *       黄金角螺旋均匀布点，新果实取代旧果实）</li>
  * </ul>
  */
 public interface WorldTreeService {
@@ -30,21 +30,21 @@ public interface WorldTreeService {
     WorldTreeVO getTreeAggregation();
 
     /**
-     * 果实视口分页（cursor 游标 + bounds 球面视口过滤）。
+     * 树上果实列表（单页全量，最多 48 颗，无游标/视口过滤）。
      *
      * <p>上树口径与公开列表一致：visibility=PUBLIC + audit_status=APPROVED +
      * is_visible=1 + status ∈ (ACTIVE/FULFILLING/FULFILLED) + 未软删 +
-     * tree_theta 非空。按 id DESC 排序，游标为 id；bounds 解析规则见
-     * {@code TreeBoundsParser}（异常参数兜底全量，不报错）。</p>
+     * tree_theta 非空。只挂最新的 48 颗；展示坐标按黄金角螺旋位次实时计算
+     * （最新挂树顶，旧果实依次滑出树）。</p>
      */
     FruitPage listFruits(TreeFruitsQuery query);
 
     /**
-     * 果实分页结果（与既有 cursor 分页封装语义一致）。
+     * 果实列表结果（保留分页封装字段以兼容前端协议；容量封顶后恒为单页全量）。
      *
-     * @param records   当前页果实
-     * @param nextCursor 下一页游标（首页/无更多时为 null）
-     * @param hasMore   是否还有下一页
+     * @param records   树上果实（最新在前）
+     * @param nextCursor 恒为 null（无翻页）
+     * @param hasMore   恒为 false
      */
     record FruitPage(List<TreeFruitVO> records, String nextCursor, boolean hasMore) {
     }

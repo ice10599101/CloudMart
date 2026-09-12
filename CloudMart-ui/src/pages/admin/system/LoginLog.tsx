@@ -52,9 +52,14 @@ export default function LoginLog() {
       title: '登录状态',
       dataIndex: 'status',
       width: 100,
+      // 后端语义（mall-auth AdminAuthServiceImpl.recordLoginLogSafe）：0=成功，1=失败
+      valueEnum: {
+        0: { text: '成功', status: 'Success' },
+        1: { text: '失败', status: 'Error' },
+      },
       render: (_, record) => (
-        <Tag color={record.status === 1 ? 'success' : 'error'}>
-          {record.status === 1 ? '成功' : '失败'}
+        <Tag color={Number(record.status) === 0 ? 'success' : 'error'}>
+          {Number(record.status) === 0 ? '成功' : '失败'}
         </Tag>
       ),
     },

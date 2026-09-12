@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import type { Key } from 'react'
 import {
   ProTable,
   ModalForm,
@@ -41,15 +42,31 @@ export default function Depts() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<DeptRecord | null>(null)
   const [deptTree, setDeptTree] = useState<DeptRecord[]>([])
+  const [expandedRowKeys, setExpandedRowKeys] = useState<readonly Key[]>([])
 
-  async function fetchDeptTree() {
+  // 收集所有含子级的节点 id，作为受控展开键（defaultExpandAllRows 对异步首载不生效）
+  function collectParentIds(nodes: DeptRecord[]): number[] {
+    const ids: number[] = []
+    for (const node of nodes) {
+      if (node.children && node.children.length > 0) {
+        ids.push(node.id)
+        ids.push(...collectParentIds(node.children))
+      }
+    }
+    return ids
+  }
+
+  async function fetchDeptTree(): Promise<DeptRecord[]> {
     const { data: res } = await getDeptTree()
     const response = res as ApiResponse<DeptRecord[]>
-    setDeptTree(response.data ?? [])
+    const tree = response.data ?? []
+    setDeptTree(tree)
+    setExpandedRowKeys(collectParentIds(tree))
+    return tree
   }
 
   useEffect(() => {
-    fetchDeptTree()
+    fetchDeptTree().catch(() => setDeptTree([]))
   }, [])
 
   const handleSubmit = async (values: Record<string, any>) => {
@@ -63,7 +80,7 @@ export default function Depts() {
         message.success('创建成功')
       }
       setEditingRecord(null)
-      fetchDeptTree()
+      fetchDeptTree().catch(() => setDeptTree([]))
       actionRef.current?.reload()
     })
   }
@@ -71,7 +88,7 @@ export default function Depts() {
   const handleDelete = async (id: number) => {
     await deleteDept(id)
     message.success('删除成功')
-    fetchDeptTree()
+    fetchDeptTree().catch(() => setDeptTree([]))
     actionRef.current?.reload()
   }
 
@@ -79,7 +96,7 @@ export default function Depts() {
     try {
       await updateDeptStatus(id, { status: newStatus })
       message.success('状态更新成功')
-      fetchDeptTree()
+      fetchDeptTree().catch(() => setDeptTree([]))
       actionRef.current?.reload()
     } catch {
       message.error('状态更新失败')
@@ -157,9 +174,13 @@ export default function Depts() {
         rowKey="id"
         scroll={{ x: 1000 }}
         request={async () => {
-          return {
-            data: deptTree,
-            success: true,
+          // 直接在 request 内请求，避免闭包捕获首帧空 state 导致表格永远"暂无数据"；
+          // 增删改后通过 actionRef.reload() 触发重新拉取
+          try {
+            const tree = await fetchDeptTree()
+            return { data: tree, success: true }
+          } catch {
+            return { data: [], success: false }
           }
         }}
         toolBarRender={() => [
@@ -178,7 +199,10 @@ export default function Depts() {
         columns={columns}
         pagination={false}
         search={false}
-        expandable={{ defaultExpandAllRows: true }}
+        expandable={{
+          expandedRowKeys,
+          onExpandedRowsChange: (keys) => setExpandedRowKeys(keys),
+        }}
       />
 
       <ModalForm

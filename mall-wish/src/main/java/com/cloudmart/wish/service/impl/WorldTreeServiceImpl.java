@@ -2,8 +2,6 @@ package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.cloudmart.common.exception.BusinessException;
-import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.dto.TreeFruitsQuery;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishWorldTreeState;
@@ -17,7 +15,6 @@ import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.repository.WishWorldTreeStateMapper;
 import com.cloudmart.wish.service.TreeEnvService;
 import com.cloudmart.wish.service.WorldTreeService;
-import com.cloudmart.wish.service.impl.TreeBoundsParser.TreeBounds;
 import com.cloudmart.wish.vo.SpecialEventVO;
 import com.cloudmart.wish.vo.TreeFruitVO;
 import com.cloudmart.wish.vo.TreePositionVO;
@@ -37,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +80,14 @@ public class WorldTreeServiceImpl implements WorldTreeService {
     private static final long LOCK_TTL_SECONDS = 5;
     /** 锁未抢到时的等待重读间隔（毫秒，锁持有者通常一个聚合查询内完成回填） */
     private static final long LOCK_WAIT_MS = 50;
+    /**
+     * 树上果实容量上限。黄金角螺旋布点下 48 颗在树半径 1.6（前端单位）的球面上
+     * 每颗间距充分、整体疏密得当；新心愿上树挂在树顶位（slot 0），
+     * 原有果实依次下滑一位，排在最末的旧果实随之离开树——新陈代谢语义。
+     */
+    private static final int MAX_TREE_FRUITS = 48;
+    /** 黄金角（弧度）：Fibonacci 球面螺旋的经度步进，保证相邻果实不重叠 */
+    private static final double GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
     private final WishMapper wishMapper;
     private final WishWorldTreeStateMapper stateMapper;
@@ -114,57 +118,44 @@ public class WorldTreeServiceImpl implements WorldTreeService {
                 state != null ? state.getTriggeredAt() : null);
     }
 
+    /**
+     * 树上果实列表：只返回最新 {@link #MAX_TREE_FRUITS} 颗，单页全量（无游标翻页）。
+     *
+     * <p>布点算法：黄金角螺旋（Fibonacci sphere）——按「最新→最旧」位次 i 均匀铺满球面，
+     * 位次 0（最新）挂树顶（北极），相邻果实天然保持间隙，数量再多也不堆叠；
+     * 新心愿上树占据树顶位，其余果实位次依次后移一位，排到容量之外的旧果实即离树，
+     * 实现「新果实依次取代旧果实」。展示坐标按位次实时计算，不再使用上树时的
+     * 散列坐标（tree_theta/tree_phi 仅保留作「是否上树」的资格标记）。</p>
+     */
     @Override
     public FruitPage listFruits(TreeFruitsQuery query) {
-        Long cursor = parseCursor(query.cursor());
-        Optional<TreeBounds> bounds = TreeBoundsParser.parse(
-                query.minLat(), query.maxLat(), query.minLng(), query.maxLng());
-        int fetchSize = query.pageSize() + 1; // 多取 1 条判断 hasMore
-
-        LambdaQueryWrapper<Wish> wrapper = new LambdaQueryWrapper<Wish>()
+        List<Wish> wishes = wishMapper.selectList(new LambdaQueryWrapper<Wish>()
                 .eq(Wish::getVisibility, WishVisibility.PUBLIC)
                 .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
                 .eq(Wish::getIsVisible, true)
                 .in(Wish::getStatus, WishStatus.ACTIVE, WishStatus.FULFILLING, WishStatus.FULFILLED)
                 .isNotNull(Wish::getTreeTheta)
                 .orderByDesc(Wish::getId)
-                .last("LIMIT " + fetchSize);
-        if (cursor != null) {
-            wrapper.lt(Wish::getId, cursor);
-        }
-        bounds.ifPresent(b -> applyBoundsFilter(wrapper, b));
-
-        List<Wish> wishes = wishMapper.selectList(wrapper);
-        boolean hasMore = wishes.size() > query.pageSize();
-        if (hasMore) {
-            wishes = wishes.subList(0, query.pageSize());
-        }
+                .last("LIMIT " + MAX_TREE_FRUITS));
         if (wishes.isEmpty()) {
             return new FruitPage(Collections.emptyList(), null, false);
         }
 
         Map<Long, String> nicknameMap = fetchAuthorNicknames(
                 wishes.stream().map(Wish::getUserId).collect(Collectors.toSet()));
-        List<TreeFruitVO> fruits = wishes.stream()
-                .map(w -> toFruitVO(w, nicknameMap))
-                .toList();
-        String nextCursor = hasMore ? String.valueOf(wishes.get(wishes.size() - 1).getId()) : null;
-        return new FruitPage(fruits, nextCursor, hasMore);
-    }
-
-    /** 应用 bounds 视口过滤（phi 不环绕直接 BETWEEN；theta 环绕窗口拆 OR） */
-    private void applyBoundsFilter(LambdaQueryWrapper<Wish> wrapper, TreeBounds bounds) {
-        wrapper.between(Wish::getTreePhi, bounds.minPhi(), bounds.maxPhi());
-        if (bounds.wrapTheta()) {
-            // 跨 0/2π 经度环绕：theta ≥ minTheta OR theta ≤ maxTheta
-            wrapper.and(w -> w.ge(Wish::getTreeTheta, bounds.minTheta())
-                    .or().le(Wish::getTreeTheta, bounds.maxTheta()));
-        } else {
-            wrapper.between(Wish::getTreeTheta, bounds.minTheta(), bounds.maxTheta());
+        int n = wishes.size();
+        List<TreeFruitVO> fruits = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            Wish wish = wishes.get(i);
+            // phi：位次映射到 [0,π] 等间距纬度（i=0 → 北极附近）；theta：黄金角步进避免经度堆叠
+            double phi = Math.acos(1 - 2.0 * (i + 0.5) / n);
+            double theta = (i * GOLDEN_ANGLE) % (2 * Math.PI);
+            fruits.add(toFruitVO(wish, nicknameMap, theta, phi));
         }
+        return new FruitPage(fruits, null, false);
     }
 
-    private TreeFruitVO toFruitVO(Wish wish, Map<Long, String> nicknameMap) {
+    private TreeFruitVO toFruitVO(Wish wish, Map<Long, String> nicknameMap, double theta, double phi) {
         return new TreeFruitVO(
                 wish.getId(),
                 wish.getTitle(),
@@ -172,9 +163,7 @@ public class WorldTreeServiceImpl implements WorldTreeService {
                 wish.getUserId(),
                 nicknameMap.getOrDefault(wish.getUserId(), "心愿旅人"),
                 wish.getLightCount(),
-                new TreePositionVO(
-                        wish.getTreeTheta().doubleValue(),
-                        wish.getTreePhi().doubleValue()));
+                new TreePositionVO(theta, phi));
     }
 
     // ---------------- 聚合计数：DB 查询 ----------------
@@ -320,17 +309,6 @@ public class WorldTreeServiceImpl implements WorldTreeService {
             log.warn("批量获取果实作者昵称失败，降级为占位昵称: {}", e.getMessage());
         }
         return Collections.emptyMap();
-    }
-
-    private Long parseCursor(String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(cursor);
-        } catch (NumberFormatException e) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "无效的游标格式");
-        }
     }
 
     /** 聚合计数三值（缓存载体，与 DB 聚合口径一致） */

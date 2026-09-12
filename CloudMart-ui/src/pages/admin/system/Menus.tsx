@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import type { Key } from 'react'
 import {
   ProTable,
   ModalForm,
@@ -31,7 +32,7 @@ interface MenuRecord {
   path: string
   component: string
   icon: string
-  menuType: number
+  menuType: string
   orderNum: number
   visible: number
   status: number
@@ -39,36 +40,70 @@ interface MenuRecord {
   children?: MenuRecord[]
 }
 
+// 图标选项与 AdminLayout MENU_ICON_MAP 的 icon key 体系一致（admin_menu.icon 存 key，布局层映射为组件）
 const ICON_OPTIONS = [
-  { label: 'DashboardOutlined', value: 'DashboardOutlined' },
-  { label: 'SettingOutlined', value: 'SettingOutlined' },
-  { label: 'UserOutlined', value: 'UserOutlined' },
-  { label: 'TeamOutlined', value: 'TeamOutlined' },
-  { label: 'UnorderedListOutlined', value: 'UnorderedListOutlined' },
-  { label: 'TagOutlined', value: 'TagOutlined' },
-  { label: 'NotificationOutlined', value: 'NotificationOutlined' },
-  { label: 'ShoppingOutlined', value: 'ShoppingOutlined' },
-  { label: 'AppstoreOutlined', value: 'AppstoreOutlined' },
-  { label: 'MonitorOutlined', value: 'MonitorOutlined' },
-  { label: 'DatabaseOutlined', value: 'DatabaseOutlined' },
-  { label: 'ScheduleOutlined', value: 'ScheduleOutlined' },
-  { label: 'CodeOutlined', value: 'CodeOutlined' },
-  { label: 'ToolOutlined', value: 'ToolOutlined' },
-  { label: 'ThunderboltOutlined', value: 'ThunderboltOutlined' },
-  { label: 'ShoppingCartOutlined', value: 'ShoppingCartOutlined' },
-  { label: 'CommentOutlined', value: 'CommentOutlined' },
-  { label: 'InboxOutlined', value: 'InboxOutlined' },
-  { label: 'PayCircleOutlined', value: 'PayCircleOutlined' },
-  { label: 'VideoCameraOutlined', value: 'VideoCameraOutlined' },
-  { label: 'StopOutlined', value: 'StopOutlined' },
-  { label: 'RobotOutlined', value: 'RobotOutlined' },
-  { label: 'RiseOutlined', value: 'RiseOutlined' },
+  'dashboard',
+  'setting',
+  'shopping',
+  'monitor',
+  'tool',
+  'user',
+  'peoples',
+  'tree-table',
+  'dict',
+  'edit',
+  'log',
+  'form',
+  'logininfor',
+  'goods',
+  'list',
+  'money',
+  'time',
+  'box',
+  'message',
+  'shopping-cart',
+  'star',
+  'heart',
+  'comment',
+  'trophy',
+  'medal',
+  'music',
+  'flag',
+  'tree',
+  'lock',
+  'shield',
+  'safety',
+  'fire',
+  'video',
+  'map',
+  'adjust',
+  'team',
+  'robot',
+  'schedule',
+  'code',
+  'car',
+  'database',
+  'upload',
+  'crown',
+  'stop',
+  'alert',
+  'tag',
+  'rise',
+  'unordered-list',
+  'notification',
+].map((key) => ({ label: key, value: key }))
+
+// 后端 menuType 为 M-目录 / C-菜单 / F-按钮（与 admin_menu 表及侧边栏下发契约一致）
+const MENU_TYPE_OPTIONS = [
+  { label: '目录', value: 'M' },
+  { label: '菜单', value: 'C' },
+  { label: '按钮', value: 'F' },
 ]
 
-const MENU_TYPE_MAP: Record<number, { label: string; color: string }> = {
-  0: { label: '目录', color: 'blue' },
-  1: { label: '菜单', color: 'green' },
-  2: { label: '按钮', color: 'orange' },
+const MENU_TYPE_MAP: Record<string, { label: string; color: string }> = {
+  M: { label: '目录', color: 'blue' },
+  C: { label: '菜单', color: 'green' },
+  F: { label: '按钮', color: 'orange' },
 }
 
 export default function Menus() {
@@ -77,21 +112,36 @@ export default function Menus() {
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<MenuRecord | null>(null)
-  const [menuTree, setMenuTree] = useState<MenuRecord[]>([])
+  const [defaultParentId, setDefaultParentId] = useState<number>(0)
+  const [expandedRowKeys, setExpandedRowKeys] = useState<readonly Key[]>([])
   const [treeSelectData, setTreeSelectData] = useState<TreeSelectNode[]>([])
 
-  async function fetchMenuTree() {
+  // 仅用于弹窗"上级菜单"树选数据；表格数据由 ProTable request 直接拉取
+  // 收集所有含子级的节点 id，作为受控展开键（defaultExpandAllRows 对异步首载不生效）
+  function collectParentIds(nodes: MenuRecord[]): number[] {
+    const ids: number[] = []
+    for (const node of nodes) {
+      if (node.children && node.children.length > 0) {
+        ids.push(node.id)
+        ids.push(...collectParentIds(node.children))
+      }
+    }
+    return ids
+  }
+
+  async function loadMenuTree(): Promise<MenuRecord[]> {
     const { data: res } = await getMenuTree()
     const response = res as ApiResponse<MenuRecord[]>
     const tree = response.data ?? []
-    setMenuTree(tree)
+    setExpandedRowKeys(collectParentIds(tree))
     setTreeSelectData([
       { title: '顶级菜单', value: 0, key: 0, children: convertToTreeSelect(tree, 'menuName') },
     ])
+    return tree
   }
 
   useEffect(() => {
-    fetchMenuTree()
+    loadMenuTree().catch(() => setTreeSelectData([]))
   }, [])
 
   const handleSubmit = async (values: Record<string, any>) => {
@@ -109,7 +159,7 @@ export default function Menus() {
         message.success('创建成功')
       }
       setEditingRecord(null)
-      fetchMenuTree()
+      loadMenuTree().catch(() => setTreeSelectData([]))
       actionRef.current?.reload()
     })
   }
@@ -117,7 +167,7 @@ export default function Menus() {
   const handleDelete = async (id: number) => {
     await deleteMenu(id)
     message.success('删除成功')
-    fetchMenuTree()
+    loadMenuTree().catch(() => setTreeSelectData([]))
     actionRef.current?.reload()
   }
 
@@ -125,7 +175,7 @@ export default function Menus() {
     try {
       await updateMenuStatus(id, { status: newStatus })
       message.success('状态更新成功')
-      fetchMenuTree()
+      loadMenuTree().catch(() => setTreeSelectData([]))
       actionRef.current?.reload()
     } catch {
       message.error('状态更新失败')
@@ -145,11 +195,6 @@ export default function Menus() {
       title: '类型',
       dataIndex: 'menuType',
       width: 80,
-      valueEnum: {
-        0: { text: '目录' },
-        1: { text: '菜单' },
-        2: { text: '按钮' },
-      },
       render: (_, record) => {
         const typeInfo = MENU_TYPE_MAP[record.menuType] ?? { label: '未知', color: 'default' }
         return <Tag color={typeInfo.color}>{typeInfo.label}</Tag>
@@ -185,6 +230,7 @@ export default function Menus() {
           size="small"
           onClick={() => {
             setEditingRecord(null)
+            setDefaultParentId(record.id)
             setModalVisible(true)
           }}
         >
@@ -220,9 +266,13 @@ export default function Menus() {
         rowKey="id"
         scroll={{ x: 1300 }}
         request={async () => {
-          return {
-            data: menuTree,
-            success: true,
+          // 直接在 request 内请求，避免闭包捕获首帧空 state 导致表格永远"暂无数据"；
+          // 增删改后通过 actionRef.reload() 触发重新拉取
+          try {
+            const tree = await loadMenuTree()
+            return { data: tree, success: true }
+          } catch {
+            return { data: [], success: false }
           }
         }}
         toolBarRender={() => [
@@ -232,6 +282,7 @@ export default function Menus() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEditingRecord(null)
+              setDefaultParentId(0)
               setModalVisible(true)
             }}
           >
@@ -241,7 +292,10 @@ export default function Menus() {
         columns={columns}
         pagination={false}
         search={false}
-        expandable={{ defaultExpandAllRows: true }}
+        expandable={{
+          expandedRowKeys,
+          onExpandedRowsChange: (keys) => setExpandedRowKeys(keys),
+        }}
       />
 
       <ModalForm
@@ -253,10 +307,10 @@ export default function Menus() {
           editingRecord
             ? {
                 ...editingRecord,
-                visible: editingRecord.visible === 1,
-                status: editingRecord.status === 1,
+                visible: Number(editingRecord.visible) === 1,
+                status: Number(editingRecord.status) === 1,
               }
-            : { visible: true, status: true, orderNum: 0, menuType: 1, parentId: 0 }
+            : { visible: true, status: true, orderNum: 0, menuType: 'C', parentId: defaultParentId }
         }
         modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={600}
@@ -274,11 +328,7 @@ export default function Menus() {
         <ProFormSelect
           name="menuType"
           label="菜单类型"
-          options={[
-            { label: '目录', value: 0 },
-            { label: '菜单', value: 1 },
-            { label: '按钮', value: 2 },
-          ]}
+          options={MENU_TYPE_OPTIONS}
           rules={[{ required: true, message: '请选择菜单类型' }]}
         />
         <ProFormText

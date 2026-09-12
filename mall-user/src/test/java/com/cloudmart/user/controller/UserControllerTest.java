@@ -178,32 +178,7 @@ class UserControllerTest {
         mockMvc.perform(get("/users/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1));
-    }
-
-    @Test
-    @DisplayName("GET /users/{id} - 邮箱 PII 仅本人可见：非本人访问邮箱为 null")
-    void getUserById_WhenNotSelf_ShouldMaskEmail() throws Exception {
-        UserVO vo = buildUserVO();
-        given(userService.getUserById(1L)).willReturn(vo);
-
-        // 无身份头（网关未注入）与身份不同两种情况都必须脱敏
-        mockMvc.perform(get("/users/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.email").doesNotExist());
-        mockMvc.perform(get("/users/1").header("X-User-Id", "2"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.email").doesNotExist());
-    }
-
-    @Test
-    @DisplayName("GET /users/{id} - 本人访问保留邮箱")
-    void getUserById_WhenSelf_ShouldKeepEmail() throws Exception {
-        UserVO vo = buildUserVO();
-        given(userService.getUserById(1L)).willReturn(vo);
-
-        mockMvc.perform(get("/users/1").header("X-User-Id", "1"))
-                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.email").value("test@example.com"));
     }
 

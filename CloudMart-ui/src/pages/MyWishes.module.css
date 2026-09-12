@@ -2,6 +2,9 @@
   min-height: 100vh;
   background: var(--color-bg-base);
   padding-bottom: 40px;
+  /* 页面列居中：缺 margin auto 时容器会整体贴左（我的心愿/心愿收藏共用此模块） */
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .loadingContainer,
@@ -152,9 +155,6 @@
 }
 
 /* ===== Sprint 1.1/1.6 断点适配：1920px 三列 / 1440px 双列 / 1024px 单列 ===== */
-@media (max-width: 1920px) {
-  .container { max-width: 1200px; }
-}
 @media (max-width: 1440px) {
   .container { max-width: 960px; }
 }

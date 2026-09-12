@@ -170,6 +170,7 @@ function buildDetailFields(user: UserProfile): Array<{ label: string; value: str
   // 后端存枚举码，展示层转中文
   push('性别', genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : '')
   push('小答号', user.username)
+  push('邮箱', user.email)
   if ((user.birthday ?? '').trim()) {
     push('生日', user.constellation?.trim() ? `${user.birthday}（${user.constellation}）` : user.birthday)
   }
@@ -570,9 +571,8 @@ export default function UserProfile() {
   const detailFields = detail ? buildDetailFields(detail) : []
   const joinedDays = detail ? formatJoinedDays(detail.createdAt) : null
 
-  // 面板可点击：TA的评论/TA赞过/获赞总数 跳转到对应列表
+  // 面板可点击：TA的评论/TA赞过 跳转到对应列表（获赞总数已上移到顶部统计行，此处不再重复）
   const metricPanels: Array<{ label: string; value: number | null; icon: React.ReactNode; action?: () => void }> = [
-    { label: '获赞总数', value: communityStats ? communityStats.likesReceived : null, icon: <HeartOutlined />, action: () => setActiveTab('posts') },
     { label: isOwnProfile ? '我的评论' : 'TA的评论', value: communityStats ? communityStats.commentsMade : null, icon: <CommentOutlined />, action: () => setActiveTab('comments') },
     { label: isOwnProfile ? '我赞过的' : 'TA赞过', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined />, action: () => setActiveTab('liked') },
     { label: '加入天数', value: joinedDays, icon: <CalendarOutlined /> },
@@ -848,9 +848,9 @@ export default function UserProfile() {
       </div>
 
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 24px 0' }}>
-        {/* 数据面板：获赞 / TA的评论 / TA赞过 / 加入天数 */}
+        {/* 数据面板：TA的评论 / TA赞过 / 加入天数（获赞总数在顶部统计行） */}
         <div style={cardSectionStyle}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             {metricPanels.map((panel) => (
               <div
                 key={panel.label}

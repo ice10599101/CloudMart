@@ -3,8 +3,6 @@ package com.cloudmart.wish.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
-import com.cloudmart.common.exception.BusinessException;
-import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.dto.TreeFruitsQuery;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishWorldTreeState;
@@ -43,7 +41,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -275,15 +273,15 @@ class WorldTreeServiceImplTest {
         }
     }
 
-    // ========== listFruits：分页语义 ==========
+    // ========== listFruits：容量封顶语义 ==========
 
     @Nested
-    @DisplayName("listFruits - 果实分页")
+    @DisplayName("listFruits - 容量封顶单页全量")
     class ListFruitsTests {
 
         @Test
-        @DisplayName("返回条数超过 pageSize → hasMore=true 且 nextCursor=末条 id")
-        void moreThanPageSize_returnsHasMoreAndCursor() {
+        @DisplayName("SQL 已按 LIMIT 48 封顶：返回全部入参果实，无游标语义")
+        void returnsAllFetchedFruits_singlePage() {
             when(wishMapper.selectList(any())).thenReturn(List.of(
                     buildFruit(5L), buildFruit(4L), buildFruit(3L)));
             when(userFeignClient.batchGetUsers(any()))
@@ -292,22 +290,7 @@ class WorldTreeServiceImplTest {
             WorldTreeService.FruitPage page = worldTreeService.listFruits(
                     new TreeFruitsQuery(null, null, null, null, null, 2));
 
-            assertThat(page.records()).hasSize(2);
-            assertThat(page.hasMore()).isTrue();
-            assertThat(page.nextCursor()).isEqualTo("4");
-        }
-
-        @Test
-        @DisplayName("返回条数不超过 pageSize → hasMore=false 且 nextCursor=null")
-        void notMoreThanPageSize_returnsEndOfPage() {
-            when(wishMapper.selectList(any())).thenReturn(List.of(buildFruit(5L), buildFruit(4L)));
-            when(userFeignClient.batchGetUsers(any()))
-                    .thenReturn(ApiResponse.ok(List.of(Map.of("id", 1001L, "nickname", "旅人甲"))));
-
-            WorldTreeService.FruitPage page = worldTreeService.listFruits(
-                    new TreeFruitsQuery(null, null, null, null, null, 5));
-
-            assertThat(page.records()).hasSize(2);
+            assertThat(page.records()).hasSize(3);
             assertThat(page.hasMore()).isFalse();
             assertThat(page.nextCursor()).isNull();
         }
@@ -327,18 +310,8 @@ class WorldTreeServiceImplTest {
         }
 
         @Test
-        @DisplayName("无效 cursor → 抛 WISH_VALIDATION_ERROR")
-        void invalidCursor_throwsValidationError() {
-            assertThatThrownBy(() -> worldTreeService.listFruits(
-                    new TreeFruitsQuery("abc", null, null, null, null, 10)))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
-                            .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR));
-        }
-
-        @Test
-        @DisplayName("VO 映射：坐标/果实类型/点亮数/作者昵称完整")
-        void fruitVoMapping_containsPositionAndAuthor() {
+        @DisplayName("VO 映射：黄金角螺旋坐标（单果实挂赤道顶位）/果实类型/点亮数/作者昵称完整")
+        void fruitVoMapping_containsSlotPositionAndAuthor() {
             Wish wish = buildFruit(9L);
             wish.setLightCount(36);
             wish.setFruitType(FruitType.BLOOM);
@@ -354,8 +327,9 @@ class WorldTreeServiceImplTest {
             assertThat(fruit.fruitType()).isEqualTo(FruitType.BLOOM);
             assertThat(fruit.lightCount()).isEqualTo(36);
             assertThat(fruit.authorNickname()).isEqualTo("星星主人");
-            assertThat(fruit.position().theta()).isEqualTo(wish.getTreeTheta().doubleValue());
-            assertThat(fruit.position().phi()).isEqualTo(wish.getTreePhi().doubleValue());
+            // n=1：phi = acos(1 - 2*0.5/1) = π/2（球面顶位），theta = 0（黄金角零步进）
+            assertThat(fruit.position().theta()).isCloseTo(0.0, within(1e-7));
+            assertThat(fruit.position().phi()).isCloseTo(Math.PI / 2, within(1e-6));
         }
 
         @Test

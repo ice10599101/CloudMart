@@ -188,35 +188,31 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
         }
     }
 
-    // ========== 果实分页：cursor + 口径 + bounds ==========
+    // ========== 果实列表：容量封顶 + 口径 + 布点 ==========
 
     @Nested
-    @DisplayName("果实分页")
+    @DisplayName("果实列表（容量封顶）")
     class FruitPaginationTests {
 
         @Test
-        @DisplayName("cursor 分页：按 id DESC，hasMore/nextCursor 语义正确")
-        void cursorPaginationSemantics() {
-            seedWish(301L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
-            seedWish(302L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 2.0, 1.0, false);
-            seedWish(303L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 3.0, 1.0, false);
+        @DisplayName("容量封顶：只返回最新 48 颗，单页全量无游标")
+        void capacityCapReturnsNewestFortyEight() {
+            for (long id = 300L; id < 350L; id++) {
+                seedWish(id, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
+            }
             stubUserFeign();
 
-            WorldTreeService.FruitPage firstPage = worldTreeService.listFruits(
-                    new TreeFruitsQuery(null, null, null, null, null, 2));
+            WorldTreeService.FruitPage page = worldTreeService.listFruits(
+                    new TreeFruitsQuery(null, null, null, null, null, 100));
 
-            assertThat(firstPage.records()).extracting(TreeFruitVO::id)
-                    .containsExactly(303L, 302L);
-            assertThat(firstPage.hasMore()).isTrue();
-            assertThat(firstPage.nextCursor()).isEqualTo("302");
-
-            WorldTreeService.FruitPage secondPage = worldTreeService.listFruits(
-                    new TreeFruitsQuery(firstPage.nextCursor(), null, null, null, null, 2));
-
-            assertThat(secondPage.records()).extracting(TreeFruitVO::id)
-                    .containsExactly(301L);
-            assertThat(secondPage.hasMore()).isFalse();
-            assertThat(secondPage.nextCursor()).isNull();
+            assertThat(page.records()).hasSize(48);
+            // 最新在前：最老的 2 颗（300/301）被新果实挤出树
+            assertThat(page.records()).extracting(TreeFruitVO::id)
+                    .doesNotContain(300L, 301L)
+                    .endsWith(302L);
+            assertThat(page.records().get(0).id()).isEqualTo(349L);
+            assertThat(page.hasMore()).isFalse();
+            assertThat(page.nextCursor()).isNull();
         }
 
         @Test
@@ -239,64 +235,45 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("bounds 非环绕视口：仅返回窗口内果实（theta/phi 双过滤）")
-        void boundsNonWrappingFiltersViewport() {
+        @DisplayName("bounds/cursor 参数不再消费：传视口与游标仍返回全量封顶列表")
+        void legacyViewportParamsAreIgnored() {
             seedWish(501L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 0.5, 1.0, false);
             seedWish(502L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 2.0, 1.0, false);
             seedWish(503L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 4.0, 1.0, false);
-            seedWish(504L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 0.6, 2.5, false); // phi 视口外
             stubUserFeign();
 
-            WorldTreeService.FruitPage page = worldTreeService.listFruits(
+            WorldTreeService.FruitPage withBounds = worldTreeService.listFruits(
                     new TreeFruitsQuery(null, 0.5, 1.5, 0.0, 1.0, 20));
-
-            assertThat(page.records()).extracting(TreeFruitVO::id)
-                    .containsExactly(501L);
-        }
-
-        @Test
-        @DisplayName("bounds 环绕视口（minLng > maxLng）：返回跨 0/2π 经度窗口果实")
-        void boundsWrappingWindowCrossesZeroMeridian() {
-            seedWish(601L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 6.0, 1.0, false); // 窗口内（≥5.5 侧）
-            seedWish(602L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 0.3, 1.0, false); // 窗口内（≤0.5 侧）
-            seedWish(603L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 3.0, 1.0, false); // 窗口外
-            stubUserFeign();
-
-            WorldTreeService.FruitPage page = worldTreeService.listFruits(
-                    new TreeFruitsQuery(null, 0.5, 1.5, 5.5, 0.5, 20));
-
-            assertThat(page.records()).extracting(TreeFruitVO::id)
-                    .containsExactlyInAnyOrder(601L, 602L);
-        }
-
-        @Test
-        @DisplayName("bounds 异常（负数/部分提供）→ 兜底全量分页不报错")
-        void invalidBoundsFallsBackToFullPagination() {
-            seedWish(701L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
-            seedWish(702L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 4.0, 1.0, false);
-            stubUserFeign();
-
             WorldTreeService.FruitPage negativeBounds = worldTreeService.listFruits(
                     new TreeFruitsQuery(null, -0.5, 1.5, 0.0, 1.0, 20));
-            WorldTreeService.FruitPage partialBounds = worldTreeService.listFruits(
-                    new TreeFruitsQuery(null, 0.5, null, 0.0, 1.0, 20));
 
-            assertThat(negativeBounds.records()).hasSize(2);
-            assertThat(partialBounds.records()).hasSize(2);
+            assertThat(withBounds.records()).extracting(TreeFruitVO::id)
+                    .containsExactlyInAnyOrder(501L, 502L, 503L);
+            assertThat(negativeBounds.records()).hasSize(3);
         }
 
         @Test
-        @DisplayName("VO 坐标回读：theta/phi 落库 DECIMAL(9,7) 后精度一致")
-        void fruitVoPositionMatchesPersistedCoordinates() {
-            seedWish(801L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.2345678, 0.9876543, false);
+        @DisplayName("黄金角螺旋布点：最新果实挂树顶（phi≈π/3），球面均匀有间隙")
+        void goldenSpiralLayoutSpreadsFruitsEvenly() {
+            seedWish(601L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
+            seedWish(602L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
+            seedWish(603L, "PUBLIC", "ACTIVE", "GLOW", 0, "APPROVED", 1, 1.0, 1.0, false);
             stubUserFeign();
 
             WorldTreeService.FruitPage page = worldTreeService.listFruits(
-                    new TreeFruitsQuery(null, null, null, null, null, 10));
+                    new TreeFruitsQuery(null, null, null, null, null, 20));
 
-            TreeFruitVO fruit = page.records().get(0);
-            assertThat(fruit.position().theta()).isCloseTo(1.2345678, within(1e-7));
-            assertThat(fruit.position().phi()).isCloseTo(0.9876543, within(1e-7));
+            // 最新（603）位次 0：phi = acos(1 - 0.5/1.5)？n=3 → phi0=acos(1-1/3)、theta=0
+            TreeFruitVO newest = page.records().get(0);
+            assertThat(newest.id()).isEqualTo(603L);
+            assertThat(newest.position().theta()).isCloseTo(0.0, within(1e-7));
+            assertThat(newest.position().phi()).isCloseTo(Math.acos(1 - 1.0 / 3), within(1e-6));
+            // 位次 1 的果实 theta 为黄金角步进，与最新果实经度错开
+            TreeFruitVO second = page.records().get(1);
+            assertThat(second.position().theta()).isCloseTo(Math.PI * (3 - Math.sqrt(5)), within(1e-6));
+            assertThat(second.position().phi()).isCloseTo(Math.acos(1 - 3.0 / 3), within(1e-6));
+            // 三颗果实 phi 严格递增（最新在球面顶部）且互不重合
+            assertThat(page.records().get(2).position().phi()).isGreaterThan(second.position().phi());
         }
     }
 

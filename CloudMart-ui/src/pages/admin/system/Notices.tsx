@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import {
   ProTable,
   ModalForm,
@@ -14,6 +14,7 @@ import {
   updateNotice,
   deleteNotice,
   updateNoticeStatus,
+  getDictData,
 } from '@/api/admin/system'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -26,15 +27,30 @@ interface NoticeRecord {
   noticeType: number
   noticeContent: string
   status: number
-  creatorName: string
   createdAt: string
-  updatedAt: string
 }
 
-const NOTICE_TYPE_MAP: Record<number, { label: string; color: string }> = {
-  1: { label: '通知', color: 'blue' },
-  2: { label: '公告', color: 'green' },
+interface NoticeTypeOption {
+  label: string
+  value: number
+  tagColor: string
 }
+
+// 字典 listClass（RuoYi 风格）→ antd Tag color
+const LIST_CLASS_TO_TAG: Record<string, string> = {
+  default: 'default',
+  primary: 'blue',
+  success: 'success',
+  info: 'blue',
+  warning: 'warning',
+  danger: 'error',
+}
+
+// 公告类型兜底：admin_notice_type 字典不可用时保底（与字典种子数据一致）
+const FALLBACK_TYPE_OPTIONS: NoticeTypeOption[] = [
+  { label: '通知', value: 1, tagColor: 'warning' },
+  { label: '公告', value: 2, tagColor: 'success' },
+]
 
 export default function Notices() {
   const message = useMessage()
@@ -42,6 +58,28 @@ export default function Notices() {
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<NoticeRecord | null>(null)
+  const [typeOptions, setTypeOptions] = useState<NoticeTypeOption[]>(FALLBACK_TYPE_OPTIONS)
+
+  // 公告类型从 admin_notice_type 字典加载，字典管理新增类型后此处自动生效
+  useEffect(() => {
+    getDictData('admin_notice_type')
+      .then(({ data: res }) => {
+        const rows = ((res as { data?: Array<{ dictLabel: string; dictValue: string; listClass?: string; status: number }> }).data ?? [])
+          .filter((row) => Number(row.status) === 1)
+        if (rows.length > 0) {
+          setTypeOptions(rows.map((row) => ({
+            label: row.dictLabel,
+            value: Number(row.dictValue),
+            tagColor: LIST_CLASS_TO_TAG[row.listClass ?? 'default'] ?? 'default',
+          })))
+        }
+      })
+      .catch(() => {
+        // 保持兜底选项，不打断页面
+      })
+  }, [])
+
+  const typeLabel = (value: number) => typeOptions.find((option) => option.value === Number(value))
 
   const handleSubmit = async (values: Record<string, any>) => {
     return confirmSubmit(async () => {
@@ -80,12 +118,12 @@ export default function Notices() {
       title: '公告类型',
       dataIndex: 'noticeType',
       width: 100,
+      valueEnum: Object.fromEntries(typeOptions.map((option) => [option.value, { text: option.label }])),
       render: (_, record) => {
-        const typeInfo = NOTICE_TYPE_MAP[record.noticeType] ?? { label: '未知', color: 'default' }
-        return <Tag color={typeInfo.color}>{typeInfo.label}</Tag>
+        const typeInfo = typeLabel(record.noticeType)
+        return <Tag color={typeInfo?.tagColor ?? 'default'}>{typeInfo?.label ?? '未知'}</Tag>
       },
     },
-    { title: '创建者', dataIndex: 'creatorName', width: 120, search: false },
     {
       title: '状态',
       dataIndex: 'status',
@@ -185,10 +223,7 @@ export default function Notices() {
         <ProFormSelect
           name="noticeType"
           label="公告类型"
-          options={[
-            { label: '通知', value: 1 },
-            { label: '公告', value: 2 },
-          ]}
+          options={typeOptions.map(({ label, value }) => ({ label, value }))}
           rules={[{ required: true, message: '请选择公告类型' }]}
         />
         <ProFormText name="noticeContent" label="内容" rules={[{ required: true, message: '请输入公告内容' }]}>

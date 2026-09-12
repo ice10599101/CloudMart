@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { history } from 'umi'
 import { useMessage } from '@/utils/useMessage'
 import { Card, Col, Row, Statistic, Table, Spin, Tag, Button, Select, Empty } from 'antd'
 import {
@@ -50,21 +51,35 @@ const WISH_STATUS_COLOR: Record<string, string> = {
 }
 
 // 顶部综合指标：社区内容生态优先，电商弱化为辅助指标（综合娱乐社区定位）
+// to = 面板点击后跳转的数据管理页（.umirc.ts 既有路由）
 const OVERVIEW_CARDS = [
-  { title: '用户总数', key: 'userCount', icon: UserOutlined, accentColor: 'var(--color-primary)', prefix: '' },
-  { title: '今日新帖', key: 'todayPostCount', icon: FileTextOutlined, accentColor: '#2ED573', prefix: '' },
-  { title: '今日新心愿', key: 'todayWishCount', icon: StarOutlined, accentColor: '#A78BFA', prefix: '' },
-  { title: '今日评论', key: 'todayCommentCount', icon: CommentOutlined, accentColor: '#70A1FF', prefix: '' },
-  { title: '今日订单', key: 'todayOrderCount', icon: ShoppingCartOutlined, accentColor: '#FFA502', prefix: '' },
-  { title: '今日销售额', key: 'todayRevenue', icon: DollarOutlined, accentColor: '#2ED573', prefix: '¥' },
+  { title: '用户总数', key: 'userCount', icon: UserOutlined, accentColor: 'var(--color-primary)', prefix: '', to: '/admin/business/members' },
+  { title: '今日新帖', key: 'todayPostCount', icon: FileTextOutlined, accentColor: '#2ED573', prefix: '', to: '/admin/community/posts' },
+  { title: '今日新心愿', key: 'todayWishCount', icon: StarOutlined, accentColor: '#A78BFA', prefix: '', to: '/admin/business/wishes' },
+  { title: '今日评论', key: 'todayCommentCount', icon: CommentOutlined, accentColor: '#70A1FF', prefix: '', to: '/admin/community/comments' },
+  { title: '今日订单', key: 'todayOrderCount', icon: ShoppingCartOutlined, accentColor: '#FFA502', prefix: '', to: '/admin/business/orders' },
+  { title: '今日销售额', key: 'todayRevenue', icon: DollarOutlined, accentColor: '#2ED573', prefix: '¥', to: '/admin/business/payments' },
 ] as const
 
 const WISH_CARDS = [
-  { title: '心愿总数', key: 'totalWishCount', icon: StarOutlined, accentColor: '#A78BFA' },
-  { title: '已实现', key: 'fulfilledWishCount', icon: CheckCircleOutlined, accentColor: '#2ED573' },
-  { title: '今日打卡', key: 'todayCheckinCount', icon: FireOutlined, accentColor: '#FFA502' },
-  { title: '今日互动', key: 'todayInteractionCount', icon: HeartOutlined, accentColor: '#FF6B6B' },
+  { title: '心愿总数', key: 'totalWishCount', icon: StarOutlined, accentColor: '#A78BFA', to: '/admin/business/wishes' },
+  { title: '已实现', key: 'fulfilledWishCount', icon: CheckCircleOutlined, accentColor: '#2ED573', to: '/admin/business/wishes' },
+  { title: '今日打卡', key: 'todayCheckinCount', icon: FireOutlined, accentColor: '#FFA502', to: '/admin/business/wish-interactions' },
+  { title: '今日互动', key: 'todayInteractionCount', icon: HeartOutlined, accentColor: '#FF6B6B', to: '/admin/business/wish-interactions' },
 ] as const
+
+// 待办提醒卡：待办两项指向待处理工作区，总量两项指向对应列表
+const TODO_CARDS = [
+  { title: '待审核帖子', key: 'pendingReviewCount', icon: AlertOutlined, color: '#FFA502', to: '/admin/community/review' },
+  { title: '待处理举报', key: 'pendingReportCount', icon: AlertOutlined, color: '#FF6B6B', to: '/admin/community/reports' },
+  { title: '总帖子数', key: 'totalPostCount', icon: BarChartOutlined, color: '#2ED573', to: '/admin/community/posts' },
+  { title: '总评论数', key: 'totalCommentCount', icon: CommentOutlined, color: '#70A1FF', to: '/admin/community/comments' },
+] as const
+
+/** 面板跳转：趋势/最新动态等卡片内的交互控件通过 stopPropagation 避免误触导航 */
+function navigateTo(path: string) {
+  history.push(path)
+}
 
 function exportToCsv(filename: string, headers: string[], rows: string[][]) {
   const bom = '\uFEFF'
@@ -243,14 +258,18 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 综合概览：社区内容生态 + 电商辅助 */}
+      {/* 综合概览：社区内容生态 + 电商辅助；卡片点击进入对应数据页 */}
       <Row gutter={[16, 16]}>
         {OVERVIEW_CARDS.map((card) => {
           const IconComp = card.icon
           const value = overview[card.key] ?? 0
           return (
             <Col xs={24} sm={12} lg={4} key={card.key}>
-              <Card hoverable style={{ borderRadius: 10, border: '1px solid var(--color-border)', background: 'linear-gradient(145deg, rgba(21, 32, 56, 0.8), rgba(11, 18, 32, 0.9))' }}>
+              <Card
+                hoverable
+                onClick={() => navigateTo(card.to)}
+                style={{ borderRadius: 10, border: '1px solid var(--color-border)', background: 'linear-gradient(145deg, rgba(21, 32, 56, 0.8), rgba(11, 18, 32, 0.9))' }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <Statistic title={card.title} value={value} prefix={card.prefix} styles={{ content: { color: card.accentColor, fontSize: 26 } }} />
@@ -265,13 +284,15 @@ export default function Dashboard() {
         })}
       </Row>
 
-      {/* 内容创作趋势 */}
+      {/* 内容创作趋势：点击卡片进入帖子管理；卡内筛选/导出控件阻断冒泡 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={14}>
           <Card
             title={<span style={{ color: 'var(--color-text-secondary)' }}>内容创作趋势</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/community/posts')}
             extra={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={(e) => e.stopPropagation()}>
                 <Select value={trendDays} onChange={setTrendDays} size="small" style={{ width: 80 }} options={[{ value: 7, label: '7天' }, { value: 14, label: '14天' }, { value: 30, label: '30天' }]} />
                 <Button size="small" icon={<DownloadOutlined />} onClick={handleExportCommunityTrend}>导出</Button>
               </div>
@@ -296,14 +317,27 @@ export default function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>心愿宇宙</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)', height: '100%' }}>
+          <Card
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>心愿宇宙</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/business/wishes')}
+            style={{ borderRadius: 10, border: '1px solid var(--color-border)', height: '100%' }}
+          >
             <Row gutter={[12, 12]}>
               {WISH_CARDS.map((card) => {
                 const IconComp = card.icon
                 const value = wishStats?.[card.key] ?? 0
                 return (
                   <Col span={12} key={card.key}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(21, 32, 56, 0.6)' }}>
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigateTo(card.to)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(21, 32, 56, 0.6)', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(21, 32, 56, 0.95)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(21, 32, 56, 0.6)' }}
+                    >
                       <div style={{ width: 44, height: 44, borderRadius: 10, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <IconComp style={{ fontSize: 22, color: card.accentColor }} />
                       </div>
@@ -320,62 +354,44 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* 最新动态：社区帖子 + 心愿流 */}
+      {/* 最新动态：社区帖子 + 心愿流；点击卡片进入对应管理列表 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
-          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>最新社区动态</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+          <Card
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>最新社区动态</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/community/posts')}
+            style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+          >
             <Table dataSource={latestPosts} columns={postColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 700 }} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title={<span style={{ color: 'var(--color-text-secondary)' }}>最新心愿</span>} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+          <Card
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>最新心愿</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/business/wishes')}
+            style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+          >
             <Table dataSource={latestWishes} columns={wishColumns} rowKey="id" pagination={false} size="small" scroll={{ x: 700 }} />
           </Card>
         </Col>
       </Row>
 
-      {/* 待办提醒 */}
+      {/* 待办提醒：点击进入对应处理页面 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
-            <Statistic
-              title="待审核帖子"
-              value={overview.pendingReviewCount ?? 0}
-              prefix={<AlertOutlined style={{ color: '#FFA502' }} />}
-              styles={{ content: { color: '#FFA502' } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
-            <Statistic
-              title="待处理举报"
-              value={overview.pendingReportCount ?? 0}
-              prefix={<AlertOutlined style={{ color: '#FF6B6B' }} />}
-              styles={{ content: { color: '#FF6B6B' } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
-            <Statistic
-              title="总帖子数"
-              value={overview.totalPostCount ?? 0}
-              prefix={<BarChartOutlined style={{ color: '#2ED573' }} />}
-              styles={{ content: { color: '#2ED573' } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
-            <Statistic
-              title="总评论数"
-              value={overview.totalCommentCount ?? 0}
-              prefix={<CommentOutlined style={{ color: '#70A1FF' }} />}
-              styles={{ content: { color: '#70A1FF' } }}
-            />
-          </Card>
-        </Col>
+        {TODO_CARDS.map((card) => (
+          <Col xs={24} sm={12} lg={6} key={card.key}>
+            <Card hoverable onClick={() => navigateTo(card.to)} style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}>
+              <Statistic
+                title={card.title}
+                value={overview[card.key] ?? 0}
+                prefix={<card.icon style={{ color: card.color }} />}
+                styles={{ content: { color: card.color } }}
+              />
+            </Card>
+          </Col>
+        ))}
       </Row>
     </div>
   )
