@@ -23,6 +23,11 @@ const WS_BASE = (() => {
 /** 心跳间隔：需小于网关/服务端空闲断连阈值，避免频繁重连触发 UNREAD_COUNT 重复推送 */
 const WS_HEARTBEAT_MS = 30_000
 
+/** 重连退避：连续失败（如 token 过期未刷新）时逐步拉长间隔，避免握手失败日志刷屏 */
+const WS_RECONNECT_BASE_MS = 5_000
+const WS_RECONNECT_MAX_MS = 60_000
+let reconnectAttempts = 0
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   ws: null,
@@ -44,6 +49,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     socket.addEventListener('close', () => clearInterval(heartbeat))
 
     socket.onopen = () => {
+      reconnectAttempts = 0
       set({ ws: socket })
     }
 
@@ -81,11 +87,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     socket.onclose = () => {
       set({ ws: null })
       if (token && get().ws === null) {
-        setTimeout(() => {
-          if (get().ws === null) {
-            get().connect(token)
-          }
-        }, 5000)
+        // 重连取最新 token（旧 token 可能已过期被服务端握手拒绝）+ 指数退避防刷屏
+        const latest = localStorage.getItem('access_token')
+        if (latest) {
+          const delay = Math.min(WS_RECONNECT_BASE_MS * 2 ** reconnectAttempts, WS_RECONNECT_MAX_MS)
+          reconnectAttempts += 1
+          setTimeout(() => {
+            if (get().ws === null) {
+              get().connect(latest)
+            }
+          }, delay)
+        }
       }
     }
 
