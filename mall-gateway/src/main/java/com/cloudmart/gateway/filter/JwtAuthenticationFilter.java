@@ -58,6 +58,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/gen/download"
     );
 
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtAuthenticationFilter(
             @Value("${gateway.jwt.jwks-uri:http://mall-auth:9001/oauth2/jwks}") String jwksUri) {
         try {
