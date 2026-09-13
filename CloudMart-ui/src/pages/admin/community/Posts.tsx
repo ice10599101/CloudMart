@@ -39,7 +39,7 @@ export default function Posts() {
 
   const columns: ProColumns<AdminPostRecord>[] = [
     { title: 'ID', dataIndex: 'id', width: 80, search: false },
-    { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },
+    { title: '标题', dataIndex: 'title', width: 200, ellipsis: true, search: false },
     { title: '作者ID', dataIndex: 'userId', width: 100, search: false },
     {
       title: '媒体类型',

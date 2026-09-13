@@ -17,6 +17,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminCommunityController {
 
+    /** 净化透传查询参数：前端 ProTable 会把未填搜索项序列化为字符串 "undefined"/"null"，需剔除 */
+    private static java.util.Map<String, Object> sanitizeParams(java.util.Map<String, Object> params) {
+        java.util.Map<String, Object> cleaned = new java.util.HashMap<>();
+        if (params == null) return cleaned;
+        for (java.util.Map.Entry<String, Object> e : params.entrySet()) {
+            Object v = e.getValue();
+            if (v == null) continue;
+            String str = String.valueOf(v);
+            if (str.isBlank() || "undefined".equalsIgnoreCase(str) || "null".equalsIgnoreCase(str)) continue;
+            cleaned.put(e.getKey(), v);
+        }
+        return cleaned;
+    }
+
+
     private final CommunityFeignClient communityFeignClient;
 
     @GetMapping("/stats/overview")
@@ -34,7 +49,7 @@ public class AdminCommunityController {
     @GetMapping("/community/posts")
     @Operation(summary = "帖子列表")
     public ApiResponse<Object> listPosts(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listPosts(params);
+        return communityFeignClient.listPosts(sanitizeParams(params));
     }
 
     @PutMapping("/community/posts/{id}/status")
@@ -63,7 +78,7 @@ public class AdminCommunityController {
     @GetMapping("/community/comments")
     @Operation(summary = "评论列表")
     public ApiResponse<Object> listComments(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listComments(params);
+        return communityFeignClient.listComments(sanitizeParams(params));
     }
 
     @PutMapping("/community/comments/{id}/status")
@@ -85,7 +100,7 @@ public class AdminCommunityController {
     @GetMapping("/community/tags")
     @Operation(summary = "标签列表")
     public ApiResponse<Object> listTags(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listTags(params);
+        return communityFeignClient.listTags(sanitizeParams(params));
     }
 
     @PostMapping("/community/tags")
@@ -120,7 +135,7 @@ public class AdminCommunityController {
     @GetMapping("/community/reports")
     @Operation(summary = "举报列表")
     public ApiResponse<Object> listReports(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listReports(params);
+        return communityFeignClient.listReports(sanitizeParams(params));
     }
 
     @PutMapping("/community/reports/{id}/handle")
@@ -133,7 +148,7 @@ public class AdminCommunityController {
     @GetMapping("/community/badges")
     @Operation(summary = "徽章列表")
     public ApiResponse<Object> listBadges(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listBadges(params);
+        return communityFeignClient.listBadges(sanitizeParams(params));
     }
 
     @PostMapping("/community/badges")
@@ -230,7 +245,7 @@ public class AdminCommunityController {
     @GetMapping("/review/sensitive-words")
     @Operation(summary = "敏感词列表")
     public ApiResponse<Object> listSensitiveWords(@RequestParam Map<String, Object> params) {
-        return communityFeignClient.listSensitiveWords(params);
+        return communityFeignClient.listSensitiveWords(sanitizeParams(params));
     }
 
     @PostMapping("/review/sensitive-words")

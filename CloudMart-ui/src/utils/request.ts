@@ -66,6 +66,16 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // GET 参数净化：ProTable 首载/未填搜索项会把 undefined/null 序列化进 query，
+    // 经后端 Map<String,Object> 代理原样转发（like '%undefined%'）导致列表恒空
+    if (config.params && typeof config.params === 'object') {
+      config.params = Object.fromEntries(
+        Object.entries(config.params).filter(
+          ([, value]) => value !== undefined && value !== null && value !== '',
+        ),
+      )
+    }
+
     // 设备指纹风控基线（规格 1188-1191）
     config.headers['X-Device-Id'] = getDeviceId()
 
