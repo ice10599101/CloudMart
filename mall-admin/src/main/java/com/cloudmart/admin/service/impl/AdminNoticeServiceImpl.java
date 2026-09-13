@@ -6,6 +6,7 @@ import com.cloudmart.admin.dto.AdminNoticeRequest;
 import com.cloudmart.admin.dto.AdminNoticeResponse;
 import com.cloudmart.admin.entity.AdminNotice;
 import com.cloudmart.admin.entity.AdminNoticeRead;
+import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.repository.AdminNoticeMapper;
 import com.cloudmart.admin.repository.AdminNoticeReadMapper;
 import com.cloudmart.admin.service.AdminNoticeService;
@@ -19,13 +20,19 @@ import java.util.List;
 @Service
 public class AdminNoticeServiceImpl implements AdminNoticeService {
 
+    /** 推送到用户消息中心的通知类型：SYSTEM 归入消息中心"系统通知"分组 */
+    private static final String PUSH_NOTIFICATION_TYPE = "SYSTEM";
+
     private final AdminNoticeMapper adminNoticeMapper;
     private final AdminNoticeReadMapper adminNoticeReadMapper;
+    private final NotificationFeignClient notificationFeignClient;
 
     public AdminNoticeServiceImpl(AdminNoticeMapper adminNoticeMapper,
-                                  AdminNoticeReadMapper adminNoticeReadMapper) {
+                                  AdminNoticeReadMapper adminNoticeReadMapper,
+                                  NotificationFeignClient notificationFeignClient) {
         this.adminNoticeMapper = adminNoticeMapper;
         this.adminNoticeReadMapper = adminNoticeReadMapper;
+        this.notificationFeignClient = notificationFeignClient;
     }
 
     @Override
@@ -161,6 +168,27 @@ public class AdminNoticeServiceImpl implements AdminNoticeService {
         }
         notice.setStatus(status);
         adminNoticeMapper.updateById(notice);
+    }
+
+    /**
+     * 一键推送公告到全站用户消息中心。
+     * Feign 调用为慢速外部 IO，刻意不加 @Transactional（禁止事务内同步外部调用）；
+     * 广播本身由 mall-notification 原子性地"先枚举后写入"，本侧失败不会产生半推送状态。
+     */
+    @Override
+    public void pushToAllUsers(Long id) {
+        AdminNotice notice = adminNoticeMapper.selectById(id);
+        if (notice == null) {
+            throw new BusinessException("NOTICE_NOT_FOUND", "通知公告不存在");
+        }
+        if (notice.getStatus() == null || notice.getStatus() != 1) {
+            throw new BusinessException("NOTICE_NOT_PUBLISHED", "公告未启用，请先启用后再推送");
+        }
+        if (notice.getNoticeContent() == null || notice.getNoticeContent().isBlank()) {
+            throw new BusinessException("NOTICE_CONTENT_EMPTY", "公告内容为空，无法推送");
+        }
+        notificationFeignClient.broadcastNotification(
+                PUSH_NOTIFICATION_TYPE, notice.getNoticeTitle(), notice.getNoticeContent());
     }
 
     private AdminNoticeResponse toResponse(AdminNotice notice, Boolean isRead) {

@@ -55,11 +55,23 @@ public class PublicPathAuthStripFilter implements WebFilter {
             "/api/community/posts/liked"
     );
 
+    /**
+     * 公开路径分两类处理：
+     * <ul>
+     *   <li>ANY_METHOD 公开路径（register/callback 等）：剥离 Authorization——这类接口
+     *       与身份完全无关；</li>
+     *   <li>GET_ONLY 公开路径（帖子详情/搜索/商品等）：<b>保留</b> Authorization——
+     *       这些接口是「匿名可读、登录个性化」语义（如帖子详情 isLiked/isCollected），
+     *       剥离会导致登录用户在公开详情页永远显示未点赞/未收藏，再点一次点赞
+     *       就会触发后端「已点赞」错误。有效令牌时 JwtAuthenticationFilter 仍会
+     *       注入 X-User-Id，客户端伪造的身份头在 JWT 过滤器统一剥离，无伪造面。</li>
+     * </ul>
+     */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
         HttpMethod method = exchange.getRequest().getMethod();
-        if (isPublicPath(path, method)) {
+        if (isIdentityFreePublicPath(path, method)) {
             ServerHttpRequest decoratedRequest = new ServerHttpRequestDecorator(exchange.getRequest()) {
                 @Override
                 public HttpHeaders getHeaders() {
@@ -74,31 +86,43 @@ public class PublicPathAuthStripFilter implements WebFilter {
                 }
             };
             exchange = exchange.mutate().request(decoratedRequest).build();
+        } else if (isPublicReadablePath(path, method)) {
+            // 匿名可读路径：不剥 Authorization（保留个性化），仅标记内部调用
+            // （带有效令牌时 JwtAuthenticationFilter 注入 X-User-Id，与 INTERNAL_CALL 并存）
+            if (exchange.getRequest().getHeaders().getFirst(SecurityConstants.INTERNAL_CALL_HEADER) == null) {
+                exchange = exchange.mutate()
+                        .request(builder -> builder.header(SecurityConstants.INTERNAL_CALL_HEADER, "true"))
+                        .build();
+            }
         }
         return chain.filter(exchange);
     }
 
-    private boolean isPublicPath(String path, HttpMethod method) {
-        for (String prefix : COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES) {
-            if (path.startsWith(prefix)) {
-                return false;
-            }
-        }
+    /** 与身份完全无关的公开路径：剥离 Authorization */
+    private boolean isIdentityFreePublicPath(String path, HttpMethod method) {
         for (String prefix : ANY_METHOD_PUBLIC_PREFIXES) {
             if (path.startsWith(prefix)) {
                 return true;
             }
         }
-        if (method == HttpMethod.GET) {
-            for (String prefix : GET_ONLY_PUBLIC_PREFIXES) {
-                if (path.startsWith(prefix)) {
-                    return true;
-                }
-            }
-            if (path.matches("/api/product/products/\\d+")) {
+        return false;
+    }
+
+    /** 匿名可读、登录个性化的 GET 公开路径：保留 Authorization 供身份注入 */
+    private boolean isPublicReadablePath(String path, HttpMethod method) {
+        if (method != HttpMethod.GET) {
+            return false;
+        }
+        for (String prefix : COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES) {
+            if (path.startsWith(prefix)) {
                 return true;
             }
         }
-        return false;
+        for (String prefix : GET_ONLY_PUBLIC_PREFIXES) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return path.matches("/api/product/products/\\d+");
     }
 }

@@ -13,5 +13,6 @@ public record NotificationVO(
     @Schema(description = "是否已读") Boolean isRead,
     @Schema(description = "关联业务ID") Long bizId,
     @Schema(description = "关联业务类型") String bizType,
+    @Schema(description = "操作者用户ID（谁做的互动，可空；前端据此跳转其主页）") Long actorId,
     @Schema(description = "创建时间") LocalDateTime createdAt
 ) {}

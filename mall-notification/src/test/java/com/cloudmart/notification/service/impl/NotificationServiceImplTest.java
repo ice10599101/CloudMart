@@ -5,12 +5,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.notification.converter.NotificationConverter;
 import com.cloudmart.notification.dto.NotificationDTO;
 import com.cloudmart.notification.dto.SendNotificationRequest;
 import com.cloudmart.notification.dto.UnreadCountDTO;
 import com.cloudmart.notification.entity.Notification;
+import com.cloudmart.notification.feign.UserFeignClient;
 import com.cloudmart.notification.repository.NotificationMapper;
 import com.cloudmart.notification.websocket.WebSocketSessionManager;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -23,7 +25,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,11 +57,14 @@ class NotificationServiceImplTest {
     @Mock
     private WebSocketSessionManager sessionManager;
 
+    @Mock
+    private UserFeignClient userFeignClient;
+
     private NotificationServiceImpl notificationService;
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(notificationMapper, notificationConverter, sessionManager);
+        notificationService = new NotificationServiceImpl(notificationMapper, notificationConverter, sessionManager, userFeignClient);
     }
 
     private static final Long USER_ID = 1L;
@@ -71,10 +78,10 @@ class NotificationServiceImplTest {
         @DisplayName("should create notification and send via WebSocket")
         void sendNotification_success_returnsDTO() {
             SendNotificationRequest request = new SendNotificationRequest(
-                    USER_ID, "ORDER", "订单通知", "您的订单已发货", 200L, "ORDER");
+                    USER_ID, "ORDER", "订单通知", "您的订单已发货", 200L, "ORDER", null);
             NotificationDTO expectedDTO = new NotificationDTO(
                     NOTIFICATION_ID, USER_ID, "ORDER", "订单通知", "您的订单已发货",
-                    false, 200L, "ORDER", null);
+                    false, 200L, "ORDER", null, null);
 
             when(notificationMapper.insert(any(Notification.class))).thenReturn(1);
             when(notificationConverter.toDTO(any(Notification.class))).thenReturn(expectedDTO);
@@ -107,7 +114,7 @@ class NotificationServiceImplTest {
 
             NotificationDTO dto = new NotificationDTO(
                     NOTIFICATION_ID, USER_ID, "ORDER", "订单通知", "内容",
-                    false, null, null, null);
+                    false, null, null, null, null);
 
             when(notificationMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
                     .thenReturn(pageResult);
@@ -204,6 +211,84 @@ class NotificationServiceImplTest {
             notificationService.markAllAsRead(USER_ID);
 
             verify(notificationMapper).update(any(LambdaUpdateWrapper.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("broadcastNotification")
+    class BroadcastNotificationTests {
+
+        private Map<String, Object> userMap(long id) {
+            return Map.of("id", id);
+        }
+
+        @Test
+        @DisplayName("should fan out one notification per user and push via WebSocket")
+        void broadcast_success_fansOutToAllUsers() {
+            // 单页未满即终止枚举，不会请求第 2 页
+            when(userFeignClient.listUsers(1, 500)).thenReturn(ApiResponse.ok(List.of(userMap(1L), userMap(2L))));
+            when(notificationMapper.insert(any(Notification.class))).thenReturn(1);
+            when(notificationConverter.toDTO(any(Notification.class)))
+                    .thenReturn(new NotificationDTO(null, null, "SYSTEM", "标题", "内容", false, null, null, null, null));
+
+            notificationService.broadcastNotification("SYSTEM", "标题", "内容");
+
+            verify(notificationMapper, org.mockito.Mockito.times(2)).insert(any(Notification.class));
+            verify(sessionManager).sendMessageToUser(org.mockito.ArgumentMatchers.eq(1L), any(NotificationDTO.class));
+            verify(sessionManager).sendMessageToUser(org.mockito.ArgumentMatchers.eq(2L), any(NotificationDTO.class));
+        }
+
+        @Test
+        @DisplayName("should paginate until the last partial page")
+        void broadcast_multiplePages_enumeratesAllUsers() {
+            List<Map<String, Object>> fullPage = new ArrayList<>();
+            for (long i = 1; i <= 500; i++) {
+                fullPage.add(userMap(i));
+            }
+            when(userFeignClient.listUsers(1, 500)).thenReturn(ApiResponse.ok(fullPage));
+            // 第 2 页不足一页 → 枚举终止
+            when(userFeignClient.listUsers(2, 500)).thenReturn(ApiResponse.ok(List.of(userMap(501L))));
+            when(notificationMapper.insert(any(Notification.class))).thenReturn(1);
+
+            notificationService.broadcastNotification("SYSTEM", "标题", "内容");
+
+            verify(notificationMapper, org.mockito.Mockito.times(501)).insert(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("should fail fast before writing when user enumeration fails")
+        void broadcast_userEnumerationFails_failsFastWithoutInserts() {
+            when(userFeignClient.listUsers(1, 500)).thenReturn(ApiResponse.fail("USER_SERVICE_UNAVAILABLE", "用户服务不可用"));
+
+            assertThatThrownBy(() -> notificationService.broadcastNotification("SYSTEM", "标题", "内容"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("获取用户列表失败");
+
+            verify(notificationMapper, org.mockito.Mockito.never()).insert(any(Notification.class));
+            verify(sessionManager, org.mockito.Mockito.never())
+                    .sendMessageToUser(any(Long.class), any(NotificationDTO.class));
+        }
+
+        @Test
+        @DisplayName("should succeed with zero recipients when no users exist")
+        void broadcast_noUsers_noOpSuccess() {
+            when(userFeignClient.listUsers(1, 500)).thenReturn(ApiResponse.ok(List.of()));
+
+            notificationService.broadcastNotification("SYSTEM", "标题", "内容");
+
+            verify(notificationMapper, org.mockito.Mockito.never()).insert(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("should skip malformed user records without id")
+        void broadcast_malformedRecord_skipsInvalidId() {
+            when(userFeignClient.listUsers(1, 500))
+                    .thenReturn(ApiResponse.ok(List.of(userMap(1L), Map.of("nickname", "no-id"))));
+            when(notificationMapper.insert(any(Notification.class))).thenReturn(1);
+
+            notificationService.broadcastNotification("SYSTEM", "标题", "内容");
+
+            verify(notificationMapper, org.mockito.Mockito.times(1)).insert(any(Notification.class));
         }
     }
 }

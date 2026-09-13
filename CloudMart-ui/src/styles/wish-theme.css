@@ -1,10 +1,14 @@
 /*
  * 心愿宇宙独立视觉主题
- * 星空深色主题：主色 #1a1a2e / 辅色 #e94560 / 强调 #0f3460
+ * 默认星空深色主题：主色 #1a1a2e / 辅色 #e94560 / 强调 #0f3460
  * 与宝贝小答社区主站视觉风格区分
+ *
+ * 主题联动：深色覆盖仅在 ocean（深海蓝）模式下生效；sakura（樱花粉）模式下
+ * 本文件不声明任何变量，心愿宇宙页面继承全局樱花 tokens（html[data-theme-mode]
+ * 由 UserLayout 的 applyCssVariables 同步写入）。
  */
 
-.wish-universe-theme {
+html[data-theme-mode='ocean'] .wish-universe-theme {
   --color-primary: #e94560;
   --color-primary-rgb: 233, 69, 96;
   --color-primary-dark: #c81d3e;

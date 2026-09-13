@@ -45,9 +45,9 @@ class NotificationControllerTest {
     @DisplayName("通知列表 - 成功返回信封")
     void listNotifications_ShouldReturnEnvelope() throws Exception {
         NotificationDTO dto = new NotificationDTO(1L, 1L, "LIKE", "收到点赞",
-                "用户A赞了你的商品", false, 100L, "PRODUCT", FIXED_TIME);
+                "用户A赞了你的商品", false, 100L, "PRODUCT", null, FIXED_TIME);
         NotificationVO vo = new NotificationVO(1L, "LIKE", "收到点赞",
-                "用户A赞了你的商品", false, 100L, "PRODUCT", FIXED_TIME);
+                "用户A赞了你的商品", false, 100L, "PRODUCT", null, FIXED_TIME);
 
         given(notificationService.listNotifications(1L, 1, 20)).willReturn(List.of(dto));
         given(notificationConverter.dtoListToVOList(List.of(dto))).willReturn(List.of(vo));
@@ -65,9 +65,9 @@ class NotificationControllerTest {
     @DisplayName("通知列表 - 按类型筛选返回信封")
     void listNotifications_WithTypeFilter_ShouldReturnEnvelope() throws Exception {
         NotificationDTO dto = new NotificationDTO(1L, 1L, "COMMENT", "收到评论",
-                "用户B评论了你的商品", false, 101L, "PRODUCT", FIXED_TIME);
+                "用户B评论了你的商品", false, 101L, "PRODUCT", null, FIXED_TIME);
         NotificationVO vo = new NotificationVO(1L, "COMMENT", "收到评论",
-                "用户B评论了你的商品", false, 101L, "PRODUCT", FIXED_TIME);
+                "用户B评论了你的商品", false, 101L, "PRODUCT", null, FIXED_TIME);
 
         given(notificationService.listNotificationsByType(1L, "COMMENT", 1, 20)).willReturn(List.of(dto));
         given(notificationConverter.dtoListToVOList(List.of(dto))).willReturn(List.of(vo));

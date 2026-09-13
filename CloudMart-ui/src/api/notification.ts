@@ -10,6 +10,8 @@ export interface NotificationItem {
   isRead: boolean
   bizId: number | null
   bizType: string | null
+  /** 操作者用户 ID（谁做的互动；历史/系统通知为 null） */
+  actorId: number | null
   createdAt: string
 }
 

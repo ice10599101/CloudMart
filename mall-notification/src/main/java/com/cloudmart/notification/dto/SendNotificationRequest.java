@@ -24,5 +24,8 @@ public record SendNotificationRequest(
     Long bizId,
 
     @Size(max = 30) @Schema(description = "关联业务类型")
-    String bizType
+    String bizType,
+
+    @Schema(description = "操作者用户ID（谁做的互动，可空）")
+    Long actorId
 ) {}

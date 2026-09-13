@@ -43,9 +43,9 @@ class AdminNotificationControllerTest {
     @DisplayName("查询通知列表 - 成功返回信封")
     void listNotifications_ShouldReturnEnvelope() throws Exception {
         NotificationDTO dto = new NotificationDTO(1L, 1L, "SYSTEM", "系统通知",
-                "系统维护通知", true, null, null, FIXED_TIME);
+                "系统维护通知", true, null, null, null, FIXED_TIME);
         NotificationVO vo = new NotificationVO(1L, "SYSTEM", "系统通知",
-                "系统维护通知", true, null, null, FIXED_TIME);
+                "系统维护通知", true, null, null, null, FIXED_TIME);
 
         given(notificationService.listAllNotifications(null, null, 1, 20)).willReturn(List.of(dto));
         given(notificationConverter.dtoListToVOList(List.of(dto))).willReturn(List.of(vo));
@@ -62,9 +62,9 @@ class AdminNotificationControllerTest {
     @DisplayName("发送通知 - 成功返回信封")
     void sendNotification_ShouldReturnEnvelope() throws Exception {
         NotificationDTO dto = new NotificationDTO(1L, 1L, "LIKE", "收到点赞",
-                "用户A赞了你的商品", false, 100L, "PRODUCT", FIXED_TIME);
+                "用户A赞了你的商品", false, 100L, "PRODUCT", null, FIXED_TIME);
         NotificationVO vo = new NotificationVO(1L, "LIKE", "收到点赞",
-                "用户A赞了你的商品", false, 100L, "PRODUCT", FIXED_TIME);
+                "用户A赞了你的商品", false, 100L, "PRODUCT", null, FIXED_TIME);
 
         given(notificationService.sendNotification(Mockito.any())).willReturn(dto);
         given(notificationConverter.dtoToVO(dto)).willReturn(vo);

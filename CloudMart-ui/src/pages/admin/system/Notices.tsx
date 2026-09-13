@@ -6,14 +6,15 @@ import {
   ProFormSelect,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { Button, Popconfirm, Switch, Tag, Tooltip } from 'antd'
+import { PlusOutlined, SendOutlined } from '@ant-design/icons'
 import {
   getNotices,
   createNotice,
   updateNotice,
   deleteNotice,
   updateNoticeStatus,
+  pushNotice,
   getDictData,
 } from '@/api/admin/system'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -111,6 +112,22 @@ export default function Notices() {
     }
   }
 
+  // 推送中按行防重：广播是重操作（全站落库+WS 推送），必须阻断连点/并行推送
+  const [pushingNoticeId, setPushingNoticeId] = useState<number | null>(null)
+
+  const handlePush = async (id: number) => {
+    if (pushingNoticeId !== null) return
+    setPushingNoticeId(id)
+    try {
+      await pushNotice(id)
+      message.success('推送成功，全站用户将在消息中心收到该公告')
+    } catch {
+      // 失败提示由 request 拦截器统一弹出（含后端业务 code 文案）
+    } finally {
+      setPushingNoticeId(null)
+    }
+  }
+
   const columns: ProColumns<NoticeRecord>[] = [
     { title: '公告ID', dataIndex: 'id', width: 80, search: false },
     { title: '公告标题', dataIndex: 'noticeTitle', width: 200 },
@@ -141,7 +158,7 @@ export default function Notices() {
     {
       title: '操作',
       valueType: 'option',
-      width: 160,
+      width: 240,
       fixed: 'right',
       render: (_, record) => [
         <Button
@@ -155,6 +172,24 @@ export default function Notices() {
         >
           编辑
         </Button>,
+        <Tooltip key="push" title={Number(record.status) !== 1 ? '公告已停用，启用后才能推送' : undefined}>
+          <Popconfirm
+            title="推送全站用户"
+            description="将向全部用户的消息中心推送一条系统通知，确认推送？"
+            disabled={Number(record.status) !== 1}
+            onConfirm={() => handlePush(record.id)}
+          >
+            <Button
+              type="link"
+              size="small"
+              icon={<SendOutlined />}
+              disabled={Number(record.status) !== 1}
+              loading={pushingNoticeId === record.id}
+            >
+              推送全站
+            </Button>
+          </Popconfirm>
+        </Tooltip>,
         <Popconfirm
           key="delete"
           title="确认删除该通知？"

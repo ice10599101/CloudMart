@@ -220,6 +220,11 @@ export function updateNoticeStatus(id: number | string, data: Record<string, any
   return request.put(`/admin/notices/${id}/status`, data)
 }
 
+/** 一键推送公告到全站用户消息中心（后端经 mall-notification 广播，仅允许已启用的公告） */
+export function pushNotice(id: number | string) {
+  return request.post(`/admin/notices/${id}/push`)
+}
+
 export function getOperLogs(params?: Record<string, any>) {
   return request.get('/admin/logs/oper/page', { params })
 }

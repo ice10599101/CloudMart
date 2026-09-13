@@ -18,7 +18,8 @@
 .banner {
   position: relative;
   height: 320px;
-  background: linear-gradient(180deg, #0a0e1a 0%, #0d1528 50%, #0B1220 100%);
+  /* 跟随全局主题：ocean=深蓝星空渐变，sakura=樱花粉渐变 */
+  background: var(--color-gradient-hero);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -74,7 +75,7 @@
   position: absolute;
   width: 2px;
   height: 2px;
-  background: #fff;
+  background: var(--color-text-tertiary);
   border-radius: 50%;
   animation: twinkle 3s ease-in-out infinite;
 }

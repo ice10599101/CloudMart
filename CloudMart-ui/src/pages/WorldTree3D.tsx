@@ -613,6 +613,11 @@ export default function WorldTree3D() {
     if (!canvas || !flagsReady) return
     const scene = createTreeScene(canvas)
     sceneRef.current = scene
+    // 首屏数据可能先于场景创建到达（fetchInitial 不受 flagsReady 门控），
+    // 此时 replaceFruits 的 sceneRef 为 null 静默跳过，这里创建后立即补挂
+    if (fruitsMapRef.current.size > 0) {
+      scene.setFruits(Array.from(fruitsMapRef.current.values()))
+    }
     // 相机转动触发重新拉取快照：果实集已容量封顶，重复拉取为幂等快照替换
     scene.onViewportChange(() => {
       loadFruitsSnapshot()

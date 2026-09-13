@@ -59,7 +59,8 @@ public class CommunityEventConsumer implements RocketMQListener<CommunityEventCo
             String bizType = message.bizType() != null ? message.bizType() : "USER";
 
             notificationService.sendNotificationToUser(
-                    message.targetUserId(), message.type(), title, content, bizId, bizType
+                    message.targetUserId(), message.type(), title, content, bizId, bizType,
+                    message.operatorUserId()
             );
             log.info("Community notification sent: type={}, targetUserId={}, actor={}",
                     message.type(), message.targetUserId(), actor);

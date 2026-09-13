@@ -73,6 +73,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             isRead: false,
             bizId: data.bizId ?? null,
             bizType: data.bizType ?? null,
+            actorId: data.actorId ?? null,
             createdAt: data.createdAt ?? new Date().toISOString(),
           }
           set((state) => ({

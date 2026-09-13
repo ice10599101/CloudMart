@@ -15,4 +15,10 @@ public interface NotificationFeignClient {
 
     @PostMapping
     ApiResponse<Object> sendNotification(@RequestBody SendNotificationRequest request);
+
+    /** 全站广播：由 mall-notification 枚举全量会员逐用户落库 + WS 推送（参数与 mall-notification 端点契约对齐） */
+    @PostMapping("/broadcast")
+    ApiResponse<Object> broadcastNotification(@RequestParam("type") String type,
+                                              @RequestParam("title") String title,
+                                              @RequestParam("content") String content);
 }

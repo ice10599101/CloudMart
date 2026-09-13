@@ -36,6 +36,13 @@ public class UserFeignClientFallbackFactory implements FallbackFactory<UserFeign
                 }
                 throw extractBusinessException(cause);
             }
+
+            @Override
+            public ApiResponse<List<Map<String, Object>>> listUsers(int page, int size) {
+                // 广播的枚举步骤必须 fail-fast：降级返回空列表会被当成"全站 0 用户"，
+                // 造成推送静默成功而实际无人收到（禁止静默失败）
+                throw extractBusinessException(cause);
+            }
         };
     }
 

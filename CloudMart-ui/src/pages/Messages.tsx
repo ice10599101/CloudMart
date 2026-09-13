@@ -137,6 +137,22 @@ function navigateToBiz(item: EnrichedNotification) {
   }
 }
 
+/** 操作者昵称：携带 actorId（或 FOLLOW 的 bizId=操作者）时可点击跳转其个人主页；历史通知无身份仅展示文本 */
+function ActorName({ item, name }: { item: EnrichedNotification; name: string }) {
+  if (!name) return null
+  const actorId = item.actorId ?? (item.type === 'FOLLOW' ? item.bizId : null)
+  if (!actorId) return <strong>{name}</strong>
+  return (
+    <strong
+      style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+      title={`查看 ${name} 的主页`}
+      onClick={(e) => { e.stopPropagation(); history.push(`/user/${actorId}`) }}
+    >
+      {name}
+    </strong>
+  )
+}
+
 function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   const username = extractUsername(item.content)
   const postTitle = extractPostTitle(item.content)
@@ -145,7 +161,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   if (item.type === 'LIKE') {
     return (
       <p className={styles.notificationText}>
-        <strong>{username}</strong> 赞了你的帖子
+        <ActorName item={item} name={username} /> 赞了你的帖子
         {postTitle && (
           <span className={styles.postLink} onClick={(e) => { e.stopPropagation(); navigateToBiz(item) }}>《{postTitle}》</span>
         )}
@@ -157,7 +173,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
     return (
       <>
         <p className={styles.notificationText}>
-          <strong>{username}</strong> 评论了你的帖子
+          <ActorName item={item} name={username} /> 评论了你的帖子
           {postTitle && (
             <span className={styles.postLink} onClick={(e) => { e.stopPropagation(); navigateToBiz(item) }}>《{postTitle}》</span>
           )}
@@ -172,7 +188,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   if (item.type === 'COLLECT') {
     return (
       <p className={styles.notificationText}>
-        <strong>{username}</strong> 收藏了你的帖子
+        <ActorName item={item} name={username} /> 收藏了你的帖子
         {postTitle && (
           <span className={styles.postLink} onClick={(e) => { e.stopPropagation(); navigateToBiz(item) }}>《{postTitle}》</span>
         )}
@@ -183,7 +199,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   if (item.type === 'SHARE') {
     return (
       <p className={styles.notificationText}>
-        <strong>{username}</strong> 分享了你的帖子
+        <ActorName item={item} name={username} /> 分享了你的帖子
         {postTitle && (
           <span className={styles.postLink} onClick={(e) => { e.stopPropagation(); navigateToBiz(item) }}>《{postTitle}》</span>
         )}
@@ -194,7 +210,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   if (item.type === 'MENTION') {
     return (
       <p className={styles.notificationText}>
-        <strong>{username}</strong> 在帖子中@了你
+        <ActorName item={item} name={username} /> 在帖子中@了你
         {postTitle && (
           <span className={styles.postLink} onClick={(e) => { e.stopPropagation(); navigateToBiz(item) }}>《{postTitle}》</span>
         )}
@@ -209,7 +225,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   if (item.type === 'FOLLOW') {
     return (
       <p className={styles.notificationText}>
-        <strong>{extractFollowNickname(item.content)}</strong> 关注了你
+        <ActorName item={item} name={extractFollowNickname(item.content)} /> 关注了你
       </p>
     )
   }

@@ -98,4 +98,14 @@ public class AdminNoticeController {
         adminNoticeService.updateStatus(id, body.get("status"));
         return ApiResponse.ok(null);
     }
+
+    @PostMapping("/{id}/push")
+    @RequiresPermission("admin:notice:push")
+    @OperLog(title = "通知公告", businessType = 2)
+    @Operation(summary = "一键推送全站用户",
+            description = "将已启用的公告经 mall-notification 广播为全站用户的系统通知（消息中心实时可见）")
+    public ApiResponse<Void> pushToAllUsers(@PathVariable Long id) {
+        adminNoticeService.pushToAllUsers(id);
+        return ApiResponse.ok(null);
+    }
 }

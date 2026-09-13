@@ -126,8 +126,12 @@ export function getThemeTokens(mode: ThemeMode): ThemeTokens {
   return THEMES[mode]
 }
 
-export function applyCssVariables(tokens: ThemeTokens): void {
+export function applyCssVariables(tokens: ThemeTokens, mode?: ThemeMode): void {
   const root = document.documentElement
+  // 主题模式标记：心愿宇宙独立主题（wish-theme.css）按该标记决定是否启用深色覆盖
+  if (mode) {
+    root.dataset.themeMode = mode
+  }
   root.style.setProperty('--color-primary', tokens.colorPrimary)
   root.style.setProperty('--color-primary-rgb', tokens.colorPrimaryRgb)
   root.style.setProperty('--color-primary-dark', tokens.colorPrimaryDark)

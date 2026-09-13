@@ -30,6 +30,9 @@ public class Notification {
 
     private String bizType;
 
+    /** 操作者用户 ID（谁做了此互动，用于前端跳转其主页）；NULL=系统/历史通知 */
+    private Long actorId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

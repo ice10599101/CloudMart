@@ -41,6 +41,11 @@ public class NotificationFeignClientFallbackFactory implements FallbackFactory<N
             public ApiResponse<Object> sendNotification(SendNotificationRequest request) {
                 throw translate(cause);
             }
+
+            @Override
+            public ApiResponse<Object> broadcastNotification(String type, String title, String content) {
+                throw translate(cause);
+            }
         };
     }
 

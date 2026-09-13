@@ -74,6 +74,7 @@ describe('useNotificationStore', () => {
       isRead: false,
       bizId: null,
       bizType: null,
+      actorId: null,
       createdAt: '2025-01-01T00:00:00Z',
     }
 
@@ -95,8 +96,8 @@ describe('useNotificationStore', () => {
 
   it('setNotifications() replaces notifications list', () => {
     const items = [
-      { id: 1, userId: 1, type: 'SYSTEM', title: 'A', content: 'A', isRead: true, bizId: null, bizType: null, createdAt: '2025-01-01' },
-      { id: 2, userId: 1, type: 'ORDER', title: 'B', content: 'B', isRead: false, bizId: null, bizType: null, createdAt: '2025-01-02' },
+      { id: 1, userId: 1, type: 'SYSTEM', title: 'A', content: 'A', isRead: true, bizId: null, bizType: null, actorId: null, createdAt: '2025-01-01' },
+      { id: 2, userId: 1, type: 'ORDER', title: 'B', content: 'B', isRead: false, bizId: null, bizType: null, actorId: null, createdAt: '2025-01-02' },
     ]
 
     useNotificationStore.getState().setNotifications(items)

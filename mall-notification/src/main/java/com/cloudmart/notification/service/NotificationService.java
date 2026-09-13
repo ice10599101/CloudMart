@@ -12,6 +12,13 @@ public interface NotificationService {
 
     void sendNotificationToUser(Long userId, String type, String title, String content, Long bizId, String bizType);
 
+    /**
+     * 带操作者的通知：actorId 会随通知下发，前端据此把「谁赞/收藏/关注了我」
+     * 中的操作者昵称链接到其个人主页。actorId 可空（系统/广播类通知）。
+     */
+    void sendNotificationToUser(Long userId, String type, String title, String content,
+                                Long bizId, String bizType, Long actorId);
+
     void broadcastNotification(String type, String title, String content);
 
     List<NotificationDTO> listNotifications(Long userId, Integer page, Integer pageSize);

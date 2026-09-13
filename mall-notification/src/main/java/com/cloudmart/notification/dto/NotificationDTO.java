@@ -31,6 +31,9 @@ public record NotificationDTO(
     @Schema(description = "关联业务类型")
     String bizType,
 
+    @Schema(description = "操作者用户ID（谁做的互动，可空）")
+    Long actorId,
+
     @Schema(description = "创建时间")
     LocalDateTime createdAt
 ) {}

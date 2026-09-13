@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.admin.dto.AdminNoticeRequest;
 import com.cloudmart.admin.entity.AdminNotice;
 import com.cloudmart.admin.entity.AdminNoticeRead;
+import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.repository.AdminNoticeMapper;
 import com.cloudmart.admin.repository.AdminNoticeReadMapper;
 import com.cloudmart.common.exception.BusinessException;
@@ -30,6 +31,7 @@ class AdminNoticeServiceImplTest {
 
     private AdminNoticeMapper adminNoticeMapper;
     private AdminNoticeReadMapper adminNoticeReadMapper;
+    private NotificationFeignClient notificationFeignClient;
     private AdminNoticeServiceImpl adminNoticeService;
 
     @BeforeAll
@@ -48,7 +50,8 @@ class AdminNoticeServiceImplTest {
     void setUp() {
         adminNoticeMapper = mock(AdminNoticeMapper.class);
         adminNoticeReadMapper = mock(AdminNoticeReadMapper.class);
-        adminNoticeService = new AdminNoticeServiceImpl(adminNoticeMapper, adminNoticeReadMapper);
+        notificationFeignClient = mock(NotificationFeignClient.class);
+        adminNoticeService = new AdminNoticeServiceImpl(adminNoticeMapper, adminNoticeReadMapper, notificationFeignClient);
     }
 
     private AdminNotice buildNotice(Long id) {
@@ -199,6 +202,63 @@ class AdminNoticeServiceImplTest {
             assertThatThrownBy(() -> adminNoticeService.markAsRead(999L, 100L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_NOT_FOUND"));
+        }
+    }
+
+    @Nested
+    @DisplayName("pushToAllUsers")
+    class PushToAllUsersTests {
+
+        @Test
+        @DisplayName("published notice -> broadcasts as SYSTEM notification with title and content")
+        void push_PublishedNotice_BroadcastsViaFeign() {
+            AdminNotice notice = buildNotice(1L);
+            notice.setStatus(1);
+            notice.setNoticeTitle("CloudMart 上线公告");
+            notice.setNoticeContent("<p>正文</p>");
+            when(adminNoticeMapper.selectById(1L)).thenReturn(notice);
+
+            adminNoticeService.pushToAllUsers(1L);
+
+            verify(notificationFeignClient).broadcastNotification("SYSTEM", "CloudMart 上线公告", "<p>正文</p>");
+        }
+
+        @Test
+        @DisplayName("missing notice -> NOTICE_NOT_FOUND and no broadcast")
+        void push_MissingNotice_ThrowsNotFound() {
+            when(adminNoticeMapper.selectById(99L)).thenReturn(null);
+
+            assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(99L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_NOT_FOUND"));
+            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("disabled notice -> NOTICE_NOT_PUBLISHED and no broadcast")
+        void push_DisabledNotice_ThrowsNotPublished() {
+            AdminNotice notice = buildNotice(1L);
+            notice.setStatus(0);
+            when(adminNoticeMapper.selectById(1L)).thenReturn(notice);
+
+            assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_NOT_PUBLISHED"));
+            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("blank content -> NOTICE_CONTENT_EMPTY and no broadcast")
+        void push_BlankContent_ThrowsContentEmpty() {
+            AdminNotice notice = buildNotice(1L);
+            notice.setStatus(1);
+            notice.setNoticeContent("   ");
+            when(adminNoticeMapper.selectById(1L)).thenReturn(notice);
+
+            assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_CONTENT_EMPTY"));
+            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
         }
     }
 }

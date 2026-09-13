@@ -357,7 +357,7 @@ export default function UserLayout() {
   const styles = buildStyles(tokens)
 
   useEffect(() => {
-    applyCssVariables(tokens)
+    applyCssVariables(tokens, mode)
   }, [mode])
 
   useEffect(() => {
