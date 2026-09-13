@@ -343,10 +343,11 @@ export interface ConsentStatus {
 
 /** 发送树洞消息并获取 AI 治愈回复（前置：AI 数据处理同意；10 次/日） */
 export function sendTreeHoleMessage(wishId: number | string, data: { message: string }) {
+  // GLM 真实生成需 10~30s，超过全局 15s 超时（BUG#44：UI 请求被中止报网络错误）
   return request.post<ApiResponse<TreeHoleReply>>(`/wish/ai/tree-hole`, {
     wishId,
     message: data.message,
-  })
+  }, { timeout: 60000 })
 }
 
 /** AI 对话历史（cursor 分页，默认 scene=TREE_HOLE） */
@@ -483,6 +484,16 @@ export interface TreeFruit {
   authorNickname: string
   lightCount: number
   position: TreeFruitPosition
+}
+
+export interface MapFrontendConfig {
+  amapKey: string
+  securityCode: string
+}
+
+/** 地图前端配置（高德 Key/安全密钥，nacos mall-wish.yml 的 amap.* 由后端下发）；失败静默由调用方兜底 */
+export function getMapFrontendConfig() {
+  return request.get<ApiResponse<MapFrontendConfig>>('/wish/map/config', { silentError: true })
 }
 
 export interface TreeFruitsQuery {
@@ -669,7 +680,8 @@ export interface AiGoal {
 
 /** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 错误码由组件分发） */
 export function breakdownGoal(data: { text: string; wishId?: number }) {
-  return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data)
+  // 同上：AI 生成耗时最长 30s+，单独放宽超时
+  return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data, { timeout: 60000 })
 }
 
 /** 勾选步骤批量持久化（status=PENDING） */

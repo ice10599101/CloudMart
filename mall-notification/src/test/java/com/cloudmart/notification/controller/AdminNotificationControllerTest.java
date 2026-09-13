@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -107,12 +108,21 @@ class AdminNotificationControllerTest {
     @DisplayName("广播通知 - 成功返回信封")
     void broadcastNotification_ShouldReturnEnvelope() throws Exception {
         mockMvc.perform(post("/admin/notifications/broadcast")
-                        .param("type", "SYSTEM")
-                        .param("title", "系统公告")
-                        .param("content", "系统升级通知"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"SYSTEM\",\"title\":\"系统公告\",\"content\":\"系统升级通知\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(notificationService).broadcastNotification("SYSTEM", "系统公告", "系统升级通知");
+    }
+
+    @Test
+    @DisplayName("删除通知 - 成功返回信封")
+    void deleteNotification_ShouldReturnEnvelope() throws Exception {
+        mockMvc.perform(delete("/admin/notifications/31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(notificationService).deleteNotification(31L);
     }
 }

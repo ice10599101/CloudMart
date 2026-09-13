@@ -2,6 +2,7 @@ package com.cloudmart.notification.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.notification.converter.NotificationConverter;
+import com.cloudmart.notification.dto.BroadcastNotificationRequest;
 import com.cloudmart.notification.dto.NotificationDTO;
 import com.cloudmart.notification.dto.SendNotificationRequest;
 import com.cloudmart.notification.service.NotificationService;
@@ -61,12 +62,18 @@ public class AdminNotificationController {
 
     @PostMapping("/broadcast")
     @PreAuthorize("hasRole('INTERNAL')")
-    @Operation(summary = "广播通知", description = "管理后台向全体用户发送广播通知")
-    public ApiResponse<Void> broadcastNotification(
-            @Parameter(description = "通知类型") @RequestParam String type,
-            @Parameter(description = "通知标题") @RequestParam String title,
-            @Parameter(description = "通知内容") @RequestParam String content) {
-        notificationService.broadcastNotification(type, title, content);
+    @Operation(summary = "广播通知", description = "管理后台向全体用户发送广播通知（JSON body，绕过 XssFilter 对 query 参数的 HTML 转义并支持长富文本）")
+    public ApiResponse<Void> broadcastNotification(@Valid @RequestBody BroadcastNotificationRequest request) {
+        notificationService.broadcastNotification(request.type(), request.title(), request.content());
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/{notificationId}")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "删除通知", description = "管理后台删除指定通知（撤回误发内容）")
+    public ApiResponse<Void> deleteNotification(
+            @Parameter(description = "通知ID") @PathVariable Long notificationId) {
+        notificationService.deleteNotification(notificationId);
         return ApiResponse.ok(null);
     }
 }

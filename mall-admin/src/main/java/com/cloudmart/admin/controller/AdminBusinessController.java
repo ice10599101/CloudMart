@@ -471,6 +471,14 @@ public class AdminBusinessController {
         return notificationQueryFeignClient.listNotifications(userId, type, page, pageSize);
     }
 
+    @DeleteMapping("/notifications/{notificationId}")
+    @OperLog(title = "通知管理", businessType = 3)
+    @RequiresPermission("business:notification:list")
+    @Operation(summary = "删除通知", description = "管理后台删除指定通知（撤回误发内容）")
+    public ApiResponse<Void> deleteNotification(@PathVariable Long notificationId) {
+        return notificationFeignClient.deleteNotification(notificationId);
+    }
+
     @PostMapping("/notifications")
     @OperLog(title = "通知管理", businessType = 1)
     @RequiresPermission("business:notification:send")

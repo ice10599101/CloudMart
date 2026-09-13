@@ -8,9 +8,9 @@ import {
   ProFormDigit,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Modal, Descriptions } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
-import { getNotifications, sendNotification } from '@/api/admin/business'
+import { Button, Popconfirm, Tag, Modal, Descriptions } from 'antd'
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { deleteNotification, getNotifications, sendNotification } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -81,12 +81,30 @@ export default function Notifications() {
     {
       title: '操作',
       valueType: 'option',
-      width: 80,
+      width: 120,
       fixed: 'right',
       render: (_, record) => [
         <Button key="detail" type="link" size="small" onClick={() => setDetailRecord(record)}>
           详情
         </Button>,
+        <Popconfirm
+          key="delete"
+          title="确认删除该通知？"
+          description="删除后该用户消息中心将不再显示此条通知。"
+          onConfirm={async () => {
+            try {
+              await deleteNotification(record.id)
+              message.success('删除成功')
+              actionRef.current?.reload()
+            } catch {
+              // 失败提示由 request 拦截器统一呈现
+            }
+          }}
+        >
+          <Button key="delete" type="link" size="small" danger icon={<DeleteOutlined />}>
+            删除
+          </Button>
+        </Popconfirm>,
       ],
     },
   ]

@@ -10,13 +10,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * LBS 地图 Controller（Sprint 3.1，文档 2.10：GET /wish/map/**）。
@@ -31,6 +34,24 @@ import java.util.List;
 public class MapController {
 
     private final NearbyWishService nearbyWishService;
+
+    /** 高德 JS API Key 与安全密钥（配置于 nacos mall-wish.yml 的 amap.key / amap.security-code），
+     *  供浏览器端加载地图 SDK——Key 本就是前端凭据，经此公开接口下发给页面 */
+    @Value("${amap.key:}")
+    private String amapKey;
+
+    @Value("${amap.security-code:}")
+    private String amapSecurityCode;
+
+    @GetMapping("/config")
+    @Operation(summary = "地图前端配置", description = "下发高德 JS API Key 与安全密钥（浏览器端渲染用）；"
+            + "未配置时返回空串，前端自动降级列表模式。配置位置：nacos mall-wish.yml 的 amap.key / amap.security-code")
+    public ApiResponse<Map<String, String>> config() {
+        Map<String, String> config = new LinkedHashMap<>();
+        config.put("amapKey", amapKey != null ? amapKey : "");
+        config.put("securityCode", amapSecurityCode != null ? amapSecurityCode : "");
+        return ApiResponse.ok(config);
+    }
 
     @GetMapping("/wishes")
     @Operation(summary = "附近心愿", description = "传入 lat/lng/radius 返回模糊化坐标的心愿列表；"

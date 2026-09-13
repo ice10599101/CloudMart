@@ -76,6 +76,9 @@ public class SecurityConfig {
                 // 温暖事件公开浏览（Sprint 3.2，仅可见状态事件）
                 .requestMatchers(HttpMethod.GET, "/map/warm-events", "/map/warm-events/cluster").permitAll()
 
+                // 地图前端配置下发（高德 Key/安全密钥，浏览器端渲染用；匿名地图页同需）
+                .requestMatchers(HttpMethod.GET, "/map/config").permitAll()
+
                 // 直播挂件公开数据（Sprint 3.4，CDN 友好，10s 缓存）
                 .requestMatchers(HttpMethod.GET, "/live/widget/*").permitAll()
 

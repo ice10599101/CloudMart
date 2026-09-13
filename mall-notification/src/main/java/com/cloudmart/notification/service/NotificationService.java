@@ -21,6 +21,9 @@ public interface NotificationService {
 
     void broadcastNotification(String type, String title, String content);
 
+    /** 管理端删除指定通知（撤回误发内容）；不存在时抛 NOTIFICATION_NOT_FOUND */
+    void deleteNotification(Long notificationId);
+
     List<NotificationDTO> listNotifications(Long userId, Integer page, Integer pageSize);
 
     List<NotificationDTO> listNotificationsByType(Long userId, String type, Integer page, Integer pageSize);

@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.BroadcastNotificationRequest;
 import com.cloudmart.admin.dto.feign.SendNotificationRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -11,9 +12,11 @@ public interface NotificationFeignClient {
     @PostMapping
     ApiResponse<Object> sendNotification(@RequestBody SendNotificationRequest request);
 
-    /** 全站广播：由 mall-notification 枚举全量会员逐用户落库 + WS 推送（参数与 mall-notification 端点契约对齐） */
+    /** 全站广播：由 mall-notification 枚举全量会员逐用户落库 + WS 推送（JSON body，防 XssFilter 转义与 URL 截断） */
     @PostMapping("/broadcast")
-    ApiResponse<Object> broadcastNotification(@RequestParam("type") String type,
-                                              @RequestParam("title") String title,
-                                              @RequestParam("content") String content);
+    ApiResponse<Object> broadcastNotification(@RequestBody BroadcastNotificationRequest request);
+
+    /** 管理端删除指定通知（撤回误发内容） */
+    @DeleteMapping("/{notificationId}")
+    ApiResponse<Void> deleteNotification(@PathVariable("notificationId") Long notificationId);
 }

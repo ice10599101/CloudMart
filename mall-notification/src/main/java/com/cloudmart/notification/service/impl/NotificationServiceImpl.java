@@ -97,6 +97,14 @@ public class NotificationServiceImpl implements NotificationService {
         return entity;
     }
 
+    @Override
+    public void deleteNotification(Long notificationId) {
+        if (notificationMapper.selectById(notificationId) == null) {
+            throw new BusinessException("NOTIFICATION_NOT_FOUND", "通知不存在");
+        }
+        notificationMapper.deleteById(notificationId);
+    }
+
     /**
      * 全站广播：枚举全量会员后逐用户落库 + WS 实时推送。
      *

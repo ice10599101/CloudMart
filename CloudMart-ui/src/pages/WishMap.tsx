@@ -4,6 +4,7 @@ import { history } from 'umi'
 import {
   checkFence,
   getMapClusters,
+  getMapFrontendConfig,
   getMapWishes,
   listMyWishes,
   listWarmEvents,
@@ -89,11 +90,19 @@ export default function WishMap() {
       .finally(() => setLoadingData(false))
   }, [userPos])
 
-  // 地图渲染（SDK 加载/初始化失败 → fallback 列表模式）
+  // 地图渲染（后端下发 Key/密钥优先，SDK 加载或初始化失败 → fallback 列表模式）
   useEffect(() => {
     if (loadingData) return
-    loadAmapSdk()
+    let cancelled = false
+    getMapFrontendConfig()
+      // 接口未就绪/失败时返回 null，链路继续走内置 Key 兜底（不落入 fallback）
+      .catch(() => null)
+      .then((cfg) => {
+        const config = cfg?.data?.success ? cfg.data.data : null
+        return loadAmapSdk(config?.amapKey, config?.securityCode)
+      })
       .then(() => {
+        if (cancelled) return
         setSdkState('ready')
         // 高德 JS API 2.0 的入口是 AMap.Map（AMap 本身是命名空间而非构造函数，
         // 直接 new AMap() 会 TypeError 落入 fallback 并误报「Key 未配置」）
@@ -130,7 +139,10 @@ export default function WishMap() {
         })
         void cluster
       })
-      .catch(() => setSdkState('fallback'))
+      .catch(() => {
+        if (!cancelled) setSdkState('fallback')
+      })
+    return () => { cancelled = true }
   }, [loadingData, userPos, wishes, clusters])
 
   /** 围栏打卡：提交当前坐标，展示"到达/未到达"（响应不含围栏坐标） */

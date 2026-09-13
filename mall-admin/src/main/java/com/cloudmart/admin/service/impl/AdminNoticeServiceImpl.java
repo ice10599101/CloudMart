@@ -6,6 +6,7 @@ import com.cloudmart.admin.dto.AdminNoticeRequest;
 import com.cloudmart.admin.dto.AdminNoticeResponse;
 import com.cloudmart.admin.entity.AdminNotice;
 import com.cloudmart.admin.entity.AdminNoticeRead;
+import com.cloudmart.admin.dto.feign.BroadcastNotificationRequest;
 import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.repository.AdminNoticeMapper;
 import com.cloudmart.admin.repository.AdminNoticeReadMapper;
@@ -188,7 +189,8 @@ public class AdminNoticeServiceImpl implements AdminNoticeService {
             throw new BusinessException("NOTICE_CONTENT_EMPTY", "公告内容为空，无法推送");
         }
         notificationFeignClient.broadcastNotification(
-                PUSH_NOTIFICATION_TYPE, notice.getNoticeTitle(), notice.getNoticeContent());
+                new BroadcastNotificationRequest(
+                        PUSH_NOTIFICATION_TYPE, notice.getNoticeTitle(), notice.getNoticeContent()));
     }
 
     private AdminNoticeResponse toResponse(AdminNotice notice, Boolean isRead) {

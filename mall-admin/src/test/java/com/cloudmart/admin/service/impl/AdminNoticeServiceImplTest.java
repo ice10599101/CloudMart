@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.admin.dto.AdminNoticeRequest;
 import com.cloudmart.admin.entity.AdminNotice;
 import com.cloudmart.admin.entity.AdminNoticeRead;
+import com.cloudmart.admin.dto.feign.BroadcastNotificationRequest;
 import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.repository.AdminNoticeMapper;
 import com.cloudmart.admin.repository.AdminNoticeReadMapper;
@@ -220,7 +221,7 @@ class AdminNoticeServiceImplTest {
 
             adminNoticeService.pushToAllUsers(1L);
 
-            verify(notificationFeignClient).broadcastNotification("SYSTEM", "CloudMart 上线公告", "<p>正文</p>");
+            verify(notificationFeignClient).broadcastNotification(new BroadcastNotificationRequest("SYSTEM", "CloudMart 上线公告", "<p>正文</p>"));
         }
 
         @Test
@@ -231,7 +232,7 @@ class AdminNoticeServiceImplTest {
             assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(99L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_NOT_FOUND"));
-            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
+            verify(notificationFeignClient, never()).broadcastNotification(any(BroadcastNotificationRequest.class));
         }
 
         @Test
@@ -244,7 +245,7 @@ class AdminNoticeServiceImplTest {
             assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_NOT_PUBLISHED"));
-            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
+            verify(notificationFeignClient, never()).broadcastNotification(any(BroadcastNotificationRequest.class));
         }
 
         @Test
@@ -258,7 +259,7 @@ class AdminNoticeServiceImplTest {
             assertThatThrownBy(() -> adminNoticeService.pushToAllUsers(1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NOTICE_CONTENT_EMPTY"));
-            verify(notificationFeignClient, never()).broadcastNotification(any(), any(), any());
+            verify(notificationFeignClient, never()).broadcastNotification(any(BroadcastNotificationRequest.class));
         }
     }
 }

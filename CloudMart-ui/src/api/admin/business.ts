@@ -81,6 +81,11 @@ export function resetMemberPassword(id: number | string, newPassword: string) {
   return request.put(`/admin/business/members/${id}/password`, { newPassword })
 }
 
+/** 删除指定通知（撤回误发内容） */
+export function deleteNotification(id: number | string) {
+  return request.delete(`/admin/business/notifications/${id}`)
+}
+
 export function updateMemberStatus(id: number | string, data: Record<string, any>) {
   return request.put(`/admin/business/members/${id}/status`, data)
 }
