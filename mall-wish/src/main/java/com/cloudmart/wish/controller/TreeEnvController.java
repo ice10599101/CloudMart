@@ -42,8 +42,12 @@ public class TreeEnvController {
     public ApiResponse<TreeEnvVO> getCurrentEnv(
             @Parameter(description = "客户端 UTC 时区偏移分钟（东八区=480；"
                     + "前端传 -new Date().getTimezoneOffset()；默认 0=UTC）", example = "480")
-            @RequestParam(name = "tzOffsetMinutes", required = false) Integer tzOffsetMinutes) {
-        return ApiResponse.ok(treeEnvService.getCurrentEnv(tzOffsetMinutes));
+            @RequestParam(name = "tzOffsetMinutes", required = false) Integer tzOffsetMinutes,
+            @Parameter(description = "用户纬度（可空；提供时 weather 返回定位处实时天气，失败回退北京）")
+            @RequestParam(name = "lat", required = false) Double lat,
+            @Parameter(description = "用户经度（可空）")
+            @RequestParam(name = "lng", required = false) Double lng) {
+        return ApiResponse.ok(treeEnvService.getCurrentEnv(tzOffsetMinutes, lat, lng));
     }
 
     @GetMapping("/configs")

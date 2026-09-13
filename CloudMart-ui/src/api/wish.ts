@@ -579,8 +579,15 @@ export interface TreeEnvSnapshot {
 }
 
 /** 环境快照（公开；timePhase 按客户端时区偏移计算，默认取本机时区） */
-export function getTreeEnv(tzOffsetMinutes: number = -new Date().getTimezoneOffset()) {
-  return request.get<ApiResponse<TreeEnvSnapshot>>('/wish/tree-env', { params: { tzOffsetMinutes } })
+export function getTreeEnv(
+    tzOffsetMinutes: number = -new Date().getTimezoneOffset(),
+    lat?: number,
+    lng?: number,
+) {
+  // BUG#46：提供定位坐标时，快照 weather 为定位处实时天气（失败由后端回退北京）
+  return request.get<ApiResponse<TreeEnvSnapshot>>('/wish/tree-env', {
+    params: { tzOffsetMinutes, lat: lat ?? undefined, lng: lng ?? undefined },
+  })
 }
 
 /** 环境配置图鉴（公开；priority 降序，visual 为四端透传渲染参数） */

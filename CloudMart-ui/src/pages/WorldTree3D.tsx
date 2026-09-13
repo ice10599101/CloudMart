@@ -48,11 +48,35 @@ const FRUIT_COLORS: Record<string, number> = {
   SPARK: 0xffd700,
 }
 
+/** 果型 → 低模几何体（视觉差异化：光球/钻石/花晶/星芒） */
+const FRUIT_CORE_GEOMETRIES: Record<string, () => THREE.BufferGeometry> = {
+  GLOW: () => new THREE.SphereGeometry(0.052, 14, 12),
+  RESONANCE: () => new THREE.OctahedronGeometry(0.062),
+  BLOOM: () => new THREE.IcosahedronGeometry(0.062, 0),
+  SPARK: () => new THREE.TetrahedronGeometry(0.07),
+}
+
+/** 果型 → 同系多色渐变（同型不同色，按果实 id 确定性取色） */
+const FRUIT_PALETTES: Record<string, string[]> = {
+  GLOW: ['#00d4ff', '#7de3ff', '#00b4e6'],
+  RESONANCE: ['#b39ddb', '#9370db', '#8a5fe0'],
+  BLOOM: ['#ff8fab', '#ff6b6b', '#ff5a7a'],
+  SPARK: ['#ffe98a', '#ffd700', '#ffb347'],
+}
+
 const SEASON_LABELS: Record<string, string> = {
   SPRING: '春 · 萌芽',
   SUMMER: '夏 · 繁盛',
   AUTUMN: '秋 · 收获',
   WINTER: '冬 · 静待',
+}
+
+/** 实时天气徽章（BUG#46：有定位=当地天气，未定位=北京天气） */
+const WEATHER_BADGES: Record<string, string> = {
+  SUNNY: '☀️ 晴',
+  CLOUDY: '☁️ 多云',
+  RAIN: '🌧️ 雨',
+  SNOW: '❄️ 雪',
 }
 
 /** displayEnv 无匹配配置时的标签兜底（配置接口失败仍可展示） */
@@ -139,94 +163,206 @@ interface TreeSceneHandle {
   dispose(): void
 }
 
-function createStarfield(scene: THREE.Scene): THREE.Points {
+interface StarFieldHandle {
+  group: THREE.Group
+  nearMaterial: THREE.PointsMaterial
+}
+
+function createStarfield(scene: THREE.Scene): StarFieldHandle {
   // 机型分档 + 灰度降级开关（Sprint 2.8）：低档/未命中灰度 → 星点减半
-  // （降级动作留档：星点 900→450，中端 700；恢复条件=灰度放量或高档机）
   const tier = deviceTier()
-  const starCount = tier === 'LOW' || !isFeatureEnabled('wish_world_tree_enhanced')
+  const baseCount = tier === 'LOW' || !isFeatureEnabled('wish_world_tree_enhanced')
     ? 450
     : tier === 'MID'
       ? 700
       : 900
-  const positions = new Float32Array(starCount * 3)
-  for (let i = 0; i < starCount; i++) {
-    // 随机球壳分布（半径 10-22），营造深空包围感
-    const r = 10 + Math.random() * 12
-    const u = Math.random() * 2 - 1
-    const angle = Math.random() * Math.PI * 2
-    const s = Math.sqrt(1 - u * u)
-    positions[i * 3] = r * s * Math.cos(angle)
-    positions[i * 3 + 1] = r * u
-    positions[i * 3 + 2] = r * s * Math.sin(angle)
+
+  const group = new THREE.Group()
+  const twoPi = Math.PI * 2
+  const makeLayer = (count: number, rMin: number, rMax: number, size: number, opacity: number, colored: boolean) => {
+    const positions = new Float32Array(count * 3)
+    const colors = new Float32Array(count * 3)
+    const tints = [new THREE.Color(0xffffff), new THREE.Color(0xbfe3ff), new THREE.Color(0xffe9c9)]
+    for (let i = 0; i < count; i++) {
+      const r = rMin + Math.random() * (rMax - rMin)
+      const u = Math.random() * 2 - 1
+      const angle = Math.random() * twoPi
+      const s = Math.sqrt(1 - u * u)
+      positions[i * 3] = r * s * Math.cos(angle)
+      positions[i * 3 + 1] = r * u
+      positions[i * 3 + 2] = r * s * Math.sin(angle)
+      if (colored) {
+        const tint = tints[Math.floor(Math.random() * tints.length)]
+        colors[i * 3] = tint.r
+        colors[i * 3 + 1] = tint.g
+        colors[i * 3 + 2] = tint.b
+      }
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    const material = new THREE.PointsMaterial({
+      color: colored ? 0xffffff : 0xffffff,
+      vertexColors: colored,
+      size,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+    })
+    const points = new THREE.Points(geometry, material)
+    group.add(points)
+    return { points, material }
   }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  const material = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.05,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.8,
-    depthWrite: false,
-  })
-  const stars = new THREE.Points(geometry, material)
-  scene.add(stars)
-  return stars
+
+  // 远层：细密小星；近层：稀疏亮星（带色温变化，供闪烁）
+  makeLayer(baseCount, 12, 22, 0.05, 0.75, false)
+  const near = makeLayer(Math.floor(baseCount * 0.28), 6, 11, 0.09, 0.85, true)
+  scene.add(group)
+  return { group, nearMaterial: near.material }
+}
+
+/** 径向渐变光斑纹理（星云/流星/地面辉光共用） */
+function makeRadialGlowTexture(): THREE.CanvasTexture {
+  const size = 128
+  const canvas2d = document.createElement('canvas')
+  canvas2d.width = size
+  canvas2d.height = size
+  const ctx = canvas2d.getContext('2d')
+  if (ctx) {
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    grad.addColorStop(0, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.45)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, size, size)
+  }
+  return new THREE.CanvasTexture(canvas2d)
 }
 
 interface TreeBodyParts {
   canopyMaterial: THREE.MeshBasicMaterial
   coreMaterial: THREE.MeshBasicMaterial
   haloMaterial: THREE.MeshBasicMaterial
+  glowLight: THREE.PointLight
+  nebulaMaterials: THREE.SpriteMaterial[]
+  groundGlowMaterial: THREE.MeshBasicMaterial
+  foliageMaterials: THREE.MeshBasicMaterial[]
 }
 
-function createTreeBody(scene: THREE.Scene): TreeBodyParts {
-  // 树干（从下方承托树冠球）
-  const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.22, 1.3, 10)
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.9 })
-  const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial)
-  trunk.position.y = -TREE_RADIUS - 0.65
-  scene.add(trunk)
+function createTreeBody(scene: THREE.Scene, glowTexture: THREE.CanvasTexture): TreeBodyParts {
+  const tree = new THREE.Group()
+  scene.add(tree)
 
-  // 底座圆盘（大地）
-  const groundGeometry = new THREE.CircleGeometry(1.1, 40)
-  const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0x16213e,
-    roughness: 1,
-    transparent: true,
-    opacity: 0.85,
-  })
-  const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+  // ===== 树干：锥度主干 + 三根分枝探入树冠 =====
+  const barkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.95 })
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.24, 1.7, 12), barkMaterial)
+  trunk.position.y = -TREE_RADIUS - 0.82
+  tree.add(trunk)
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2 + 0.5
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.055, 0.95, 8), barkMaterial)
+    branch.position.set(Math.cos(angle) * 0.28, -TREE_RADIUS - 0.28, Math.sin(angle) * 0.28)
+    branch.rotation.z = Math.cos(angle) * 0.55
+    branch.rotation.x = -Math.sin(angle) * 0.55
+    tree.add(branch)
+  }
+
+  // ===== 大地 + 地面辉光（呼吸光源呼应树心） =====
+  const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(1.3, 48),
+      new THREE.MeshStandardMaterial({ color: 0x101b33, roughness: 1, transparent: true, opacity: 0.92 }),
+  )
   ground.rotation.x = -Math.PI / 2
-  ground.position.y = -TREE_RADIUS - 1.3
-  scene.add(ground)
+  ground.position.y = -TREE_RADIUS - 1.66
+  tree.add(ground)
+  const groundGlowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x2a9d8f,
+    transparent: true,
+    opacity: 0.2,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const groundGlow = new THREE.Mesh(new THREE.CircleGeometry(1.9, 48), groundGlowMaterial)
+  groundGlow.rotation.x = -Math.PI / 2
+  groundGlow.position.y = -TREE_RADIUS - 1.65
+  tree.add(groundGlow)
 
-  // 内层能量球（深色实体，避免果实透视穿帮）
-  const innerGeometry = new THREE.SphereGeometry(TREE_RADIUS * 0.96, 48, 48)
-  const innerMaterial = new THREE.MeshBasicMaterial({
-    color: 0x0f3460,
+  // ===== 冠层内胆（深色实体挡透视）=====
+  const inner = new THREE.Mesh(
+      new THREE.SphereGeometry(TREE_RADIUS * 0.96, 48, 48),
+      new THREE.MeshBasicMaterial({ color: 0x0a1830, transparent: true, opacity: 0.62 }),
+  )
+  tree.add(inner)
+
+  // ===== 叶层：两片错位半透明叶球（主题色）+ 加性外晕 =====
+  const foliageMaterials: THREE.MeshBasicMaterial[] = []
+  const foliageSpecs: Array<[number, number, number, number, number]> = [
+    // [半径, x 偏移, y 偏移, z 偏移, 透明度]
+    [TREE_RADIUS * 0.9, 0.05, 0.06, -0.04, 0.22],
+    [TREE_RADIUS * 0.79, -0.06, -0.04, 0.05, 0.17],
+  ]
+  for (const [radius, ox, oy, oz, opacity] of foliageSpecs) {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x3ddc97,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+    })
+    foliageMaterials.push(material)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 36, 26), material)
+    mesh.position.set(ox, oy, oz)
+    tree.add(mesh)
+  }
+  const outerGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(TREE_RADIUS * 1.13, 32, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0x3ddc97,
+        transparent: true,
+        opacity: 0.055,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+  )
+  tree.add(outerGlow)
+
+  // ===== 叶簇亮点（沿冠层球面散布的小光点，档位定数）=====
+  const tier = deviceTier()
+  const leafCount = tier === 'LOW' ? 70 : tier === 'MID' ? 110 : 160
+  const leafPositions = new Float32Array(leafCount * 3)
+  for (let i = 0; i < leafCount; i++) {
+    const u = Math.random() * 2 - 1
+    const angle = Math.random() * Math.PI * 2
+    const s = Math.sqrt(1 - u * u)
+    const r = TREE_RADIUS * 1.005
+    leafPositions[i * 3] = r * s * Math.cos(angle)
+    leafPositions[i * 3 + 1] = r * u
+    leafPositions[i * 3 + 2] = r * s * Math.sin(angle)
+  }
+  const leafGeometry = new THREE.BufferGeometry()
+  leafGeometry.setAttribute('position', new THREE.BufferAttribute(leafPositions, 3))
+  const leaves = new THREE.Points(leafGeometry, new THREE.PointsMaterial({
+    color: 0x86e8ad,
+    size: 0.024,
+    sizeAttenuation: true,
     transparent: true,
     opacity: 0.55,
-  })
-  scene.add(new THREE.Mesh(innerGeometry, innerMaterial))
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  }))
+  tree.add(leaves)
 
-  // 树冠线框壳（季节主题色，applyTheme 时按环境配置更新）
-  const canopyGeometry = new THREE.SphereGeometry(TREE_RADIUS, 36, 24)
+  // ===== 冠层线框壳（主题色，applyTheme 更新）=====
   const canopyMaterial = new THREE.MeshBasicMaterial({
     color: 0x3ddc97,
     wireframe: true,
     transparent: true,
-    opacity: 0.18,
+    opacity: 0.14,
   })
-  scene.add(new THREE.Mesh(canopyGeometry, canopyMaterial))
+  tree.add(new THREE.Mesh(new THREE.SphereGeometry(TREE_RADIUS, 40, 28), canopyMaterial))
 
-  // 世界树之心（内核光球，环境主题色）
-  const coreGeometry = new THREE.SphereGeometry(0.3, 24, 24)
+  // ===== 世界树之心：内核光球 + 光晕 + 呼吸点光源（照亮枝干与地面）=====
   const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 })
-  scene.add(new THREE.Mesh(coreGeometry, coreMaterial))
-
-  // 光晕外壳
-  const haloGeometry = new THREE.SphereGeometry(0.42, 24, 24)
+  tree.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 24), coreMaterial))
   const haloMaterial = new THREE.MeshBasicMaterial({
     color: 0xffd700,
     transparent: true,
@@ -234,9 +370,36 @@ function createTreeBody(scene: THREE.Scene): TreeBodyParts {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
-  scene.add(new THREE.Mesh(haloGeometry, haloMaterial))
+  tree.add(new THREE.Mesh(new THREE.SphereGeometry(0.44, 24, 24), haloMaterial))
+  const glowLight = new THREE.PointLight(0xffd700, 2.4, 9)
+  glowLight.position.set(0, 0.15, 0)
+  tree.add(glowLight)
 
-  return { canopyMaterial, coreMaterial, haloMaterial }
+  // ===== 星云光斑（3 片远端加性光斑，主题色染色，营造深空氛围）=====
+  const nebulaMaterials: THREE.SpriteMaterial[] = []
+  const nebulaSpecs: Array<[number, number, number, number]> = [
+    // [x, y, z, scale]
+    [-15, 7, -26, 34],
+    [13, -5, -28, 30],
+    [2, 11, -30, 38],
+  ]
+  for (const [x, y, z, scale] of nebulaSpecs) {
+    const material = new THREE.SpriteMaterial({
+      map: glowTexture,
+      color: 0x1b2a52,
+      transparent: true,
+      opacity: 0.13,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const sprite = new THREE.Sprite(material)
+    sprite.position.set(x, y, z)
+    sprite.scale.setScalar(scale)
+    scene.add(sprite)
+    nebulaMaterials.push(material)
+  }
+
+  return { canopyMaterial, coreMaterial, haloMaterial, glowLight, nebulaMaterials, groundGlowMaterial, foliageMaterials }
 }
 
 function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
@@ -262,28 +425,57 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
   directional.position.set(3, 5, 2)
   scene.add(directional)
 
-  const stars = createStarfield(scene)
-  const treeBody = createTreeBody(scene)
+  const starField = createStarfield(scene)
+  const glowTexture = makeRadialGlowTexture()
+  const treeBody = createTreeBody(scene, glowTexture)
 
-  // 果实双层：核心实心球 + 光晕壳（加性混合）
-  const fruitGeometry = new THREE.SphereGeometry(0.045, 12, 10)
-  const fruitMaterial = new THREE.MeshBasicMaterial()
-  const haloGeometry = new THREE.SphereGeometry(0.085, 12, 10)
-  const haloMaterial = new THREE.MeshBasicMaterial({
+  // ===== 流星（每隔 8~17s 划过一枚，1.1s 生命周期）=====
+  const shootMaterial = new THREE.SpriteMaterial({
+    map: glowTexture,
+    color: 0xeaf6ff,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    rotation: -0.6,
+  })
+  const shootSprite = new THREE.Sprite(shootMaterial)
+  shootSprite.scale.set(2.6, 0.5, 1)
+  shootSprite.visible = false
+  scene.add(shootSprite)
+  let shootStartAt = 5 + Math.random() * 6
+  let shootEndAt = -1
+  const shootFrom = new THREE.Vector3()
+  const shootVel = new THREE.Vector3()
+
+  // ===== 果实分型：每种果型独立 InstancedMesh（几何体差异化），核心/光晕各共享材质 =====
+  const FRUIT_TYPE_KEYS = ['GLOW', 'RESONANCE', 'BLOOM', 'SPARK']
+  const coreGeometryByType = FRUIT_TYPE_KEYS.map((t) => FRUIT_CORE_GEOMETRIES[t]?.() ?? new THREE.SphereGeometry(0.05, 12, 10))
+  const haloGeometryShared = new THREE.SphereGeometry(0.095, 12, 10)
+  const coreMaterialShared = new THREE.MeshBasicMaterial()
+  const haloMaterialShared = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.17,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
-  const coreMesh = new THREE.InstancedMesh(fruitGeometry, fruitMaterial, MAX_RENDER_FRUITS)
-  const haloMesh = new THREE.InstancedMesh(haloGeometry, haloMaterial, MAX_RENDER_FRUITS)
-  coreMesh.count = 0
-  haloMesh.count = 0
-  scene.add(coreMesh)
-  scene.add(haloMesh)
+  const coreMeshByType: THREE.InstancedMesh[] = []
+  const haloMeshByType: THREE.InstancedMesh[] = []
+  FRUIT_TYPE_KEYS.forEach((_, t) => {
+    const core = new THREE.InstancedMesh(coreGeometryByType[t], coreMaterialShared, MAX_RENDER_FRUITS)
+    const halo = new THREE.InstancedMesh(haloGeometryShared, haloMaterialShared, MAX_RENDER_FRUITS)
+    core.count = 0
+    halo.count = 0
+    scene.add(core)
+    scene.add(halo)
+    coreMeshByType.push(core)
+    haloMeshByType.push(halo)
+  })
 
   // ===== 状态 =====
   let fruits: TreeFruit[] = []
+  /** 果实 → 所属果型 mesh 组内的实例槽位（分型渲染的核心映射） */
+  let fruitSlots: Array<{ typeIdx: number; instIdx: number }> = []
   const instancePhases: number[] = []
   let viewportCallback: ((query: TreeFruitsQuery) => void) | null = null
   let fruitClickCallback: ((fruit: TreeFruit) => void) | null = null
@@ -299,37 +491,61 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
   const scaleForLight = (lightCount: number | null | undefined) =>
       1 + Math.min(lightCount ?? 0, 50) / 50 * 0.8
 
-  const writeInstance = (index: number, scale: number) => {
+  /** 果实 id → 调色板取色索引（确定性，同果恒同色） */
+  const colorIndexFor = (fruit: TreeFruit, paletteLen: number) => {
+    const key = String(fruit.id)
+    let hash = 0
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0
+    return Math.abs(hash) % paletteLen
+  }
+
+  /** 写入单颗果实的矩阵（自转 + 呼吸缩放，核心/光晕双层） */
+  const writeFruitInstance = (index: number, scale: number, elapsed: number) => {
     const fruit = fruits[index]
-    if (!fruit) return
+    const slot = fruitSlots[index]
+    if (!fruit || !slot) return
     const base = instanceScales[index] ?? 1
+    const phase = instancePhases[index] ?? 0
     const position = toCartesian(fruit.position.theta, fruit.position.phi, TREE_RADIUS)
     dummy.position.copy(position)
+    // 分型几何体缓慢自转（球体不转也无妨，统一转更生动）
+    dummy.rotation.set(elapsed * 0.45 + phase * 0.3, elapsed * 0.32 + phase, phase * 0.5)
     dummy.scale.setScalar(scale * base)
     dummy.updateMatrix()
-    coreMesh.setMatrixAt(index, dummy.matrix)
+    coreMeshByType[slot.typeIdx].setMatrixAt(slot.instIdx, dummy.matrix)
     dummy.scale.setScalar(scale * base * 1.9)
     dummy.updateMatrix()
-    haloMesh.setMatrixAt(index, dummy.matrix)
+    haloMeshByType[slot.typeIdx].setMatrixAt(slot.instIdx, dummy.matrix)
   }
 
   const handleSetFruits = (nextFruits: TreeFruit[]) => {
     fruits = nextFruits.slice(0, MAX_RENDER_FRUITS)
+    fruitSlots = []
     instancePhases.length = 0
-    coreMesh.count = fruits.length
-    haloMesh.count = fruits.length
+    instanceScales.length = 0
+    const counts = FRUIT_TYPE_KEYS.map(() => 0)
     for (let i = 0; i < fruits.length; i++) {
-      fruitColor.setHex(FRUIT_COLORS[fruits[i].fruitType] ?? 0xffffff)
-      coreMesh.setColorAt(i, fruitColor)
-      haloMesh.setColorAt(i, fruitColor)
-      instancePhases.push((Number(fruits[i].id) % 97) * 0.35)
-      instanceScales[i] = scaleForLight(fruits[i].lightCount)
-      writeInstance(i, 1)
+      const fruit = fruits[i]
+      const typeIdx = Math.max(0, FRUIT_TYPE_KEYS.indexOf(fruit.fruitType))
+      const instIdx = counts[typeIdx]++
+      fruitSlots.push({ typeIdx, instIdx })
+      // 同系多色渐变：调色板按 id 确定性取色
+      const palette = FRUIT_PALETTES[fruit.fruitType] ?? ['#ffffff']
+      fruitColor.set(palette[colorIndexFor(fruit, palette.length)])
+      coreMeshByType[typeIdx].setColorAt(instIdx, fruitColor)
+      haloMeshByType[typeIdx].setColorAt(instIdx, fruitColor)
+      instancePhases.push((Number(fruit.id) % 97) * 0.35)
+      instanceScales[i] = scaleForLight(fruit.lightCount)
+      writeFruitInstance(i, 1, 0)
     }
-    coreMesh.instanceMatrix.needsUpdate = true
-    haloMesh.instanceMatrix.needsUpdate = true
-    if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true
-    if (haloMesh.instanceColor) haloMesh.instanceColor.needsUpdate = true
+    FRUIT_TYPE_KEYS.forEach((_, t) => {
+      coreMeshByType[t].count = counts[t]
+      haloMeshByType[t].count = counts[t]
+      coreMeshByType[t].instanceMatrix.needsUpdate = true
+      haloMeshByType[t].instanceMatrix.needsUpdate = true
+      if (coreMeshByType[t].instanceColor) coreMeshByType[t].instanceColor!.needsUpdate = true
+      if (haloMeshByType[t].instanceColor) haloMeshByType[t].instanceColor!.needsUpdate = true
+    })
   }
 
   // ===== 环境粒子层（Sprint 2.2，visual.particle 驱动；NONE 时移除） =====
@@ -378,6 +594,11 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     treeBody.canopyMaterial.color.setStyle(theme.crownColor)
     treeBody.coreMaterial.color.setStyle(theme.coreColor)
     treeBody.haloMaterial.color.setStyle(theme.coreColor)
+    treeBody.glowLight.color.setStyle(theme.coreColor)
+    treeBody.groundGlowMaterial.color.setStyle(theme.coreColor)
+    treeBody.foliageMaterials.forEach((material) => material.color.setStyle(theme.crownColor))
+    treeBody.nebulaMaterials.forEach((material, index) =>
+        material.color.setStyle(index % 2 === 0 ? theme.skyColor : theme.crownColor))
     canvas.style.background = `radial-gradient(circle at 50% 42%, ${withAlpha(theme.skyColor, 0.5)} 0%, #04070f 78%)`
     setParticle(theme.particle)
   }
@@ -459,15 +680,44 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
     const elapsed = clock.elapsedTime
     controls.update()
 
-    // 果实呼吸脉动（基准为互动量缩放）
-    for (let i = 0; i < fruits.length; i++) {
-      writeInstance(i, (instanceScales[i] ?? 1) + 0.1 * Math.sin(elapsed * 2 + instancePhases[i]))
+    // 果实呼吸脉动 + 缓慢自转（基准为互动量缩放）
+    if (fruits.length > 0) {
+      for (let i = 0; i < fruits.length; i++) {
+        writeFruitInstance(i, (instanceScales[i] ?? 1) + 0.12 * Math.sin(elapsed * 2 + instancePhases[i]), elapsed)
+      }
+      FRUIT_TYPE_KEYS.forEach((_, t) => {
+        coreMeshByType[t].instanceMatrix.needsUpdate = true
+        haloMeshByType[t].instanceMatrix.needsUpdate = true
+      })
     }
-    coreMesh.instanceMatrix.needsUpdate = true
-    haloMesh.instanceMatrix.needsUpdate = true
 
-    // 星空缓慢自转（不参与视口计算，纯氛围）
-    stars.rotation.y = elapsed * 0.005
+    // 双星层差速自转 + 近层亮星闪烁（纯氛围，不参与视口计算）
+    starField.group.rotation.y = elapsed * 0.005
+    starField.nearMaterial.opacity = 0.6 + 0.28 * Math.sin(elapsed * 1.7)
+
+    // 树心呼吸光 + 地面辉光呼吸（呼应树心脉动）
+    treeBody.glowLight.intensity = 2.2 + 0.5 * Math.sin(elapsed * 1.5)
+    treeBody.groundGlowMaterial.opacity = 0.15 + 0.07 * (0.5 + 0.5 * Math.sin(elapsed * 1.2))
+
+    // 流星：间歇划过（1.1s 生命周期，透明度渐入渐出）
+    if (shootEndAt < 0 && elapsed > shootStartAt) {
+      shootEndAt = elapsed + 1.1
+      shootFrom.set((Math.random() * 2 - 1) * 8, 4 + Math.random() * 4, -12 - Math.random() * 6)
+      shootVel.set(-6 - Math.random() * 3, -2.5 - Math.random() * 1.5, 0)
+      shootSprite.position.copy(shootFrom)
+      shootSprite.visible = true
+    }
+    if (shootEndAt > 0 && elapsed <= shootEndAt) {
+      const lifeT = 1 - (shootEndAt - elapsed) / 1.1
+      const tSec = elapsed - (shootEndAt - 1.1)
+      shootSprite.position.set(shootFrom.x + shootVel.x * tSec, shootFrom.y + shootVel.y * tSec, shootFrom.z)
+      shootMaterial.opacity = Math.sin(lifeT * Math.PI) * 0.85
+    } else if (shootEndAt > 0 && elapsed > shootEndAt) {
+      shootSprite.visible = false
+      shootMaterial.opacity = 0
+      shootEndAt = -1
+      shootStartAt = elapsed + 8 + Math.random() * 9
+    }
 
     // 环境粒子：运动型按速度推进并越界回绕；静止型（星辰）整体慢旋
     if (particlePoints && particleMotion && !particleMotion.still) {
@@ -534,14 +784,20 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
       controls.removeEventListener('start', pauseAutoRotate)
       controls.removeEventListener('end', pauseAutoRotate)
       controls.dispose()
-      coreMesh.dispose()
-      haloMesh.dispose()
-      fruitGeometry.dispose()
-      haloGeometry.dispose()
-      fruitMaterial.dispose()
-      haloMaterial.dispose()
-      stars.geometry.dispose()
-      ;(stars.material as THREE.PointsMaterial).dispose()
+      coreMeshByType.forEach((mesh) => mesh.dispose())
+      haloMeshByType.forEach((mesh) => mesh.dispose())
+      coreGeometryByType.forEach((geometry) => geometry.dispose())
+      haloGeometryShared.dispose()
+      coreMaterialShared.dispose()
+      haloMaterialShared.dispose()
+      starField.group.children.forEach((child) => {
+        const points = child as THREE.Points
+        points.geometry.dispose()
+        ;(points.material as THREE.PointsMaterial).dispose()
+      })
+      shootMaterial.map?.dispose()
+      shootMaterial.dispose()
+      glowTexture.dispose()
       scene.traverse((object: THREE.Object3D) => {
         if (object instanceof THREE.Mesh) {
           object.geometry.dispose()
@@ -563,6 +819,8 @@ export default function WorldTree3D() {
   const fruitsMapRef = useRef<Map<number | string, TreeFruit>>(new Map())
   const [aggregation, setAggregation] = useState<WorldTreeAggregation | null>(null)
   const [envSnapshot, setEnvSnapshot] = useState<TreeEnvSnapshot | null>(null)
+  /** 用户定位（BUG#46：天气优先按用户定位，拒绝/失败为 null → 快照回退北京） */
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
   const [envConfigs, setEnvConfigs] = useState<EnvConfigItem[]>([])
   const [loading, setLoading] = useState(true)
   const [viewportLoading, setViewportLoading] = useState(false)
@@ -641,7 +899,7 @@ export default function WorldTree3D() {
         const [treeRes, fruitsRes, envRes, configsRes] = await Promise.all([
           getWorldTree(),
           listTreeFruits({ pageSize: 100 }),
-          getTreeEnv(),
+          getTreeEnv(undefined, userPos?.lat, userPos?.lng),
           listEnvConfigs(),
         ])
         if (treeRes.data.success && treeRes.data.data) {
@@ -665,18 +923,39 @@ export default function WorldTree3D() {
     fetchInitial()
   }, [replaceFruits])
 
+  /** 用户定位（BUG#46）：授权成功 → 带坐标刷新环境快照（weather=当地实时天气）；
+   *  拒绝/失败 → userPos 为 null，快照保持全站天气（北京），与地图兜底语义一致 */
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+        (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => undefined,
+        { timeout: 8000 },
+    )
+  }, [])
+
+  /** 定位就绪后立即刷新环境快照（不等轮询周期） */
+  useEffect(() => {
+    if (!userPos) return
+    getTreeEnv(undefined, userPos.lat, userPos.lng)
+        .then((res) => {
+          if (res.data.success && res.data.data) setEnvSnapshot(res.data.data)
+        })
+        .catch(() => undefined)
+  }, [userPos])
+
   /** 环境快照轮询：特殊事件全站同步 + 情绪环境 5 分钟扫描，1 分钟拉取足够实时 */
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
-        const res = await getTreeEnv()
+        const res = await getTreeEnv(undefined, userPos?.lat, userPos?.lng)
         if (res.data.success && res.data.data) setEnvSnapshot(res.data.data)
       } catch {
         // 轮询失败静默降级，保留上一轮环境
       }
     }, TREE_ENV_POLL_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [userPos])
 
   return (
       <div className={`${styles.container} wish-universe-theme`}>
@@ -698,6 +977,13 @@ export default function WorldTree3D() {
                 <span className={styles.envTags}>
               <Tag color="cyan" className={styles.tag}>
                 {SEASON_LABELS[envSnapshot.season] ?? envSnapshot.season}
+              </Tag>
+              <Tag
+                  color="geekblue"
+                  className={styles.tag}
+                  title={userPos ? '定位城市的实时天气' : '未定位，显示北京天气（授权定位后切换当地）'}
+              >
+                {WEATHER_BADGES[envSnapshot.weather] ?? envSnapshot.weather}
               </Tag>
               <Tag color={envSnapshot.specialEvent ? 'gold' : 'purple'} className={styles.tag}>
                 {envSnapshot.specialEvent

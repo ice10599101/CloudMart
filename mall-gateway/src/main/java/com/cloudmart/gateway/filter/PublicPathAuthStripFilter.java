@@ -46,7 +46,8 @@ public class PublicPathAuthStripFilter implements WebFilter {
             "/api/community/topics",
             "/api/community/tags",
             "/api/community/search",
-            "/api/wish/map"
+            "/api/wish/map",
+            "/api/wish/tree-env"
     );
 
     /** 以公开前缀 /api/community/posts 开头、但实际需要登录身份的子路径：绝不能剥离 Authorization，

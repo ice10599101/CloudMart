@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -61,7 +62,7 @@ class QWeatherClientTest {
     /** spy 客户端：fetchFromApi 固定返回指定天气（拦截外呼） */
     private QWeatherClient newClientWithApiResult(TreeWeather fetchResult) {
         QWeatherClient client = spy(new QWeatherClient(redisTemplate, new ObjectMapper(), props));
-        doReturn(fetchResult).when(client).fetchFromApi(any());
+        doReturn(fetchResult).when(client).fetchFromApi(any(), anyString());
         return client;
     }
 
@@ -147,6 +148,61 @@ class QWeatherClientTest {
 
             assertThat(newClientWithApiResult(TreeWeather.SNOW).getCurrentWeather())
                     .isEqualTo(TreeWeather.SNOW);
+        }
+    }
+
+    @Nested
+    @DisplayName("坐标天气（用户定位个性化）")
+    class CoordWeatherTests {
+
+        private static final String COORD_KEY = QWeatherClient.WEATHER_CACHE_KEY + ":113.26,23.13";
+
+        @Test
+        @DisplayName("坐标查询成功：返回坐标处天气并按坐标键缓存")
+        void coordSuccess_returnsWeatherAndCaches() {
+            when(valueOperations.get(COORD_KEY)).thenReturn(null);
+
+            TreeWeather weather = newClientWithApiResult(TreeWeather.RAIN)
+                    .getCurrentWeather(113.2644, 23.1291, TreeWeather.SUNNY);
+
+            assertThat(weather).isEqualTo(TreeWeather.RAIN);
+            verify(valueOperations).set(eq(COORD_KEY), eq("RAIN"), eq(Duration.ofMinutes(5)));
+        }
+
+        @Test
+        @DisplayName("坐标查询失败：返回调用方兜底（全站天气=北京），不写缓存")
+        void coordFailure_returnsFallbackWithoutCache() {
+            QWeatherClient client = spy(new QWeatherClient(redisTemplate, new ObjectMapper(), props));
+            doReturn(null).when(client).fetchFromApi(any(), anyString());
+            when(valueOperations.get(COORD_KEY)).thenReturn(null);
+
+            TreeWeather weather = client.getCurrentWeather(113.2644, 23.1291, TreeWeather.CLOUDY);
+
+            assertThat(weather).isEqualTo(TreeWeather.CLOUDY);
+            verify(valueOperations, never()).set(anyString(), anyString(), any(Duration.class));
+        }
+
+        @Test
+        @DisplayName("坐标缓存命中：直接返回缓存值")
+        void coordCacheHit_returnsCached() {
+            when(valueOperations.get(COORD_KEY)).thenReturn("SNOW");
+
+            TreeWeather weather = newClientWithApiResult(TreeWeather.RAIN)
+                    .getCurrentWeather(113.2644, 23.1291, TreeWeather.SUNNY);
+
+            assertThat(weather).isEqualTo(TreeWeather.SNOW);
+        }
+
+        @Test
+        @DisplayName("坐标取整到 2 位小数：同一网格共享缓存键（防键膨胀）")
+        void coordRoundedToTwoDecimals() {
+            when(valueOperations.get(COORD_KEY)).thenReturn("RAIN");
+
+            TreeWeather weather = newClientWithApiResult(TreeWeather.SUNNY)
+                    .getCurrentWeather(113.2644123, 23.1291456, TreeWeather.SUNNY);
+
+            assertThat(weather).isEqualTo(TreeWeather.RAIN);
+            verify(valueOperations).get(COORD_KEY);
         }
     }
 

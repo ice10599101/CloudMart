@@ -28,6 +28,13 @@ public interface TreeEnvService {
     TreeEnvVO getCurrentEnv(Integer tzOffsetMinutes);
 
     /**
+     * 带用户定位的环境快照（BUG#46：天气优先按用户定位）。
+     * lat/lng 有效时 weather 为坐标处实时天气（失败回退全站天气=北京）；
+     * 为 null 时与单参版本一致（全站天气）。
+     */
+    TreeEnvVO getCurrentEnv(Integer tzOffsetMinutes, Double lat, Double lng);
+
+    /**
      * 执行一次情绪扫描（mall-job 每 5 分钟经内部接口触发）。
      *
      * <p>链路：滑动窗口情绪聚合 → BLESS 突增检测 → 状态机流转 →

@@ -103,9 +103,14 @@ public class TreeEnvServiceImpl implements TreeEnvService {
 
     @Override
     public TreeEnvVO getCurrentEnv(Integer tzOffsetMinutes) {
+        return getCurrentEnv(tzOffsetMinutes, null, null);
+    }
+
+    @Override
+    public TreeEnvVO getCurrentEnv(Integer tzOffsetMinutes, Double lat, Double lng) {
         WishWorldTreeState state = stateMapper.selectById(WishWorldTreeState.SINGLETON_ID);
         MoodCacheValue cached = readMoodCache();
-        return buildSnapshot(state, cached != null ? cached.score() : null, tzOffsetMinutes);
+        return buildSnapshot(state, cached != null ? cached.score() : null, tzOffsetMinutes, lat, lng);
     }
 
     @Override
@@ -131,7 +136,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
             log.info("生命树情绪扫描完成: environment={}, source={}, mood={}, samples={}, blessBurst={}",
                     result.environment(), result.source(), aggregate.score(),
                     aggregate.sampleCount(), blessBurst);
-            return buildSnapshot(state, aggregate.score(), 0);
+            return buildSnapshot(state, aggregate.score(), 0, null, null);
         } finally {
             releaseScanLock();
         }
@@ -188,10 +193,10 @@ public class TreeEnvServiceImpl implements TreeEnvService {
      * state 为 null 时（表未初始化）情绪部分取默认 SUNNY/INIT。
      */
     private TreeEnvVO buildSnapshot(WishWorldTreeState state, Double moodScore,
-                                    Integer tzOffsetMinutes) {
+                                    Integer tzOffsetMinutes, Double lat, Double lng) {
         TreeEnvironment environment = state != null ? state.getEnvironment() : TreeEnvironment.SUNNY;
         TreeEnvSource source = state != null ? state.getEnvironmentSource() : TreeEnvSource.INIT;
-        TreeWeather weather = weatherClient.getCurrentWeather();
+        TreeWeather weather = resolveWeather(lat, lng);
         SpecialEventVO specialEvent = getActiveSpecialEvent();
         return TreeEnvVO.builder()
                 .environment(environment)
@@ -207,6 +212,20 @@ public class TreeEnvServiceImpl implements TreeEnvService {
                 .specialEvent(specialEvent)
                 .displayEnv(computeDisplayEnv(environment, weather, specialEvent))
                 .build();
+    }
+
+    /**
+     * 天气解析（BUG#46：天气优先按用户定位）：坐标有效 → 坐标处实时天气
+     * （和风查询失败回退全站天气=北京）；未传/非法坐标 → 全站天气。
+     */
+    private TreeWeather resolveWeather(Double lat, Double lng) {
+        TreeWeather siteWeather = weatherClient.getCurrentWeather();
+        if (lat == null || lng == null
+                || Math.abs(lat) > 90 || Math.abs(lng) > 180
+                || (lat == 0 && lng == 0)) {
+            return siteWeather;
+        }
+        return weatherClient.getCurrentWeather(lng, lat, siteWeather);
     }
 
     /** 季节读取：优先 state.season（每日落库），NULL 时实时计算兜底（Sprint 2.1 行为） */
