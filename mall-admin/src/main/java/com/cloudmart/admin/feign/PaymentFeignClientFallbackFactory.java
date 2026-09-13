@@ -1,7 +1,6 @@
 package com.cloudmart.admin.feign;
 
 import com.cloudmart.admin.dto.feign.PaymentDTO;
-import com.cloudmart.admin.dto.feign.PaymentSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +18,7 @@ public class PaymentFeignClientFallbackFactory implements FallbackFactory<Paymen
         log.error("支付服务调用失败: {}", cause.getMessage());
         return new PaymentFeignClient() {
             @Override
-            public ApiResponse<List<PaymentDTO>> listPayments(PaymentSearchRequest request) {
+            public ApiResponse<List<PaymentDTO>> listPayments(String status, Integer page, Integer pageSize) {
                 throw new BusinessException("PAYMENT_SERVICE_UNAVAILABLE", "支付服务不可用，请稍后重试");
             }
 

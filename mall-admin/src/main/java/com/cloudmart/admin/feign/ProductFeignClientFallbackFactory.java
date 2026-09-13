@@ -16,7 +16,7 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
         log.error("商品服务调用失败", cause);
         return new ProductFeignClient() {
             @Override
-            public ApiResponse<ProductSearchResultDTO> searchProducts(ProductSearchRequest request) {
+            public ApiResponse<ProductSearchResultDTO> searchProducts(String keyword, Long categoryId, java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice, String sort, Integer status, Integer page, Integer size) {
                 throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 

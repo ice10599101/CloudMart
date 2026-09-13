@@ -18,7 +18,7 @@ public class MarketingFeignClientFallbackFactory implements FallbackFactory<Mark
         log.error("营销服务调用失败: {}", cause.getMessage());
         return new MarketingFeignClient() {
             @Override
-            public ApiResponse<Object> listGroupActivities(GroupActivitySearchRequest request) {
+            public ApiResponse<Object> listGroupActivities(String status, Integer page, Integer size) {
                 throw new BusinessException("MARKETING_SERVICE_UNAVAILABLE", "营销服务不可用，请稍后重试");
             }
 
@@ -48,12 +48,12 @@ public class MarketingFeignClientFallbackFactory implements FallbackFactory<Mark
             }
 
             @Override
-            public ApiResponse<Object> listGroupOrders(GroupOrderSearchRequest request) {
+            public ApiResponse<Object> listGroupOrders(Long activityId, String status, Integer page, Integer size) {
                 throw new BusinessException("MARKETING_SERVICE_UNAVAILABLE", "营销服务不可用，请稍后重试");
             }
 
             @Override
-            public ApiResponse<Object> listTieredPromotions(TieredPromotionSearchRequest request) {
+            public ApiResponse<Object> listTieredPromotions(String status, Integer page, Integer size) {
                 throw new BusinessException("MARKETING_SERVICE_UNAVAILABLE", "营销服务不可用，请稍后重试");
             }
 

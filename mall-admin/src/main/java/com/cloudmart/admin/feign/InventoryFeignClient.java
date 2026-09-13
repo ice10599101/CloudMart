@@ -4,7 +4,6 @@ import com.cloudmart.admin.dto.feign.InventoryDTO;
 import com.cloudmart.admin.dto.feign.InventorySearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +12,9 @@ import java.util.List;
 public interface InventoryFeignClient {
 
     @GetMapping
-    ApiResponse<List<InventoryDTO>> listInventory(@SpringQueryMap InventorySearchRequest request);
+    ApiResponse<List<InventoryDTO>> listInventory(@RequestParam(value = "productId", required = false) Long productId,
+                                                  @RequestParam("page") Integer page,
+                                                  @RequestParam("pageSize") Integer pageSize);
 
     @GetMapping("/{skuId}")
     ApiResponse<InventoryDTO> getInventory(@PathVariable("skuId") Long skuId);

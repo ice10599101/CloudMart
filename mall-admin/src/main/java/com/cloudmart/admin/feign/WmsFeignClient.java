@@ -1,9 +1,7 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.WmsSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -12,7 +10,10 @@ import java.util.Map;
 public interface WmsFeignClient {
 
     @GetMapping("/pick-orders")
-    ApiResponse<Object> listPickOrders(@SpringQueryMap WmsSearchRequest request);
+    ApiResponse<Object> listPickOrders(@RequestParam(value = "status", required = false) String status,
+                                       @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+                                       @RequestParam("page") Integer page,
+                                       @RequestParam("size") Integer size);
 
     @GetMapping("/pick-orders/{id}")
     ApiResponse<Object> getPickOrder(@PathVariable("id") Long id);
@@ -27,7 +28,10 @@ public interface WmsFeignClient {
     ApiResponse<Object> confirmPacked(@PathVariable("id") Long id);
 
     @GetMapping("/inbound-orders")
-    ApiResponse<Object> listInboundOrders(@SpringQueryMap WmsSearchRequest request);
+    ApiResponse<Object> listInboundOrders(@RequestParam(value = "status", required = false) String status,
+                                          @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+                                          @RequestParam("page") Integer page,
+                                          @RequestParam("size") Integer size);
 
     @GetMapping("/inbound-orders/{id}")
     ApiResponse<Object> getInboundOrder(@PathVariable("id") Long id);
@@ -36,7 +40,10 @@ public interface WmsFeignClient {
     ApiResponse<Object> listWarehouses();
 
     @GetMapping("/shipping")
-    ApiResponse<Object> listShipping(@SpringQueryMap WmsSearchRequest request);
+    ApiResponse<Object> listShipping(@RequestParam(value = "status", required = false) String status,
+                                     @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+                                     @RequestParam("page") Integer page,
+                                     @RequestParam("size") Integer size);
 
     @PutMapping("/shipping/{id}/status")
     ApiResponse<Object> updateShippingStatus(@PathVariable("id") Long id, @RequestBody Map<String, Object> body);

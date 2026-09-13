@@ -89,20 +89,26 @@ export default function WishMap() {
       .finally(() => setLoadingData(false))
   }, [userPos])
 
-  // 地图渲染（Key 缺失 → fallback 列表模式）
+  // 地图渲染（SDK 加载/初始化失败 → fallback 列表模式）
   useEffect(() => {
     if (loadingData) return
     loadAmapSdk()
       .then(() => {
         setSdkState('ready')
-        const w = window as unknown as { AMap: Record<string, unknown> & (new (el: HTMLElement, opts: Record<string, unknown>) => unknown) }
-        const AMapCtor = w.AMap as unknown as (new (el: HTMLElement, opts: Record<string, unknown>) => unknown)
+        // 高德 JS API 2.0 的入口是 AMap.Map（AMap 本身是命名空间而非构造函数，
+        // 直接 new AMap() 会 TypeError 落入 fallback 并误报「Key 未配置」）
+        const w = window as unknown as {
+          AMap: {
+            Map: new (el: HTMLElement, opts: Record<string, unknown>) => unknown
+            MarkerCluster: new (map: unknown, points: Array<{ lnglat: [number, number]; weight?: number }>, opts?: Record<string, unknown>) => unknown
+          }
+        }
         if (!mapDivRef.current) return
         const center = userPos ?? {
           lat: wishes[0]?.approximateLat ?? 23.1291,
           lng: wishes[0]?.approximateLng ?? 113.2644,
         }
-        const map: unknown = new AMapCtor(mapDivRef.current, {
+        const map: unknown = new w.AMap.Map(mapDivRef.current, {
           zoom: 13,
           center: [center.lng, center.lat],
           mapStyle: 'amap://styles/dark',
@@ -111,10 +117,7 @@ export default function WishMap() {
         })
         mapRef.current = map as { destroy?: () => void }
         // 聚合角标（MarkerCluster：缩放自动合并/展开——聚合动效验收）
-        const AMapNS = w.AMap as unknown as {
-          MarkerCluster: new (map: unknown, points: Array<{ lnglat: [number, number]; weight?: number }>, opts?: Record<string, unknown>) => unknown
-        }
-        const cluster = new AMapNS.MarkerCluster(map, clusters.map((c) => ({
+        const cluster = new w.AMap.MarkerCluster(map, clusters.map((c) => ({
           lnglat: [c.centerLng, c.centerLat],
           weight: c.count,
         })), {
@@ -204,8 +207,9 @@ export default function WishMap() {
           {sdkState === 'fallback' && (
             <div style={{ padding: 16, height: '100%', overflow: 'auto' }}>
               <div className={styles.fallbackNotice}>
-                地图 Key 未配置，已降级为列表模式（数据与聚合功能不受影响）。
-                配置方式：localStorage 写入 amap_key，或修改 src/utils/amap.ts 后重新构建。
+                地图加载失败，已降级为列表模式（数据与聚合功能不受影响）。
+                常见原因：网络无法访问高德服务、Key 失效或浏览器拦截了第三方脚本；
+                应急可尝试 localStorage 写入 amap_key / amap_security_code 后刷新。
               </div>
               <div className={styles.listGrid}>
                 {wishes.map((w) => (

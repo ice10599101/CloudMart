@@ -4,7 +4,6 @@ import com.cloudmart.admin.dto.feign.PaymentDTO;
 import com.cloudmart.admin.dto.feign.PaymentSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +12,9 @@ import java.util.List;
 public interface PaymentFeignClient {
 
     @GetMapping
-    ApiResponse<List<PaymentDTO>> listPayments(@SpringQueryMap PaymentSearchRequest request);
+    ApiResponse<List<PaymentDTO>> listPayments(@RequestParam(value = "status", required = false) String status,
+                                               @RequestParam("page") Integer page,
+                                               @RequestParam("pageSize") Integer pageSize);
 
     @GetMapping("/order/{orderId}")
     ApiResponse<PaymentDTO> getPaymentByOrderId(@PathVariable("orderId") Long orderId);

@@ -1,6 +1,5 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.NotificationSearchRequest;
 import com.cloudmart.admin.dto.feign.SendNotificationRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -32,11 +31,6 @@ public class NotificationFeignClientFallbackFactory implements FallbackFactory<N
     @Override
     public NotificationFeignClient create(Throwable cause) {
         return new NotificationFeignClient() {
-            @Override
-            public ApiResponse<Object> listNotifications(NotificationSearchRequest request) {
-                throw translate(cause);
-            }
-
             @Override
             public ApiResponse<Object> sendNotification(SendNotificationRequest request) {
                 throw translate(cause);

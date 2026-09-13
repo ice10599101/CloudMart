@@ -1,11 +1,7 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
-import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
-import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -20,7 +16,14 @@ import java.util.Map;
 public interface WishFeignClient {
 
     @GetMapping("/wishes")
-    ApiResponse<Object> listWishes(@SpringQueryMap AdminWishSearchRequest request);
+    ApiResponse<Object> listWishes(@RequestParam(value = "userId", required = false) Long userId,
+                                   @RequestParam(value = "categoryId", required = false) Long categoryId,
+                                   @RequestParam(value = "status", required = false) String status,
+                                   @RequestParam(value = "auditStatus", required = false) String auditStatus,
+                                   @RequestParam(value = "visibility", required = false) String visibility,
+                                   @RequestParam(value = "keyword", required = false) String keyword,
+                                   @RequestParam("page") Integer page,
+                                   @RequestParam("pageSize") Integer pageSize);
 
     @GetMapping("/wishes/stats")
     ApiResponse<Object> getWishStats();
@@ -55,12 +58,23 @@ public interface WishFeignClient {
     // ========== 互动记录审计（Sprint 1.2） ==========
 
     @GetMapping("/interactions")
-    ApiResponse<Object> listInteractions(@SpringQueryMap AdminInteractionSearchRequest request);
+    ApiResponse<Object> listInteractions(@RequestParam(value = "wishId", required = false) Long wishId,
+                                         @RequestParam(value = "userId", required = false) Long userId,
+                                         @RequestParam(value = "type", required = false) String type,
+                                         @RequestParam(value = "startTime", required = false) String startTime,
+                                         @RequestParam(value = "endTime", required = false) String endTime,
+                                         @RequestParam("page") Integer page,
+                                         @RequestParam("pageSize") Integer pageSize);
 
     // ========== 评论审核（Sprint 1.2） ==========
 
     @GetMapping("/comments")
-    ApiResponse<Object> listComments(@SpringQueryMap AdminCommentSearchRequest request);
+    ApiResponse<Object> listComments(@RequestParam(value = "wishId", required = false) Long wishId,
+                                     @RequestParam(value = "userId", required = false) Long userId,
+                                     @RequestParam(value = "sensitiveHit", required = false) Boolean sensitiveHit,
+                                     @RequestParam(value = "status", required = false) String status,
+                                     @RequestParam("page") Integer page,
+                                     @RequestParam("pageSize") Integer pageSize);
 
     @PutMapping("/comments/{id}/status")
     ApiResponse<Object> updateCommentStatus(@PathVariable("id") Long id,

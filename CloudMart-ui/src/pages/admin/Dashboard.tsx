@@ -53,7 +53,7 @@ const WISH_STATUS_COLOR: Record<string, string> = {
 // 顶部综合指标：社区内容生态优先，电商弱化为辅助指标（综合娱乐社区定位）
 // to = 面板点击后跳转的数据管理页（.umirc.ts 既有路由）
 const OVERVIEW_CARDS = [
-  { title: '用户总数', key: 'userCount', icon: UserOutlined, accentColor: 'var(--color-primary)', prefix: '', to: '/admin/business/members' },
+  { title: '用户总数', key: 'userCount', icon: UserOutlined, accentColor: 'var(--color-primary)', prefix: '', to: '/admin/system/users' },
   { title: '今日新帖', key: 'todayPostCount', icon: FileTextOutlined, accentColor: '#2ED573', prefix: '', to: '/admin/community/posts' },
   { title: '今日新心愿', key: 'todayWishCount', icon: StarOutlined, accentColor: '#A78BFA', prefix: '', to: '/admin/business/wishes' },
   { title: '今日评论', key: 'todayCommentCount', icon: CommentOutlined, accentColor: '#70A1FF', prefix: '', to: '/admin/community/comments' },

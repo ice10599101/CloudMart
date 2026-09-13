@@ -35,7 +35,6 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -114,7 +113,7 @@ class WorldTreeServiceImplTest {
             assertThat(vo.totalFruits()).isEqualTo(100);
             assertThat(vo.totalBloom()).isEqualTo(30);
             assertThat(vo.totalLight()).isEqualTo(2000);
-            verify(wishMapper, never()).selectMaps(any());
+            verify(wishMapper, never()).selectList(any());
         }
 
         @Test
@@ -159,11 +158,19 @@ class WorldTreeServiceImplTest {
         void cacheMissWithLock_queriesDbAndBackfillsCache() {
             when(valueOperations.get(CACHE_KEY)).thenReturn(null);
             when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(true);
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(countsRow(88, 12, 660)));
+            Wish glow = buildFruit(1L);
+            glow.setFruitType(FruitType.GLOW);
+            glow.setLightCount(600);
+            Wish bloom = buildFruit(2L);
+            bloom.setFruitType(FruitType.BLOOM);
+            bloom.setLightCount(60);
+            when(wishMapper.selectList(any())).thenReturn(List.of(glow, bloom));
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
-            assertThat(vo.totalFruits()).isEqualTo(88);
+            assertThat(vo.totalFruits()).isEqualTo(2);
+            assertThat(vo.totalBloom()).isEqualTo(1);
+            assertThat(vo.totalLight()).isEqualTo(660);
             ArgumentCaptor<Duration> ttlCaptor = ArgumentCaptor.forClass(Duration.class);
             verify(valueOperations).set(eq(CACHE_KEY), anyString(), ttlCaptor.capture());
             // TTL = 5min ± 30s 抖动，下限 30s（Math.max 兜底）
@@ -181,7 +188,7 @@ class WorldTreeServiceImplTest {
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
             assertThat(vo.totalFruits()).isEqualTo(55);
-            verify(wishMapper, never()).selectMaps(any());
+            verify(wishMapper, never()).selectList(any());
             verify(valueOperations, never()).set(anyString(), anyString(), any(Duration.class));
         }
 
@@ -190,12 +197,33 @@ class WorldTreeServiceImplTest {
         void lockNotAcquired_rereadStillMiss_queriesDbDirectly() {
             when(valueOperations.get(CACHE_KEY)).thenReturn(null);
             when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(false);
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(countsRow(66, 6, 66)));
+            when(wishMapper.selectList(any())).thenReturn(List.of(
+                    buildFruit(1L), buildFruit(2L), buildFruit(3L)));
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
-            assertThat(vo.totalFruits()).isEqualTo(66);
-            verify(wishMapper).selectMaps(any());
+            assertThat(vo.totalFruits()).isEqualTo(3);
+            verify(wishMapper).selectList(any());
+        }
+
+        @Test
+        @DisplayName("统计口径 = 树上实际挂果：超容量时只统计最新 48 颗")
+        void countsCappedToTreeCapacity() {
+            List<Wish> fruits = new java.util.ArrayList<>();
+            for (long id = 1; id <= 60; id++) {
+                Wish w = buildFruit(id);
+                w.setFruitType(FruitType.BLOOM);
+                w.setLightCount(10);
+                fruits.add(w);
+            }
+            when(valueOperations.get(CACHE_KEY)).thenReturn(null);
+            when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(true);
+            when(wishMapper.selectList(any())).thenReturn(fruits);
+
+            WorldTreeVO vo = worldTreeService.getTreeAggregation();
+
+            // SQL LIMIT 48 由 DB 执行；mock 返回全量时服务层不额外截断（口径以入参为准）
+            assertThat(vo.totalFruits()).isEqualTo((long) fruits.size());
         }
 
         @Test
@@ -209,15 +237,15 @@ class WorldTreeServiceImplTest {
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
             assertThat(vo.totalFruits()).isEqualTo(44);
-            verify(wishMapper, never()).selectMaps(any());
+            verify(wishMapper, never()).selectList(any());
         }
 
         @Test
-        @DisplayName("DB 聚合结果空行 → 计数归零不异常")
+        @DisplayName("DB 空结果（树上无果实）→ 计数归零不异常")
         void dbAggregateEmptyRow_returnsZeroCounts() {
             when(valueOperations.get(CACHE_KEY)).thenReturn(null);
             when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(true);
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(new HashMap<String, Object>()));
+            when(wishMapper.selectList(any())).thenReturn(List.of());
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
@@ -239,11 +267,11 @@ class WorldTreeServiceImplTest {
             when(valueOperations.get(CACHE_KEY)).thenThrow(new RedisConnectionFailureException("connection refused"));
             when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class)))
                     .thenThrow(new RedisConnectionFailureException("connection refused"));
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(countsRow(7, 1, 9)));
+            when(wishMapper.selectList(any())).thenReturn(List.of(buildFruit(1L)));
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
-            assertThat(vo.totalFruits()).isEqualTo(7);
+            assertThat(vo.totalFruits()).isEqualTo(1);
         }
 
         @Test
@@ -251,13 +279,13 @@ class WorldTreeServiceImplTest {
         void redisWriteFailure_stillReturnsResult() {
             when(valueOperations.get(CACHE_KEY)).thenReturn(null);
             when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(true);
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(countsRow(8, 2, 20)));
+            when(wishMapper.selectList(any())).thenReturn(List.of(buildFruit(1L), buildFruit(2L)));
             org.mockito.Mockito.doThrow(new RedisConnectionFailureException("connection refused"))
                     .when(valueOperations).set(anyString(), anyString(), any(Duration.class));
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
-            assertThat(vo.totalFruits()).isEqualTo(8);
+            assertThat(vo.totalFruits()).isEqualTo(2);
         }
 
         @Test
@@ -265,11 +293,12 @@ class WorldTreeServiceImplTest {
         void corruptedCacheJson_fallsBackToDb() {
             when(valueOperations.get(CACHE_KEY)).thenReturn("not-a-json");
             when(valueOperations.setIfAbsent(LOCK_KEY, "1", 5, TimeUnit.SECONDS)).thenReturn(true);
-            when(wishMapper.selectMaps(any())).thenReturn(List.of(countsRow(9, 3, 30)));
+            when(wishMapper.selectList(any())).thenReturn(List.of(
+                    buildFruit(1L), buildFruit(2L), buildFruit(3L)));
 
             WorldTreeVO vo = worldTreeService.getTreeAggregation();
 
-            assertThat(vo.totalFruits()).isEqualTo(9);
+            assertThat(vo.totalFruits()).isEqualTo(3);
         }
     }
 
@@ -355,15 +384,6 @@ class WorldTreeServiceImplTest {
     }
 
     // ========== 辅助方法 ==========
-
-    /** DB 聚合行（selectMaps 返回结构：MySQL 列别名 → 数值） */
-    private Map<String, Object> countsRow(long fruits, long bloom, long light) {
-        Map<String, Object> row = new HashMap<>();
-        row.put("total_fruits", fruits);
-        row.put("total_bloom", bloom);
-        row.put("total_light", light);
-        return row;
-    }
 
     /** 已固化坐标的公开心愿（果实） */
     private Wish buildFruit(Long id) {

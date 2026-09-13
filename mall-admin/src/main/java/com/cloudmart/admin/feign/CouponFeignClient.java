@@ -5,7 +5,6 @@ import com.cloudmart.admin.dto.feign.CouponTemplateDTO;
 import com.cloudmart.admin.dto.feign.CreateCouponTemplateRequest;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,7 +14,10 @@ import java.util.Map;
 public interface CouponFeignClient {
 
     @GetMapping
-    ApiResponse<List<CouponTemplateDTO>> listTemplates(@SpringQueryMap CouponSearchRequest request);
+    ApiResponse<List<CouponTemplateDTO>> listTemplates(@RequestParam(value = "type", required = false) String type,
+                                                      @RequestParam(value = "status", required = false) String status,
+                                                      @RequestParam("page") Integer page,
+                                                      @RequestParam("pageSize") Integer pageSize);
 
     @GetMapping("/{id}")
     ApiResponse<CouponTemplateDTO> getTemplateById(@PathVariable("id") Long id);

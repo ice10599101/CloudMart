@@ -3,10 +3,9 @@ import {
   ProTable,
   ModalForm,
   ProFormText,
-  ProFormSelect,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch, Tag } from 'antd'
+import { Button, Popconfirm, Switch } from 'antd'
 import {
   getMembers,
   updateMember,
@@ -16,28 +15,17 @@ import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
 
+// 与后端契约对齐（mall-admin GET /business/members → mall-user UserDTO），
+// 此前页面展示的 等级/积分/余额 后端契约中不存在，属虚构列已移除
 interface MemberRecord {
   id: number
   username: string
   nickname: string
-  email: string
-  avatar: string
-  gender: number
-  birthday: string
-  level: number
-  points: number
-  balance: number
+  email: string | null
+  phone: string | null
+  avatar: string | null
   status: number
-  lastLoginTime: string
   createdAt: string
-  updatedAt: string
-}
-
-const LEVEL_MAP: Record<number, { label: string; color: string }> = {
-  0: { label: '普通会员', color: 'default' },
-  1: { label: '银牌会员', color: 'processing' },
-  2: { label: '金牌会员', color: 'warning' },
-  3: { label: '钻石会员', color: 'purple' },
 }
 
 export default function Members() {
@@ -60,11 +48,11 @@ export default function Members() {
   const handleSubmit = async (values: Record<string, any>) => {
     if (!editingRecord) return false
     return confirmSubmit(async () => {
+      // 编辑契约仅支持 昵称/手机号/邮箱（AdminUpdateUserRequest）
       const payload = {
         nickname: values.nickname,
+        phone: values.phone,
         email: values.email,
-        gender: values.gender,
-        birthday: values.birthday,
       }
       await updateMember(editingRecord.id, payload)
       message.success('更新成功')
@@ -74,39 +62,18 @@ export default function Members() {
   }
 
   const columns: ProColumns<MemberRecord>[] = [
-    { title: '会员ID', dataIndex: 'id', width: 80, search: false },
+    { title: '用户ID', dataIndex: 'id', width: 80, search: false },
     { title: '小答号', dataIndex: 'username', width: 120 },
-    { title: '昵称', dataIndex: 'nickname', width: 120, search: false },
-    {
-      title: '等级',
-      dataIndex: 'level',
-      width: 100,
-      search: false,
-      render: (_, record) => {
-        const levelInfo = LEVEL_MAP[record.level] ?? { label: '未知', color: 'default' }
-        return <Tag color={levelInfo.color}>{levelInfo.label}</Tag>
-      },
-    },
-    {
-      title: '积分',
-      dataIndex: 'points',
-      width: 80,
-      search: false,
-    },
-    {
-      title: '余额',
-      dataIndex: 'balance',
-      width: 100,
-      search: false,
-      render: (_, record) => `¥${Number(record.balance).toFixed(2)}`,
-    },
+    { title: '昵称', dataIndex: 'nickname', width: 140, search: false, ellipsis: true },
+    { title: '邮箱', dataIndex: 'email', width: 220, search: false, ellipsis: true, render: (_, record) => record.email || '-' },
+    { title: '手机号', dataIndex: 'phone', width: 140, search: false, render: (_, record) => record.phone || '-' },
     {
       title: '状态',
       dataIndex: 'status',
       width: 100,
       render: (_, record) => (
         <Popconfirm
-          title={Number(record.status) === 1 ? '确认禁用该会员？' : '确认启用该会员？'}
+          title={Number(record.status) === 1 ? '确认禁用该用户？' : '确认启用该用户？'}
           onConfirm={() => handleStatusChange(record, Number(record.status) === 1 ? 0 : 1)}
         >
           <Switch
@@ -142,10 +109,10 @@ export default function Members() {
   return (
     <>
       <ProTable<MemberRecord>
-        headerTitle="会员管理"
+        headerTitle="用户管理"
         actionRef={actionRef}
         rowKey="id"
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1000 }}
         request={async (params) => {
           return safeProTableRequest<MemberRecord>(() =>
             getMembers({
@@ -161,7 +128,7 @@ export default function Members() {
       />
 
       <ModalForm
-        title="编辑会员"
+        title="编辑用户"
         open={modalVisible}
         onOpenChange={createHandleOpenChange(setModalVisible, () => setEditingRecord(null))}
         onFinish={handleSubmit}
@@ -184,24 +151,16 @@ export default function Members() {
           placeholder="请输入昵称"
         />
         <ProFormText
+          name="phone"
+          label="手机号"
+          placeholder="请输入手机号"
+          rules={[{ pattern: /^1\d{10}$/, message: '请输入正确的手机号' }]}
+        />
+        <ProFormText
           name="email"
           label="邮箱"
           placeholder="请输入邮箱"
           rules={[{ type: 'email', message: '请输入正确的邮箱' }]}
-        />
-        <ProFormSelect
-          name="gender"
-          label="性别"
-          options={[
-            { label: '未知', value: 0 },
-            { label: '男', value: 1 },
-            { label: '女', value: 2 },
-          ]}
-        />
-        <ProFormText
-          name="birthday"
-          label="生日"
-          placeholder="如：2000-01-01"
         />
       </ModalForm>
     </>

@@ -1,6 +1,5 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.ReviewSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +15,7 @@ public class ReviewFeignClientFallbackFactory implements FallbackFactory<ReviewF
         log.error("商品服务调用失败: {}", cause.getMessage());
         return new ReviewFeignClient() {
             @Override
-            public ApiResponse<Object> listReviews(ReviewSearchRequest request) {
+            public ApiResponse<Object> listReviews(Long productId, Integer status, Integer page, Integer pageSize) {
                 throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 

@@ -63,7 +63,8 @@ class AdminBusinessControllerTest {
                 mock(WmsFeignClient.class),
                 mock(RiskFeignClient.class),
                 mock(AiFeignClient.class),
-                brandFeignClient
+                brandFeignClient,
+                mock(NotificationQueryFeignClient.class)
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -115,7 +116,7 @@ class AdminBusinessControllerTest {
 
     @Test
     void listProducts_returnsProductList() throws Exception {
-        given(productFeignClient.searchProducts(any(ProductSearchRequest.class)))
+        given(productFeignClient.searchProducts(any(), any(), any(), any(), any(), any(), any(), any()))
                 .willReturn(ApiResponse.ok(new ProductSearchResultDTO(List.of(), List.of(), List.of(), 0, 1, 10)));
 
         mockMvc.perform(get("/business/products").contentType(MediaType.APPLICATION_JSON))
@@ -260,7 +261,7 @@ class AdminBusinessControllerTest {
 
     @Test
     void listCoupons_returnsCouponList() throws Exception {
-        given(couponFeignClient.listTemplates(any(CouponSearchRequest.class)))
+        given(couponFeignClient.listTemplates(any(), any(), any(), any()))
                 .willReturn(ApiResponse.ok(List.of()));
 
         mockMvc.perform(get("/business/coupons").contentType(MediaType.APPLICATION_JSON))

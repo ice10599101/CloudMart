@@ -1,8 +1,5 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
-import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
-import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -52,7 +49,7 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
         log.error("心愿服务调用失败: {}", cause.getMessage());
         return new WishFeignClient() {
             @Override
-            public ApiResponse<Object> listWishes(AdminWishSearchRequest request) {
+            public ApiResponse<Object> listWishes(Long userId, Long categoryId, String status, String auditStatus, String visibility, String keyword, Integer page, Integer pageSize) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
 
@@ -107,12 +104,12 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
-            public ApiResponse<Object> listInteractions(AdminInteractionSearchRequest request) {
+            public ApiResponse<Object> listInteractions(Long wishId, Long userId, String type, String startTime, String endTime, Integer page, Integer pageSize) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
 
             @Override
-            public ApiResponse<Object> listComments(AdminCommentSearchRequest request) {
+            public ApiResponse<Object> listComments(Long wishId, Long userId, Boolean sensitiveHit, String status, Integer page, Integer pageSize) {
                 throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
 

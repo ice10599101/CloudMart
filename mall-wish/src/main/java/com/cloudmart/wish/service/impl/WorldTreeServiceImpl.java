@@ -1,11 +1,11 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.cloudmart.wish.dto.TreeFruitsQuery;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishWorldTreeState;
 import com.cloudmart.wish.enums.AuditStatus;
+import com.cloudmart.wish.enums.FruitType;
 import com.cloudmart.wish.enums.TreeEnvironment;
 import com.cloudmart.wish.enums.TreeSeason;
 import com.cloudmart.wish.enums.WishStatus;
@@ -169,35 +169,27 @@ public class WorldTreeServiceImpl implements WorldTreeService {
     // ---------------- 聚合计数：DB 查询 ----------------
 
     /**
-     * 单条 SQL 聚合三值（一次往返、同口径原子快照）；
+     * 树上实际数据统计：与 listFruits 完全同一容量口径（最新 MAX_TREE_FRUITS 颗），
+     * 页面顶栏「果实/绽放/星光」与 3D 树实际挂果一一对应，不再统计历史累计。
+     * 单次 LIMIT 查询后内存聚合（≤48 条，成本可忽略）；Redis 缓存策略不变。
      * MyBatis-Plus @TableLogic 自动追加 deleted_at IS NULL。
      */
     private AggregateCounts queryCounts() {
-        QueryWrapper<Wish> wrapper = new QueryWrapper<Wish>()
-                .select("COUNT(*) AS total_fruits",
-                        "SUM(CASE WHEN fruit_type = 'BLOOM' THEN 1 ELSE 0 END) AS total_bloom",
-                        "IFNULL(SUM(light_count), 0) AS total_light")
-                .eq("visibility", WishVisibility.PUBLIC.name())
-                .eq("audit_status", AuditStatus.APPROVED.name())
-                .eq("is_visible", 1)
-                // 与 listFruits 同口径：仅统计已固化坐标（在树上）的果实，
-                // 无坐标的历史脏数据不计入（theta 固化即上树）
-                .isNotNull("tree_theta")
-                .in("status", WishStatus.ACTIVE.name(),
-                        WishStatus.FULFILLING.name(), WishStatus.FULFILLED.name());
-        List<Map<String, Object>> rows = wishMapper.selectMaps(wrapper);
-        if (rows == null || rows.isEmpty() || rows.get(0) == null) {
-            return new AggregateCounts(0, 0, 0);
-        }
-        Map<String, Object> row = rows.get(0);
-        return new AggregateCounts(
-                asLong(row.get("total_fruits")),
-                asLong(row.get("total_bloom")),
-                asLong(row.get("total_light")));
-    }
-
-    private long asLong(Object value) {
-        return value instanceof Number number ? number.longValue() : 0;
+        List<Wish> fruits = wishMapper.selectList(new LambdaQueryWrapper<Wish>()
+                .eq(Wish::getVisibility, WishVisibility.PUBLIC)
+                .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
+                .eq(Wish::getIsVisible, true)
+                .in(Wish::getStatus, WishStatus.ACTIVE, WishStatus.FULFILLING, WishStatus.FULFILLED)
+                .isNotNull(Wish::getTreeTheta)
+                .orderByDesc(Wish::getId)
+                .last("LIMIT " + MAX_TREE_FRUITS));
+        long totalBloom = fruits.stream()
+                .filter(w -> w.getFruitType() == FruitType.BLOOM)
+                .count();
+        long totalLight = fruits.stream()
+                .mapToLong(w -> w.getLightCount() != null ? w.getLightCount() : 0L)
+                .sum();
+        return new AggregateCounts(fruits.size(), totalBloom, totalLight);
     }
 
     // ---------------- 聚合计数：缓存 + 防击穿 ----------------

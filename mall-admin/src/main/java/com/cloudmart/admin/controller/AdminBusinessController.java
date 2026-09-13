@@ -12,6 +12,7 @@ import com.cloudmart.admin.feign.LiveFeignClient;
 import com.cloudmart.admin.feign.MarketingFeignClient;
 import com.cloudmart.admin.feign.MemberUserFeignClient;
 import com.cloudmart.admin.feign.NotificationFeignClient;
+import com.cloudmart.admin.feign.NotificationQueryFeignClient;
 import com.cloudmart.admin.feign.OrderFeignClient;
 import com.cloudmart.admin.feign.PaymentFeignClient;
 import com.cloudmart.admin.feign.ProductFeignClient;
@@ -25,7 +26,6 @@ import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -44,6 +44,7 @@ public class AdminBusinessController {
     private final InventoryFeignClient inventoryFeignClient;
     private final PaymentFeignClient paymentFeignClient;
     private final NotificationFeignClient notificationFeignClient;
+    private final NotificationQueryFeignClient notificationQueryFeignClient;
     private final SeckillActivityFeignClient seckillActivityFeignClient;
     private final SeckillProductFeignClient seckillProductFeignClient;
     private final CartFeignClient cartFeignClient;
@@ -72,7 +73,8 @@ public class AdminBusinessController {
                                    WmsFeignClient wmsFeignClient,
                                    RiskFeignClient riskFeignClient,
                                    AiFeignClient aiFeignClient,
-                                   BrandFeignClient brandFeignClient) {
+                                   BrandFeignClient brandFeignClient,
+                                   NotificationQueryFeignClient notificationQueryFeignClient) {
         this.productFeignClient = productFeignClient;
         this.categoryFeignClient = categoryFeignClient;
         this.orderFeignClient = orderFeignClient;
@@ -81,6 +83,7 @@ public class AdminBusinessController {
         this.inventoryFeignClient = inventoryFeignClient;
         this.paymentFeignClient = paymentFeignClient;
         this.notificationFeignClient = notificationFeignClient;
+        this.notificationQueryFeignClient = notificationQueryFeignClient;
         this.seckillActivityFeignClient = seckillActivityFeignClient;
         this.seckillProductFeignClient = seckillProductFeignClient;
         this.cartFeignClient = cartFeignClient;
@@ -156,8 +159,7 @@ public class AdminBusinessController {
             @RequestParam(value = "status", required = false) Integer status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
-        ProductSearchRequest request = new ProductSearchRequest(keyword, categoryId, minPrice, maxPrice, sort, status, page, pageSize);
-        ApiResponse<ProductSearchResultDTO> response = productFeignClient.searchProducts(request);
+        ApiResponse<ProductSearchResultDTO> response = productFeignClient.searchProducts(keyword, categoryId, minPrice, maxPrice, sort, status, page, pageSize);
         if (response.success() && response.data() != null) {
             ProductSearchResultDTO result = response.data();
             return ApiResponse.ok(result.products(), result.page(), result.size(), result.total());
@@ -333,8 +335,12 @@ public class AdminBusinessController {
     @GetMapping("/coupons")
     @RequiresPermission("business:coupon:list")
     @Operation(summary = "优惠券列表", description = "查询优惠券模板列表")
-    public ApiResponse<List<CouponTemplateDTO>> listCoupons(@SpringQueryMap CouponSearchRequest request) {
-        return couponFeignClient.listTemplates(request);
+    public ApiResponse<List<CouponTemplateDTO>> listCoupons(
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
+        return couponFeignClient.listTemplates(type, status, page, pageSize);
     }
 
     @GetMapping("/coupons/{id}")
@@ -389,8 +395,11 @@ public class AdminBusinessController {
     @GetMapping("/inventory")
     @RequiresPermission("business:inventory:list")
     @Operation(summary = "库存列表", description = "分页查询库存列表，支持按商品ID筛选")
-    public ApiResponse<List<InventoryDTO>> listInventory(@SpringQueryMap InventorySearchRequest request) {
-        return inventoryFeignClient.listInventory(request);
+    public ApiResponse<List<InventoryDTO>> listInventory(
+            @RequestParam(value = "productId", required = false) Long productId,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
+        return inventoryFeignClient.listInventory(productId, page, pageSize);
     }
 
     @GetMapping("/inventory/{skuId}")
@@ -416,8 +425,11 @@ public class AdminBusinessController {
     @GetMapping("/payments")
     @RequiresPermission("business:payment:list")
     @Operation(summary = "支付列表", description = "分页查询支付记录，支持按状态筛选")
-    public ApiResponse<List<PaymentDTO>> listPayments(@SpringQueryMap PaymentSearchRequest request) {
-        return paymentFeignClient.listPayments(request);
+    public ApiResponse<List<PaymentDTO>> listPayments(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
+        return paymentFeignClient.listPayments(status, page, pageSize);
     }
 
     @GetMapping("/payments/order/{orderId}")
@@ -440,8 +452,12 @@ public class AdminBusinessController {
     @GetMapping("/notifications")
     @RequiresPermission("business:notification:list")
     @Operation(summary = "通知列表", description = "查询通知列表")
-    public ApiResponse<Object> listNotifications(@SpringQueryMap NotificationSearchRequest request) {
-        return notificationFeignClient.listNotifications(request);
+    public ApiResponse<?> listNotifications(
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
+        return notificationQueryFeignClient.listNotifications(userId, type, page, pageSize);
     }
 
     @PostMapping("/notifications")
@@ -565,8 +581,12 @@ public class AdminBusinessController {
     @GetMapping("/reviews")
     @RequiresPermission("business:review:list")
     @Operation(summary = "评价列表", description = "查询所有评价，支持按商品ID和状态筛选")
-    public ApiResponse<Object> listReviews(@SpringQueryMap ReviewSearchRequest request) {
-        return reviewFeignClient.listReviews(request);
+    public ApiResponse<Object> listReviews(
+            @RequestParam(value = "productId", required = false) Long productId,
+            @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
+        return reviewFeignClient.listReviews(productId, status, page, pageSize);
     }
 
     @GetMapping("/reviews/{id}")
@@ -608,8 +628,7 @@ public class AdminBusinessController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        GroupActivitySearchRequest request = new GroupActivitySearchRequest(status, page, pageSize);
-        return marketingFeignClient.listGroupActivities(request);
+        return marketingFeignClient.listGroupActivities(status, page, pageSize);
     }
 
     @PostMapping("/marketing/group/activities")
@@ -660,8 +679,7 @@ public class AdminBusinessController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        GroupOrderSearchRequest request = new GroupOrderSearchRequest(activityId, status, page, pageSize);
-        return marketingFeignClient.listGroupOrders(request);
+        return marketingFeignClient.listGroupOrders(activityId, status, page, pageSize);
     }
 
     // ==================== 阶梯满减 ====================
@@ -673,8 +691,7 @@ public class AdminBusinessController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        TieredPromotionSearchRequest request = new TieredPromotionSearchRequest(status, page, pageSize);
-        return marketingFeignClient.listTieredPromotions(request);
+        return marketingFeignClient.listTieredPromotions(status, page, pageSize);
     }
 
     @PostMapping("/marketing/tiered/promotions")
@@ -733,8 +750,7 @@ public class AdminBusinessController {
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        LiveRoomSearchRequest request = new LiveRoomSearchRequest(status, page, pageSize);
-        return liveFeignClient.listRooms(request);
+        return liveFeignClient.listRooms(status, page, pageSize);
     }
 
     @PostMapping("/live/rooms")
@@ -787,8 +803,7 @@ public class AdminBusinessController {
             @RequestParam(value = "warehouseId", required = false) Long warehouseId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        WmsSearchRequest request = new WmsSearchRequest(status, warehouseId, page, pageSize);
-        return wmsFeignClient.listPickOrders(request);
+        return wmsFeignClient.listPickOrders(status, warehouseId, page, pageSize);
     }
 
     @GetMapping("/wms/pick-orders/{id}")
@@ -830,8 +845,7 @@ public class AdminBusinessController {
             @RequestParam(value = "warehouseId", required = false) Long warehouseId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        WmsSearchRequest request = new WmsSearchRequest(status, warehouseId, page, pageSize);
-        return wmsFeignClient.listInboundOrders(request);
+        return wmsFeignClient.listInboundOrders(status, warehouseId, page, pageSize);
     }
 
     @GetMapping("/wms/inbound-orders/{id}")
@@ -851,8 +865,7 @@ public class AdminBusinessController {
             @RequestParam(value = "warehouseId", required = false) Long warehouseId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        WmsSearchRequest request = new WmsSearchRequest(status, warehouseId, page, pageSize);
-        return wmsFeignClient.listShipping(request);
+        return wmsFeignClient.listShipping(status, warehouseId, page, pageSize);
     }
 
     @PutMapping("/wms/shipping/{id}/status")

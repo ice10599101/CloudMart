@@ -3,7 +3,6 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.dto.feign.*;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -14,7 +13,9 @@ public interface MarketingFeignClient {
     // ==================== 拼团活动 ====================
 
     @GetMapping("/group/activities")
-    ApiResponse<Object> listGroupActivities(@SpringQueryMap GroupActivitySearchRequest request);
+    ApiResponse<Object> listGroupActivities(@RequestParam(value = "status", required = false) String status,
+                                            @RequestParam("page") Integer page,
+                                            @RequestParam("size") Integer size);
 
     @PostMapping("/group/activities")
     ApiResponse<GroupActivityDTO> createGroupActivity(@RequestBody CreateGroupActivityRequest request);
@@ -32,12 +33,17 @@ public interface MarketingFeignClient {
     ApiResponse<Void> deleteGroupActivity(@PathVariable("id") Long id);
 
     @GetMapping("/group/orders")
-    ApiResponse<Object> listGroupOrders(@SpringQueryMap GroupOrderSearchRequest request);
+    ApiResponse<Object> listGroupOrders(@RequestParam(value = "activityId", required = false) Long activityId,
+                                        @RequestParam(value = "status", required = false) String status,
+                                        @RequestParam("page") Integer page,
+                                        @RequestParam("size") Integer size);
 
     // ==================== 阶梯满减 ====================
 
     @GetMapping("/tiered/promotions")
-    ApiResponse<Object> listTieredPromotions(@SpringQueryMap TieredPromotionSearchRequest request);
+    ApiResponse<Object> listTieredPromotions(@RequestParam(value = "status", required = false) String status,
+                                             @RequestParam("page") Integer page,
+                                             @RequestParam("size") Integer size);
 
     @PostMapping("/tiered/promotions")
     ApiResponse<TieredPromotionDTO> createTieredPromotion(@RequestBody CreateTieredPromotionRequest request);

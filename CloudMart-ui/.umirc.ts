@@ -82,11 +82,11 @@ export default defineConfig({
         { path: '/admin', redirect: '/admin/dashboard' },
         { path: '/admin/login', component: '@/pages/admin/Login' },
         { path: '/admin/dashboard', component: '@/pages/admin/Dashboard' },
-        { path: '/admin/system/users', component: '@/pages/admin/system/Users' },
-        { path: '/admin/system/roles', component: '@/pages/admin/system/Roles' },
+        // 用户管理 = 社区真实用户（mall-user 会员，小答号/昵称/邮箱）
+        { path: '/admin/system/users', component: '@/pages/admin/business/Members' },
+        // 账号设置 = 唯一管理员自己的资料与密码（单管理员后台，无 RBAC 组织架构）
+        { path: '/admin/system/account', component: '@/pages/admin/system/AccountSettings' },
         { path: '/admin/system/menus', component: '@/pages/admin/system/Menus' },
-        { path: '/admin/system/depts', component: '@/pages/admin/system/Depts' },
-        { path: '/admin/system/posts', component: '@/pages/admin/system/Posts' },
         { path: '/admin/system/dict', component: '@/pages/admin/system/Dict' },
         { path: '/admin/system/config', component: '@/pages/admin/system/Config' },
         { path: '/admin/system/notices', component: '@/pages/admin/system/Notices' },
@@ -95,7 +95,8 @@ export default defineConfig({
         { path: '/admin/business/products', component: '@/pages/admin/business/Products' },
         { path: '/admin/business/categories', component: '@/pages/admin/business/Categories' },
         { path: '/admin/business/orders', component: '@/pages/admin/business/Orders' },
-        { path: '/admin/business/members', component: '@/pages/admin/business/Members' },
+        // 会员管理已迁至 系统管理→用户管理（/admin/system/users），老路径重定向兜底
+        { path: '/admin/business/members', redirect: '/admin/system/users' },
         { path: '/admin/business/coupons', component: '@/pages/admin/business/Coupons' },
         { path: '/admin/business/seckill', component: '@/pages/admin/business/Seckill' },
         { path: '/admin/business/cart', component: '@/pages/admin/business/Cart' },

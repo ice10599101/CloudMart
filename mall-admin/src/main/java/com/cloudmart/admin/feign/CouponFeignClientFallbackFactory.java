@@ -1,6 +1,5 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.CouponSearchRequest;
 import com.cloudmart.admin.dto.feign.CouponTemplateDTO;
 import com.cloudmart.admin.dto.feign.CreateCouponTemplateRequest;
 import com.cloudmart.common.api.ApiResponse;
@@ -21,7 +20,7 @@ public class CouponFeignClientFallbackFactory implements FallbackFactory<CouponF
         log.error("优惠券服务调用失败: {}", cause.getMessage());
         return new CouponFeignClient() {
             @Override
-            public ApiResponse<List<CouponTemplateDTO>> listTemplates(CouponSearchRequest request) {
+            public ApiResponse<List<CouponTemplateDTO>> listTemplates(String type, String status, Integer page, Integer pageSize) {
                 throw new BusinessException("COUPON_SERVICE_UNAVAILABLE", "优惠券服务不可用，请稍后重试");
             }
 

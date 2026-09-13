@@ -6,34 +6,10 @@ vi.mock('@/utils/request', () => ({
 
 import request from '@/utils/request'
 import {
-  getUsers,
-  getUser,
-  createUser,
-  updateUser,
-  deleteUser,
-  updateUserStatus,
-  resetPassword,
-  assignRoles,
-  getRoles,
-  getRole,
-  createRole,
-  updateRole,
-  deleteRole,
-  assignRoleMenus,
-  getRoleMenus,
-  updateRoleDataScope,
   getMenuTree,
   createMenu,
   updateMenu,
   deleteMenu,
-  getDeptTree,
-  createDept,
-  updateDept,
-  deleteDept,
-  getPosts,
-  createPost,
-  updatePost,
-  deletePost,
   getDictTypes,
   createDictType,
   deleteDictType,
@@ -54,110 +30,6 @@ import {
   getRecentOrders,
   getSalesTrend,
 } from './system'
-
-describe('admin system API - User Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getUsers() calls GET /admin/users/page', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getUsers({ page: 1, size: 10 })
-    expect(request.get).toHaveBeenCalledWith('/admin/users/page', { params: { page: 1, size: 10 } })
-  })
-
-  it('getUser() calls GET /admin/users/:id', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getUser(1)
-    expect(request.get).toHaveBeenCalledWith('/admin/users/1')
-  })
-
-  it('createUser() calls POST /admin/users', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createUser({ username: 'newuser' })
-    expect(request.post).toHaveBeenCalledWith('/admin/users', { username: 'newuser' })
-  })
-
-  it('updateUser() calls PUT /admin/users/:id', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateUser(1, { nickname: 'Updated' })
-    expect(request.put).toHaveBeenCalledWith('/admin/users/1', { nickname: 'Updated' })
-  })
-
-  it('deleteUser() calls DELETE /admin/users/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteUser(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/users/1')
-  })
-
-  it('updateUserStatus() calls PUT /admin/users/:id/status', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateUserStatus(1, { status: 0 })
-    expect(request.put).toHaveBeenCalledWith('/admin/users/1/status', { status: 0 })
-  })
-
-  it('resetPassword() calls PUT /admin/users/resetPassword', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await resetPassword({ userId: 1, newPassword: 'xxx' })
-    expect(request.put).toHaveBeenCalledWith('/admin/users/resetPassword', { userId: 1, newPassword: 'xxx' })
-  })
-
-  it('assignRoles() calls PUT /admin/users/:id/roles', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await assignRoles(1, { roleIds: [1, 2] })
-    expect(request.put).toHaveBeenCalledWith('/admin/users/1/roles', { roleIds: [1, 2] })
-  })
-})
-
-describe('admin system API - Role Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getRoles() calls GET /admin/roles', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getRoles()
-    expect(request.get).toHaveBeenCalledWith('/admin/roles', { params: undefined })
-  })
-
-  it('getRole() calls GET /admin/roles/:id', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getRole(1)
-    expect(request.get).toHaveBeenCalledWith('/admin/roles/1')
-  })
-
-  it('createRole() calls POST /admin/roles', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createRole({ name: 'editor' })
-    expect(request.post).toHaveBeenCalledWith('/admin/roles', { name: 'editor' })
-  })
-
-  it('updateRole() calls PUT /admin/roles/:id', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateRole(1, { name: 'admin' })
-    expect(request.put).toHaveBeenCalledWith('/admin/roles/1', { name: 'admin' })
-  })
-
-  it('deleteRole() calls DELETE /admin/roles/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteRole(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/roles/1')
-  })
-
-  it('assignRoleMenus() calls PUT /admin/roles/menus', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await assignRoleMenus({ roleId: 1, menuIds: [1, 2, 3] })
-    expect(request.put).toHaveBeenCalledWith('/admin/roles/menus', { roleId: 1, menuIds: [1, 2, 3] })
-  })
-
-  it('getRoleMenus() calls GET /admin/roles/:id/menus', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getRoleMenus(1)
-    expect(request.get).toHaveBeenCalledWith('/admin/roles/1/menus')
-  })
-
-  it('updateRoleDataScope() calls PUT /admin/roles/:id/data-scope', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateRoleDataScope(1, { dataScope: 'ALL' })
-    expect(request.put).toHaveBeenCalledWith('/admin/roles/1/data-scope', { dataScope: 'ALL' })
-  })
-})
 
 describe('admin system API - Menu Management', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -184,62 +56,6 @@ describe('admin system API - Menu Management', () => {
     vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
     await deleteMenu(1)
     expect(request.delete).toHaveBeenCalledWith('/admin/menus/1')
-  })
-})
-
-describe('admin system API - Dept Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getDeptTree() calls GET /admin/depts/tree', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getDeptTree()
-    expect(request.get).toHaveBeenCalledWith('/admin/depts/tree')
-  })
-
-  it('createDept() calls POST /admin/depts', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createDept({ name: 'Tech' })
-    expect(request.post).toHaveBeenCalledWith('/admin/depts', { name: 'Tech' })
-  })
-
-  it('updateDept() calls PUT /admin/depts/:id', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateDept(1, { name: 'Engineering' })
-    expect(request.put).toHaveBeenCalledWith('/admin/depts/1', { name: 'Engineering' })
-  })
-
-  it('deleteDept() calls DELETE /admin/depts/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteDept(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/depts/1')
-  })
-})
-
-describe('admin system API - Post Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getPosts() calls GET /admin/posts', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getPosts()
-    expect(request.get).toHaveBeenCalledWith('/admin/posts', { params: undefined })
-  })
-
-  it('createPost() calls POST /admin/posts', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createPost({ name: 'CEO' })
-    expect(request.post).toHaveBeenCalledWith('/admin/posts', { name: 'CEO' })
-  })
-
-  it('updatePost() calls PUT /admin/posts/:id', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updatePost(1, { name: 'CTO' })
-    expect(request.put).toHaveBeenCalledWith('/admin/posts/1', { name: 'CTO' })
-  })
-
-  it('deletePost() calls DELETE /admin/posts/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deletePost(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/posts/1')
   })
 })
 

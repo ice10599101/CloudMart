@@ -4,8 +4,11 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,10 +18,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -31,6 +37,12 @@ import java.util.Base64;
  * <p>策略：仅拦截写方法（POST/PUT/DELETE）且携带幂等键的请求。哈希取请求体 SHA-256。
  * Redis 失效时 Fail-Open 直接放行——最坏退化为无幂等保护（与既有行为一致），不阻塞业务（39.6）。
  * 处理中窗口 60s，成功响应缓存 24h；失败（非 2xx）不缓存，允许客户端换体或原体重试。</p>
+ *
+ * <p>实现注意（BUG#43）：请求体哈希需要预读 body，而
+ * {@code ContentCachingRequestWrapper} 预读后下游 {@code @RequestBody} 拿到的是
+ * 已耗尽的空流（不可重复读），导致所有带幂等键的 JSON 写接口报
+ * INVALID_REQUEST_BODY。这里改用可重复读包装器——body 一次性读入内存，
+ * {@code getInputStream()/getReader()} 每次返回全新流，下游可正常解析。</p>
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
@@ -66,13 +78,18 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         }
         String redisKey = KEY_PREFIX + userId + ":" + idemKey;
 
-        // 先读完请求体以便计算哈希（JSON API，体量小；超上限则放弃幂等保护直接放行）
-        ContentCachingRequestWrapper wrappedRequest =
-                new ContentCachingRequestWrapper(request, MAX_CACHED_BODY);
+        // 预读请求体（可重复读包装器：下游 @RequestBody 从内存流重新解析）
+        ReReadableRequestWrapper wrappedRequest = new ReReadableRequestWrapper(request);
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
 
-        wrappedRequest.getInputStream().readAllBytes();
-        String bodyHash = sha256(wrappedRequest.getContentAsByteArray());
+        if (wrappedRequest.cachedBody().length > MAX_CACHED_BODY) {
+            // 超上限放弃幂等保护直接放行（body 已在包装器内存中，下游解析不受影响）
+            log.warn("幂等键请求体超上限({}B)，放弃幂等保护直接放行", wrappedRequest.cachedBody().length);
+            chain.doFilter(wrappedRequest, wrappedResponse);
+            wrappedResponse.copyBodyToResponse();
+            return;
+        }
+        String bodyHash = sha256(wrappedRequest.cachedBody());
 
         String stored;
         try {
@@ -137,6 +154,54 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             throw ex;
         } finally {
             wrappedResponse.copyBodyToResponse();
+        }
+    }
+
+    /**
+     * 可重复读请求包装器：body 预读进内存，getInputStream/getReader 每次返回全新流。
+     */
+    private static class ReReadableRequestWrapper extends HttpServletRequestWrapper {
+
+        private final byte[] cachedBody;
+
+        ReReadableRequestWrapper(HttpServletRequest request) throws IOException {
+            super(request);
+            this.cachedBody = request.getInputStream().readAllBytes();
+        }
+
+        byte[] cachedBody() {
+            return cachedBody;
+        }
+
+        @Override
+        public ServletInputStream getInputStream() {
+            ByteArrayInputStream buffer = new ByteArrayInputStream(cachedBody);
+            return new ServletInputStream() {
+                @Override
+                public boolean isFinished() {
+                    return buffer.available() == 0;
+                }
+
+                @Override
+                public boolean isReady() {
+                    return true;
+                }
+
+                @Override
+                public void setReadListener(ReadListener readListener) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public int read() {
+                    return buffer.read();
+                }
+            };
+        }
+
+        @Override
+        public BufferedReader getReader() {
+            return new BufferedReader(new InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
         }
     }
 

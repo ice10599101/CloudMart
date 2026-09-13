@@ -34,7 +34,8 @@ public class AdminWishController {
     @RequiresPermission("business:wish:list")
     @Operation(summary = "心愿列表", description = "多维度筛选（状态/审核状态/分类/关键词）offset 分页")
     public ApiResponse<Object> listWishes(@Valid AdminWishSearchRequest request) {
-        return wishFeignClient.listWishes(request);
+        return wishFeignClient.listWishes(request.userId(), request.categoryId(), request.status(),
+                request.auditStatus(), request.visibility(), request.keyword(), request.page(), request.pageSize());
     }
 
     @GetMapping("/wish/wishes/stats")
@@ -124,7 +125,8 @@ public class AdminWishController {
     @Operation(summary = "互动记录列表", description = "含已取消记录的完整审计轨迹，"
             + "支持心愿/用户/类型/时间范围筛选，offset 分页")
     public ApiResponse<Object> listInteractions(@Valid AdminInteractionSearchRequest request) {
-        return wishFeignClient.listInteractions(request);
+        return wishFeignClient.listInteractions(request.wishId(), request.userId(), request.type(),
+                request.startTime(), request.endTime(), request.page(), request.pageSize());
     }
 
     // ========== 评论审核（Sprint 1.2） ==========
@@ -134,7 +136,8 @@ public class AdminWishController {
     @Operation(summary = "评论列表", description = "含已删除评论供审计；"
             + "敏感词审核场景：sensitiveHit=true + status=VISIBLE 筛选待处理命中")
     public ApiResponse<Object> listComments(@Valid AdminCommentSearchRequest request) {
-        return wishFeignClient.listComments(request);
+        return wishFeignClient.listComments(request.wishId(), request.userId(), request.sensitiveHit(),
+                request.status(), request.page(), request.pageSize());
     }
 
     @PutMapping("/wish/comments/{id}/status")

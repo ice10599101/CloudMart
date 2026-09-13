@@ -1,6 +1,5 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.admin.dto.feign.WmsSearchRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +17,7 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
         log.error("仓储服务调用失败: {}", cause.getMessage());
         return new WmsFeignClient() {
             @Override
-            public ApiResponse<Object> listPickOrders(WmsSearchRequest request) {
+            public ApiResponse<Object> listPickOrders(String status, Long warehouseId, Integer page, Integer size) {
                 throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
@@ -43,7 +42,7 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             }
 
             @Override
-            public ApiResponse<Object> listInboundOrders(WmsSearchRequest request) {
+            public ApiResponse<Object> listInboundOrders(String status, Long warehouseId, Integer page, Integer size) {
                 throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
@@ -58,7 +57,7 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             }
 
             @Override
-            public ApiResponse<Object> listShipping(WmsSearchRequest request) {
+            public ApiResponse<Object> listShipping(String status, Long warehouseId, Integer page, Integer size) {
                 throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
