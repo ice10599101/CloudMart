@@ -98,7 +98,7 @@ public class UserController {
     @Operation(summary = "推荐用户列表")
     public ApiResponse<List<UserVO>> recommendUsers(
             @Parameter(description = "数量") @RequestParam(defaultValue = "6") int limit) {
-        Page<UserVO> page = userService.listUsers(1, limit);
+        Page<UserVO> page = userService.listUsers(1, limit, null, null, null);
         return ApiResponse.ok(page.getRecords());
     }
 
@@ -107,7 +107,7 @@ public class UserController {
     public ApiResponse<Page<UserVO>> listUsers(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(userService.listUsers(page, size));
+        return ApiResponse.ok(userService.listUsers(page, size, null, null, null));
     }
 
     @PutMapping("/{id}/status")

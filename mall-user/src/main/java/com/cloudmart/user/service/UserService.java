@@ -20,7 +20,13 @@ public interface UserService {
 
     UserDTO validateUser(ValidateRequest request);
 
-    Page<UserVO> listUsers(int page, int size);
+    Page<UserVO> listUsers(int page, int size, String username, String nickname, Integer status);
+
+    /** 管理员编辑用户资料：全字段直改，昵称/邮箱唯一性校验排除自身，不受用户侧昵称冷却限制 */
+    UserVO adminUpdateUser(Long userId, UpdateProfileRequest request);
+
+    /** 管理员重置用户密码：无需原密码，BCrypt 编码落库 */
+    void adminResetPassword(Long userId, String newPassword);
 
     UserVO updateProfile(Long userId, UpdateProfileRequest request);
 

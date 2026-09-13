@@ -76,6 +76,11 @@ export function updateMember(id: number | string, data: Record<string, any>) {
   return request.put(`/admin/business/members/${id}`, data)
 }
 
+/** 管理员重置会员密码（无需原密码，新密码至少 6 位） */
+export function resetMemberPassword(id: number | string, newPassword: string) {
+  return request.put(`/admin/business/members/${id}/password`, { newPassword })
+}
+
 export function updateMemberStatus(id: number | string, data: Record<string, any>) {
   return request.put(`/admin/business/members/${id}/status`, data)
 }

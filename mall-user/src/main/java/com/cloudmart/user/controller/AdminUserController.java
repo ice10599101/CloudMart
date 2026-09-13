@@ -3,6 +3,7 @@ package com.cloudmart.user.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.api.ApiResponse.Meta;
+import com.cloudmart.user.dto.AdminResetPasswordRequest;
 import com.cloudmart.user.dto.UpdateProfileRequest;
 import com.cloudmart.user.service.UserService;
 import com.cloudmart.user.vo.UserVO;
@@ -38,8 +39,11 @@ public class AdminUserController {
     @Operation(summary = "用户列表", description = "管理后台分页查询用户列表")
     public ApiResponse<List<UserVO>> listUsers(
             @Parameter(description = "页码", example = "1") @RequestParam(value = "page", defaultValue = "1") int page,
-            @Parameter(description = "每页数量", example = "20") @RequestParam(value = "size", defaultValue = "20") int size) {
-        Page<UserVO> result = userService.listUsers(page, size);
+            @Parameter(description = "每页数量", example = "20") @RequestParam(value = "size", defaultValue = "20") int size,
+            @Parameter(description = "小答号模糊筛选") @RequestParam(value = "username", required = false) String username,
+            @Parameter(description = "昵称模糊筛选") @RequestParam(value = "nickname", required = false) String nickname,
+            @Parameter(description = "状态筛选: 0-禁用, 1-正常") @RequestParam(value = "status", required = false) Integer status) {
+        Page<UserVO> result = userService.listUsers(page, size, username, nickname, status);
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
 
@@ -53,11 +57,21 @@ public class AdminUserController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('INTERNAL')")
-    @Operation(summary = "编辑用户信息", description = "管理后台编辑用户昵称、邮箱等个人资料")
+    @Operation(summary = "编辑用户信息", description = "管理后台全字段编辑用户资料（昵称/邮箱唯一性排除自身，不受昵称冷却限制）")
     public ApiResponse<UserVO> updateUser(
             @Parameter(description = "用户ID", required = true) @PathVariable("id") Long id,
             @Valid @RequestBody UpdateProfileRequest request) {
-        return ApiResponse.ok(userService.updateProfile(id, request));
+        return ApiResponse.ok(userService.adminUpdateUser(id, request));
+    }
+
+    @PutMapping("/{id}/password")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "重置用户密码", description = "管理后台直接设置用户新密码（无需原密码）")
+    public ApiResponse<Void> resetPassword(
+            @Parameter(description = "用户ID", required = true) @PathVariable("id") Long id,
+            @Valid @RequestBody AdminResetPasswordRequest request) {
+        userService.adminResetPassword(id, request.newPassword());
+        return ApiResponse.ok(null);
     }
 
     @PutMapping("/{id}/status")

@@ -77,10 +77,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Page<UserVO> listUsers(int page, int size) {
+    public Page<UserVO> listUsers(int page, int size, String username, String nickname, Integer status) {
         Page<User> userPage = userMapper.selectPage(
                 new Page<>(page, size),
-                new LambdaQueryWrapper<User>().orderByDesc(User::getCreatedAt)
+                new LambdaQueryWrapper<User>()
+                        .like(username != null && !username.isBlank(), User::getUsername, username)
+                        .like(nickname != null && !nickname.isBlank(), User::getNickname, nickname)
+                        .eq(status != null, User::getStatus, status)
+                        .orderByDesc(User::getCreatedAt)
         );
         Page<UserVO> voPage = new Page<>(userPage.getCurrent(), userPage.getSize(), userPage.getTotal());
         voPage.setRecords(userPage.getRecords().stream().map(userConverter::toVO).toList());
@@ -106,6 +110,70 @@ public class UserServiceImpl implements UserService {
 
         userMapper.updateById(user);
         return userConverter.toVO(user);
+    }
+
+    /**
+     * 管理员全字段编辑用户资料。与用户侧 updateProfile 的差异：
+     * 1. 允许修改昵称/邮箱（用户侧走独立端点且昵称有冷却期）；2. 唯一性校验排除自身；
+     * 3. 不触碰 nicknameUpdatedAt（管理员纠错不应触发用户侧冷却计时）。
+     */
+    @Override
+    @Transactional
+    public UserVO adminUpdateUser(Long userId, UpdateProfileRequest request) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+        if (request.nickname() != null && !request.nickname().isBlank()
+                && !request.nickname().equals(user.getNickname())) {
+            long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                    .eq(User::getNickname, request.nickname())
+                    .ne(User::getId, userId));
+            if (count > 0) {
+                throw new BusinessException("NICKNAME_DUPLICATE", "昵称已被使用");
+            }
+            user.setNickname(request.nickname());
+        }
+        if (request.email() != null) {
+            // uk_email 唯一索引：空值统一置 null（可多条），非空需唯一且排除自身
+            if (request.email().isBlank()) {
+                user.setEmail(null);
+            } else if (!request.email().equals(user.getEmail())) {
+                long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                        .eq(User::getEmail, request.email())
+                        .ne(User::getId, userId));
+                if (count > 0) {
+                    throw new BusinessException("EMAIL_DUPLICATE", "邮箱已被使用");
+                }
+                user.setEmail(request.email());
+            }
+        }
+        if (request.avatar() != null) user.setAvatar(request.avatar());
+        if (request.signature() != null) user.setSignature(request.signature());
+        if (request.gender() != null) user.setGender(request.gender());
+        if (request.birthday() != null) user.setBirthday(request.birthday());
+        if (request.constellation() != null) user.setConstellation(request.constellation());
+        if (request.occupation() != null) user.setOccupation(request.occupation());
+        if (request.school() != null) user.setSchool(request.school());
+        if (request.location() != null) user.setLocation(request.location());
+        if (request.hobbies() != null) user.setHobbies(request.hobbies());
+
+        userMapper.updateById(user);
+        return userConverter.toVO(user);
+    }
+
+    @Override
+    @Transactional
+    public void adminResetPassword(Long userId, String newPassword) {
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new BusinessException("PASSWORD_TOO_SHORT", "新密码至少 6 位");
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userMapper.updateById(user);
     }
 
     @Override

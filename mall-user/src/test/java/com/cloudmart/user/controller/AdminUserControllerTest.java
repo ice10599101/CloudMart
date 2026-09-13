@@ -78,7 +78,7 @@ class AdminUserControllerTest {
             UserVO vo = buildUserVO();
             Page<UserVO> page = new Page<>(1, 20, 1L);
             page.setRecords(List.of(vo));
-            given(userService.listUsers(1, 20)).willReturn(page);
+            given(userService.listUsers(1, 20, null, null, null)).willReturn(page);
 
             mockMvc.perform(get("/admin/users")
                             .param("page", "1")
@@ -135,7 +135,7 @@ class AdminUserControllerTest {
                     "new-avatar.jpg", "新签名", "男", "2000-01-01", "摩羯座",
                     "工程师", "北京大学", "北京", "编程",
                     1, FIXED_TIME, FIXED_TIME);
-            given(userService.updateProfile(eq(1L), any(UpdateProfileRequest.class))).willReturn(updated);
+            given(userService.adminUpdateUser(eq(1L), any(UpdateProfileRequest.class))).willReturn(updated);
 
             mockMvc.perform(put("/admin/users/1")
                             .contentType(MediaType.APPLICATION_JSON)

@@ -412,6 +412,113 @@ class UserServiceImplTest {
     }
 
     @Nested
+    @DisplayName("adminUpdateUser")
+    class AdminUpdateUserTests {
+
+        @Test
+        @DisplayName("changes nickname bypassing cooldown, uniqueness excludes self")
+        void adminUpdateUser_NicknameChange_SkipsCooldownAndSelfCheck() {
+            User user = buildActiveUser();
+            user.setNickname("旧昵称");
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userMapper.selectCount(any())).thenReturn(0L);
+            when(userConverter.toVO(user)).thenReturn(new UserVO(1L, "10001", "新昵称", null, null, null, null, null, null, null, null, null, null, 1, null, null));
+
+            UpdateProfileRequest request = new UpdateProfileRequest("新昵称", null, null, null, null, null, null, null, null, null, null);
+            userService.adminUpdateUser(1L, request);
+
+            assertThat(user.getNickname()).isEqualTo("新昵称");
+            // 管理员纠错不应触发用户侧冷却计时
+            assertThat(user.getNicknameUpdatedAt()).isNull();
+            verify(userMapper).updateById(user);
+        }
+
+        @Test
+        @DisplayName("duplicate nickname owned by another user -> throws NICKNAME_DUPLICATE")
+        void adminUpdateUser_DuplicateNickname_Throws() {
+            User user = buildActiveUser();
+            user.setNickname("旧昵称");
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userMapper.selectCount(any())).thenReturn(1L);
+
+            UpdateProfileRequest request = new UpdateProfileRequest("占用昵称", null, null, null, null, null, null, null, null, null, null);
+
+            assertThatThrownBy(() -> userService.adminUpdateUser(1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NICKNAME_DUPLICATE"));
+            verify(userMapper, never()).updateById(any(User.class));
+        }
+
+        @Test
+        @DisplayName("duplicate email owned by another user -> throws EMAIL_DUPLICATE")
+        void adminUpdateUser_DuplicateEmail_Throws() {
+            User user = buildActiveUser();
+            user.setEmail("old@example.com");
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userMapper.selectCount(any())).thenReturn(1L);
+
+            UpdateProfileRequest request = new UpdateProfileRequest(null, "taken@example.com", null, null, null, null, null, null, null, null, null);
+
+            assertThatThrownBy(() -> userService.adminUpdateUser(1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("EMAIL_DUPLICATE"));
+            verify(userMapper, never()).updateById(any(User.class));
+        }
+
+        @Test
+        @DisplayName("blank email -> clears email to null (unique index allows multiple nulls)")
+        void adminUpdateUser_BlankEmail_ClearsToNull() {
+            User user = buildActiveUser();
+            user.setEmail("old@example.com");
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userConverter.toVO(user)).thenReturn(new UserVO(1L, "10001", null, null, null, null, null, null, null, null, null, null, null, 1, null, null));
+
+            UpdateProfileRequest request = new UpdateProfileRequest(null, "  ", null, null, null, null, null, null, null, null, null);
+            userService.adminUpdateUser(1L, request);
+
+            assertThat(user.getEmail()).isNull();
+            verify(userMapper).updateById(user);
+        }
+    }
+
+    @Nested
+    @DisplayName("adminResetPassword")
+    class AdminResetPasswordTests {
+
+        @Test
+        @DisplayName("encodes and saves new password without old password")
+        void adminResetPassword_EncodesAndSaves() {
+            User user = buildActiveUser();
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(passwordEncoder.encode("newPass123")).thenReturn("encoded-hash");
+
+            userService.adminResetPassword(1L, "newPass123");
+
+            assertThat(user.getPassword()).isEqualTo("encoded-hash");
+            verify(userMapper).updateById(user);
+        }
+
+        @Test
+        @DisplayName("password shorter than 6 -> throws PASSWORD_TOO_SHORT without touching db")
+        void adminResetPassword_TooShort_Throws() {
+            assertThatThrownBy(() -> userService.adminResetPassword(1L, "12345"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("PASSWORD_TOO_SHORT"));
+            verify(userMapper, never()).updateById(any(User.class));
+        }
+
+        @Test
+        @DisplayName("user not found -> throws USER_NOT_FOUND")
+        void adminResetPassword_UserNotFound_Throws() {
+            when(userMapper.selectById(999L)).thenReturn(null);
+
+            assertThatThrownBy(() -> userService.adminResetPassword(999L, "newPass123"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("USER_NOT_FOUND"));
+        }
+    }
+
+    @Nested
     @DisplayName("toggleUserStatus")
     class ToggleUserStatusTests {
 

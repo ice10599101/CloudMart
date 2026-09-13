@@ -9,9 +9,15 @@ public record UserDTO(
     Long id,
     String username,
     String email,
-    String phone,
     String nickname,
     String avatar,
+    String gender,
+    String signature,
+    String birthday,
+    String occupation,
+    String school,
+    String location,
+    String hobbies,
     Integer status,
     LocalDateTime createdAt
 ) {}

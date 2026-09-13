@@ -303,8 +303,11 @@ public class AdminBusinessController {
     @Operation(summary = "会员列表", description = "查询前台用户列表")
     public ApiResponse<List<UserDTO>> listMembers(
             @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "pageSize", defaultValue = "20") int size) {
-        return memberUserFeignClient.listUsers(page, size);
+            @RequestParam(value = "pageSize", defaultValue = "20") int size,
+            @RequestParam(value = "username", required = false) String username,
+            @RequestParam(value = "nickname", required = false) String nickname,
+            @RequestParam(value = "status", required = false) Integer status) {
+        return memberUserFeignClient.listUsers(page, size, username, nickname, status);
     }
 
     @GetMapping("/members/{id}")
@@ -328,6 +331,14 @@ public class AdminBusinessController {
     @Operation(summary = "切换会员状态", description = "启用或禁用会员账号")
     public ApiResponse<Void> toggleMemberStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
         return memberUserFeignClient.toggleUserStatus(id, body.get("status"));
+    }
+
+    @PutMapping("/members/{id}/password")
+    @OperLog(title = "会员管理", businessType = 2)
+    @RequiresPermission("business:member:edit")
+    @Operation(summary = "重置会员密码", description = "管理后台直接设置用户新密码（无需原密码）")
+    public ApiResponse<Void> resetMemberPassword(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return memberUserFeignClient.resetPassword(id, body);
     }
 
     // ==================== 优惠券 ====================

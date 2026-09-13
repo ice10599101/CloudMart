@@ -336,7 +336,7 @@ class UserControllerTest {
         UserVO vo = buildUserVO();
         Page<UserVO> page = new Page<>(1, 6, 1L);
         page.setRecords(List.of(vo));
-        given(userService.listUsers(1, 6)).willReturn(page);
+        given(userService.listUsers(1, 6, null, null, null)).willReturn(page);
 
         mockMvc.perform(get("/users/recommend")
                         .param("limit", "6"))
@@ -352,7 +352,7 @@ class UserControllerTest {
         UserVO vo = buildUserVO();
         Page<UserVO> page = new Page<>(1, 20, 1L);
         page.setRecords(List.of(vo));
-        given(userService.listUsers(1, 20)).willReturn(page);
+        given(userService.listUsers(1, 20, null, null, null)).willReturn(page);
 
         mockMvc.perform(get("/users/page")
                         .param("page", "1")

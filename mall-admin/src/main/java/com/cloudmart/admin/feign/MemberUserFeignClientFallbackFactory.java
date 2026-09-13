@@ -20,7 +20,7 @@ public class MemberUserFeignClientFallbackFactory implements FallbackFactory<Mem
         log.error("用户服务调用失败: {}", cause.getMessage());
         return new MemberUserFeignClient() {
             @Override
-            public ApiResponse<List<UserDTO>> listUsers(int page, int size) {
+            public ApiResponse<List<UserDTO>> listUsers(int page, int size, String username, String nickname, Integer status) {
                 throw new BusinessException("USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
             }
 
@@ -31,6 +31,11 @@ public class MemberUserFeignClientFallbackFactory implements FallbackFactory<Mem
 
             @Override
             public ApiResponse<UserDTO> updateUser(Long id, AdminUpdateUserRequest request) {
+                throw new BusinessException("USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> resetPassword(Long id, java.util.Map<String, String> body) {
                 throw new BusinessException("USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
             }
 
