@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react'
+import TiptapEmojiAt from '@/components/TiptapEmojiAt'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
@@ -352,6 +353,8 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
           icon={<ClearOutlined />}
           title="清除格式"
         />
+
+        <TiptapEmojiAt editor={editor as any} />
 
         <span className={styles.divider} />
 

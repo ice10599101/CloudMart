@@ -1,0 +1,164 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 17px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolBtn:hover:not(:disabled) {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+}
+
+.toolBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 300;
+  min-width: 264px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  padding: 10px;
+}
+
+.atPanelWide {
+  min-width: 280px;
+}
+
+.emojiTabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.emojiTab {
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.emojiTabActive,
+.emojiTab:hover {
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
+}
+
+.emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.emojiCell {
+  border: none;
+  background: transparent;
+  font-size: 19px;
+  padding: 4px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.emojiCell:hover {
+  background: rgba(var(--color-primary-rgb), 0.14);
+}
+
+.atSearch {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 6px;
+}
+
+.atSearch:focus {
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+}
+
+.atResults {
+  max-height: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.atItem:hover {
+  background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.atAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.atAvatarPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-gradient-primary);
+  color: var(--color-bg-base);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.atHint {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  padding: 8px 4px;
+}

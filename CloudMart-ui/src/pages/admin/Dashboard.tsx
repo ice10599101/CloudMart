@@ -334,9 +334,9 @@ export default function Dashboard() {
                         e.stopPropagation()
                         navigateTo(card.to)
                       }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(21, 32, 56, 0.6)', cursor: 'pointer', transition: 'background 0.2s ease' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(21, 32, 56, 0.95)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(21, 32, 56, 0.6)' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(var(--color-primary-rgb), 0.06)', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.14)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.06)' }}
                     >
                       <div style={{ width: 44, height: 44, borderRadius: 10, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <IconComp style={{ fontSize: 22, color: card.accentColor }} />

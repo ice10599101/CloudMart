@@ -18,6 +18,8 @@ import {
 } from '@/api/user'
 import type { ShippingAddress, CreateAddressRequest, UpdateAddressRequest } from '@/types'
 import { getWishlistList, removeWishlist } from '@/api/wishlist'
+import { getUserCollections, type CollectionPostItem } from '@/api/community'
+import { listWishCollections, type WishCollectionItem } from '@/api/wish'
 import type { WishlistItem } from '@/api/wishlist'
 import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments, type Post } from '@/api/community'
 import {
@@ -1023,10 +1025,16 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
 }
 
 function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
+  const { user } = useAuthStore()
+  const [category, setCategory] = useState<'products' | 'posts' | 'wishes'>('products')
+  // 商品收藏
   const [items, setItems] = useState<WishlistItem[]>([])
-  const [loading, setLoading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [removeTargetId, setRemoveTargetId] = useState<number | null>(null)
+  // 帖子收藏 / 心愿收藏（懒加载）
+  const [postCollects, setPostCollects] = useState<CollectionPostItem[] | null>(null)
+  const [wishCollects, setWishCollects] = useState<WishCollectionItem[] | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const fetchWishlist = useCallback(async () => {
     setLoading(true)
@@ -1039,6 +1047,22 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
   }, [])
 
   useEffect(() => { fetchWishlist() }, [fetchWishlist])
+
+  // 帖子收藏：切到帖子分类时懒加载
+  useEffect(() => {
+    if (category !== 'posts' || postCollects || !user?.id) return
+    getUserCollections(user.id, 1, 50)
+      .then((res) => setPostCollects(res.data.data ?? []))
+      .catch(() => setPostCollects([]))
+  }, [category, postCollects, user?.id])
+
+  // 心愿收藏：切到心愿分类时懒加载
+  useEffect(() => {
+    if (category !== 'wishes' || wishCollects) return
+    listWishCollections(undefined, 50)
+      .then((res) => setWishCollects(res.data.data ?? []))
+      .catch(() => setWishCollects([]))
+  }, [category, wishCollects])
 
   const handleRemoveClick = (productId: number) => {
     setRemoveTargetId(productId)
@@ -1055,41 +1079,140 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
       .catch(() => onToast('操作失败', 'error'))
   }
 
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
-  }
+  const categories: Array<{ key: 'products' | 'posts' | 'wishes'; label: string }> = [
+    { key: 'products', label: '🛍️ 商品' },
+    { key: 'posts', label: '📝 帖子' },
+    { key: 'wishes', label: '🌟 心愿' },
+  ]
 
   return (
     <div>
-      <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 16 }}>我的收藏</h3>
-      {items.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>❤️</div>
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>暂无收藏商品</div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
-          {items.map((item) => (
-            <div key={item.id} className={s.wishlistCard} onClick={() => history.push(`/products/${item.productId}`)}>
-              <div style={{ height: 160, background: 'rgba(var(--color-primary-rgb), 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {item.mainImage ? (
-                  <img src={item.mainImage} alt={item.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.3)" strokeWidth="1.5">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                  </svg>
-                )}
-              </div>
-              <div style={{ padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{item.productName}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-primary)' }}>¥{item.minPrice.toFixed(2)}</span>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveClick(item.productId) }} style={{ padding: '3px 8px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 11, cursor: 'pointer' }}>取消</button>
+      {/* 收藏分类切换 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {categories.map((cat) => {
+          const active = category === cat.key
+          return (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => setCategory(cat.key)}
+              style={{
+                padding: '6px 16px',
+                borderRadius: 8,
+                border: active ? '1px solid rgba(var(--color-primary-rgb), 0.4)' : '1px solid var(--color-border)',
+                background: active ? 'rgba(var(--color-primary-rgb), 0.1)' : 'transparent',
+                color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                fontSize: 13,
+                fontWeight: active ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              {cat.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 商品收藏 */}
+      {category === 'products' && (
+        loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>🛍️</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>暂无收藏商品</div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
+            {items.map((item) => (
+              <div key={item.id} className={s.wishlistCard} onClick={() => history.push(`/products/${item.productId}`)}>
+                <div style={{ height: 160, background: 'rgba(var(--color-primary-rgb), 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {item.mainImage ? (
+                    <img src={item.mainImage} alt={item.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.3)" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  )}
+                </div>
+                <div style={{ padding: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{item.productName}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-primary)' }}>¥{item.minPrice.toFixed(2)}</span>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveClick(item.productId) }} style={{ padding: '3px 8px', border: '1px solid rgba(255,71,87,0.3)', borderRadius: 6, background: 'transparent', color: 'var(--color-accent-red)', fontSize: 11, cursor: 'pointer' }}>取消</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* 帖子收藏 */}
+      {category === 'posts' && (
+        postCollects === null ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
+        ) : postCollects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>📝</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>暂无收藏的帖子</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
+            {postCollects.map((post) => (
+              <div
+                key={post.id}
+                className={s.wishlistCard}
+                onClick={() => history.push(`/post/${post.id}`)}
+                style={{ display: 'flex', gap: 14, alignItems: 'center' }}
+              >
+                {post.coverImage && (
+                  <img src={post.coverImage} alt={post.title} style={{ width: 96, height: 64, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{post.title}</div>
+                  <div style={{ display: 'flex', gap: 12, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                    <span>❤️ {post.likeCount}</span>
+                    <span>💬 {post.commentCount}</span>
+                    <span>{'collectedAt' in post && post.collectedAt ? new Date(String(post.collectedAt)).toLocaleDateString() : ''}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* 心愿收藏 */}
+      {category === 'wishes' && (
+        wishCollects === null ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
+        ) : wishCollects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>🌟</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>暂无收藏的心愿</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
+            {wishCollects.map((item) => (
+              <div
+                key={item.collectionId}
+                className={s.wishlistCard}
+                onClick={() => history.push(`/wish/${item.wishId}`)}
+                style={{ display: 'flex', gap: 14, alignItems: 'center' }}
+              >
+                <div style={{ fontSize: 26, flexShrink: 0 }}>🌟</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{item.title}</div>
+                  <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                    收藏于 {new Date(item.collectedAt).toLocaleDateString('zh-CN')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       <ConfirmDialog
@@ -1226,7 +1349,7 @@ export default function UserCenterPage() {
     { label: '帖子', value: communityProfile.postCount, config: STAT_ITEMS_CONFIG[0], onClick: () => { setActiveTab('posts') } },
     { label: '粉丝', value: communityProfile.followerCount, config: STAT_ITEMS_CONFIG[1], onClick: () => { history.push(`/user/${user?.id}/following?tab=followers`) } },
     { label: '关注', value: communityProfile.followCount, config: STAT_ITEMS_CONFIG[2], onClick: () => { history.push(`/user/${user?.id}/following?tab=following`) } },
-    { label: '收藏', value: communityProfile.collectCount, config: STAT_ITEMS_CONFIG[3], onClick: () => { history.push('/collections') } },
+    { label: '收藏', value: communityProfile.collectCount, config: STAT_ITEMS_CONFIG[3], onClick: () => { setActiveTab('wishlist') } },
   ]
 
   const nextLevelConfig = levelConfigs.find((c) => c.level === (levelInfo?.level ?? 0) + 1)

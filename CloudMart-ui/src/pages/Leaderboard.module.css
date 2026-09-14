@@ -118,12 +118,12 @@
 
 .rankTop1 {
   background: linear-gradient(135deg, #ffd700, #ffb347);
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .rankTop2 {
   background: linear-gradient(135deg, #c0c0c0, #9aa5b1);
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .rankTop3 {

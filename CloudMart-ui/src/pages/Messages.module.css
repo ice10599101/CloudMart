@@ -120,7 +120,7 @@
 }
 
 .tabActive .tabBadge {
-  background: rgba(11, 18, 32, 0.3);
+  background: rgba(var(--color-primary-rgb), 0.35);
   color: var(--color-bg-base);
 }
 
