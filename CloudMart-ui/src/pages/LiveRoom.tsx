@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'umi'
+import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { getLiveRoom, enterLiveRoom } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
 import WishLiveWidget from '@/components/WishLiveWidget'
@@ -22,6 +23,7 @@ export default function LiveRoomPage() {
   const [loading, setLoading] = useState(true)
   const [messages, setMessages] = useState<DanmakuMessage[]>([])
   const [inputValue, setInputValue] = useState('')
+  const danmakuInputRef = useRef<any>(null)
   const [likes, setLikes] = useState(0)
   const [wsConnected, setWsConnected] = useState(false)
 
@@ -288,7 +290,14 @@ export default function LiveRoomPage() {
             gap: 8,
             alignItems: 'center',
           }}>
+            <CommentToolbar
+              textareaRef={danmakuInputRef}
+              onInsert={(fragment) =>
+                setInputValue((prev) => insertAtCursor(danmakuInputRef, fragment, prev, 100))
+              }
+            />
             <input
+              ref={danmakuInputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') sendMessage() }}

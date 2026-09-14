@@ -16,6 +16,7 @@ import {
   MailOutlined,
   FlagOutlined,
   BellOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -154,6 +155,16 @@ export default function WishHome() {
               >
                 <HeartOutlined className={styles.entryIcon} style={{ color: '#FF6B6B' }} />
                 <div className={styles.entryText}>我的心愿</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/signin')}
+              >
+                <CalendarOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
+                <div className={styles.entryText}>每日签到</div>
               </Card>
             </Col>
             {/* 发布心愿入口与顶部「许下心愿」按钮重复，仅保留横幅按钮 */}

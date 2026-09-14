@@ -155,6 +155,32 @@ const BENEFIT_DETAILS: Record<string, string> = {
   活动特权: '专享活动通道与稀有装扮特权',
 }
 
+/** 权益 → 所需等级（与 level_configs.benefits 口径一致） */
+const BENEFIT_MIN_LEVEL: Record<string, number> = {
+  基础功能: 1,
+  自定义头像框: 2,
+  专属标签: 3,
+  优先推荐: 4,
+  官方活动优先: 5,
+  全部功能: 6,
+  专属标识: 6,
+  官方认证: 6,
+  活动特权: 6,
+}
+
+/** 权益固定顺序（面板按此排列） */
+const BENEFIT_ORDER = [
+  '基础功能',
+  '自定义头像框',
+  '专属标签',
+  '优先推荐',
+  '官方活动优先',
+  '专属标识',
+  '官方认证',
+  '活动特权',
+  '全部功能',
+]
+
 const EXP_SOURCE_MAP: Record<string, { label: string; icon: string }> = {
   CHECK_IN: { label: '每日签到', icon: '📅' },
   POST: { label: '发布帖子', icon: '📝' },
@@ -176,6 +202,21 @@ const CONSTELLATIONS = [
   '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
   '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座',
 ]
+
+/** 头像框方案（权益：自定义头像框，Lv2+ 解锁）——选中项持久化并应用于顶部头像 */
+const AVATAR_FRAMES = [
+  { key: 'none', label: '默认', ring: 'none' },
+  { key: 'gold', label: '金环', ring: 'conic-gradient(from 0deg, #ffd700, #ff6b35, #ffd700)' },
+  { key: 'purple', label: '紫晕', ring: 'conic-gradient(from 0deg, #9370db, #00d4ff, #9370db)' },
+  { key: 'green', label: '翠光', ring: 'conic-gradient(from 0deg, #2ed573, #ffd700, #2ed573)' },
+  { key: 'pink', label: '樱粉', ring: 'conic-gradient(from 0deg, #ff7eb3, #ff5a8a, #ff7eb3)' },
+  { key: 'rainbow', label: '彩虹', ring: 'conic-gradient(from 0deg, #ff6b6b, #ffd700, #2ed573, #00d4ff, #9370db, #ff6b6b)' },
+] as const
+
+const AVATAR_FRAME_KEY = 'avatar_frame'
+const readAvatarFrame = () => {
+  try { return localStorage.getItem(AVATAR_FRAME_KEY) ?? 'none' } catch { return 'none' }
+}
 
 const GENDER_OPTIONS = [
   { value: 'UNKNOWN', label: '未设置' },
@@ -1079,6 +1120,23 @@ export default function UserCenterPage() {
   const [expLogsOpen, setExpLogsOpen] = useState(false)
   // 当前权益面板：手风琴展开的权益名
   const [expandedBenefit, setExpandedBenefit] = useState<string | null>(null)
+  // 等级（权益判定基准；levelInfo 加载完成为准，未加载用缓存）
+  const userLevel = levelInfo?.level ?? Number(localStorage.getItem('user_level') ?? 0)
+  // 自定义头像框（Lv2+ 权益）：未达标时锁定为默认
+  const [avatarFrame, setAvatarFrame] = useState(readAvatarFrame())
+  const frameUnlocked = userLevel >= 2
+  const applyAvatarFrame = (key: string) => {
+    if (!frameUnlocked) return
+    try {
+      localStorage.setItem(AVATAR_FRAME_KEY, key)
+      window.dispatchEvent(new CustomEvent('avatar-frame-changed', { detail: key }))
+    } catch { /* ignore */ }
+    setAvatarFrame(key)
+  }
+  const activeFrame = AVATAR_FRAMES.find((f) => f.key === avatarFrame) ?? AVATAR_FRAMES[0]
+  const frameStyle = frameUnlocked && activeFrame.ring !== 'none'
+      ? { border: `3px solid transparent`, background: `linear-gradient(var(--color-bg-base), var(--color-bg-base)) padding-box, ${activeFrame.ring} border-box` }
+      : undefined
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [continuousDays, setContinuousDays] = useState(0)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -1153,6 +1211,13 @@ export default function UserCenterPage() {
     fetchCommunityProfile(); fetchLevelInfo(); fetchLevelConfigs(); fetchRecentActivities(); fetchSigninOverview()
   }, [user?.id])
 
+  // 等级持久化：Home（优先推荐标记）/Activities（官方活动优先横幅）读取（必须在 hooks 区）
+  useEffect(() => {
+    if (levelInfo?.level) {
+      try { localStorage.setItem('user_level', String(levelInfo.level)) } catch { /* ignore */ }
+    }
+  }, [levelInfo?.level])
+
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', background: 'var(--color-bg-base)' }}><div className={s.spinner} style={{ width: 40, height: 40 }} /></div>
   }
@@ -1167,6 +1232,12 @@ export default function UserCenterPage() {
   const nextLevelConfig = levelConfigs.find((c) => c.level === (levelInfo?.level ?? 0) + 1)
   const currentLevelConfig = levelConfigs.find((c) => c.level === levelInfo?.level)
   const currentBenefits = currentLevelConfig?.benefits ? (() => { try { return JSON.parse(currentLevelConfig.benefits) as string[] } catch { return [] } })() : []
+  // 全量权益列表：固定顺序 + 每项所需等级 + 拥有状态
+  const allBenefits = BENEFIT_ORDER.map((name) => ({
+    name,
+    minLevel: BENEFIT_MIN_LEVEL[name] ?? 1,
+    owned: userLevel >= (BENEFIT_MIN_LEVEL[name] ?? 1),
+  }))
 
   return (
     <div className={s.userCenter}>
@@ -1187,7 +1258,8 @@ export default function UserCenterPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 28 }}>
             <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
               <div className={s.avatarRing} />
-              <div className={s.avatarInner}>
+              <div style={{ position: 'relative' }}>
+              <div className={s.avatarInner} style={frameStyle}>
                 {user?.avatar ? (
                   <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
@@ -1211,6 +1283,16 @@ export default function UserCenterPage() {
                 boxShadow: '0 2px 8px rgba(255, 215, 0, 0.4)',
                 letterSpacing: '0.5px',
               }}>{levelInfo.levelIcon || '⭐'} LV{levelInfo.level}</div>}
+              {userLevel >= 6 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -2,
+                    fontSize: 20,
+                    filter: 'drop-shadow(0 2px 6px rgba(255, 215, 0, 0.6))',
+                  }} title="Lv6 专属标识">👑</div>
+              )}
+            </div>
             </div>
 
             <div style={{ flex: 1, paddingTop: 4 }}>
@@ -1225,6 +1307,19 @@ export default function UserCenterPage() {
                   fontSize: 13,
                   fontWeight: 600,
                 }}>{levelInfo.levelTitle}</span>}
+                {userLevel >= 6 && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 12px',
+                      borderRadius: 8,
+                      background: 'linear-gradient(135deg, #ffd700, #ff6b35)',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }} title="Lv6 官方认证">🏅 官方认证</span>
+                )}
               </h1>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
@@ -1351,21 +1446,15 @@ export default function UserCenterPage() {
                 <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)' }}>当前权益</span>
               </div>
               <div className={s.panelBody}>
-                {currentBenefits.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                    <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>暂无专属权益</div>
-                    <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, marginTop: 4 }}>提升等级解锁更多权益</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {currentBenefits.map((benefit) => {
-                      const isExpanded = expandedBenefit === benefit
-                      const detail = BENEFIT_DETAILS[benefit] ?? '提升等级即可享受该权益'
-                      return (
-                        <div key={benefit}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {allBenefits.map((benefit) => {
+                    const isExpanded = expandedBenefit === benefit.name
+                    const detail = BENEFIT_DETAILS[benefit.name] ?? '提升等级即可享受该权益'
+                    return (
+                        <div key={benefit.name}>
                           <button
                             type="button"
-                            onClick={() => setExpandedBenefit(isExpanded ? null : benefit)}
+                            onClick={() => setExpandedBenefit(isExpanded ? null : benefit.name)}
                             aria-expanded={isExpanded}
                             style={{
                               width: '100%',
@@ -1381,8 +1470,24 @@ export default function UserCenterPage() {
                               textAlign: 'left',
                             }}
                           >
-                            <span style={{ color: 'var(--color-accent-gold)', fontSize: 12 }}>✦</span>
-                            <span style={{ color: 'var(--color-text-secondary)', fontSize: 13, flex: 1 }}>{benefit}</span>
+                            <span style={{ color: benefit.owned ? 'var(--color-accent-gold)' : 'var(--color-text-tertiary)', fontSize: 12 }}>
+                              {benefit.owned ? '✦' : '🔒'}
+                            </span>
+                            <span style={{
+                              color: benefit.owned ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)',
+                              fontSize: 13,
+                              flex: 1,
+                            }}>{benefit.name}</span>
+                            <span style={{
+                              fontSize: 10,
+                              padding: '1px 6px',
+                              borderRadius: 6,
+                              background: benefit.owned ? 'rgba(50, 205, 50, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                              color: benefit.owned ? 'var(--color-accent-green)' : 'var(--color-text-tertiary)',
+                              flexShrink: 0,
+                            }}>
+                              {benefit.owned ? '已拥有' : `Lv${benefit.minLevel} 解锁`}
+                            </span>
                             <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11, transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▸</span>
                           </button>
                           {isExpanded && (
@@ -1397,16 +1502,55 @@ export default function UserCenterPage() {
                               lineHeight: 1.7,
                             }}>
                               {detail}
+                              {!benefit.owned && (
+                                <span style={{ color: 'var(--color-accent-gold)' }}>（需 Lv{benefit.minLevel}，当前 Lv{userLevel}）</span>
+                              )}
+                              {benefit.name === '自定义头像框' && benefit.owned && (
+                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                  {AVATAR_FRAMES.map((f) => {
+                                    const active = avatarFrame === f.key
+                                    return (
+                                        <button
+                                          key={f.key}
+                                          type="button"
+                                          title={f.label}
+                                          aria-label={`头像框：${f.label}`}
+                                          onClick={() => applyAvatarFrame(f.key)}
+                                          style={{
+                                            width: 34,
+                                            height: 34,
+                                            borderRadius: '50%',
+                                            padding: 0,
+                                            border: active ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                            background: f.ring === 'none'
+                                                ? 'var(--color-bg-input)'
+                                                : f.ring,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}
+                                        >
+                                          {f.ring === 'none' && (
+                                              <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>无</span>
+                                          )}
+                                        </button>
+                                    )
+                                  })}
+                                  <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11 }}>
+                                    当前：{activeFrame.label}（顶栏头像同步生效）
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )
-                    })}
-                    <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, textAlign: 'center', padding: '4px 0 2px' }}>
-                      点击权益查看具体功能
-                    </div>
+                    )
+                  })}
+                  <div style={{ color: 'var(--color-text-tertiary)', fontSize: 11, textAlign: 'center', padding: '4px 0 2px' }}>
+                    点击权益查看功能详情 · 已拥有 {allBenefits.filter((b) => b.owned).length}/{allBenefits.length}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

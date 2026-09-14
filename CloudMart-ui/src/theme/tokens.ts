@@ -30,6 +30,7 @@ export interface ThemeTokens {
   colorAvatarRing1: string
   colorAvatarRing2: string
   colorAvatarRing3: string
+  colorDivider: string
   colorBadgeBg: string
   colorStatCardBg: string
   colorCardTopBar: string
@@ -69,6 +70,7 @@ const OCEAN_THEME: ThemeTokens = {
   colorAvatarRing1: '#00D4FF',
   colorAvatarRing2: '#9370DB',
   colorAvatarRing3: '#FFD700',
+  colorDivider: 'rgba(255, 255, 255, 0.06)',
   colorBadgeBg: 'rgba(0, 212, 255, 0.12)',
   colorStatCardBg: 'rgba(0, 212, 255, 0.15)',
   colorCardTopBar: 'linear-gradient(90deg, #FFD700, #FFA500, #FF6B35)',
@@ -99,6 +101,7 @@ const SAKURA_THEME: ThemeTokens = {
   colorAccentGreen: '#4CAF50',
   colorAccentRed: '#E8456B',
   colorAccentOrange: '#FF8A65',
+  colorDivider: 'rgba(45, 27, 46, 0.1)',
   colorGradientPrimary: 'linear-gradient(135deg, #FF7EB3, #FF5A8A)',
   colorGradientHero: 'linear-gradient(135deg, #FFF5F8 0%, #FFE8F0 40%, #FFF0F5 70%, #FFF5F8 100%)',
   colorGradientGold: 'linear-gradient(90deg, #F5A623, #E09500, #FF8A65)',
@@ -161,6 +164,7 @@ export function applyCssVariables(tokens: ThemeTokens, mode?: ThemeMode): void {
   root.style.setProperty('--color-avatar-ring1', tokens.colorAvatarRing1)
   root.style.setProperty('--color-avatar-ring2', tokens.colorAvatarRing2)
   root.style.setProperty('--color-avatar-ring3', tokens.colorAvatarRing3)
+  root.style.setProperty('--color-divider', tokens.colorDivider)
   root.style.setProperty('--color-badge-bg', tokens.colorBadgeBg)
   root.style.setProperty('--color-stat-card-bg', tokens.colorStatCardBg)
   root.style.setProperty('--color-card-top-bar', tokens.colorCardTopBar)

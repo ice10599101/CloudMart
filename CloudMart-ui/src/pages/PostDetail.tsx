@@ -3,6 +3,10 @@ import { useParams, history } from 'umi'
 import { Spin, Empty, Avatar, Input, Dropdown, Popconfirm, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import Skeleton from '@/components/Skeleton'
+import CommentToolbar, {
+  insertAtCursor,
+  splitCommentImages,
+} from '@/components/CommentToolbar'
 import {
   ArrowLeftOutlined,
   HeartOutlined,
@@ -229,21 +233,34 @@ function MediaGallery({ mediaUrls, mediaType, coverImage }: { mediaUrls: string[
 }
 
 function renderCommentContent(content: string) {
-  const parts = content.split(/(@[\w\u4e00-\u9fa5]+)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('@') && part.length > 1) {
-      const nickname = part.slice(1)
+  // 先拆图片段（![图片](url)），文本段继续走 @高亮
+  return splitCommentImages(content).map((part, partIndex) => {
+    if (part.type === 'image') {
       return (
-        <span
-          key={i}
-          style={{ color: 'var(--color-primary)', cursor: 'pointer' }}
-          onClick={() => history.push(`/search?q=${encodeURIComponent(nickname)}`)}
-        >
-          {part}
-        </span>
+        <img
+          key={`img-${partIndex}`}
+          src={part.value}
+          alt="图片"
+          style={{ maxWidth: 'min(100%, 280px)', maxHeight: 220, borderRadius: 10, display: 'block', margin: '6px 0' }}
+        />
       )
     }
-    return part
+    const parts = part.value.split(/(@[\w\u4e00-\u9fa5]+)/g)
+    return parts.map((text, i) => {
+      if (text.startsWith('@') && text.length > 1) {
+        const nickname = text.slice(1)
+        return (
+          <span
+            key={`${partIndex}-${i}`}
+            style={{ color: 'var(--color-primary)', cursor: 'pointer' }}
+            onClick={() => history.push(`/search?q=${encodeURIComponent(nickname)}`)}
+          >
+            {text}
+          </span>
+        )
+      }
+      return text
+    })
   })
 }
 
@@ -425,6 +442,8 @@ export default function PostDetail() {
   const likeInFlightRef = useRef(false)
   const [commentLikedIds, setCommentLikedIds] = useState<Set<number>>(new Set())
   const [commentText, setCommentText] = useState('')
+  const [pendingImages, setPendingImages] = useState<string[]>([])
+  const commentTextareaRef = useRef<any>(null)
   const [replyTarget, setReplyTarget] = useState<{
     nickname: string
     parentId: number
@@ -654,7 +673,9 @@ export default function PostDetail() {
       await createComment(
         id,
         {
-          content: commentText.trim(),
+          content:
+              commentText.trim() +
+              pendingImages.map((url) => `\n![图片](${url})`).join(''),
           parentId: replyTarget?.parentId,
           replyToUserId: replyTarget?.replyToUserId,
         },
@@ -1104,7 +1125,34 @@ export default function PostDetail() {
             </span>
           </h3>
 
-          <div style={{ marginBottom: 24 }}>
+          {comments.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 0',
+              color: 'var(--color-text-tertiary)',
+              fontSize: 14,
+            }}>
+              暂无评论，快来抢沙发吧~
+            </div>
+          ) : (
+            <div>
+              {comments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  commentLikedIds={commentLikedIds}
+                  onToggleLike={handleToggleCommentLike}
+                  onReply={handleReply}
+                  onReport={handleReportComment}
+                  isOwnComment={comment.userId === currentUser?.id}
+                  onDelete={handleDeleteComment}
+                  currentUserId={currentUser?.id}
+                />
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 24 }}>
             {replyTarget && (
               <div style={{
                 display: 'flex',
@@ -1136,6 +1184,7 @@ export default function PostDetail() {
             <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
               <div style={{ flex: 1, position: 'relative' }}>
                 <Input.TextArea
+                  ref={commentTextareaRef}
                   value={commentText}
                   onChange={handleCommentTextChange}
                   placeholder={isAuthenticated ? '写下你的评论... (@提及用户)' : '请先登录后再评论'}
@@ -1158,6 +1207,22 @@ export default function PostDetail() {
                     }
                   }}
                 />
+                <div style={{ marginTop: 6 }}>
+                  <CommentToolbar
+                    textareaRef={commentTextareaRef}
+                    onInsert={(fragment) =>
+                      setCommentText((prev) =>
+                          insertAtCursor(commentTextareaRef, fragment, prev, 1000),
+                      )
+                    }
+                    pendingImages={pendingImages}
+                    onImagePicked={(url) => setPendingImages((prev) => [...prev, url])}
+                    onRemoveImage={(url) =>
+                      setPendingImages((prev) => prev.filter((item) => item !== url))
+                    }
+                    disabled={!isAuthenticated || submitting}
+                  />
+                </div>
                 {mentionVisible && mentionResults.length > 0 && (
                   <div style={{
                     position: 'absolute',
@@ -1224,32 +1289,7 @@ export default function PostDetail() {
             </div>
           </div>
 
-          {comments.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '40px 0',
-              color: 'var(--color-text-tertiary)',
-              fontSize: 14,
-            }}>
-              暂无评论，快来抢沙发吧~
-            </div>
-          ) : (
-            <div>
-              {comments.map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  commentLikedIds={commentLikedIds}
-                  onToggleLike={handleToggleCommentLike}
-                  onReply={handleReply}
-                  onReport={handleReportComment}
-                  isOwnComment={comment.userId === currentUser?.id}
-                  onDelete={handleDeleteComment}
-                  currentUserId={currentUser?.id}
-                />
-              ))}
-            </div>
-          )}
+
         </div>
       </div>
 

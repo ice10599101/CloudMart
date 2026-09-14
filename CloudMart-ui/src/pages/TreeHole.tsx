@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { App, Button, Input, Modal, Spin, Tag } from 'antd'
+import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { ArrowLeftOutlined, SendOutlined, PhoneOutlined, ReadOutlined } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import {
@@ -58,6 +59,7 @@ export default function TreeHole() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const treeHoleInputRef = useRef<any>(null)
   const [sending, setSending] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [consentOpen, setConsentOpen] = useState(false)
@@ -313,7 +315,15 @@ export default function TreeHole() {
       </div>
 
       <div className={styles.inputArea}>
+        <CommentToolbar
+          textareaRef={treeHoleInputRef}
+          onInsert={(fragment) =>
+            setInput((prev) => insertAtCursor(treeHoleInputRef, fragment, prev, 2000))
+          }
+          disabled={sending}
+        />
         <Input.TextArea
+          ref={treeHoleInputRef}
           className={styles.input}
           value={input}
           onChange={(e) => setInput(e.target.value)}

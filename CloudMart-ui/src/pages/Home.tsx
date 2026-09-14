@@ -114,6 +114,10 @@ function PostCard({
     }
   }
 
+  // 权益「优先推荐」（Lv4+）：自己的帖子在推荐流带专属角标
+  const ownLevel = Number(localStorage.getItem('user_level') ?? 0)
+  const showPriorityTag = isOwnPost && ownLevel >= 4
+
   return (
     <div className={styles.postCard} onClick={() => history.push(`/post/${post.id}`)}>
       <div className={styles.postHeader}>
@@ -146,6 +150,17 @@ function PostCard({
               {isWishPost ? '🌟 心愿宇宙' : '📝 社区'}
             </span>
             {post.authorNickname || '未知用户'}
+            {showPriorityTag && (
+                <span style={{
+                  fontSize: 10,
+                  padding: '1px 6px',
+                  borderRadius: 5,
+                  marginLeft: 6,
+                  fontWeight: 600,
+                  background: 'rgba(255, 215, 0, 0.15)',
+                  color: 'var(--color-accent-gold)',
+                }} title="Lv4 权益：您的帖子在推荐流中获得加权">⚡优先推荐</span>
+            )}
           </div>
           <div className={styles.postTime}>{timeAgo(post.createdAt)}</div>
         </div>

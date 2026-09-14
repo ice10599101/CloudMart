@@ -4,7 +4,6 @@ import 'dayjs/locale/zh-cn'
 import { ConfigProvider, theme, Input, Badge, Avatar, Dropdown, App, Drawer } from 'antd'
 import {
   ShoppingCartOutlined,
-  BellOutlined,
   UserOutlined,
   AppstoreOutlined,
   VideoCameraOutlined,
@@ -331,6 +330,29 @@ export default function UserLayout() {
   const [searchValue, setSearchValue] = useState('')
   const [hoveredNav, setHoveredNav] = useState<string | null>(null)
   const [avatarHovered, setAvatarHovered] = useState(false)
+  /** 自定义头像框（Lv2+ 权益）：跟随 profile 页选择（事件 + 初始读取） */
+  const [frameRing, setFrameRing] = useState<string | null>(() => {
+    try {
+      const key = localStorage.getItem('avatar_frame')
+      const level = Number(localStorage.getItem('user_level') ?? 0)
+      return key && key !== 'none' && level >= 2 ? key : null
+    } catch { return null }
+  })
+  useEffect(() => {
+    const onFrameChange = (event: Event) => {
+      const key = (event as CustomEvent<string>).detail
+      setFrameRing(key && key !== 'none' ? key : null)
+    }
+    window.addEventListener('avatar-frame-changed', onFrameChange)
+    return () => window.removeEventListener('avatar-frame-changed', onFrameChange)
+  }, [])
+  const frameRingStyle: Record<string, string> = {
+    gold: 'conic-gradient(from 0deg, #ffd700, #ff6b35, #ffd700)',
+    purple: 'conic-gradient(from 0deg, #9370db, #00d4ff, #9370db)',
+    green: 'conic-gradient(from 0deg, #2ed573, #ffd700, #2ed573)',
+    pink: 'conic-gradient(from 0deg, #ff7eb3, #ff5a8a, #ff7eb3)',
+    rainbow: 'conic-gradient(from 0deg, #ff6b6b, #ffd700, #2ed573, #00d4ff, #9370db, #ff6b6b)',
+  }
   // 移动端（≤768px）：header 收纳为汉堡菜单，避免桌面导航/搜索/操作条撑破窄视口
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches)
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
@@ -537,21 +559,6 @@ export default function UserLayout() {
             />
           </Badge>
 
-          <Badge count={unreadCount} size="small" offset={[2, -2]} color={tokens.colorAccentRed}>
-            <BellOutlined
-              style={styles.iconBtn}
-              onClick={() => history.push('/profile')}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = tokens.colorPrimary
-                e.currentTarget.style.textShadow = `0 0 12px rgba(${tokens.colorPrimaryRgb}, 0.4)`
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = tokens.colorTextSecondary
-                e.currentTarget.style.textShadow = 'none'
-              }}
-            />
-          </Badge>
-
           {!isMobile && (
             <RobotOutlined
               style={styles.iconBtn}
@@ -596,14 +603,23 @@ export default function UserLayout() {
                 onMouseEnter={() => setAvatarHovered(true)}
                 onMouseLeave={() => setAvatarHovered(false)}
               >
-                <Avatar
-                  icon={<UserOutlined />}
-                  src={user?.avatar}
+                <span
                   style={{
-                    ...styles.avatar,
-                    borderColor: avatarHovered ? tokens.colorPrimary : tokens.colorBorder,
+                    display: 'inline-flex',
+                    padding: frameRing ? 2 : 0,
+                    borderRadius: '50%',
+                    background: frameRing ? frameRingStyle[frameRing] ?? 'transparent' : 'transparent',
                   }}
-                />
+                >
+                  <Avatar
+                    icon={<UserOutlined />}
+                    src={user?.avatar}
+                    style={{
+                      ...styles.avatar,
+                      borderColor: avatarHovered ? tokens.colorPrimary : tokens.colorBorder,
+                    }}
+                  />
+                </span>
               </span>
             </Dropdown>
           )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
 import { Spin, Dropdown } from 'antd'
+import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { message } from '@/utils/appMessage'
 import { ArrowLeftOutlined, MessageOutlined, UndoOutlined } from '@ant-design/icons'
 import Skeleton from '@/components/Skeleton'
@@ -576,6 +577,12 @@ export default function Chat() {
               </div>
 
               <div className={styles.inputArea}>
+                <CommentToolbar
+                  textareaRef={textInputRef}
+                  onInsert={(fragment) =>
+                    setInputText((prev) => insertAtCursor(textInputRef, fragment, prev, 500))
+                  }
+                />
                 <div className={styles.inputWrap}>
                   <textarea
                     ref={textInputRef}

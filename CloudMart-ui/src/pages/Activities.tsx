@@ -131,6 +131,22 @@ export default function Activities() {
         <div className={styles.headerBar}>
           <div>
             <h1 className={styles.pageTitle}>🎪 社区活动</h1>
+            {Number(localStorage.getItem('user_level') ?? 0) >= 5 && (
+                <div style={{
+                  marginTop: 12,
+                  padding: '10px 16px',
+                  borderRadius: 12,
+                  background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 107, 53, 0.1))',
+                  border: '1px solid rgba(255, 215, 0, 0.35)',
+                  color: 'var(--color-accent-gold)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}>
+                  🎁 {Number(localStorage.getItem('user_level') ?? 0) >= 6
+                      ? 'Lv6 专属：您享有官方活动优先参与权与专属活动通道'
+                      : '您享有官方活动优先参与权（Lv5 权益）'}
+                </div>
+            )}
             <p className={styles.pageSubtitle}>世界事件 · 节日活动 · 城市活动 · 心愿合伙人</p>
           </div>
           <Select

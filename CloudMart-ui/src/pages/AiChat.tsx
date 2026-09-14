@@ -86,7 +86,14 @@ export default function AiChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
+  // 进入页面停在顶部（从第一条消息看起）；仅新消息到达时才滚到底部
+  const initialScrollDoneRef = useRef(false)
   useEffect(() => {
+    if (!initialScrollDoneRef.current) {
+      initialScrollDoneRef.current = true
+      window.scrollTo({ top: 0 })
+      return
+    }
     scrollToBottom()
   }, [messages, scrollToBottom])
 

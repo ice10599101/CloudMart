@@ -2,7 +2,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(ellipse at 50% 20%, #1a2a4a 0%, #1a1a2e 55%, #101024 100%);
+  background: var(--color-bg-base);
   overflow: hidden;
 }
 
@@ -19,7 +19,7 @@
 }
 
 .backBtn {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-text-secondary);
 }
 
 .titleWrap {
@@ -39,7 +39,7 @@
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-text);
   letter-spacing: 2px;
 }
 
@@ -57,13 +57,13 @@
   margin-left: auto;
   display: flex;
   gap: 20px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--color-text-tertiary);
   font-size: 14px;
   flex-wrap: wrap;
 }
 
 .statItem strong {
-  color: #00d4ff;
+  color: var(--color-primary);
   font-weight: 600;
   margin-left: 4px;
 }
@@ -87,7 +87,7 @@
   display: block;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: radial-gradient(ellipse at 50% 40%, rgba(15, 52, 96, 0.35) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 50% 40%, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 70%);
   cursor: grab;
   touch-action: none;
 }
@@ -135,7 +135,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -154,7 +154,7 @@
   border-radius: 12px;
   background: rgba(22, 33, 62, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-text-tertiary);
   font-size: 13px;
   backdrop-filter: blur(4px);
 }
@@ -179,13 +179,13 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-text-secondary);
   font-size: 13px;
   flex-wrap: wrap;
 }
 
 .fruitAuthor {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-secondary);
 }
 
 .fruitLight {

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { App, Avatar, Button, Empty, Input, Popconfirm, Spin, Tag } from 'antd'
 import { DeleteOutlined, MessageOutlined, StarOutlined } from '@ant-design/icons'
+import CommentToolbar, {
+  insertAtCursor,
+  splitCommentImages,
+} from '@/components/CommentToolbar'
 import {
   createWishComment,
   deleteWishComment,
@@ -43,6 +47,18 @@ export default function WishCommentSection({
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [content, setContent] = useState('')
+  const [pendingImages, setPendingImages] = useState<string[]>([])
+  const textareaRef = useRef<any>(null)
+
+  /** 评论内容渲染：![图片](url) 模式还原为图片，其余文本（后端已转义）原样渲染 */
+  const renderContent = (text: string) =>
+      splitCommentImages(text).map((part, i) =>
+          part.type === 'image' ? (
+              <img key={i} src={part.value} alt="图片" className={styles.commentImage} />
+          ) : (
+              <span key={i}>{part.value}</span>
+          ),
+      )
   const [submitting, setSubmitting] = useState(false)
   const [replyTo, setReplyTo] = useState<WishCommentItem | null>(null)
   const [deletingId, setDeletingId] = useState<number | string | null>(null)
@@ -115,11 +131,14 @@ export default function WishCommentSection({
     setSubmitting(true)
     try {
       const res = await createWishComment(wishId, {
-        content: trimmed,
+        content:
+            trimmed +
+            pendingImages.map((url) => `\n![图片](${url})`).join(''),
         parentId: replyTo?.id,
       })
       if (res.data.success) {
         setContent('')
+        setPendingImages([])
         setReplyTo(null)
         onCountChange(1)
         // 重新拉第一页：新评论应出现在时间倒序首位
@@ -159,55 +178,6 @@ export default function WishCommentSection({
         <span className={styles.headerCount}>{commentCount}</span>
       </div>
 
-      {/* 发表/回复输入区 */}
-      {isLoggedIn ? (
-        <div className={styles.composer}>
-          {replyTo && (
-            <div className={styles.replyBanner}>
-              <Tag color="gold" className={styles.replyTag}>
-                回复 @{replyTo.nickname}
-              </Tag>
-              <Button
-                type="link"
-                size="small"
-                onClick={() => setReplyTo(null)}
-                aria-label="取消回复"
-              >
-                取消回复
-              </Button>
-            </div>
-          )}
-          <Input.TextArea
-            value={content}
-            onChange={(e) => setContent(e.target.value.slice(0, COMMENT_CONTENT_MAX))}
-            placeholder={replyTo ? `回复 @${replyTo.nickname}...` : '写下你的鼓励与祝福...'}
-            rows={3}
-            maxLength={COMMENT_CONTENT_MAX}
-            showCount
-            disabled={submitting}
-          />
-          <div className={styles.composerActions}>
-            <Button
-              type="primary"
-              loading={submitting}
-              disabled={submitDisabled}
-              onClick={handleSubmit}
-            >
-              {replyTo ? '发送回复' : '发表评论'}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <Button
-          className={styles.loginPrompt}
-          type="dashed"
-          block
-          onClick={onRequireLogin}
-        >
-          登录后发表评论
-        </Button>
-      )}
-
       {/* 评论列表 */}
       {loading ? (
         <div className={styles.loadingWrap}>
@@ -238,12 +208,12 @@ export default function WishCommentSection({
                       {new Date(comment.createdAt).toLocaleString('zh-CN')}
                     </span>
                   </div>
-                  {/* content 后端已 XSS 转义，可直接渲染 */}
+                  {/* content 后端已 XSS 转义；图片模式在渲染层还原为图片 */}
                   <p className={styles.itemContent}>
                     {isReply && comment.replyToNickname && (
                       <span className={styles.replyRef}>回复 @{comment.replyToNickname}：</span>
                     )}
-                    {comment.content}
+                    {renderContent(comment.content)}
                   </p>
                   <div className={styles.itemActions}>
                     <Button
@@ -288,6 +258,72 @@ export default function WishCommentSection({
             加载更多评论
           </Button>
         </div>
+      )}
+
+      {/* 发表/回复输入区 */}
+      {isLoggedIn ? (
+        <div className={styles.composer}>
+          {replyTo && (
+            <div className={styles.replyBanner}>
+              <Tag color="gold" className={styles.replyTag}>
+                回复 @{replyTo.nickname}
+              </Tag>
+              <Button
+                type="link"
+                size="small"
+                onClick={() => setReplyTo(null)}
+                aria-label="取消回复"
+              >
+                取消回复
+              </Button>
+            </div>
+          )}
+          <Input.TextArea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value.slice(0, COMMENT_CONTENT_MAX))}
+            placeholder={replyTo ? `回复 @${replyTo.nickname}...` : '写下你的鼓励与祝福...'}
+            rows={3}
+            maxLength={COMMENT_CONTENT_MAX}
+            disabled={submitting}
+          />
+          <div className={styles.composerActions}>
+            <CommentToolbar
+              textareaRef={textareaRef}
+              onInsert={(fragment) =>
+                setContent((prev) => insertAtCursor(textareaRef, fragment, prev, COMMENT_CONTENT_MAX))
+              }
+              pendingImages={pendingImages}
+              onImagePicked={(url) =>
+                setPendingImages((prev) => [...prev, url])
+              }
+              onRemoveImage={(url) =>
+                setPendingImages((prev) => prev.filter((item) => item !== url))
+              }
+              disabled={submitting}
+            />
+            <span className={styles.charCount}>
+              {content.length}/{COMMENT_CONTENT_MAX}
+            </span>
+            <Button
+              type="primary"
+              loading={submitting}
+              disabled={submitDisabled}
+              onClick={handleSubmit}
+            >
+              {replyTo ? '发送回复' : '发表评论'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          className={styles.loginPrompt}
+          type="dashed"
+          block
+          onClick={onRequireLogin}
+        >
+          登录后发表评论
+        </Button>
       )}
     </div>
   )

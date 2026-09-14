@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Empty, Input, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal, Select, Upload, InputNumber } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
@@ -17,6 +17,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
+import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import DOMPurify from 'dompurify'
 import {
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
@@ -96,6 +97,9 @@ export default function WishDetail() {
   const [growthOpen, setGrowthOpen] = useState(false)
   const [growthType, setGrowthType] = useState('TEXT')
   const [growthContent, setGrowthContent] = useState('')
+  const growthInputRef = useRef<any>(null)
+  const inheritInputRef = useRef<any>(null)
+  const checkinInputRef = useRef<any>(null)
   const [growthDelta, setGrowthDelta] = useState<number | undefined>()
   const [growthMedia, setGrowthMedia] = useState<string[]>([])
   const [growthSaving, setGrowthSaving] = useState(false)
@@ -674,10 +678,16 @@ export default function WishDetail() {
             { value: 'DIARY', label: '心情日记' },
           ]}
         />
+        <CommentToolbar
+          textareaRef={growthInputRef}
+          onInsert={(fragment) =>
+            setGrowthContent((prev) => insertAtCursor(growthInputRef, fragment, prev, 500))
+          }
+        />
         <Input.TextArea
+          ref={growthInputRef}
           rows={4}
           maxLength={500}
-          showCount
           value={growthContent}
           onChange={(e) => setGrowthContent(e.target.value)}
           placeholder="记录这一步的成长与心得…"
@@ -724,7 +734,14 @@ export default function WishDetail() {
         <p style={{ marginBottom: 12 }}>
           你的心愿已实现 ✨ 把这份力量传给曾与你同求的人（附言可留空）：
         </p>
+        <CommentToolbar
+          textareaRef={inheritInputRef}
+          onInsert={(fragment) =>
+            setInheritMessage((prev) => insertAtCursor(inheritInputRef, fragment, prev, 500))
+          }
+        />
         <Input.TextArea
+          ref={inheritInputRef}
           value={inheritMessage}
           onChange={(e) => setInheritMessage(e.target.value)}
           maxLength={500}
@@ -744,7 +761,14 @@ export default function WishDetail() {
         <p style={{ marginBottom: 12 }}>
           为今天的心愿之旅留下一点痕迹吧（心得可留空，直接打卡）：
         </p>
+        <CommentToolbar
+          textareaRef={checkinInputRef}
+          onInsert={(fragment) =>
+            setCheckinContent((prev) => insertAtCursor(checkinInputRef, fragment, prev, 200))
+          }
+        />
         <Input.TextArea
+          ref={checkinInputRef}
           value={checkinContent}
           onChange={(e) => setCheckinContent(e.target.value)}
           maxLength={200}

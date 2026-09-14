@@ -47,7 +47,25 @@
 
 .composerActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.charCount {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.commentImage {
+  display: block;
+  max-width: min(100%, 260px);
+  max-height: 200px;
+  border-radius: 8px;
+  margin: 4px 0;
+  object-fit: cover;
 }
 
 .loginPrompt {
