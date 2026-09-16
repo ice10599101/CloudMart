@@ -58,7 +58,7 @@ class UserControllerTest {
     }
 
     private void setSecurityContext(Long userId) {
-        Authentication auth = new TestingAuthenticationToken(String.valueOf(userId), null);
+        Authentication auth = new TestingAuthenticationToken(String.valueOf(userId), null, "ROLE_USER");
         SecurityContext context = Mockito.mock(SecurityContext.class);
         given(context.getAuthentication()).willReturn(auth);
         SecurityContextHolder.setContext(context);
@@ -172,26 +172,36 @@ class UserControllerTest {
     @Test
     @DisplayName("GET /users/{id} - 获取用户信息返回信封格式")
     void getUserById_ShouldReturnSuccessEnvelope() throws Exception {
+        setSecurityContext(2L);
         UserVO vo = buildUserVO();
-        given(userService.getUserById(1L)).willReturn(vo);
+        given(userService.getUserProfile(1L, 2L)).willReturn(vo);
 
-        mockMvc.perform(get("/users/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"));
+        try {
+            mockMvc.perform(get("/users/1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.id").value(1))
+                    .andExpect(jsonPath("$.data.email").value("test@example.com"));
+        } finally {
+            clearSecurityContext();
+        }
     }
 
     @Test
     @DisplayName("GET /users/{id} - 用户不存在返回错误信封")
     void getUserById_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
+        setSecurityContext(2L);
         willThrow(new BusinessException("USER_NOT_FOUND", "用户不存在"))
-                .given(userService).getUserById(999L);
+                .given(userService).getUserProfile(999L, 2L);
 
-        mockMvc.perform(get("/users/999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
+        try {
+            mockMvc.perform(get("/users/999"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
+        } finally {
+            clearSecurityContext();
+        }
     }
 
     @Test
@@ -334,9 +344,7 @@ class UserControllerTest {
     @DisplayName("GET /users/recommend - 推荐用户列表返回信封格式")
     void recommendUsers_ShouldReturnSuccessEnvelope() throws Exception {
         UserVO vo = buildUserVO();
-        Page<UserVO> page = new Page<>(1, 6, 1L);
-        page.setRecords(List.of(vo));
-        given(userService.listUsers(1, 6, null, null, null)).willReturn(page);
+        given(userService.recommendUsers(6)).willReturn(List.of(vo));
 
         mockMvc.perform(get("/users/recommend")
                         .param("limit", "6"))

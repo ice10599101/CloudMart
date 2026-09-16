@@ -47,10 +47,10 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "获取用户信息", description = "获取指定用户的公开资料（含邮箱，展示于详细资料面板）")
+    @Operation(summary = "获取用户信息", description = "获取指定用户的公开资料；生日/邮箱按目标用户可见性设置脱敏")
     public ApiResponse<UserVO> getUserById(
             @Parameter(description = "用户ID") @PathVariable Long id) {
-        return ApiResponse.ok(userService.getUserById(id));
+        return ApiResponse.ok(userService.getUserProfile(id, resolveViewerIdOrNull()));
     }
 
     @GetMapping("/search")
@@ -95,11 +95,10 @@ public class UserController {
     }
 
     @GetMapping("/recommend")
-    @Operation(summary = "推荐用户列表")
+    @Operation(summary = "推荐用户列表", description = "对外发现接口，隐藏邮箱/生日/星座等敏感字段")
     public ApiResponse<List<UserVO>> recommendUsers(
             @Parameter(description = "数量") @RequestParam(defaultValue = "6") int limit) {
-        Page<UserVO> page = userService.listUsers(1, limit, null, null, null);
-        return ApiResponse.ok(page.getRecords());
+        return ApiResponse.ok(userService.recommendUsers(limit));
     }
 
     @GetMapping("/page")
@@ -139,5 +138,33 @@ public class UserController {
             }
         }
         throw new BusinessException("UNAUTHORIZED", "无法获取用户信息");
+    }
+
+    /**
+     * 解析查看者 ID，用于他人资料敏感字段脱敏。
+     *
+     * <p>内部调用（携带 ROLE_INTERNAL）或无法确定登录用户身份时返回 null，
+     * 表示无需脱敏（内部服务需要完整数据）。</p>
+     */
+    private Long resolveViewerIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        boolean internal = authentication.getAuthorities() != null
+                && authentication.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_INTERNAL".equals(a.getAuthority()));
+        if (internal) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof String principalStr) {
+            try {
+                return Long.parseLong(principalStr);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 }

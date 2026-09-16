@@ -43,6 +43,12 @@ public final class WishErrorCodes {
     public static final String WISH_ALREADY_CHECKIN_TODAY = "WISH_ALREADY_CHECKIN_TODAY";
     /** 每日签到今日已完成（文档 2.6 errors：409 WISH_ALREADY_SIGNED_IN） */
     public static final String WISH_ALREADY_SIGNED_IN = "WISH_ALREADY_SIGNED_IN";
+    /** 连续签到里程碑天数非法 */
+    public static final String WISH_MILESTONE_INVALID = "WISH_MILESTONE_INVALID";
+    /** 连续签到天数未达里程碑（不可领取） */
+    public static final String WISH_MILESTONE_NOT_REACHED = "WISH_MILESTONE_NOT_REACHED";
+    /** 该里程碑奖励已领取 */
+    public static final String WISH_MILESTONE_ALREADY_CLAIMED = "WISH_MILESTONE_ALREADY_CLAIMED";
     public static final String WISH_VERSION_CONFLICT = "WISH_VERSION_CONFLICT";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */

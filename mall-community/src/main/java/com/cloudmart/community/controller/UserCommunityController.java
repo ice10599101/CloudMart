@@ -6,10 +6,12 @@ import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.community.service.PostCommentService;
 import com.cloudmart.community.service.PostService;
+import com.cloudmart.community.service.PrivacyService;
 import com.cloudmart.community.service.UserCommunityService;
 import com.cloudmart.community.service.UserFollowService;
 import com.cloudmart.community.vo.CommentVO;
 import com.cloudmart.community.vo.PostVO;
+import com.cloudmart.community.vo.PrivacyVisibility;
 import com.cloudmart.community.vo.UserCommunityVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,6 +33,7 @@ public class UserCommunityController {
     private final PostService postService;
     private final PostCommentService postCommentService;
     private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService;
+    private final PrivacyService privacyService;
 
     /**
      * 用户搜索（私信发起会话等场景）。
@@ -67,7 +70,11 @@ public class UserCommunityController {
     public ApiResponse<List<CommentVO>> getUserComments(
             @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (!privacyService.checkVisibility(currentUserId, userId).postsVisible()) {
+            return ApiResponse.ok(List.of(), new Meta(page, size, 0L));
+        }
         Page<CommentVO> result = postCommentService.getMyComments(userId, page, size);
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
@@ -107,6 +114,9 @@ public class UserCommunityController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (!privacyService.checkVisibility(currentUserId, userId).collectionsVisible()) {
+            return ApiResponse.ok(List.of(), new ApiResponse.Meta(page, size, 0L));
+        }
         Page<PostVO> result = postService.getUserCollections(userId, page, size, currentUserId);
         return ApiResponse.ok(result.getRecords(), new ApiResponse.Meta(page, size, result.getTotal()));
     }
@@ -118,6 +128,9 @@ public class UserCommunityController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (!privacyService.checkVisibility(currentUserId, userId).followersVisible()) {
+            return ApiResponse.ok(List.of());
+        }
         List<UserCommunityVO> result = userFollowService.getFollowerList(userId, currentUserId, page, size);
         return ApiResponse.ok(result);
     }
@@ -129,6 +142,9 @@ public class UserCommunityController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (!privacyService.checkVisibility(currentUserId, userId).followingVisible()) {
+            return ApiResponse.ok(List.of());
+        }
         List<UserCommunityVO> result = userFollowService.getFollowingList(userId, currentUserId, page, size);
         return ApiResponse.ok(result);
     }

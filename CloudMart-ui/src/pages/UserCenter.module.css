@@ -14,7 +14,7 @@
   backdrop-filter: blur(12px);
   font-size: 14px;
   font-weight: 500;
-  animation: fadeIn 0.3s ease;
+  animation: fade-in 0.3s ease;
 }
 
 .toastSuccess {
@@ -24,8 +24,8 @@
 }
 
 .toastError {
-  background: rgba(255, 71, 87, 0.15);
-  border: 1px solid rgba(255, 71, 87, 0.3);
+  background: rgba(255, 71, 87, 15%);
+  border: 1px solid rgba(255, 71, 87, 30%);
   color: var(--color-accent-red);
 }
 
@@ -76,7 +76,7 @@
   inset: -3px;
   border-radius: 50%;
   background: conic-gradient(from 0deg, var(--color-avatar-ring1), var(--color-avatar-ring2), var(--color-avatar-ring3), var(--color-avatar-ring1));
-  animation: avatarRing 4s linear infinite;
+  animation: avatar-ring 4s linear infinite;
 }
 
 .avatarInner {
@@ -102,7 +102,7 @@
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 40%);
   letter-spacing: 0.5px;
 }
 
@@ -127,14 +127,14 @@
 }
 
 .checkinTagDone {
-  background: rgba(50, 205, 50, 0.1);
-  border: 1px solid rgba(50, 205, 50, 0.2);
+  background: rgba(50, 205, 50, 10%);
+  border: 1px solid rgba(50, 205, 50, 20%);
   color: var(--color-accent-green);
 }
 
 .checkinTagPending {
-  background: rgba(255, 165, 0, 0.1);
-  border: 1px solid rgba(255, 165, 0, 0.2);
+  background: rgba(255, 165, 0, 10%);
+  border: 1px solid rgba(255, 165, 0, 20%);
   color: var(--color-accent-orange);
 }
 
@@ -160,7 +160,7 @@
   top: 0;
   bottom: 0;
   width: 20px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 30%));
   border-radius: 4px;
 }
 
@@ -174,7 +174,6 @@
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-
   cursor: pointer;}
 
 .statCard:hover {
@@ -195,7 +194,7 @@
   border: 1px solid var(--color-border);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 15%);
 }
 
 .panelHeader {
@@ -268,8 +267,8 @@
 }
 
 .levelRowUnlocked {
-  background: rgba(50, 205, 50, 0.05);
-  border: 1px solid rgba(50, 205, 50, 0.1);
+  background: rgba(50, 205, 50, 5%);
+  border: 1px solid rgba(50, 205, 50, 10%);
 }
 
 .levelRowLocked {
@@ -304,8 +303,8 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(255, 215, 0, 0.05);
-  border: 1px solid rgba(255, 215, 0, 0.1);
+  background: rgba(255, 215, 0, 5%);
+  border: 1px solid rgba(255, 215, 0, 10%);
 }
 
 .tabBar {
@@ -414,7 +413,7 @@
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--color-border);
-  padding: 16px 0 16px 0;
+  padding: 16px 0;
   gap: 16px;
 }
 
@@ -456,7 +455,6 @@
   border-radius: 10px;
   padding: 20px;
   transition: all 0.3s ease;
-
   cursor: pointer;}
 
 .addressCard:hover {
@@ -483,7 +481,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -497,7 +495,7 @@
   border-radius: 16px;
   padding: 32px;
   width: 520px;
-  animation: slideUp 0.3s ease;
+  animation: slide-up 0.3s ease;
 }
 
 .spinner {
@@ -514,17 +512,17 @@
   to { transform: rotate(360deg); }
 }
 
-@keyframes fadeIn {
+@keyframes fade-in {
   from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-@keyframes slideUp {
+@keyframes slide-up {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes avatarRing {
+@keyframes avatar-ring {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }

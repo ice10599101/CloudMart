@@ -319,7 +319,6 @@ function createTreeBody(scene: THREE.Scene, glowTexture: THREE.CanvasTexture): T
   trunk.position.y = -TREE_RADIUS - 1.66
   trunkGroup.add(trunk)
   // ===== 树杈：4 根短枝从主干上部向外上方伸出（剪影在树冠下缘外，不穿入冠内）=====
-  const branchDir = new THREE.Vector3()
   const upVec = new THREE.Vector3(0, 1, 0)
   for (let i = 0; i < 4; i++) {
     const angle = (i / 4) * Math.PI * 2 + 0.4

@@ -10,6 +10,7 @@ import com.cloudmart.community.dto.CreatePostRequest;
 import com.cloudmart.community.dto.UpdatePostRequest;
 import com.cloudmart.community.service.PostService;
 import com.cloudmart.community.service.PostShareService;
+import com.cloudmart.community.service.PrivacyService;
 import com.cloudmart.community.service.SearchService;
 import com.cloudmart.community.vo.PostVO;
 import com.cloudmart.community.vo.PostShareVO;
@@ -31,6 +32,7 @@ public class PostController {
     private final PostService postService;
     private final PostShareService postShareService;
     private final SearchService searchService;
+    private final PrivacyService privacyService;
 
     @PostMapping
     @Operation(summary = "发布帖子", description = "用户发布新帖子")
@@ -115,6 +117,9 @@ public class PostController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (!privacyService.checkVisibility(currentUserId, userId).postsVisible()) {
+            return ApiResponse.ok(List.of(), new Meta(page, size, 0L));
+        }
         Page<PostVO> result = postService.getUserPosts(userId, page, size, currentUserId);
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }

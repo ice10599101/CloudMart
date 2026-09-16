@@ -36,34 +36,34 @@
   font-weight: 700;
   color: #0c1b3a;
   background: radial-gradient(circle at 30% 30%, #ffe98a, #ffd700 60%, #d4a017);
-  box-shadow: 0 0 24px rgba(255, 215, 0, 0.45);
+  box-shadow: 0 0 24px rgba(255, 215, 0, 45%);
 }
 
 .levelBadgeOld {
   width: 52px;
   height: 52px;
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px dashed rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 75%);
+  background: rgba(255, 255, 255, 8%);
+  border: 1px dashed rgba(255, 255, 255, 25%);
   box-shadow: none;
   opacity: 0.8;
 }
 
 .arrow {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 50%);
   font-size: 20px;
 }
 
 .newTitle {
   text-align: center;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 75%);
 }
 
 .desc {
   text-align: center;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 50%);
   margin-top: 12px;
 }

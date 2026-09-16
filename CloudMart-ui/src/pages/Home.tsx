@@ -301,7 +301,7 @@ function SidebarTopics({ topics }: { topics: HotTopic[] }) {
   )
 }
 
-function SidebarUsers({ users, currentUserId, onFollow }: { users: RecommendUser[]; currentUserId?: number; onFollow: (userId: number) => void }) {
+function SidebarUsers({ users, onFollow }: { users: RecommendUser[]; onFollow: (userId: number) => void }) {
   return (
     <div className={styles.sidebarCard}>
       <div className={styles.sidebarCardHeader}>
@@ -680,7 +680,7 @@ export default function Home() {
 
         <div className={styles.sidebarColumn}>
           <SidebarTopics topics={topics} />
-          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} currentUserId={user?.id} onFollow={handleFollow} />
+          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} onFollow={handleFollow} />
           <SidebarHotProducts products={hotProducts} />
 
           <div className={styles.sidebarCard}>
@@ -728,7 +728,7 @@ export default function Home() {
       {sidebarVisible && (
         <div className={styles.mobileSidebar}>
           <SidebarTopics topics={topics} />
-          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} currentUserId={user?.id} onFollow={handleFollow} />
+          <SidebarUsers users={recommendUsers.filter((u) => u.userId !== user?.id)} onFollow={handleFollow} />
           <SidebarHotProducts products={hotProducts} />
         </div>
       )}

@@ -1,6 +1,7 @@
 package com.cloudmart.community.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.community.entity.Post;
 import com.cloudmart.community.entity.UserFollow;
 import com.cloudmart.community.mq.CommunityEventProducer;
@@ -100,58 +101,83 @@ public class UserFollowServiceImpl implements UserFollowService {
 
     @Override
     public List<UserCommunityVO> getFollowerList(Long userId, Long currentUserId, int page, int size) {
-        List<UserFollow> follows = userFollowMapper.selectList(
+        Page<UserFollow> followPage = userFollowMapper.selectPage(
+                new Page<>(page, size),
                 new LambdaQueryWrapper<UserFollow>()
                         .eq(UserFollow::getFollowingId, userId)
                         .orderByDesc(UserFollow::getCreatedAt)
         );
-        if (follows.isEmpty()) {
+        List<Long> followerIds = followPage.getRecords().stream()
+                .map(UserFollow::getFollowerId)
+                .distinct()
+                .toList();
+        if (followerIds.isEmpty()) {
             return Collections.emptyList();
         }
-
-        return follows.stream()
-                .map(follow -> {
-                    boolean isFollowed = currentUserId != null && isFollowing(currentUserId, follow.getFollowerId());
-                    return new UserCommunityVO(
-                            follow.getFollowerId(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            isFollowed
-                    );
-                })
-                .toList();
+        return buildFollowVOs(followerIds, currentUserId);
     }
 
     @Override
     public List<UserCommunityVO> getFollowingList(Long userId, Long currentUserId, int page, int size) {
-        List<UserFollow> follows = userFollowMapper.selectList(
+        Page<UserFollow> followPage = userFollowMapper.selectPage(
+                new Page<>(page, size),
                 new LambdaQueryWrapper<UserFollow>()
                         .eq(UserFollow::getFollowerId, userId)
                         .orderByDesc(UserFollow::getCreatedAt)
         );
-        if (follows.isEmpty()) {
+        List<Long> followingIds = followPage.getRecords().stream()
+                .map(UserFollow::getFollowingId)
+                .distinct()
+                .toList();
+        if (followingIds.isEmpty()) {
             return Collections.emptyList();
         }
+        return buildFollowVOs(followingIds, currentUserId);
+    }
 
-        return follows.stream()
-                .map(follow -> new UserCommunityVO(
-                        follow.getFollowingId(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        true
-                ))
+    /**
+     * 批量构建关注关系用户 VO：一次性填充昵称/头像/签名，
+     * 并批量计算“我是否关注 TA（isFollowed）”与“互相关注（isMutual）”，避免逐条 N+1 查询。
+     */
+    private List<UserCommunityVO> buildFollowVOs(List<Long> userIds, Long currentUserId) {
+        Map<Long, UserInfo> userMap = userEnrichmentService.batchGetUsers(new HashSet<>(userIds));
+
+        Set<Long> iFollow = currentUserId == null ? Set.of()
+                : userFollowMapper.selectList(
+                                new LambdaQueryWrapper<UserFollow>()
+                                        .eq(UserFollow::getFollowerId, currentUserId)
+                                        .in(UserFollow::getFollowingId, userIds))
+                        .stream()
+                        .map(UserFollow::getFollowingId)
+                        .collect(Collectors.toSet());
+        Set<Long> followMe = currentUserId == null ? Set.of()
+                : userFollowMapper.selectList(
+                                new LambdaQueryWrapper<UserFollow>()
+                                        .eq(UserFollow::getFollowingId, currentUserId)
+                                        .in(UserFollow::getFollowerId, userIds))
+                        .stream()
+                        .map(UserFollow::getFollowerId)
+                        .collect(Collectors.toSet());
+
+        return userIds.stream()
+                .map(id -> {
+                    UserInfo info = userMap.getOrDefault(id, new UserInfo(id, "用户" + id, null, null, null));
+                    boolean isFollowed = iFollow.contains(id);
+                    boolean isMutual = isFollowed && followMe.contains(id);
+                    return new UserCommunityVO(
+                            id,
+                            info.nickname(),
+                            info.avatar(),
+                            info.signature(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            isFollowed,
+                            isMutual
+                    );
+                })
                 .toList();
     }
 
@@ -175,7 +201,7 @@ public class UserFollowServiceImpl implements UserFollowService {
             return ids.stream()
                     .map(id -> {
                         UserEnrichmentService.UserInfo info = userMap.getOrDefault(id, new UserEnrichmentService.UserInfo(id, "用户" + id, null, null, null));
-                        return new UserCommunityVO(id, info.nickname(), info.avatar(), info.signature(), null, null, null, null, null, null);
+                        return new UserCommunityVO(id, info.nickname(), info.avatar(), info.signature(), null, null, null, null, null, null, null);
                     })
                     .toList();
         }
@@ -267,7 +293,8 @@ public class UserFollowServiceImpl implements UserFollowService {
                             followerCountMap.getOrDefault(id, 0L),
                             mutualCountMap.getOrDefault(id, 0).longValue(),
                             null,
-                            isFollowed
+                            isFollowed,
+                            null
                     );
                 })
                 .filter(java.util.Objects::nonNull)

@@ -6,9 +6,11 @@ import com.cloudmart.community.dto.CreatePostRequest;
 import com.cloudmart.community.dto.UpdatePostRequest;
 import com.cloudmart.community.service.PostService;
 import com.cloudmart.community.service.PostShareService;
+import com.cloudmart.community.service.PrivacyService;
 import com.cloudmart.community.service.SearchService;
 import com.cloudmart.community.vo.PostShareVO;
 import com.cloudmart.community.vo.PostVO;
+import com.cloudmart.community.vo.PrivacyVisibility;
 import com.cloudmart.community.vo.TagVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,12 +40,15 @@ class PostControllerTest {
     private final PostService postService = Mockito.mock(PostService.class);
     private final PostShareService postShareService = Mockito.mock(PostShareService.class);
     private final SearchService searchService = Mockito.mock(SearchService.class);
+    private final PrivacyService privacyService = Mockito.mock(PrivacyService.class);
 
     private static final String USER_ID_HEADER = "X-User-Id";
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new PostController(postService, postShareService, searchService))
+        given(privacyService.checkVisibility(any(), any()))
+                .willReturn(new PrivacyVisibility(true, true, true, true, true, true));
+        mockMvc = MockMvcBuilders.standaloneSetup(new PostController(postService, postShareService, searchService, privacyService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

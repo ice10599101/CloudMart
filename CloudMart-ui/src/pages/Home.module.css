@@ -248,7 +248,7 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,13 +268,13 @@
   position: absolute;
   bottom: 12px;
   right: 12px;
-  background: linear-gradient(135deg, #FF6B6B 0%, #EE4444 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #FF6B6B 0%, #E44 100%);
+  color: #FFF;
   padding: 4px 12px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 40%);
 }
 
 .postTags {
@@ -333,7 +333,7 @@
 
 .actionBtnActive:hover {
   color: var(--color-accent-red);
-  background: rgba(255, 71, 87, 0.1);
+  background: rgba(255, 71, 87, 10%);
 }
 
 .viewCount {
@@ -489,8 +489,8 @@
 }
 
 .topicRankHot {
-  background: linear-gradient(135deg, #FF6B6B 0%, #EE4444 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #FF6B6B 0%, #E44 100%);
+  color: #FFF;
 }
 
 .topicInfo {
@@ -725,7 +725,6 @@
     transform: translateY(-50%);
     width: 28px;
     height: 56px;
-    border: none;
     border-radius: 8px 0 0 8px;
     background: var(--color-bg-container);
     color: var(--color-text-secondary);
@@ -762,14 +761,15 @@
     overflow-y: auto;
     z-index: 98;
     border-left: 1px solid var(--color-border);
-    animation: slideIn 0.3s ease;
+    animation: slide-in 0.3s ease;
   }
 }
 
-@keyframes slideIn {
+@keyframes slide-in {
   from {
     transform: translateX(100%);
   }
+
   to {
     transform: translateX(0);
   }
@@ -980,7 +980,7 @@
 
   .levelBadge {
     font-size: 9px;
-    padding: 0px 4px;
+    padding: 0 4px;
   }
 
   .mediaIndicator {

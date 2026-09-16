@@ -31,6 +31,11 @@ public class CommunityFeignClientFallbackFactory implements FallbackFactory<Comm
             public ApiResponse<Void> hideLegacyPost(Long postId) {
                 return ApiResponse.fail("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Map<String, Object>> grantExp(Map<String, Object> body) {
+                return ApiResponse.fail("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，经验发放失败");
+            }
         };
     }
 }

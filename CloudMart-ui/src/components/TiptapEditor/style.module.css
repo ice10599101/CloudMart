@@ -106,7 +106,7 @@
   height: 3px;
   border-radius: 1px;
   margin-top: 1px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 20%);
 }
 
 .fontSizeDropdown {
@@ -333,18 +333,18 @@
   margin: 0.5em 0;
 }
 
+/* stylelint-disable-next-line selector-class-pattern -- ProseMirror 库生成的类名 */
 .content :global(.tiptap img.ProseMirror-selectednode) {
   outline: 2px solid var(--color-accent);
 }
 
 .content :global(.tiptap blockquote) {
   border-left: 4px solid var(--color-accent);
-  padding-left: 1em;
   margin-left: 0;
   margin-right: 0;
   color: var(--color-text-secondary);
   font-style: italic;
-  background: rgba(0, 212, 255, 0.05);
+  background: rgba(0, 212, 255, 5%);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 0.5em 1em;
 }

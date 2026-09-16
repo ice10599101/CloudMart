@@ -40,7 +40,7 @@
   height: 18px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 55%);
   color: #fff;
   font-size: 10px;
   display: flex;
@@ -50,7 +50,7 @@
 }
 
 .previewRemove:hover {
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 75%);
 }
 
 .toolBtn {
@@ -87,7 +87,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 35%);
   padding: 10px;
 }
 

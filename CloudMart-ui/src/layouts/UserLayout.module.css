@@ -1,12 +1,13 @@
 .pageTransitionWrap {
-  animation: pageFadeIn 0.3s ease forwards;
+  animation: page-fade-in 0.3s ease forwards;
 }
 
-@keyframes pageFadeIn {
+@keyframes page-fade-in {
   from {
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

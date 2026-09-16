@@ -2,6 +2,7 @@
   min-height: 100vh;
   background: var(--color-bg-base);
   padding-bottom: 40px;
+
   /* 页面列居中：缺 margin auto 时容器会整体贴左（我的心愿/心愿收藏共用此模块） */
   max-width: 1200px;
   margin: 0 auto;
@@ -56,7 +57,7 @@
 
 .wishCard:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 16px rgba(0, 212, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 212, 255, 10%);
 }
 
 .cardContent {

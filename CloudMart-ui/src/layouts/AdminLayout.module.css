@@ -1,12 +1,13 @@
 .pageTransitionWrap {
-  animation: adminPageFadeIn 0.25s ease forwards;
+  animation: admin-page-fade-in 0.25s ease forwards;
 }
 
-@keyframes adminPageFadeIn {
+@keyframes admin-page-fade-in {
   from {
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

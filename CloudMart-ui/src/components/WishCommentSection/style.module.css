@@ -91,7 +91,7 @@
 }
 
 .item:hover {
-  background: var(--color-bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--color-bg-hover, rgba(255, 255, 255, 4%));
 }
 
 /* 回复评论：整体缩进，层级由前端组装（扁平 + parentId） */

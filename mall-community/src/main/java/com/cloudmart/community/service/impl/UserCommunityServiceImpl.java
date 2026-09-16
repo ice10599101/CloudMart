@@ -84,7 +84,8 @@ public class UserCommunityServiceImpl implements UserCommunityService {
                 followerCount,
                 collectCount,
                 badges,
-                isFollowed
+                isFollowed,
+                null
         );
     }
 

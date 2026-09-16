@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Empty, Modal, Progress, Segmented, Tag, App } from 'antd'
+import { Button, Card, Empty, Image, Modal, Progress, Segmented, Spin, Tag, App } from 'antd'
 import {
   ArrowLeftOutlined,
   GiftOutlined,
   StarOutlined,
   CrownOutlined,
+  ZoomInOutlined,
  SwapOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
@@ -13,12 +14,14 @@ import {
   getWorkshopAssets,
   exchangeAsset,
   getCollections,
+  getAssetDetail,
   setActiveSkin,
   setActiveBgm,
   listBrands,
   listBrandPools,
   joinBrandPool,
   type WorkshopAsset,
+  type AssetDetail,
   type CollectionGroup,
   type BrandItem,
   type BrandPoolItem,
@@ -148,6 +151,25 @@ export default function WishWorkshop() {
     }
   }
 
+  // 资产详情查看（点击资产卡片/收藏项）
+  const [detail, setDetail] = useState<AssetDetail | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  const handleAssetDetail = async (assetId: number) => {
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setDetail(null)
+    try {
+      const res = await getAssetDetail(assetId)
+      if (res.data.success) setDetail(res.data.data)
+    } catch {
+      setDetail(null)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
   const handleJoin = async (brand: BrandItem, pool: BrandPoolItem) => {
     const key = `${brand.brandId}:${pool.poolId}`
     setJoiningPool(key)
@@ -201,10 +223,12 @@ export default function WishWorkshop() {
             <div className={styles.wishList}>
               {assets.map((asset) => (
                 <Card key={asset.assetId} size="small"
-                      className={`${styles.wishCard} ${justExchangedId === asset.assetId ? styles.justExchanged : ''}`}>
+                      className={`${styles.wishCard} ${justExchangedId === asset.assetId ? styles.justExchanged : ''}`}
+                      onClick={() => handleAssetDetail(asset.assetId)}
+                      style={{ cursor: 'pointer' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <AssetIcon icon={asset.icon} alt={asset.name} />
+                      <AssetIcon icon={asset.icon} alt={asset.name} size={48} />
                       <div style={{ flex: 1 }}>
                         <div style={{ marginBottom: 4 }}>
                           <Tag color="purple">{TYPE_LABELS[asset.assetType] ?? asset.assetType}</Tag>
@@ -225,7 +249,7 @@ export default function WishWorkshop() {
                       icon={<GiftOutlined />}
                       disabled={asset.owned || asset.stock <= 0}
                       loading={exchangingId === asset.assetId}
-                      onClick={() => handleExchange(asset)}
+                      onClick={(e) => { e.stopPropagation(); handleExchange(asset) }}
                     >
                       {justExchangedId === asset.assetId ? '✨ 已入馆' : asset.owned ? '已拥有' : asset.stock <= 0 ? '已售罄' : '兑换'}
                     </Button>
@@ -248,7 +272,8 @@ export default function WishWorkshop() {
                   items.map((item) => (
                     <div
                       key={item.id}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}
+                      onClick={() => handleAssetDetail(item.assetId)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <AssetIcon icon={item.icon} alt={item.name} size={28} />
@@ -260,13 +285,13 @@ export default function WishWorkshop() {
                           size="small"
                           icon={<SwapOutlined />}
                           disabled={item.isActive === true}
-                          onClick={() => handleActivate(item.assetId, type as 'SKIN' | 'BGM')}
+                          onClick={(e) => { e.stopPropagation(); handleActivate(item.assetId, type as 'SKIN' | 'BGM') }}
                         >
                           {item.isActive ? '使用中' : '使用'}
                         </Button>
                       )}
                       {type === 'SPECIAL_FRUIT' && item.refWishId && (
-                        <Button size="small" type="link" onClick={() => history.push(`/wish/${item.refWishId}`)}>
+                        <Button size="small" type="link" onClick={(e) => { e.stopPropagation(); history.push(`/wish/${item.refWishId}`) }}>
                           查看心愿
                         </Button>
                       )}
@@ -327,6 +352,66 @@ export default function WishWorkshop() {
           ))
         )}
       </Card>
+
+      <Modal
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
+        footer={null}
+        width={440}
+        title={detail ? detail.name : '资产详情'}
+      >
+        {detailLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+            <Spin />
+          </div>
+        ) : !detail ? (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无法加载资产详情" />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
+            {/^https?:\/\//.test(detail.icon ?? '') ? (
+              <div>
+                <Image
+                  src={detail.icon!}
+                  alt={detail.name}
+                  width={200}
+                  height={200}
+                  style={{ objectFit: 'cover', borderRadius: 12 }}
+                  referrerPolicy="no-referrer"
+                />
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                  <ZoomInOutlined /> 点击图片可放大查看
+                </div>
+              </div>
+            ) : (
+              <span style={{ fontSize: 96, lineHeight: 1 }}>{detail.icon || '🎁'}</span>
+            )}
+            <Tag color="purple" style={{ margin: 0 }}>
+              {TYPE_LABELS[detail.assetType] ?? detail.assetType}
+            </Tag>
+            {detail.description && (
+              <div style={{ color: 'var(--color-text-secondary)', fontSize: 14, lineHeight: 1.7 }}>
+                {detail.description}
+              </div>
+            )}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 20,
+              paddingTop: 4,
+              borderTop: '1px solid var(--color-border)',
+              width: '100%',
+            }}>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+                <StarOutlined style={{ color: '#FFD700' }} /> {detail.priceStarlight} 星光
+              </span>
+              <span style={{ color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+                {detail.owned ? '已拥有' : '未拥有'} · {detail.obtainMethod === 'EXCHANGE' ? '星光兑换' : '工坊兑换'}
+              </span>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

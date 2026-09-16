@@ -2,15 +2,18 @@ package com.cloudmart.user.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.converter.UserConverter;
 import com.cloudmart.user.dto.*;
 import com.cloudmart.user.entity.User;
+import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
 import com.cloudmart.user.service.UserService;
 import com.cloudmart.user.vo.UserVO;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,14 +21,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
     private final UserConverter userConverter;
     private final PasswordEncoder passwordEncoder;
+    private final CommunityFeignClient communityFeignClient;
 
     private static final long NICKNAME_COOLDOWN_DAYS = 7;
 
@@ -54,6 +60,70 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
         return userConverter.toVO(user);
+    }
+
+    @Override
+    public UserVO getUserProfile(Long id, Long viewerId) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+        UserVO vo = userConverter.toVO(user);
+
+        // 内部调用（viewerId 为 null）或本人查看自身：不做脱敏
+        if (viewerId == null || viewerId.equals(id)) {
+            return vo;
+        }
+        return applyPrivacyMask(vo, viewerId);
+    }
+
+    /**
+     * 按查看者与目标用户关系对生日/邮箱/星座做脱敏。
+     *
+     * <p>仅用于单用户资料详情接口；列表/发现类接口（搜索、推荐）不逐条走此逻辑，
+     * 直接隐藏敏感字段（见 {@link #maskEmailBirthday(UserVO)}）。</p>
+     */
+    private UserVO applyPrivacyMask(UserVO vo, Long viewerId) {
+        boolean birthdayVisible;
+        boolean emailVisible;
+        try {
+            ApiResponse<Map<String, Object>> resp = communityFeignClient.getPrivacyVisibility(vo.id());
+            Map<String, Object> data = resp != null ? resp.data() : null;
+            birthdayVisible = data != null && Boolean.TRUE.equals(data.get("birthdayVisible"));
+            emailVisible = data != null && Boolean.TRUE.equals(data.get("emailVisible"));
+        } catch (Exception e) {
+            log.warn("查询资料可见性失败，隐私字段默认隐藏, target={}, viewer={}", vo.id(), viewerId, e);
+            birthdayVisible = false;
+            emailVisible = false;
+        }
+
+        if (birthdayVisible && emailVisible) {
+            return vo;
+        }
+        return new UserVO(
+                vo.id(), vo.username(), vo.nickname(),
+                emailVisible ? vo.email() : null,
+                vo.avatar(), vo.signature(), vo.gender(),
+                birthdayVisible ? vo.birthday() : null,
+                birthdayVisible ? vo.constellation() : null,
+                vo.occupation(), vo.school(), vo.location(), vo.hobbies(),
+                vo.status(), vo.nicknameUpdatedAt(), vo.createdAt());
+    }
+
+    /**
+     * 列表/发现接口（搜索、推荐）的敏感字段脱敏：隐藏邮箱、生日、星座。
+     *
+     * <p>这些接口按列表返回用户，不逐条查询可见性关系，统一隐藏敏感字段，
+     * 避免在结果列表中泄露他人邮箱/生日。</p>
+     */
+    private UserVO maskEmailBirthday(UserVO vo) {
+        return new UserVO(
+                vo.id(), vo.username(), vo.nickname(),
+                null,
+                vo.avatar(), vo.signature(), vo.gender(),
+                null, null,
+                vo.occupation(), vo.school(), vo.location(), vo.hobbies(),
+                vo.status(), vo.nicknameUpdatedAt(), vo.createdAt());
     }
 
     @Override
@@ -89,6 +159,14 @@ public class UserServiceImpl implements UserService {
         Page<UserVO> voPage = new Page<>(userPage.getCurrent(), userPage.getSize(), userPage.getTotal());
         voPage.setRecords(userPage.getRecords().stream().map(userConverter::toVO).toList());
         return voPage;
+    }
+
+    @Override
+    public List<UserVO> recommendUsers(int limit) {
+        int safeLimit = Math.min(Math.max(limit, 1), 50);
+        return listUsers(1, safeLimit, null, null, null).getRecords().stream()
+                .map(this::maskEmailBirthday)
+                .toList();
     }
 
     @Override
@@ -248,7 +326,10 @@ public class UserServiceImpl implements UserService {
                 .or().like(User::getEmail, keyword)
                 .orderByDesc(User::getCreatedAt);
         Page<User> userPage = userMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        return userPage.getRecords().stream().map(userConverter::toVO).toList();
+        return userPage.getRecords().stream()
+                .map(userConverter::toVO)
+                .map(this::maskEmailBirthday)
+                .toList();
     }
 
     private void checkEmailUniqueness(String email) {

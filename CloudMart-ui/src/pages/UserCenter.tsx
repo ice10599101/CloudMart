@@ -3,7 +3,7 @@ import { stripHtml } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
-import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Popconfirm } from 'antd'
+import { Input, Select, DatePicker, Button, Modal, ConfigProvider } from 'antd'
 import { StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
@@ -152,7 +152,7 @@ const BENEFIT_DETAILS: Record<string, string> = {
   优先推荐: '发布的帖子在首页推荐流中获得更高曝光权重',
   官方活动优先: '官方活动报名通道优先开放，名额优先分配',
   全部功能: '解锁社区全部功能，无任何限制',
-  专属标识: '全站展示传奇专属标识与特效',
+  本站贵宾标识: '获得本站贵宾标识，头像与昵称旁展示贵宾皇冠',
   官方认证: '可申请官方认证标识，认证后展示认证徽章',
   活动特权: '专享活动通道与稀有装扮特权',
 }
@@ -165,9 +165,25 @@ const BENEFIT_MIN_LEVEL: Record<string, number> = {
   优先推荐: 4,
   官方活动优先: 5,
   全部功能: 6,
-  专属标识: 6,
-  官方认证: 6,
+  本站贵宾标识: 6,
+  官方认证: 7,
   活动特权: 6,
+}
+
+/**
+ * 权益 → 功能入口。每项权益在站内都有一个可触达的功能/展示页。
+ * path 为 '#' 开头表示锚点动作（滚动到主页顶部身份标识区），否则为路由跳转。
+ * 「自定义头像框」的入口是面板内的头像框选择器，不在此表登记。
+ */
+const BENEFIT_ENTRIES: Record<string, { label: string; path: string }> = {
+  基础功能: { label: '去发帖', path: '/publish' },
+  专属标签: { label: '查看等级标签', path: '#top' },
+  优先推荐: { label: '查看首页推荐', path: '/' },
+  官方活动优先: { label: '查看官方活动', path: '/wish/activities' },
+  本站贵宾标识: { label: '查看贵宾标识', path: '#top' },
+  官方认证: { label: '查看认证徽章', path: '#top' },
+  活动特权: { label: '查看专属活动', path: '/wish/activities' },
+  全部功能: { label: '去逛逛', path: '/' },
 }
 
 /** 权益固定顺序（面板按此排列） */
@@ -177,7 +193,7 @@ const BENEFIT_ORDER = [
   '专属标签',
   '优先推荐',
   '官方活动优先',
-  '专属标识',
+  '本站贵宾标识',
   '官方认证',
   '活动特权',
   '全部功能',
@@ -205,6 +221,29 @@ const CONSTELLATIONS = [
   '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座',
 ]
 
+/** 根据生日（YYYY-MM-DD）计算星座 */
+function getConstellationFromBirthday(dateStr: string): string {
+  if (!dateStr) return ''
+  const parts = dateStr.split('-')
+  if (parts.length < 3) return ''
+  const month = Number(parts[1])
+  const day = Number(parts[2])
+  if (!month || !day) return ''
+  const md = month * 100 + day
+  if (md >= 1222 || md <= 119) return '摩羯座'
+  if (md <= 218) return '水瓶座'
+  if (md <= 320) return '双鱼座'
+  if (md <= 419) return '白羊座'
+  if (md <= 520) return '金牛座'
+  if (md <= 621) return '双子座'
+  if (md <= 722) return '巨蟹座'
+  if (md <= 822) return '狮子座'
+  if (md <= 922) return '处女座'
+  if (md <= 1023) return '天秤座'
+  if (md <= 1122) return '天蝎座'
+  return '射手座'
+}
+
 /** 头像框方案（权益：自定义头像框，Lv2+ 解锁）——选中项持久化并应用于顶部头像 */
 const AVATAR_FRAMES = [
   { key: 'none', label: '默认', ring: 'none' },
@@ -226,7 +265,7 @@ const GENDER_OPTIONS = [
   { value: 'FEMALE', label: '女' },
 ]
 
-function ProfileTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
+function ProfileTab() {
   const { user } = useAuthStore()
 
   if (!user) return null
@@ -415,7 +454,11 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
         <ConfigProvider locale={zhCN}>
           <DatePicker
             value={birthday ? dayjs(birthday) : undefined}
-            onChange={(_, dateStr) => { setBirthday(typeof dateStr === 'string' ? dateStr : '') }}
+            onChange={(_, dateStr) => {
+              const birthdayValue = typeof dateStr === 'string' ? dateStr : ''
+              setBirthday(birthdayValue)
+              setConstellation(getConstellationFromBirthday(birthdayValue))
+            }}
             placeholder="请选择生日"
             style={{ flex: 1 }}
           />
@@ -558,6 +601,10 @@ function WishPostsTab() {
   }, [user?.id])
 
   useEffect(() => { fetchPosts() }, [fetchPosts])
+
+  if (loading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
+  }
 
   return (
     <div>
@@ -1353,8 +1400,6 @@ export default function UserCenterPage() {
   ]
 
   const nextLevelConfig = levelConfigs.find((c) => c.level === (levelInfo?.level ?? 0) + 1)
-  const currentLevelConfig = levelConfigs.find((c) => c.level === levelInfo?.level)
-  const currentBenefits = currentLevelConfig?.benefits ? (() => { try { return JSON.parse(currentLevelConfig.benefits) as string[] } catch { return [] } })() : []
   // 全量权益列表：固定顺序 + 每项所需等级 + 拥有状态
   const allBenefits = BENEFIT_ORDER.map((name) => ({
     name,
@@ -1381,7 +1426,6 @@ export default function UserCenterPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 28 }}>
             <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
               <div className={s.avatarRing} />
-              <div style={{ position: 'relative' }}>
               <div className={s.avatarInner} style={frameStyle}>
                 {user?.avatar ? (
                   <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1413,9 +1457,8 @@ export default function UserCenterPage() {
                     right: -2,
                     fontSize: 20,
                     filter: 'drop-shadow(0 2px 6px rgba(255, 215, 0, 0.6))',
-                  }} title="Lv6 专属标识">👑</div>
+                  }} title="Lv6 贵宾标识">👑</div>
               )}
-            </div>
             </div>
 
             <div style={{ flex: 1, paddingTop: 4 }}>
@@ -1430,7 +1473,7 @@ export default function UserCenterPage() {
                   fontSize: 13,
                   fontWeight: 600,
                 }}>{levelInfo.levelTitle}</span>}
-                {userLevel >= 6 && (
+                {userLevel >= 7 && (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1441,7 +1484,7 @@ export default function UserCenterPage() {
                       color: '#fff',
                       fontSize: 12,
                       fontWeight: 700,
-                    }} title="Lv6 官方认证">🏅 官方认证</span>
+                    }} title="Lv7 官方认证">🏅 官方认证</span>
                 )}
               </h1>
 
@@ -1665,6 +1708,34 @@ export default function UserCenterPage() {
                                   </span>
                                 </div>
                               )}
+                              {benefit.owned && benefit.name !== '自定义头像框' && BENEFIT_ENTRIES[benefit.name] && (
+                                <div style={{ marginTop: 8 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const path = BENEFIT_ENTRIES[benefit.name].path
+                                      if (path.startsWith('#')) window.scrollTo({ top: 0, behavior: 'smooth' })
+                                      else history.push(path)
+                                    }}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '4px 12px',
+                                      border: '1px solid rgba(var(--color-primary-rgb), 0.35)',
+                                      borderRadius: 12,
+                                      background: 'rgba(var(--color-primary-rgb), 0.1)',
+                                      color: 'var(--color-primary)',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                    }}
+                                  >
+                                    {BENEFIT_ENTRIES[benefit.name].label} →
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1711,7 +1782,7 @@ export default function UserCenterPage() {
               })}
             </div>
             <div className={s.tabContent}>
-              {activeTab === 'profile' && <ProfileTab onToast={(msg, type) => setToast({ message: msg, type })} />}
+              {activeTab === 'profile' && <ProfileTab />}
               {activeTab === 'posts' && <MyPostsTab />}
               {activeTab === 'wishPosts' && <WishPostsTab />}
               {activeTab === 'drafts' && <MyDraftsTab onToast={(msg, type) => setToast({ message: msg, type })} />}

@@ -88,6 +88,9 @@ public class UserEnrichmentService {
     /**
      * 关键词搜索用户（宽松匹配：昵称或小答号包含即命中），
      * 供私信发起会话等场景选择目标用户。
+     *
+     * <p>仅透传公开安全字段（id/小答号/昵称/头像/签名），
+     * 防止把 mall-user 返回的邮箱/生日等敏感字段泄露给前端。</p>
      */
     public List<Map<String, Object>> searchUsersByKeyword(String keyword, int page, int pageSize) {
         if (keyword == null || keyword.isBlank()) {
@@ -96,12 +99,28 @@ public class UserEnrichmentService {
         try {
             var response = userFeignClient.searchUsers(keyword.trim(), page, pageSize);
             if (response != null && response.data() != null) {
-                return response.data();
+                return response.data().stream()
+                        .map(this::sanitizeUserMap)
+                        .toList();
             }
         } catch (Exception e) {
             log.warn("Failed to search users by keyword '{}': {}", keyword, e.getMessage());
         }
         return List.of();
+    }
+
+    /** 对外搜索结果的公开字段白名单，其余字段一律丢弃 */
+    private static final Set<String> SAFE_USER_FIELDS = Set.of("id", "username", "nickname", "avatar", "signature");
+
+    private Map<String, Object> sanitizeUserMap(Map<String, Object> userMap) {
+        Map<String, Object> safe = new LinkedHashMap<>();
+        for (String key : SAFE_USER_FIELDS) {
+            Object value = userMap.get(key);
+            if (value != null) {
+                safe.put(key, value);
+            }
+        }
+        return safe;
     }
 
     @SuppressWarnings("unchecked")

@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.community.service.PostCommentService;
 import com.cloudmart.community.service.PostService;
+import com.cloudmart.community.service.PrivacyService;
 import com.cloudmart.community.service.UserCommunityService;
 import com.cloudmart.community.service.UserFollowService;
 import com.cloudmart.community.vo.CommentVO;
 import com.cloudmart.community.vo.PostVO;
+import com.cloudmart.community.vo.PrivacyVisibility;
 import com.cloudmart.community.vo.TagVO;
 import com.cloudmart.community.vo.UserCommunityVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,12 +39,15 @@ class UserCommunityControllerTest {
     private final PostService postService = Mockito.mock(PostService.class);
     private final PostCommentService postCommentService = Mockito.mock(PostCommentService.class);
     private final com.cloudmart.community.service.UserEnrichmentService userEnrichmentService = Mockito.mock(com.cloudmart.community.service.UserEnrichmentService.class);
+    private final PrivacyService privacyService = Mockito.mock(PrivacyService.class);
 
     private static final String USER_ID_HEADER = "X-User-Id";
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService, postCommentService, userEnrichmentService))
+        given(privacyService.checkVisibility(any(), any()))
+                .willReturn(new PrivacyVisibility(true, true, true, true, true, true));
+        mockMvc = MockMvcBuilders.standaloneSetup(new UserCommunityController(userCommunityService, userFollowService, postService, postCommentService, userEnrichmentService, privacyService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -50,7 +55,7 @@ class UserCommunityControllerTest {
     private UserCommunityVO buildUserCommunityVO() {
         return new UserCommunityVO(
                 2L, "目标用户", "https://avatar.example.com/2.png", "个性签名",
-                10L, 5L, 20L, 3L, List.of(), true);
+                10L, 5L, 20L, 3L, null, true, false);
     }
 
     @Test

@@ -23,5 +23,7 @@ public enum ResourceLogSource {
     /** 虚拟工坊兑换（Sprint 3.x） */
     EXCHANGE,
     /** 活动奖励（Sprint 3.5） */
-    ACTIVITY_REWARD
+    ACTIVITY_REWARD,
+    /** 连续签到里程碑奖励（7/14/30 天手动领取） */
+    SIGNIN_MILESTONE
 }

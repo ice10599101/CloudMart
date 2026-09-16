@@ -34,16 +34,17 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-glow-gold);
-  animation: breatheGlow 2.4s ease-in-out infinite;
+  animation: breathe-glow 2.4s ease-in-out infinite;
 }
 
-@keyframes breatheGlow {
+@keyframes breathe-glow {
   0%,
   100% {
-    box-shadow: 0 0 4px 0 rgba(233, 69, 96, 0.25);
+    box-shadow: 0 0 4px 0 rgba(233, 69, 96, 25%);
   }
+
   50% {
-    box-shadow: 0 0 16px 4px rgba(233, 69, 96, 0.45);
+    box-shadow: 0 0 16px 4px rgba(233, 69, 96, 45%);
   }
 }
 
@@ -74,7 +75,7 @@
   background: var(--color-accent-gold);
   box-shadow: 0 0 8px 2px var(--color-glow-gold);
   opacity: 0;
-  animation: sparkRise 0.9s ease-out forwards;
+  animation: spark-rise 0.9s ease-out forwards;
 }
 
 /* 6 个粒子按序微延迟向不同方向散开（data-index 驱动角度，见 :nth-child 偏移） */
@@ -85,15 +86,17 @@
 .spark:nth-child(5) { --angle: 30deg; animation-delay: 0.08s; }
 .spark:nth-child(6) { --angle: 55deg; animation-delay: 0.13s; }
 
-@keyframes sparkRise {
+@keyframes spark-rise {
   0% {
     opacity: 0;
     transform: translate(0, 0) scale(0.4);
   }
+
   25% {
     opacity: 1;
     transform: translate(calc(cos(var(--angle)) * 14px), calc(sin(var(--angle)) * 14px)) scale(1);
   }
+
   100% {
     opacity: 0;
     transform: translate(calc(cos(var(--angle)) * 34px), calc(sin(var(--angle)) * 34px - 26px)) scale(0.6);

@@ -3,10 +3,12 @@ package com.cloudmart.user.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.converter.UserConverter;
 import com.cloudmart.user.dto.*;
 import com.cloudmart.user.entity.User;
+import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
 import com.cloudmart.user.vo.UserVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -19,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,6 +37,7 @@ class UserServiceImplTest {
     private UserMapper userMapper;
     private UserConverter userConverter;
     private PasswordEncoder passwordEncoder;
+    private CommunityFeignClient communityFeignClient;
     private UserServiceImpl userService;
 
     @BeforeAll
@@ -51,7 +55,8 @@ class UserServiceImplTest {
         userMapper = mock(UserMapper.class);
         userConverter = mock(UserConverter.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        userService = new UserServiceImpl(userMapper, userConverter, passwordEncoder);
+        communityFeignClient = mock(CommunityFeignClient.class);
+        userService = new UserServiceImpl(userMapper, userConverter, passwordEncoder, communityFeignClient);
     }
 
     private User buildActiveUser() {
@@ -143,6 +148,64 @@ class UserServiceImplTest {
             assertThatThrownBy(() -> userService.getUserById(999L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("USER_NOT_FOUND"));
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserProfile")
+    class GetUserProfileTests {
+
+        private UserVO fullVo() {
+            return new UserVO(1L, "10001", "Tester", "test@example.com",
+                    "avatar.jpg", "sig", "MALE", "2000-01-01", "摩羯座",
+                    "工程师", "北大", "北京", "编程", 1,
+                    LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 1, 1, 0, 0));
+        }
+
+        @Test
+        @DisplayName("本人查看自身 -> 不做脱敏且不调用社区")
+        void selfView_ReturnsFullVo() {
+            User user = buildActiveUser();
+            when(userMapper.selectById(1L)).thenReturn(user);
+            UserVO full = fullVo();
+            when(userConverter.toVO(user)).thenReturn(full);
+
+            UserVO result = userService.getUserProfile(1L, 1L);
+
+            assertThat(result).isEqualTo(full);
+            verify(communityFeignClient, never()).getPrivacyVisibility(any());
+        }
+
+        @Test
+        @DisplayName("陌生人查看且生日邮箱均不可见 -> 敏感字段脱敏")
+        void strangerView_HiddenBirthdayEmail() {
+            User user = buildActiveUser();
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userConverter.toVO(user)).thenReturn(fullVo());
+            when(communityFeignClient.getPrivacyVisibility(1L))
+                    .thenReturn(ApiResponse.ok(Map.of("birthdayVisible", false, "emailVisible", false)));
+
+            UserVO result = userService.getUserProfile(1L, 2L);
+
+            assertThat(result.email()).isNull();
+            assertThat(result.birthday()).isNull();
+            assertThat(result.constellation()).isNull();
+            assertThat(result.nickname()).isEqualTo("Tester");
+        }
+
+        @Test
+        @DisplayName("社区服务异常 -> fail-closed 隐藏敏感字段")
+        void feignFailure_HidesAll() {
+            User user = buildActiveUser();
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userConverter.toVO(user)).thenReturn(fullVo());
+            when(communityFeignClient.getPrivacyVisibility(1L)).thenThrow(new RuntimeException("down"));
+
+            UserVO result = userService.getUserProfile(1L, 2L);
+
+            assertThat(result.email()).isNull();
+            assertThat(result.birthday()).isNull();
+            assertThat(result.constellation()).isNull();
         }
     }
 
@@ -591,7 +654,7 @@ class UserServiceImplTest {
     class SearchUsersTests {
 
         @Test
-        @DisplayName("returns matching users")
+        @DisplayName("returns matching users with email/birthday masked")
         void searchUsers_ShouldReturnMatchingUsers() {
             User user = buildActiveUser();
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page =
@@ -600,12 +663,47 @@ class UserServiceImplTest {
             when(userMapper.selectPage(any(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class), any(LambdaQueryWrapper.class)))
                     .thenReturn(page);
 
-            UserVO vo = new UserVO(1L, "10001", "Tester", "test@example.com", null, null, null, null, null, null, null, null, null, 1, null, null);
+            UserVO vo = new UserVO(1L, "10001", "Tester", "test@example.com", "avatar.jpg", "sig",
+                    "M", "2000-01-01", "摩羯座", "工程师", "北大", "北京", "编程",
+                    1, null, LocalDateTime.of(2026, 1, 1, 0, 0));
             when(userConverter.toVO(user)).thenReturn(vo);
 
             List<UserVO> result = userService.searchUsers("test", 1, 10);
 
             assertThat(result).hasSize(1);
+            assertThat(result.get(0).nickname()).isEqualTo("Tester");
+            assertThat(result.get(0).email()).isNull();
+            assertThat(result.get(0).birthday()).isNull();
+            assertThat(result.get(0).constellation()).isNull();
+            assertThat(result.get(0).avatar()).isEqualTo("avatar.jpg");
+        }
+    }
+
+    @Nested
+    @DisplayName("recommendUsers")
+    class RecommendUsersTests {
+
+        @Test
+        @DisplayName("masks email/birthday/constellation in recommended list")
+        void recommendUsers_MasksSensitiveFields() {
+            User user = buildActiveUser();
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<User> page =
+                    new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 6, 1);
+            page.setRecords(List.of(user));
+            when(userMapper.selectPage(any(com.baomidou.mybatisplus.extension.plugins.pagination.Page.class), any(LambdaQueryWrapper.class)))
+                    .thenReturn(page);
+
+            UserVO vo = new UserVO(1L, "10001", "Tester", "test@example.com", "avatar.jpg", "sig",
+                    "M", "2000-01-01", "摩羯座", "工程师", "北大", "北京", "编程",
+                    1, null, LocalDateTime.of(2026, 1, 1, 0, 0));
+            when(userConverter.toVO(user)).thenReturn(vo);
+
+            List<UserVO> result = userService.recommendUsers(6);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).email()).isNull();
+            assertThat(result.get(0).birthday()).isNull();
+            assertThat(result.get(0).constellation()).isNull();
             assertThat(result.get(0).nickname()).isEqualTo("Tester");
         }
     }

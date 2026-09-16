@@ -3,8 +3,19 @@ import { App, Button } from 'antd'
 import Skeleton from '@/components/Skeleton'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { history } from 'umi'
-import { dailySignin, getMyResources, getSigninCalendar } from '@/api/wish'
-import type { DailySigninResult, LevelUpEvent, MyResourcesData } from '@/api/wish'
+import {
+  dailySignin,
+  getMyResources,
+  getSigninCalendar,
+  getSigninMilestones,
+  claimSigninMilestone,
+} from '@/api/wish'
+import type {
+  DailySigninResult,
+  LevelUpEvent,
+  MyResourcesData,
+  SigninMilestone,
+} from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import StarCountUp from '@/components/StarCountUp'
 import LevelUpModal from '@/components/LevelUpModal'
@@ -46,6 +57,8 @@ export default function DailySignin() {
   const [resources, setResources] = useState<MyResourcesData | null>(null)
   const [rewardDelta, setRewardDelta] = useState(0)
   const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null)
+  const [milestones, setMilestones] = useState<SigninMilestone[]>([])
+  const [claimingDays, setClaimingDays] = useState<number | null>(null)
 
   const todayStr = useMemo(
     () => formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate()),
@@ -84,6 +97,15 @@ export default function DailySignin() {
     }
   }, [])
 
+  const loadMilestones = useCallback(async () => {
+    try {
+      const res = await getSigninMilestones()
+      if (res.data.success) setMilestones(res.data.data ?? [])
+    } catch {
+      // 里程碑加载失败不阻塞签到
+    }
+  }, [])
+
   useEffect(() => {
     if (!user && !userLoading) {
       message.warning('请先登录')
@@ -92,11 +114,11 @@ export default function DailySignin() {
     }
     if (!user) return
     setLoading(true)
-    Promise.all([loadCalendar(year, month), loadResources()]).finally(() =>
-      setLoading(false),
+    Promise.all([loadCalendar(year, month), loadResources(), loadMilestones()]).finally(
+      () => setLoading(false),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loadResources])
+  }, [user, loadResources, loadMilestones])
 
   const switchMonth = (direction: 1 | -1) => {
     let nextYear = year
@@ -128,13 +150,15 @@ export default function DailySignin() {
         setSignedToday(true)
         setConsecutiveDays(result.consecutiveDays)
         setRewardDelta(result.starlightReward)
-        // 星光余额以 +5 滚动（后端余额快照即时刷新）
+        // 星光余额以奖励滚动（后端余额快照即时刷新）
         setResources((prev) =>
           prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
         )
-        message.success(`签到成功，星光 +${result.starlightReward}`)
+        const expText = result.expGranted ? ` · 经验 +${result.expReward}` : ''
+        message.success(`签到成功，星光 +${result.starlightReward}${expText}`)
         if (result.levelUp) setLevelUp(result.levelUp)
         loadCalendar(year, month)
+        loadMilestones()
       }
     } catch (err) {
       // 重复签到（409 WISH_ALREADY_SIGNED_IN）：拦截器已提示，这里刷新为已签到态
@@ -144,6 +168,28 @@ export default function DailySignin() {
       }
     } finally {
       setSigning(false)
+    }
+  }
+
+  const handleClaimMilestone = async (days: number) => {
+    if (claimingDays !== null) return
+    setClaimingDays(days)
+    try {
+      const res = await claimSigninMilestone(days)
+      if (res.data.success) {
+        const result = res.data.data
+        setResources((prev) =>
+          prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
+        )
+        const expText = result.expGranted ? ` · 经验 +${result.expReward}` : ''
+        message.success(`领取成功，星光 +${result.starlightReward}${expText}`)
+        if (result.levelUp) setLevelUp(result.levelUp)
+        loadMilestones()
+      }
+    } catch {
+      // 错误已由 request 拦截器处理（未达标/已领取）
+    } finally {
+      setClaimingDays(null)
     }
   }
 
@@ -213,19 +259,48 @@ export default function DailySignin() {
                 }
           }
         >
-          {signedToday ? '今日已签到 ✓' : '签到领星光 +5'}
+          {signedToday ? '今日已签到 ✓' : '签到领星光 +5 · 经验 +10'}
         </Button>
-        <div className={styles.rewardLine}>明日签到可获得星光 +5</div>
+        <div className={styles.rewardLine}>每日签到可获得星光 +5 · 经验 +10</div>
       </div>
 
       {resources && (
         <div className={styles.balanceCard}>
-          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>当前星光余额</span>
+          <span className={styles.balanceLabel}>当前星光余额</span>
           <StarCountUp
             value={resources.balance}
             delta={rewardDelta}
             className={styles.balanceValue}
           />
+        </div>
+      )}
+
+      {milestones.length > 0 && (
+        <div className={styles.milestoneCard}>
+          <div className={styles.milestoneTitle}>连续签到奖励</div>
+          <div className={styles.milestoneDesc}>
+            连续签到满对应天数，可额外领取一次性星光 + 经验礼包
+          </div>
+          <div className={styles.milestoneList}>
+            {milestones.map((m) => (
+              <div key={m.milestoneDays} className={styles.milestoneItem}>
+                <div className={styles.milestoneDays}>{m.milestoneDays} 天</div>
+                <div className={styles.milestoneRewards}>
+                  <span className={styles.milestoneStar}>星光 +{m.starlightReward}</span>
+                  <span className={styles.milestoneExp}>经验 +{m.expReward}</span>
+                </div>
+                <Button
+                  type={m.claimable ? 'primary' : 'default'}
+                  size="small"
+                  loading={claimingDays === m.milestoneDays}
+                  disabled={!m.claimable || m.claimed}
+                  onClick={() => handleClaimMilestone(m.milestoneDays)}
+                >
+                  {m.claimed ? '已领取' : m.claimable ? '领取' : '未达成'}
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -282,7 +357,8 @@ export default function DailySignin() {
 
       <div className={styles.rulesCard}>
         <div className={styles.rulesTitle}>签到规则</div>
-        <div>· 每日签到获得星光 +5（按你的本地时区按日去重）</div>
+        <div>· 每日签到获得星光 +5 · 经验 +10（按你的本地时区按日去重）</div>
+        <div>· 连续签到满 7 / 14 / 30 天，可额外手动领取星光 + 经验礼包（每档仅一次）</div>
         <div>· 连续签到天数在断签后重新计算，累计签到天数永久保留</div>
         <div>· 星光可用于点亮他人心愿、兑换虚拟资产（上限 5000）</div>
       </div>

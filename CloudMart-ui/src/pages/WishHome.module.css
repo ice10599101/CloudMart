@@ -2,6 +2,7 @@
   min-height: 100vh;
   background: var(--color-gradient-hero);
   padding-bottom: 40px;
+
   /* 与 entryNav/section 的 1200px 列对齐：限制宽度后必须水平居中，否则整体偏左 */
   margin: 0 auto;
 }
@@ -18,6 +19,7 @@
 .banner {
   position: relative;
   height: 320px;
+
   /* 跟随全局主题：ocean=深蓝星空渐变，sakura=樱花粉渐变 */
   background: var(--color-gradient-hero);
   overflow: hidden;
@@ -54,14 +56,14 @@
   padding: 0 32px;
   font-size: 16px;
   border-radius: 22px;
-  background: linear-gradient(135deg, #00D4FF, #0099CC);
+  background: linear-gradient(135deg, #00D4FF, #09C);
   border: none;
-  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 40%);
 }
 
 .createBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0, 212, 255, 0.6);
+  box-shadow: 0 6px 24px rgba(0, 212, 255, 60%);
 }
 
 /* 星空动画 */
@@ -105,7 +107,7 @@
 
 .entryCard:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 212, 255, 15%);
 }
 
 .entryIcon {
@@ -160,7 +162,7 @@
 .wishCard:hover {
   border-color: var(--color-primary);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 30%);
 }
 
 .cardCover {

@@ -99,7 +99,7 @@
 }
 
 .entryRow:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 4%);
 }
 
 .rankBadge {
@@ -112,7 +112,7 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 6%);
   flex-shrink: 0;
 }
 
@@ -167,7 +167,7 @@
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
-  animation: deltaPop 0.5s ease;
+  animation: delta-pop 0.5s ease;
 }
 
 .deltaUp {
@@ -187,7 +187,7 @@
   opacity: 0.4;
 }
 
-@keyframes deltaPop {
+@keyframes delta-pop {
   0% {
     transform: translateY(4px) scale(0.7);
     opacity: 0;

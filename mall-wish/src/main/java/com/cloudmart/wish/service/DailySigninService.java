@@ -2,6 +2,10 @@ package com.cloudmart.wish.service;
 
 import com.cloudmart.wish.vo.DailySigninVO;
 import com.cloudmart.wish.vo.SigninCalendarVO;
+import com.cloudmart.wish.vo.SigninMilestoneClaimVO;
+import com.cloudmart.wish.vo.SigninMilestoneVO;
+
+import java.util.List;
 
 /**
  * 用户每日签到服务（文档 2.6：POST /wish/my/checkin + GET /wish/my/checkin/calendar）。
@@ -36,4 +40,29 @@ public interface DailySigninService {
      * @return 签到日历
      */
     SigninCalendarVO getCalendar(Long userId, String month);
+
+    /**
+     * 连续签到里程碑列表（签到页「连续签到额外奖励」）。
+     *
+     * <p>只读：返回固定里程碑（7/14/30 天）+ 各自领取状态（是否已领取、
+     * 当前连续天数是否达标可领取）。</p>
+     *
+     * @param userId 用户 ID
+     * @return 里程碑列表（含领取状态）
+     */
+    List<SigninMilestoneVO> listMilestones(Long userId);
+
+    /**
+     * 领取连续签到里程碑奖励（星光 + 经验）。
+     *
+     * <p>前置：连续签到天数 ≥ milestoneDays 且未领取。星光入账（流水
+     * source=SIGNIN_MILESTONE）+ 经验经 community 内部接口发放 + 等级提升
+     * 检测同事务；幂等由 {@code uk_signin_milestone} 唯一键兜底，重复领取
+     * 抛 409 WISH_MILESTONE_ALREADY_CLAIMED。</p>
+     *
+     * @param userId        用户 ID
+     * @param milestoneDays 里程碑天数（7/14/30）
+     * @return 领取结果（到账星光 + 应发经验 + 等级提升事件）
+     */
+    SigninMilestoneClaimVO claimMilestone(Long userId, int milestoneDays);
 }

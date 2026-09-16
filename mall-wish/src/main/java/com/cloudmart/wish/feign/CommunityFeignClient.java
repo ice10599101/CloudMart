@@ -33,4 +33,13 @@ public interface CommunityFeignClient {
      */
     @PutMapping("/internal/content/flow/posts/{id}/hide")
     ApiResponse<Void> hideLegacyPost(@PathVariable("id") Long postId);
+
+    /**
+     * 发放签到经验（mall-community 成长体系）。
+     *
+     * @param body {userId, exp, source?, description?}
+     * @return ApiResponse 包含 {expReward, level, totalExp, levelTitle}
+     */
+    @PostMapping("/internal/growth/exp")
+    ApiResponse<Map<String, Object>> grantExp(@RequestBody Map<String, Object> body);
 }

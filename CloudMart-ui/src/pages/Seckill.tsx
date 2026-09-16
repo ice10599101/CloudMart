@@ -325,7 +325,7 @@ function SeckillProductCard({
               padding: 40,
               minWidth: 360,
               textAlign: 'center',
-              animation: 'slideUp 0.3s ease',
+              animation: 'slide-up 0.3s ease',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -454,7 +454,7 @@ export default function SeckillPage() {
           backdropFilter: 'blur(12px)',
           fontSize: 14,
           fontWeight: 500,
-          animation: 'fadeIn 0.3s ease',
+          animation: 'fade-in 0.3s ease',
         }}>
           {toast.message}
         </div>

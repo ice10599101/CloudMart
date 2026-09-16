@@ -1310,6 +1310,8 @@ export interface DailySigninResult {
   consecutiveDays: number
   starlightReward: number
   tomorrowReward: number
+  expReward: number
+  expGranted: boolean
   levelUp: LevelUpEvent | null
 }
 
@@ -1320,7 +1322,24 @@ export interface SigninCalendarData {
   totalDays: number
 }
 
-/** 用户维度每日签到（与心愿打卡独立；+5 星光，重复签到 409 WISH_ALREADY_SIGNED_IN） */
+/** 连续签到里程碑（7/14/30 天，手动领取一次性星光 + 经验） */
+export interface SigninMilestone {
+  milestoneDays: number
+  starlightReward: number
+  expReward: number
+  claimed: boolean
+  claimable: boolean
+}
+
+export interface SigninMilestoneClaimResult {
+  milestoneDays: number
+  starlightReward: number
+  expReward: number
+  expGranted: boolean
+  levelUp: LevelUpEvent | null
+}
+
+/** 用户维度每日签到（与心愿打卡独立；+5 星光 +10 经验，重复签到 409 WISH_ALREADY_SIGNED_IN） */
 export function dailySignin() {
   return request.post<ApiResponse<DailySigninResult>>('/wish/my/checkin')
 }
@@ -1330,6 +1349,18 @@ export function getSigninCalendar(month: string) {
   return request.get<ApiResponse<SigninCalendarData>>('/wish/my/checkin/calendar', {
     params: { month },
   })
+}
+
+/** 连续签到里程碑列表（含领取状态） */
+export function getSigninMilestones() {
+  return request.get<ApiResponse<SigninMilestone[]>>('/wish/my/checkin/milestones')
+}
+
+/** 领取连续签到里程碑奖励（days∈{7,14,30}） */
+export function claimSigninMilestone(days: number) {
+  return request.post<ApiResponse<SigninMilestoneClaimResult>>(
+    `/wish/my/checkin/milestones/${days}/claim`,
+  )
 }
 
 // ========== 我的等级与晋级进度（文档 6.5 / L1930） ==========
@@ -1516,8 +1547,19 @@ export function listActivityParticipants(activityId: number | string, page = 1, 
   })
 }
 
+export interface AssetDetail {
+  assetId: number
+  assetType: 'SKIN' | 'BGM' | 'SPECIAL_FRUIT' | 'BADGE'
+  name: string
+  description: string | null
+  icon: string | null
+  priceStarlight: number
+  owned: boolean
+  obtainMethod: 'EXCHANGE' | 'WORKSHOP'
+}
+
 export function getAssetDetail(assetId: number | string) {
-  return request.get<ApiResponse<Record<string, unknown>>>(`/wish/collections/assets/${assetId}`)
+  return request.get<ApiResponse<AssetDetail>>(`/wish/collections/assets/${assetId}`)
 }
 
 export function selfConfigLiveWidget(data: { position: string; styleConfig?: string; isVisible?: boolean }) {

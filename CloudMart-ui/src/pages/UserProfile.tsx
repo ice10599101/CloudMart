@@ -6,7 +6,6 @@ import Skeleton from '@/components/Skeleton'
 import {
   ArrowLeftOutlined,
   HeartOutlined,
-  EyeOutlined,
   UserAddOutlined,
   TeamOutlined,
   FileTextOutlined,
@@ -31,12 +30,14 @@ import {
   unblockUser,
   checkBlockStatus,
 } from '@/api/community'
-import type { Post, UserCommunityStats, MyComment } from '@/api/community'
+import type { Post, UserCommunityStats, MyComment, CollectionPostItem } from '@/api/community'
 import { getUserPublicProfile } from '@/api/user'
-import type { UserProfile } from '@/api/user'
+import type { UserProfile as UserProfileDetail } from '@/api/user'
 import { createConversation } from '@/api/chat'
-import { listWishes } from '@/api/wish'
-import type { WishListItem } from '@/api/wish'
+import { listWishes, listWishCollections } from '@/api/wish'
+import type { WishListItem, WishCollectionItem } from '@/api/wish'
+import { getWishlistList } from '@/api/wishlist'
+import type { WishlistItem } from '@/api/wishlist'
 import { stripHtml } from '@/utils/format'
 import RichText from '@/components/RichText'
 import { useAuthStore } from '@/stores/auth'
@@ -159,7 +160,7 @@ function PostCard({ post }: { post: Post }) {
 }
 
 /** 详细资料字段：仅展示用户已填写的项，未填不显示 */
-function buildDetailFields(user: UserProfile): Array<{ label: string; value: string }> {
+function buildDetailFields(user: UserProfileDetail): Array<{ label: string; value: string }> {
   const fields: Array<{ label: string; value: string }> = []
   const push = (label: string, value: string | undefined | null) => {
     const v = (value ?? '').trim()
@@ -194,6 +195,13 @@ const WISH_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   FULFILLING: { bg: 'rgba(255, 165, 0, 0.12)', text: 'var(--color-accent-orange)' },
   FULFILLED: { bg: 'rgba(46, 213, 115, 0.12)', text: 'var(--color-accent-green)' },
 }
+
+/** 收藏面板子分类（与 /profile「我的收藏」面板一致：商品/帖子/心愿） */
+const COLLECTION_CATEGORIES: Array<{ key: 'products' | 'posts' | 'wishes'; label: string }> = [
+  { key: 'products', label: '🛍️ 商品' },
+  { key: 'posts', label: '📝 帖子' },
+  { key: 'wishes', label: '🌟 心愿' },
+]
 
 /** TA 的心愿卡片：与帖子卡片同尺寸风格 */
 function WishCard({ wish }: { wish: WishListItem }) {
@@ -285,10 +293,13 @@ export default function UserProfile() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   const [profile, setProfile] = useState<CommunityUserProfile | null>(null)
-  const [detail, setDetail] = useState<UserProfile | null>(null)
+  const [detail, setDetail] = useState<UserProfileDetail | null>(null)
   const [communityStats, setCommunityStats] = useState<UserCommunityStats | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
-  const [collections, setCollections] = useState<Post[]>([])
+  const [collections, setCollections] = useState<CollectionPostItem[]>([])
+  const [collectionCategory, setCollectionCategory] = useState<'products' | 'posts' | 'wishes'>('posts')
+  const [wishCollects, setWishCollects] = useState<WishCollectionItem[] | null>(null)
+  const [productCollects, setProductCollects] = useState<WishlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [isFollowed, setIsFollowed] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
@@ -380,6 +391,25 @@ export default function UserProfile() {
     }
   }, [id])
 
+  // 心愿收藏 / 商品收藏为个人私有数据（接口仅返回当前登录用户），仅本人资料页展示
+  const fetchWishCollections = useCallback(async () => {
+    try {
+      const { data: res } = await listWishCollections(undefined, 50)
+      setWishCollects(res.data ?? [])
+    } catch {
+      setWishCollects([])
+    }
+  }, [])
+
+  const fetchProductCollections = useCallback(async () => {
+    try {
+      const { data: res } = await getWishlistList(1, 50)
+      setProductCollects(res.data ?? [])
+    } catch {
+      setProductCollects([])
+    }
+  }, [])
+
   // TA 的心愿：仅公开心愿（服务端强制 visibility=PUBLIC）
   const fetchWishes = useCallback(async () => {
     if (!id) return
@@ -420,10 +450,25 @@ export default function UserProfile() {
   }, [fetchProfile, fetchPosts, fetchStats, fetchDetail, checkBlock])
 
   useEffect(() => {
-    if (activeTab === 'collections' && collections.length === 0) {
+    if (activeTab === 'collections' && collectionCategory === 'posts' && collections.length === 0) {
       fetchCollections()
     }
-  }, [activeTab, collections.length, fetchCollections])
+  }, [activeTab, collectionCategory, collections.length, fetchCollections])
+
+  // 心愿/商品收藏仅在本人资料页按需加载（私有数据无对外接口）
+  useEffect(() => {
+    if (activeTab !== 'collections' || !isOwnProfile) return
+    if (collectionCategory === 'wishes' && wishCollects === null) {
+      fetchWishCollections()
+    }
+  }, [activeTab, collectionCategory, wishCollects, isOwnProfile, fetchWishCollections])
+
+  useEffect(() => {
+    if (activeTab !== 'collections' || !isOwnProfile) return
+    if (collectionCategory === 'products' && productCollects.length === 0) {
+      fetchProductCollections()
+    }
+  }, [activeTab, collectionCategory, productCollects.length, isOwnProfile, fetchProductCollections])
 
   useEffect(() => {
     if (activeTab === 'wishes' && wishes === null) {
@@ -1015,26 +1060,157 @@ export default function UserProfile() {
 
         {activeTab === 'collections' && (
           <>
-            {collections.length > 0 ? (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-                gap: 14,
-                paddingBottom: 80,
-              }}>
-                {collections.map((post) => (
-                  <PostCard key={post.id} post={post} />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                padding: '60px 0',
-                color: 'var(--color-text-tertiary)',
-                fontSize: 14,
-              }}>
-                {isOwnProfile ? '你还没有收藏内容' : '暂无公开收藏'}
-              </div>
+            {/* 收藏子分类切换（商品/帖子/心愿，与 /profile 我的收藏一致） */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              {COLLECTION_CATEGORIES.map((cat) => {
+                const active = collectionCategory === cat.key
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setCollectionCategory(cat.key)}
+                    style={{
+                      padding: '6px 16px',
+                      borderRadius: 8,
+                      border: active ? '1px solid rgba(var(--color-primary-rgb), 0.4)' : '1px solid var(--color-border)',
+                      background: active ? 'rgba(var(--color-primary-rgb), 0.1)' : 'transparent',
+                      color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                      fontSize: 13,
+                      fontWeight: active ? 600 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 商品收藏（个人私有数据，仅本人可见） */}
+            {collectionCategory === 'products' && (
+              !isOwnProfile ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                  TA 的商品收藏未公开
+                </div>
+              ) : productCollects.length > 0 ? (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: 14,
+                  paddingBottom: 80,
+                }}>
+                  {productCollects.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => history.push(`/products/${item.productId}`)}
+                      style={{
+                        background: 'var(--color-bg-container)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)'
+                        e.currentTarget.style.transform = 'translateY(-3px)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--color-border)'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }}
+                    >
+                      <div style={{ height: 160, background: 'var(--color-bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {item.mainImage ? (
+                          <img src={item.mainImage} alt={item.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                        ) : (
+                          <span style={{ fontSize: 40, opacity: 0.3 }}>🛍️</span>
+                        )}
+                      </div>
+                      <div style={{ padding: 14 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+                          {item.productName}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-primary)' }}>
+                          ¥{item.minPrice.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                  你还没有收藏商品
+                </div>
+              )
+            )}
+
+            {/* 帖子收藏（公开） */}
+            {collectionCategory === 'posts' && (
+              collections.length > 0 ? (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                  gap: 14,
+                  paddingBottom: 80,
+                }}>
+                  {collections.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                  {isOwnProfile ? '你还没有收藏内容' : '暂无公开收藏'}
+                </div>
+              )
+            )}
+
+            {/* 心愿收藏（个人私有数据，仅本人可见） */}
+            {collectionCategory === 'wishes' && (
+              !isOwnProfile ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                  TA 的心愿收藏未公开
+                </div>
+              ) : wishCollects === null ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}><Skeleton variant="list" count={3} /></div>
+              ) : wishCollects.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 80 }}>
+                  {wishCollects.map((item) => (
+                    <div
+                      key={item.collectionId}
+                      onClick={() => history.push(`/wish/${item.wishId}`)}
+                      style={{
+                        background: 'var(--color-bg-container)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 10,
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.2s',
+                        display: 'flex',
+                        gap: 14,
+                        alignItems: 'center',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
+                    >
+                      <div style={{ fontSize: 26, flexShrink: 0 }}>🌟</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                          {item.title}
+                        </div>
+                        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                          收藏于 {new Date(item.collectedAt).toLocaleDateString('zh-CN')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                  你还没有收藏心愿
+                </div>
+              )
             )}
           </>
         )}

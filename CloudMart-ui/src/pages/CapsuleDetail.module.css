@@ -111,6 +111,7 @@
     100% {
         opacity: 0.5;
     }
+
     50% {
         opacity: 1;
     }
@@ -139,7 +140,7 @@
     transform-origin: top center;
     z-index: 3;
     transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 20%));
 }
 
 .envelopeLetter {
@@ -169,7 +170,7 @@
     transform: translateX(-50%);
     font-size: 26px;
     z-index: 4;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 35%));
     transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
@@ -196,16 +197,17 @@
     height: 7px;
     border-radius: 50%;
     background: radial-gradient(circle, #ff6b6b 0%, #ffd700 75%);
-    animation: shardBurst 0.8s ease-out both;
+    animation: shard-burst 0.8s ease-out both;
     animation-delay: var(--delay, 0s);
     z-index: 4;
 }
 
-@keyframes shardBurst {
+@keyframes shard-burst {
     0% {
         transform: rotate(var(--angle)) translateY(0) scale(0.4);
         opacity: 1;
     }
+
     100% {
         transform: rotate(var(--angle)) translateY(-86px) scale(1);
         opacity: 0;
@@ -231,7 +233,7 @@
 
 .revealEmoji {
     font-size: 58px;
-    animation: revealPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .revealStar {
@@ -242,7 +244,7 @@
     height: 7px;
     border-radius: 50%;
     background: radial-gradient(circle, #ffd700 0%, #ff9ff3 75%);
-    animation: revealStarBurst 1s ease-out both;
+    animation: reveal-star-burst 1s ease-out both;
     animation-delay: var(--delay, 0s);
 }
 
@@ -265,7 +267,7 @@
     border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 20px 24px;
-    animation: letterRise 0.7s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+    animation: letter-rise 0.7s cubic-bezier(0.34, 1.3, 0.64, 1) both;
 }
 
 .letterContent {
@@ -323,36 +325,40 @@
     filter: grayscale(1) opacity(0.7);
 }
 
-@keyframes revealPop {
+@keyframes reveal-pop {
     0% {
         transform: scale(0);
         opacity: 0;
     }
+
     100% {
         transform: scale(1);
         opacity: 1;
     }
 }
 
-@keyframes revealStarBurst {
+@keyframes reveal-star-burst {
     0% {
         transform: rotate(var(--angle)) translateY(-24px) scale(0.3);
         opacity: 0;
     }
+
     30% {
         opacity: 1;
     }
+
     100% {
         transform: rotate(var(--angle)) translateY(-70px) scale(1);
         opacity: 0;
     }
 }
 
-@keyframes letterRise {
+@keyframes letter-rise {
     0% {
         transform: translateY(36px);
         opacity: 0;
     }
+
     100% {
         transform: translateY(0);
         opacity: 1;

@@ -2,7 +2,9 @@ package com.cloudmart.community.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.community.entity.Post;
 import com.cloudmart.community.entity.UserFollow;
 import com.cloudmart.community.mq.CommunityEventProducer;
 import com.cloudmart.community.repository.UserFollowMapper;
@@ -55,7 +57,11 @@ class UserFollowServiceImplTest {
 
     @BeforeAll
     static void initTableInfo() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), UserFollow.class);
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, UserFollow.class);
+        if (TableInfoHelper.getTableInfo(Post.class) == null) {
+            TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Post.class);
+        }
     }
 
     @BeforeEach
@@ -197,7 +203,9 @@ class UserFollowServiceImplTest {
         @Test
         @DisplayName("should return empty list when no followers")
         void getFollowerList_noFollowers_returnsEmpty() {
-            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+            Page<UserFollow> emptyPage = new Page<>(1, 10);
+            emptyPage.setRecords(Collections.emptyList());
+            when(userFollowMapper.selectPage(any(Page.class), any())).thenReturn(emptyPage);
 
             List<UserCommunityVO> result = userFollowService.getFollowerList(USER_ID, null, 1, 10);
 
@@ -205,16 +213,27 @@ class UserFollowServiceImplTest {
         }
 
         @Test
-        @DisplayName("should return follower VOs with correct isFollowed flag")
+        @DisplayName("should return follower VOs with filled nickname/avatar and correct follow state")
         void getFollowerList_hasFollowers_returnsMappedVOs() {
             UserFollow follow = buildUserFollow();
-            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
-            when(userFollowMapper.selectCount(any())).thenReturn(1L);
+            Page<UserFollow> page = new Page<>(1, 10);
+            page.setRecords(List.of(follow));
+            when(userFollowMapper.selectPage(any(Page.class), any())).thenReturn(page);
+            when(userEnrichmentService.batchGetUsers(any())).thenReturn(java.util.Map.of(
+                    USER_ID, new UserEnrichmentService.UserInfo(USER_ID, "user1", "avatar1", null, null)));
+
+            // buildFollowVOs 查询“我关注的人”：返回关注了 USER_ID 的记录，使 isFollowed=true
+            UserFollow iFollow = new UserFollow();
+            iFollow.setFollowerId(USER_ID);
+            iFollow.setFollowingId(USER_ID);
+            when(userFollowMapper.selectList(any())).thenReturn(List.of(iFollow));
 
             List<UserCommunityVO> result = userFollowService.getFollowerList(FOLLOWING_ID, USER_ID, 1, 10);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).userId()).isEqualTo(USER_ID);
+            assertThat(result.get(0).nickname()).isEqualTo("user1");
+            assertThat(result.get(0).avatar()).isEqualTo("avatar1");
             assertThat(result.get(0).isFollowed()).isTrue();
         }
     }
@@ -226,7 +245,9 @@ class UserFollowServiceImplTest {
         @Test
         @DisplayName("should return empty list when not following anyone")
         void getFollowingList_noFollowing_returnsEmpty() {
-            when(userFollowMapper.selectList(any())).thenReturn(Collections.emptyList());
+            Page<UserFollow> emptyPage = new Page<>(1, 10);
+            emptyPage.setRecords(Collections.emptyList());
+            when(userFollowMapper.selectPage(any(Page.class), any())).thenReturn(emptyPage);
 
             List<UserCommunityVO> result = userFollowService.getFollowingList(USER_ID, null, 1, 10);
 
@@ -234,16 +255,23 @@ class UserFollowServiceImplTest {
         }
 
         @Test
-        @DisplayName("should return following VOs with isFollowed always true")
+        @DisplayName("should return following VOs with filled nickname/avatar and viewer follow state")
         void getFollowingList_hasFollowing_returnsMappedVOs() {
             UserFollow follow = buildUserFollow();
-            when(userFollowMapper.selectList(any())).thenReturn(List.of(follow));
+            Page<UserFollow> page = new Page<>(1, 10);
+            page.setRecords(List.of(follow));
+            when(userFollowMapper.selectPage(any(Page.class), any())).thenReturn(page);
+            when(userEnrichmentService.batchGetUsers(any())).thenReturn(java.util.Map.of(
+                    FOLLOWING_ID, new UserEnrichmentService.UserInfo(FOLLOWING_ID, "user2", "avatar2", null, null)));
 
             List<UserCommunityVO> result = userFollowService.getFollowingList(USER_ID, null, 1, 10);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).userId()).isEqualTo(FOLLOWING_ID);
-            assertThat(result.get(0).isFollowed()).isTrue();
+            assertThat(result.get(0).nickname()).isEqualTo("user2");
+            assertThat(result.get(0).avatar()).isEqualTo("avatar2");
+            // 匿名访客无关注关系上下文，不应标记为已关注
+            assertThat(result.get(0).isFollowed()).isFalse();
         }
     }
 

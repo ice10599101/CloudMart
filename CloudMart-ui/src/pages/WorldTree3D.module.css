@@ -32,7 +32,7 @@
 .titleIcon {
   font-size: 26px;
   color: #9370db;
-  text-shadow: 0 0 12px rgba(147, 112, 219, 0.6);
+  text-shadow: 0 0 12px rgba(147, 112, 219, 60%);
 }
 
 .title {
@@ -86,7 +86,7 @@
   min-height: 480px;
   display: block;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 8%);
   background: radial-gradient(ellipse at 50% 40%, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 70%);
   cursor: grab;
   touch-action: none;
@@ -103,7 +103,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 20px;
-  background: rgba(16, 16, 36, 0.55);
+  background: rgba(16, 16, 36, 55%);
   backdrop-filter: blur(2px);
 }
 
@@ -113,8 +113,8 @@
   right: 40px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(22, 33, 62, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 33, 62, 80%);
+  border: 1px solid rgba(255, 255, 255, 8%);
 }
 
 /* ===== 图例与提示 ===== */
@@ -126,8 +126,8 @@
   gap: 16px;
   padding: 8px 16px;
   border-radius: 12px;
-  background: rgba(22, 33, 62, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 33, 62, 75%);
+  border: 1px solid rgba(255, 255, 255, 8%);
   backdrop-filter: blur(4px);
 }
 
@@ -143,7 +143,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  box-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 8px currentcolor;
 }
 
 .hint {
@@ -152,8 +152,8 @@
   right: 40px;
   padding: 8px 16px;
   border-radius: 12px;
-  background: rgba(22, 33, 62, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 33, 62, 75%);
+  border: 1px solid rgba(255, 255, 255, 8%);
   color: var(--color-text-tertiary);
   font-size: 13px;
   backdrop-filter: blur(4px);
@@ -167,9 +167,9 @@
   transform: translateX(-50%);
   width: min(360px, calc(100% - 48px));
   border-radius: 16px;
-  background: rgba(22, 33, 62, 0.92);
-  border: 1px solid rgba(0, 212, 255, 0.25);
-  box-shadow: 0 8px 40px rgba(0, 212, 255, 0.15);
+  background: rgba(22, 33, 62, 92%);
+  border: 1px solid rgba(0, 212, 255, 25%);
+  box-shadow: 0 8px 40px rgba(0, 212, 255, 15%);
   backdrop-filter: blur(8px);
   z-index: 5;
 }

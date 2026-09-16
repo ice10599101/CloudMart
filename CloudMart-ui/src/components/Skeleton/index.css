@@ -1,9 +1,9 @@
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.04) 25%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.04) 75%
+    rgba(255, 255, 255, 4%) 25%,
+    rgba(255, 255, 255, 8%) 50%,
+    rgba(255, 255, 255, 4%) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -94,7 +94,7 @@
 }
 
 .skeleton-card-item {
-  background: rgba(21, 32, 56, 0.6);
+  background: rgba(21, 32, 56, 60%);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -123,7 +123,7 @@
   align-items: flex-start;
   gap: 14px;
   padding: 12px;
-  background: rgba(21, 32, 56, 0.4);
+  background: rgba(21, 32, 56, 40%);
   border-radius: 10px;
 }
 
@@ -157,7 +157,7 @@
 
 .skeleton-chat-sidebar {
   width: 320px;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 6%);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -182,13 +182,13 @@
 
 .skeleton-chat-bubble-other {
   align-self: flex-start;
-  background: rgba(21, 32, 56, 0.6);
+  background: rgba(21, 32, 56, 60%);
   border-bottom-left-radius: 4px;
 }
 
 .skeleton-chat-bubble-self {
   align-self: flex-end;
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(0, 212, 255, 10%);
   border-bottom-right-radius: 4px;
 }
 
@@ -216,7 +216,7 @@
   gap: 40px;
   margin-bottom: 32px;
   padding: 20px;
-  background: rgba(21, 32, 56, 0.4);
+  background: rgba(21, 32, 56, 40%);
   border-radius: 12px;
 }
 
@@ -242,10 +242,10 @@
 }
 
 .skeleton-wish-masonry-item {
-  background: rgba(21, 32, 56, 0.6);
+  background: rgba(21, 32, 56, 60%);
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 4%);
 }
 
 .skeleton-wish-cover {
@@ -283,9 +283,9 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: rgba(21, 32, 56, 0.6);
+  background: rgba(21, 32, 56, 60%);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 4%);
 }
 
 .skeleton-tag {
@@ -375,7 +375,7 @@
 }
 
 .skeleton-wish-home-card {
-  background: rgba(21, 32, 56, 0.4);
+  background: rgba(21, 32, 56, 40%);
   border-radius: 12px;
   overflow: hidden;
 }

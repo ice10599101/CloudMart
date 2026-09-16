@@ -12,5 +12,6 @@ public record UserCommunityVO(
     Long followerCount,
     Long collectCount,
     List<BadgeVO> badges,
-    Boolean isFollowed
+    Boolean isFollowed,
+    Boolean isMutual
 ) {}

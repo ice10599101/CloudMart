@@ -286,7 +286,7 @@ export default function CouponListPage() {
           backdropFilter: 'blur(12px)',
           fontSize: 14,
           fontWeight: 500,
-          animation: 'fadeIn 0.3s ease',
+          animation: 'fade-in 0.3s ease',
         }}>
           {toast.message}
         </div>

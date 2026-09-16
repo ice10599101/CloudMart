@@ -88,7 +88,7 @@
 /* ===== 拆解结果 ===== */
 
 .breakdownCard {
-  background: linear-gradient(160deg, rgba(233, 69, 96, 0.08), var(--color-bg-container) 45%);
+  background: linear-gradient(160deg, rgba(233, 69, 96, 8%), var(--color-bg-container) 45%);
   border: 1px solid var(--color-border-hover);
   border-radius: 16px;
   padding: 16px;
@@ -99,7 +99,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-accent-gold);
-  background: rgba(255, 215, 0, 0.1);
+  background: rgba(255, 215, 0, 10%);
   border-radius: 999px;
   padding: 2px 12px;
   margin-bottom: 12px;

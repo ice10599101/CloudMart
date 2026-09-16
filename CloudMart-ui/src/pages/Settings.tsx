@@ -1,6 +1,6 @@
 import AccountDeletionSection from '@/components/AccountDeletionSection'
 import { useState, useEffect } from 'react'
-import { Switch, Input, Button } from 'antd'
+import { Switch, Input, Button, Select } from 'antd'
 import { message } from '@/utils/appMessage'
 import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined,
   StarOutlined,
@@ -56,6 +56,23 @@ const linkRowStyle: React.CSSProperties = {
   transition: 'background 0.2s ease',
 }
 
+/** 资料字段可见范围三档 */
+const VISIBILITY_OPTIONS = [
+  { value: 'ALL', label: '所有人' },
+  { value: 'MUTUAL', label: '互关好友' },
+  { value: 'SELF', label: '仅自己' },
+]
+
+/** 可设置可见范围的资料字段（生日/邮箱/粉丝/关注/收藏/帖子回复） */
+const VISIBILITY_FIELDS: Array<{ key: string; label: string; desc: string }> = [
+  { key: 'PRIVACY_BIRTHDAY_VISIBILITY', label: '生日', desc: '选择谁可以看到你的生日信息' },
+  { key: 'PRIVACY_EMAIL_VISIBILITY', label: '邮箱', desc: '选择谁可以看到你的邮箱信息' },
+  { key: 'PRIVACY_FOLLOWERS_VISIBILITY', label: '粉丝', desc: '选择谁可以看到你的粉丝列表' },
+  { key: 'PRIVACY_FOLLOWING_VISIBILITY', label: '关注', desc: '选择谁可以看到你的关注列表' },
+  { key: 'PRIVACY_COLLECTIONS_VISIBILITY', label: '收藏', desc: '选择谁可以看到你的收藏' },
+  { key: 'PRIVACY_POSTS_VISIBILITY', label: '帖子/回复', desc: '选择谁可以看到你的帖子和回复' },
+]
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -91,6 +108,8 @@ export default function SettingsPage() {
   const [allowStrangerMessage, setAllowStrangerMessage] = useState(true)
   const [showInSearch, setShowInSearch] = useState(true)
 
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, string>>({})
+
   useEffect(() => {
     const init = async () => {
       setLoading(true)
@@ -113,6 +132,11 @@ export default function SettingsPage() {
           if (settings.NOTIFICATION_SYSTEM !== undefined) setSystemNotification(settings.NOTIFICATION_SYSTEM === 'true')
           if (settings.PRIVACY_ALLOW_STRANGER_MSG !== undefined) setAllowStrangerMessage(settings.PRIVACY_ALLOW_STRANGER_MSG === 'true')
           if (settings.PRIVACY_PROFILE_PUBLIC !== undefined) setAllowStrangerView(settings.PRIVACY_PROFILE_PUBLIC === 'true')
+          const visMap: Record<string, string> = {}
+          VISIBILITY_FIELDS.forEach((f) => {
+            visMap[f.key] = settings[f.key] !== undefined ? settings[f.key] : 'ALL'
+          })
+          setVisibilityMap(visMap)
         }
       } catch {
         message.error('加载设置失败')
@@ -126,6 +150,15 @@ export default function SettingsPage() {
   const handleSettingChange = async (key: string, value: boolean) => {
     try {
       await updateUserSettings({ [key]: String(value) })
+      message.success('保存成功')
+    } catch {
+      message.error('保存失败')
+    }
+  }
+
+  const handleVisibilityChange = async (key: string, value: string) => {
+    try {
+      await updateUserSettings({ [key]: value })
       message.success('保存成功')
     } catch {
       message.error('保存失败')
@@ -215,6 +248,31 @@ export default function SettingsPage() {
             </div>
             <Switch checked={showInSearch} onChange={(v) => { setShowInSearch(v); handleSettingChange('PRIVACY_SEARCH_VISIBLE', v) }} />
           </div>
+        </div>
+
+        <div style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>资料可见范围</h2>
+
+          {VISIBILITY_FIELDS.map((field, index) => (
+            <div
+              key={field.key}
+              style={{ ...toggleRowStyle, borderBottom: index === VISIBILITY_FIELDS.length - 1 ? 'none' : undefined }}
+            >
+              <div>
+                <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500 }}>{field.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{field.desc}</div>
+              </div>
+              <Select
+                value={visibilityMap[field.key] ?? 'ALL'}
+                onChange={(v) => {
+                  setVisibilityMap((prev) => ({ ...prev, [field.key]: v }))
+                  handleVisibilityChange(field.key, v)
+                }}
+                options={VISIBILITY_OPTIONS}
+                style={{ width: 140 }}
+              />
+            </div>
+          ))}
         </div>
 
         <div style={sectionStyle}>
