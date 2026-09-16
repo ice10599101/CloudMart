@@ -31,8 +31,11 @@ public class DriftBottle {
     /** 投瓶人用户 ID（对捞起者匿名） */
     private Long throwerUserId;
 
-    /** 自由匿名文字（与 wishId 二选一） */
+    /** 自由匿名文字（与 wishId 二选一；富文本 HTML） */
     private String content;
+
+    /** 投瓶是否匿名（true 匿名隐藏身份 / false 实名，捞起者可见投瓶人身份） */
+    private Boolean isAnonymous;
 
     /** 关联心愿 ID（与 content 二选一） */
     private Long wishId;

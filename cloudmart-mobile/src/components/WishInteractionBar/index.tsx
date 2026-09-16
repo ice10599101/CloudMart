@@ -30,6 +30,8 @@ interface WishInteractionBarProps {
   isLoggedIn: boolean
   onCountsChange: (counts: Partial<WishInteractionCounts>) => void
   onRequireLogin: () => void
+  /** 祝福发送成功后回调（父组件据此刷新祝福墙） */
+  onBlessed?: () => void
 }
 
 /** 业务错误载体（移动端 request 不统一弹错，组件自行 toast） */
@@ -50,6 +52,7 @@ export default function WishInteractionBar({
   isLoggedIn,
   onCountsChange,
   onRequireLogin,
+  onBlessed,
 }: WishInteractionBarProps) {
   const [myInteractions, setMyInteractions] = useState<MyWishInteraction[]>([])
   const [blessPanelVisible, setBlessPanelVisible] = useState(false)
@@ -188,6 +191,7 @@ export default function WishInteractionBar({
       onCountsChange({ blessCount: res.data.data.blessCount })
       refreshMyInteractions()
       setBlessPanelVisible(false)
+      onBlessed?.()
       Taro.showToast({ title: '祝福已送达 🌟', icon: 'none' })
     } else {
       toastBusinessError(res.data)

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
 import { fileApi } from '@/api/file'
 import * as ImagePicker from 'expo-image-picker'
 import WishCheckinCalendar from '@/components/WishCheckinCalendar'
@@ -13,6 +14,7 @@ import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
 import WishInteractionBar from '@/components/WishInteractionBar'
+import WishBlessList from '@/components/WishBlessList'
 import WishCommentSection from '@/components/WishCommentSection'
 import WishBGM from '@/components/WishBGM'
 import WishShareCard from '@/components/WishShareCard'
@@ -50,6 +52,8 @@ export default function WishDetailScreen() {
   const [shareOpen, setShareOpen] = useState(false)
   // 星火永久收藏（文档 2.3，仅作者对 FULFILLED+BLOOM 心愿）
   const [sparkSaving, setSparkSaving] = useState(false)
+  // 祝福墙刷新信号：祝福发送成功后递增，触发 WishBlessList 重载首屏
+  const [blessTick, setBlessTick] = useState(0)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +61,15 @@ export default function WishDetailScreen() {
         const res = await wishApi.getWishDetail(wishId)
         if (res.data?.success) {
           setWish(res.data.data)
+          // 浏览足迹上报：登录用户静默上报，失败不打扰
+          if (user?.id) {
+            void communityApi.recordBrowseHistory({
+              targetType: 'WISH',
+              targetId: wishId,
+              title: res.data.data.title,
+              cover: res.data.data.mediaUrls?.[0],
+            }).catch(() => {})
+          }
           // 已还愿心愿加载还愿故事（未还愿/无权限静默忽略）
           if (res.data.data.status === 'FULFILLED') {
             try {
@@ -635,8 +648,12 @@ export default function WishDetailScreen() {
           isLoggedIn={Boolean(user)}
           onCountsChange={handleCountsChange}
           onRequireLogin={() => router.push('/login')}
+          onBlessed={() => setBlessTick((t) => t + 1)}
         />
       </View>
+
+      {/* 祝福墙（Sprint 1.2 补充）：祝福者与被祝福者都能看到 */}
+      <WishBlessList wishId={wishId} blessCount={wish.blessCount} refreshTick={blessTick} />
 
       {/* 还愿故事（Sprint 1.10） */}
       {fulfillment && (

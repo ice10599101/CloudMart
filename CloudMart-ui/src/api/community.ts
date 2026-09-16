@@ -347,3 +347,29 @@ export function getLikedPosts(page = 1, size = 20) {
 export function getMyComments(page = 1, size = 20) {
   return request.get<ApiResponse<MyComment[]>>('/community/comments/mine', { params: { page, size } })
 }
+
+// ========== 浏览足迹 ==========
+
+export interface BrowseHistoryItem {
+  id: number
+  targetType: 'PRODUCT' | 'POST' | 'WISH'
+  targetId: number
+  title: string
+  cover: string
+  viewedAt: string
+}
+
+/** 上报浏览足迹（商品/帖子/心愿详情页打开时静默调用；同一对象重复浏览仅刷新时间） */
+export function recordBrowseHistory(data: {
+  targetType: 'PRODUCT' | 'POST' | 'WISH'
+  targetId: number
+  title?: string
+  cover?: string
+}) {
+  return request.post<ApiResponse<null>>('/community/browse-history', data)
+}
+
+/** 我的浏览足迹（分页，按最近浏览时间倒序） */
+export function getMyBrowseHistory(page = 1, size = 20) {
+  return request.get<ApiResponse<BrowseHistoryItem[]>>('/community/browse-history', { params: { page, size } })
+}

@@ -83,7 +83,7 @@ export default function NotificationsPage() {
               {n.type === 'ENCOUNTER_LETTER' && (
                 <View className={styles.expectedActions} onClick={() => Taro.navigateTo({ url: '/pages/encounterLetters/index' })}>
                   <View className={styles.expectedBtn}>
-                    <Text className={styles.expectedBtnText}>查看相遇信笺</Text>
+                    <Text className={styles.expectedBtnText}>查看漂流瓶</Text>
                   </View>
                 </View>
               )}

@@ -4,6 +4,7 @@ import { message } from '@/utils/appMessage'
 import DOMPurify from 'dompurify'
 import { history, useParams } from 'umi'
 import { getProductById, listCategories } from '@/api/product'
+import { recordBrowseHistory } from '@/api/community'
 import { getProductReviews, getReviewStats } from '@/api/review'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
@@ -128,6 +129,7 @@ export default function ProductDetail() {
 
   const addItem = useCartStore((s) => s.addItem)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
 
   useEffect(() => {
     if (!id) return
@@ -144,6 +146,17 @@ export default function ProductDetail() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [id])
+
+  /** 浏览足迹上报：商品加载成功后静默上报，失败不打扰用户 */
+  useEffect(() => {
+    if (!user?.id || !product) return
+    void recordBrowseHistory({
+      targetType: 'PRODUCT',
+      targetId: product.id,
+      title: product.name,
+      cover: product.mainImage,
+    }).catch(() => {})
+  }, [user?.id, product])
 
   useEffect(() => {
     listCategories()

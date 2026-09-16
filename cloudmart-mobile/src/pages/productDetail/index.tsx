@@ -4,12 +4,15 @@ import Taro from '@tarojs/taro'
 import { productApi } from '@/api/product'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
+import { communityApi } from '@/api/community'
+import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Product } from '@/types'
 import styles from './index.module.scss'
 
 export default function ProductDetailPage() {
   const { dataTheme, themeStyle } = useThemeClass()
+  const { user } = useAuthStore()
   const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [product, setProduct] = useState<Product | null>(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
@@ -21,7 +24,17 @@ export default function ProductDetailPage() {
   const loadProduct = async () => {
     try {
       const res = await productApi.getDetail(id)
-      setProduct(res.data?.data)
+      const detail = res.data?.data
+      setProduct(detail)
+      // 浏览足迹上报：登录用户静默上报，失败不打扰
+      if (detail && user?.id) {
+        void communityApi.recordBrowseHistory({
+          targetType: 'PRODUCT',
+          targetId: detail.id ?? id,
+          title: detail.name,
+          cover: detail.mainImage,
+        }).catch(() => {})
+      }
     } catch {
       // API unavailable
     }

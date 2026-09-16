@@ -24,7 +24,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   CHECKIN_REMINDER: '打卡提醒',
   MATCH_RECOMMEND: '小队推荐',
   BRAND_REWARD: '品牌奖励',
-  ENCOUNTER_LETTER: '擦肩信笺',
+  ENCOUNTER_LETTER: '漂流瓶',
   DEVICE_OFFLINE: '设备离线',
   LEVEL_UP: '等级提升',
   BADGE_EARNED: '徽章获得',

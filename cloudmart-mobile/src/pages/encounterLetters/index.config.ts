@@ -1,3 +1,3 @@
 export default definePageConfig({
-  navigationBarTitleText: '擦肩而过',
+  navigationBarTitleText: '漂流瓶',
 })

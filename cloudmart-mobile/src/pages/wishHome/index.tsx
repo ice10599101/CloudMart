@@ -144,8 +144,8 @@ export default function WishHomePage() {
               <Text className={styles.entryText}>附近心愿</Text>
             </View>
             <View className={styles.entryCard} onClick={() => navigateTo('/pages/encounterLetters/index')}>
-              <Text className={styles.entryIcon} style={{ color: '#c084fc' }}>✉️</Text>
-              <Text className={styles.entryText}>擦肩而过</Text>
+              <Text className={styles.entryIcon} style={{ color: '#c084fc' }}>🍾</Text>
+              <Text className={styles.entryText}>漂流瓶</Text>
             </View>
             <View className={styles.entryCard} onClick={() => navigateTo('/pages/notificationPrefs/index')}>
               <Text className={styles.entryIcon} style={{ color: '#f59e0b' }}>🔔</Text>

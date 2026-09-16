@@ -1,9 +1,9 @@
 import RichText from '@/components/RichText'
 import { stripHtml, timeAgo } from '@/utils/format'
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
-import { Input, Select, DatePicker, Button, Modal, ConfigProvider } from 'antd'
+import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Empty, Spin, Pagination } from 'antd'
 import { StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
@@ -21,7 +21,7 @@ import { getWishlistList, removeWishlist } from '@/api/wishlist'
 import { getUserCollections, type CollectionPostItem } from '@/api/community'
 import { listWishCollections, type WishCollectionItem } from '@/api/wish'
 import type { WishlistItem } from '@/api/wishlist'
-import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments, type Post } from '@/api/community'
+import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments, getMyBrowseHistory, type Post, type BrowseHistoryItem } from '@/api/community'
 import {
   getUserLevel,
   getExpLogs,
@@ -903,104 +903,122 @@ function MyRepliesTab() {
   )
 }
 
-interface BrowseHistoryItem {
-  key: string
-  kind: 'wish' | 'post' | 'product'
-  title: string
-  viewedAt: number
+type BrowseKind = 'wish' | 'post' | 'product'
+
+/** 浏览足迹类型元信息：标签、图标与主题色 */
+const BROWSE_KIND_META: Record<BrowseKind, { label: string; emoji: string; color: string; bg: string }> = {
+  wish: { label: '心愿', emoji: '🌟', color: 'var(--color-accent-purple)', bg: 'rgba(156, 108, 255, 0.14)' },
+  post: { label: '帖子', emoji: '📝', color: 'var(--color-primary)', bg: 'rgba(var(--color-primary-rgb), 0.12)' },
+  product: { label: '商品', emoji: '🛍️', color: 'var(--color-accent-orange)', bg: 'rgba(255, 165, 0, 0.14)' },
 }
 
-/** 浏览足迹类型元信息：标签、图标、主题色与跳转目标（对应分类首页） */
-const BROWSE_KIND_META: Record<BrowseHistoryItem['kind'], { label: string; emoji: string; color: string; bg: string; route: string }> = {
-  wish: { label: '心愿', emoji: '🌟', color: 'var(--color-accent-purple)', bg: 'rgba(156, 108, 255, 0.14)', route: '/wish' },
-  post: { label: '帖子', emoji: '📝', color: 'var(--color-primary)', bg: 'rgba(var(--color-primary-rgb), 0.12)', route: '/' },
-  product: { label: '商品', emoji: '🛍️', color: 'var(--color-accent-orange)', bg: 'rgba(255, 165, 0, 0.14)', route: '/products' },
+/** 足迹 targetType → 展示类型 */
+function browseKindOf(targetType: BrowseHistoryItem['targetType']): BrowseKind {
+  if (targetType === 'PRODUCT') return 'product'
+  if (targetType === 'POST') return 'post'
+  return 'wish'
 }
 
-/** 浏览足迹种子：心愿/帖子/商品三类，循环 3 轮展开为 48 条（近 50 条） */
-const BROWSE_SEED: Array<{ kind: BrowseHistoryItem['kind']; title: string }> = [
-  { kind: 'wish', title: '去看一场极光' },
-  { kind: 'product', title: '北欧风木质落地灯' },
-  { kind: 'post', title: '周末徒步装备清单分享' },
-  { kind: 'wish', title: '学会弹奏《卡农》' },
-  { kind: 'product', title: '手冲咖啡壶礼盒装' },
-  { kind: 'post', title: '我的多肉养护避坑笔记' },
-  { kind: 'wish', title: '登顶泰山看日出' },
-  { kind: 'product', title: '复古蓝牙黑胶唱机' },
-  { kind: 'post', title: '一人食快手菜合集' },
-  { kind: 'wish', title: '养一只柴犬' },
-  { kind: 'product', title: '星空投影加湿器' },
-  { kind: 'post', title: '通勤穿搭不重样记录' },
-  { kind: 'wish', title: '体验一次滑翔伞' },
-  { kind: 'product', title: '迷你桌面暖风机' },
-  { kind: 'post', title: '出租屋书桌改造记' },
-  { kind: 'wish', title: '去海边露营看星星' },
-]
-
-/**
- * 确定性生成近 50 条浏览足迹演示数据。
- * 站内暂无浏览记录采集接口，此数据仅用于展示页签效果；后续接入真实足迹接口时替换本函数。
- */
-function buildBrowseHistory(): BrowseHistoryItem[] {
-  const now = Date.now()
-  const items = BROWSE_SEED.flatMap((seed, seedIndex) =>
-    [0, 1, 2].map((round) => {
-      const ordinal = seedIndex + round * BROWSE_SEED.length
-      return {
-        key: `${ordinal}-${seed.title}`,
-        kind: seed.kind,
-        title: seed.title,
-        // 首条约 15 分钟前，逐条前移约 14.6 小时，48 条分布在最近约 30 天
-        viewedAt: now - (15 + ordinal * 880) * 60 * 1000,
-      }
-    }),
-  )
-  return items.sort((a, b) => b.viewedAt - a.viewedAt)
+/** 足迹 → 详情页路由（跳转到具体浏览过的对象） */
+function browseDetailRoute(item: BrowseHistoryItem): string {
+  const kind = browseKindOf(item.targetType)
+  if (kind === 'product') return `/products/${item.targetId}`
+  if (kind === 'post') return `/post/${item.targetId}`
+  return `/wish/${item.targetId}`
 }
 
+/** 浏览足迹页签：调用真实足迹接口分页展示，点击跳转对应详情页 */
 function BrowseHistoryTab() {
-  const items = useMemo(() => buildBrowseHistory(), [])
+  const [items, setItems] = useState<BrowseHistoryItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const PAGE_SIZE = 20
+
+  const load = useCallback(async (targetPage: number) => {
+    setLoading(true)
+    try {
+      const { data: res } = await getMyBrowseHistory(targetPage, PAGE_SIZE)
+      setItems(res.data ?? [])
+      setTotal(res.meta?.total ?? 0)
+    } catch {
+      // 未登录或加载失败展示空态；错误提示由拦截器统一处理
+      setItems([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load(1)
+  }, [load])
 
   return (
     <div>
       <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 16 }}>
         浏览足迹
         <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--color-text-tertiary)', marginLeft: 8 }}>
-          共 {items.length} 条
+          共 {total} 条
         </span>
       </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {items.map((item) => {
-          const meta = BROWSE_KIND_META[item.kind]
-          return (
-            <div key={item.key} className={s.addressCard} style={{ cursor: 'pointer' }} onClick={() => history.push(meta.route)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{meta.emoji}</span>
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 13,
-                    color: 'var(--color-text-secondary)',
-                    fontWeight: 500,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {item.title}
-                </span>
-                <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, background: meta.bg, color: meta.color, flexShrink: 0 }}>
-                  {meta.label}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0, width: 64, textAlign: 'right' }}>
-                  {timeAgo(item.viewedAt)}
-                </span>
-              </div>
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+          <Spin size="small" />
+        </div>
+      ) : items.length === 0 ? (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有浏览足迹，去逛逛吧" />
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {items.map((item) => {
+              const meta = BROWSE_KIND_META[browseKindOf(item.targetType)]
+              return (
+                <div key={item.id} className={s.addressCard} style={{ cursor: 'pointer' }} onClick={() => history.push(browseDetailRoute(item))}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{meta.emoji}</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 13,
+                        color: 'var(--color-text-secondary)',
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.title || `${meta.label}详情`}
+                    </span>
+                    <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, background: meta.bg, color: meta.color, flexShrink: 0 }}>
+                      {meta.label}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0, width: 64, textAlign: 'right' }}>
+                      {timeAgo(item.viewedAt) || '刚刚'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {total > PAGE_SIZE && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <Pagination
+                current={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                showSizeChanger={false}
+                size="small"
+                onChange={(targetPage) => {
+                  setPage(targetPage)
+                  void load(targetPage)
+                }}
+              />
             </div>
-          )
-        })}
-      </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

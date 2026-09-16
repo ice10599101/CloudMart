@@ -10,6 +10,7 @@ import {
   getPostDetail, createPost, deletePost, likePost, unlikePost,
   collectPost, uncollectPost, getPostComments, createComment,
   searchPosts, getHotTopics, followUser, unfollowUser,
+  recordBrowseHistory, getMyBrowseHistory,
 } from './community'
 
 describe('community API', () => {
@@ -151,5 +152,24 @@ describe('community API', () => {
     await getHotTopics()
 
     expect(request.get).toHaveBeenCalledWith('/community/tags/hot')
+  })
+
+  it('recordBrowseHistory() posts /community/browse-history with payload', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    await recordBrowseHistory({ targetType: 'WISH', targetId: 9, title: '心愿标题', cover: 'http://x/w.jpg' })
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/community/browse-history',
+      { targetType: 'WISH', targetId: 9, title: '心愿标题', cover: 'http://x/w.jpg' },
+    )
+  })
+
+  it('getMyBrowseHistory() calls GET /community/browse-history with pagination', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getMyBrowseHistory(2, 10)
+
+    expect(request.get).toHaveBeenCalledWith('/community/browse-history', { params: { page: 2, size: 10 } })
   })
 })

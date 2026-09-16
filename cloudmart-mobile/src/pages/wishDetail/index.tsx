@@ -3,12 +3,14 @@ import { useState, useEffect, useRef } from 'react'
 import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import WishCheckinCalendar from '@/components/WishCheckinCalendar'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
+import WishBlessList from '@/components/WishBlessList'
 import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
 import WishShareCard from '@/components/WishShareCard'
 import type { WishDetail, FruitType, WishFulfillmentDetail } from '@/types'
@@ -73,6 +75,8 @@ export default function WishDetailPage() {
   const [growthContent, setGrowthContent] = useState('')
   const [growthDelta, setGrowthDelta] = useState('')  // Taro Input 值为字符串
   const [growthSaving, setGrowthSaving] = useState(false)
+  /** 祝福发送成功后的祝福墙刷新信号 */
+  const [blessTick, setBlessTick] = useState(0)
 
   /** 收藏状态回显（非作者；登录态） */
   useEffect(() => {
@@ -158,6 +162,15 @@ export default function WishDetailPage() {
         const res = await wishApi.getWishDetail(wishId)
         if (res.data.success) {
           setWish(res.data.data)
+          // 浏览足迹上报：登录用户静默上报，失败不打扰
+          if (user?.id) {
+            void communityApi.recordBrowseHistory({
+              targetType: 'WISH',
+              targetId: wishId,
+              title: res.data.data.title,
+              cover: res.data.data.mediaUrls?.[0],
+            }).catch(() => {})
+          }
           // 已还愿心愿加载还愿故事（公开匿名可见；PRIVATE/TREE_HOLE 仅作者）
           if (res.data.data.status === 'FULFILLED') {
             try {
@@ -177,7 +190,7 @@ export default function WishDetailPage() {
       }
     }
     fetchData()
-  }, [wishId])
+  }, [wishId, user?.id])
 
   // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期选择
   useEffect(() => {
@@ -488,6 +501,16 @@ export default function WishDetailPage() {
             isLoggedIn={isLoggedIn}
             onCountsChange={handleCountsChange}
             onRequireLogin={gotoLogin}
+            onBlessed={() => setBlessTick((t) => t + 1)}
+          />
+        </View>
+
+        {/* 祝福墙（祝福者与被祝福者均可见，Sprint 1.2 补充） */}
+        <View className={styles.interactionCard}>
+          <WishBlessList
+            wishId={wishId}
+            blessCount={wish.blessCount}
+            refreshTick={blessTick}
           />
         </View>
 

@@ -1,26 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
-import { App, Button, Empty, Input, Radio, Select, Spin, Tag } from 'antd'
+import { App, Button, Checkbox, Empty, Radio, Select, Spin, Tag } from 'antd'
 import { history } from 'umi'
 import {
   fishDriftBottle,
   interactDriftBottle,
+  listDriftBottleCandidateWishes,
   listMyDriftBottles,
-  listWishes,
   throwDriftBottle,
+  type DriftBottleCandidateWish,
   type DriftBottleItem,
-  type WishListItem,
 } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import WishBGM from '@/components/WishBGM'
+import TiptapEditor from '@/components/TiptapEditor'
+import RichText, { richTextToPlainText } from '@/components/RichText'
+import DriftBottleComments from '@/components/DriftBottleComments'
 import styles from './EncounterLetters.module.css'
 
 /**
  * 漂流瓶（替代相遇信笺用户侧体验）：
- * 匿名随机漂流——投瓶（自由文字 / 关联心愿二选一）、捞瓶、我的漂流瓶、匿名回应。
- * 无附近模式、无轨迹上报，全程不暴露投瓶人身份。
+ * 匿名随机漂流——投瓶（自由富文本 / 关联心愿二选一）、捞瓶、我的漂流瓶、匿名回应。
+ * 投瓶编辑器与发帖一致（Tiptap 富文本）；无附近模式、无轨迹上报，全程不暴露投瓶人身份。
  */
-
-const { TextArea } = Input
 
 type ThrowMode = 'TEXT' | 'WISH'
 
@@ -32,6 +33,7 @@ export default function EncounterLetters() {
   const [throwMode, setThrowMode] = useState<ThrowMode>('TEXT')
   const [throwText, setThrowText] = useState('')
   const [throwWishId, setThrowWishId] = useState<number | string | null>(null)
+  const [throwAnonymous, setThrowAnonymous] = useState(true)
   const [throwing, setThrowing] = useState(false)
 
   // 捞瓶
@@ -42,8 +44,11 @@ export default function EncounterLetters() {
   const [bottles, setBottles] = useState<DriftBottleItem[]>([])
   const [loadingMine, setLoadingMine] = useState(true)
 
-  // 可关联的「我的公开进行中心愿」
-  const [myWishes, setMyWishes] = useState<WishListItem[]>([])
+  // 展开评论树的瓶子 ID 集合
+  const [commentOpen, setCommentOpen] = useState<Set<number>>(new Set())
+
+  // 可关联的「近 20 个自己发布的可关联心愿」
+  const [candidateWishes, setCandidateWishes] = useState<DriftBottleCandidateWish[]>([])
   const [loadingWishes, setLoadingWishes] = useState(true)
 
   const loadMine = useCallback(async () => {
@@ -58,14 +63,11 @@ export default function EncounterLetters() {
     }
   }, [])
 
-  const loadMyWishes = useCallback(async (userId: number) => {
+  const loadCandidateWishes = useCallback(async () => {
     setLoadingWishes(true)
     try {
-      const res = await listWishes({ userId, pageSize: 50 })
-      if (res.data.success) {
-        setMyWishes((res.data.data ?? [])
-          .filter((w) => w.status === 'ACTIVE' && w.visibility === 'PUBLIC'))
-      }
+      const res = await listDriftBottleCandidateWishes()
+      if (res.data.success) setCandidateWishes(res.data.data ?? [])
     } catch {
       // 拦截器已提示
     } finally {
@@ -80,13 +82,13 @@ export default function EncounterLetters() {
     }
     if (user) {
       loadMine()
-      loadMyWishes(user.id)
+      loadCandidateWishes()
     }
-  }, [user, userLoading, loadMine, loadMyWishes])
+  }, [user, userLoading, loadMine, loadCandidateWishes])
 
   const handleThrow = async () => {
-    const hasText = throwMode === 'TEXT' && throwText.trim().length > 0
-    const hasWish = throwMode === 'WISH' && throwWishId != null
+    const hasText = throwMode === 'TEXT' && richTextToPlainText(throwText).trim().length > 0
+    const hasWish = throwMode === 'WISH' && throwWishId !== null
     if (!hasText && !hasWish) {
       message.warning(throwMode === 'TEXT' ? '写下一句话再投出吧' : '选择一个心愿再投出吧')
       return
@@ -94,7 +96,9 @@ export default function EncounterLetters() {
     setThrowing(true)
     try {
       await throwDriftBottle(
-        throwMode === 'TEXT' ? { content: throwText.trim() } : { wishId: throwWishId! },
+        throwMode === 'TEXT'
+          ? { content: throwText, isAnonymous: throwAnonymous }
+          : { wishId: throwWishId!, isAnonymous: throwAnonymous },
       )
       message.success('漂流瓶已投出，愿它漂向有缘人 🌊')
       setThrowText('')
@@ -113,7 +117,7 @@ export default function EncounterLetters() {
     try {
       const res = await fishDriftBottle()
       if (res.data.success) {
-        if (res.data.data == null) {
+        if (res.data.data === null) {
           message.info('海面暂时没有漂流瓶，稍后再来捞一捞')
         } else {
           setFishedBottle(res.data.data)
@@ -142,13 +146,22 @@ export default function EncounterLetters() {
 
   const renderBottleActions = (bottle: DriftBottleItem) => {
     // 仅捞起人可回应关联心愿的漂流瓶（文字漂流瓶不提供回应）
-    if (bottle.wishId == null) return null
+    if (bottle.wishId === null) return null
     return (
       <div className={styles.bottleActions}>
         <Button size="small" onClick={() => handleInteract(bottle, 'BLESS')}>匿名祝福 💛</Button>
         <Button size="small" onClick={() => handleInteract(bottle, 'LIGHT')}>点亮 TA 的心愿 ⭐（-2 星光）</Button>
       </div>
     )
+  }
+
+  const toggleComments = (bottleId: number) => {
+    setCommentOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(bottleId)) next.delete(bottleId)
+      else next.add(bottleId)
+      return next
+    })
   }
 
   const renderBottleContent = (bottle: DriftBottleItem) => (
@@ -162,9 +175,25 @@ export default function EncounterLetters() {
           </div>
         </div>
       ) : (
-        <p className={styles.content}>{bottle.content}</p>
+        <RichText content={bottle.content} className={styles.content} />
+      )}
+      {!bottle.isAnonymous && bottle.throwerNickname && (
+        <p className={styles.throwerLine}>投瓶人：{bottle.throwerNickname}</p>
       )}
       {renderBottleActions(bottle)}
+      <div className={styles.commentSection}>
+        <Button
+          size="small"
+          type="text"
+          className={styles.commentToggle}
+          onClick={() => toggleComments(bottle.bottleId)}
+          aria-expanded={commentOpen.has(bottle.bottleId)}
+        >
+          💬 与 TA 交流{bottle.commentCount > 0 ? `（${bottle.commentCount}）` : ''}
+          {commentOpen.has(bottle.bottleId) ? ' ▲' : ' ▼'}
+        </Button>
+        {commentOpen.has(bottle.bottleId) && <DriftBottleComments bottleId={bottle.bottleId} />}
+      </div>
     </>
   )
 
@@ -218,29 +247,39 @@ export default function EncounterLetters() {
           </Radio.Group>
 
           {throwMode === 'TEXT' ? (
-            <TextArea
-              value={throwText}
-              onChange={(e) => setThrowText(e.target.value)}
-              maxLength={500}
-              showCount
-              rows={4}
-              placeholder="写下你想随海漂流的一句话（500 字以内）"
-              className={styles.throwInput}
-            />
+            <div className={styles.throwEditor}>
+              <TiptapEditor
+                value={throwText}
+                onChange={setThrowText}
+                placeholder="写下你想随海漂流的一句话…（与发帖同款编辑器）"
+              />
+            </div>
           ) : (
             <Select
               value={throwWishId ?? undefined}
-              onChange={(v) => setThrowWishId(v == null ? null : (v as number | string))}
-              placeholder={loadingWishes ? '加载心愿中…' : '选择一个公开进行中的心愿'}
+              onChange={(v) => setThrowWishId(v === null || v === undefined ? null : (v as number | string))}
+              placeholder={loadingWishes ? '加载心愿中…' : '选择一个自己发布的心愿'}
               loading={loadingWishes}
               showSearch
               optionFilterProp="label"
               allowClear
               className={styles.throwSelect}
-              options={myWishes.map((w) => ({ value: w.id, label: w.title }))}
-              notFoundContent={loadingWishes ? <Spin size="small" /> : '暂无公开进行中的心愿'}
+              options={candidateWishes.map((w) => ({ value: w.wishId, label: w.title }))}
+              notFoundContent={loadingWishes ? <Spin size="small" /> : '暂无可关联的心愿（需公开进行中）'}
             />
           )}
+
+          <div className={styles.anonymousRow}>
+            <Checkbox
+              checked={throwAnonymous}
+              onChange={(e) => setThrowAnonymous(e.target.checked)}
+            >
+              匿名投出（默认）
+            </Checkbox>
+            <span className={styles.anonymousHint}>
+              {throwAnonymous ? '捞起者看不到你是谁' : '实名投出：捞起者可见你的昵称和头像'}
+            </span>
+          </div>
 
           <Button
             type="primary"

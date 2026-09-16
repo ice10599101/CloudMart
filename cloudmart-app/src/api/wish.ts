@@ -34,6 +34,9 @@ import type {
     ConsentStatus,
     ConsentType,
     CreateCapsulePayload,
+    DriftBottleCandidateWish,
+    DriftBottleCommentItem,
+    DriftBottleItem,
     EnvConfigItem,
     HomeAggregation,
     MyCapsuleListQuery,
@@ -51,6 +54,7 @@ import type {
     WishFulfillmentDetail,
     CheckinResult,
     WishFulfillmentSubmitResult,
+    WishInteractionItem,
     WishInteractionResult,
     WishInteractionType,
     WishStatus,
@@ -208,6 +212,12 @@ export interface MyWishListQuery {
     pageSize?: number
 }
 
+export interface InteractionListQuery {
+    type?: WishInteractionType
+    cursor?: string
+    pageSize?: number
+}
+
 export interface CommentListQuery {
     cursor?: string
     pageSize?: number
@@ -257,6 +267,10 @@ export const wishApi = {
         }),
     listMyInteractions: (wishId: number | string) =>
         request<MyWishInteraction[]>({ url: `/wish/wishes/${wishId}/interactions/my` }),
+    listInteractions: (wishId: number | string, params?: InteractionListQuery) =>
+        request<WishInteractionItem[]>({
+            url: `/wish/wishes/${wishId}/interactions${buildQuery(params as Record<string, unknown>)}`,
+        }),
 
     // ---- 评论（Sprint 1.2）----
     createComment: (wishId: number | string, data: { content: string; parentId?: number }) =>
@@ -512,6 +526,40 @@ export const wishApi = {
     /** 匿名互动（BLESS 免费 / LIGHT 扣星光 2；每信笺每日 1 次） */
     interactEncounterLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT') =>
         request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type } }),
+
+    // ---- 漂流瓶（替代相遇信笺）----
+    /** 候选心愿（近 20 个自己发布的公开进行中心愿，投瓶选择用） */
+    listDriftBottleCandidateWishes: () =>
+        request<DriftBottleCandidateWish[]>({ url: '/wish/drift-bottles/candidate-wishes' }),
+    /** 投瓶（content 富文本与 wishId 二选一；isAnonymous 缺省/true=匿名） */
+    throwDriftBottle: (data: { content?: string; wishId?: number; isAnonymous?: boolean }) =>
+        request<DriftBottleItem>({
+            url: '/wish/drift-bottles',
+            method: 'POST',
+            data: data as unknown as Record<string, unknown>,
+        }),
+    /** 捞瓶（null=海里无瓶） */
+    fishDriftBottle: () => request<DriftBottleItem | null>({ url: '/wish/drift-bottles/fish', method: 'POST' }),
+    /** 我的漂流瓶（我投出的+我捞到的，已按 id 倒序） */
+    listMyDriftBottles: () => request<DriftBottleItem[]>({ url: '/wish/drift-bottles/mine' }),
+    /** 互动（仅捞起人、仅关联心愿瓶；BLESS/LIGHT；当日重复 WISH_RATE_LIMITED） */
+    interactDriftBottle: (id: number | string, type: 'BLESS' | 'LIGHT') =>
+        request<DriftBottleItem>({ url: `/wish/drift-bottles/${id}/interactions`, method: 'POST', data: { type } }),
+    /** 瓶下评论（cursor 分页；非投瓶人/捞起人 404） */
+    listDriftBottleComments: (bottleId: number | string, params?: { cursor?: string; pageSize?: number }) =>
+        request<DriftBottleCommentItem[]>({
+            url: `/wish/drift-bottles/${bottleId}/comments${buildQuery(params as Record<string, unknown>)}`,
+        }),
+    /** 发表评论（parentId=回复目标评论 ID；isAnonymous 缺省/true=匿名） */
+    addDriftBottleComment: (
+        bottleId: number | string,
+        data: { content: string; parentId?: number; isAnonymous?: boolean },
+    ) =>
+        request<DriftBottleCommentItem>({
+            url: `/wish/drift-bottles/${bottleId}/comments`,
+            method: 'POST',
+            data: data as unknown as Record<string, unknown>,
+        }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>

@@ -34,6 +34,8 @@ interface WishInteractionBarProps {
   isLoggedIn: boolean
   onCountsChange: (counts: Partial<WishInteractionCounts>) => void
   onRequireLogin: () => void
+  /** 祝福发送成功后的回调（父组件用于刷新祝福墙） */
+  onBlessed?: () => void
 }
 
 /** 触感反馈：iOS Vibration 不生效时静默（不阻断主流程） */
@@ -66,6 +68,7 @@ export default function WishInteractionBar({
   isLoggedIn,
   onCountsChange,
   onRequireLogin,
+  onBlessed,
 }: WishInteractionBarProps) {
   const [myInteractions, setMyInteractions] = useState<MyWishInteraction[]>([])
   const [blessModalVisible, setBlessModalVisible] = useState(false)
@@ -220,6 +223,7 @@ export default function WishInteractionBar({
         onCountsChange({ blessCount: res.data.data.blessCount })
         refreshMyInteractions()
         setBlessModalVisible(false)
+        onBlessed?.()
         Alert.alert('祝福已送达 🌟')
       } else if (res.data) {
         alertBusinessError(res.data)

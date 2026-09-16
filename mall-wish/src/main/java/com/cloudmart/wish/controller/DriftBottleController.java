@@ -3,9 +3,12 @@ package com.cloudmart.wish.controller;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.wish.dto.BottleCommentRequest;
 import com.cloudmart.wish.dto.DriftBottleInteractRequest;
 import com.cloudmart.wish.dto.ThrowBottleRequest;
 import com.cloudmart.wish.service.DriftBottleService;
+import com.cloudmart.wish.vo.DriftBottleCandidateWishVO;
+import com.cloudmart.wish.vo.DriftBottleCommentVO;
 import com.cloudmart.wish.vo.DriftBottleVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -38,7 +42,7 @@ public class DriftBottleController {
     private final DriftBottleService driftBottleService;
 
     @PostMapping
-    @Operation(summary = "投瓶", description = "自由匿名文字或关联一个公开进行中心愿（content 与 wishId 二选一）；"
+    @Operation(summary = "投瓶", description = "自由匿名富文本或关联一个公开进行中心愿（content 与 wishId 二选一）；"
             + "投出后进入全局海面池，不暴露投瓶人身份")
     @SentinelResource("WISH_DRIFT_THROW")
     public ApiResponse<DriftBottleVO> throwBottle(
@@ -46,6 +50,15 @@ public class DriftBottleController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Valid @RequestBody ThrowBottleRequest request) {
         return ApiResponse.ok(driftBottleService.throwBottle(userId, request));
+    }
+
+    @GetMapping("/candidate-wishes")
+    @Operation(summary = "可关联心愿候选", description = "我最近发布的至多 20 个可关联心愿（公开进行中），按发布时间倒序；投瓶下拉选择用")
+    @SentinelResource("WISH_DRIFT_CANDIDATE")
+    public ApiResponse<List<DriftBottleCandidateWishVO>> listCandidateWishes(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(driftBottleService.listCandidateWishes(userId));
     }
 
     @PostMapping("/fish")
@@ -76,5 +89,33 @@ public class DriftBottleController {
             @Parameter(description = "漂流瓶 ID", required = true) @PathVariable Long id,
             @Valid @RequestBody DriftBottleInteractRequest request) {
         return ApiResponse.ok(driftBottleService.interact(userId, id, request.type()));
+    }
+
+    @GetMapping("/{id}/comments")
+    @Operation(summary = "漂流瓶评论列表", description = "仅投瓶人或捞起人可见；id 倒序游标分页；"
+            + "匿名评论不返回真实身份（昵称显示「匿名瓶友」）")
+    @SentinelResource("WISH_DRIFT_COMMENT_LIST")
+    public ApiResponse<List<DriftBottleCommentVO>> listComments(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "漂流瓶 ID", required = true) @PathVariable Long id,
+            @Parameter(description = "分页游标（上一页最后一条评论 ID）") @RequestParam(required = false) String cursor,
+            @Parameter(description = "每页数量（1-50，默认 20）") @RequestParam(required = false) Integer pageSize) {
+        DriftBottleService.CommentPage page =
+                driftBottleService.listComments(userId, id, cursor, pageSize);
+        int safeSize = pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 50);
+        return ApiResponse.okWithCursor(page.records(), safeSize, page.nextCursor(), page.hasMore());
+    }
+
+    @PostMapping("/{id}/comments")
+    @Operation(summary = "发表漂流瓶评论/回复", description = "仅投瓶人或捞起人可评论；"
+            + "默认匿名（不选默认匿名），可切换实名；parentId 指向同一漂流瓶下的评论即回复")
+    @SentinelResource("WISH_DRIFT_COMMENT_ADD")
+    public ApiResponse<DriftBottleCommentVO> addComment(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "漂流瓶 ID", required = true) @PathVariable Long id,
+            @Valid @RequestBody BottleCommentRequest request) {
+        return ApiResponse.ok(driftBottleService.addComment(userId, id, request));
     }
 }

@@ -1075,7 +1075,7 @@ export function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT
 
 export interface DriftBottleItem {
   bottleId: number
-  /** 自由匿名文字（关联心愿时为 null） */
+  /** 自由匿名文字（富文本 HTML；关联心愿时为 null） */
   content: string | null
   /** 关联心愿 ID（自由文字时为 null） */
   wishId: number | null
@@ -1086,10 +1086,47 @@ export interface DriftBottleItem {
   role: 'THROWN' | 'PICKED'
   thrownAt: string
   pickedAt: string | null
+  /** 投瓶是否匿名（true=匿名隐藏投瓶人身份） */
+  isAnonymous: boolean
+  /** 实名投瓶时投瓶人用户 ID（匿名时为 null） */
+  throwerUserId: number | null
+  throwerNickname: string | null
+  throwerAvatar: string | null
+  /** 瓶下评论数（含回复） */
+  commentCount: number
 }
 
-/** 投瓶（自由文字 content 与关联心愿 wishId 二选一） */
-export function throwDriftBottle(data: { content?: string; wishId?: number | string }) {
+/** 漂流瓶评论（瓶下评论树节点） */
+export interface DriftBottleCommentItem {
+  id: number
+  bottleId: number
+  /** 评论者用户 ID（匿名评论为 null） */
+  userId: number | null
+  nickname: string
+  avatar: string | null
+  /** 被回复评论 ID（顶级评论为 null） */
+  parentId: number | null
+  /** 被回复人展示昵称（顶级评论为 null；匿名父评论显示「匿名瓶友」） */
+  replyToNickname: string | null
+  content: string
+  isAnonymous: boolean
+  createdAt: string
+}
+
+/** 可关联心愿候选（我最近发布的至多 20 个可关联心愿） */
+export interface DriftBottleCandidateWish {
+  wishId: number
+  title: string
+  tags: string[]
+}
+
+/** 可关联心愿候选（投瓶下拉选择：近 20 个自己发布的可关联心愿） */
+export function listDriftBottleCandidateWishes() {
+  return request.get<ApiResponse<DriftBottleCandidateWish[]>>('/wish/drift-bottles/candidate-wishes')
+}
+
+/** 投瓶（自由富文本 content 与关联心愿 wishId 二选一；isAnonymous 默认 true） */
+export function throwDriftBottle(data: { content?: string; wishId?: number | string; isAnonymous?: boolean }) {
   return request.post<ApiResponse<DriftBottleItem>>('/wish/drift-bottles', data)
 }
 
@@ -1106,6 +1143,24 @@ export function listMyDriftBottles() {
 /** 匿名回应（仅捞起人可回应关联心愿漂流瓶：BLESS 免费 / LIGHT 扣星光 2） */
 export function interactDriftBottle(bottleId: number, type: 'BLESS' | 'LIGHT') {
   return request.post<ApiResponse<DriftBottleItem>>(`/wish/drift-bottles/${bottleId}/interactions`, { type })
+}
+
+/** 漂流瓶评论列表（仅投瓶人/捞起人可见，id 倒序游标分页） */
+export function listDriftBottleComments(
+  bottleId: number,
+  data?: { cursor?: string; pageSize?: number },
+) {
+  return request.get<ApiResponse<DriftBottleCommentItem[]>>(`/wish/drift-bottles/${bottleId}/comments`, {
+    params: data,
+  })
+}
+
+/** 发表漂流瓶评论/回复（isAnonymous 默认 true；parentId 指向同一瓶下评论即回复） */
+export function addDriftBottleComment(
+  bottleId: number,
+  data: { content: string; parentId?: number | null; isAnonymous?: boolean },
+) {
+  return request.post<ApiResponse<DriftBottleCommentItem>>(`/wish/drift-bottles/${bottleId}/comments`, data)
 }
 
 // ========== 直播心愿挂件（Sprint 3.4，契约对齐 mall-wish LiveWidgetController） ==========

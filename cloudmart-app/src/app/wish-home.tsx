@@ -222,7 +222,7 @@ export default function WishHomeScreen() {
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
         </TouchableOpacity>
 
-        {/* 相遇信笺入口（Sprint 3.3 擦肩而过，对齐 WEB/Mobile） */}
+        {/* 漂流瓶入口（替代旧「相遇信笺」体验） */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push('/encounter-letters')}
@@ -241,10 +241,10 @@ export default function WishHomeScreen() {
         >
           <View>
             <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.accentGold }}>
-              ✉️ 相遇信笺
+              🍾 漂流瓶
             </Text>
             <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
-              与同愿的人擦肩而过 · 收到匿名的温暖
+              投出你的心事 · 捞起陌生人的心愿
             </Text>
           </View>
           <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>

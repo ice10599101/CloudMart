@@ -26,9 +26,11 @@ import {
 } from '@/api/wish'
 import type { WishDetail as WishDetailData, WishFulfillmentDetail } from '@/api/wish'
 import { uploadFile } from '@/api/file'
+import { recordBrowseHistory } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import Skeleton from '@/components/Skeleton'
 import WishInteractionBar, { type WishInteractionCounts } from '@/components/WishInteractionBar'
+import WishBlessList from '@/components/WishBlessList'
 import WishCommentSection from '@/components/WishCommentSection'
 import ShareCardModal from '@/components/ShareCardModal'
 import CheckinCalendar from '@/components/CheckinCalendar'
@@ -106,6 +108,7 @@ export default function WishDetail() {
   const [growthMedia, setGrowthMedia] = useState<string[]>([])
   const [growthSaving, setGrowthSaving] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [blessTick, setBlessTick] = useState(0)
   const [checkedInToday, setCheckedInToday] = useState(false)
   const { message } = App.useApp()
   const { user } = useAuthStore()
@@ -136,6 +139,19 @@ export default function WishDetail() {
     }
     fetchData()
   }, [wishId, refreshTick])
+
+  /** 浏览器足迹上报：本次页面打开仅上报一次（refreshTick 刷新不重复上报） */
+  const browseReportedRef = useRef(false)
+  useEffect(() => {
+    if (browseReportedRef.current || !user?.id || !wish) return
+    browseReportedRef.current = true
+    void recordBrowseHistory({
+      targetType: 'WISH',
+      targetId: Number(wish.id),
+      title: wish.title,
+      cover: wish.mediaUrls?.[0],
+    }).catch(() => {})
+  }, [user?.id, wish])
 
   /** 收藏/取消收藏（非作者） */
   const handleCollectToggle = async () => {
@@ -589,6 +605,16 @@ export default function WishDetail() {
             isLoggedIn={Boolean(user)}
             onCountsChange={handleCountsChange}
             onRequireLogin={gotoLogin}
+            onBlessed={() => setBlessTick((t) => t + 1)}
+          />
+        </Card>
+
+        {/* 祝福墙（祝福者与被祝福者均可见，Sprint 1.2 补充） */}
+        <Card className={styles.interactionCard}>
+          <WishBlessList
+            wishId={wishId}
+            blessCount={wish.blessCount}
+            refreshTick={blessTick}
           />
         </Card>
 

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth'
 import { productApi } from '@/api/product'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
+import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Product } from '@/types'
 
@@ -15,7 +16,7 @@ const IMAGE_HEIGHT = SCREEN_WIDTH * 0.85
 export default function ProductDetailScreen() {
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { isLoggedIn } = useAuthStore()
+  const { isLoggedIn, user } = useAuthStore()
 
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,6 +34,15 @@ export default function ProductDetailScreen() {
       const data = res.data as { data?: Product }
       if (data?.data) {
         setProduct(data.data)
+        // 浏览足迹上报：登录用户静默上报，失败不打扰
+        if (user?.id) {
+          void communityApi.recordBrowseHistory({
+            targetType: 'PRODUCT',
+            targetId: data.data.id,
+            title: data.data.name,
+            cover: data.data.mainImage,
+          }).catch(() => {})
+        }
       } else {
         setError(true)
       }

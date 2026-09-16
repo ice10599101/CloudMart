@@ -491,6 +491,17 @@ export interface MyWishInteraction {
   createdToday: boolean
 }
 
+/** 互动列表项（祝福墙展示 BLESS；匿名星光记录 userId/avatar 为 null 不透出身份） */
+export interface WishInteractionItem {
+  id: number
+  userId: number | null
+  nickname: string
+  avatar: string | null
+  type: WishInteractionType
+  content: string | null
+  createdAt: string
+}
+
 export interface WishCommentItem {
   id: number
   wishId: number
@@ -995,6 +1006,46 @@ export interface EncounterLetterItem {
   /** PENDING 时为 null（契约） */
   content: string | null
   deliveredAt: string | null
+}
+
+// ========== 漂流瓶（契约对齐 mall-wish DriftBottleController） ==========
+
+export interface DriftBottleCandidateWish {
+  wishId: number
+  title: string
+  tags: string[]
+}
+
+export interface DriftBottleItem {
+  bottleId: number
+  content: string | null
+  wishId: number | null
+  wishTitle: string | null
+  wishTags: string[]
+  status: 'FLOATING' | 'PICKED'
+  role: 'THROWN' | 'PICKED'
+  thrownAt: string
+  pickedAt: string | null
+  isAnonymous: boolean
+  throwerUserId: number | null
+  throwerNickname: string | null
+  throwerAvatar: string | null
+  commentCount: number
+}
+
+export interface DriftBottleCommentItem {
+  id: number
+  bottleId: number
+  /** 匿名为 null */
+  userId: number | null
+  /** 匿名为「匿名瓶友」 */
+  nickname: string
+  avatar: string | null
+  parentId: number | null
+  replyToNickname: string | null
+  content: string
+  isAnonymous: boolean
+  createdAt: string
 }
 
 // ========== 虚拟工坊 + 收藏馆 + 品牌许愿池（Sprint 3.6，契约对齐 mall-wish CollectionController） ==========

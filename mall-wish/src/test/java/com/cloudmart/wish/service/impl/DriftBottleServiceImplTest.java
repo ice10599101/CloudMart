@@ -2,10 +2,13 @@ package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
+import com.cloudmart.wish.dto.BottleCommentRequest;
 import com.cloudmart.wish.dto.ThrowBottleRequest;
 import com.cloudmart.wish.entity.DriftBottle;
+import com.cloudmart.wish.entity.DriftBottleComment;
 import com.cloudmart.wish.entity.DriftBottleInteraction;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.enums.AuditStatus;
@@ -13,7 +16,9 @@ import com.cloudmart.wish.enums.DriftBottleStatus;
 import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
+import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.mq.EncounterEventProducer;
+import com.cloudmart.wish.repository.DriftBottleCommentMapper;
 import com.cloudmart.wish.repository.DriftBottleInteractionMapper;
 import com.cloudmart.wish.repository.DriftBottleMapper;
 import com.cloudmart.wish.repository.WishMapper;
@@ -25,12 +30,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,11 +59,15 @@ class DriftBottleServiceImplTest {
     @Mock
     private DriftBottleInteractionMapper interactionMapper;
     @Mock
+    private DriftBottleCommentMapper commentMapper;
+    @Mock
     private WishMapper wishMapper;
     @Mock
     private UserStatService userStatService;
     @Mock
     private EncounterEventProducer encounterEventProducer;
+    @Mock
+    private UserFeignClient userFeignClient;
 
     private DriftBottleServiceImpl driftBottleService;
 
@@ -68,13 +81,15 @@ class DriftBottleServiceImplTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, DriftBottle.class);
         TableInfoHelper.initTableInfo(assistant, DriftBottleInteraction.class);
+        TableInfoHelper.initTableInfo(assistant, DriftBottleComment.class);
         TableInfoHelper.initTableInfo(assistant, Wish.class);
     }
 
     @BeforeEach
     void setUp() {
         driftBottleService = new DriftBottleServiceImpl(
-                bottleMapper, interactionMapper, wishMapper, userStatService, encounterEventProducer);
+                bottleMapper, interactionMapper, commentMapper, wishMapper,
+                userStatService, encounterEventProducer, userFeignClient);
     }
 
     private DriftBottle buildBottle(DriftBottleStatus status, Long pickerUserId, Long wishId) {
@@ -105,6 +120,28 @@ class DriftBottleServiceImplTest {
         return wish;
     }
 
+    private DriftBottleComment buildComment(Long id, Long bottleId, Long userId,
+                                            Long parentId, Boolean isAnonymous) {
+        DriftBottleComment comment = new DriftBottleComment();
+        comment.setId(id);
+        comment.setBottleId(bottleId);
+        comment.setUserId(userId);
+        comment.setParentId(parentId);
+        comment.setReplyToUserId(parentId == null ? null : OTHER_USER_ID);
+        comment.setContent("评论文本" + id);
+        comment.setIsAnonymous(isAnonymous);
+        comment.setCreatedAt(LocalDateTime.now());
+        return comment;
+    }
+
+    private Map<String, Object> buildUserMap(Long id, String nickname) {
+        Map<String, Object> user = new HashMap<>();
+        user.put("id", id);
+        user.put("nickname", nickname);
+        user.put("avatar", "http://cdn/avatar/" + id + ".png");
+        return user;
+    }
+
     // ========== throwBottle ==========
 
     @Nested
@@ -115,7 +152,7 @@ class DriftBottleServiceImplTest {
         @DisplayName("content 与 wishId 都为空 → WISH_VALIDATION_ERROR")
         void throwBottle_bothEmpty_rejected() {
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, null)))
+                    new ThrowBottleRequest(null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -126,7 +163,7 @@ class DriftBottleServiceImplTest {
         @DisplayName("content 与 wishId 同时提供 → WISH_VALIDATION_ERROR（二选一）")
         void throwBottle_bothSet_rejected() {
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest("匿名文字", WISH_ID)))
+                    new ThrowBottleRequest("匿名文字", null, WISH_ID)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -141,7 +178,7 @@ class DriftBottleServiceImplTest {
             });
 
             var vo = driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(" 给未来的自己一句话 ", null));
+                    new ThrowBottleRequest(" 给未来的自己一句话 ", null, null));
 
             assertThat(vo.bottleId()).isEqualTo(BOTTLE_ID);
             assertThat(vo.role()).isEqualTo("THROWN");
@@ -158,7 +195,7 @@ class DriftBottleServiceImplTest {
                     buildPublicWish(OTHER_USER_ID));
 
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, WISH_ID)))
+                    new ThrowBottleRequest(null, null, WISH_ID)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -175,12 +212,53 @@ class DriftBottleServiceImplTest {
             });
 
             var vo = driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, WISH_ID));
+                    new ThrowBottleRequest(null, null, WISH_ID));
 
             assertThat(vo.wishId()).isEqualTo(WISH_ID);
             assertThat(vo.wishTitle()).isEqualTo("去海边看一次日出");
             assertThat(vo.wishTags()).containsExactly("旅行");
             assertThat(vo.content()).isNull();
+        }
+    }
+
+    // ========== listCandidateWishes ==========
+
+    @Nested
+    @DisplayName("listCandidateWishes - 可关联心愿候选")
+    class CandidateWishesTests {
+
+        @Test
+        @DisplayName("返回本人可关联心愿 VO（id/标题/标签），保持查询顺序")
+        void listCandidateWishes_success() {
+            Wish w1 = buildPublicWish(USER_ID);
+            w1.setId(11L);
+            w1.setTitle("心愿甲");
+            w1.setTags("[\"学习\"]");
+            Wish w2 = buildPublicWish(USER_ID);
+            w2.setId(12L);
+            w2.setTitle("心愿乙");
+            when(wishMapper.selectList(any())).thenReturn(List.of(w2, w1));
+
+            var result = driftBottleService.listCandidateWishes(USER_ID);
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0)).satisfies(v -> {
+                assertThat(v.wishId()).isEqualTo(12L);
+                assertThat(v.title()).isEqualTo("心愿乙");
+            });
+            assertThat(result.get(1)).satisfies(v -> {
+                assertThat(v.wishId()).isEqualTo(11L);
+                assertThat(v.title()).isEqualTo("心愿甲");
+                assertThat(v.tags()).containsExactly("学习");
+            });
+        }
+
+        @Test
+        @DisplayName("无可关联心愿 → 返回空列表")
+        void listCandidateWishes_empty() {
+            when(wishMapper.selectList(any())).thenReturn(List.of());
+
+            assertThat(driftBottleService.listCandidateWishes(USER_ID)).isEmpty();
         }
     }
 
@@ -355,6 +433,205 @@ class DriftBottleServiceImplTest {
                     .isEqualTo(WishErrorCodes.WISH_RATE_LIMITED);
             verify(userStatService, never()).spendStarlight(any(), any(Integer.class), any(), any());
             verify(encounterEventProducer, never()).publishBottleInteraction(any(), any(boolean.class));
+        }
+    }
+
+    // ========== listComments ==========
+
+    @Nested
+    @DisplayName("listComments - 瓶下评论列表")
+    class ListCommentsTests {
+
+        @Test
+        @DisplayName("非投瓶人/捞起人 → WISH_NOT_FOUND（防存在性探测）")
+        void listComments_notViewer_404() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.FLOATING, null, WISH_ID));
+
+            assertThatThrownBy(() -> driftBottleService.listComments(USER_ID, BOTTLE_ID, null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+            verify(commentMapper, never()).selectList(any());
+        }
+
+        @Test
+        @DisplayName("匿名评论隐藏身份：userId=null、昵称=匿名瓶友、无 Feign 查询")
+        void listComments_anonymousMasked() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(commentMapper.selectList(any())).thenReturn(List.of(
+                    buildComment(1L, BOTTLE_ID, OTHER_USER_ID, null, true)));
+
+            var page = driftBottleService.listComments(USER_ID, BOTTLE_ID, null, null);
+
+            assertThat(page.records()).hasSize(1);
+            assertThat(page.hasMore()).isFalse();
+            assertThat(page.nextCursor()).isNull();
+            var vo = page.records().get(0);
+            assertThat(vo.userId()).isNull();
+            assertThat(vo.nickname()).isEqualTo("匿名瓶友");
+            assertThat(vo.avatar()).isNull();
+            assertThat(vo.isAnonymous()).isTrue();
+            verify(userFeignClient, never()).batchGetUsers(any());
+        }
+
+        @Test
+        @DisplayName("实名评论透出身份（Feign 昵称头像）；匿名父评论回复对象显示「匿名瓶友」")
+        void listComments_realNameExposesIdentity() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            DriftBottleComment reply = buildComment(2L, BOTTLE_ID, USER_ID, 1L, false);
+            DriftBottleComment parent = buildComment(1L, BOTTLE_ID, OTHER_USER_ID, null, true);
+            when(commentMapper.selectList(any())).thenReturn(List.of(reply));
+            when(commentMapper.selectBatchIds(any())).thenReturn(List.of(parent));
+            when(userFeignClient.batchGetUsers(any()))
+                    .thenReturn(ApiResponse.ok(List.of(buildUserMap(USER_ID, "心愿旅人甲"))));
+
+            var page = driftBottleService.listComments(USER_ID, BOTTLE_ID, null, null);
+
+            var vo = page.records().get(0);
+            assertThat(vo.userId()).isEqualTo(USER_ID);
+            assertThat(vo.nickname()).isEqualTo("心愿旅人甲");
+            assertThat(vo.avatar()).isEqualTo("http://cdn/avatar/1001.png");
+            assertThat(vo.isAnonymous()).isFalse();
+            assertThat(vo.replyToNickname()).isEqualTo("匿名瓶友");
+        }
+
+        @Test
+        @DisplayName("分页：多取 1 条探测 hasMore，nextCursor 为末条评论 ID")
+        void listComments_cursorPagination() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            List<DriftBottleComment> fetched = new ArrayList<>();
+            for (long i = 1; i <= 3; i++) {
+                fetched.add(buildComment(i, BOTTLE_ID, OTHER_USER_ID, null, true));
+            }
+            when(commentMapper.selectList(any())).thenReturn(fetched);
+
+            var page = driftBottleService.listComments(USER_ID, BOTTLE_ID, null, 2);
+
+            assertThat(page.records()).hasSize(2);
+            assertThat(page.hasMore()).isTrue();
+            assertThat(page.nextCursor()).isEqualTo(String.valueOf(page.records().get(1).id()));
+        }
+
+        @Test
+        @DisplayName("非法游标 → WISH_VALIDATION_ERROR")
+        void listComments_invalidCursor_rejected() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+
+            assertThatThrownBy(() -> driftBottleService.listComments(USER_ID, BOTTLE_ID, "abc", null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+        }
+    }
+
+    // ========== addComment ==========
+
+    @Nested
+    @DisplayName("addComment - 发表评论/回复")
+    class AddCommentTests {
+
+        @Test
+        @DisplayName("非投瓶人/捞起人 → WISH_NOT_FOUND")
+        void addComment_notViewer_404() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.FLOATING, null, WISH_ID));
+
+            assertThatThrownBy(() -> driftBottleService.addComment(USER_ID, BOTTLE_ID,
+                    new BottleCommentRequest("你好", null, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+            verify(commentMapper, never()).insert(any(DriftBottleComment.class));
+        }
+
+        @Test
+        @DisplayName("顶级评论默认匿名：身份隐藏、去除首尾空白、无 Feign 查询")
+        void addComment_defaultAnonymous() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(commentMapper.insert(any(DriftBottleComment.class))).thenAnswer(inv -> {
+                inv.getArgument(0, DriftBottleComment.class).setId(1L);
+                return 1;
+            });
+
+            var vo = driftBottleService.addComment(USER_ID, BOTTLE_ID,
+                    new BottleCommentRequest(" 你好呀 ", null, null));
+
+            assertThat(vo.id()).isEqualTo(1L);
+            assertThat(vo.userId()).isNull();
+            assertThat(vo.nickname()).isEqualTo("匿名瓶友");
+            assertThat(vo.avatar()).isNull();
+            assertThat(vo.isAnonymous()).isTrue();
+            assertThat(vo.parentId()).isNull();
+            assertThat(vo.replyToNickname()).isNull();
+            assertThat(vo.content()).isEqualTo("你好呀");
+            verify(userFeignClient, never()).batchGetUsers(any());
+        }
+
+        @Test
+        @DisplayName("回复评论：replyToUserId 由父评论推导；匿名父评论回复对象显示「匿名瓶友」")
+        void addComment_replyDerivesFromParent() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(commentMapper.selectById(10L))
+                    .thenReturn(buildComment(10L, BOTTLE_ID, OTHER_USER_ID, null, true));
+            when(commentMapper.insert(any(DriftBottleComment.class))).thenAnswer(inv -> {
+                inv.getArgument(0, DriftBottleComment.class).setId(11L);
+                return 1;
+            });
+            when(userFeignClient.batchGetUsers(any()))
+                    .thenReturn(ApiResponse.ok(List.of(buildUserMap(USER_ID, "心愿旅人甲"))));
+
+            var vo = driftBottleService.addComment(USER_ID, BOTTLE_ID,
+                    new BottleCommentRequest("回复你", 10L, false));
+
+            ArgumentCaptor<DriftBottleComment> captor = ArgumentCaptor.forClass(DriftBottleComment.class);
+            verify(commentMapper).insert(captor.capture());
+            assertThat(captor.getValue().getReplyToUserId()).isEqualTo(OTHER_USER_ID);
+            assertThat(captor.getValue().getParentId()).isEqualTo(10L);
+            assertThat(captor.getValue().getIsAnonymous()).isFalse();
+
+            assertThat(vo.parentId()).isEqualTo(10L);
+            assertThat(vo.replyToNickname()).isEqualTo("匿名瓶友");
+            assertThat(vo.isAnonymous()).isFalse();
+            assertThat(vo.userId()).isEqualTo(USER_ID);
+            assertThat(vo.nickname()).isEqualTo("心愿旅人甲");
+        }
+
+        @Test
+        @DisplayName("父评论不存在 → WISH_NOT_FOUND")
+        void addComment_parentMissing_404() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(commentMapper.selectById(10L)).thenReturn(null);
+
+            assertThatThrownBy(() -> driftBottleService.addComment(USER_ID, BOTTLE_ID,
+                    new BottleCommentRequest("回复你", 10L, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+            verify(commentMapper, never()).insert(any(DriftBottleComment.class));
+        }
+
+        @Test
+        @DisplayName("父评论属于其他漂流瓶 → WISH_NOT_FOUND")
+        void addComment_parentOtherBottle_404() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(commentMapper.selectById(10L))
+                    .thenReturn(buildComment(10L, 999L, OTHER_USER_ID, null, true));
+
+            assertThatThrownBy(() -> driftBottleService.addComment(USER_ID, BOTTLE_ID,
+                    new BottleCommentRequest("回复你", 10L, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+            verify(commentMapper, never()).insert(any(DriftBottleComment.class));
         }
     }
 }

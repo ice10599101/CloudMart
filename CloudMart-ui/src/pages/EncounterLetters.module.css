@@ -50,7 +50,7 @@
 
 /* 捞瓶海面 */
 .seaCard {
-  background: linear-gradient(160deg, rgba(56, 141, 214, 0.12), rgba(28, 94, 156, 0.06));
+  background: linear-gradient(160deg, rgba(56, 141, 214, 12%), rgba(28, 94, 156, 6%));
   border: 1px solid var(--color-border);
   border-radius: 20px;
   padding: 28px 24px;
@@ -64,10 +64,10 @@
 .seaVisual {
   font-size: 64px;
   line-height: 1;
-  animation: bottleFloat 3.2s ease-in-out infinite;
+  animation: bottle-float 3.2s ease-in-out infinite;
 }
 
-@keyframes bottleFloat {
+@keyframes bottle-float {
   0%, 100% { transform: translateY(0) rotate(-6deg); }
   50% { transform: translateY(-12px) rotate(6deg); }
 }
@@ -114,13 +114,44 @@
   align-self: flex-start;
 }
 
-.throwInput,
+.throwEditor,
 .throwSelect {
   display: block;
 }
 
 .throwBtn {
   align-self: flex-start;
+}
+
+.anonymousRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.anonymousHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.throwerLine {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.commentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.commentToggle {
+  align-self: flex-start;
+  padding: 0 4px;
+  font-size: 13px;
 }
 
 /* 漂流瓶列表 */

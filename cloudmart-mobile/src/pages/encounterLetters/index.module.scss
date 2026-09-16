@@ -5,143 +5,435 @@
   box-sizing: border-box;
 }
 
-.modeCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  margin: 24rpx;
-  padding: 28rpx;
-  border-radius: 16rpx;
-  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
-}
-
-.modeTextWrap {
-  flex: 1;
-}
-
-.modeTitle {
-  font-size: 30rpx;
-  font-weight: 600;
-  display: block;
-  margin-bottom: 8rpx;
-}
-
-.modeDesc {
-  font-size: 22rpx;
-  opacity: 0.6;
-  line-height: 1.6;
-}
-
-.list {
-  height: calc(100vh - 380rpx);
+.scroll {
+  height: calc(100vh - 96px);
   padding: 0 24rpx;
   box-sizing: border-box;
 }
 
-.letterCard {
+.section {
+  margin-bottom: 36rpx;
+}
+
+.sectionTitle {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 24rpx 0 20rpx;
+}
+
+.empty {
+  text-align: center;
+  padding: 160rpx 40rpx;
+  font-size: 26rpx;
+  opacity: 0.6;
+  line-height: 1.8;
+}
+
+/* 捞瓶区 */
+.fishBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.25), rgba(74, 144, 217, 0.1));
+  border: 1px solid rgba(74, 144, 217, 0.35);
+}
+
+.fishBtnText {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #7fb5e8;
+}
+
+/* 投瓶区 */
+.modeSwitch {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.modeOption {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  border-radius: 12rpx;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  border: 1px solid transparent;
+}
+
+.modeOptionActive {
+  border-color: #4a90d9;
+  background: rgba(74, 144, 217, 0.15);
+}
+
+.modeOptionText {
+  font-size: 26rpx;
+}
+
+.editorWrap {
+  min-height: 200rpx;
+  border-radius: 12rpx;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  padding: 12rpx;
+}
+
+.wishPickerWrap {
+  border-radius: 12rpx;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  padding: 8rpx 16rpx;
+}
+
+.wishPickerValue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+}
+
+.wishPickerText {
+  font-size: 26rpx;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wishPickerArrow {
+  font-size: 26rpx;
+  margin-left: 16rpx;
+  opacity: 0.6;
+}
+
+.wishPickerEmpty {
+  display: block;
+  padding: 24rpx 0;
+  font-size: 24rpx;
+  opacity: 0.6;
+  text-align: center;
+}
+
+.throwFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.anonSwitch {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.anonLabel {
+  font-size: 24rpx;
+  opacity: 0.8;
+}
+
+.throwBtn {
+  padding: 14rpx 40rpx;
+  border-radius: 999rpx;
+  background: #4a90d9;
+}
+
+.throwBtnDisabled {
+  opacity: 0.5;
+}
+
+.throwBtnText {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* 瓶子卡片 */
+.bottleList {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.bottleCard {
   background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
 }
 
-.letterHeader {
+.bottleHeader {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 16rpx;
   margin-bottom: 8rpx;
 }
 
-.letterStatus {
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-.letterZone {
+.roleTag {
   font-size: 22rpx;
-  opacity: 0.6;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(74, 144, 217, 0.18);
+  color: #7fb5e8;
 }
 
-.letterTime {
+.statusTag {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 0.8;
+}
+
+.statusPicked {
+  background: rgba(78, 205, 196, 0.18);
+  color: #4ecdc4;
+}
+
+.bottleTime {
   font-size: 22rpx;
   opacity: 0.5;
   display: block;
   margin-bottom: 12rpx;
 }
 
-.letterContent {
+.bottleContent {
   font-size: 26rpx;
   line-height: 1.7;
   margin-bottom: 16rpx;
+  word-break: break-word;
 }
 
-.letterHint {
-  opacity: 0.5;
+.wishSnapshot {
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  padding-top: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.wishSnapshotTitle {
   font-size: 24rpx;
+  color: #ffd479;
+  display: block;
+  margin-bottom: 12rpx;
 }
 
-.letterActions {
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.tagChip {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 212, 121, 0.12);
+  color: #ffd479;
+}
+
+.throwerText {
+  font-size: 24rpx;
+  opacity: 0.8;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.bottleActions {
   display: flex;
   gap: 16rpx;
   justify-content: flex-end;
+  margin-bottom: 12rpx;
 }
 
-.openBtn,
 .interactBtn {
   font-size: 24rpx;
   padding: 10rpx 28rpx;
   border-radius: 999rpx;
   background: rgba(74, 144, 217, 0.15);
-  color: #4a90d9;
+  color: #7fb5e8;
 }
 
-.openBtn {
+.commentToggle {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16rpx;
+  text-align: center;
+}
+
+.commentToggleText {
+  font-size: 24rpx;
+  color: #7fb5e8;
+}
+
+/* 评论树 */
+.commentSection {
+  margin-top: 16rpx;
+}
+
+.composer {
+  margin-bottom: 16rpx;
+}
+
+.replyBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 16rpx;
+  border-radius: 8rpx;
+  background: rgba(74, 144, 217, 0.12);
+  margin-bottom: 12rpx;
+}
+
+.replyBannerText {
+  font-size: 24rpx;
+  color: #7fb5e8;
+}
+
+.replyCancel {
+  font-size: 24rpx;
+  opacity: 0.7;
+}
+
+.composerInput {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 16rpx;
+  border-radius: 8rpx;
+  background: var(--wish-bg-card, rgba(255, 255, 255, 0.06));
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.submitBtn {
+  padding: 10rpx 32rpx;
+  border-radius: 999rpx;
   background: #4a90d9;
+}
+
+.submitBtnDisabled {
+  opacity: 0.4;
+}
+
+.submitBtnText {
+  font-size: 24rpx;
+  font-weight: 600;
   color: #ffffff;
 }
 
-.empty {
+.loadingWrap {
+  padding: 32rpx 0;
   text-align: center;
-  padding: 120rpx 40rpx;
-  font-size: 26rpx;
+}
+
+.loadingText {
+  font-size: 24rpx;
   opacity: 0.6;
-  line-height: 1.8;
 }
 
-/* 拆信动效（Sprint 3.3 验收：信封翻转展开） */
-.letterCard {
-  transition: transform 0.25s ease;
+.emptyWrap {
+  padding: 32rpx 0;
+  text-align: center;
 }
 
-.letterOpening {
-  animation: letter-flip 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+.emptyWrapText {
+  font-size: 24rpx;
+  opacity: 0.6;
 }
 
-@keyframes letter-flip {
-  0% {
-    transform: rotateY(0deg) scale(1);
-  }
-  50% {
-    transform: rotateY(180deg) scale(1.06);
-    box-shadow: 0 0 40rpx rgba(74, 144, 217, 0.45);
-  }
-  100% {
-    transform: rotateY(360deg) scale(1);
-  }
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
-.letterOpening .letterContent {
-  animation: letter-reveal 0.6s ease 0.45s both;
+.commentItem {
+  display: flex;
+  gap: 16rpx;
 }
 
-@keyframes letter-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(16rpx);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.commentAvatarWrap {
+  flex-shrink: 0;
+}
+
+.commentAvatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+}
+
+.commentAvatarPlaceholder {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: rgba(74, 144, 217, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.commentAvatarStar {
+  font-size: 28rpx;
+  color: #7fb5e8;
+}
+
+.commentBody {
+  flex: 1;
+}
+
+.commentMeta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.commentNickname {
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.anonBadge {
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 0.7;
+}
+
+.commentTime {
+  font-size: 20rpx;
+  opacity: 0.45;
+}
+
+.commentContent {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.6;
+  margin-top: 6rpx;
+  word-break: break-word;
+}
+
+.commentActionRow {
+  margin-top: 6rpx;
+}
+
+.commentReply {
+  font-size: 22rpx;
+  color: #7fb5e8;
+}
+
+.loadMoreWrap {
+  padding: 20rpx 0;
+  text-align: center;
+}
+
+.loadMoreText {
+  font-size: 24rpx;
+  opacity: 0.6;
 }

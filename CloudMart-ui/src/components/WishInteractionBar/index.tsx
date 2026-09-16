@@ -39,6 +39,8 @@ interface WishInteractionBarProps {
   isLoggedIn: boolean
   onCountsChange: (counts: Partial<WishInteractionCounts>) => void
   onRequireLogin: () => void
+  /** 祝福发送成功后回调（父组件据此刷新祝福墙） */
+  onBlessed?: () => void
 }
 
 const BLESS_CONTENT_MAX = 200
@@ -50,6 +52,7 @@ export default function WishInteractionBar({
   isLoggedIn,
   onCountsChange,
   onRequireLogin,
+  onBlessed,
 }: WishInteractionBarProps) {
   const { message } = App.useApp()
   const [myInteractions, setMyInteractions] = useState<MyInteractionItem[]>([])
@@ -214,6 +217,7 @@ export default function WishInteractionBar({
         setPendingBlessImages([])
         onCountsChange({ blessCount: res.data.data.blessCount })
         refreshMyInteractions()
+        onBlessed?.()
         message.success('祝福已送达 🌟')
       }
     } catch (err) {

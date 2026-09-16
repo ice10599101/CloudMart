@@ -1,0 +1,132 @@
+/* 心愿祝福墙（移动端）：与评论模块视觉一致 */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.headerIcon {
+  font-size: 30rpx;
+}
+
+.headerTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.headerCount {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 32rpx 0;
+}
+
+.loadingText {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.emptyWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 40rpx 0;
+}
+
+.emptyIcon {
+  font-size: 48rpx;
+}
+
+.emptyText {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.item {
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 0;
+}
+
+.avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.avatarPlaceholder {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(233, 69, 96, 0.25);
+}
+
+.avatarStar {
+  font-size: 30rpx;
+  color: #ffd700;
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.itemMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.itemNickname {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.itemTime {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.itemContent {
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.88);
+  word-break: break-word;
+}
+
+.loadMoreWrap {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0;
+}
+
+.loadMoreText {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}

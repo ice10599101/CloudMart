@@ -66,4 +66,6 @@ export const communityApi = {
   getHotSearch: () => request<string[]>({ url: '/community/search/hot' }),
   getSearchHistory: () => request<string[]>({ url: '/community/search/history' }),
   clearSearchHistory: () => request<void>({ url: '/community/search/history', method: 'DELETE' }),
+  recordBrowseHistory: (data: { targetType: 'PRODUCT' | 'POST' | 'WISH'; targetId: number | string; title?: string; cover?: string }) =>
+    request<void>({ url: '/community/browse-history', method: 'POST', data }),
 }

@@ -1,220 +1,604 @@
 import { useState, useEffect, useCallback } from 'react'
-import { View, Text, ScrollView, Switch } from '@tarojs/components'
+import { View, Text, ScrollView, Switch, Textarea, Image, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
-import type { EncounterLetterItem } from '@/types'
+import RichText from '@/components/RichText'
+import type { DriftBottleItem, DriftBottleCommentItem, DriftBottleCandidateWish } from '@/types'
 import styles from './index.module.scss'
 
-const STATUS_LABELS: Record<EncounterLetterItem['status'], string> = {
-  PENDING: '未拆封',
-  DELIVERED: '可拆信',
-  READ: '已读',
+// 编辑器组件：H5 用 TiptapEditor，小程序用 MiniProgramEditor
+// 使用 Taro 条件编译在构建时静态选择，避免 Tiptap/ProseMirror 被打包进小程序
+// #ifdef H5
+import TiptapEditor from '@/components/TiptapEditor'
+// #endif
+// #ifdef WEAPP
+import MiniProgramEditor from '@/components/MiniProgramEditor'
+// #endif
+
+let EditorComponent: React.FC<{ value?: string; onChange?: (v: string) => void; placeholder?: string }> | null = null
+// #ifdef H5
+EditorComponent = TiptapEditor
+// #endif
+// #ifdef WEAPP
+EditorComponent = MiniProgramEditor
+// #endif
+
+const ROLE_LABELS: Record<DriftBottleItem['role'], string> = {
+  THROWN: '我投出的',
+  PICKED: '我捞到的',
+}
+
+const STATUS_LABELS: Record<DriftBottleItem['status'], string> = {
+  FLOATING: '漂流中',
+  PICKED: '已被捞起',
+}
+
+/** 富文本转纯文本（供判空）：strip 标签 + 解码常见实体 + 折叠空白 */
+function richTextToPlainText(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+interface BottleCommentSectionProps {
+  bottleId: number
+  onCountChange: (delta: number) => void
 }
 
 /**
- * 擦肩而过信笺（Sprint 3.3，四AB B6 移动端 + B8 轨迹上报）：
- * 附近模式开关（开启即启动每 5 分钟轨迹上报，服务端限频/伪造检测兜底）+
- * 信笺列表（PENDING 未拆封 / DELIVERED 可拆信 / READ 已读）+ 拆信 + 匿名互动。
+ * 单瓶评论树：首次展开时挂载加载首屏（pageSize 10），
+ * cursor 分页经 meta.nextCursor/hasMore 提供「加载更多」。
+ */
+function BottleCommentSection({ bottleId, onCountChange }: BottleCommentSectionProps) {
+  const [comments, setComments] = useState<DriftBottleCommentItem[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [content, setContent] = useState('')
+  const [isAnonymous, setIsAnonymous] = useState(true)
+  const [replyTo, setReplyTo] = useState<DriftBottleCommentItem | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const loadFirstPage = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await wishApi.listDriftBottleComments(bottleId, { pageSize: 10 })
+      if (res.data.success) {
+        setComments(res.data.data)
+        setCursor(res.data.meta?.nextCursor ?? null)
+        setHasMore(Boolean(res.data.meta?.hasMore))
+      }
+    } catch {
+      // 错误已由 request 处理
+    } finally {
+      setLoading(false)
+    }
+  }, [bottleId])
+
+  useEffect(() => {
+    loadFirstPage()
+  }, [loadFirstPage])
+
+  const handleLoadMore = async () => {
+    if (!hasMore || loadingMore || !cursor) return
+    setLoadingMore(true)
+    try {
+      const res = await wishApi.listDriftBottleComments(bottleId, { cursor, pageSize: 10 })
+      if (res.data.success) {
+        setComments((prev) => {
+          const seen = new Set(prev.map((c) => c.id))
+          return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
+        })
+        setCursor(res.data.meta?.nextCursor ?? null)
+        setHasMore(Boolean(res.data.meta?.hasMore))
+      }
+    } catch {
+      // 错误已由 request 处理
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    const trimmed = content.trim()
+    if (!trimmed) {
+      Taro.showToast({ title: '写点什么再发送吧', icon: 'none' })
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await wishApi.addDriftBottleComment(bottleId, {
+        content: trimmed,
+        parentId: replyTo?.id,
+        isAnonymous,
+      })
+      if (res.data.success) {
+        setContent('')
+        setReplyTo(null)
+        onCountChange(1)
+        loadFirstPage()
+        Taro.showToast({ title: replyTo ? '回复已发送' : '评论已发表', icon: 'none' })
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '发表失败，请稍后重试', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const goProfile = (userId: number | null) => {
+    if (userId == null) return
+    Taro.navigateTo({ url: `/pages/userProfile/index?id=${userId}` })
+  }
+
+  return (
+    <View className={styles.commentSection}>
+      <View className={styles.composer}>
+        {replyTo && (
+          <View className={styles.replyBanner}>
+            <Text className={styles.replyBannerText}>回复 @{replyTo.nickname}</Text>
+            <Text className={styles.replyCancel} onClick={() => setReplyTo(null)}>取消</Text>
+          </View>
+        )}
+        <Textarea
+          className={styles.composerInput}
+          value={content}
+          onInput={(e) => setContent(e.detail.value.slice(0, 500))}
+          maxlength={500}
+          placeholder={replyTo ? `回复 @${replyTo.nickname}...` : '给这只漂流瓶留句话...'}
+          disabled={submitting}
+          showConfirmBar={false}
+        />
+        <View className={styles.composerActions}>
+          <View className={styles.anonSwitch}>
+            <Text className={styles.anonLabel}>匿名</Text>
+            <Switch
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.detail.value)}
+              color='#4a90d9'
+            />
+          </View>
+          <View
+            className={`${styles.submitBtn} ${!content.trim() || submitting ? styles.submitBtnDisabled : ''}`}
+            onClick={() => content.trim() && !submitting && handleSubmit()}
+          >
+            <Text className={styles.submitBtnText}>{replyTo ? '发送回复' : '发送'}</Text>
+          </View>
+        </View>
+      </View>
+
+      {loading ? (
+        <View className={styles.loadingWrap}>
+          <Text className={styles.loadingText}>加载中...</Text>
+        </View>
+      ) : comments.length === 0 ? (
+        <View className={styles.emptyWrap}>
+          <Text className={styles.emptyWrapText}>还没有评论，来写下第一条回应吧</Text>
+        </View>
+      ) : (
+        <View className={styles.commentList}>
+          {comments.map((comment) => {
+            const clickable = comment.userId != null
+            return (
+              <View key={comment.id} className={styles.commentItem}>
+                <View
+                  className={styles.commentAvatarWrap}
+                  onClick={clickable ? () => goProfile(comment.userId) : undefined}
+                >
+                  {comment.avatar ? (
+                    <Image className={styles.commentAvatar} src={comment.avatar} mode='aspectFill' />
+                  ) : (
+                    <View className={styles.commentAvatarPlaceholder}>
+                      <Text className={styles.commentAvatarStar}>瓶</Text>
+                    </View>
+                  )}
+                </View>
+                <View className={styles.commentBody}>
+                  <View className={styles.commentMeta}>
+                    <Text
+                      className={styles.commentNickname}
+                      onClick={clickable ? () => goProfile(comment.userId) : undefined}
+                    >
+                      {comment.nickname}
+                    </Text>
+                    {comment.isAnonymous && (
+                      <Text className={styles.anonBadge}>匿名</Text>
+                    )}
+                    <Text className={styles.commentTime}>
+                      {new Date(comment.createdAt).toLocaleString('zh-CN')}
+                    </Text>
+                  </View>
+                  <Text className={styles.commentContent} userSelect>
+                    {comment.replyToNickname ? `回复 @${comment.replyToNickname}：` : ''}
+                    {comment.content}
+                  </Text>
+                  <View className={styles.commentActionRow}>
+                    <Text className={styles.commentReply} onClick={() => setReplyTo(comment)}>
+                      回复
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )
+          })}
+          {hasMore && (
+            <View className={styles.loadMoreWrap} onClick={() => !loadingMore && handleLoadMore()}>
+              <Text className={styles.loadMoreText}>{loadingMore ? '加载中...' : '加载更多'}</Text>
+            </View>
+          )}
+          {!hasMore && (
+            <View className={styles.loadMoreWrap}>
+              <Text className={styles.loadMoreText}>已经到底啦~</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  )
+}
+
+interface BottleCardProps {
+  bottle: DriftBottleItem
+  interacting: boolean
+  onInteract: (type: 'BLESS' | 'LIGHT') => void
+  onCountChange: (delta: number) => void
+}
+
+function BottleCard({ bottle, interacting, onInteract, onCountChange }: BottleCardProps) {
+  const [expanded, setExpanded] = useState(false)
+  const canInteract = bottle.role === 'PICKED' && bottle.wishId != null
+
+  return (
+    <View className={styles.bottleCard}>
+      <View className={styles.bottleHeader}>
+        <Text className={styles.roleTag}>{ROLE_LABELS[bottle.role]}</Text>
+        <Text className={`${styles.statusTag} ${bottle.status === 'PICKED' ? styles.statusPicked : ''}`}>
+          {STATUS_LABELS[bottle.status]}
+        </Text>
+      </View>
+      <Text className={styles.bottleTime}>
+        {bottle.role === 'THROWN'
+          ? `投出于 ${new Date(bottle.thrownAt).toLocaleString('zh-CN')}`
+          : `捞起于 ${new Date(bottle.thrownAt).toLocaleString('zh-CN')}`}
+      </Text>
+
+      {bottle.content && (
+        <View className={styles.bottleContent}>
+          <RichText content={bottle.content} />
+        </View>
+      )}
+
+      {bottle.wishId != null && (
+        <View className={styles.wishSnapshot}>
+          <Text className={styles.wishSnapshotTitle}>
+            {bottle.wishTitle || `关联心愿 #${bottle.wishId}`}
+          </Text>
+          {bottle.wishTags.length > 0 && (
+            <View className={styles.tagRow}>
+              {bottle.wishTags.map((tag) => (
+                <Text key={tag} className={styles.tagChip}>{tag}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {!bottle.isAnonymous && bottle.throwerNickname && (
+        <Text className={styles.throwerText}>投瓶人：{bottle.throwerNickname}</Text>
+      )}
+
+      {canInteract && (
+        <View className={styles.bottleActions}>
+          <View
+            className={styles.interactBtn}
+            onClick={interacting ? undefined : () => onInteract('BLESS')}
+          >
+            <Text>🌟 祝福</Text>
+          </View>
+          <View
+            className={styles.interactBtn}
+            onClick={interacting ? undefined : () => onInteract('LIGHT')}
+          >
+            <Text>✨ 点亮</Text>
+          </View>
+        </View>
+      )}
+
+      <View className={styles.commentToggle} onClick={() => setExpanded((v) => !v)}>
+        <Text className={styles.commentToggleText}>
+          {expanded ? '收起评论 ▴' : `评论 ${bottle.commentCount} ▾`}
+        </Text>
+      </View>
+
+      {expanded && (
+        <BottleCommentSection bottleId={bottle.bottleId} onCountChange={onCountChange} />
+      )}
+    </View>
+  )
+}
+
+/**
+ * 漂流瓶页面：替换旧的「相遇信笺」体验。
+ * 捞瓶区 + 投瓶区（自由文字/关联心愿二选一 + 匿名） + 我的漂流瓶（含瓶下评论树）。
  */
 export default function EncounterLettersPage() {
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const { isLoggedIn } = useAuthStore()
-  const [nearbyMode, setNearbyMode] = useState(false)
-  const [letters, setLetters] = useState<EncounterLetterItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modeToggling, setModeToggling] = useState(false)
-  const [interactingId, setInteractingId] = useState<string | number | null>(null)
-  /** 拆信动效中的信笺（翻转动画 0.9s 后更新状态） */
-  const [openingId, setOpeningId] = useState<string | number | null>(null)
 
-  const loadLetters = useCallback(async () => {
+  // 捞瓶
+  const [fishing, setFishing] = useState(false)
+  const [fishedBottle, setFishedBottle] = useState<DriftBottleItem | null>(null)
+
+  // 投瓶
+  const [throwMode, setThrowMode] = useState<'text' | 'wish'>('text')
+  const [content, setContent] = useState('')
+  const [candidateWishes, setCandidateWishes] = useState<DriftBottleCandidateWish[]>([])
+  const [selectedWishId, setSelectedWishId] = useState<number | null>(null)
+  const [isAnonymousThrow, setIsAnonymousThrow] = useState(true)
+  const [throwing, setThrowing] = useState(false)
+
+  // 我的漂流瓶
+  const [bottles, setBottles] = useState<DriftBottleItem[]>([])
+  const [loadingMine, setLoadingMine] = useState(true)
+  const [interactingId, setInteractingId] = useState<number | null>(null)
+
+  const loadMine = useCallback(async () => {
     if (!isLoggedIn) return
     try {
-      const res = await wishApi.listEncounterLetters()
-      if (res.data.success) setLetters(res.data.data ?? [])
+      const res = await wishApi.listMyDriftBottles()
+      if (res.data.success) setBottles(res.data.data ?? [])
     } catch {
       // 静默
     } finally {
-      setLoading(false)
+      setLoadingMine(false)
     }
   }, [isLoggedIn])
 
-  // 开关状态回显（Redis 键 24h 有效，过期视为关闭）
   useEffect(() => {
     if (!isLoggedIn) return
-    wishApi.getNearbyModeStatus()
-      .then((res) => { if (res.data.success) setNearbyMode(res.data.data === true) })
+    loadMine()
+    wishApi.listDriftBottleCandidateWishes()
+      .then((res) => { if (res.data.success) setCandidateWishes(res.data.data ?? []) })
       .catch(() => undefined)
-  }, [isLoggedIn])
+  }, [isLoggedIn, loadMine])
 
-  useEffect(() => {
-    loadLetters()
-  }, [loadLetters])
-
-  /** 附近模式开关：先调后端成功再更新本地状态（失败不变更） */
-  const handleModeToggle = async (enabled: boolean) => {
-    setModeToggling(true)
+  const handleFish = async () => {
+    if (fishing) return
+    setFishing(true)
     try {
-      const res = await wishApi.setNearbyMode(enabled)
+      const res = await wishApi.fishDriftBottle()
       if (res.data.success) {
-        setNearbyMode(enabled)
-        Taro.showToast({
-          title: enabled ? '附近模式已开启 ✨' : '附近模式已关闭',
-          icon: 'none',
-        })
-      }
-    } catch {
-      Taro.showToast({ title: '设置失败，请稍后重试', icon: 'none' })
-    } finally {
-      setModeToggling(false)
-    }
-  }
-
-  /** 轨迹上报（附近模式开启时调用；定位失败静默） */
-  const reportCurrentPosition = async () => {
-    try {
-      const setting = await Taro.getLocation({ type: 'wgs84' })
-      await wishApi.reportTrace(setting.latitude, setting.longitude)
-    } catch {
-      // 定位被拒/服务限频：静默，下个周期自然重试
-    }
-  }
-
-  /** 开启附近模式后每 5 分钟上报一次（组件卸载/关闭时停止） */
-  useEffect(() => {
-    if (!nearbyMode) return
-    void reportCurrentPosition()
-    const timer = setInterval(() => {
-      void reportCurrentPosition()
-    }, 5 * 60 * 1000)
-    return () => clearInterval(timer)
-  }, [nearbyMode])
-
-  /** 拆信：先播翻转动效 0.9s 再调接口（与 WEB 端 Web Animations 节奏一致） */
-  const handleOpen = async (letter: EncounterLetterItem) => {
-    if (letter.status === 'READ') return
-    setOpeningId(letter.letterId)
-    setTimeout(async () => {
-      try {
-        const res = await wishApi.readEncounterLetter(letter.letterId)
-        if (res.data.success) {
-          const updated = res.data.data
-          setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? updated : it)))
+        if (res.data.data) {
+          setFishedBottle(res.data.data)
+          Taro.showToast({ title: '捞到一只漂流瓶 🍾', icon: 'none' })
+          loadMine()
+        } else {
+          setFishedBottle(null)
+          Taro.showToast({ title: '海面暂时没有漂流瓶', icon: 'none' })
         }
-      } catch (err) {
-        const errNode = err as { data?: { error?: { message?: string } } }
-        Taro.showToast({ title: errNode?.data?.error?.message || '拆信失败，请稍后重试', icon: 'none' })
-      } finally {
-        setOpeningId(null)
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '捞瓶失败，请稍后重试', icon: 'none' })
       }
-    }, 900)
+    } catch {
+      // 错误已由 request 处理
+    } finally {
+      setFishing(false)
+    }
   }
 
-  /** 匿名互动：BLESS（祝福）/ LIGHT（点亮） */
-  const handleInteract = async (letter: EncounterLetterItem, type: 'BLESS' | 'LIGHT') => {
-    setInteractingId(letter.letterId)
-    try {
-      const res = await wishApi.interactEncounterLetter(letter.letterId, type)
-      if (res.data.success) {
-        setLetters((prev) => prev.map((it) => (it.letterId === letter.letterId ? res.data.data : it)))
-        Taro.showToast({ title: type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨', icon: 'none' })
+  const handleThrow = async () => {
+    if (throwing) return
+    if (throwMode === 'text') {
+      if (!richTextToPlainText(content)) {
+        Taro.showToast({ title: '写点什么再投出吧', icon: 'none' })
+        return
       }
-    } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '互动失败，请稍后重试', icon: 'none' })
+    } else if (selectedWishId == null) {
+      Taro.showToast({ title: '请选择要关联的心愿', icon: 'none' })
+      return
+    }
+
+    setThrowing(true)
+    try {
+      const payload =
+        throwMode === 'text'
+          ? { content, isAnonymous: isAnonymousThrow }
+          : { wishId: selectedWishId as number, isAnonymous: isAnonymousThrow }
+      const res = await wishApi.throwDriftBottle(payload)
+      if (res.data.success) {
+        Taro.showToast({ title: '漂流瓶已投出 🍾', icon: 'none' })
+        setContent('')
+        setSelectedWishId(null)
+        loadMine()
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '投瓶失败，请稍后重试', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
+    } finally {
+      setThrowing(false)
+    }
+  }
+
+  const handleInteract = async (bottle: DriftBottleItem, type: 'BLESS' | 'LIGHT') => {
+    setInteractingId(bottle.bottleId)
+    try {
+      const res = await wishApi.interactDriftBottle(bottle.bottleId, type)
+      if (res.data.success) {
+        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? res.data.data : prev))
+        Taro.showToast({ title: type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨', icon: 'none' })
+      } else if (res.data.error?.code === 'WISH_RATE_LIMITED') {
+        Taro.showToast({ title: '这个漂流瓶今天已经回应过啦', icon: 'none' })
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '回应失败，请稍后重试', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
     } finally {
       setInteractingId(null)
     }
   }
 
+  const handleCommentCountChange = useCallback((bottleId: number, delta: number) => {
+    const patch = (b: DriftBottleItem): DriftBottleItem => ({
+      ...b,
+      commentCount: Math.max(0, b.commentCount + delta),
+    })
+    setBottles((prev) => prev.map((it) => (it.bottleId === bottleId ? patch(it) : it)))
+    setFishedBottle((prev) => (prev && prev.bottleId === bottleId ? patch(prev) : prev))
+  }, [])
+
+  const selectedWishIndex = selectedWishId == null
+    ? 0
+    : candidateWishes.findIndex((w) => w.wishId === selectedWishId)
+
   return (
     <View className={styles.page} style={{ paddingTop: statusBarHeight + navBarHeight }}>
-      <CustomNavBar title="擦肩而过" back />
+      <CustomNavBar title='漂流瓶' back />
 
-      {/* 附近模式开关 */}
-      <View className={styles.modeCard}>
-        <View className={styles.modeTextWrap}>
-          <Text className={styles.modeTitle}>附近模式</Text>
-          <Text className={styles.modeDesc}>
-            开启后每 5 分钟匿名上报一次位置（仅存 6 级区块，不含精确坐标），与同路人不期而遇
-          </Text>
+      {!isLoggedIn ? (
+        <View className={styles.empty}>
+          <Text>请先登录后使用漂流瓶</Text>
         </View>
-        <Switch
-          checked={nearbyMode}
-          disabled={modeToggling || !isLoggedIn}
-          onChange={(e) => handleModeToggle(e.detail.value)}
-          color='#4a90d9'
-        />
-      </View>
-
-      <ScrollView className={styles.list} scrollY>
-        {!isLoggedIn ? (
-          <View className={styles.empty}>
-            <Text>请先登录后查看相遇信笺</Text>
-          </View>
-        ) : loading ? (
-          <View className={styles.empty}><Text>加载中...</Text></View>
-        ) : letters.length === 0 ? (
-          <View className={styles.empty}>
-            <Text>还没有相遇信笺{'\n'}开启附近模式，与同路人不期而遇</Text>
-          </View>
-        ) : (
-          letters.map((letter) => (
-            <View
-              key={letter.letterId}
-              className={`${styles.letterCard} ${openingId === letter.letterId ? styles.letterOpening : ''}`}
-            >
-              <View className={styles.letterHeader}>
-                <Text className={styles.letterStatus}>
-                  {letter.status === 'DELIVERED' ? '✉️ ' : letter.status === 'READ' ? '📬 ' : '🔒 '}
-                  {STATUS_LABELS[letter.status]}
-                </Text>
-                <Text className={styles.letterZone}>{letter.encounterGeohash6.slice(0, 4)} 片区</Text>
-              </View>
-              <Text className={styles.letterTime}>
-                相遇于 {new Date(letter.encounterTime).toLocaleDateString('zh-CN')}
-              </Text>
-              {letter.content ? (
-                <View className={styles.letterContent}>
-                  <Text selectable>{letter.content}</Text>
-                </View>
-              ) : (
-                <View className={styles.letterContent}>
-                  <Text className={styles.letterHint}>信笺还未到拆封时间，敬请期待</Text>
-                </View>
-              )}
-              {(letter.status === 'PENDING' || letter.status === 'DELIVERED') && (
-                <View className={styles.letterActions}>
-                  <View
-                    className={styles.openBtn}
-                    onClick={() => handleOpen(letter)}
-                  >
-                    <Text>{letter.status === 'PENDING' ? '查看' : '拆信'}</Text>
-                  </View>
-                </View>
-              )}
-              {letter.status === 'READ' && (
-                <View className={styles.letterActions}>
-                  <View
-                    className={styles.interactBtn}
-                    onClick={interactingId === letter.letterId ? undefined : () => handleInteract(letter, 'BLESS')}
-                  >
-                    <Text>🌟 祝福</Text>
-                  </View>
-                  <View
-                    className={styles.interactBtn}
-                    onClick={interactingId === letter.letterId ? undefined : () => handleInteract(letter, 'LIGHT')}
-                  >
-                    <Text>✨ 点亮</Text>
-                  </View>
-                </View>
-              )}
+      ) : (
+        <ScrollView className={styles.scroll} scrollY>
+          {/* 捞瓶区 */}
+          <View className={styles.section}>
+            <Text className={styles.sectionTitle}>🌊 捞一只漂流瓶</Text>
+            <View className={styles.fishBtn} onClick={() => !fishing && handleFish()}>
+              <Text className={styles.fishBtnText}>{fishing ? '打捞中...' : '🎣 捞漂流瓶'}</Text>
             </View>
-          ))
-        )}
-      </ScrollView>
+            {fishedBottle && (
+              <BottleCard
+                bottle={fishedBottle}
+                interacting={interactingId === fishedBottle.bottleId}
+                onInteract={(type) => handleInteract(fishedBottle, type)}
+                onCountChange={(delta) => handleCommentCountChange(fishedBottle.bottleId, delta)}
+              />
+            )}
+          </View>
+
+          {/* 投瓶区 */}
+          <View className={styles.section}>
+            <Text className={styles.sectionTitle}>🍾 投一只漂流瓶</Text>
+
+            <View className={styles.modeSwitch}>
+              <View
+                className={`${styles.modeOption} ${throwMode === 'text' ? styles.modeOptionActive : ''}`}
+                onClick={() => setThrowMode('text')}
+              >
+                <Text className={styles.modeOptionText}>自由文字</Text>
+              </View>
+              <View
+                className={`${styles.modeOption} ${throwMode === 'wish' ? styles.modeOptionActive : ''}`}
+                onClick={() => setThrowMode('wish')}
+              >
+                <Text className={styles.modeOptionText}>关联心愿</Text>
+              </View>
+            </View>
+
+            {throwMode === 'text' ? (
+              <View className={styles.editorWrap}>
+                {EditorComponent ? (
+                  <EditorComponent
+                    value={content}
+                    onChange={setContent}
+                    placeholder='写下此刻想说的话，抛向大海...'
+                  />
+                ) : (
+                  <Textarea
+                    className={styles.composerInput}
+                    value={content}
+                    onInput={(e) => setContent(e.detail.value)}
+                    placeholder='写下此刻想说的话，抛向大海...'
+                  />
+                )}
+              </View>
+            ) : (
+              <View className={styles.wishPickerWrap}>
+                {candidateWishes.length === 0 ? (
+                  <Text className={styles.wishPickerEmpty}>暂无进行中的心愿，先去发布一个吧</Text>
+                ) : (
+                  <Picker
+                    mode='selector'
+                    range={candidateWishes.map((w) => w.title)}
+                    value={selectedWishIndex >= 0 ? selectedWishIndex : 0}
+                    onChange={(e) => {
+                      const idx = Number(e.detail.value)
+                      setSelectedWishId(candidateWishes[idx]?.wishId ?? null)
+                    }}
+                  >
+                    <View className={styles.wishPickerValue}>
+                      <Text className={styles.wishPickerText}>
+                        {selectedWishId != null && selectedWishIndex >= 0
+                          ? candidateWishes[selectedWishIndex].title
+                          : '选择要关联的心愿'}
+                      </Text>
+                      <Text className={styles.wishPickerArrow}>▾</Text>
+                    </View>
+                  </Picker>
+                )}
+              </View>
+            )}
+
+            <View className={styles.throwFooter}>
+              <View className={styles.anonSwitch}>
+                <Text className={styles.anonLabel}>匿名投出（默认）</Text>
+                <Switch
+                  checked={isAnonymousThrow}
+                  onChange={(e) => setIsAnonymousThrow(e.detail.value)}
+                  color='#4a90d9'
+                />
+              </View>
+              <View
+                className={`${styles.throwBtn} ${throwing ? styles.throwBtnDisabled : ''}`}
+                onClick={() => !throwing && handleThrow()}
+              >
+                <Text className={styles.throwBtnText}>{throwing ? '投出中...' : '投出 🍾'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 我的漂流瓶 */}
+          <View className={styles.section}>
+            <Text className={styles.sectionTitle}>🗺️ 我的漂流瓶</Text>
+            {loadingMine ? (
+              <View className={styles.emptyWrap}>
+                <Text className={styles.loadingText}>加载中...</Text>
+              </View>
+            ) : bottles.length === 0 ? (
+              <View className={styles.emptyWrap}>
+                <Text className={styles.emptyWrapText}>还没有漂流瓶，去投一只或捞一只吧</Text>
+              </View>
+            ) : (
+              <View className={styles.bottleList}>
+                {bottles.map((bottle) => (
+                  <BottleCard
+                    key={bottle.bottleId}
+                    bottle={bottle}
+                    interacting={interactingId === bottle.bottleId}
+                    onInteract={(type) => handleInteract(bottle, type)}
+                    onCountChange={(delta) => handleCommentCountChange(bottle.bottleId, delta)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </View>
   )
 }

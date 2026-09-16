@@ -42,6 +42,7 @@ import {
   getPostsByTopic,
   deletePost,
   searchUsers,
+  recordBrowseHistory,
 } from '@/api/community'
 import type { Post, PostComment, SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
@@ -513,6 +514,17 @@ export default function PostDetail() {
     }, 15000)
     return () => clearInterval(interval)
   }, [id, fetchComments])
+
+  /** 浏览足迹上报：帖子加载成功后静默上报，失败不打扰用户 */
+  useEffect(() => {
+    if (!currentUser?.id || !post) return
+    void recordBrowseHistory({
+      targetType: 'POST',
+      targetId: post.id,
+      title: post.title,
+      cover: post.coverImage || undefined,
+    }).catch(() => {})
+  }, [currentUser?.id, post])
 
   const fetchRelatedPosts = useCallback(async (tags: Array<{ id: number }>, currentPostId: number) => {
     if (!tags.length) return
