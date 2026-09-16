@@ -57,6 +57,20 @@ public class EncounterEventProducer {
                 null, BIZ_TYPE_ENCOUNTER_INTERACTION));
     }
 
+    /**
+     * 漂流瓶匿名回应通知（投瓶人收到"有一位有缘人捞起了你的漂流瓶并回应"；
+     * 不含捞起者 userId/昵称——匿名性验收）。
+     */
+    public void publishBottleInteraction(Long throwerUserId, boolean isLight) {
+        String content = isLight
+                ? "有一位有缘人捞起了你的漂流瓶，为你点亮了心愿 ⭐"
+                : "有一位有缘人捞起了你的漂流瓶，为你送来了祝福 💛";
+        publish(new EncounterNotifyMessage(NOTIFY_TYPE_ENCOUNTER, throwerUserId,
+                "漂流瓶的回音",
+                content,
+                null, BIZ_TYPE_ENCOUNTER_INTERACTION));
+    }
+
     private void publish(EncounterNotifyMessage message) {
         try {
             String destination = RocketMQConfig.WISH_TOPIC + ":" + RocketMQConfig.WISH_TAG_ENCOUNTER_LETTER;

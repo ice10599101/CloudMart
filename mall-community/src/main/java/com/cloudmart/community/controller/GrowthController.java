@@ -8,6 +8,7 @@ import com.cloudmart.community.service.GrowthService;
 import com.cloudmart.community.vo.CheckInResultVO;
 import com.cloudmart.community.vo.ExpLogVO;
 import com.cloudmart.community.vo.LevelConfigVO;
+import com.cloudmart.community.vo.UserDecorationVO;
 import com.cloudmart.community.vo.UserLevelVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/growth")
@@ -65,6 +67,22 @@ public class GrowthController {
             @Parameter(description = "当前用户ID") @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         UserLevelVO vo = growthService.getUserLevel(userId);
         return ApiResponse.ok(vo);
+    }
+
+    @PutMapping("/avatar-frame")
+    @Operation(summary = "设置头像框", description = "设置当前用户头像框（Lv2+ 权益）：none/gold/purple/green/pink/rainbow")
+    public ApiResponse<Void> setAvatarFrame(
+            @Parameter(description = "当前用户ID") @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "头像框 key") @RequestParam("frame") String frame) {
+        growthService.setAvatarFrame(userId, frame);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/decorations")
+    @Operation(summary = "批量用户头像装饰", description = "查询指定用户的头像框、等级、徽章数（公开接口，供全站头像展示）")
+    public ApiResponse<Map<Long, UserDecorationVO>> getUserDecorations(
+            @Parameter(description = "用户ID列表") @RequestParam("ids") List<Long> ids) {
+        return ApiResponse.ok(growthService.getUserDecorations(ids));
     }
 
     @GetMapping("/exp-logs")

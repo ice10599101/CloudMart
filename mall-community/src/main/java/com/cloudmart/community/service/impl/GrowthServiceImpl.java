@@ -5,10 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.community.entity.DailyCheckIn;
 import com.cloudmart.community.entity.ExpLog;
 import com.cloudmart.community.entity.LevelConfig;
+import com.cloudmart.community.entity.UserBadge;
 import com.cloudmart.community.entity.UserLevel;
 import com.cloudmart.community.repository.DailyCheckInMapper;
 import com.cloudmart.community.repository.ExpLogMapper;
 import com.cloudmart.community.repository.LevelConfigMapper;
+import com.cloudmart.community.repository.UserBadgeMapper;
 import com.cloudmart.community.repository.UserLevelMapper;
 import com.cloudmart.community.service.CheckInBitMapService;
 import com.cloudmart.community.service.GrowthService;
@@ -16,6 +18,7 @@ import com.cloudmart.community.service.RankingService;
 import com.cloudmart.community.vo.CheckInResultVO;
 import com.cloudmart.community.vo.ExpLogVO;
 import com.cloudmart.community.vo.LevelConfigVO;
+import com.cloudmart.community.vo.UserDecorationVO;
 import com.cloudmart.community.vo.UserLevelVO;
 import com.cloudmart.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +27,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -41,6 +48,11 @@ public class GrowthServiceImpl implements GrowthService {
     private final ExpLogMapper expLogMapper;
     private final RankingService rankingService;
     private final CheckInBitMapService checkInBitMapService;
+    private final UserBadgeMapper userBadgeMapper;
+
+    /** 合法头像框 key（前端 AVATAR_FRAMES 与之对应） */
+    private static final Set<String> ALLOWED_AVATAR_FRAMES =
+            Set.of("none", "gold", "purple", "green", "pink", "rainbow");
 
     @Override
     @Transactional
@@ -130,6 +142,53 @@ public class GrowthServiceImpl implements GrowthService {
 
     @Override
     @Transactional
+    public void setAvatarFrame(Long userId, String frame) {
+        if (frame == null || !ALLOWED_AVATAR_FRAMES.contains(frame)) {
+            throw new BusinessException("INVALID_AVATAR_FRAME", "非法头像框");
+        }
+        UserLevel userLevel = getOrCreateUserLevel(userId);
+        userLevel.setAvatarFrame(frame);
+        userLevelMapper.updateById(userLevel);
+    }
+
+    @Override
+    public Map<Long, UserDecorationVO> getUserDecorations(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> distinctIds = userIds.stream().distinct().toList();
+
+        Map<Long, UserLevel> levelByUser = userLevelMapper.selectList(
+                        new LambdaQueryWrapper<UserLevel>().in(UserLevel::getUserId, distinctIds))
+                .stream()
+                .collect(Collectors.toMap(UserLevel::getUserId, l -> l, (a, b) -> a));
+
+        Map<Long, Long> badgeCountByUser = userBadgeMapper.selectList(
+                        new LambdaQueryWrapper<UserBadge>().in(UserBadge::getUserId, distinctIds))
+                .stream()
+                .collect(Collectors.groupingBy(UserBadge::getUserId, Collectors.counting()));
+
+        LevelConfig level1Config = findLevelConfig(1);
+
+        Map<Long, UserDecorationVO> result = new LinkedHashMap<>();
+        for (Long userId : distinctIds) {
+            UserLevel ul = levelByUser.get(userId);
+            int level = ul != null ? ul.getLevel() : 1;
+            LevelConfig cfg = ul != null ? findLevelConfig(ul.getLevel()) : level1Config;
+            result.put(userId, new UserDecorationVO(
+                    userId,
+                    level,
+                    cfg != null ? cfg.getTitle() : "",
+                    cfg != null ? cfg.getIcon() : "",
+                    ul != null && ul.getAvatarFrame() != null ? ul.getAvatarFrame() : "none",
+                    badgeCountByUser.getOrDefault(userId, 0L)
+            ));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
     public void addExp(Long userId, int exp, String source, Long bizId, String description) {
         UserLevel userLevel = getOrCreateUserLevel(userId);
 
@@ -198,6 +257,7 @@ public class GrowthServiceImpl implements GrowthService {
             userLevel.setLevel(1);
             userLevel.setExp(0);
             userLevel.setTotalExp(0L);
+            userLevel.setAvatarFrame("none");
             userLevelMapper.insert(userLevel);
         }
         return userLevel;

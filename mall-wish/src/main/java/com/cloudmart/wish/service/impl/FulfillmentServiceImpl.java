@@ -43,7 +43,8 @@ import java.util.Set;
  *       先发后审；uk_fulfillment_wish + 状态条件 UPDATE 双保险防重复提交</li>
  *   <li>作者级防存在性探测：不可见心愿对非作者统一 404（与 updateWish 同模式）</li>
  *   <li>统计/星光/徽章与还愿落库同一事务，回滚时全部撤销</li>
- *   <li>故事与感悟 XSS 转义后存储；audit_status=PENDING 供管理端待审筛选
+ *   <li>故事为富文本 HTML（与心愿描述一致直接入库，前端 DOMPurify 消毒），感悟仍
+ *       XSS 转义后存储；audit_status=PENDING 供管理端待审筛选
  *       （表⑨无 sensitive_hit 列，敏感词标记以 PENDING 状态承载）</li>
  * </ul>
  */
@@ -80,7 +81,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                     "仅进行中或已过期的心愿可还愿，当前状态: " + wish.getStatus());
         }
 
-        // 内容净化：路径穿越拦截 + XSS 转义（先发后审，audit_status=PENDING 标记待审）
+        // 内容净化：路径穿越拦截（富文本故事与心愿描述一致直接入库，前端 DOMPurify 消毒；
+        // 感悟为纯文本 XSS 转义），先发后审 audit_status=PENDING 标记待审
         String story = request.story().trim();
         if (!contentSanitizer.isFreeOfPathTraversal(story)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "还愿故事包含非法字符");
@@ -90,7 +92,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         WishFulfillment fulfillment = new WishFulfillment();
         fulfillment.setWishId(wishId);
         fulfillment.setUserId(userId);
-        fulfillment.setStory(contentSanitizer.escapeHtml(story));
+        fulfillment.setStory(story);
         fulfillment.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         fulfillment.setFeeling(feeling);
         fulfillment.setAuditStatus(AuditStatus.PENDING);

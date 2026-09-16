@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, Empty, Avatar } from 'antd'
+import { Spin, Empty } from 'antd'
 import { message } from '@/utils/appMessage'
 import {
   ArrowLeftOutlined,
@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { getPostsByTopic, getHotTopics, getTagDetail, subscribeTag, unsubscribeTag, checkTagSubscription } from '@/api/community'
 import type { Post, HotTopic } from '@/api/community'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
@@ -95,13 +96,12 @@ function PostCard({ post }: { post: Post }) {
             style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
           >
-            <Avatar
+            <DecoratedAvatar
+              userId={post.userId}
               size={20}
               src={post.authorAvatar || undefined}
-              style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}
-            >
-              {post.authorNickname?.charAt(0) || '?'}
-            </Avatar>
+              fallback={post.authorNickname?.charAt(0) || '?'}
+            />
             <span style={{ color: 'var(--color-text-secondary)', fontSize: 12, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {post.authorNickname}
             </span>

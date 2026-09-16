@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Spin, Empty, Card, Tag, Select, Input, Button, Avatar } from 'antd'
+import { Spin, Empty, Card, Tag, Select, Input, Button } from 'antd'
 import { StarOutlined, HeartOutlined, MessageOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { pageSizeForNetwork } from '@/components/StateFeedback'
@@ -9,6 +9,7 @@ import type { WishListItem, Category } from '@/api/wish'
 import Skeleton from '@/components/Skeleton'
 import styles from './WishSquare.module.css'
 import WishBGM from '@/components/WishBGM'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 const PAGE_SIZE = 20
 
@@ -195,10 +196,11 @@ export default function WishSquare() {
                       style={{ cursor: 'pointer' }}
                       onClick={(e) => { e.stopPropagation(); history.push(`/user/${wish.authorId}`) }}
                     >
-                      <Avatar
+                      <DecoratedAvatar
+                        userId={wish.authorId}
                         size={24}
                         src={wish.authorAvatar || undefined}
-                        icon={<StarOutlined />}
+                        fallback={<StarOutlined />}
                       />
                       <span className={styles.authorName}>{wish.authorNickname}</span>
                     </div>

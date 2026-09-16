@@ -182,7 +182,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
         }
 
         @Test
-        @DisplayName("故事 XSS 转义入库 + 路径穿越内容被拒")
+        @DisplayName("故事富文本入库（保留原始标签）+ 路径穿越拒绝 + 感悟纯文本转义")
         void storySanitizationApplied() {
             Long categoryId = seedCategory("IT_FULFILL_5");
             stubUserFeign();
@@ -196,14 +196,14 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
 
-            // XSS 转义入库
+            // 故事富文本入库（保留原始标签，前端 DOMPurify 消毒）；感悟纯文本转义入库
             fulfillmentService.submitFulfillment(USER_ID, wish.id(),
                     new SubmitFulfillmentRequest("<script>alert(1)</script>", null, "<b>感悟</b>"));
             String dbStory = jdbcTemplate.queryForObject(
                     "SELECT story FROM wish_fulfillment WHERE wish_id = ?", String.class, wish.id());
             String dbFeeling = jdbcTemplate.queryForObject(
                     "SELECT feeling FROM wish_fulfillment WHERE wish_id = ?", String.class, wish.id());
-            assertThat(dbStory).doesNotContain("<script>").contains("&lt;script&gt;");
+            assertThat(dbStory).contains("<script>").doesNotContain("&lt;script&gt;");
             assertThat(dbFeeling).doesNotContain("<b>").contains("&lt;b&gt;");
         }
     }

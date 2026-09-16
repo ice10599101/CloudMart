@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
-import { Spin, Empty, Avatar, Input, Dropdown, Popconfirm, Modal } from 'antd'
+import { Spin, Empty, Input, Dropdown, Popconfirm, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import Skeleton from '@/components/Skeleton'
 import CommentToolbar, {
@@ -47,6 +47,7 @@ import type { Post, PostComment, SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import ShareModal from '@/components/ShareModal'
 import ReportModal from '@/components/ReportModal'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
@@ -288,13 +289,14 @@ function CommentItem({
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 12 }}>
-        <Avatar
+        <DecoratedAvatar
+          userId={comment.userId}
           size={36}
           src={comment.authorAvatar || undefined}
-          style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}
-        >
-          {comment.authorNickname?.charAt(0) || '?'}
-        </Avatar>
+          fallback={comment.authorNickname?.charAt(0) || '?'}
+          style={{ cursor: 'pointer' }}
+          onClick={() => history.push(`/user/${comment.userId}`)}
+        />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span
@@ -859,14 +861,14 @@ export default function PostDetail() {
         }}>
           <div style={{ padding: '24px 28px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <Avatar
+              <DecoratedAvatar
+                userId={post.userId}
                 size={44}
                 src={post.authorAvatar || undefined}
-                style={{ background: 'var(--color-gradient-primary)', flexShrink: 0, cursor: 'pointer' }}
+                fallback={post.authorNickname?.charAt(0) || '?'}
+                style={{ cursor: 'pointer' }}
                 onClick={() => history.push(`/user/${post.userId}`)}
-              >
-                {post.authorNickname?.charAt(0) || '?'}
-              </Avatar>
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{ color: 'var(--color-text-secondary)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
@@ -1252,9 +1254,12 @@ export default function PostDetail() {
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.08)' }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                       >
-                        <Avatar size={24} src={u.avatar || undefined} style={{ background: 'var(--color-gradient-primary)', flexShrink: 0 }}>
-                          {u.nickname?.charAt(0) || '?'}
-                        </Avatar>
+                        <DecoratedAvatar
+                          userId={u.id}
+                          size={24}
+                          src={u.avatar || undefined}
+                          fallback={u.nickname?.charAt(0) || '?'}
+                        />
                         <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>{u.nickname}</span>
                       </div>
                     ))}

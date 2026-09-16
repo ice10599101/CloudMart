@@ -8,9 +8,12 @@
 
 .body {
   width: 100%;
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .headerBar {
@@ -19,7 +22,6 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 20px;
 }
 
 .pageTitle {
@@ -34,93 +36,164 @@
   margin: 4px 0 0;
 }
 
-.modeSwitch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px;
 }
 
-/* 信笺网格：1920px 网格 / 1440px 自适应 / 1024px 单列（验收断点） */
-.letterGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.sectionDesc {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+/* 捞瓶海面 */
+.seaCard {
+  background: linear-gradient(160deg, rgba(56, 141, 214, 0.12), rgba(28, 94, 156, 0.06));
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.seaVisual {
+  font-size: 64px;
+  line-height: 1;
+  animation: bottleFloat 3.2s ease-in-out infinite;
+}
+
+@keyframes bottleFloat {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-12px) rotate(6deg); }
+}
+
+.seaIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fishBtn {
+  min-width: 180px;
+}
+
+.fishedCard {
+  width: 100%;
+  margin-top: 8px;
+  background: var(--color-bg-container);
+  border: 1px dashed var(--color-accent-gold);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: left;
+}
+
+.fishedTag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-gold);
+  margin-bottom: 8px;
+}
+
+/* 投瓶 */
+.throwCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-@media (max-width: 1440px) {
-  .body {
-    max-width: 900px;
-  }
-
-  .letterGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.modeRadio {
+  align-self: flex-start;
 }
 
-@media (max-width: 1024px) {
-  .body {
-    padding: 16px 12px 40px;
-  }
+.throwInput,
+.throwSelect {
+  display: block;
+}
 
-  .letterGrid {
+.throwBtn {
+  align-self: flex-start;
+}
+
+/* 漂流瓶列表 */
+.bottleList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .bottleList {
     grid-template-columns: 1fr;
   }
 }
 
-.letterCard {
+.bottleCard {
   background: var(--color-bg-container);
   border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 16px;
-  perspective: 800px;
 }
 
-.letterOpening {
-  animation: letterShake 0.9s ease-in-out;
-}
-
-.letterTop {
+.bottleTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.letterTag {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-accent-gold);
+.bottleStatus {
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
-.letterTags {
-  margin-bottom: 8px;
+.content {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text);
+  margin: 8px 0;
+}
+
+.wishLink {
+  margin: 8px 0;
+}
+
+.wishLinkLabel {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-right: 6px;
+}
+
+.wishLinkTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.bottleTags {
+  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.poetic {
-  font-size: 14px;
-  line-height: 1.8;
-  color: var(--color-text);
-  border-left: 3px solid var(--color-primary);
-  padding-left: 12px;
-  margin: 10px 0;
-}
-
-.sealedText {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-  margin: 10px 0;
-}
-
-.letterActions {
+.bottleActions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .emptyText {

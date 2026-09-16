@@ -160,7 +160,7 @@
   flex-shrink: 0;
 }
 
-/* 排名变化动效（三端一致语义：↑红上升 / ↓绿下降 / NEW 金新上榜） */
+/* 排名变化动效（三端一致语义：↑红上升 / ↓绿下降 / 新上榜不显示标识） */
 .delta {
   width: 34px;
   text-align: center;
@@ -176,10 +176,6 @@
 
 .deltaDown {
   color: #3ddc97;
-}
-
-.deltaNew {
-  color: var(--color-accent-gold);
 }
 
 .deltaFlat {

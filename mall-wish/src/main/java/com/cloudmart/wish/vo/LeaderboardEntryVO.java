@@ -9,6 +9,7 @@ import java.util.Map;
  *
  * @param rank       当前排名（1 起）
  * @param userId     心愿维度为心愿作者；用户维度为本人
+ * @param wishId     心愿维度为心愿 ID（用于跳转心愿详情）；用户维度为 null
  * @param nickname   昵称（Fail-Open 占位）
  * @param avatar     头像
  * @param score      榜单分数（light_count/bless_count/打卡天数/帮助次数）
@@ -19,6 +20,7 @@ import java.util.Map;
 public record LeaderboardEntryVO(
         long rank,
         Long userId,
+        Long wishId,
         String nickname,
         String avatar,
         Double score,

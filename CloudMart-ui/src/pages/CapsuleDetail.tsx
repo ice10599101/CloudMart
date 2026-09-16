@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, App, Tag, Image, Typography } from 'antd'
+import { Button, Card, App, Tag, Image } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { getCapsuleDetail, openCapsule, type CapsuleItem } from '@/api/wish'
@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import styles from './CapsuleDetail.module.css'
 import WishBGM from '@/components/WishBGM'
+import RichText from '@/components/RichText'
 
 /** 拆信动效节奏：封蜡碎裂(0.5s) → 信封翻盖(0.6s) → 信纸升起(0.7s)，与移动/APP 端一致 */
 const OPEN_ANIM_MS = 1800
@@ -220,7 +221,7 @@ export default function CapsuleDetail() {
                         </div>
                         <h2 className={styles.ceremonyTitle}>{capsule.title}</h2>
                         <div className={styles.letterPaper}>
-                            <Typography.Paragraph className={styles.letterContent}>{capsule.content}</Typography.Paragraph>
+                            <RichText content={capsule.content} className={styles.letterContent} variant="full" />
                         </div>
                         {capsule.mediaUrls && capsule.mediaUrls.length > 0 && (
                             <div className={styles.mediaGrid}>

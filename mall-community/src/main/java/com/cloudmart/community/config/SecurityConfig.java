@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/*/profile").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/*/posts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/growth/level-configs").permitAll()
+                .requestMatchers(HttpMethod.GET, "/growth/decorations").permitAll()
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()

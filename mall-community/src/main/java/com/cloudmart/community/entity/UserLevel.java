@@ -24,6 +24,9 @@ public class UserLevel {
 
     private Long totalExp;
 
+    /** 头像框 key：none/gold/purple/green/pink/rainbow */
+    private String avatarFrame;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

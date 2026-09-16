@@ -55,7 +55,7 @@ export default function CheckinCalendar({ wishId, accentColor }: CheckinCalendar
     const today = dayjs().format('YYYY-MM-DD')
 
     return (
-        <div>
+        <div style={{ maxWidth: 320, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <Button size="small" type="text" icon={<LeftOutlined />} aria-label="上一月"
                         onClick={() => setMonth((m) => m.subtract(1, 'month'))} />
@@ -64,9 +64,9 @@ export default function CheckinCalendar({ wishId, accentColor }: CheckinCalendar
                         disabled={month.isAfter(dayjs(), 'month')}
                         onClick={() => setMonth((m) => m.add(1, 'month'))} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
                 {WEEK_HEADERS.map((w) => (
-                    <div key={w} style={{ textAlign: 'center', fontSize: 12, color: 'var(--color-text-tertiary)', padding: '4px 0' }}>
+                    <div key={w} style={{ textAlign: 'center', fontSize: 12, color: 'var(--color-text-tertiary)', padding: '2px 0' }}>
                         {w}
                     </div>
                 ))}
@@ -84,8 +84,8 @@ export default function CheckinCalendar({ wishId, accentColor }: CheckinCalendar
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                borderRadius: 8,
-                                fontSize: 13,
+                                borderRadius: 6,
+                                fontSize: 12,
                                 background: lit ? accentColor : 'transparent',
                                 color: lit ? '#ffffff' : 'var(--color-text-secondary)',
                                 fontWeight: lit ? 600 : 400,
@@ -94,7 +94,7 @@ export default function CheckinCalendar({ wishId, accentColor }: CheckinCalendar
                             }}
                         >
                             {day.date()}
-                            {lit && <span style={{ fontSize: 9, marginLeft: 2 }}>✓</span>}
+                            {lit && <span style={{ fontSize: 8, marginLeft: 1 }}>✓</span>}
                         </div>
                     )
                 })}

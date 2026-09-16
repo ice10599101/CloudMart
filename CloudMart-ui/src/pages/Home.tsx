@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Spin, Empty, Avatar, Tag, Dropdown, Modal, App } from 'antd'
+import { Spin, Empty, Tag, Dropdown, Modal, App } from 'antd'
 import type { MenuProps } from 'antd'
 import {
   FireOutlined,
@@ -34,6 +34,7 @@ import type { Post, HotTopic, RecommendUser, ProductSearchItem } from '@/types'
 import styles from './Home.module.css'
 import ShareModal from '@/components/ShareModal'
 import RichText from '@/components/RichText'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 const FEED_TABS = [
   { key: 'recommend', label: '推荐', icon: <CompassOutlined /> },
@@ -121,14 +122,14 @@ function PostCard({
   return (
     <div className={styles.postCard} onClick={() => history.push(`/post/${post.id}`)}>
       <div className={styles.postHeader}>
-        <Avatar
+        <DecoratedAvatar
+          userId={post.userId}
           size={40}
           src={post.authorAvatar || undefined}
-          style={{ background: 'var(--color-gradient-primary)', flexShrink: 0, cursor: 'pointer' }}
+          fallback={post.authorNickname?.charAt(0) || '?'}
+          style={{ cursor: 'pointer' }}
           onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
-        >
-          {post.authorNickname?.charAt(0) || '?'}
-        </Avatar>
+        />
         <div className={styles.postAuthorInfo}>
           <div
             className={styles.postAuthorName}
@@ -311,13 +312,13 @@ function SidebarUsers({ users, onFollow }: { users: RecommendUser[]; onFollow: (
       <div className={styles.userList}>
         {users.map((user) => (
           <div key={user.userId} className={styles.userItem} onClick={() => history.push(`/user/${user.userId}`)}>
-            <Avatar
+            <DecoratedAvatar
+              userId={user.userId}
               size={36}
               src={user.avatar || undefined}
-              style={{ background: 'var(--color-gradient-primary)', flexShrink: 0, cursor: 'pointer' }}
-            >
-              {user.nickname[0]}
-            </Avatar>
+              fallback={user.nickname[0]}
+              style={{ cursor: 'pointer' }}
+            />
             <div className={styles.userInfo} style={{ cursor: 'pointer' }}>
               <div className={styles.userName}>
                 {user.nickname}

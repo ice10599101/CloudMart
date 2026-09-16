@@ -23,7 +23,7 @@ const BOARD_ICONS: Record<LeaderboardType, string> = {
 
 function DeltaBadge({ delta }: { delta: LeaderboardEntry['rankDelta'] }) {
   if (delta === 'NEW') {
-    return <span className={`${styles.delta} ${styles.deltaNew}`}>NEW</span>
+    return null
   }
   if (delta === 'UP') {
     return <span className={`${styles.delta} ${styles.deltaUp}`}>▲</span>
@@ -71,7 +71,11 @@ function BoardPanel({ type }: { type: LeaderboardType }) {
           <div
             key={`${entry.rank}-${entry.userId}`}
             className={styles.entryRow}
-            onClick={() => entry.userId && history.push(`/user/${entry.userId}`)}
+            onClick={() =>
+              entry.wishId
+                ? history.push(`/wish/${entry.wishId}`)
+                : entry.userId && history.push(`/user/${entry.userId}`)
+            }
           >
             <span className={`${styles.rankBadge} ${entry.rank === 1 ? styles.rankTop1 : entry.rank === 2 ? styles.rankTop2 : entry.rank === 3 ? styles.rankTop3 : ''}`}>
               {entry.rank}

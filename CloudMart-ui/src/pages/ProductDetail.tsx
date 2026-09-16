@@ -719,6 +719,7 @@ export default function ProductDetail() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                           <div
+                            onClick={() => history.push(`/user/${review.userId}`)}
                             style={{
                               width: 36,
                               height: 36,
@@ -730,12 +731,16 @@ export default function ProductDetail() {
                               color: 'var(--color-primary)',
                               fontSize: 14,
                               fontWeight: 600,
+                              cursor: 'pointer',
                             }}
                           >
                             {review.username.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ color: 'var(--color-text-secondary)', fontSize: 14, fontWeight: 500 }}>
+                            <div
+                              onClick={() => history.push(`/user/${review.userId}`)}
+                              style={{ color: 'var(--color-text-secondary)', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                            >
                               {review.username}
                             </div>
                             <Rate disabled value={review.rating} style={{ fontSize: 11 }} />

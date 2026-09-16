@@ -7,6 +7,7 @@ import { searchPosts, getSearchHistory, clearSearchHistory, getHotSearches } fro
 import RichText from '@/components/RichText'
 import type { ProductSearchItem, BrandBucket, CategoryBucket } from '@/types'
 import type { Post } from '@/api/community'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 type SearchTab = 'product' | 'post'
 
@@ -297,30 +298,12 @@ function PostCard({ post }: { post: Post }) {
               style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
               onClick={(e) => { e?.stopPropagation(); history.push(`/user/${post.userId}`) }}
             >
-              {post.authorAvatar ? (
-                <img
-                  alt={post.authorNickname}
-                  src={post.authorAvatar}
-                  style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    background: 'var(--color-gradient-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--color-bg-base)',
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  {post.authorNickname?.charAt(0) ?? '?'}
-                </div>
-              )}
+              <DecoratedAvatar
+                userId={post.userId}
+                size={20}
+                src={post.authorAvatar || undefined}
+                fallback={post.authorNickname?.charAt(0) ?? '?'}
+              />
               <span style={{ color: 'var(--color-text-secondary)' }}>{post.authorNickname}</span>
             </div>
             <span>❤ {post.likeCount}</span>

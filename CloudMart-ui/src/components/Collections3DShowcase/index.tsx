@@ -4,7 +4,7 @@ import type { CollectionGroup } from '@/api/wish'
 
 /**
  * 收藏馆 3D 展示厅（Sprint 3.6 验收，四AB WEB P0-5）：
- * Three.js 悬浮展示收藏资产（图标平面 + 呼吸浮动 + 缓慢自转 + 中央光核 + 星河粒子），
+ * Three.js 展示收藏资产（图标平面 + 呼吸浮动 + 缓慢自转 + 中央光核 + 彩色流星雨背景），
  * ≤1024px 视口自动降级隐藏（由父级 matchMedia 控制，降级为分组列表）。
  */
 
@@ -14,7 +14,27 @@ interface ShowcaseItem {
     icon: string
 }
 
+interface Meteor {
+    group: THREE.Group
+    mesh: THREE.Mesh
+    head: THREE.Sprite
+    velocity: THREE.Vector3
+    speed: number
+    baseOpacity: number
+    phase: number
+}
+
 const ACCENT = 0xffd97a
+
+// 流星颜色盘：金/珊瑚红/青/紫/绿/橙/粉/蓝/白
+const METEOR_COLORS = [
+    0xffd700, 0xff6b6b, 0x00e5ff, 0x9c6cff, 0x00e676,
+    0xff9100, 0xff5edb, 0x7cb8ff, 0xffffff,
+]
+
+const METEOR_COUNT = 16
+const BOUND_X = 5.5
+const BOUND_Y = 3.2
 
 function makeIconTexture(icon: string): THREE.Texture {
     const size = 128
@@ -41,8 +61,8 @@ function makeIconTexture(icon: string): THREE.Texture {
     return texture
 }
 
-/** 径向渐变光晕纹理（中央光核 + 图标底衬） */
-function makeGlowTexture(inner: string, outer: string): THREE.Texture {
+/** 白色径向光晕纹理（边缘透明），通过 material.color 上色，供光核/图标/流星头复用 */
+function makeGlowTexture(): THREE.Texture {
     const size = 256
     const canvas = document.createElement('canvas')
     canvas.width = size
@@ -50,15 +70,97 @@ function makeGlowTexture(inner: string, outer: string): THREE.Texture {
     const ctx = canvas.getContext('2d')
     if (ctx) {
         const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-        g.addColorStop(0, inner)
-        g.addColorStop(0.4, inner.replace('1)', '0.35)'))
-        g.addColorStop(1, outer)
+        g.addColorStop(0, 'rgba(255, 255, 255, 1)')
+        g.addColorStop(0.3, 'rgba(255, 255, 255, 0.5)')
+        g.addColorStop(1, 'rgba(255, 255, 255, 0)')
         ctx.fillStyle = g
         ctx.fillRect(0, 0, size, size)
     }
     const texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace
     return texture
+}
+
+/** 流星拖尾纹理：横向由左（透明长尾）到右（明亮头部）渐变，纵向中间亮两头透明 */
+function makeStreakTexture(): THREE.Texture {
+    const w = 256
+    const h = 64
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+        const hg = ctx.createLinearGradient(0, 0, w, 0)
+        hg.addColorStop(0, 'rgba(255, 255, 255, 0)')
+        hg.addColorStop(1, 'rgba(255, 255, 255, 1)')
+        ctx.fillStyle = hg
+        ctx.fillRect(0, 0, w, h)
+        ctx.globalCompositeOperation = 'destination-in'
+        const vg = ctx.createLinearGradient(0, 0, 0, h)
+        vg.addColorStop(0, 'rgba(0, 0, 0, 0)')
+        vg.addColorStop(0.5, 'rgba(0, 0, 0, 1)')
+        vg.addColorStop(1, 'rgba(0, 0, 0, 0)')
+        ctx.fillStyle = vg
+        ctx.fillRect(0, 0, w, h)
+    }
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+}
+
+function spawnMeteor(streakTexture: THREE.Texture, glowTexture: THREE.Texture, index: number): Meteor {
+    const color = METEOR_COLORS[index % METEOR_COLORS.length]
+    // 速度越快拖尾越长，形成流动的层次感
+    const speed = 2.5 + Math.random() * 4
+    const trailLength = 0.5 + speed * 0.28
+    const angle = Math.random() * Math.PI * 2
+    const baseOpacity = 0.55 + Math.random() * 0.4
+
+    const group = new THREE.Group()
+    group.position.set(
+        (Math.random() - 0.5) * 2 * BOUND_X,
+        (Math.random() - 0.5) * 2 * BOUND_Y,
+        -1.5 + Math.random() * 3,
+    )
+    group.rotation.z = angle
+
+    const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(trailLength, 0.14),
+        new THREE.MeshBasicMaterial({
+            map: streakTexture,
+            color,
+            transparent: true,
+            opacity: baseOpacity,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        }),
+    )
+    group.add(mesh)
+
+    const head = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: glowTexture,
+            color,
+            transparent: true,
+            opacity: baseOpacity,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        }),
+    )
+    head.position.set(trailLength / 2, 0, 0)
+    head.scale.set(0.3, 0.3, 1)
+    group.add(head)
+
+    return {
+        group,
+        mesh,
+        head,
+        velocity: new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0),
+        speed,
+        baseOpacity,
+        phase: index * 1.7,
+    }
 }
 
 export default function Collections3DShowcase({ groups }: { groups: CollectionGroup }) {
@@ -89,12 +191,14 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         mount.appendChild(renderer.domElement)
 
+        const glowTexture = makeGlowTexture()
+        const streakTexture = makeStreakTexture()
+
         // 环形排布悬浮图标平面
         const group = new THREE.Group()
         const radius = Math.min(3.2, 1.4 + items.length * 0.24)
         const planes: THREE.Mesh[] = []
         const glowSprites: THREE.Sprite[] = []
-        const glowTexture = makeGlowTexture('rgba(255, 217, 122, 1)', 'rgba(255, 217, 122, 1)')
         items.forEach((item, i) => {
             const angle = (i / items.length) * Math.PI * 2
             const mesh = new THREE.Mesh(
@@ -114,9 +218,9 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
             // 图标后方柔光（轻微呼吸）
             const spriteMat = new THREE.SpriteMaterial({
                 map: glowTexture,
-                color: 0xffd97a,
+                color: ACCENT,
                 transparent: true,
-                opacity: 0.22,
+                opacity: 0.3,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false,
             })
@@ -147,9 +251,9 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
         // 中央光核
         const coreMat = new THREE.SpriteMaterial({
             map: glowTexture,
-            color: 0xffd97a,
+            color: ACCENT,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.55,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
         })
@@ -158,27 +262,11 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
         core.scale.set(2.2, 2.2, 1)
         scene.add(core)
 
-        // 星河粒子背景
-        const starCount = 120
-        const starGeo = new THREE.BufferGeometry()
-        const starPos = new Float32Array(starCount * 3)
-        for (let i = 0; i < starCount; i++) {
-            starPos[i * 3] = (Math.random() - 0.5) * 14
-            starPos[i * 3 + 1] = (Math.random() - 0.5) * 8
-            starPos[i * 3 + 2] = (Math.random() - 0.5) * 8
+        // 彩色流星雨背景
+        const meteors: Meteor[] = Array.from({ length: METEOR_COUNT }, (_, i) => spawnMeteor(streakTexture, glowTexture, i))
+        for (const meteor of meteors) {
+            scene.add(meteor.group)
         }
-        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3))
-        const stars = new THREE.Points(
-            starGeo,
-            new THREE.PointsMaterial({
-                color: 0xcfe6ff,
-                size: 0.04,
-                transparent: true,
-                opacity: 0.7,
-                depthWrite: false,
-            }),
-        )
-        scene.add(stars)
 
         let disposed = false
         let raf = 0
@@ -186,10 +274,9 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
         const renderLoop = () => {
             if (disposed) return
             raf = requestAnimationFrame(renderLoop)
+            const dt = Math.min(clock.getDelta(), 0.1)
             const t = clock.getElapsedTime()
             group.rotation.y = t * 0.35
-            stars.rotation.y = t * 0.04
-            stars.rotation.x = t * 0.02
             core.scale.setScalar(2.2 + Math.sin(t * 1.6) * 0.35)
             for (let i = 0; i < planes.length; i++) {
                 const plane = planes[i]
@@ -199,8 +286,19 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
                 if (sprite) {
                     sprite.position.copy(plane.position).multiplyScalar(1.06)
                     const mat = sprite.material as THREE.SpriteMaterial
-                    mat.opacity = 0.18 + Math.sin(t * 1.4 + (plane.userData.phase as number)) * 0.08
+                    mat.opacity = 0.22 + Math.sin(t * 1.4 + (plane.userData.phase as number)) * 0.1
                 }
+            }
+            // 流星流动 + 头部明暗闪烁
+            for (const meteor of meteors) {
+                meteor.group.position.x += meteor.velocity.x * meteor.speed * dt
+                meteor.group.position.y += meteor.velocity.y * meteor.speed * dt
+                const headMat = meteor.head.material as THREE.SpriteMaterial
+                headMat.opacity = meteor.baseOpacity * (0.65 + 0.35 * Math.sin(t * 2 + meteor.phase))
+                if (meteor.group.position.x > BOUND_X) meteor.group.position.x = -BOUND_X
+                if (meteor.group.position.x < -BOUND_X) meteor.group.position.x = BOUND_X
+                if (meteor.group.position.y > BOUND_Y) meteor.group.position.y = -BOUND_Y
+                if (meteor.group.position.y < -BOUND_Y) meteor.group.position.y = BOUND_Y
             }
             renderer.render(scene, camera)
         }
@@ -228,12 +326,16 @@ export default function Collections3DShowcase({ groups }: { groups: CollectionGr
             for (const sprite of glowSprites) {
                 ;(sprite.material as THREE.SpriteMaterial).dispose()
             }
+            for (const meteor of meteors) {
+                meteor.mesh.geometry.dispose()
+                ;(meteor.mesh.material as THREE.MeshBasicMaterial).dispose()
+                ;(meteor.head.material as THREE.SpriteMaterial).dispose()
+            }
             glowTexture.dispose()
+            streakTexture.dispose()
             ringOuter.geometry.dispose()
             ringInner.geometry.dispose()
             coreMat.dispose()
-            starGeo.dispose()
-            ;(stars.material as THREE.PointsMaterial).dispose()
             renderer.dispose()
             if (mount.contains(renderer.domElement)) {
                 mount.removeChild(renderer.domElement)

@@ -4,7 +4,9 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.WishDailySignin;
 import com.cloudmart.wish.enums.ResourceLogSource;
+import com.cloudmart.wish.feign.CommunityFeignClient;
 import com.cloudmart.wish.repository.WishDailySigninMapper;
+import com.cloudmart.wish.repository.WishSigninMilestoneClaimMapper;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.vo.DailySigninVO;
 import com.cloudmart.wish.vo.LevelUpVO;
@@ -50,7 +52,11 @@ class DailySigninServiceImplTest {
     @Mock
     private WishDailySigninMapper wishDailySigninMapper;
     @Mock
+    private WishSigninMilestoneClaimMapper wishSigninMilestoneClaimMapper;
+    @Mock
     private UserStatService userStatService;
+    @Mock
+    private CommunityFeignClient communityFeignClient;
 
     private DailySigninServiceImpl dailySigninService;
 
@@ -59,7 +65,8 @@ class DailySigninServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        dailySigninService = new DailySigninServiceImpl(wishDailySigninMapper, userStatService);
+        dailySigninService = new DailySigninServiceImpl(
+                wishDailySigninMapper, wishSigninMilestoneClaimMapper, userStatService, communityFeignClient);
         when(userStatService.getUserTimezone(USER_ID)).thenReturn("Asia/Shanghai");
     }
 

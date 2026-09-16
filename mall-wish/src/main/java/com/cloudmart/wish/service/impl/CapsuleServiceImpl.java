@@ -81,7 +81,7 @@ public class CapsuleServiceImpl implements CapsuleService {
         TimeCapsule capsule = new TimeCapsule();
         capsule.setUserId(userId);
         capsule.setTitle(title);
-        capsule.setContent(contentSanitizer.escapeHtml(request.content()));
+        capsule.setContent(request.content());
         capsule.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         capsule.setOpenAt(request.openAt());
         capsule.setOpenAtTimezone(timezone);

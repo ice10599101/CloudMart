@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { App, Avatar, Button, Empty, Input, Popconfirm, Spin, Tag } from 'antd'
+import { App, Button, Empty, Input, Popconfirm, Spin, Tag } from 'antd'
+import { history } from 'umi'
 import { DeleteOutlined, MessageOutlined, StarOutlined } from '@ant-design/icons'
 import CommentToolbar, {
   insertAtCursor,
@@ -12,6 +13,7 @@ import {
   type WishCommentItem,
 } from '@/api/wish'
 import styles from './style.module.css'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 /**
  * 心愿评论模块（文档 2.2 节，Sprint 1.2）。
@@ -195,15 +197,22 @@ export default function WishCommentSection({
                 key={comment.id}
                 className={isReply ? `${styles.item} ${styles.itemReply}` : styles.item}
               >
-                <Avatar
+                <DecoratedAvatar
+                  userId={comment.userId}
                   size={32}
                   src={comment.avatar || undefined}
-                  icon={<StarOutlined />}
-                  alt={`${comment.nickname} 的头像`}
+                  fallback={<StarOutlined />}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => history.push(`/user/${comment.userId}`)}
                 />
                 <div className={styles.itemBody}>
                   <div className={styles.itemMeta}>
-                    <span className={styles.itemNickname}>{comment.nickname}</span>
+                    <span
+                      className={styles.itemNickname}
+                      onClick={() => history.push(`/user/${comment.userId}`)}
+                    >
+                      {comment.nickname}
+                    </span>
                     <span className={styles.itemTime}>
                       {new Date(comment.createdAt).toLocaleString('zh-CN')}
                     </span>

@@ -71,3 +71,24 @@ export function getCheckInCalendar(year: number, month: number) {
 export function getContinuousDays() {
   return request.get<ApiResponse<number>>('/community/growth/check-in/continuous')
 }
+
+export interface UserDecoration {
+  userId: number
+  level: number
+  levelTitle: string
+  levelIcon: string
+  avatarFrame: string
+  badgeCount: number
+}
+
+/** 批量查询用户头像装饰（公开接口，供全站头像处展示） */
+export function getUserDecorations(ids: Array<number | string>) {
+  return request.get<ApiResponse<Record<string, UserDecoration>>>('/community/growth/decorations', {
+    params: { ids: ids.join(',') },
+  })
+}
+
+/** 设置当前用户头像框（Lv2+ 权益） */
+export function setAvatarFrame(frame: string) {
+  return request.put<ApiResponse<void>>('/community/growth/avatar-frame', null, { params: { frame } })
+}

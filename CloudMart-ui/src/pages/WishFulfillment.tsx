@@ -9,11 +9,14 @@ import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
 import styles from './WishFulfillment.module.css'
 import WishBGM from '@/components/WishBGM'
+import TiptapEditor from '@/components/TiptapEditor'
+import { stripHtml } from '@/utils/format'
 
 const { TextArea } = Input
 const MAX_MEDIA = 9
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-const MAX_STORY = 5000
+// 富文本 HTML 长度上限，与后端 SubmitFulfillmentRequest.story @Size(max = 20000) 对齐
+const MAX_STORY_HTML_LENGTH = 20000
 const MAX_FEELING = 1000
 
 type UploadStatus = 'uploading' | 'success' | 'error' | 'canceled'
@@ -203,7 +206,7 @@ export default function WishFulfillment() {
   /** 已填写内容时离开需二次确认（编辑器操作守则） */
   const handleBack = () => {
     const story = form.getFieldValue('story') as string | undefined
-    const hasDraft = Boolean(story?.trim()) || uploadedUrls.length > 0
+    const hasDraft = Boolean(stripHtml(story)) || uploadedUrls.length > 0
     if (hasDraft && !submitResult) {
       setLeaveConfirmOpen(true)
       return
@@ -301,16 +304,18 @@ export default function WishFulfillment() {
               name="story"
               label="还愿故事"
               rules={[
-                { required: true, message: '请写下你的还愿故事' },
-                { max: MAX_STORY, message: `故事不超过 ${MAX_STORY} 字符` },
+                {
+                  required: true,
+                  // Tiptap 空文档 HTML 为 <p></p>，剥掉标签后判断是否真有内容
+                  validator: (_, value: string) => {
+                    if (!stripHtml(value)) return Promise.reject(new Error('请写下你的还愿故事'))
+                    return Promise.resolve()
+                  },
+                },
+                { max: MAX_STORY_HTML_LENGTH, message: `故事不超过 ${MAX_STORY_HTML_LENGTH} 字符` },
               ]}
             >
-              <TextArea
-                placeholder="写下这段旅程的故事：如何开始、经历了什么、最终如何抵达……"
-                showCount
-                maxLength={MAX_STORY}
-                rows={10}
-              />
+              <TiptapEditor placeholder="写下这段旅程的故事：如何开始、经历了什么、最终如何抵达……" />
             </Form.Item>
 
             <Form.Item label={`完成照片（可选，最多 ${MAX_MEDIA} 张）`}>

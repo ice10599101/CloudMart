@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, history } from 'umi'
-import { Empty, Avatar, Popconfirm } from 'antd'
+import { Empty, Popconfirm } from 'antd'
 import { message } from '@/utils/appMessage'
 import Skeleton from '@/components/Skeleton'
 import {
@@ -41,6 +41,7 @@ import type { WishlistItem } from '@/api/wishlist'
 import { stripHtml } from '@/utils/format'
 import RichText from '@/components/RichText'
 import { useAuthStore } from '@/stores/auth'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 interface CommunityUserProfile {
   userId: number
@@ -675,18 +676,16 @@ export default function UserProfile() {
           </button>
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 24 }}>
-            <Avatar
+            <DecoratedAvatar
+              userId={profile.userId}
               size={88}
               src={profile.avatar || undefined}
+              fallback={profile.nickname?.charAt(0) || '?'}
               style={{
-                background: 'var(--color-gradient-primary)',
-                flexShrink: 0,
                 border: '3px solid rgba(var(--color-primary-rgb), 0.3)',
                 boxShadow: '0 4px 24px rgba(var(--color-primary-rgb), 0.2)',
               }}
-            >
-              {profile.nickname?.charAt(0) || '?'}
-            </Avatar>
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                 <h1 style={{

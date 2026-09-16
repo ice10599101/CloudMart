@@ -13,7 +13,7 @@ import java.util.List;
 public record SubmitFulfillmentRequest(
 
         @NotBlank(message = "还愿故事不能为空")
-        @Size(max = 5000, message = "还愿故事不能超过5000字符")
+        @Size(max = 20000, message = "还愿故事不能超过20000字符")
         String story,
 
         @Size(max = 9, message = "完成照片/视频最多9个")

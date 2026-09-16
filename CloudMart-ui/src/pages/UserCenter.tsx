@@ -26,11 +26,13 @@ import {
   getUserLevel,
   getExpLogs,
   getLevelConfigs,
+  setAvatarFrame as setAvatarFrameApi,
 } from '@/api/growth'
 import type { UserLevelInfo, LevelConfig, ExpLogRecord } from '@/api/growth'
 import { getSigninCalendar } from '@/api/wish'
 import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
+import { useDecorationStore } from '@/stores/decoration'
 import { uploadFile } from '@/api/file'
 import s from './UserCenter.module.css'
 
@@ -164,10 +166,10 @@ const BENEFIT_MIN_LEVEL: Record<string, number> = {
   专属标签: 3,
   优先推荐: 4,
   官方活动优先: 5,
-  全部功能: 6,
   本站贵宾标识: 6,
   官方认证: 7,
-  活动特权: 6,
+  活动特权: 8,
+  全部功能: 9,
 }
 
 /**
@@ -1295,13 +1297,19 @@ export default function UserCenterPage() {
   // 自定义头像框（Lv2+ 权益）：未达标时锁定为默认
   const [avatarFrame, setAvatarFrame] = useState(readAvatarFrame())
   const frameUnlocked = userLevel >= 2
-  const applyAvatarFrame = (key: string) => {
+  const applyAvatarFrame = async (key: string) => {
     if (!frameUnlocked) return
     try {
+      if (user?.id) {
+        await setAvatarFrameApi(key)
+        useDecorationStore.getState().setAvatarFrame(user.id, key)
+      }
       localStorage.setItem(AVATAR_FRAME_KEY, key)
       window.dispatchEvent(new CustomEvent('avatar-frame-changed', { detail: key }))
-    } catch { /* ignore */ }
-    setAvatarFrame(key)
+      setAvatarFrame(key)
+    } catch {
+      setToast({ message: '头像框保存失败，请稍后重试', type: 'error' })
+    }
   }
   const activeFrame = AVATAR_FRAMES.find((f) => f.key === avatarFrame) ?? AVATAR_FRAMES[0]
   const frameStyle = frameUnlocked && activeFrame.ring !== 'none'

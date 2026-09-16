@@ -709,14 +709,12 @@ describe('admin business API - Brand Management', () => {
 describe('admin business API - File Management', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('uploadFile() calls POST /file/upload with multipart headers', async () => {
+  it('uploadFile() calls POST /file/upload without manually setting Content-Type', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
     const formData = new FormData()
     formData.append('file', new Blob(['test']), 'test.png')
     await uploadFile(formData)
-    expect(request.post).toHaveBeenCalledWith('/file/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    expect(request.post).toHaveBeenCalledWith('/file/upload', formData)
   })
 
   it('deleteFile() calls DELETE /file/delete with url param', async () => {

@@ -24,7 +24,7 @@ public record CreateCapsuleRequest(
 
         @Schema(description = "胶囊内容（开启前不可见）")
         @NotBlank(message = "内容不能为空")
-        @Size(max = 5000, message = "内容不能超过5000字")
+        @Size(max = 20000, message = "内容不能超过20000字")
         String content,
 
         @Schema(description = "封存媒体 URL 列表（≤9 项，OSS Key）")

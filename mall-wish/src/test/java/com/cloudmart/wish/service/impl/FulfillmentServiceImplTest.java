@@ -236,8 +236,8 @@ class FulfillmentServiceImplTest {
         }
 
         @Test
-        @DisplayName("故事与感悟入库前完成 XSS 转义，audit_status=PENDING 先发后审")
-        void submitFulfillment_escapesHtmlAndMarksPending() {
+        @DisplayName("故事为富文本入库（不转义），感悟为纯文本 XSS 转义，audit_status=PENDING 先发后审")
+        void submitFulfillment_storyRichText_feelingEscaped() {
             Wish wish = buildWish(WishStatus.ACTIVE);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
             when(wishMapper.update(any(), any())).thenReturn(1);
@@ -250,8 +250,8 @@ class FulfillmentServiceImplTest {
             fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request);
 
             verify(wishFulfillmentMapper).insert(org.mockito.ArgumentMatchers.<WishFulfillment>argThat(f ->
-                    f.getStory().contains("&lt;script&gt;")
-                            && !f.getStory().contains("<script>")
+                    f.getStory().contains("<script>")
+                            && !f.getStory().contains("&lt;script&gt;")
                             && f.getFeeling().contains("&lt;b&gt;")
                             && f.getAuditStatus() == AuditStatus.PENDING
                             && Boolean.TRUE.equals(f.getIsVisible())

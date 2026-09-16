@@ -22,7 +22,6 @@ describe('file API', () => {
         '/file/upload',
         expect.any(FormData),
         expect.objectContaining({
-          headers: { 'Content-Type': 'multipart/form-data' },
           timeout: 60000,
         })
     )

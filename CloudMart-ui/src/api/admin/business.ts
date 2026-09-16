@@ -419,9 +419,7 @@ export function deleteWarehouse(id: number | string) {
 }
 
 export function uploadFile(data: FormData) {
-  return request.post('/file/upload', data, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  return request.post('/file/upload', data)
 }
 
 export function deleteFile(url: string) {

@@ -9,12 +9,14 @@ import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import styles from './CapsuleCreate.module.css'
 import WishBGM from '@/components/WishBGM'
+import TiptapEditor from '@/components/TiptapEditor'
+import { stripHtml } from '@/utils/format'
 
-const { TextArea } = Input
 const MAX_MEDIA = 9
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const MAX_TITLE = 100
-const MAX_CONTENT = 5000
+// 富文本 HTML 长度上限，与后端 CreateCapsuleRequest.content @Size(max = 20000) 对齐
+const MAX_CONTENT_HTML_LENGTH = 20000
 const MAX_YEARS_AHEAD = 10
 
 /** 封印仪式：信封合拢 + 蜡封压印 + 星尘环绕（拆信动效在开启页） */
@@ -146,7 +148,7 @@ export default function CapsuleCreate() {
     /** 已填写内容时离开需二次确认 */
     const handleBack = () => {
         const values = form.getFieldsValue() as { title?: string; content?: string; openAt?: Dayjs }
-        const hasDraft = Boolean(values.title?.trim() || values.content?.trim() || values.openAt) || mediaUrls.length > 0
+        const hasDraft = Boolean(values.title?.trim() || stripHtml(values.content) || values.openAt) || mediaUrls.length > 0
         if (hasDraft && !sealed) {
             setLeaveConfirmOpen(true)
             return
@@ -211,16 +213,18 @@ export default function CapsuleCreate() {
                             name="content"
                             label="封存内容（开启前不可见）"
                             rules={[
-                                { required: true, message: '写下想封存的内容' },
-                                { max: MAX_CONTENT, message: `内容不超过 ${MAX_CONTENT} 字` },
+                                {
+                                    required: true,
+                                    // Tiptap 空文档 HTML 为 <p></p>，剥掉标签后判断是否真有内容
+                                    validator: (_, value: string) => {
+                                        if (!stripHtml(value)) return Promise.reject(new Error('写下想封存的内容'))
+                                        return Promise.resolve()
+                                    },
+                                },
+                                { max: MAX_CONTENT_HTML_LENGTH, message: `内容不超过 ${MAX_CONTENT_HTML_LENGTH} 字` },
                             ]}
                         >
-                            <TextArea
-                                placeholder="此刻的你想对未来的自己说什么？愿望、心情、约定……封存后到期前任何人无法查看"
-                                showCount
-                                maxLength={MAX_CONTENT}
-                                rows={10}
-                            />
+                            <TiptapEditor placeholder="此刻的你想对未来的自己说什么？愿望、心情、约定……封存后到期前任何人无法查看" />
                         </Form.Item>
 
                         <Form.Item label={`封存照片（可选，最多 ${MAX_MEDIA} 张）`}>

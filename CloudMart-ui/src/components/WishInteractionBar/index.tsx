@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { App, Button, Input, Modal, Popconfirm, Tooltip } from 'antd'
 import {
   BulbOutlined,
@@ -7,6 +7,7 @@ import {
   StarOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
+import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import {
   createInteraction,
   listMyInteractions,
@@ -58,7 +59,9 @@ export default function WishInteractionBar({
   const [anonStarring, setAnonStarring] = useState(false)
   const [blessModalOpen, setBlessModalOpen] = useState(false)
   const [blessContent, setBlessContent] = useState('')
+  const [pendingBlessImages, setPendingBlessImages] = useState<string[]>([])
   const [blessing, setBlessing] = useState(false)
+  const blessInputRef = useRef<any>(null)
   /** 点亮微光特效（key 变更触发 CSS 动画重放） */
   const [burstKey, setBurstKey] = useState(0)
 
@@ -188,22 +191,27 @@ export default function WishInteractionBar({
 
   const openBlessModal = () => {
     setBlessContent('')
+    setPendingBlessImages([])
     setBlessModalOpen(true)
   }
 
   const handleBless = async () => {
-    const content = blessContent.trim()
-    if (!content) {
+    const text = blessContent.trim()
+    if (!text && pendingBlessImages.length === 0) {
       message.warning('写一句祝福吧')
       return
     }
     if (blessing) return
+    const content =
+      text +
+      pendingBlessImages.map((url) => `\n![图片](${url})`).join('')
     setBlessing(true)
     try {
       const res = await createInteraction(wishId, { type: 'BLESS', content })
       if (res.data.success) {
         // 先关闭弹窗再做后续刷新，确保成功后弹窗立即关闭，避免重复提交
         setBlessModalOpen(false)
+        setPendingBlessImages([])
         onCountsChange({ blessCount: res.data.data.blessCount })
         refreshMyInteractions()
         message.success('祝福已送达 🌟')
@@ -333,15 +341,34 @@ export default function WishInteractionBar({
         <p className={styles.blessHint}>
           写下你的祝福，愿 TA 梦想成真（{BLESS_CONTENT_MAX} 字以内）
         </p>
+        <CommentToolbar
+          textareaRef={blessInputRef}
+          onInsert={(fragment) =>
+            setBlessContent((prev) =>
+              insertAtCursor(blessInputRef, fragment, prev, BLESS_CONTENT_MAX),
+            )
+          }
+          pendingImages={pendingBlessImages}
+          onImagePicked={(url) => setPendingBlessImages((prev) => [...prev, url])}
+          onRemoveImage={(url) =>
+            setPendingBlessImages((prev) => prev.filter((item) => item !== url))
+          }
+          disabled={blessing}
+        />
         <Input.TextArea
+          ref={blessInputRef}
           value={blessContent}
           onChange={(e) => setBlessContent(e.target.value.slice(0, BLESS_CONTENT_MAX))}
           placeholder="例如：希望你梦想成真！"
           rows={3}
           maxLength={BLESS_CONTENT_MAX}
-          showCount
           autoFocus
         />
+        <div className={styles.blessCountRow}>
+          <span className={styles.blessCount}>
+            {blessContent.length}/{BLESS_CONTENT_MAX}
+          </span>
+        </div>
       </Modal>
     </div>
   )

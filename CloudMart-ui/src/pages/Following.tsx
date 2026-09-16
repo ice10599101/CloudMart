@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, history } from 'umi'
-import { Spin, Empty, Avatar } from 'antd'
+import { Spin, Empty } from 'antd'
 import { message } from '@/utils/appMessage'
 import {
   ArrowLeftOutlined,
@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import { getFollowers, getFollowingList, followUser, unfollowUser, type FollowUserRawItem } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 interface FollowUser {
   id: number
@@ -244,17 +245,13 @@ export default function Following() {
                     e.currentTarget.style.background = 'var(--color-bg-container)'
                   }}
                 >
-                  <Avatar
+                  <DecoratedAvatar
+                    userId={user.id}
                     size={44}
                     src={user.avatar || undefined}
-                    style={{
-                      background: 'var(--color-gradient-primary)',
-                      flexShrink: 0,
-                      border: '2px solid rgba(var(--color-primary-rgb), 0.2)',
-                    }}
-                  >
-                    {user.nickname?.charAt(0) || '?'}
-                  </Avatar>
+                    fallback={user.nickname?.charAt(0) || '?'}
+                    style={{ border: '2px solid rgba(var(--color-primary-rgb), 0.2)' }}
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                       display: 'flex',

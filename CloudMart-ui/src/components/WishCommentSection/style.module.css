@@ -119,6 +119,16 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
+  cursor: pointer;
+}
+
+.itemNickname:hover {
+  color: var(--color-primary);
+}
+
+.itemAvatar {
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .itemTime {

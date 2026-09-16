@@ -6,16 +6,19 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.community.entity.DailyCheckIn;
 import com.cloudmart.community.entity.ExpLog;
 import com.cloudmart.community.entity.LevelConfig;
+import com.cloudmart.community.entity.UserBadge;
 import com.cloudmart.community.entity.UserLevel;
 import com.cloudmart.community.repository.DailyCheckInMapper;
 import com.cloudmart.community.repository.ExpLogMapper;
 import com.cloudmart.community.repository.LevelConfigMapper;
+import com.cloudmart.community.repository.UserBadgeMapper;
 import com.cloudmart.community.repository.UserLevelMapper;
 import com.cloudmart.community.service.CheckInBitMapService;
 import com.cloudmart.community.service.RankingService;
 import com.cloudmart.community.vo.CheckInResultVO;
 import com.cloudmart.community.vo.ExpLogVO;
 import com.cloudmart.community.vo.LevelConfigVO;
+import com.cloudmart.community.vo.UserDecorationVO;
 import com.cloudmart.community.vo.UserLevelVO;
 import com.cloudmart.common.exception.BusinessException;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -31,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +67,9 @@ class GrowthServiceImplTest {
     @Mock
     private CheckInBitMapService checkInBitMapService;
 
+    @Mock
+    private UserBadgeMapper userBadgeMapper;
+
     private GrowthServiceImpl growthService;
 
     private static final Long USER_ID = 1L;
@@ -88,7 +95,7 @@ class GrowthServiceImplTest {
     void setUp() {
         growthService = new GrowthServiceImpl(
                 userLevelMapper, levelConfigMapper, dailyCheckInMapper, expLogMapper, rankingService,
-                checkInBitMapService);
+                checkInBitMapService, userBadgeMapper);
     }
 
     private UserLevel buildUserLevel() {
@@ -111,6 +118,14 @@ class GrowthServiceImplTest {
         config.setBenefits("benefits-" + level);
         config.setStatus(1);
         return config;
+    }
+
+    private UserBadge buildBadge(long id, long userId, long badgeId) {
+        UserBadge userBadge = new UserBadge();
+        userBadge.setId(id);
+        userBadge.setUserId(userId);
+        userBadge.setBadgeId(badgeId);
+        return userBadge;
     }
 
     @Nested
@@ -379,6 +394,81 @@ class GrowthServiceImplTest {
             int result = growthService.getContinuousDays(USER_ID);
 
             assertThat(result).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("setAvatarFrame")
+    class SetAvatarFrameTests {
+
+        @Test
+        @DisplayName("valid frame updates user level")
+        void setAvatarFrame_valid() {
+            UserLevel userLevel = new UserLevel();
+            userLevel.setId(1L);
+            userLevel.setUserId(USER_ID);
+            userLevel.setLevel(2);
+            userLevel.setExp(50);
+            userLevel.setTotalExp(50L);
+            userLevel.setAvatarFrame("none");
+            when(userLevelMapper.selectOne(any())).thenReturn(userLevel);
+
+            growthService.setAvatarFrame(USER_ID, "gold");
+
+            assertThat(userLevel.getAvatarFrame()).isEqualTo("gold");
+            verify(userLevelMapper).updateById(userLevel);
+        }
+
+        @Test
+        @DisplayName("invalid frame throws before touching DB")
+        void setAvatarFrame_invalid() {
+            assertThatThrownBy(() -> growthService.setAvatarFrame(USER_ID, "hacker"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("INVALID_AVATAR_FRAME"));
+
+            verify(userLevelMapper, never()).updateById(any(UserLevel.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserDecorations")
+    class GetUserDecorationsTests {
+
+        @Test
+        @DisplayName("aggregate level/frame/badge count and default missing user")
+        void getUserDecorations_success() {
+            long user2 = 2L;
+            UserLevel lvl1 = new UserLevel();
+            lvl1.setUserId(USER_ID);
+            lvl1.setLevel(2);
+            lvl1.setExp(50);
+            lvl1.setTotalExp(50L);
+            lvl1.setAvatarFrame("gold");
+
+            when(userLevelMapper.selectList(any())).thenReturn(List.of(lvl1));
+            when(userBadgeMapper.selectList(any())).thenReturn(List.of(
+                    buildBadge(1L, USER_ID, 11L),
+                    buildBadge(2L, USER_ID, 12L),
+                    buildBadge(3L, USER_ID, 13L)));
+            when(levelConfigMapper.selectOne(any())).thenReturn(buildLevelConfig(1, 0, "Novice"));
+
+            Map<Long, UserDecorationVO> result = growthService.getUserDecorations(List.of(USER_ID, user2));
+
+            assertThat(result).containsKeys(USER_ID, user2);
+            UserDecorationVO d1 = result.get(USER_ID);
+            assertThat(d1.level()).isEqualTo(2);
+            assertThat(d1.avatarFrame()).isEqualTo("gold");
+            assertThat(d1.badgeCount()).isEqualTo(3);
+            UserDecorationVO d2 = result.get(user2);
+            assertThat(d2.level()).isEqualTo(1);
+            assertThat(d2.avatarFrame()).isEqualTo("none");
+            assertThat(d2.badgeCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("empty id list returns empty map")
+        void getUserDecorations_empty() {
+            assertThat(growthService.getUserDecorations(List.of())).isEmpty();
         }
     }
 }

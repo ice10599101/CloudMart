@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { Empty, Input, Card, Tag, Avatar, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal, Select, Upload, InputNumber } from 'antd'
+import { Empty, Input, Card, Tag, Button, Carousel, Timeline, Progress, App, Popconfirm, DatePicker, Modal, Select, Upload, InputNumber } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   StarOutlined,
@@ -19,6 +19,7 @@ import {
 import { history, useParams, useSearchParams } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import DOMPurify from 'dompurify'
+import RichText from '@/components/RichText'
 import {
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
@@ -34,6 +35,7 @@ import CheckinCalendar from '@/components/CheckinCalendar'
 import WateringEffect from '@/components/WateringEffect'
 import styles from './WishDetail.module.css'
 import WishBGM from '@/components/WishBGM'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 const FRUIT_LABELS: Record<string, string> = {
   GLOW: '微光',
@@ -469,10 +471,11 @@ export default function WishDetail() {
                 style={{ cursor: 'pointer' }}
                 onClick={() => history.push(`/user/${wish.authorId}`)}
               >
-                <Avatar
+                <DecoratedAvatar
+                  userId={wish.authorId}
                   size={32}
                   src={wish.authorAvatar || undefined}
-                  icon={<StarOutlined />}
+                  fallback={<StarOutlined />}
                 />
                 <span className={styles.authorName}>{wish.authorNickname}</span>
               </div>
@@ -529,10 +532,11 @@ export default function WishDetail() {
                 style={{ cursor: 'pointer' }}
                 onClick={() => history.push(`/user/${fulfillment.authorId}`)}
               >
-                <Avatar
+                <DecoratedAvatar
+                  userId={fulfillment.authorId}
                   size={32}
                   src={fulfillment.authorAvatar || undefined}
-                  icon={<StarOutlined />}
+                  fallback={<StarOutlined />}
                 />
                 <span className={styles.authorName}>{fulfillment.authorNickname}</span>
               </div>
@@ -540,7 +544,7 @@ export default function WishDetail() {
                 还愿于 {new Date(fulfillment.createdAt).toLocaleString('zh-CN')}
               </span>
             </div>
-            <div className={styles.fulfillmentStory}>{fulfillment.story}</div>
+            <RichText content={fulfillment.story} className={styles.fulfillmentStory} variant="full" />
             {fulfillment.mediaUrls && fulfillment.mediaUrls.length > 0 && (
               <div className={styles.fulfillmentMedia}>
                 {fulfillment.mediaUrls.map((url) => (

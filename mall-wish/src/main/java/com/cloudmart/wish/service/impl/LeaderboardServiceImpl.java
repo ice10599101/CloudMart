@@ -250,10 +250,12 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                                           Map<Long, Wish> wishById, Map<Long, WishUserStat> statById,
                                           Map<Long, Double> scores, Map<Long, String[]> briefs) {
         Long userId;
+        Long wishId = null;
         Map<String, Object> extra = new HashMap<>();
         if (type.isWishBoard()) {
             Wish wish = wishById.get(memberId);
             userId = wish != null ? wish.getUserId() : null;
+            wishId = memberId;
             if (wish != null) {
                 extra.put("wishTitle", wish.getTitle());
                 extra.put("lightCount", wish.getLightCount());
@@ -272,7 +274,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         String[] brief = userId != null
                 ? briefs.getOrDefault(userId, new String[]{"心愿旅人", ""})
                 : new String[]{"心愿旅人", ""};
-        return new LeaderboardEntryVO(rank, userId, brief[0], brief[1],
+        return new LeaderboardEntryVO(rank, userId, wishId, brief[0], brief[1],
                 scores.getOrDefault(memberId, 0.0), extra, delta);
     }
 
