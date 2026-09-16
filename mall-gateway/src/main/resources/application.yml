@@ -171,6 +171,11 @@ spring:
                 - Path=/api/file/**
               filters:
                 - StripPrefix=2
+            - id: mall-file-static
+              uri: lb://mall-file
+              predicates:
+                - Path=/files/**
+                - Method=GET
             - id: mall-gen
               uri: lb://mall-gen
               predicates:

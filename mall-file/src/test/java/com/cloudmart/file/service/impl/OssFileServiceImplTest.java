@@ -1,49 +1,48 @@
 package com.cloudmart.file.service.impl;
 
 import com.cloudmart.common.exception.BusinessException;
-import org.dromara.x.file.storage.core.FileStorageService;
-import org.dromara.x.file.storage.core.FileInfo;
-import org.dromara.x.file.storage.core.upload.UploadPretreatment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("OssFileServiceImpl 单元测试")
+@DisplayName("OssFileServiceImpl（本地存储）单元测试")
 class OssFileServiceImplTest {
 
     private static final String ALLOWED_EXTENSIONS = "jpg,jpeg,png,gif,bmp,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp4,mp3";
     private static final long MAX_SIZE = 52428800L;
+    private static final Pattern URL_PATTERN = Pattern.compile("^/files/(pic|music|video|file)/\\d{8}/[0-9a-f]{32}\\.[a-z0-9]+$");
 
-    @Mock
-    private FileStorageService fileStorageService;
+    @TempDir
+    Path tempDir;
 
-    private OssFileServiceImpl ossFileService;
+    private OssFileServiceImpl fileService;
 
-    private MultipartFile buildMockFile(String filename, long size) {
+    private MultipartFile buildMockFile(String filename, long size, byte[] content) throws IOException {
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);
         when(file.getSize()).thenReturn(size);
         when(file.getOriginalFilename()).thenReturn(filename);
+        when(file.getInputStream()).thenReturn(new ByteArrayInputStream(content));
         return file;
     }
 
     @BeforeEach
     void setUp() {
-        ossFileService = new OssFileServiceImpl(fileStorageService, ALLOWED_EXTENSIONS, MAX_SIZE);
+        fileService = new OssFileServiceImpl(tempDir.toString(), ALLOWED_EXTENSIONS, MAX_SIZE);
     }
 
     @Nested
@@ -51,26 +50,54 @@ class OssFileServiceImplTest {
     class UploadTests {
 
         @Test
-        @DisplayName("上传文件 - 成功返回URL")
-        void shouldUploadFileSuccessfully() {
-            MultipartFile file = buildMockFile("test.jpg", 1024L);
-            UploadPretreatment pretreatment = mock(UploadPretreatment.class);
-            FileInfo fileInfo = mock(FileInfo.class);
+        @DisplayName("上传图片 - 保存到 pic 分类并返回相对 URL")
+        void shouldUploadImageToPicCategory() throws IOException {
+            MultipartFile file = buildMockFile("avatar.jpg", 3L, new byte[]{1, 2, 3});
 
-            when(fileStorageService.of(any(MultipartFile.class))).thenReturn(pretreatment);
-            when(pretreatment.setPath(anyString())).thenReturn(pretreatment);
-            when(pretreatment.upload()).thenReturn(fileInfo);
-            when(fileInfo.getUrl()).thenReturn("http://oss.example.com/20260531/test.jpg");
+            String url = fileService.upload(file);
 
-            String url = ossFileService.upload(file);
+            assertThat(url).matches(URL_PATTERN);
+            assertThat(url).startsWith("/files/pic/");
+            Path stored = tempDir.resolve(url.substring("/files/".length()));
+            assertThat(Files.exists(stored)).isTrue();
+            assertThat(Files.readAllBytes(stored)).containsExactly(1, 2, 3);
+        }
 
-            assertThat(url).isEqualTo("http://oss.example.com/20260531/test.jpg");
+        @Test
+        @DisplayName("上传 mp3 - 保存到 music 分类")
+        void shouldUploadMp3ToMusicCategory() throws IOException {
+            MultipartFile file = buildMockFile("song.mp3", 4L, new byte[]{9, 9});
+
+            String url = fileService.upload(file);
+
+            assertThat(url).startsWith("/files/music/");
+            assertThat(Files.exists(tempDir.resolve(url.substring("/files/".length())))).isTrue();
+        }
+
+        @Test
+        @DisplayName("上传 mp4 - 保存到 video 分类")
+        void shouldUploadMp4ToVideoCategory() throws IOException {
+            MultipartFile file = buildMockFile("clip.mp4", 4L, new byte[]{8, 8});
+
+            String url = fileService.upload(file);
+
+            assertThat(url).startsWith("/files/video/");
+        }
+
+        @Test
+        @DisplayName("上传 pdf - 保存到 file 分类")
+        void shouldUploadPdfToFileCategory() throws IOException {
+            MultipartFile file = buildMockFile("doc.pdf", 4L, new byte[]{7});
+
+            String url = fileService.upload(file);
+
+            assertThat(url).startsWith("/files/file/");
         }
 
         @Test
         @DisplayName("上传文件 - 文件为null时抛异常")
         void shouldThrowWhenFileIsNull() {
-            assertThatThrownBy(() -> ossFileService.upload(null))
+            assertThatThrownBy(() -> fileService.upload(null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_EMPTY");
         }
@@ -81,17 +108,17 @@ class OssFileServiceImplTest {
             MultipartFile file = mock(MultipartFile.class);
             when(file.isEmpty()).thenReturn(true);
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_EMPTY");
         }
 
         @Test
         @DisplayName("上传文件 - 文件大小超过限制时抛异常")
-        void shouldThrowWhenFileTooLarge() {
-            MultipartFile file = buildMockFile("large.jpg", 100_000_000L);
+        void shouldThrowWhenFileTooLarge() throws IOException {
+            MultipartFile file = buildMockFile("large.jpg", 100_000_000L, new byte[0]);
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_TOO_LARGE");
         }
@@ -104,7 +131,7 @@ class OssFileServiceImplTest {
             when(file.getSize()).thenReturn(1024L);
             when(file.getOriginalFilename()).thenReturn(null);
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_NAME_INVALID");
         }
@@ -117,59 +144,29 @@ class OssFileServiceImplTest {
             when(file.getSize()).thenReturn(1024L);
             when(file.getOriginalFilename()).thenReturn("   ");
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_NAME_INVALID");
         }
 
         @Test
         @DisplayName("上传文件 - 不支持的文件类型时抛异常")
-        void shouldThrowWhenFileTypeNotAllowed() {
-            MultipartFile file = buildMockFile("malware.exe", 1024L);
+        void shouldThrowWhenFileTypeNotAllowed() throws IOException {
+            MultipartFile file = buildMockFile("malware.exe", 1024L, new byte[0]);
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_TYPE_NOT_ALLOWED");
         }
 
         @Test
         @DisplayName("上传文件 - 无扩展名时抛异常")
-        void shouldThrowWhenNoExtension() {
-            MultipartFile file = buildMockFile("noextension", 1024L);
+        void shouldThrowWhenNoExtension() throws IOException {
+            MultipartFile file = buildMockFile("noextension", 1024L, new byte[0]);
 
-            assertThatThrownBy(() -> ossFileService.upload(file))
+            assertThatThrownBy(() -> fileService.upload(file))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_TYPE_NOT_ALLOWED");
-        }
-
-        @Test
-        @DisplayName("上传文件 - 上传返回null时抛异常")
-        void shouldThrowWhenUploadReturnsNull() {
-            MultipartFile file = buildMockFile("test.jpg", 1024L);
-            UploadPretreatment pretreatment = mock(UploadPretreatment.class);
-
-            when(fileStorageService.of(any(MultipartFile.class))).thenReturn(pretreatment);
-            when(pretreatment.setPath(anyString())).thenReturn(pretreatment);
-            when(pretreatment.upload()).thenReturn(null);
-
-            assertThatThrownBy(() -> ossFileService.upload(file))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("code").isEqualTo("FILE_UPLOAD_FAILED");
-        }
-
-        @Test
-        @DisplayName("上传文件 - 存储服务抛出运行时异常时包装为BusinessException")
-        void shouldWrapRuntimeExceptionAsBusinessException() {
-            MultipartFile file = buildMockFile("test.jpg", 1024L);
-            UploadPretreatment pretreatment = mock(UploadPretreatment.class);
-
-            when(fileStorageService.of(any(MultipartFile.class))).thenReturn(pretreatment);
-            when(pretreatment.setPath(anyString())).thenReturn(pretreatment);
-            when(pretreatment.upload()).thenThrow(new RuntimeException("OSS连接超时"));
-
-            assertThatThrownBy(() -> ossFileService.upload(file))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("code").isEqualTo("FILE_UPLOAD_FAILED");
         }
     }
 
@@ -178,17 +175,44 @@ class OssFileServiceImplTest {
     class DeleteTests {
 
         @Test
-        @DisplayName("删除文件 - 成功调用")
-        void shouldDeleteFile() {
-            ossFileService.delete("http://oss.example.com/20260531/test.jpg");
+        @DisplayName("删除本地文件 - 相对 URL 删除成功")
+        void shouldDeleteLocalFile() throws IOException {
+            Path file = tempDir.resolve("pic/20260917/test.jpg");
+            Files.createDirectories(file.getParent());
+            Files.write(file, new byte[]{1});
 
-            verify(fileStorageService).delete("http://oss.example.com/20260531/test.jpg");
+            fileService.delete("/files/pic/20260917/test.jpg");
+
+            assertThat(Files.exists(file)).isFalse();
+        }
+
+        @Test
+        @DisplayName("删除不存在文件 - 幂等成功不抛异常")
+        void shouldDeleteMissingFileIdempotently() {
+            fileService.delete("/files/pic/20260917/missing.jpg");
+        }
+
+        @Test
+        @DisplayName("删除存量 OSS 域名 URL - 跳过不抛异常")
+        void shouldSkipLegacyOssUrl() {
+            fileService.delete("https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/cloudmart/20260531/test.jpg");
+        }
+
+        @Test
+        @DisplayName("删除路径穿越 URL - 拒绝且不删除")
+        void shouldRejectPathTraversal() throws IOException {
+            Path outside = tempDir.resolveSibling("evil.txt");
+            Files.write(outside, new byte[]{1});
+
+            fileService.delete("/files/../evil.txt");
+
+            assertThat(Files.exists(outside)).isTrue();
         }
 
         @Test
         @DisplayName("删除文件 - URL为null时抛异常")
         void shouldThrowWhenUrlIsNull() {
-            assertThatThrownBy(() -> ossFileService.delete(null))
+            assertThatThrownBy(() -> fileService.delete(null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_URL_EMPTY");
         }
@@ -196,7 +220,7 @@ class OssFileServiceImplTest {
         @Test
         @DisplayName("删除文件 - URL为空白时抛异常")
         void shouldThrowWhenUrlIsBlank() {
-            assertThatThrownBy(() -> ossFileService.delete("  "))
+            assertThatThrownBy(() -> fileService.delete("  "))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("FILE_URL_EMPTY");
         }

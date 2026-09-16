@@ -48,6 +48,11 @@ export default {
             })
           },
         },
+        // 本地 files 静态文件（服务器本地存储）：经网关 /files/** 转发到 mall-file
+        '/files': {
+          target: GATEWAY_TARGET,
+          changeOrigin: true,
+        },
       },
     },
   },

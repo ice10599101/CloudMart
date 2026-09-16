@@ -128,7 +128,7 @@ export default function WishBgm() {
   const handleDelete = async (record: AdminBgmSongRecord) => {
     if (playingId === record.id) stopPreview()
     await deleteAdminWishBgmSong(record.id)
-    message.success('已删除（OSS 音频文件保留，误删可重新登记同 URL 恢复）')
+    message.success('已删除（本地音频文件保留，误删可重新登记同 URL 恢复）')
     actionRef.current?.reload()
   }
 
@@ -246,7 +246,7 @@ export default function WishBgm() {
         </Popconfirm>,
         <Popconfirm
           key="delete"
-          title="确认删除？OSS 音频文件将保留"
+          title="确认删除？本地音频文件将保留"
           onConfirm={() => handleDelete(record)}
         >
           <Button type="link" size="small" danger>

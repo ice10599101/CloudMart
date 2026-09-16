@@ -70,8 +70,9 @@ public class UserServiceImpl implements UserService {
         }
         UserVO vo = userConverter.toVO(user);
 
-        // 内部调用（viewerId 为 null）或本人查看自身：不做脱敏
-        if (viewerId == null || viewerId.equals(id)) {
+        // 本人查看自身：完整数据；他人/匿名查看：按可见性脱敏。
+        // 匿名时 viewerId 为 null，applyPrivacyMask 按陌生人档位处理（安全优先）。
+        if (viewerId != null && viewerId.equals(id)) {
             return vo;
         }
         return applyPrivacyMask(vo, viewerId);

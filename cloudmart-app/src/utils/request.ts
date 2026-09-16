@@ -33,6 +33,8 @@ if (Platform.OS !== 'web') {
   console.log('[request] API_BASE =', API_BASE)
 }
 
+export { API_BASE }
+
 const client = axios.create({
   baseURL: API_BASE,
   timeout: 15000,

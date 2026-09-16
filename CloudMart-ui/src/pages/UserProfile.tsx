@@ -29,8 +29,9 @@ import {
   blockUser,
   unblockUser,
   checkBlockStatus,
+  getUserPrivacyVisibility,
 } from '@/api/community'
-import type { Post, UserCommunityStats, MyComment, CollectionPostItem } from '@/api/community'
+import type { Post, UserCommunityStats, MyComment, CollectionPostItem, UserPrivacyVisibility } from '@/api/community'
 import { getUserPublicProfile } from '@/api/user'
 import type { UserProfile as UserProfileDetail } from '@/api/user'
 import { createConversation } from '@/api/chat'
@@ -173,9 +174,9 @@ function buildDetailFields(user: UserProfileDetail): Array<{ label: string; valu
   push('性别', genderRaw ? (genderMap[genderRaw.toUpperCase()] ?? genderRaw) : '')
   push('小答号', user.username)
   push('邮箱', user.email)
-  if ((user.birthday ?? '').trim()) {
-    push('生日', user.constellation?.trim() ? `${user.birthday}（${user.constellation}）` : user.birthday)
-  }
+  // 生日与星座为两个独立字段，星座不拼接在生日后面展示
+  push('生日', user.birthday)
+  push('星座', user.constellation)
   push('职业', user.occupation)
   push('学校', user.school)
   push('所在地区', user.location)
@@ -311,6 +312,7 @@ export default function UserProfile() {
   const [wishes, setWishes] = useState<WishListItem[] | null>(null)
   const [userComments, setUserComments] = useState<MyComment[] | null>(null)
   const [likedPosts, setLikedPosts] = useState<Post[] | null>(null)
+  const [privacy, setPrivacy] = useState<UserPrivacyVisibility | null>(null)
 
   const isOwnProfile = String(currentUser?.id ?? '') === (id ?? '')
 
@@ -442,13 +444,25 @@ export default function UserProfile() {
     }
   }, [id])
 
+  // 列表可见性（关注/粉丝/帖子/收藏）：他人主页用于区分「未公开」与「暂无内容」
+  const fetchPrivacy = useCallback(async () => {
+    if (!id || isOwnProfile) return
+    try {
+      const { data: res } = await getUserPrivacyVisibility(id)
+      setPrivacy(res.data ?? null)
+    } catch {
+      setPrivacy(null)
+    }
+  }, [id, isOwnProfile])
+
   useEffect(() => {
     fetchProfile()
     fetchPosts()
     fetchStats()
     fetchDetail()
+    fetchPrivacy()
     checkBlock()
-  }, [fetchProfile, fetchPosts, fetchStats, fetchDetail, checkBlock])
+  }, [fetchProfile, fetchPosts, fetchStats, fetchDetail, fetchPrivacy, checkBlock])
 
   useEffect(() => {
     if (activeTab === 'collections' && collectionCategory === 'posts' && collections.length === 0) {
@@ -479,9 +493,11 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (activeTab === 'comments' && userComments === null) {
+      // 他人主页回复列表不可见时不再请求（后端同样会拒绝并返回空）
+      if (!isOwnProfile && privacy && !privacy.postsVisible) return
       fetchUserComments()
     }
-  }, [activeTab, userComments, fetchUserComments])
+  }, [activeTab, userComments, fetchUserComments, isOwnProfile, privacy])
 
   useEffect(() => {
     if (activeTab === 'liked' && likedPosts === null) {
@@ -617,10 +633,16 @@ export default function UserProfile() {
   const detailFields = detail ? buildDetailFields(detail) : []
   const joinedDays = detail ? formatJoinedDays(detail.createdAt) : null
 
-  // 面板可点击：TA的评论/TA赞过 跳转到对应列表（获赞总数已上移到顶部统计行，此处不再重复）
+  // 他人主页：帖子/回复不可见时显示「未公开」而非空态
+  const postsHiddenForViewer = !isOwnProfile && !!privacy && !privacy.postsVisible
+
+  // 面板可点击：TA的评论跳转到评论列表（获赞总数已上移到顶部统计行，此处不再重复）；
+  // 点赞列表默认仅本人可见，他人主页不展示「TA赞过」入口
   const metricPanels: Array<{ label: string; value: number | null; icon: React.ReactNode; action?: () => void }> = [
     { label: isOwnProfile ? '我的评论' : 'TA的评论', value: communityStats ? communityStats.commentsMade : null, icon: <CommentOutlined />, action: () => setActiveTab('comments') },
-    { label: isOwnProfile ? '我赞过的' : 'TA赞过', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined />, action: () => setActiveTab('liked') },
+    ...(isOwnProfile
+      ? [{ label: '我赞过的', value: communityStats ? communityStats.likesGiven : null, icon: <StarOutlined />, action: () => setActiveTab('liked') }]
+      : []),
     { label: '加入天数', value: joinedDays, icon: <CalendarOutlined /> },
   ]
 
@@ -892,9 +914,9 @@ export default function UserProfile() {
       </div>
 
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 24px 0' }}>
-        {/* 数据面板：TA的评论 / TA赞过 / 加入天数（获赞总数在顶部统计行） */}
+        {/* 数据面板：TA的评论 / 我赞过的（仅本人） / 加入天数 */}
         <div style={cardSectionStyle}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${metricPanels.length}, 1fr)`, gap: 12 }}>
             {metricPanels.map((panel) => (
               <div
                 key={panel.label}
@@ -1004,8 +1026,10 @@ export default function UserProfile() {
             { key: 'collections' as const, label: '收藏', icon: <StarOutlined /> },
             { key: 'wishes' as const, label: isOwnProfile ? '我的心愿' : 'TA的心愿', icon: <span style={{ fontSize: 13 }}>🌟</span> },
             { key: 'comments' as const, label: isOwnProfile ? '我的评论' : 'TA的评论', icon: <CommentOutlined /> },
-            { key: 'liked' as const, label: isOwnProfile ? '我赞过的' : 'TA赞过', icon: <HeartOutlined /> },
-          ].map((tab) => (
+            { key: 'liked' as const, label: '我赞过的', icon: <HeartOutlined /> },
+          ]
+            .filter((tab) => isOwnProfile || tab.key !== 'liked')
+            .map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -1040,7 +1064,7 @@ export default function UserProfile() {
                 color: 'var(--color-text-tertiary)',
                 fontSize: 14,
               }}>
-                暂无帖子
+                {postsHiddenForViewer ? 'TA 的帖子未公开' : '暂无帖子'}
               </div>
             ) : (
               <div style={{
@@ -1244,7 +1268,16 @@ export default function UserProfile() {
           </>
         )}
 
-        {activeTab === 'comments' && (
+        {activeTab === 'comments' && (postsHiddenForViewer ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 0',
+              color: 'var(--color-text-tertiary)',
+              fontSize: 14,
+            }}>
+              TA 的回复未公开
+            </div>
+          ) : (
           <>
             {userComments === null ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}><Skeleton variant="list" count={3} /></div>
@@ -1296,7 +1329,7 @@ export default function UserProfile() {
               </div>
             )}
           </>
-        )}
+          ))}
 
         {activeTab === 'liked' && (
           <>

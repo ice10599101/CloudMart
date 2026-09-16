@@ -8,7 +8,7 @@ import {
   UserAddOutlined,
   SwapOutlined,
 } from '@ant-design/icons'
-import { getFollowers, getFollowingList, followUser, unfollowUser, type FollowUserRawItem } from '@/api/community'
+import { getFollowers, getFollowingList, followUser, unfollowUser, getUserPrivacyVisibility, type FollowUserRawItem, type UserPrivacyVisibility } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 
@@ -36,6 +36,18 @@ export default function Following() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [privacy, setPrivacy] = useState<UserPrivacyVisibility | null>(null)
+
+  // 他人主页：关注/粉丝列表不可见时显示「未公开」
+  const listHiddenForViewer = !isOwnProfile && !!privacy
+    && (activeTab === 'followers' ? !privacy.followersVisible : !privacy.followingVisible)
+
+  useEffect(() => {
+    if (isOwnProfile) return
+    getUserPrivacyVisibility(userId)
+      .then(({ data: res }) => setPrivacy(res.data ?? null))
+      .catch(() => setPrivacy(null))
+  }, [userId, isOwnProfile])
 
   const fetchUsers = useCallback(async (tab: 'following' | 'followers', pageNum: number, append = false) => {
     if (!userId) return
@@ -74,8 +86,14 @@ export default function Following() {
   useEffect(() => {
     setPage(1)
     setHasMore(true)
+    if (listHiddenForViewer) {
+      setUsers([])
+      setLoading(false)
+      setLoadingMore(false)
+      return
+    }
     fetchUsers(activeTab, 1)
-  }, [activeTab, fetchUsers])
+  }, [activeTab, fetchUsers, listHiddenForViewer])
 
   const handleLoadMore = useCallback(() => {
     const nextPage = page + 1
@@ -214,7 +232,9 @@ export default function Following() {
           }}>
             <Empty description={
               <span style={{ color: '#5A6F88' }}>
-                {activeTab === 'following' ? '还没有关注任何人' : '还没有粉丝'}
+                {listHiddenForViewer
+                  ? (activeTab === 'following' ? 'TA 的关注未公开' : 'TA 的粉丝未公开')
+                  : (activeTab === 'following' ? '还没有关注任何人' : '还没有粉丝')}
               </span>
             } />
           </div>

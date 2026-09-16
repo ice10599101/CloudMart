@@ -162,6 +162,10 @@ export default defineConfig({
         proxyReq.removeHeader('referer')
       },
     },
+    '/files': {
+      target: 'http://129.204.152.168:8090',
+      changeOrigin: true,
+    },
     '/ws': {
       target: 'ws://129.204.152.168:8090',
       ws: true,

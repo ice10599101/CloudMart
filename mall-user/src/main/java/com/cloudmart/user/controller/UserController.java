@@ -143,22 +143,20 @@ public class UserController {
     /**
      * 解析查看者 ID，用于他人资料敏感字段脱敏。
      *
-     * <p>内部调用（携带 ROLE_INTERNAL）或无法确定登录用户身份时返回 null，
-     * 表示无需脱敏（内部服务需要完整数据）。</p>
+     * <p>网关对所有通过它转发的用户请求统一注入 {@code X-Internal-Call}，使服务端
+     * 认证主体附带 ROLE_INTERNAL，因此不能以 ROLE_INTERNAL 判断「内部服务调用」。
+     * 仅当主体为可解析为数字的用户 ID 字符串时视为已登录查看者；
+     * 匿名/内部服务/无法识别时返回 null，由服务层按陌生人档位脱敏（安全优先）。</p>
      */
     private Long resolveViewerIdOrNull() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;
         }
-        boolean internal = authentication.getAuthorities() != null
-                && authentication.getAuthorities().stream()
-                        .anyMatch(a -> "ROLE_INTERNAL".equals(a.getAuthority()));
-        if (internal) {
-            return null;
-        }
         Object principal = authentication.getPrincipal();
-        if (principal instanceof String principalStr) {
+        if (principal instanceof String principalStr
+                && !"INTERNAL_SERVICE".equals(principalStr)
+                && !"anonymousUser".equals(principalStr)) {
             try {
                 return Long.parseLong(principalStr);
             } catch (NumberFormatException e) {

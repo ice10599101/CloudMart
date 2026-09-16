@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/recommend").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/*/profile").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/*/posts").permitAll()
+                .requestMatchers(HttpMethod.GET, "/users/*/privacy").permitAll()
                 .requestMatchers(HttpMethod.GET, "/growth/level-configs").permitAll()
                 .requestMatchers(HttpMethod.GET, "/growth/decorations").permitAll()
                 .requestMatchers("/error", "/actuator/**").permitAll()

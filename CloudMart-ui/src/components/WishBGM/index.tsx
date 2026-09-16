@@ -4,11 +4,11 @@ import { getBgmPlaylist } from '@/api/wish'
 import type { BgmSong } from '@/api/wish'
 
 const BGM_STORAGE_KEY = 'wish-bgm-enabled'
-/** 播放列表为空/接口失败时的回退默认曲（与 mall-file OSS 配置对齐） */
+/** 播放列表为空/接口失败时的回退默认曲（本地 files/music，经网关 /files 静态路由） */
 const DEFAULT_BGM: BgmSong = {
   id: 0,
   title: '心愿宇宙',
-  url: 'https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3',
+  url: '/files/music/wish-universe-ambient.mp3',
   sort: 0,
 }
 

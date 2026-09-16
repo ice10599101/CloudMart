@@ -102,6 +102,20 @@ export interface UserSettings {
   [key: string]: string
 }
 
+/** 他人资料字段/列表对当前查看者的可见性（/users/{userId}/privacy） */
+export interface UserPrivacyVisibility {
+  birthdayVisible: boolean
+  emailVisible: boolean
+  followersVisible: boolean
+  followingVisible: boolean
+  collectionsVisible: boolean
+  postsVisible: boolean
+}
+
+export function getUserPrivacyVisibility(userId: number | string) {
+  return request.get<ApiResponse<UserPrivacyVisibility>>(`/community/users/${userId}/privacy`)
+}
+
 export function searchUsers(keyword: string) {
   return request.get<ApiResponse<SearchUserResult[]>>('/community/users/search', { params: { keyword } })
 }

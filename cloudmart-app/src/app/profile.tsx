@@ -8,6 +8,7 @@ import { userApi } from '@/api/user'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import axios from 'axios'
 import { storage } from '@/utils/storage'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const GENDER_OPTIONS = ['未设置', '男', '女']
 const GENDER_VALUES = ['UNKNOWN', 'MALE', 'FEMALE']
@@ -130,7 +131,7 @@ export default function ProfilePage() {
       const uploadRes = await axios.post(`${window.location.protocol}//${window.location.hostname}:8090/api/file/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: token ? `Bearer ${token}` : '' },
       })
-      const avatarUrl = uploadRes.data?.data?.url
+      const avatarUrl = resolveMediaUrl(uploadRes.data?.data?.url)
       if (avatarUrl) {
         await userApi.updateProfile({ avatar: avatarUrl })
         await fetchUser()

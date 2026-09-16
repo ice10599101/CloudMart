@@ -24,8 +24,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -207,16 +210,57 @@ class UserCommunityControllerTest {
     }
 
     @Test
-    @DisplayName("GET /users/{userId}/liked - TA 赞过的帖子返回信封与分页 meta")
-    void getUserLikedPosts_ShouldReturnSuccessEnvelope() throws Exception {
+    @DisplayName("GET /users/{userId}/privacy - 返回当前查看者可见性")
+    void getPrivacyStatus_ShouldReturnVisibility() throws Exception {
+        given(privacyService.checkVisibility(1L, 2L))
+                .willReturn(new PrivacyVisibility(false, false, true, true, true, false));
+
+        mockMvc.perform(get("/users/2/privacy")
+                        .header(USER_ID_HEADER, 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.birthdayVisible").value(false))
+                .andExpect(jsonPath("$.data.followersVisible").value(true))
+                .andExpect(jsonPath("$.data.postsVisible").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /users/{userId}/privacy - 匿名查看返回陌生人档位可见性")
+    void getPrivacyStatus_WithoutUserId_ShouldReturnVisibility() throws Exception {
+        given(privacyService.checkVisibility(null, 2L))
+                .willReturn(new PrivacyVisibility(false, false, false, false, false, false));
+
+        mockMvc.perform(get("/users/2/privacy"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.followersVisible").value(false));
+    }
+
+    @Test
+    @DisplayName("GET /users/{userId}/liked - 本人查看返回点赞列表")
+    void getUserLikedPosts_SelfView_ShouldReturnSuccessEnvelope() throws Exception {
         PostVO post = Mockito.mock(PostVO.class);
         Page<PostVO> page = new Page<>(1, 20, 1);
         page.setRecords(List.of(post));
         given(postService.getLikedPosts(2L, 1, 20)).willReturn(page);
 
-        mockMvc.perform(get("/users/2/liked"))
+        mockMvc.perform(get("/users/2/liked")
+                        .header(USER_ID_HEADER, 2))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.meta.total").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /users/{userId}/liked - 他人查看返回空列表（点赞默认仅自己可见）")
+    void getUserLikedPosts_OtherView_ShouldReturnEmpty() throws Exception {
+        mockMvc.perform(get("/users/2/liked")
+                        .header(USER_ID_HEADER, 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.meta.total").value(0));
+        verify(postService, never()).getLikedPosts(anyLong(), anyInt(), anyInt());
     }
 }

@@ -5,15 +5,16 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import { wishApi } from '@/api/wish'
 import type { BgmSong } from '@/api/wish'
 import { storage } from '@/utils/storage'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 import { Spacing, FontSize } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 
 const BGM_STORAGE_KEY = 'wish_bgm_enabled'
-/** 播放列表为空/接口失败时的回退默认曲（与 mall-file OSS 配置对齐） */
+/** 播放列表为空/接口失败时的回退默认曲（本地 files/music，经网关 /files 静态路由） */
 const DEFAULT_BGM: BgmSong = {
     id: 0,
     title: '心愿宇宙',
-    url: 'https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3',
+    url: '/files/music/wish-universe-ambient.mp3',
     sort: 0,
 }
 
@@ -31,8 +32,8 @@ export default function WishBGM() {
     const [currentIndex, setCurrentIndex] = useState(0)
     const currentSong = playlist[Math.min(currentIndex, playlist.length - 1)]
 
-    // useAudioPlayer 在 source 变化时内部自动 replace 音源
-    const player = useAudioPlayer(currentSong?.url ?? null)
+    // useAudioPlayer 在 source 变化时内部自动 replace 音源（相对 URL 需解析为完整地址）
+    const player = useAudioPlayer(currentSong?.url ? resolveMediaUrl(currentSong.url) : null)
     const status = useAudioPlayerStatus(player)
 
     // 初始化：读取偏好 + iOS 静音模式可播 + 拉取播放列表（失败回退默认曲）

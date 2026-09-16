@@ -3,14 +3,15 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import type { BgmSong } from '@/api/wish'
+import { resolveFileUrl } from '@/api/file'
 import styles from './index.module.scss'
 
 const BGM_STORAGE_KEY = 'wish_bgm_enabled'
-/** 播放列表为空/接口失败时的回退默认曲（与 mall-file OSS 配置对齐） */
+/** 播放列表为空/接口失败时的回退默认曲（本地 files/music，经网关 /files 静态路由） */
 const DEFAULT_BGM: BgmSong = {
     id: 0,
     title: '心愿宇宙',
-    url: 'https://oss-ysf.oss-cn-guangzhou.aliyuncs.com/bgm/wish-universe-ambient.mp3',
+    url: '/files/music/wish-universe-ambient.mp3',
     sort: 0,
 }
 
@@ -68,7 +69,7 @@ export default function WishBGM() {
         }
         if (IS_WEAPP) {
             const ctx = Taro.createInnerAudioContext()
-            ctx.src = currentSong.url
+            ctx.src = resolveFileUrl(currentSong.url)
             ctx.volume = 0.3
             // 顺序循环：播完自动下一首（单曲列表即循环该曲）
             ctx.onEnded(() => {

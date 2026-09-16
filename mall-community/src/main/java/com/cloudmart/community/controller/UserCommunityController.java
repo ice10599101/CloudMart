@@ -79,12 +79,24 @@ public class UserCommunityController {
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
 
+    @GetMapping("/{userId}/privacy")
+    @Operation(summary = "资料列表可见性", description = "返回目标用户的关注/粉丝/帖子/收藏等列表对当前查看者（X-User-Id，可空）的可见性，用于前端区分「未公开」与「暂无内容」")
+    public ApiResponse<PrivacyVisibility> getPrivacyStatus(
+            @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId,
+            @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        return ApiResponse.ok(privacyService.checkVisibility(currentUserId, userId));
+    }
+
     @GetMapping("/{userId}/liked")
-    @Operation(summary = "TA 赞过的帖子", description = "获取指定用户点赞过的帖子列表")
+    @Operation(summary = "TA 赞过的帖子", description = "点赞列表默认仅本人可见；他人查看返回空列表")
     public ApiResponse<List<PostVO>> getUserLikedPosts(
             @Parameter(description = "目标用户ID", required = true) @PathVariable Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long currentUserId) {
+        if (currentUserId == null || !currentUserId.equals(userId)) {
+            return ApiResponse.ok(List.of(), new Meta(page, size, 0L));
+        }
         Page<PostVO> result = postService.getLikedPosts(userId, page, size);
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }

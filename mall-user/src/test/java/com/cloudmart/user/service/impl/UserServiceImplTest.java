@@ -207,6 +207,23 @@ class UserServiceImplTest {
             assertThat(result.birthday()).isNull();
             assertThat(result.constellation()).isNull();
         }
+
+        @Test
+        @DisplayName("匿名查看他人 -> 按陌生人档位脱敏（viewerId 为 null）")
+        void anonymousView_MasksSensitiveFields() {
+            User user = buildActiveUser();
+            when(userMapper.selectById(1L)).thenReturn(user);
+            when(userConverter.toVO(user)).thenReturn(fullVo());
+            when(communityFeignClient.getPrivacyVisibility(1L))
+                    .thenReturn(ApiResponse.ok(Map.of("birthdayVisible", false, "emailVisible", false)));
+
+            UserVO result = userService.getUserProfile(1L, null);
+
+            assertThat(result.email()).isNull();
+            assertThat(result.birthday()).isNull();
+            assertThat(result.constellation()).isNull();
+            assertThat(result.nickname()).isEqualTo("Tester");
+        }
     }
 
     @Nested
