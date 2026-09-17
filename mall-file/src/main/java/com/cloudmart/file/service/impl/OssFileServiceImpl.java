@@ -34,6 +34,8 @@ public class OssFileServiceImpl implements FileService {
     private final Path storageRoot;
     private final Set<String> allowedExtensions;
     private final long maxSize;
+    /** 对外访问基址（file.public-base-url）；非空时上传返回绝对 URL，空时返回相对 /files/** */
+    private final String publicBaseUrl;
 
     /** 扩展名 → files 子目录分类（与根目录 files 下子文件夹名一一对应） */
     private static final Map<String, String> EXTENSION_CATEGORY = Map.ofEntries(
@@ -53,10 +55,12 @@ public class OssFileServiceImpl implements FileService {
     public OssFileServiceImpl(
             @Value("${file.storage-path:../files}") String storagePath,
             @Value("${file.allowed-extensions:jpg,jpeg,png,gif,bmp,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp4,mp3}") String allowedExtensions,
-            @Value("${file.max-size:52428800}") long maxSize) {
+            @Value("${file.max-size:52428800}") long maxSize,
+            @Value("${file.public-base-url:}") String publicBaseUrl) {
         this.storageRoot = Paths.get(storagePath).toAbsolutePath().normalize();
         this.allowedExtensions = Set.of(allowedExtensions.split(","));
         this.maxSize = maxSize;
+        this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl.replaceAll("/+$", "");
     }
 
     @Override
@@ -106,7 +110,9 @@ public class OssFileServiceImpl implements FileService {
             log.error("本地文件保存失败: {}", e.getMessage(), e);
             throw new BusinessException("FILE_UPLOAD_FAILED", "文件上传失败: " + e.getMessage());
         }
-        String url = URL_PREFIX + "/" + category + "/" + datePath + "/" + storedName;
+        String relativeUrl = URL_PREFIX + "/" + category + "/" + datePath + "/" + storedName;
+        // 配置了对外基址时返回绝对 URL（任何机器/端可直接访问服务器），否则返回相对 URL（由网关/前端代理转发）
+        String url = publicBaseUrl.isBlank() ? relativeUrl : publicBaseUrl + relativeUrl;
         log.info("本地文件已保存: {} ({} bytes)", target, file.getSize());
         return url;
     }

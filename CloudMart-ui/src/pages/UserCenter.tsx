@@ -1,5 +1,5 @@
 import RichText from '@/components/RichText'
-import { stripHtml, timeAgo } from '@/utils/format'
+import { stripHtml, formatDateTime } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
@@ -995,7 +995,7 @@ function BrowseHistoryTab() {
                       {meta.label}
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0, width: 64, textAlign: 'right' }}>
-                      {timeAgo(item.viewedAt) || '刚刚'}
+                      {formatDateTime(item.viewedAt)}
                     </span>
                   </div>
                 </div>

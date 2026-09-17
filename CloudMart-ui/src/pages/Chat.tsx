@@ -18,7 +18,7 @@ import {
 import { searchUsers, type SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { timeAgo, parseServerTime } from '@/utils/format'
+import { formatDateTime, parseServerTime } from '@/utils/format'
 import styles from './Chat.module.css'
 
 function formatMessageTime(dateStr: string): string {
@@ -501,7 +501,7 @@ export default function Chat() {
                     <div className={styles.conversationTop}>
                       <span className={styles.conversationNickname}>{conv.otherUserNickname}</span>
                       <span className={styles.conversationTime}>
-                        {timeAgo(conv.lastMessageTime)}
+                        {formatDateTime(conv.lastMessageTime)}
                       </span>
                     </div>
                     <div className={styles.conversationBottom}>

@@ -42,7 +42,7 @@ class OssFileServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        fileService = new OssFileServiceImpl(tempDir.toString(), ALLOWED_EXTENSIONS, MAX_SIZE);
+        fileService = new OssFileServiceImpl(tempDir.toString(), ALLOWED_EXTENSIONS, MAX_SIZE, "");
     }
 
     @Nested
@@ -61,6 +61,19 @@ class OssFileServiceImplTest {
             Path stored = tempDir.resolve(url.substring("/files/".length()));
             assertThat(Files.exists(stored)).isTrue();
             assertThat(Files.readAllBytes(stored)).containsExactly(1, 2, 3);
+        }
+
+        @Test
+        @DisplayName("配置 public-base-url 时返回绝对 URL（去除末尾斜杠）")
+        void shouldReturnAbsoluteUrlWhenPublicBaseUrlConfigured() throws IOException {
+            OssFileServiceImpl absoluteService = new OssFileServiceImpl(
+                    tempDir.toString(), ALLOWED_EXTENSIONS, MAX_SIZE, "http://129.204.152.168:8090/");
+
+            String url = absoluteService.upload(buildMockFile("avatar.jpg", 3L, new byte[]{1, 2, 3}));
+
+            assertThat(url).startsWith("http://129.204.152.168:8090/files/pic/");
+            assertThat(url).endsWith(".jpg");
+            assertThat(url).doesNotContain("//files");
         }
 
         @Test

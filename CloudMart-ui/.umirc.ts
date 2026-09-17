@@ -1,5 +1,11 @@
 import { defineConfig } from 'umi';
 
+// 网关基址（协议+主机+端口）：优先读环境变量 GATEWAY_ORIGIN，默认指向远程服务器 Gateway。
+// 微服务/Docker 全部部署在远程服务器时，本机 dev 前端也必须把请求转发到该服务器，
+// 否则上传/接口会落到本机。修改服务器地址只需改 .env 里的 GATEWAY_ORIGIN。
+const GATEWAY_ORIGIN = process.env.GATEWAY_ORIGIN || 'http://129.204.152.168:8090'
+const GATEWAY_WS_ORIGIN = GATEWAY_ORIGIN.replace(/^http/, 'ws')
+
 export default defineConfig({
   title: '宝贝小答',
   metas: [
@@ -154,7 +160,7 @@ export default defineConfig({
   ],
   proxy: {
     '/api': {
-      target: 'http://129.204.152.168:8090',
+      target: GATEWAY_ORIGIN,
       changeOrigin: true,
       onProxyReq: (proxyReq) => {
         // 移除 Origin/Referer 头，避免 Gateway CORS 校验拦截非 localhost 来源的请求
@@ -163,11 +169,11 @@ export default defineConfig({
       },
     },
     '/files': {
-      target: 'http://129.204.152.168:8090',
+      target: GATEWAY_ORIGIN,
       changeOrigin: true,
     },
     '/ws': {
-      target: 'ws://129.204.152.168:8090',
+      target: GATEWAY_WS_ORIGIN,
       ws: true,
       changeOrigin: true,
     },
