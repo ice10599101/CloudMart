@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons'
 import { getUserCollections, type CollectionPostItem } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
-import { formatCount, timeAgo } from '@/utils/format'
+import { formatCount, formatDateTime } from '@/utils/format'
 
 interface CollectionPost extends CollectionPostItem {
   collectedAt: string
@@ -104,7 +104,7 @@ function CollectionCard({ post }: { post: CollectionPost }) {
           </div>
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 11 }}>
             <StarOutlined style={{ color: '#FFD700' }} />
-            {post.collectedAt ? timeAgo(post.collectedAt) : ''}
+            {post.collectedAt ? formatDateTime(post.collectedAt) : ''}
           </span>
         </div>
       </div>

@@ -93,6 +93,19 @@ class AdminBgmServiceImplTest {
         }
 
         @Test
+        @DisplayName("相对文件地址允许：兼容 mall-file 返回的 /files/**")
+        void createSong_relativeFilesUrlAccepted() {
+            adminBgmService.createSong(AdminBgmSongRequest.builder()
+                    .title("本地文件")
+                    .url("/files/music/20260918/demo.mp3")
+                    .build(), ADMIN_ID);
+
+            ArgumentCaptor<WishBgmSong> captor = ArgumentCaptor.forClass(WishBgmSong.class);
+            verify(bgmSongMapper).insert(captor.capture());
+            assertThat(captor.getValue().getUrl()).isEqualTo("/files/music/20260918/demo.mp3");
+        }
+
+        @Test
         @DisplayName("空 url 拒绝：缺 url 同报 BGM_SONG_URL_INVALID")
         void createSong_blankUrlRejected() {
             assertThatThrownBy(() -> adminBgmService.createSong(AdminBgmSongRequest.builder()

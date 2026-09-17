@@ -50,6 +50,15 @@ export function parseServerTime(input: string | number | null | undefined): numb
   return Number.isFinite(t) ? t : null
 }
 
+export function formatDateTime(
+  input: string | number | null | undefined,
+  locale = 'zh-CN',
+): string {
+  const ts = parseServerTime(input)
+  if (ts === null) return ''
+  return new Date(ts).toLocaleString(locale, { hour12: false })
+}
+
 export function timeAgo(dateStr: string | number | null | undefined): string {
   const ts = parseServerTime(dateStr)
   // 无法解析时不显示误导性的"XX年前"，直接隐藏时间

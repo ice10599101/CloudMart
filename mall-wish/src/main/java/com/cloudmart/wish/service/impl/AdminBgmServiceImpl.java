@@ -20,7 +20,8 @@ import java.util.List;
  * 管理端背景音乐曲库服务实现（Sprint 2.3：上传歌曲 + 勾选播放列表）。
  *
  * <p>上传链路：管理后台先调 mall-file POST /file/upload（白名单含 mp3）
- * 拿到 OSS URL，再调本服务登记元数据——mall-file 不感知曲库业务。
+ * 拿到文件 URL（兼容历史 OSS 直链与当前 /files/** 本地文件相对地址），
+ * 再调本服务登记元数据——mall-file 不感知曲库业务。
  * 删除为物理删除（音频元数据非核心业务数据；OSS 文件保留，误删可重新
  * 登记同 URL 恢复）。</p>
  */
@@ -45,9 +46,9 @@ public class AdminBgmServiceImpl implements AdminBgmService {
     @Transactional
     public BgmSongVO createSong(AdminBgmSongRequest request, Long adminUserId) {
         String url = request.url() == null ? "" : request.url().trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        if (!isSupportedAudioUrl(url)) {
             throw new BusinessException(WishErrorCodes.BGM_SONG_URL_INVALID,
-                    "音频地址须为 http(s) 直链: " + url);
+                    "音频地址须为 http(s) 直链或 /files/** 本地文件地址: " + url);
         }
 
         WishBgmSong song = new WishBgmSong();
@@ -103,6 +104,17 @@ public class AdminBgmServiceImpl implements AdminBgmService {
                     "BGM 歌曲不存在: " + songId);
         }
         return song;
+    }
+
+    /**
+     * 兼容两类音频地址：
+     * 1. 历史 OSS / CDN 完整直链
+     * 2. 当前 mall-file 返回的 /files/** 服务器本地文件访问路径
+     */
+    private boolean isSupportedAudioUrl(String url) {
+        return url.startsWith("http://")
+                || url.startsWith("https://")
+                || url.startsWith("/files/");
     }
 
     private static BgmSongVO toAdminVO(WishBgmSong song) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatCount, timeAgo, stripHtml } from '@/utils/format'
+import { formatCount, formatDateTime, timeAgo, stripHtml } from '@/utils/format'
 
 describe('stripHtml', () => {
   it('returns empty string for null/undefined/empty input', () => {
@@ -73,5 +73,15 @@ describe('timeAgo', () => {
   it('returns "x天前" for days ago', () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
     expect(timeAgo(twoDaysAgo)).toBe('2天前')
+  })
+})
+
+describe('formatDateTime', () => {
+  it('returns empty string for invalid input', () => {
+    expect(formatDateTime('')).toBe('')
+  })
+
+  it('formats server local datetime string as concrete time', () => {
+    expect(formatDateTime('2026-09-18T08:30:45')).toBe('2026/9/18 08:30:45')
   })
 })

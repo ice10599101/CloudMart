@@ -9,11 +9,11 @@ import lombok.Builder;
 /**
  * 管理端 BGM 歌曲登记/编辑请求（Sprint 2.3 BGM 曲库）。
  *
- * <p>登记与编辑共用：url 仅登记时消费（编辑不可改——文件已上传 OSS，
+ * <p>登记与编辑共用：url 仅登记时消费（编辑不可改——文件已上传文件服务，
  * 换歌走重新上传+登记）；title/sort 均可改。</p>
  *
  * @param title    歌曲标题（必填，1-128 字）
- * @param url      音频地址（登记必填，编辑忽略；须为 http(s) 直链）
+ * @param url      音频地址（登记必填，编辑忽略；支持 http(s) 直链或 /files/**）
  * @param fileSize 文件大小字节（登记可选，展示用）
  * @param sort     播放顺序（0-9999，默认 0；升序播放）
  */

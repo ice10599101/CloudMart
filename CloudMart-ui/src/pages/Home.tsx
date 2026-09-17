@@ -31,6 +31,7 @@ import { getFeedPosts, getFollowingFeed, likePost, unlikePost, collectPost, unco
 import { searchProducts } from '@/api/product'
 import { useAuthStore } from '@/stores/auth'
 import type { Post, HotTopic, RecommendUser, ProductSearchItem } from '@/types'
+import { formatDateTime } from '@/utils/format'
 import styles from './Home.module.css'
 import ShareModal from '@/components/ShareModal'
 import RichText from '@/components/RichText'
@@ -49,17 +50,6 @@ function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   return String(n)
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-  return `${Math.floor(days / 30)}月前`
 }
 
 function PostCard({
@@ -163,7 +153,7 @@ function PostCard({
                 }} title="Lv4 权益：您的帖子在推荐流中获得加权">⚡优先推荐</span>
             )}
           </div>
-          <div className={styles.postTime}>{timeAgo(post.createdAt)}</div>
+          <div className={styles.postTime}>{formatDateTime(post.createdAt)}</div>
         </div>
         <div className={styles.postHeaderRight}>
           {hotRank !== undefined && hotRank <= 3 && (

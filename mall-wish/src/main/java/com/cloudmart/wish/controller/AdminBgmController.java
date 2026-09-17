@@ -25,7 +25,8 @@ import java.util.Map;
  * {@code X-User-Id} 头透传（AdminFeignInterceptor）。</p>
  *
  * <p>上传链路：前端先调 mall-file POST /file/upload 传 mp3（白名单已含，
- * 上限 50MB）拿到 URL，再调本接口登记；本模块不感知文件上传细节。</p>
+ * 上限 50MB）拿到 URL，再调本接口登记；URL 兼容历史 http(s) 直链与当前
+ * /files/** 本地文件访问路径。本模块不感知文件上传细节。</p>
  */
 @RestController
 @RequestMapping("/admin/bgm")
@@ -45,7 +46,7 @@ public class AdminBgmController {
 
     @PostMapping
     @Operation(summary = "登记歌曲", description = "mall-file 上传 mp3 完成后调用；"
-            + "url 须为 http(s) 直链。默认未加入播放列表（需再调启停勾选）")
+            + "url 支持历史 http(s) 直链与当前 /files/** 本地文件地址。默认未加入播放列表（需再调启停勾选）")
     public ApiResponse<BgmSongVO> createSong(
             @Valid @RequestBody AdminBgmSongRequest request,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
