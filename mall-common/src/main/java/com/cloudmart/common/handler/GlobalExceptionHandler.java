@@ -168,6 +168,9 @@ public class GlobalExceptionHandler {
                  "AI_SERVICE_UNAVAILABLE", "REVIEW_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
+            // 否则会被 default 分支误映射成 400，掩盖真实的服务端异常
+            case "INTERNAL_ERROR" -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.BAD_REQUEST;
         };
     }

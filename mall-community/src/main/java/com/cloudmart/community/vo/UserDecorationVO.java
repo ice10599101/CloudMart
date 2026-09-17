@@ -13,5 +13,7 @@ public record UserDecorationVO(
     String levelTitle,
     String levelIcon,
     String avatarFrame,
-    Long badgeCount
+    Long badgeCount,
+    /** 用户头像 URL（供无 src 的头像展示场景直接使用，如消息通知列表） */
+    String avatar
 ) {}

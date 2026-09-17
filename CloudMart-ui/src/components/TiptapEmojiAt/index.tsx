@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { SmileOutlined, TeamOutlined } from '@ant-design/icons'
 import { searchUsers } from '@/api/community'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import s from './style.module.css'
 
 const EMOJI_GROUPS: Array<{ label: string; emojis: string[] }> = [
@@ -150,11 +151,12 @@ export default function TiptapEmojiAt({ editor, disabled = false }: TiptapEmojiA
                           setPanel('none')
                         }}
                     >
-                      {user.avatar ? (
-                          <img src={user.avatar} alt="" className={s.atAvatar} />
-                      ) : (
-                          <span className={s.atAvatarPlaceholder}>{user.nickname?.charAt(0) || '?'}</span>
-                      )}
+                      <DecoratedAvatar
+                          userId={user.id}
+                          src={user.avatar}
+                          size={26}
+                          fallback={user.nickname?.charAt(0) || '?'}
+                      />
                       <span>{user.nickname}</span>
                     </button>
                 ))}

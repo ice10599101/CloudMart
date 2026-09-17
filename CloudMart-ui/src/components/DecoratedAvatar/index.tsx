@@ -75,7 +75,7 @@ export default function DecoratedAvatar({
     >
       <Avatar
         size={innerSize}
-        src={src || undefined}
+        src={src || decoration?.avatar || undefined}
         style={{ display: 'block', backgroundColor: 'var(--color-gradient-primary)' }}
       >
         {fallback}
@@ -85,15 +85,15 @@ export default function DecoratedAvatar({
         <span
           style={{
             position: 'absolute',
-            bottom: -3,
+            bottom: -4,
             left: '50%',
             transform: 'translateX(-50%)',
-            padding: '0 5px',
-            borderRadius: 8,
+            padding: '0 4px',
+            borderRadius: 7,
             background: 'linear-gradient(135deg, var(--color-accent-gold), var(--color-accent-gold-dark))',
             color: 'var(--color-bg-base)',
-            fontSize: Math.max(8, Math.round(size * 0.24)),
-            lineHeight: 1.5,
+            fontSize: Math.min(12, Math.max(8, Math.round(size * 0.16))),
+            lineHeight: 1.3,
             fontWeight: 800,
             whiteSpace: 'nowrap',
             boxShadow: '0 1px 3px rgba(255, 215, 0, 0.4)',
@@ -109,7 +109,7 @@ export default function DecoratedAvatar({
             position: 'absolute',
             top: -2,
             right: -2,
-            fontSize: Math.max(12, Math.round(size * 0.34)),
+            fontSize: Math.min(18, Math.max(12, Math.round(size * 0.28))),
             lineHeight: 1,
             filter: 'drop-shadow(0 1px 2px rgba(255, 215, 0, 0.6))',
           }}
@@ -126,13 +126,13 @@ export default function DecoratedAvatar({
             position: 'absolute',
             top: -3,
             left: -3,
-            minWidth: Math.max(14, Math.round(size * 0.38)),
-            height: Math.max(14, Math.round(size * 0.38)),
+            minWidth: Math.min(18, Math.max(14, Math.round(size * 0.3))),
+            height: Math.min(18, Math.max(14, Math.round(size * 0.3))),
             padding: '0 3px',
             borderRadius: 999,
             background: 'var(--color-accent-purple)',
             color: '#fff',
-            fontSize: Math.max(8, Math.round(size * 0.24)),
+            fontSize: Math.min(13, Math.max(8, Math.round(size * 0.16))),
             lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',

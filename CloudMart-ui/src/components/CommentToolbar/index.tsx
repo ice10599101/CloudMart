@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons'
 import { uploadFile } from '@/api/file'
 import { searchUsers } from '@/api/community'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import s from './style.module.css'
 
 /** 评论中图片片段模式：![alt](https url)。该模式可安全穿过服务端 HTML 转义，渲染层再还原为 <img> */
@@ -283,11 +284,12 @@ export default function CommentToolbar({
                         className={s.atItem}
                         onClick={() => selectUser(user)}
                     >
-                      {user.avatar ? (
-                          <img src={user.avatar} alt="" className={s.atAvatar} />
-                      ) : (
-                          <span className={s.atAvatarPlaceholder}>{user.nickname?.charAt(0) || '?'}</span>
-                      )}
+                      <DecoratedAvatar
+                          userId={user.id}
+                          src={user.avatar}
+                          size={26}
+                          fallback={user.nickname?.charAt(0) || '?'}
+                      />
                       <span>{user.nickname}</span>
                     </button>
                 ))}

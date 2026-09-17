@@ -15,6 +15,7 @@ import com.cloudmart.community.repository.UserLevelMapper;
 import com.cloudmart.community.service.CheckInBitMapService;
 import com.cloudmart.community.service.GrowthService;
 import com.cloudmart.community.service.RankingService;
+import com.cloudmart.community.service.UserEnrichmentService;
 import com.cloudmart.community.vo.CheckInResultVO;
 import com.cloudmart.community.vo.ExpLogVO;
 import com.cloudmart.community.vo.LevelConfigVO;
@@ -49,6 +50,7 @@ public class GrowthServiceImpl implements GrowthService {
     private final RankingService rankingService;
     private final CheckInBitMapService checkInBitMapService;
     private final UserBadgeMapper userBadgeMapper;
+    private final UserEnrichmentService userEnrichmentService;
 
     /** 合法头像框 key（前端 AVATAR_FRAMES 与之对应） */
     private static final Set<String> ALLOWED_AVATAR_FRAMES =
@@ -170,18 +172,24 @@ public class GrowthServiceImpl implements GrowthService {
 
         LevelConfig level1Config = findLevelConfig(1);
 
+        Map<Long, UserEnrichmentService.UserInfo> usersById =
+                userEnrichmentService.batchGetUsers(Set.copyOf(distinctIds));
+
         Map<Long, UserDecorationVO> result = new LinkedHashMap<>();
         for (Long userId : distinctIds) {
             UserLevel ul = levelByUser.get(userId);
             int level = ul != null ? ul.getLevel() : 1;
             LevelConfig cfg = ul != null ? findLevelConfig(ul.getLevel()) : level1Config;
+            UserEnrichmentService.UserInfo ui = usersById.get(userId);
+            String avatar = ui != null ? ui.avatar() : null;
             result.put(userId, new UserDecorationVO(
                     userId,
                     level,
                     cfg != null ? cfg.getTitle() : "",
                     cfg != null ? cfg.getIcon() : "",
                     ul != null && ul.getAvatarFrame() != null ? ul.getAvatarFrame() : "none",
-                    badgeCountByUser.getOrDefault(userId, 0L)
+                    badgeCountByUser.getOrDefault(userId, 0L),
+                    avatar
             ));
         }
         return result;

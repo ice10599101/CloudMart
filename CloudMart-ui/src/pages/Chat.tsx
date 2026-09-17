@@ -5,6 +5,7 @@ import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { message } from '@/utils/appMessage'
 import { ArrowLeftOutlined, MessageOutlined, UndoOutlined } from '@ant-design/icons'
 import Skeleton from '@/components/Skeleton'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import {
   getConversations,
   getMessages,
@@ -47,19 +48,8 @@ function isSameDay(a: string, b: string): boolean {
   return new Date(ta).toDateString() === new Date(tb).toDateString()
 }
 
-function AvatarCircle({ name, avatar, size = 48 }: { name: string; avatar: string; size?: number }) {
-  if (avatar) {
-    return (
-      <div className={styles.conversationAvatar} style={{ width: size, height: size, fontSize: size * 0.38 }}>
-        <img src={avatar} alt={name} />
-      </div>
-    )
-  }
-  return (
-    <div className={styles.conversationAvatar} style={{ width: size, height: size, fontSize: size * 0.38 }}>
-      {name.charAt(0)}
-    </div>
-  )
+function AvatarCircle({ userId, name, avatar, size = 48 }: { userId: number | string; name: string; avatar: string; size?: number }) {
+  return <DecoratedAvatar userId={userId} src={avatar} size={size} fallback={name.charAt(0)} />
 }
 
 export default function Chat() {
@@ -383,7 +373,7 @@ export default function Chat() {
           className={`${styles.messageRow} ${isSelf ? styles.messageRowSelf : styles.messageRowOther}`}
         >
           {!isSelf && (
-            <AvatarCircle name={msg.senderNickname} avatar={msg.senderAvatar} size={36} />
+            <AvatarCircle userId={msg.senderId} name={msg.senderNickname} avatar={msg.senderAvatar} size={36} />
           )}
           <div className={styles.messageContent}>
             <Dropdown
@@ -414,7 +404,7 @@ export default function Chat() {
             </div>
           </div>
           {isSelf && (
-            <AvatarCircle name={msg.senderNickname} avatar={msg.senderAvatar} size={36} />
+            <AvatarCircle userId={msg.senderId} name={msg.senderNickname} avatar={msg.senderAvatar} size={36} />
           )}
         </div>,
       )
@@ -461,7 +451,7 @@ export default function Chat() {
                       className={styles.userSearchItem}
                       onClick={() => handleStartChat(u.id)}
                     >
-                      <AvatarCircle name={u.nickname} avatar={u.avatar} size={36} />
+                      <AvatarCircle userId={u.id} name={u.nickname} avatar={u.avatar} size={36} />
                       <span className={styles.userSearchName}>{u.nickname}</span>
                     </div>
                   ))}
@@ -496,7 +486,7 @@ export default function Chat() {
                   className={`${styles.conversationItem} ${activeConversationId === conv.id ? styles.conversationItemActive : ''}`}
                   onClick={() => handleSelectConversation(conv.id)}
                 >
-                  <AvatarCircle name={conv.otherUserNickname} avatar={conv.otherUserAvatar} />
+                  <AvatarCircle userId={conv.otherUserId} name={conv.otherUserNickname} avatar={conv.otherUserAvatar} />
                   <div className={styles.conversationInfo}>
                     <div className={styles.conversationTop}>
                       <span className={styles.conversationNickname}>{conv.otherUserNickname}</span>
@@ -529,6 +519,7 @@ export default function Chat() {
                   <ArrowLeftOutlined />
                 </button>
                 <AvatarCircle
+                  userId={activeConversation.otherUserId}
                   name={activeConversation.otherUserNickname}
                   avatar={activeConversation.otherUserAvatar}
                   size={36}

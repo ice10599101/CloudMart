@@ -79,6 +79,8 @@ export interface UserDecoration {
   levelIcon: string
   avatarFrame: string
   badgeCount: number
+  /** 用户头像 URL（供无 src 的头像展示场景直接使用，如消息通知列表） */
+  avatar?: string | null
 }
 
 /** 批量查询用户头像装饰（公开接口，供全站头像处展示） */

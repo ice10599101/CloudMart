@@ -18,6 +18,7 @@ import {
 import { history } from 'umi'
 import RichText from '@/components/RichText'
 import Skeleton from '@/components/Skeleton'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { formatDateTime } from '@/utils/format'
 import {
   listNotifications,
@@ -226,9 +227,7 @@ function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNot
 
   return (
     <div className={styles.followRow}>
-      <div className={styles.followAvatar}>
-        {nickname ? nickname[0] : <UserOutlined />}
-      </div>
+      <DecoratedAvatar userId={userId} fallback={nickname ? nickname[0] : <UserOutlined />} size={36} />
       <span className={styles.followNickname}>{nickname}</span>
       <button
         type="button"
@@ -492,9 +491,17 @@ export default function Messages() {
               className={`${styles.notificationItem} ${!item.isRead ? styles.notificationItemUnread : ''}`}
               onClick={() => handleNotificationClick(item)}
             >
-              <div className={`${styles.notificationAvatar} ${item.avatarClass}`}>
-                {item.icon}
-              </div>
+              {item.actorId ? (
+                <DecoratedAvatar
+                  userId={item.actorId}
+                  size={40}
+                  fallback={extractUsername(item.content).charAt(0) || '?'}
+                />
+              ) : (
+                <div className={`${styles.notificationAvatar} ${item.avatarClass}`}>
+                  {item.icon}
+                </div>
+              )}
 
               <div className={styles.notificationContent}>
                 {renderNotificationText(item)}

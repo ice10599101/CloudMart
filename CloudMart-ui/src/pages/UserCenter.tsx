@@ -33,6 +33,7 @@ import { getSigninCalendar } from '@/api/wish'
 import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { useDecorationStore } from '@/stores/decoration'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { uploadFile } from '@/api/file'
 import s from './UserCenter.module.css'
 
@@ -423,16 +424,14 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
     >
       <div style={{ position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <div
-          style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.2), rgba(0,153,204,0.3))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(var(--color-primary-rgb), 0.3)', overflow: 'hidden', position: 'relative', cursor: avatarUploading ? 'wait' : 'pointer', flexShrink: 0, opacity: avatarUploading ? 0.6 : 1, transition: 'opacity 0.2s' }}
+        <DecoratedAvatar
+          userId={user?.id}
+          src={user?.avatar}
+          size={72}
+          fallback={<span style={{ fontSize: 24, color: 'var(--color-primary)' }}>{user?.nickname?.charAt(0) || 'U'}</span>}
           onClick={() => !avatarUploading && avatarInputRef.current?.click()}
-        >
-          {user?.avatar ? (
-            <img src={user.avatar!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <span style={{ fontSize: 24, color: 'var(--color-primary)' }}>{user?.nickname?.charAt(0) || 'U'}</span>
-          )}
-        </div>
+          style={{ cursor: avatarUploading ? 'wait' : 'pointer', opacity: avatarUploading ? 0.6 : 1, transition: 'opacity 0.2s' }}
+        />
         <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" style={{ display: 'none' }} onChange={handleAvatarUpload} />
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)' }}>{nickname || user?.username}</div>
@@ -1433,9 +1432,6 @@ export default function UserCenterPage() {
     }
   }
   const activeFrame = AVATAR_FRAMES.find((f) => f.key === avatarFrame) ?? AVATAR_FRAMES[0]
-  const frameStyle = frameUnlocked && activeFrame.ring !== 'none'
-      ? { border: `3px solid transparent`, background: `linear-gradient(var(--color-bg-base), var(--color-bg-base)) padding-box, ${activeFrame.ring} border-box` }
-      : undefined
   const [checkedInToday, setCheckedInToday] = useState(false)
   const [continuousDays, setContinuousDays] = useState(0)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -1553,42 +1549,16 @@ export default function UserCenterPage() {
 
         <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 28 }}>
-            <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
-              <div className={s.avatarRing} />
-              <div className={s.avatarInner} style={frameStyle}>
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                  </svg>
-                )}
-              </div>
-              {levelInfo && <div style={{
-                position: 'absolute',
-                bottom: -4,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                padding: '2px 10px',
-                borderRadius: 10,
-                background: 'linear-gradient(135deg, var(--color-accent-gold), var(--color-accent-gold-dark))',
-                color: 'var(--color-bg-base)',
-                fontSize: 11,
-                fontWeight: 800,
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 8px rgba(255, 215, 0, 0.4)',
-                letterSpacing: '0.5px',
-              }}>{levelInfo.levelIcon || '⭐'} LV{levelInfo.level}</div>}
-              {userLevel >= 6 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -6,
-                    right: -2,
-                    fontSize: 20,
-                    filter: 'drop-shadow(0 2px 6px rgba(255, 215, 0, 0.6))',
-                  }} title="Lv6 贵宾标识">👑</div>
-              )}
-            </div>
+            <DecoratedAvatar
+              userId={user?.id}
+              src={user?.avatar}
+              size={100}
+              fallback={
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                </svg>
+              }
+            />
 
             <div style={{ flex: 1, paddingTop: 4 }}>
               <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
