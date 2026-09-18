@@ -4,6 +4,7 @@ import { PlusOutlined, MailOutlined, ArrowLeftOutlined } from '@ant-design/icons
 import { history, useSearchParams } from 'umi'
 import dayjs, { type Dayjs } from 'dayjs'
 import { createCapsule, getWishDetail } from '@/api/wish'
+import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
@@ -136,6 +137,8 @@ export default function CapsuleCreate() {
                 openAtTz: Intl.DateTimeFormat().resolvedOptions().timeZone,
             })
             if (res.data.success) {
+                // 胶囊内附件随胶囊落库（开启前的可见性由胶囊本身控制）
+                await materializeAttachments(values.content, 'CAPSULE', res.data.data.id)
                 setSealed({ openAtLocal: values.openAt.format('YYYY-MM-DD HH:mm') })
             }
         } catch {

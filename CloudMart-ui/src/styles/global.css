@@ -719,3 +719,25 @@ html, body, #root {
 .rich-text-full table { border-collapse: collapse; margin: 8px 0; max-width: 100%; }
 .rich-text-full th, .rich-text-full td { border: 1px solid rgba(127, 127, 127, 30%); padding: 6px 10px; }
 .rich-text-full hr { border: none; border-top: 1px solid rgba(127, 127, 127, 25%); margin: 14px 0; }
+
+
+/* 编辑器附件块（投票/问卷）静态外观 + 音视频媒体约束 */
+.rich-text-full audio.attachment-media,
+.rich-text-preview audio.attachment-media,
+.rich-text-full video.attachment-media,
+.rich-text-preview video.attachment-media { max-width: 100%; border-radius: 12px; margin: 10px 0; }
+
+.editor-poll, .editor-survey {
+  border: 1px solid var(--color-border, #e8e8e8);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  background: var(--color-bg-card, #fff);
+  user-select: none;
+}
+
+.editor-poll .attachment-poll-question,
+.editor-survey .attachment-survey-title { font-weight: 600; margin: 0 0 6px; }
+.editor-poll ul, .editor-survey ul { margin: 0; padding-left: 20px; }
+.editor-poll .poll-option-preview, .editor-survey .survey-question-preview { margin: 2px 0; }
+.attachment-poll, .attachment-survey { border-radius: 12px; }

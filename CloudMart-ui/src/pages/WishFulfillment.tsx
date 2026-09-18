@@ -4,6 +4,7 @@ import { PlusOutlined, ReloadOutlined, CloseOutlined, GiftOutlined, ArrowLeftOut
 import axios from 'axios'
 import { history, useParams } from 'umi'
 import { getWishDetail, submitFulfillment } from '@/api/wish'
+import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import type { WishDetail, WishFulfillmentSubmitResult } from '@/api/wish'
 import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
@@ -194,6 +195,8 @@ export default function WishFulfillment() {
         feeling: values.feeling?.trim() || undefined,
       })
       if (res.data.success) {
+        // 还愿故事中的投票/问卷挂在所属心愿上
+        await materializeAttachments(values.story, 'WISH', wishId)
         setSubmitResult(res.data.data)
       }
     } catch {

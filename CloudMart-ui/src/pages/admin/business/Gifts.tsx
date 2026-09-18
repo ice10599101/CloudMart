@@ -115,7 +115,7 @@ export default function Gifts() {
       }
     } catch (error) {
       options.onError?.(error as Error)
-      message.error(error instanceof Error && error.code === 'UPLOAD_DAILY_LIMIT_EXCEEDED'
+      message.error((error as { code?: string })?.code === 'UPLOAD_DAILY_LIMIT_EXCEEDED'
         ? '今日上传已达上限'
         : '上传失败，请重试')
     } finally {

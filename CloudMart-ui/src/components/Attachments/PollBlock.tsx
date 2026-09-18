@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Checkbox, Empty, Input, Progress, Radio, Spin, Tag } from 'antd'
+import { Button, Checkbox, Empty, Progress, Radio, Spin, Tag } from 'antd'
 import { BarChartOutlined } from '@ant-design/icons'
 import { getPoll, votePoll } from '@/api/attachment'
 import type { PollData } from '@/api/attachment'

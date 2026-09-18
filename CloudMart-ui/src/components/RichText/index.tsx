@@ -65,6 +65,15 @@ type ContentSegment =
   | { kind: 'survey'; surveyId: string | null; config: SurveyConfig | null }
   | { kind: 'audio'; src: string; title: string | null }
 
+function parseJsonAttribute<T>(raw: string | null): T | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
 /**
  * 将消毒后的 HTML 顶层片段切分为「普通 HTML」与「附件块」。
  * 附件块（投票/问卷）以 React 组件渲染为可交互卡片，其余按原 HTML 渲染。
@@ -98,15 +107,6 @@ function splitSegments(sanitizedHtml: string): ContentSegment[] {
     }
   }
   return segments
-}
-
-function parseJsonAttribute<T>(raw: string | null): T | null {
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
-  }
 }
 
 export interface RichTextProps {

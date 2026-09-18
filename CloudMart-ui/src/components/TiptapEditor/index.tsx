@@ -37,7 +37,7 @@ import {
   CustomerServiceOutlined,
   EditOutlined,
   BarChartOutlined,
-  SurveyOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons'
 import { Tooltip, Input, Modal, Popover, InputNumber, Segmented } from 'antd'
 import { message } from '@/utils/appMessage'
@@ -729,7 +729,7 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
         />
         <ToolbarButton
           onClick={() => setSurveyOpen(true)}
-          icon={<SurveyOutlined />}
+          icon={<ProfileOutlined />}
           title="发起问卷"
         />
       </div>

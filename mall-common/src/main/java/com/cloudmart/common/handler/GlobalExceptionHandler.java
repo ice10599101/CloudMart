@@ -112,6 +112,11 @@ public class GlobalExceptionHandler {
         if (code == null) {
             return HttpStatus.BAD_REQUEST;
         }
+        // 跨服务 Feign 降级码统一 503：fallback 工厂使用 {SERVICE}_SERVICE_UNAVAILABLE 命名，
+        // 用后缀通配避免逐个登记（历史上 WISH/CHAT/CAPSULE 等曾遗漏而被误映射为 400）
+        if (code.endsWith("_SERVICE_UNAVAILABLE")) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        }
         return switch (code) {
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
@@ -162,15 +167,7 @@ public class GlobalExceptionHandler {
                  "WISH_ASSET_IN_USE",
                  "POLL_ALREADY_VOTED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
-            case "PRODUCT_SERVICE_UNAVAILABLE", "ORDER_SERVICE_UNAVAILABLE",
-                 "USER_SERVICE_UNAVAILABLE", "COUPON_SERVICE_UNAVAILABLE",
-                 "INVENTORY_SERVICE_UNAVAILABLE", "PAYMENT_SERVICE_UNAVAILABLE",
-                 "NOTIFICATION_SERVICE_UNAVAILABLE", "SECKILL_SERVICE_UNAVAILABLE",
-                 "CART_SERVICE_UNAVAILABLE", "RISK_SERVICE_UNAVAILABLE",
-                 "WMS_SERVICE_UNAVAILABLE", "BRAND_SERVICE_UNAVAILABLE",
-                 "MARKETING_SERVICE_UNAVAILABLE", "LIVE_SERVICE_UNAVAILABLE",
-                 "AI_SERVICE_UNAVAILABLE", "REVIEW_SERVICE_UNAVAILABLE",
-                 "COMMUNITY_SERVICE_UNAVAILABLE",
+            case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，

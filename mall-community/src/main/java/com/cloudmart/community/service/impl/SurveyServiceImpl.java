@@ -240,7 +240,7 @@ public class SurveyServiceImpl implements SurveyService {
         return rawOptions.stream().map(String::trim).filter(option -> !option.isEmpty()).toList();
     }
 
-    private String writeJson(List<String> value) {
+    private String writeJson(List<?> value) {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {

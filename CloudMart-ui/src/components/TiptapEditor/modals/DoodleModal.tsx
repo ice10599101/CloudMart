@@ -112,7 +112,9 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
     if (!canvas || uploading) return
     setUploading(true)
     try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png')
+      })
       if (!blob) throw new Error('导出画布失败')
       const file = new File([blob], `doodle-${Date.now()}.png`, { type: 'image/png' })
       const { data: response } = await uploadFile(file)

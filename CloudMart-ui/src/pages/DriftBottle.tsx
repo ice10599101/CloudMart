@@ -21,6 +21,7 @@ import { createConversation } from '@/api/chat'
 import { useAuthStore } from '@/stores/auth'
 import WishBGM from '@/components/WishBGM'
 import TiptapEditor from '@/components/TiptapEditor'
+import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import RichText, { richTextToPlainText } from '@/components/RichText'
 import DriftBottleComments from '@/components/DriftBottleComments'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
@@ -293,11 +294,13 @@ export default function DriftBottlePage() {
     }
     setThrowing(true)
     try {
-      await throwDriftBottle(
-        throwMode === 'TEXT'
-          ? { content: throwText, isAnonymous: throwAnonymous }
-          : { wishId: throwWishId!, isAnonymous: throwAnonymous },
-      )
+      const bottle = throwMode === 'TEXT'
+        ? await throwDriftBottle({ content: throwText, isAnonymous: throwAnonymous })
+        : await throwDriftBottle({ wishId: throwWishId!, isAnonymous: throwAnonymous })
+      if (throwMode === 'TEXT') {
+        // 瓶中信内的投票/问卷随投瓶落库（targetType=LETTER）
+        await materializeAttachments(throwText, 'LETTER', bottle.data?.data?.bottleId ?? '')
+      }
       message.success('漂流瓶已投出，愿它漂向有缘人 🌊')
       setThrowText('')
       setThrowWishId(null)

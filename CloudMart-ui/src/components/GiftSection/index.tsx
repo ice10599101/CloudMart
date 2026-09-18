@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Empty, Space, Tag } from 'antd'
+import { Button, Space, Tag } from 'antd'
 import { GiftOutlined, StarFilled } from '@ant-design/icons'
 import GiftPickerModal from '@/components/GiftPickerModal'
 import { listTargetGiftRecords } from '@/api/gift'

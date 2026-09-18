@@ -5,17 +5,26 @@ import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.service.AssistantAiClient;
 import com.cloudmart.wish.service.TreeHoleAiClient;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -42,6 +51,14 @@ import static org.mockito.Mockito.when;
  *
  * <p>隔离策略：每个用例后 TRUNCATE 全部业务表 + FLUSHDB（redis-it 为专用实例，
  * FLUSHDB 不影响业务 Redis）。context 在同 profile 测试类间缓存复用。</p>
+ *
+ * <p><b>跨运行互斥（缺陷修复）</b>：mysql-it/redis-it 为共享实例，且本用例集的
+ * 隔离手段是 TRUNCATE/FLUSHDB——同一时刻只能有一个测试 JVM 使用，否则会出现
+ * 两类互相踩踏：A 运行 @AfterEach TRUNCATE 清掉 B 运行正在使用的种子数据
+ * （Duplicate entry / EmptyResult），以及 Flyway 新迁移 DDL 与在途事务冲突
+ * （Table definition has changed / Deadlock）。因此 @BeforeAll 先经 redis-it
+ * 的 db14（用例只 FLUSHDB db0，锁不会被打扫）获取带 TTL 的运行锁，
+ * 拿不到锁则在超时内等待，避免两台机器/IDE+命令行并发跑 IT 互相污染。</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
         // 断开 Nacos config import（optional 但避免连接重试拖慢启动）
@@ -68,6 +85,65 @@ public abstract class WishIntegrationTestBase {
         System.setProperty("csp.sentinel.log.dir", "target/sentinel-log");
     }
 
+    // ========== 跨运行互斥锁（与 application-it.yml 的 redis-it 同源） ==========
+
+    private static final String RUN_LOCK_KEY = "wish-it:run-lock";
+    /** 锁存 db14：用例的 FLUSHDB 只作用于 db0，锁不会随用例清理丢失 */
+    private static final int RUN_LOCK_REDIS_DB = 14;
+    /** TTL 大于单次全量 IT 运行时长：JVM 崩溃后锁自动过期自愈 */
+    private static final Duration RUN_LOCK_TTL = Duration.ofMinutes(30);
+    private static final Duration ACQUIRE_TIMEOUT = Duration.ofMinutes(10);
+    private static final long ACQUIRE_POLL_INTERVAL_MS = 2000;
+
+    private static String lockToken;
+    private static LettuceConnectionFactory lockFactory;
+    private static StringRedisTemplate lockTemplate;
+
+    /** 释放锁的原子脚本：仅持有者（token 匹配）可删除，防止误删后到期的他人锁 */
+    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then "
+                    + "return redis.call('DEL', KEYS[1]) end return 0",
+            Long.class);
+
+    @BeforeAll
+    static void acquireRunLock() throws InterruptedException {
+        String host = System.getenv().getOrDefault("WISH_IT_REDIS_HOST", "129.204.152.168");
+        int port = Integer.parseInt(System.getenv().getOrDefault("WISH_IT_REDIS_PORT", "8380"));
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
+        config.setDatabase(RUN_LOCK_REDIS_DB);
+        lockFactory = new LettuceConnectionFactory(config);
+        lockFactory.afterPropertiesSet();
+        lockTemplate = new StringRedisTemplate(lockFactory);
+        lockTemplate.afterPropertiesSet();
+
+        lockToken = UUID.randomUUID().toString();
+        long deadline = System.nanoTime() + ACQUIRE_TIMEOUT.toNanos();
+        while (true) {
+            Boolean acquired = lockTemplate.opsForValue()
+                    .setIfAbsent(RUN_LOCK_KEY, lockToken, RUN_LOCK_TTL);
+            if (Boolean.TRUE.equals(acquired)) {
+                return;
+            }
+            if (System.nanoTime() - deadline >= 0) {
+                throw new IllegalStateException(
+                        "集成库运行锁被占用（key=" + RUN_LOCK_KEY + "，可能另一台机器/IDE/命令行正在跑 IT，"
+                                + "或上一次运行崩溃后锁尚未到期（TTL " + RUN_LOCK_TTL.toMinutes() + " 分钟）。"
+                                + "确认无并发运行后可手动删除该 Key 重试。");
+            }
+            Thread.sleep(ACQUIRE_POLL_INTERVAL_MS);
+        }
+    }
+
+    @AfterAll
+    static void releaseRunLock() {
+        if (lockTemplate != null && lockToken != null) {
+            lockTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(RUN_LOCK_KEY), lockToken);
+        }
+        if (lockFactory != null) {
+            lockFactory.destroy();
+        }
+    }
+
     /** 全部业务表：@AfterEach 统一 TRUNCATE 保证用例隔离。
      *  注意 wish_badge 不在此列：V1 种子的字典表被 TRUNCATE 后 Flyway 不会
      *  重跑，改由 {@link #ensureBadgeSeedData} 幂等补种；wish_env_config 虽然
@@ -76,7 +152,8 @@ public abstract class WishIntegrationTestBase {
     private static final List<String> BUSINESS_TABLES = List.of(
             "wish", "wish_progress", "wish_interaction", "wish_growth_record",
             "wish_checkin", "wish_user_stat", "wish_resource_log", "wish_daily_signin",
-            "wish_user_badge", "wish_category", "wish_comment", "wish_consent",
+            "wish_signin_milestone_claim", "wish_user_badge", "wish_category",
+            "wish_comment", "wish_consent",
             "wish_ai_conversation", "wish_world_tree_state", "wish_fulfillment",
             "wish_special_event", "wish_env_config", "time_capsule",
             "wish_ai_goal", "wish_notification_preference", "wish_ai_prompt",
@@ -90,7 +167,19 @@ public abstract class WishIntegrationTestBase {
             "wish_activity", "wish_activity_participant", "wish_activity_reward_log",
             "wish_virtual_asset", "wish_user_asset", "wish_brand",
             "wish_brand_pool", "wish_brand_pool_member",
-            "wish_collection", "wish_data_export");
+            "wish_collection", "wish_data_export",
+            "wish_drift_bottle", "wish_drift_bottle_comment",
+            "wish_drift_bottle_interaction", "wish_drift_bottle_fish_log",
+            "wish_gift", "wish_gift_record");
+
+    /** 内容流转/年度报告异步线程池：@AfterEach 清库前必须先静默（见 cleanUp） */
+    @Autowired
+    @Qualifier("contentFlowExecutor")
+    private ThreadPoolTaskExecutor contentFlowExecutor;
+
+    @Autowired
+    @Qualifier("annualReportExecutor")
+    private ThreadPoolTaskExecutor annualReportExecutor;
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
@@ -113,14 +202,42 @@ public abstract class WishIntegrationTestBase {
     @MockitoBean
     protected RocketMQTemplate rocketMQTemplate;
 
+    /**
+     * 用例隔离第二步：清库前先等 @Async 后台任务（内容流转重试/年度报告生成）排空。
+     *
+     * <p>背景：submitFulfillment 事务提交后会异步触发内容流转（独立线程池 +
+     * 指数退避重试，单任务最长约 3.5s）。若任务在 TRUNCATE 之后才提交写库，
+     * 会与下一用例的种子数据交错（Duplicate/死锁/ER_TABLE_DEF_CHANGED 1412）。
+     * 等待有界（15s），超时则放行继续清理——最坏退化为该用例可能残留后台写入，
+     * 不让单个卡死任务拖垮整个测试类。</p>
+     */
     @AfterEach
     void cleanUp() {
+        awaitExecutorQuiescence("contentFlowExecutor", contentFlowExecutor);
+        awaitExecutorQuiescence("annualReportExecutor", annualReportExecutor);
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : BUSINESS_TABLES) {
             jdbcTemplate.execute("TRUNCATE TABLE " + table);
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushDb();
+    }
+
+    /** 等待线程池活跃任务与队列排空；timeout 到期放行（可观测：FAIL 前打点留给人工） */
+    private static void awaitExecutorQuiescence(String name, ThreadPoolTaskExecutor executor) {
+        if (executor == null) {
+            return;
+        }
+        long deadline = System.currentTimeMillis() + 15_000L;
+        while ((executor.getActiveCount() > 0 || executor.getQueueSize() > 0)
+                && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(100L);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
     }
 
     /**
@@ -274,24 +391,35 @@ public abstract class WishIntegrationTestBase {
     /**
      * 种子数据：插入心愿分类（createWish 会校验分类存在性）。
      *
+     * <p>幂等：uk_category_code 冲突时更新名称，重复调用（如外部并发跑测试
+     * 导致前次清理未完成）不抛 DuplicateKey。</p>
+     *
+     * @param code 分类编码
      * @return 分类 ID
      */
     protected Long seedCategory(String code) {
         jdbcTemplate.update(
                 "INSERT INTO wish_category (id, code, name, sort, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, 0, NOW(), NOW())",
-                System.nanoTime(), code, "测试分类-" + code);
+                        + "VALUES (?, ?, ?, 0, NOW(), NOW()) "
+                        + "ON DUPLICATE KEY UPDATE name = VALUES(name), sort = VALUES(sort)",
+                // BIGINT UNSIGNED 列：nanoTime 可能为负，掩掉符号位保证非负
+                System.nanoTime() & 0x7FFFFFFFFFFFFFFFL, code, "测试分类-" + code);
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM wish_category WHERE code = ?", Long.class, code);
     }
 
     /**
      * 种子数据：插入用户统计（LIGHT 互动需星光余额）。
+     *
+     * <p>幂等：主键冲突时更新余额，防止共享 it-库上清理未完成时
+     * 种子 DuplicateKey 级联导致整个用例类失败。</p>
      */
     protected void seedUserStat(long userId, int starlightBalance) {
         jdbcTemplate.update(
                 "INSERT INTO wish_user_stat (user_id, starlight_balance, created_at, updated_at) "
-                        + "VALUES (?, ?, NOW(), NOW())",
+                        + "VALUES (?, ?, NOW(), NOW()) "
+                        + "ON DUPLICATE KEY UPDATE starlight_balance = VALUES(starlight_balance), "
+                        + "updated_at = NOW()",
                 userId, starlightBalance);
     }
 }

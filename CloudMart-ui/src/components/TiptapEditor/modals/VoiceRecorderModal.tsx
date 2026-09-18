@@ -79,6 +79,14 @@ export default function VoiceRecorderModal({ open, onClose, onUploaded }: VoiceR
     return cleanup
   }, [open])
 
+  const stopRecording = () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    setRecording(false)
+  }
+
   const startRecording = async () => {
     const mimeType = pickMimeType()
     if (!mimeType || !navigator.mediaDevices?.getUserMedia) {
@@ -106,7 +114,9 @@ export default function VoiceRecorderModal({ open, onClose, onUploaded }: VoiceR
       setSeconds(0)
       timerRef.current = setInterval(() => {
         setSeconds((prev) => {
-          if (prev + 1 >= MAX_SECONDS) stopRecording()
+          if (prev + 1 >= MAX_SECONDS) {
+            stopRecording()
+          }
           return prev + 1
         })
       }, 1000)
@@ -115,13 +125,6 @@ export default function VoiceRecorderModal({ open, onClose, onUploaded }: VoiceR
     }
   }
 
-  const stopRecording = () => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-    recorderRef.current?.state === 'recording' && recorderRef.current.stop()
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    setRecording(false)
-  }
 
   const handleConfirm = async () => {
     if (!audioUrl) return

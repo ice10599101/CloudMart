@@ -15,6 +15,7 @@ import { message } from '@/utils/appMessage'
 import TiptapEditor from '@/components/TiptapEditor'
 import { createPost, getPostDetail, updatePost, saveDraft } from '@/api/community'
 import { uploadFile } from '@/api/file'
+import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import { useAuthStore } from '@/stores/auth'
 
 interface MediaItem {
@@ -224,6 +225,7 @@ function PublishForm() {
 
       if (isEditing && editPostId) {
         await updatePost(editPostId, postData)
+        await materializeAttachments(postData.content, 'POST', editPostId)
         message.success('更新成功！')
         history.push(`/post/${editPostId}`)
       } else {
@@ -231,6 +233,8 @@ function PublishForm() {
         message.success('发布成功！')
         const postId = res.data?.data?.id
         if (postId) {
+          // 投票/问卷随正文发布幂等落库（失败不阻塞发布，编辑重存可重试）
+          await materializeAttachments(postData.content, 'POST', postId)
           history.push(`/post/${postId}`)
         } else {
           history.push('/')

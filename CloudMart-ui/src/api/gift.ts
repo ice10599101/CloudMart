@@ -56,7 +56,7 @@ export function sendGift(data: {
   giftId: number
   count: number
   targetType: GiftTargetType
-  targetId: number
+  targetId: number | string
   message?: string
 }) {
   return request.post<ApiResponse<SendGiftResult>>('/wish/gifts/send', data)

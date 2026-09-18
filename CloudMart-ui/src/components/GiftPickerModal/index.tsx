@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Input, Modal, Segmented, Space, Spin, Tag, Tooltip } from 'antd'
-import { SendOutlined, StarFilled, GiftOutlined } from '@ant-design/icons'
+import { StarFilled, GiftOutlined } from '@ant-design/icons'
 import { listGifts, sendGift } from '@/api/gift'
 import type { GiftItem, GiftTargetType, SendGiftResult } from '@/api/gift'
 import { getMyResources } from '@/api/wish'

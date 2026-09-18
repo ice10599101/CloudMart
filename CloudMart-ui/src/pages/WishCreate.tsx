@@ -5,6 +5,7 @@ import axios from 'axios'
 import { history } from 'umi'
 import type { Dayjs } from 'dayjs'
 import { createWish, getCategories } from '@/api/wish'
+import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import type { Category, WishVisibility } from '@/api/wish'
 import { uploadFile } from '@/api/file'
 import { useAuthStore } from '@/stores/auth'
@@ -167,6 +168,7 @@ export default function WishCreate() {
       })
       if (res.data.success) {
         message.success('心愿发布成功！审核通过后将展示在心愿广场')
+        await materializeAttachments(values.description, 'WISH', res.data.data.id)
         history.push(`/wish/${res.data.data.id}`)
       }
     } catch {

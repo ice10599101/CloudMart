@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+
+// RichText 附件交互块（投票/问卷）依赖 umi 的 history 与社区附件 API，
+// 单测聚焦渲染层：mock umi（避免 vitest 加载 umi 运行时）与网络请求
+vi.mock('umi', () => ({ history: { push: vi.fn() } }))
+vi.mock('@/api/attachment', () => ({
+  getPoll: vi.fn().mockResolvedValue({ data: { success: false } }),
+  votePoll: vi.fn(),
+  getSurvey: vi.fn().mockResolvedValue({ data: { success: false } }),
+  submitSurveyResponse: vi.fn(),
+}))
+
 import RichText, { isRichText, richTextToPlainText } from '@/components/RichText'
 
 describe('isRichText', () => {
