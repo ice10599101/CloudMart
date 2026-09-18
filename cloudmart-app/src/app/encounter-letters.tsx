@@ -30,6 +30,7 @@ const ROLE_LABELS: Record<DriftBottleItem['role'], string> = {
 const STATUS_LABELS: Record<DriftBottleItem['status'], string> = {
   FLOATING: '漂流中',
   PICKED: '已被捞起',
+  RETURNED: '被扔回海里',
 }
 
 const COMMENT_PAGE_SIZE = 10

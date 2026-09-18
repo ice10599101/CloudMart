@@ -48,6 +48,7 @@ import type { Post, PostComment, SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import ShareModal from '@/components/ShareModal'
 import ReportModal from '@/components/ReportModal'
+import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { formatDateTime } from '@/utils/format'
 
@@ -1110,6 +1111,17 @@ export default function PostDetail() {
               </button>
             </Dropdown>
           </div>
+        </div>
+
+        <div style={{
+          background: 'var(--color-bg-container)',
+          borderRadius: '16px',
+          border: '1px solid var(--color-border)',
+          marginTop: 20,
+          padding: '24px 28px',
+        }}>
+          {/* 全站虚拟礼物：送礼按钮 + 礼物墙 */}
+          <GiftSection targetType="POST" targetId={id ?? ''} />
         </div>
 
         <div style={{

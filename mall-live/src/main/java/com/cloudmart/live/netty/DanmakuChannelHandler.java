@@ -1,6 +1,7 @@
 package com.cloudmart.live.netty;
 
 import com.cloudmart.live.dto.DanmakuMessage;
+import com.cloudmart.live.dto.GiftNoticeMessage;
 import com.cloudmart.live.entity.LiveDanmaku;
 import com.cloudmart.live.repository.LiveDanmakuMapper;
 import tools.jackson.databind.ObjectMapper;
@@ -133,6 +134,22 @@ public class DanmakuChannelHandler {
             group.writeAndFlush(json);
         } catch (Exception e) {
             log.error("Failed to broadcast danmaku to room {}: {}", roomId, e.getMessage());
+        }
+    }
+
+    /**
+     * 房间内广播礼物特效（内部接口调用，送礼成功后触发）。
+     * 与弹幕共用 Netty ChannelGroup 连接表；房间无人在线时静默跳过。
+     */
+    public void broadcastGiftNotice(Long roomId, GiftNoticeMessage notice) {
+        ChannelGroup group = roomChannels.get(roomId);
+        if (group == null || group.isEmpty()) {
+            return;
+        }
+        try {
+            group.writeAndFlush(objectMapper.writeValueAsString(notice));
+        } catch (Exception e) {
+            log.error("Failed to broadcast gift notice to room {}: {}", roomId, e.getMessage());
         }
     }
 

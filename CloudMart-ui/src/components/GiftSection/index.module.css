@@ -1,0 +1,50 @@
+.giftSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.giftWall {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.giftWallTitle {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.giftTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-end: 0;
+}
+
+.giftTagIcon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.giftSender {
+  opacity: 0.75;
+}
+
+.giftPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.giftStar {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.giftWallHint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.35);
+}

@@ -50,6 +50,7 @@ import {
   LoginOutlined,
   TagsOutlined,
   ClusterOutlined,
+  GiftOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -120,6 +121,7 @@ const MENU_ICON_MAP: Record<string, React.ReactNode> = {
   rise: <RiseOutlined />,
   'unordered-list': <UnorderedListOutlined />,
   notification: <NotificationOutlined />,
+  gift: <GiftOutlined />,
 }
 
 /** iconKey → 图标组件；目录缺省回落 AppstoreOutlined，菜单缺省不显示图标 */

@@ -3,6 +3,8 @@ package com.cloudmart.wish.feign;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -42,4 +44,12 @@ public interface CommunityFeignClient {
      */
     @PostMapping("/internal/growth/exp")
     ApiResponse<Map<String, Object>> grantExp(@RequestBody Map<String, Object> body);
+
+    /**
+     * 查询帖子归属（作者用户 ID），用于送礼场景解析收礼人（全站虚拟礼物）。
+     *
+     * @return ApiResponse 包含 {postId, userId}
+     */
+    @GetMapping("/internal/gifts/posts/{postId}")
+    ApiResponse<Map<String, Object>> getPostOwner(@PathVariable("postId") Long postId);
 }

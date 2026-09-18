@@ -70,6 +70,9 @@ class GrowthServiceImplTest {
     @Mock
     private UserBadgeMapper userBadgeMapper;
 
+    @Mock
+    private com.cloudmart.community.service.UserEnrichmentService userEnrichmentService;
+
     private GrowthServiceImpl growthService;
 
     private static final Long USER_ID = 1L;
@@ -95,7 +98,7 @@ class GrowthServiceImplTest {
     void setUp() {
         growthService = new GrowthServiceImpl(
                 userLevelMapper, levelConfigMapper, dailyCheckInMapper, expLogMapper, rankingService,
-                checkInBitMapService, userBadgeMapper);
+                checkInBitMapService, userBadgeMapper, userEnrichmentService);
     }
 
     private UserLevel buildUserLevel() {

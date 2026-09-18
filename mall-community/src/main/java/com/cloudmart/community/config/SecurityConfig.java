@@ -45,6 +45,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/*/privacy").permitAll()
                 .requestMatchers(HttpMethod.GET, "/growth/level-configs").permitAll()
                 .requestMatchers(HttpMethod.GET, "/growth/decorations").permitAll()
+                // 编辑器附件（投票/问卷）：匿名可查看，提交/创建仍需登录
+                .requestMatchers(HttpMethod.GET, "/polls/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/surveys/*").permitAll()
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()

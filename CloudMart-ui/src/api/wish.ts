@@ -1029,18 +1029,7 @@ export function listWarmEvents(params: { lat?: number; lng?: number; radius?: nu
   })
 }
 
-// ========== 擦肩而过（Sprint 3.3，契约对齐 mall-wish EncounterController） ==========
-
-export interface EncounterLetterItem {
-  letterId: number
-  wishTags: string[]
-  encounterTime: string
-  encounterGeohash6: string
-  status: 'PENDING' | 'DELIVERED' | 'READ'
-  /** PENDING 时为 null（契约） */
-  content: string | null
-  deliveredAt: string | null
-}
+// ========== 擦肩而过·附近模式（Sprint 3.3，契约对齐 mall-wish EncounterController；信笺用户侧已由漂流瓶替代） ==========
 
 /** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
 export function setNearbyMode(enabled: boolean) {
@@ -1057,31 +1046,18 @@ export function reportTrace(lat: number, lng: number) {
   return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })
 }
 
-export function listEncounterLetters() {
-  return request.get<ApiResponse<EncounterLetterItem[]>>('/wish/map/encounter-letters')
-}
-
-/** 拆信（DELIVERED → READ） */
-export function readEncounterLetter(letterId: number | string) {
-  return request.put<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/read`)
-}
-
-/** 匿名互动（BLESS 免费 / LIGHT 扣星光 2 点亮对方心愿；每信笺每日 1 次） */
-export function interactEncounterLetter(letterId: number, type: 'BLESS' | 'LIGHT') {
-  return request.post<ApiResponse<EncounterLetterItem>>(`/wish/encounter-letters/${letterId}/interactions`, { type })
-}
-
-// ========== 漂流瓶（替代相遇信笺用户侧体验，契约对齐 mall-wish DriftBottleController） ==========
+// ========== 漂流瓶（契约对齐 mall-wish DriftBottleController） ==========
 
 export interface DriftBottleItem {
   bottleId: number
   /** 自由匿名文字（富文本 HTML；关联心愿时为 null） */
   content: string | null
-  /** 关联心愿 ID（自由文字时为 null） */
+  /** 关联心愿 ID（自由文字时为 null；捞到后可点击跳转心愿详情） */
   wishId: number | null
   wishTitle: string | null
   wishTags: string[]
-  status: 'FLOATING' | 'PICKED'
+  /** 物理状态：FLOATING 漂流中 / PICKED 已被捞起 / RETURNED 被扔回海里 */
+  status: 'FLOATING' | 'PICKED' | 'RETURNED'
   /** THROWN=我投出的 / PICKED=我捞到的 */
   role: 'THROWN' | 'PICKED'
   thrownAt: string
@@ -1092,11 +1068,26 @@ export interface DriftBottleItem {
   throwerUserId: number | null
   throwerNickname: string | null
   throwerAvatar: string | null
+  /** 捞瓶是否匿名（true=匿名隐藏捞瓶人身份，默认） */
+  pickerIsAnonymous: boolean
+  /** 实名捞瓶时捞瓶人用户 ID（匿名时为 null；捞起后可切实名开启私聊/查看资料） */
+  pickerUserId: number | null
+  pickerNickname: string | null
+  pickerAvatar: string | null
+  /** 捞起人是否已收藏该瓶 */
+  isCollected: boolean
   /** 瓶下评论数（含回复） */
   commentCount: number
 }
 
-/** 漂流瓶评论（瓶下评论树节点） */
+/** 每日配额（投瓶 10 个/天、打捞 20 次/天，UTC 自然日） */
+export interface DriftBottleQuota {
+  throwUsed: number
+  throwLimit: number
+  fishUsed: number
+  fishLimit: number
+}
+
 export interface DriftBottleCommentItem {
   id: number
   bottleId: number
@@ -1113,14 +1104,19 @@ export interface DriftBottleCommentItem {
   createdAt: string
 }
 
-/** 可关联心愿候选（我最近发布的至多 20 个可关联心愿） */
+/** 可关联心愿候选（我最近发布的至多 30 个可关联心愿） */
 export interface DriftBottleCandidateWish {
   wishId: number
   title: string
   tags: string[]
 }
 
-/** 可关联心愿候选（投瓶下拉选择：近 20 个自己发布的可关联心愿） */
+/** 今日配额（投瓶/打捞计数展示） */
+export function getDriftBottleQuota() {
+  return request.get<ApiResponse<DriftBottleQuota>>('/wish/drift-bottles/quota')
+}
+
+/** 可关联心愿候选（投瓶下拉选择：近 30 个自己发布的可关联心愿） */
 export function listDriftBottleCandidateWishes() {
   return request.get<ApiResponse<DriftBottleCandidateWish[]>>('/wish/drift-bottles/candidate-wishes')
 }
@@ -1130,7 +1126,7 @@ export function throwDriftBottle(data: { content?: string; wishId?: number | str
   return request.post<ApiResponse<DriftBottleItem>>('/wish/drift-bottles', data)
 }
 
-/** 捞瓶（随机捞取一个非自己的漂浮漂流瓶；海里无瓶时 data 为 null） */
+/** 捞瓶（随机捞取一个非自己的漂浮漂流瓶，含被扔回海里的；海里无瓶时 data 为 null） */
 export function fishDriftBottle() {
   return request.post<ApiResponse<DriftBottleItem | null>>('/wish/drift-bottles/fish')
 }
@@ -1138,6 +1134,23 @@ export function fishDriftBottle() {
 /** 我的漂流瓶（我投出的 + 我捞到的，按时间倒序） */
 export function listMyDriftBottles() {
   return request.get<ApiResponse<DriftBottleItem[]>>('/wish/drift-bottles/mine')
+}
+
+/** 扔回海里（仅捞起人；瓶子回到海面可再被捞起，收藏与捞起人清空） */
+export function returnDriftBottle(bottleId: number) {
+  return request.post<ApiResponse<null>>(`/wish/drift-bottles/${bottleId}/return`)
+}
+
+/** 收藏漂流瓶（仅捞起人，仅 PICKED 状态；幂等） */
+export function collectDriftBottle(bottleId: number) {
+  return request.post<ApiResponse<DriftBottleItem>>(`/wish/drift-bottles/${bottleId}/collect`)
+}
+
+/** 捞瓶人匿名开关（仅捞起人；默认匿名，切实名后投瓶人可见捞瓶人身份） */
+export function updateDriftBottlePickerAnonymity(bottleId: number, isAnonymous: boolean) {
+  return request.put<ApiResponse<DriftBottleItem>>(`/wish/drift-bottles/${bottleId}/picker-anonymity`, {
+    isAnonymous,
+  })
 }
 
 /** 匿名回应（仅捞起人可回应关联心愿漂流瓶：BLESS 免费 / LIGHT 扣星光 2） */
@@ -1629,10 +1642,6 @@ export function getWarmEventDetail(eventId: number | string) {
 
 export function deleteWarmEvent(eventId: number | string) {
   return request.delete<ApiResponse<null>>(`/wish/map/warm-events/${eventId}`)
-}
-
-export function listLetterInteractions(letterId: number | string) {
-  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/wish/encounter-letters/${letterId}/interactions`)
 }
 
 export function listActivityParticipants(activityId: number | string, page = 1, size = 20) {

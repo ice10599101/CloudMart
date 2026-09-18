@@ -33,6 +33,7 @@ const ROLE_LABELS: Record<DriftBottleItem['role'], string> = {
 const STATUS_LABELS: Record<DriftBottleItem['status'], string> = {
   FLOATING: '漂流中',
   PICKED: '已被捞起',
+  RETURNED: '被扔回海里',
 }
 
 /** 富文本转纯文本（供判空）：strip 标签 + 解码常见实体 + 折叠空白 */

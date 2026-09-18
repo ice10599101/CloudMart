@@ -1,12 +1,14 @@
 package com.cloudmart.live.websocket;
 
 import com.cloudmart.live.dto.DanmakuMessage;
+import com.cloudmart.live.dto.GiftNoticeMessage;
 import com.cloudmart.live.entity.LiveDanmaku;
 import com.cloudmart.live.repository.LiveDanmakuMapper;
 import com.cloudmart.live.service.LiveRoomService;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -16,6 +18,13 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 弹幕 WebSocket 处理器（Spring WS 栈，路径 /ws/live/danmaku）。
+ *
+ * <p>注册为 Spring Bean 以便内部接口（礼物特效广播）复用同一 roomSessions 连接表；
+ * roomId 从握手 URL 的 query 参数解析（?roomId=xxx）。</p>
+ */
+@Component
 public class LiveDanmakuHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(LiveDanmakuHandler.class);
@@ -101,6 +110,32 @@ public class LiveDanmakuHandler extends TextWebSocketHandler {
         log.error("WebSocket transport error: sessionId={}", session.getId(), exception);
         if (session.isOpen()) {
             session.close(CloseStatus.SERVER_ERROR);
+        }
+    }
+
+    /**
+     * 房间内广播礼物特效（内部接口调用，送礼成功后触发）。
+     * 与弹幕共用连接表；房间无人在线时静默跳过。
+     */
+    public void broadcastGiftNotice(Long roomId, GiftNoticeMessage notice) {
+        Set<WebSocketSession> sessions = roomSessions.get(roomId);
+        if (sessions == null || sessions.isEmpty()) {
+            return;
+        }
+        try {
+            String json = objectMapper.writeValueAsString(notice);
+            TextMessage textMessage = new TextMessage(json);
+            for (WebSocketSession session : sessions) {
+                if (session.isOpen()) {
+                    try {
+                        session.sendMessage(textMessage);
+                    } catch (IOException e) {
+                        log.warn("Failed to send gift notice to session {}: {}", session.getId(), e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to broadcast gift notice: {}", e.getMessage());
         }
     }
 

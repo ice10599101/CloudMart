@@ -1,0 +1,76 @@
+.voicePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+.voiceStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.voiceRecordingIcon {
+  color: #ff4d4f;
+  font-size: 18px;
+}
+
+.voicePreview {
+  width: 100%;
+}
+
+.doodleCanvas {
+  width: 100%;
+  border: 1px solid var(--color-border, #e8e8e8);
+  border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
+  background: #fff;
+}
+
+.doodleColorDot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  padding: 0;
+}
+
+.doodleColorDotActive {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.25);
+}
+
+.pollAddOption {
+  margin-top: 4px;
+}
+
+.pollMultipleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.surveyQuestionCard {
+  border: 1px solid var(--color-border, #e8e8e8);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.surveyQuestionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.surveyQuestionTypeRow {
+  align-items: center;
+}

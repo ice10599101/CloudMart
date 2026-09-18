@@ -1017,7 +1017,7 @@ export interface DriftBottleCandidateWish {
   tags: string[]
 }
 
-export type DriftBottleStatus = 'FLOATING' | 'PICKED'
+export type DriftBottleStatus = 'FLOATING' | 'PICKED' | 'RETURNED'
 export type DriftBottleRole = 'THROWN' | 'PICKED'
 
 export interface DriftBottleItem {
@@ -1026,6 +1026,7 @@ export interface DriftBottleItem {
   wishId: number | null
   wishTitle: string | null
   wishTags: string[]
+  /** RETURNED=被扔回海里（后端漂流瓶重设计新增，扔回后回到海面可再被捞起） */
   status: DriftBottleStatus
   role: DriftBottleRole
   thrownAt: string

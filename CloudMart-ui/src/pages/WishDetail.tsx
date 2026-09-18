@@ -37,6 +37,7 @@ import CheckinCalendar from '@/components/CheckinCalendar'
 import WateringEffect from '@/components/WateringEffect'
 import styles from './WishDetail.module.css'
 import WishBGM from '@/components/WishBGM'
+import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 
 const FRUIT_LABELS: Record<string, string> = {
@@ -607,6 +608,11 @@ export default function WishDetail() {
             onRequireLogin={gotoLogin}
             onBlessed={() => setBlessTick((t) => t + 1)}
           />
+        </Card>
+
+        {/* 全站虚拟礼物：送礼按钮 + 礼物墙 */}
+        <Card className={styles.interactionCard}>
+          <GiftSection targetType="WISH" targetId={wishId} />
         </Card>
 
         {/* 祝福墙（祝福者与被祝福者均可见，Sprint 1.2 补充） */}

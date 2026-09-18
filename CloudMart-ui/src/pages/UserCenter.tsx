@@ -1534,10 +1534,11 @@ export default function UserCenterPage() {
 
   return (
     <div className={s.userCenter}>
-      {toast && (
+      {toast && createPortal(
         <div className={`${s.toast} ${toast.type === 'success' ? s.toastSuccess : s.toastError}`}>
           {toast.message}
-        </div>
+        </div>,
+        document.body,
       )}
 
       <EditProfileModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onToast={(msg, type) => setToast({ message: msg, type })} />

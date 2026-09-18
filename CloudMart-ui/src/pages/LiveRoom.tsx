@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'umi'
+import { useParams, history } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { getLiveRoom, enterLiveRoom } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
 import WishLiveWidget from '@/components/WishLiveWidget'
 import { useAuthStore } from '@/stores/auth'
+import GiftPickerModal from '@/components/GiftPickerModal'
+import type { SendGiftResult } from '@/api/gift'
 
 interface DanmakuMessage {
   id: number
   username: string
   content: string
   timestamp: number
-  type: 'chat' | 'system' | 'like'
+  type: 'chat' | 'system' | 'like' | 'gift'
 }
 
 export default function LiveRoomPage() {
@@ -50,7 +52,7 @@ export default function LiveRoomPage() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const url = `${protocol}//${host}/ws/live/${numericRoomId}?token=${encodeURIComponent(accessToken)}`
+    const url = `${protocol}//${host}/ws/live/danmaku?roomId=${numericRoomId}&token=${encodeURIComponent(accessToken)}`
 
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -66,7 +68,12 @@ export default function LiveRoomPage() {
         const data = JSON.parse(event.data as string) as {
           type?: string
           username?: string
+          nickname?: string
           content?: string
+          senderNickname?: string
+          giftName?: string
+          count?: number
+          message?: string
           [key: string]: unknown
         }
         if (data.type === 'like') {
@@ -77,12 +84,27 @@ export default function LiveRoomPage() {
           addSystemMessage(data.content ?? '')
           return
         }
+        // 礼物特效广播（全站虚拟礼物，mall-live InternalGiftNoticeController 推送）
+        if (data.type === 'GIFT') {
+          msgIdRef.current += 1
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: msgIdRef.current,
+              username: data.senderNickname ?? '神秘人',
+              content: `送出 ${data.giftName ?? '礼物'} ×${data.count ?? 1}${data.message ? `：“${data.message}”` : ''}`,
+              timestamp: Date.now(),
+              type: 'gift',
+            },
+          ])
+          return
+        }
         msgIdRef.current += 1
         setMessages((prev) => [
           ...prev,
           {
             id: msgIdRef.current,
-            username: data.username ?? '匿名',
+            username: data.nickname ?? data.username ?? '匿名',
             content: data.content ?? '',
             timestamp: Date.now(),
             type: 'chat',
@@ -169,6 +191,22 @@ export default function LiveRoomPage() {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
     wsRef.current.send(JSON.stringify({ type: 'like' }))
     setLikes((prev) => prev + 1)
+  }
+
+  const [giftOpen, setGiftOpen] = useState(false)
+  const handleGiftSent = (result: SendGiftResult) => {
+    // 房间广播由 mall-live 推送；这里立即回显自己的送礼动效，避免 WS 未连上时无反馈
+    msgIdRef.current += 1
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: msgIdRef.current,
+        username: user?.nickname ?? user?.username ?? '我',
+        content: `送出 ${result.giftName} ×${result.count}`,
+        timestamp: Date.now(),
+        type: 'gift',
+      },
+    ])
   }
 
   if (loading) {
@@ -262,7 +300,11 @@ export default function LiveRoomPage() {
           }}>
             {messages.map((msg) => (
               <div key={msg.id} style={{ marginBottom: 4 }}>
-                {msg.type === 'system' ? (
+                {msg.type === 'gift' ? (
+                  <span style={{ color: '#FFD700', fontSize: 13, fontWeight: 600 }}>
+                    🎁 {msg.username} {msg.content}
+                  </span>
+                ) : msg.type === 'system' ? (
                   <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
                     {msg.content}
                   </span>
@@ -332,6 +374,22 @@ export default function LiveRoomPage() {
               }}
             >
               发送
+            </button>
+            <button
+              type="button"
+              onClick={() => (accessToken ? setGiftOpen(true) : history.push('/login'))}
+              aria-label="送礼物"
+              style={{
+                padding: '8px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'var(--color-border)',
+                fontSize: 16,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              🎁
             </button>
             <button
               type="button"
@@ -426,6 +484,15 @@ export default function LiveRoomPage() {
           </div>
         </div>
       </div>
+
+      <GiftPickerModal
+        open={giftOpen}
+        targetType="LIVE_ROOM"
+        targetId={numericRoomId}
+        title="送礼物给主播"
+        onClose={() => setGiftOpen(false)}
+        onSent={handleGiftSent}
+      />
     </div>
   )
 }

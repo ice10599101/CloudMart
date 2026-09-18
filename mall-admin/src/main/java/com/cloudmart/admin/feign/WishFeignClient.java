@@ -114,6 +114,31 @@ public interface WishFeignClient {
     @DeleteMapping("/bgm/{id}")
     ApiResponse<Void> deleteBgmSong(@PathVariable("id") Long id);
 
+    // ========== 礼物管理（全站虚拟礼物） ==========
+
+    @GetMapping("/gifts")
+    ApiResponse<Object> listGifts();
+
+    @PostMapping("/gifts")
+    ApiResponse<Object> createGift(@RequestBody Map<String, Object> data);
+
+    @PutMapping("/gifts/{id}")
+    ApiResponse<Object> updateGift(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    @PutMapping("/gifts/{id}/status")
+    ApiResponse<Object> updateGiftStatus(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    @DeleteMapping("/gifts/{id}")
+    ApiResponse<Void> deleteGift(@PathVariable("id") Long id);
+
+    @GetMapping("/gifts/records")
+    ApiResponse<Object> listGiftRecords(@RequestParam(value = "senderId", required = false) Long senderId,
+                                        @RequestParam(value = "receiverId", required = false) Long receiverId,
+                                        @RequestParam(value = "targetType", required = false) String targetType,
+                                        @RequestParam(value = "targetId", required = false) Long targetId,
+                                        @RequestParam(value = "page", required = false) Integer page,
+                                        @RequestParam(value = "pageSize", required = false) Integer pageSize);
+
     // ========== AI 心愿助手管理（Sprint 2.5） ==========
 
     @GetMapping("/ai/prompts")
@@ -287,6 +312,25 @@ public interface WishFeignClient {
 
     @PostMapping("/encounter/freezes/{userId}/unfreeze")
     ApiResponse<Object> unfreezeUser(@PathVariable("userId") Long userId);
+
+    // ---- 漂流瓶管理（重设计，代理 /admin/drift-bottles）----
+
+    @GetMapping("/drift-bottles")
+    ApiResponse<Object> listDriftBottles(@RequestParam(value = "userId", required = false) Long userId,
+                                         @RequestParam(value = "status", required = false) String status,
+                                         @RequestParam(value = "keyword", required = false) String keyword,
+                                         @RequestParam("page") Integer page,
+                                         @RequestParam("pageSize") Integer pageSize);
+
+    @GetMapping("/drift-bottles/dashboard")
+    ApiResponse<Object> driftBottleDashboard();
+
+    @GetMapping("/drift-bottles/{id}")
+    ApiResponse<Object> getDriftBottleDetail(@PathVariable("id") Long id);
+
+    @PutMapping("/drift-bottles/{id}/hidden")
+    ApiResponse<Object> updateDriftBottleHidden(@PathVariable("id") Long id,
+                                                @RequestBody Map<String, Object> data);
 
     // ---- 直播挂件（Sprint 3.4 管理后台，代理 /admin/live/widget）----
 

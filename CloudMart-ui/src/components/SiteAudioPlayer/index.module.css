@@ -1,0 +1,88 @@
+.player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(0, 212, 255, 0.08), rgba(114, 46, 209, 0.08));
+  border: 1px solid var(--color-border, #e8e8e8);
+  margin: 10px 0;
+  max-width: 640px;
+}
+
+.playButton {
+  border: none;
+  background: transparent;
+  font-size: 30px;
+  color: #00d4ff;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #333);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.errorText {
+  font-size: 12px;
+  color: #ff4d4f;
+}
+
+.seekBar {
+  width: 100%;
+  accent-color: #00d4ff;
+  height: 4px;
+  cursor: pointer;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-tertiary, #999);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rateButton {
+  border: none;
+  background: rgba(0, 212, 255, 0.12);
+  color: #00a6cc;
+  border-radius: 10px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.volumeBar {
+  width: 72px;
+  accent-color: #00d4ff;
+  height: 4px;
+  cursor: pointer;
+}
+
+/* 编辑器与渲染端统一音视频块外观（audio/video 原生控件宽度约束） */
+.attachmentMedia {
+  max-width: 100%;
+  margin: 10px 0;
+  border-radius: 12px;
+}

@@ -4,30 +4,53 @@ import com.cloudmart.wish.dto.BottleCommentRequest;
 import com.cloudmart.wish.dto.ThrowBottleRequest;
 import com.cloudmart.wish.vo.DriftBottleCandidateWishVO;
 import com.cloudmart.wish.vo.DriftBottleCommentVO;
+import com.cloudmart.wish.vo.DriftBottleQuotaVO;
 import com.cloudmart.wish.vo.DriftBottleVO;
 
 import java.util.List;
 
 /**
- * 漂流瓶服务：投瓶 / 捞瓶 / 我的漂流瓶 / 匿名回应 / 瓶下评论树。
+ * 漂流瓶服务：投瓶 / 捞瓶 / 扔回海里 / 收藏 / 匿名开关 / 我的漂流瓶 / 匿名回应 / 瓶下评论树。
  *
  * <p>漂流瓶匿名随机漂流（非 LBS）：投瓶人投出后进入全局海面池，捞起者随机捞取；
- * 支持实名投瓶（捞起者可见身份）与瓶下评论（默认匿名，可切换实名），
- * 评论仅投瓶人与捞起人可见、可评。</p>
+ * 投瓶人与捞瓶人各自可设置是否匿名（未设置默认匿名），双方均实名时才可互见身份并
+ * 私聊/查看资料；支持扔回海里（回到海面可再被捞起）、捞起人收藏。
+ * 每日配额：投瓶 10 个/天、打捞 20 次/天（UTC 自然日）。</p>
  */
 public interface DriftBottleService {
 
-    /** 投瓶（content 与 wishId 二选一），返回新漂流瓶（role=THROWN） */
+    /** 每日投瓶上限（个/天） */
+    int DAILY_THROW_LIMIT = 10;
+
+    /** 每日打捞上限（次/天） */
+    int DAILY_FISH_LIMIT = 20;
+
+    /** 可关联心愿候选条数（最近发布的可关联心愿） */
+    int CANDIDATE_WISH_LIMIT = 30;
+
+    /** 今日配额查询（页面展示 投瓶 X/10 · 打捞 Y/20） */
+    DriftBottleQuotaVO getQuota(Long userId);
+
+    /** 投瓶（content 与 wishId 二选一），返回新漂流瓶（role=THROWN）；每日 10 个上限 */
     DriftBottleVO throwBottle(Long userId, ThrowBottleRequest request);
 
-    /** 可关联心愿候选：我最近发布的至多 20 个可关联心愿（公开进行中），id 倒序 */
+    /** 可关联心愿候选：我最近发布的至多 30 个可关联心愿（公开进行中），id 倒序 */
     List<DriftBottleCandidateWishVO> listCandidateWishes(Long userId);
 
-    /** 捞瓶：随机捞取一个非自己的漂流瓶；海里无瓶返回 null */
+    /** 捞瓶：随机捞取一个非自己的漂流瓶（含被扔回海里的）；海里无瓶返回 null；每日 20 次上限 */
     DriftBottleVO fishBottle(Long userId);
 
-    /** 我的漂流瓶（我投出的 + 我捞到的，倒序），含评论数与实名投瓶人信息 */
+    /** 我的漂流瓶（我投出的 + 我捞到的，倒序），含评论数与双方实名身份信息 */
     List<DriftBottleVO> listMine(Long userId);
+
+    /** 扔回海里（仅捞起人，PICKED → RETURNED）：回到海面可再被捞起，收藏与捞起人清空 */
+    void returnBottle(Long userId, Long bottleId);
+
+    /** 收藏漂流瓶（仅捞起人，仅 PICKED 状态；幂等） */
+    DriftBottleVO collectBottle(Long userId, Long bottleId);
+
+    /** 捞瓶人匿名开关（仅捞起人，仅 PICKED 状态；默认匿名） */
+    DriftBottleVO updatePickerAnonymity(Long userId, Long bottleId, boolean isAnonymous);
 
     /** 匿名回应（仅捞起人可回应关联心愿漂流瓶）：BLESS 免费 / LIGHT 扣星光 2 点亮 */
     DriftBottleVO interact(Long userId, Long bottleId, String type);

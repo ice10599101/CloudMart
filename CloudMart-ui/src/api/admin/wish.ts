@@ -1008,3 +1008,158 @@ export function auditAdminWishBrand(brandId: number, status: 'APPROVED' | 'REJEC
     `/admin/wish/brand/${brandId}/audit`, undefined, { params: { status } },
   )
 }
+
+// ========== 漂流瓶管理（重设计，代理 mall-wish /admin/drift-bottles/**） ==========
+
+export interface AdminDriftBottle {
+  id: number
+  content: string | null
+  wishId: number | null
+  wishTitle: string | null
+  status: 'FLOATING' | 'PICKED' | 'RETURNED'
+  isAnonymous: boolean
+  throwerUserId: number
+  throwerNickname: string
+  pickerIsAnonymous: boolean
+  pickerUserId: number | null
+  pickerNickname: string | null
+  isCollected: boolean
+  returnCount: number
+  isHidden: boolean
+  commentCount: number
+  thrownAt: string
+  pickedAt: string | null
+}
+
+export interface AdminDriftBottleComment {
+  id: number
+  bottleId: number
+  userId: number
+  nickname: string
+  parentId: number | null
+  content: string
+  isAnonymous: boolean
+  createdAt: string
+}
+
+export interface AdminDriftBottleDetail {
+  bottle: AdminDriftBottle
+  comments: AdminDriftBottleComment[]
+}
+
+export interface AdminDriftBottleDashboard {
+  totalBottles: number
+  floatingCount: number
+  pickedCount: number
+  returnedCount: number
+  repliedCount: number
+  collectedCount: number
+  hiddenCount: number
+  todayThrowCount: number
+  todayFishCount: number
+  todayCommentCount: number
+  trend: Array<{ date: string; throwCount: number; fishCount: number }>
+  topThrowers: Array<{ userId: number; nickname: string; throwCount: number }>
+}
+
+export function listAdminDriftBottles(params: {
+  userId?: number
+  status?: 'FLOATING' | 'PICKED' | 'RETURNED'
+  keyword?: string
+  page?: number
+  pageSize?: number
+}) {
+  return request.get<ApiResponse<AdminDriftBottle[]>>('/admin/wish/drift-bottles', { params })
+}
+
+export function getAdminDriftBottleDetail(id: number) {
+  return request.get<ApiResponse<AdminDriftBottleDetail>>(`/admin/wish/drift-bottles/${id}`)
+}
+
+export function updateAdminDriftBottleHidden(id: number, isHidden: boolean) {
+  return request.put<ApiResponse<AdminDriftBottle>>(`/admin/wish/drift-bottles/${id}/hidden`, {
+    isHidden,
+  })
+}
+
+export function getAdminDriftBottleDashboard() {
+  return request.get<ApiResponse<AdminDriftBottleDashboard>>('/admin/wish/drift-bottles/dashboard')
+}
+
+
+// ========== 礼物管理（全站虚拟礼物，与 mall-wish GiftVO/GiftRecordVO 对齐） ==========
+
+export interface AdminGiftRecord {
+  id: number
+  name: string
+  iconUrl: string | null
+  animationUrl: string | null
+  priceStarlight: number
+  status: 'ON_SHELF' | 'OFF_SHELF'
+  sort: number
+  description: string | null
+}
+
+export interface AdminGiftRecordItem {
+  id: number
+  giftId: number
+  giftName: string
+  giftIconUrl: string | null
+  count: number
+  totalPrice: number
+  senderId: number
+  senderNickname: string | null
+  receiverId: number
+  receiverNickname: string | null
+  targetType: 'WISH' | 'POST' | 'LIVE_ROOM'
+  targetId: number
+  message: string | null
+  createdAt: string
+}
+
+export function getAdminGifts() {
+  return request.get<ApiResponse<AdminGiftRecord[]>>('/admin/wish/gifts')
+}
+
+export function createAdminGift(data: {
+  name: string
+  iconUrl?: string
+  animationUrl?: string
+  priceStarlight: number
+  status?: 'ON_SHELF' | 'OFF_SHELF'
+  sort?: number
+  description?: string
+}) {
+  return request.post<ApiResponse<AdminGiftRecord>>('/admin/wish/gifts', data)
+}
+
+export function updateAdminGift(id: number, data: {
+  name: string
+  iconUrl?: string
+  animationUrl?: string
+  priceStarlight: number
+  status?: 'ON_SHELF' | 'OFF_SHELF'
+  sort?: number
+  description?: string
+}) {
+  return request.put<ApiResponse<AdminGiftRecord>>(`/admin/wish/gifts/${id}`, data)
+}
+
+export function updateAdminGiftStatus(id: number, onShelf: boolean) {
+  return request.put<ApiResponse<AdminGiftRecord>>(`/admin/wish/gifts/${id}/status`, { onShelf })
+}
+
+export function deleteAdminGift(id: number) {
+  return request.delete<ApiResponse<void>>(`/admin/wish/gifts/${id}`)
+}
+
+export function getAdminGiftRecords(params: {
+  senderId?: number
+  receiverId?: number
+  targetType?: string
+  targetId?: number
+  page?: number
+  pageSize?: number
+}) {
+  return request.get<ApiResponse<AdminGiftRecordItem[]>>('/admin/wish/gifts/records', { params })
+}

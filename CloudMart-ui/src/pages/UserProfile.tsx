@@ -323,7 +323,7 @@ export default function UserProfile() {
       const { data: res } = await getCommunityProfile(id)
       const profileData = res.data
       setProfile({
-        userId: profileData.id,
+        userId: profileData.userId,
         nickname: profileData.nickname,
         avatar: profileData.avatar,
         signature: profileData.signature || '',
@@ -703,10 +703,7 @@ export default function UserProfile() {
               size={88}
               src={profile.avatar || undefined}
               fallback={profile.nickname?.charAt(0) || '?'}
-              style={{
-                border: '3px solid rgba(var(--color-primary-rgb), 0.3)',
-                boxShadow: '0 4px 24px rgba(var(--color-primary-rgb), 0.2)',
-              }}
+              style={{ boxShadow: '0 4px 24px rgba(var(--color-primary-rgb), 0.2)' }}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>

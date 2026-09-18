@@ -53,8 +53,16 @@ spring:
 #        base-path: cloudmart/
 
 file:
-  allowed-extensions: jpg,jpeg,png,gif,bmp,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp4,mp3
+  # webm/ogg/wav/m4a/aac/mov/flac：编辑器语音录制（MediaRecorder 产出 webm/ogg）与音视频上传所需
+  allowed-extensions: jpg,jpeg,png,gif,bmp,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp4,mp3,webm,ogg,wav,m4a,aac,mov,flac
   max-size: 52428800
+  # 每日上传配额：每用户每天最多成功上传 image-daily-limit 张图片，
+  # 除图片外其他所有类型合计 other-daily-limit 次；enabled=false 一键关闭（运营开关）
+  quota:
+    enabled: true
+    image-daily-limit: 30
+    other-daily-limit: 15
+    image-extensions: jpg,jpeg,png,gif,bmp,webp,svg
   # 本地存储根目录：默认相对 mall-file 工作目录上一级的 files（即项目根目录 files），可用环境变量 FILE_STORAGE_PATH 覆盖
   storage-path: ${FILE_STORAGE_PATH:../files}
   # 对外访问基址：配置后上传返回绝对 URL（如 http://129.204.152.168:8090/files/...），

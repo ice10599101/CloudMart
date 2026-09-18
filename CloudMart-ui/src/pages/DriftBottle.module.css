@@ -1,0 +1,463 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  color: var(--color-text);
+}
+
+.body {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.headerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 4px 0 0;
+}
+
+.quotaChips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quotaChip {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.sectionDesc {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+/* ===== 动画海面 ===== */
+
+.seaCard {
+  background: linear-gradient(160deg, rgba(56, 141, 214, 12%), rgba(28, 94, 156, 6%));
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.seaScene {
+  position: relative;
+  width: 100%;
+  height: 210px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #d9efff 0%, #a3d4f7 34%, #5ea6e2 68%, #3579b8 100%);
+}
+
+/* 浪花：径向渐变扇贝纹理横向平移，两层速度不同（位移取背景尺寸整数倍，保证循环无缝） */
+.wave {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 200%;
+  background-image: radial-gradient(
+    circle at 14px -10px,
+    transparent 18px,
+    rgba(255, 255, 255, 42%) 19px,
+    rgba(255, 255, 255, 42%) 20px,
+    transparent 21px
+  );
+  background-repeat: repeat-x;
+  pointer-events: none;
+}
+
+.waveBack {
+  height: 46px;
+  background-size: 56px 46px;
+  opacity: 0.55;
+  animation: wave-drift-back 8s linear infinite;
+}
+
+.waveFront {
+  height: 30px;
+  background-size: 40px 30px;
+  opacity: 0.85;
+  animation: wave-drift-front 5s linear infinite;
+}
+
+@keyframes wave-drift-back {
+  from { background-position-x: 0; }
+  to { background-position-x: -112px; }
+}
+
+@keyframes wave-drift-front {
+  from { background-position-x: 0; }
+  to { background-position-x: -80px; }
+}
+
+/* 彩色漂流瓶：外层横向漂流（left 关键帧，装饰元素数量固定可接受），
+   内层 bob 上下浮沉 + 摇摆（transform 合成层动画） */
+.seaBottle {
+  position: absolute;
+  left: -8%;
+  animation-name: bottle-sail;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: left;
+}
+
+@keyframes bottle-sail {
+  from { left: -8%; }
+  to { left: 104%; }
+}
+
+.bottleShape {
+  position: relative;
+  width: 36px;
+  height: 66px;
+  animation: bottle-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes bottle-bob {
+  0%, 100% { transform: translateY(0) rotate(-9deg); }
+  50% { transform: translateY(-11px) rotate(8deg); }
+}
+
+.bottleCork {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 11px;
+  height: 7px;
+  border-radius: 3px;
+  background: #a9745b;
+}
+
+.bottleNeck {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 13px;
+  height: 12px;
+  background: linear-gradient(180deg, var(--hue), var(--hue));
+  opacity: 0.75;
+  border: 1px solid rgba(255, 255, 255, 55%);
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+}
+
+.bottleBody {
+  position: absolute;
+  top: 17px;
+  left: 0;
+  width: 36px;
+  height: 48px;
+  border-radius: 12px 12px 17px 17px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 65%) 8%, var(--hue) 62%, var(--hue) 100%);
+  opacity: 0.88;
+  border: 1px solid rgba(255, 255, 255, 60%);
+  box-shadow: inset -4px -3px 8px rgba(0, 0, 0, 12%);
+}
+
+/* 上浮气泡 */
+.bubble {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 45%);
+  animation: bubble-rise 6s ease-in infinite;
+}
+
+.bubble1 { left: 12%; bottom: 8px; }
+.bubble2 { left: 64%; bottom: 4px; animation-delay: -2.4s; width: 7px; height: 7px; }
+.bubble3 { left: 86%; bottom: 12px; animation-delay: -4.2s; width: 12px; height: 12px; }
+
+@keyframes bubble-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  25% { opacity: 0.8; }
+  100% { transform: translateY(-150px); opacity: 0; }
+}
+
+.seaIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fishBtn {
+  min-width: 180px;
+}
+
+.fishedWrap {
+  width: 100%;
+  margin-top: 4px;
+  animation: card-in 0.45s ease-out;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.fishedTag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-gold);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+/* ===== 投瓶 ===== */
+
+.throwCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modeRadio {
+  align-self: flex-start;
+}
+
+.throwEditor,
+.throwSelect {
+  display: block;
+}
+
+.throwBtn {
+  align-self: flex-start;
+}
+
+.anonymousRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.anonymousHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== 漂流瓶卡片 ===== */
+
+.mineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mineHeader .sectionTitle {
+  margin: 0;
+}
+
+.bottleList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .bottleList {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bottleCard {
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.bottleCardHighlight {
+  background: var(--color-bg-container);
+  border: 1px dashed var(--color-accent-gold);
+}
+
+.bottleTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.bottleTopTags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bottleTime {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.content {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text);
+  margin: 8px 0;
+}
+
+.wishLink {
+  margin: 8px 0;
+}
+
+.wishLinkLabel {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-right: 6px;
+}
+
+.wishLinkTitle {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  height: auto;
+}
+
+.bottleTags {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 参与者身份行：实名可查看资料/私聊，匿名展示匿名瓶友 */
+.identityLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.identityRole {
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.identityName {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.identityNameLink {
+  cursor: pointer;
+}
+
+.pickerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.anonymitySwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anonymityHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.bottleActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.commentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.commentToggle {
+  align-self: flex-start;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.emptyText {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  padding: 24px 0;
+  margin: 0;
+}
+
+/* 减少动态效果偏好：停用装饰动画，瓶子静态分布 */
+@media (prefers-reduced-motion: reduce) {
+  .seaBottle,
+  .bottleShape,
+  .wave,
+  .bubble,
+  .fishedWrap {
+    animation: none !important;
+  }
+
+  .seaBottle:nth-child(odd) { left: 20%; }
+  .seaBottle:nth-child(even) { left: 60%; }
+}

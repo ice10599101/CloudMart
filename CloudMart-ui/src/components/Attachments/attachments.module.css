@@ -1,0 +1,129 @@
+.attachmentCard {
+  border: 1px solid var(--color-border, #e8e8e8);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  background: var(--color-bg-container, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attachmentHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attachmentHeadIcon {
+  font-size: 17px;
+  color: #00d4ff;
+}
+
+.attachmentHeadText {
+  font-weight: 600;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+.pollOptionList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pollOptionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pollOptionControl {
+  min-width: 180px;
+  flex: 0 0 auto;
+}
+
+.pollOptionResult {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.pollOptionCount {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+  white-space: nowrap;
+}
+
+.pollFooter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pollTotal {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+}
+
+.pollHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+}
+
+.surveyQuestionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--color-border, #eee);
+}
+
+.surveyQuestionRow:first-of-type {
+  border-top: none;
+}
+
+.surveyQuestionText {
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.surveyRequired {
+  color: #ff4d4f;
+  margin-left: 4px;
+}
+
+.surveyTypeLabel {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+  margin-left: 8px;
+}
+
+.surveyOptionsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 8px;
+}
+
+.surveyOptionsPreview {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-left: 8px;
+}
+
+.surveyOptionChip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.surveyOptionCount {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+}

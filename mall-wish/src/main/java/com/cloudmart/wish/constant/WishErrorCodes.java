@@ -128,4 +128,14 @@ public final class WishErrorCodes {
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";
+
+    // 全站虚拟礼物（V37）
+    /** 礼物不存在（目录中无此礼物或已软删） */
+    public static final String GIFT_NOT_FOUND = "GIFT_NOT_FOUND";
+    /** 礼物已下架（仅上架礼物可送出） */
+    public static final String GIFT_OFF_SHELF = "GIFT_OFF_SHELF";
+    /** 送礼场景对象不存在（心愿/帖子/直播间 ID 无效或已删除） */
+    public static final String GIFT_TARGET_NOT_FOUND = "GIFT_TARGET_NOT_FOUND";
+    /** 送礼场景非法（targetType 不是 WISH/POST/LIVE_ROOM） */
+    public static final String GIFT_TARGET_TYPE_INVALID = "GIFT_TARGET_TYPE_INVALID";
 }

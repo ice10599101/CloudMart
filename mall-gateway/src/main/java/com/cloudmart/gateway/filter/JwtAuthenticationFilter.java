@@ -89,6 +89,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/community/topics",
             "/api/community/tags",
             "/api/community/search",
+            // 编辑器附件（投票/问卷）：匿名可查看内容中的投票与问卷，提交仍需登录
+            "/api/community/polls",
+            "/api/community/surveys",
             "/api/wish/wishes",
             "/api/wish/categories",
             "/api/wish/home",

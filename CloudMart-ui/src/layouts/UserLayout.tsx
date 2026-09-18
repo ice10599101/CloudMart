@@ -588,7 +588,7 @@ export default function UserLayout() {
                   fallback={<UserOutlined />}
                   style={{
                     cursor: 'pointer',
-                    border: `2px solid ${avatarHovered ? tokens.colorPrimary : tokens.colorBorder}`,
+                    boxShadow: avatarHovered ? `0 0 0 2px ${tokens.colorPrimary}` : 'none',
                   }}
                 />
               </span>

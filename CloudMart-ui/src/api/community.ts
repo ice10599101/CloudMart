@@ -80,7 +80,7 @@ export interface HotTopic {
 export type CollectionPostItem = Post & { collectedAt?: string }
 
 export interface UserProfile {
-  id: number
+  userId: number
   nickname: string
   avatar: string
   signature: string

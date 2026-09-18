@@ -20,9 +20,6 @@ import {
   BoldOutlined,
   ItalicOutlined,
   UnderlineOutlined,
-  StrikethroughOutlined,
-  OrderedListOutlined,
-  UnorderedListOutlined,
   AlignLeftOutlined,
   AlignCenterOutlined,
   AlignRightOutlined,
@@ -30,33 +27,54 @@ import {
   LinkOutlined,
   PictureOutlined,
   HighlightOutlined,
-  UndoOutlined,
-  RedoOutlined,
   FontSizeOutlined,
   ClearOutlined,
-  TableOutlined,
-  VerticalAlignTopOutlined,
-  VerticalAlignBottomOutlined,
-  CodeOutlined,
-  MessageOutlined,
-  MinusOutlined,
   FontColorsOutlined,
-  BugOutlined,
   UploadOutlined,
   LoadingOutlined,
+  AudioOutlined,
+  PlayCircleOutlined,
+  CustomerServiceOutlined,
+  EditOutlined,
+  BarChartOutlined,
+  SurveyOutlined,
 } from '@ant-design/icons'
-import { Tooltip, Input, Modal, Popover, InputNumber } from 'antd'
+import { Tooltip, Input, Modal, Popover, InputNumber, Segmented } from 'antd'
 import { message } from '@/utils/appMessage'
 import { uploadFile } from '@/api/file'
 import { FontSize } from './extensions/fontSize'
 import { FontFamily } from './extensions/fontFamily'
+import { MediaAudio } from './extensions/mediaAudio'
+import { MediaVideo } from './extensions/mediaVideo'
+import { PollAttachment } from './extensions/pollNode'
+import { SurveyAttachment } from './extensions/surveyNode'
+import type { PollConfig } from './extensions/pollNode'
+import type { SurveyConfig } from './extensions/surveyNode'
+import VoiceRecorderModal from './modals/VoiceRecorderModal'
+import DoodleModal from './modals/DoodleModal'
+import PollConfigModal from './modals/PollConfigModal'
+import SurveyConfigModal from './modals/SurveyConfigModal'
 import styles from './style.module.css'
+
+/**
+ * 全站统一富文本编辑器（TipTap）。
+ *
+ * <p>工具栏按站点内容规范裁剪：删除线/上下标/行内代码/标题/列表/表格/
+ * 引用块/代码块/分割线/撤销重做按钮已移除（对应扩展仍加载，保证历史内容
+ * 编辑时不会被解析丢弃——数据完整性优先）。新增：语音、音视频上传（≤50MB）、
+ * 音视频外链（本站播放器）、涂鸦、投票、问卷。</p>
+ */
 
 interface TiptapEditorProps {
   value?: string
   onChange?: (value: string) => void
   placeholder?: string
 }
+
+/** 音视频上传大小上限（与 mall-file file.max-size 一致） */
+const MAX_MEDIA_BYTES = 50 * 1024 * 1024
+
+type MediaUrlKind = 'audio' | 'video'
 
 function ColorPickerPanel({
   currentColor,
@@ -130,19 +148,47 @@ function ToolbarButton({
   )
 }
 
+function detectMediaKind(url: string): MediaUrlKind | null {
+  const clean = url.split('?')[0].toLowerCase()
+  if (/\.(mp3|m4a|aac|wav|ogg|oga|flac|webm)(\s*)$/.test(clean)) {
+    // webm 既可音频也可视频：默认按音频处理，用户可在选择器改视频
+    return 'audio'
+  }
+  if (/\.(mp4|mov|avi|mkv|m4v|ogv)$/.test(clean)) return 'video'
+  return null
+}
+
+/** 生成投票/问卷客户端 UUID（发布时作为后端主键幂等落库） */
+function newAttachmentId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `att-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
+
 export default function TiptapEditor({ value, onChange, placeholder }: TiptapEditorProps) {
   const [fontSizeValue, setFontSizeValue] = useState<number>(14)
   const [fontSizeInputVisible, setFontSizeInputVisible] = useState(false)
   const [fontColorVisible, setFontColorVisible] = useState(false)
   const [highlightColorVisible, setHighlightColorVisible] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [showFontPanel, setShowFontPanel] = useState(false)
   const [fontFamilyValue, setFontFamilyValue] = useState('')
+  const [voiceOpen, setVoiceOpen] = useState(false)
+  const [doodleOpen, setDoodleOpen] = useState(false)
+  const [pollOpen, setPollOpen] = useState(false)
+  const [surveyOpen, setSurveyOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
   const linkInputRef = useRef<string>('')
+  const mediaUrlInputRef = useRef<string>('')
+  const mediaKindRef = useRef<MediaUrlKind>('audio')
 
   const editor = useEditor({
     extensions: [
+      // StarterKit 中 heading/blockquote/list/table/codeBlock 等扩展保留：
+      // 历史内容（含标题/表格/引用的旧帖）再次编辑时不会被解析丢弃（数据完整性优先），
+      // 仅按内容规范移除了对应工具栏入口
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         blockquote: {},
@@ -165,6 +211,10 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
       TableHeader,
       FontSize,
       FontFamily,
+      MediaAudio,
+      MediaVideo,
+      PollAttachment,
+      SurveyAttachment,
     ],
     content: value ?? '',
     onUpdate: ({ editor: e }) => {
@@ -195,6 +245,44 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
   const handleLocalImageUpload = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
+
+  const handleMediaUpload = useCallback(() => {
+    mediaInputRef.current?.click()
+  }, [])
+
+  const insertUploadedMedia = useCallback((url: string, kind: MediaUrlKind, title?: string) => {
+    if (!editor) return
+    if (kind === 'audio') {
+      editor.chain().focus().setMediaAudio({ src: url, title }).run()
+    } else {
+      editor.chain().focus().setMediaVideo({ src: url, title }).run()
+    }
+  }, [editor])
+
+  const handleMediaFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editor) return
+    e.target.value = ''
+    if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
+      message.error('仅支持音频或视频文件')
+      return
+    }
+    if (file.size > MAX_MEDIA_BYTES) {
+      message.error(`文件 ${(file.size / 1024 / 1024).toFixed(1)} MB 超过 50MB 上限`)
+      return
+    }
+    setIsMediaUploading(true)
+    try {
+      const { data: response } = await uploadFile(file)
+      if (response.data?.url) {
+        insertUploadedMedia(response.data.url, file.type.startsWith('audio/') ? 'audio' : 'video', file.name)
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '上传失败，请重试')
+    } finally {
+      setIsMediaUploading(false)
+    }
+  }, [editor, insertUploadedMedia])
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -238,6 +326,58 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
         }
       },
     })
+  }, [editor])
+
+  const addMediaByUrl = useCallback(() => {
+    if (!editor) return
+    mediaUrlInputRef.current = ''
+    mediaKindRef.current = 'audio'
+    Modal.confirm({
+      title: '插入音乐 / 视频',
+      content: (
+        <div>
+          <Input
+            placeholder="粘贴音频或视频链接（mp3/mp4 等，本站播放器播放）"
+            onChange={(e) => {
+              mediaUrlInputRef.current = e.target.value
+              const detected = detectMediaKind(e.target.value)
+              if (detected) mediaKindRef.current = detected
+            }}
+          />
+          <div style={{ marginTop: 12 }}>
+            <Segmented
+              defaultValue="audio"
+              options={[
+                { label: '音乐', value: 'audio' },
+                { label: '视频', value: 'video' },
+              ]}
+              onChange={(value) => { mediaKindRef.current = value as MediaUrlKind }}
+            />
+          </div>
+        </div>
+      ),
+      okText: '插入',
+      cancelText: '取消',
+      onOk: () => {
+        const url = mediaUrlInputRef.current.trim()
+        if (!url) return
+        if (!/^https?:\/\//i.test(url) && !url.startsWith('/')) {
+          message.error('请输入有效的链接地址')
+          return
+        }
+        insertUploadedMedia(url, mediaKindRef.current)
+      },
+    })
+  }, [editor, insertUploadedMedia])
+
+  const handlePollSubmit = useCallback((config: PollConfig) => {
+    if (!editor) return
+    editor.chain().focus().insertPollAttachment({ pollId: newAttachmentId(), config }).run()
+  }, [editor])
+
+  const handleSurveySubmit = useCallback((config: SurveyConfig) => {
+    if (!editor) return
+    editor.chain().focus().insertSurveyAttachment({ surveyId: newAttachmentId(), config }).run()
   }, [editor])
 
   const addLink = useCallback(() => {
@@ -305,6 +445,13 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
+      <input
+        ref={mediaInputRef}
+        type="file"
+        accept="audio/*,video/*"
+        style={{ display: 'none' }}
+        onChange={handleMediaFileChange}
+      />
       <div className={styles.toolbar}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -323,30 +470,6 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
           isActive={editor.isActive('underline')}
           icon={<UnderlineOutlined />}
           title="下划线 (Ctrl+U)"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          isActive={editor.isActive('strike')}
-          icon={<StrikethroughOutlined />}
-          title="删除线"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleSuperscript().run()}
-          isActive={editor.isActive('superscript')}
-          icon={<VerticalAlignTopOutlined />}
-          title="上标"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleSubscript().run()}
-          isActive={editor.isActive('subscript')}
-          icon={<VerticalAlignBottomOutlined />}
-          title="下标"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          isActive={editor.isActive('code')}
-          icon={<CodeOutlined />}
-          title="行内代码"
         />
         <ToolbarButton
           onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
@@ -532,54 +655,6 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
         <span className={styles.divider} />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          isActive={editor.isActive('heading', { level: 1 })}
-          icon={<span className={styles.headingLabel}>H1</span>}
-          title="标题1"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive('heading', { level: 2 })}
-          icon={<span className={styles.headingLabel}>H2</span>}
-          title="标题2"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          isActive={editor.isActive('heading', { level: 3 })}
-          icon={<span className={styles.headingLabel}>H3</span>}
-          title="标题3"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
-          isActive={editor.isActive('heading', { level: 4 })}
-          icon={<span className={styles.headingLabel}>H4</span>}
-          title="标题4"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setParagraph().run()}
-          isActive={editor.isActive('paragraph') && !editor.isActive('heading')}
-          icon={<span className={styles.headingLabel}>P</span>}
-          title="正文段落"
-        />
-
-        <span className={styles.divider} />
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          isActive={editor.isActive('bulletList')}
-          icon={<UnorderedListOutlined />}
-          title="无序列表"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          isActive={editor.isActive('orderedList')}
-          icon={<OrderedListOutlined />}
-          title="有序列表"
-        />
-
-        <span className={styles.divider} />
-
-        <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign('left').run()}
           isActive={editor.isActive({ textAlign: 'left' })}
           icon={<AlignLeftOutlined />}
@@ -623,105 +698,63 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
           icon={<PictureOutlined />}
           title="URL插入图片"
         />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          icon={<TableOutlined />}
-          title="插入表格"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          isActive={editor.isActive('blockquote')}
-          icon={<MessageOutlined />}
-          title="引用块"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          isActive={editor.isActive('codeBlock')}
-          icon={<BugOutlined />}
-          title="代码块"
-        />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          icon={<MinusOutlined />}
-          title="分割线"
-        />
 
         <span className={styles.divider} />
 
-        {editor.isActive('table') && (
-          <>
-            <ToolbarButton
-              onClick={() => editor.chain().focus().addColumnBefore().run()}
-              icon={<span className={styles.headingLabel}>+Col←</span>}
-              title="左侧插入列"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().addColumnAfter().run()}
-              icon={<span className={styles.headingLabel}>+Col→</span>}
-              title="右侧插入列"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().deleteColumn().run()}
-              icon={<span className={styles.headingLabel}>-Col</span>}
-              title="删除列"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().addRowBefore().run()}
-              icon={<span className={styles.headingLabel}>+Row↑</span>}
-              title="上方插入行"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().addRowAfter().run()}
-              icon={<span className={styles.headingLabel}>+Row↓</span>}
-              title="下方插入行"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().deleteRow().run()}
-              icon={<span className={styles.headingLabel}>-Row</span>}
-              title="删除行"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().mergeCells().run()}
-              icon={<span className={styles.headingLabel}>Merge</span>}
-              title="合并单元格"
-            />
-            <ToolbarButton
-              onClick={() => editor.chain().focus().splitCell().run()}
-              icon={<span className={styles.headingLabel}>Split</span>}
-              title="拆分单元格"
-            />
-            <ToolbarButton
-              onClick={() => {
-                Modal.confirm({
-                  title: '删除表格',
-                  content: '确定要删除整个表格吗？此操作不可撤销。',
-                  okText: '确认删除',
-                  okButtonProps: { danger: true },
-                  cancelText: '取消',
-                  onOk: () => editor.chain().focus().deleteTable().run(),
-                })
-              }}
-              icon={<span className={styles.headingLabel} style={{ color: 'var(--color-accent-red)' }}>DelTbl</span>}
-              title="删除表格"
-            />
-            <span className={styles.divider} />
-          </>
-        )}
-
         <ToolbarButton
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          icon={<UndoOutlined />}
-          title="撤销 (Ctrl+Z)"
+          onClick={() => setVoiceOpen(true)}
+          icon={<AudioOutlined />}
+          title="录制语音"
         />
         <ToolbarButton
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          icon={<RedoOutlined />}
-          title="重做 (Ctrl+Y)"
+          onClick={handleMediaUpload}
+          disabled={isMediaUploading}
+          icon={isMediaUploading ? <LoadingOutlined /> : <CustomerServiceOutlined />}
+          title={isMediaUploading ? '上传中...' : '上传视频 / 音乐（50M以内）'}
+        />
+        <ToolbarButton
+          onClick={addMediaByUrl}
+          icon={<PlayCircleOutlined />}
+          title="插入音乐 / 视频链接"
+        />
+        <ToolbarButton
+          onClick={() => setDoodleOpen(true)}
+          icon={<EditOutlined />}
+          title="涂鸦"
+        />
+        <ToolbarButton
+          onClick={() => setPollOpen(true)}
+          icon={<BarChartOutlined />}
+          title="发起投票"
+        />
+        <ToolbarButton
+          onClick={() => setSurveyOpen(true)}
+          icon={<SurveyOutlined />}
+          title="发起问卷"
         />
       </div>
       <EditorContent editor={editor} className={styles.content} />
+
+      <VoiceRecorderModal
+        open={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        onUploaded={(url) => insertUploadedMedia(url, 'audio', '语音')}
+      />
+      <DoodleModal
+        open={doodleOpen}
+        onClose={() => setDoodleOpen(false)}
+        onUploaded={(url) => editor.chain().focus().setImage({ src: url, alt: '涂鸦' }).run()}
+      />
+      <PollConfigModal
+        open={pollOpen}
+        onClose={() => setPollOpen(false)}
+        onSubmit={handlePollSubmit}
+      />
+      <SurveyConfigModal
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        onSubmit={handleSurveySubmit}
+      />
     </div>
   )
 }

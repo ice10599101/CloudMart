@@ -634,4 +634,89 @@ public class AdminWishController {
                                                        @RequestParam boolean visible) {
         return wishFeignClient.toggleLiveWidgetVisible(streamerId, visible);
     }
+
+    // ---- 漂流瓶管理（重设计）----
+
+    @GetMapping("/wish/drift-bottles")
+    @RequiresPermission("business:driftBottle:list")
+    @Operation(summary = "漂流瓶列表", description = "物理状态/用户（投瓶人或捞瓶人）/关键词筛选，offset 分页；真实身份治理溯源")
+    public ApiResponse<Object> listDriftBottles(@RequestParam(required = false) Long userId,
+                                                @RequestParam(required = false) String status,
+                                                @RequestParam(required = false) String keyword,
+                                                @RequestParam Integer page,
+                                                @RequestParam Integer pageSize) {
+        return wishFeignClient.listDriftBottles(userId, status, keyword, page, pageSize);
+    }
+
+    @GetMapping("/wish/drift-bottles/dashboard")
+    @RequiresPermission("business:driftBottle:list")
+    @Operation(summary = "漂流瓶数据看板", description = "状态分布/今日活动/近 14 天趋势/投瓶榜 Top10")
+    public ApiResponse<Object> driftBottleDashboard() {
+        return wishFeignClient.driftBottleDashboard();
+    }
+
+    @GetMapping("/wish/drift-bottles/{id}")
+    @RequiresPermission("business:driftBottle:query")
+    @Operation(summary = "漂流瓶详情", description = "含瓶下评论全量与评论者真实用户 ID（审核溯源）")
+    public ApiResponse<Object> getDriftBottleDetail(@PathVariable Long id) {
+        return wishFeignClient.getDriftBottleDetail(id);
+    }
+
+    @PutMapping("/wish/drift-bottles/{id}/hidden")
+    @OperLog(title = "漂流瓶下架恢复", businessType = 2)
+    @RequiresPermission("business:driftBottle:edit")
+    @Operation(summary = "下架/恢复漂流瓶", description = "软隐藏：下架后用户端不可见，数据保留")
+    public ApiResponse<Object> updateDriftBottleHidden(@PathVariable Long id,
+                                                       @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateDriftBottleHidden(id, data);
+    }
+
+    // ========== 礼物管理（全站虚拟礼物） ==========
+
+    @GetMapping("/wish/gifts")
+    @RequiresPermission("business:gift:list")
+    @Operation(summary = "礼物目录列表", description = "含下架礼物，sort 升序")
+    public ApiResponse<Object> listGifts() {
+        return wishFeignClient.listGifts();
+    }
+
+    @PostMapping("/wish/gifts")
+    @RequiresPermission("business:gift:add")
+    @Operation(summary = "新增礼物", description = "图标经 mall-file 上传后登记 URL")
+    public ApiResponse<Object> createGift(@RequestBody Map<String, Object> data) {
+        return wishFeignClient.createGift(data);
+    }
+
+    @PutMapping("/wish/gifts/{id}")
+    @RequiresPermission("business:gift:edit")
+    @Operation(summary = "编辑礼物", description = "名称/图标/动效/单价/排序/描述")
+    public ApiResponse<Object> updateGift(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateGift(id, data);
+    }
+
+    @PutMapping("/wish/gifts/{id}/status")
+    @RequiresPermission("business:gift:edit")
+    @Operation(summary = "上架/下架礼物", description = "仅上架礼物对用户端可见")
+    public ApiResponse<Object> updateGiftStatus(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        return wishFeignClient.updateGiftStatus(id, data);
+    }
+
+    @DeleteMapping("/wish/gifts/{id}")
+    @RequiresPermission("business:gift:delete")
+    @Operation(summary = "删除礼物", description = "软删（保留审计轨迹）")
+    public ApiResponse<Void> deleteGift(@PathVariable Long id) {
+        return wishFeignClient.deleteGift(id);
+    }
+
+    @GetMapping("/wish/gifts/records")
+    @RequiresPermission("business:gift:list")
+    @Operation(summary = "送礼记录列表", description = "可按送礼人/收礼人/场景组合筛选，cursor 分页")
+    public ApiResponse<Object> listGiftRecords(@RequestParam(value = "senderId", required = false) Long senderId,
+                                               @RequestParam(value = "receiverId", required = false) Long receiverId,
+                                               @RequestParam(value = "targetType", required = false) String targetType,
+                                               @RequestParam(value = "targetId", required = false) Long targetId,
+                                               @RequestParam(value = "page", required = false) Integer page,
+                                               @RequestParam(value = "pageSize", required = false) Integer pageSize) {
+        return wishFeignClient.listGiftRecords(senderId, receiverId, targetType, targetId, page, pageSize);
+    }
 }

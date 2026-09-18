@@ -13,7 +13,7 @@ import {
   TeamOutlined,
   TrophyOutlined,
   EnvironmentOutlined,
-  MailOutlined,
+  SendOutlined,
   FlagOutlined,
   BellOutlined,
   CalendarOutlined,
@@ -226,10 +226,10 @@ export default function WishHome() {
               <Card
                   hoverable
                   className={styles.entryCard}
-                  onClick={() => history.push('/wish/encounters')}
+                  onClick={() => history.push('/wish/drift-bottle')}
               >
-                <MailOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
-                <div className={styles.entryText}>相遇信笺</div>
+                <SendOutlined className={styles.entryIcon} style={{ color: '#FFD700' }} />
+                <div className={styles.entryText}>漂流瓶</div>
               </Card>
             </Col>
             <Col xs={12} md={6}>

@@ -25,5 +25,7 @@ public enum ResourceLogSource {
     /** 活动奖励（Sprint 3.5） */
     ACTIVITY_REWARD,
     /** 连续签到里程碑奖励（7/14/30 天手动领取） */
-    SIGNIN_MILESTONE
+    SIGNIN_MILESTONE,
+    /** 送礼物消耗（全站虚拟礼物，V37） */
+    GIFT_SEND
 }

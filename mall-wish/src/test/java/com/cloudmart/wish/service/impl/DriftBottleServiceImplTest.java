@@ -9,6 +9,7 @@ import com.cloudmart.wish.dto.BottleCommentRequest;
 import com.cloudmart.wish.dto.ThrowBottleRequest;
 import com.cloudmart.wish.entity.DriftBottle;
 import com.cloudmart.wish.entity.DriftBottleComment;
+import com.cloudmart.wish.entity.DriftBottleFishLog;
 import com.cloudmart.wish.entity.DriftBottleInteraction;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.enums.AuditStatus;
@@ -19,6 +20,7 @@ import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.mq.EncounterEventProducer;
 import com.cloudmart.wish.repository.DriftBottleCommentMapper;
+import com.cloudmart.wish.repository.DriftBottleFishLogMapper;
 import com.cloudmart.wish.repository.DriftBottleInteractionMapper;
 import com.cloudmart.wish.repository.DriftBottleMapper;
 import com.cloudmart.wish.repository.WishMapper;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -56,6 +59,8 @@ class DriftBottleServiceImplTest {
 
     @Mock
     private DriftBottleMapper bottleMapper;
+    @Mock
+    private DriftBottleFishLogMapper fishLogMapper;
     @Mock
     private DriftBottleInteractionMapper interactionMapper;
     @Mock
@@ -80,6 +85,7 @@ class DriftBottleServiceImplTest {
     static void initEntityMeta() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, DriftBottle.class);
+        TableInfoHelper.initTableInfo(assistant, DriftBottleFishLog.class);
         TableInfoHelper.initTableInfo(assistant, DriftBottleInteraction.class);
         TableInfoHelper.initTableInfo(assistant, DriftBottleComment.class);
         TableInfoHelper.initTableInfo(assistant, Wish.class);
@@ -88,7 +94,7 @@ class DriftBottleServiceImplTest {
     @BeforeEach
     void setUp() {
         driftBottleService = new DriftBottleServiceImpl(
-                bottleMapper, interactionMapper, commentMapper, wishMapper,
+                bottleMapper, fishLogMapper, interactionMapper, commentMapper, wishMapper,
                 userStatService, encounterEventProducer, userFeignClient);
     }
 
@@ -104,6 +110,9 @@ class DriftBottleServiceImplTest {
         bottle.setPickerUserId(pickerUserId);
         bottle.setThrownAt(LocalDateTime.now().minusHours(1));
         bottle.setPickedAt(status == DriftBottleStatus.PICKED ? LocalDateTime.now() : null);
+        bottle.setIsCollected(false);
+        bottle.setReturnCount(0);
+        bottle.setIsHidden(false);
         return bottle;
     }
 
@@ -142,6 +151,27 @@ class DriftBottleServiceImplTest {
         return user;
     }
 
+    // ========== getQuota ==========
+
+    @Nested
+    @DisplayName("getQuota - 每日配额查询")
+    class QuotaQueryTests {
+
+        @Test
+        @DisplayName("返回投瓶/打捞计数与上限")
+        void getQuota_success() {
+            when(bottleMapper.selectCount(any())).thenReturn(3L);
+            when(fishLogMapper.selectCount(any())).thenReturn(7L);
+
+            var quota = driftBottleService.getQuota(USER_ID);
+
+            assertThat(quota.throwUsed()).isEqualTo(3L);
+            assertThat(quota.throwLimit()).isEqualTo(10);
+            assertThat(quota.fishUsed()).isEqualTo(7L);
+            assertThat(quota.fishLimit()).isEqualTo(20);
+        }
+    }
+
     // ========== throwBottle ==========
 
     @Nested
@@ -170,8 +200,22 @@ class DriftBottleServiceImplTest {
         }
 
         @Test
+        @DisplayName("今日投瓶已达 10 个上限 → WISH_RATE_LIMITED")
+        void throwBottle_dailyQuotaExceeded_429() {
+            when(bottleMapper.selectCount(any())).thenReturn(10L);
+
+            assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
+                    new ThrowBottleRequest("匿名文字", null, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_RATE_LIMITED);
+            verify(bottleMapper, never()).insert(any(DriftBottle.class));
+        }
+
+        @Test
         @DisplayName("自由文字投瓶成功：role=THROWN、status=FLOATING、无 wish 快照")
         void throwBottle_freeText_success() {
+            when(bottleMapper.selectCount(any())).thenReturn(0L);
             when(bottleMapper.insert(any(DriftBottle.class))).thenAnswer(inv -> {
                 inv.getArgument(0, DriftBottle.class).setId(BOTTLE_ID);
                 return 1;
@@ -191,6 +235,7 @@ class DriftBottleServiceImplTest {
         @Test
         @DisplayName("关联心愿非本人/非公开/非进行中 → WISH_VALIDATION_ERROR")
         void throwBottle_wishNotApplicable_rejected() {
+            when(bottleMapper.selectCount(any())).thenReturn(0L);
             when(wishMapper.selectById(WISH_ID)).thenReturn(
                     buildPublicWish(OTHER_USER_ID));
 
@@ -205,6 +250,7 @@ class DriftBottleServiceImplTest {
         @Test
         @DisplayName("关联本人公开心愿投瓶成功：快照 wishTitle/wishTags")
         void throwBottle_wishLinked_success() {
+            when(bottleMapper.selectCount(any())).thenReturn(0L);
             when(wishMapper.selectById(WISH_ID)).thenReturn(buildPublicWish(USER_ID));
             when(bottleMapper.insert(any(DriftBottle.class))).thenAnswer(inv -> {
                 inv.getArgument(0, DriftBottle.class).setId(BOTTLE_ID);
@@ -224,7 +270,7 @@ class DriftBottleServiceImplTest {
     // ========== listCandidateWishes ==========
 
     @Nested
-    @DisplayName("listCandidateWishes - 可关联心愿候选")
+    @DisplayName("listCandidateWishes - 可关联心愿候选（近 30 条）")
     class CandidateWishesTests {
 
         @Test
@@ -277,7 +323,19 @@ class DriftBottleServiceImplTest {
         }
 
         @Test
-        @DisplayName("捞瓶成功：乐观更新命中 → role=PICKED")
+        @DisplayName("今日打捞已达 20 次上限 → WISH_RATE_LIMITED")
+        void fishBottle_dailyQuotaExceeded_429() {
+            when(fishLogMapper.selectCount(any())).thenReturn(20L);
+
+            assertThatThrownBy(() -> driftBottleService.fishBottle(USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_RATE_LIMITED);
+            verify(bottleMapper, never()).selectList(any());
+        }
+
+        @Test
+        @DisplayName("捞瓶成功：乐观更新命中 → role=PICKED，打捞流水落库")
         void fishBottle_success() {
             when(bottleMapper.selectList(any()))
                     .thenReturn(List.of(buildBottle(DriftBottleStatus.FLOATING, null, WISH_ID)));
@@ -288,6 +346,10 @@ class DriftBottleServiceImplTest {
             assertThat(vo).isNotNull();
             assertThat(vo.role()).isEqualTo("PICKED");
             assertThat(vo.status()).isEqualTo("PICKED");
+            ArgumentCaptor<DriftBottleFishLog> logCaptor = ArgumentCaptor.forClass(DriftBottleFishLog.class);
+            verify(fishLogMapper).insert(logCaptor.capture());
+            assertThat(logCaptor.getValue().getBottleId()).isEqualTo(BOTTLE_ID);
+            assertThat(logCaptor.getValue().getUserId()).isEqualTo(USER_ID);
         }
 
         @Test
@@ -342,6 +404,145 @@ class DriftBottleServiceImplTest {
             assertThat(result).extracting("role").containsExactly("PICKED", "THROWN");
             assertThat(result.get(0).bottleId()).isEqualTo(20L);
             assertThat(result.get(1).bottleId()).isEqualTo(10L);
+        }
+    }
+
+    // ========== returnBottle ==========
+
+    @Nested
+    @DisplayName("returnBottle - 扔回海里")
+    class ReturnBottleTests {
+
+        @Test
+        @DisplayName("投瓶人（参与者但非捞起人）扔回海里 → WISH_FORBIDDEN")
+        void returnBottle_notPicker_forbidden() {
+            DriftBottle bottle = buildBottle(DriftBottleStatus.PICKED, OTHER_USER_ID, WISH_ID);
+            bottle.setThrowerUserId(USER_ID);
+            when(bottleMapper.selectById(BOTTLE_ID)).thenReturn(bottle);
+
+            assertThatThrownBy(() -> driftBottleService.returnBottle(USER_ID, BOTTLE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_FORBIDDEN);
+            verify(bottleMapper, never()).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("非 PICKED 状态（已扔回海里）→ WISH_STATUS_CONFLICT")
+        void returnBottle_notPicked_conflict() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.RETURNED, USER_ID, WISH_ID));
+
+            assertThatThrownBy(() -> driftBottleService.returnBottle(USER_ID, BOTTLE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+
+        @Test
+        @DisplayName("扔回海里成功：条件更新命中（RETURNED + 清捞起人 + 回流次数+1）")
+        void returnBottle_success() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(bottleMapper.update(isNull(), any())).thenReturn(1);
+
+            assertThatCode(() -> driftBottleService.returnBottle(USER_ID, BOTTLE_ID))
+                    .doesNotThrowAnyException();
+            verify(bottleMapper).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("并发下条件更新未命中 → WISH_STATUS_CONFLICT")
+        void returnBottle_casMiss_conflict() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(bottleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> driftBottleService.returnBottle(USER_ID, BOTTLE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+    }
+
+    // ========== collectBottle / updatePickerAnonymity ==========
+
+    @Nested
+    @DisplayName("collectBottle / updatePickerAnonymity - 收藏与捞瓶匿名开关")
+    class PickerActionTests {
+
+        @Test
+        @DisplayName("投瓶人（参与者但非捞起人）收藏 → WISH_FORBIDDEN")
+        void collectBottle_notPicker_forbidden() {
+            DriftBottle bottle = buildBottle(DriftBottleStatus.PICKED, OTHER_USER_ID, WISH_ID);
+            bottle.setThrowerUserId(USER_ID);
+            when(bottleMapper.selectById(BOTTLE_ID)).thenReturn(bottle);
+
+            assertThatThrownBy(() -> driftBottleService.collectBottle(USER_ID, BOTTLE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("收藏成功：isCollected 置 true（幂等：重复收藏也返回现状）")
+        void collectBottle_success() {
+            when(bottleMapper.selectById(BOTTLE_ID))
+                    .thenReturn(buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID));
+            when(bottleMapper.update(isNull(), any())).thenReturn(1);
+
+            var vo = driftBottleService.collectBottle(USER_ID, BOTTLE_ID);
+
+            assertThat(vo.isCollected()).isTrue();
+            assertThat(vo.role()).isEqualTo("PICKED");
+        }
+
+        @Test
+        @DisplayName("投瓶人（参与者但非捞起人）切换匿名 → WISH_FORBIDDEN")
+        void updatePickerAnonymity_notPicker_forbidden() {
+            DriftBottle bottle = buildBottle(DriftBottleStatus.PICKED, OTHER_USER_ID, WISH_ID);
+            bottle.setThrowerUserId(USER_ID);
+            when(bottleMapper.selectById(BOTTLE_ID)).thenReturn(bottle);
+
+            assertThatThrownBy(() -> driftBottleService.updatePickerAnonymity(USER_ID, BOTTLE_ID, false))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("切实名成功：VO 透出捞瓶人身份（pickerUserId 非空）")
+        void updatePickerAnonymity_realName_exposesPicker() {
+            DriftBottle bottle = buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID);
+            bottle.setThrowerUserId(OTHER_USER_ID);
+            when(bottleMapper.selectById(BOTTLE_ID)).thenReturn(bottle);
+            when(bottleMapper.update(isNull(), any())).thenReturn(1);
+            when(userFeignClient.batchGetUsers(any()))
+                    .thenReturn(ApiResponse.ok(List.of(buildUserMap(USER_ID, "捞瓶旅人"))));
+
+            var vo = driftBottleService.updatePickerAnonymity(USER_ID, BOTTLE_ID, false);
+
+            assertThat(vo.pickerIsAnonymous()).isFalse();
+            assertThat(vo.pickerUserId()).isEqualTo(USER_ID);
+            assertThat(vo.pickerNickname()).isEqualTo("捞瓶旅人");
+        }
+
+        @Test
+        @DisplayName("匿名捞瓶：listMine 中 VO 不透出捞瓶人身份（pickerUserId 为 null，无 Feign 查询）")
+        void pickerAnonymous_maskedInListMine() {
+            DriftBottle bottle = buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID);
+            bottle.setThrowerUserId(OTHER_USER_ID);
+            bottle.setPickerIsAnonymous(true);
+            when(bottleMapper.selectList(any()))
+                    .thenReturn(List.of(), List.of(bottle));
+
+            var result = driftBottleService.listMine(USER_ID);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).pickerIsAnonymous()).isTrue();
+            assertThat(result.get(0).pickerUserId()).isNull();
+            assertThat(result.get(0).pickerNickname()).isNull();
+            verify(userFeignClient, never()).batchGetUsers(any());
         }
     }
 

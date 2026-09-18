@@ -37,6 +37,18 @@ public class DriftBottle {
     /** 投瓶是否匿名（true 匿名隐藏身份 / false 实名，捞起者可见投瓶人身份） */
     private Boolean isAnonymous;
 
+    /** 捞瓶人是否匿名（true 匿名 / false 实名，实名时投瓶人可见捞瓶人身份） */
+    private Boolean pickerIsAnonymous;
+
+    /** 捞起人是否已收藏该瓶（扔回海里时重置） */
+    private Boolean isCollected;
+
+    /** 被扔回海里次数 */
+    private Integer returnCount;
+
+    /** 管理端下架（true 用户端不可见，数据保留） */
+    private Boolean isHidden;
+
     /** 关联心愿 ID（与 content 二选一） */
     private Long wishId;
 

@@ -9,6 +9,7 @@ import com.cloudmart.wish.dto.BottleCommentRequest;
 import com.cloudmart.wish.dto.ThrowBottleRequest;
 import com.cloudmart.wish.entity.DriftBottle;
 import com.cloudmart.wish.entity.DriftBottleComment;
+import com.cloudmart.wish.entity.DriftBottleFishLog;
 import com.cloudmart.wish.entity.DriftBottleInteraction;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.enums.AuditStatus;
@@ -19,6 +20,7 @@ import com.cloudmart.wish.enums.WishVisibility;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.mq.EncounterEventProducer;
 import com.cloudmart.wish.repository.DriftBottleCommentMapper;
+import com.cloudmart.wish.repository.DriftBottleFishLogMapper;
 import com.cloudmart.wish.repository.DriftBottleInteractionMapper;
 import com.cloudmart.wish.repository.DriftBottleMapper;
 import com.cloudmart.wish.repository.WishMapper;
@@ -27,6 +29,7 @@ import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.DriftBottleCandidateWishVO;
 import com.cloudmart.wish.vo.DriftBottleCommentVO;
+import com.cloudmart.wish.vo.DriftBottleQuotaVO;
 import com.cloudmart.wish.vo.DriftBottleVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,19 +43,24 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * 漂流瓶服务实现。
  *
- * <p>捞瓶并发安全：随机候选 + 条件 UPDATE（status=FLOATING → PICKED），
+ * <p>捞瓶并发安全：随机候选 + 条件 UPDATE（status ∈ {FLOATING, RETURNED} → PICKED），
  * 更新未命中即被他人并发捞走，进入下一轮重试（最多 {@value #FISH_ATTEMPTS} 次）。</p>
  *
- * <p>匿名模型：投瓶默认匿名（实名时对捞起者透出身份）；评论默认匿名（实名时透出昵称头像），
- * 评论仅投瓶人与捞起人可见、可评。</p>
+ * <p>匿名模型：投瓶与捞瓶各自默认匿名（实名时对对方透出身份）；评论默认匿名（实名时透出昵称头像），
+ * 评论仅投瓶人与捞起人可见、可评。双方均实名时客户端可发起私聊/查看资料等社区互动。</p>
+ *
+ * <p>每日配额（UTC 自然日）：投瓶 {@link #DAILY_THROW_LIMIT} 个、打捞 {@link #DAILY_FISH_LIMIT} 次。
+ * 投瓶以瓶子表 thrown_at 计数；打捞以打捞流水计数（扔回海里不清除流水，配额不回退）。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -65,6 +73,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     private static final String DEFAULT_NICKNAME = "心愿旅人";
 
     private final DriftBottleMapper bottleMapper;
+    private final DriftBottleFishLogMapper fishLogMapper;
     private final DriftBottleInteractionMapper interactionMapper;
     private final DriftBottleCommentMapper commentMapper;
     private final WishMapper wishMapper;
@@ -74,6 +83,14 @@ public class DriftBottleServiceImpl implements DriftBottleService {
 
     /** 用户基础信息（Feign 降级占位） */
     private record UserInfo(Long id, String nickname, String avatar) {
+    }
+
+    @Override
+    public DriftBottleQuotaVO getQuota(Long userId) {
+        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        long throwUsed = countThrowsSince(userId, todayStart);
+        long fishUsed = countFishSince(userId, todayStart);
+        return new DriftBottleQuotaVO(throwUsed, DAILY_THROW_LIMIT, fishUsed, DAILY_FISH_LIMIT);
     }
 
     @Override
@@ -87,6 +104,11 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         if (hasText && hasWish) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "自由文字与关联心愿只能二选一");
         }
+        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        if (countThrowsSince(userId, todayStart) >= DAILY_THROW_LIMIT) {
+            throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED,
+                    "今日投瓶已达上限（" + DAILY_THROW_LIMIT + " 个/天），明天再来吧");
+        }
 
         DriftBottle bottle = new DriftBottle();
         bottle.setThrowerUserId(userId);
@@ -94,6 +116,10 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         bottle.setThrownAt(LocalDateTime.now(ZoneId.of("UTC")));
         // 投瓶默认匿名；实名时捞起者可见投瓶人身份
         bottle.setIsAnonymous(!Boolean.FALSE.equals(request.isAnonymous()));
+        bottle.setPickerIsAnonymous(true);
+        bottle.setIsCollected(false);
+        bottle.setReturnCount(0);
+        bottle.setIsHidden(false);
 
         if (hasWish) {
             Wish wish = wishMapper.selectById(request.wishId());
@@ -112,7 +138,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         }
 
         bottleMapper.insert(bottle);
-        return toVo(bottle, "THROWN", Map.of(), fetchUserInfo(bottleThrowerIds(List.of(bottle))));
+        return toVo(bottle, "THROWN", Map.of(), fetchUserInfo(bottleParticipantIds(List.of(bottle))));
     }
 
     @Override
@@ -124,7 +150,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
                 .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
                 .eq(Wish::getIsVisible, true)
                 .orderByDesc(Wish::getId)
-                .last("LIMIT 20"));
+                .last("LIMIT " + CANDIDATE_WISH_LIMIT));
         return wishes.stream()
                 .map(w -> new DriftBottleCandidateWishVO(
                         w.getId(), w.getTitle(), WishJsonUtils.parseStringList(w.getTags())))
@@ -132,10 +158,18 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     }
 
     @Override
+    @Transactional
     public DriftBottleVO fishBottle(Long userId) {
+        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        if (countFishSince(userId, todayStart) >= DAILY_FISH_LIMIT) {
+            throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED,
+                    "今日打捞已达上限（" + DAILY_FISH_LIMIT + " 次/天），明天再来吧");
+        }
+
         for (int attempt = 0; attempt < FISH_ATTEMPTS; attempt++) {
             DriftBottle candidate = bottleMapper.selectList(new LambdaQueryWrapper<DriftBottle>()
-                    .eq(DriftBottle::getStatus, DriftBottleStatus.FLOATING)
+                    .in(DriftBottle::getStatus, DriftBottleStatus.FLOATING, DriftBottleStatus.RETURNED)
+                    .eq(DriftBottle::getIsHidden, false)
                     .ne(DriftBottle::getThrowerUserId, userId)
                     .last("ORDER BY RAND() LIMIT 1"))
                     .stream().findFirst().orElse(null);
@@ -143,18 +177,24 @@ public class DriftBottleServiceImpl implements DriftBottleService {
                 return null;
             }
             LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+            // 重新捞起时重置捞起人侧状态：匿名默认、收藏清零
             int updated = bottleMapper.update(null, new LambdaUpdateWrapper<DriftBottle>()
                     .set(DriftBottle::getStatus, DriftBottleStatus.PICKED)
                     .set(DriftBottle::getPickerUserId, userId)
                     .set(DriftBottle::getPickedAt, now)
+                    .set(DriftBottle::getPickerIsAnonymous, true)
+                    .set(DriftBottle::getIsCollected, false)
                     .eq(DriftBottle::getId, candidate.getId())
-                    .eq(DriftBottle::getStatus, DriftBottleStatus.FLOATING));
+                    .in(DriftBottle::getStatus, DriftBottleStatus.FLOATING, DriftBottleStatus.RETURNED));
             if (updated > 0) {
                 candidate.setStatus(DriftBottleStatus.PICKED);
                 candidate.setPickerUserId(userId);
                 candidate.setPickedAt(now);
+                candidate.setPickerIsAnonymous(true);
+                candidate.setIsCollected(false);
+                recordFishLog(candidate.getId(), userId);
                 List<DriftBottle> bottles = List.of(candidate);
-                return toVo(candidate, "PICKED", countComments(bottles), fetchUserInfo(bottleThrowerIds(bottles)));
+                return toVo(candidate, "PICKED", countComments(bottles), fetchUserInfo(bottleParticipantIds(bottles)));
             }
             // 被他人并发捞走：重试
         }
@@ -165,17 +205,19 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     public List<DriftBottleVO> listMine(Long userId) {
         List<DriftBottle> thrown = bottleMapper.selectList(new LambdaQueryWrapper<DriftBottle>()
                 .eq(DriftBottle::getThrowerUserId, userId)
+                .eq(DriftBottle::getIsHidden, false)
                 .orderByDesc(DriftBottle::getId)
                 .last("LIMIT 100"));
         List<DriftBottle> picked = bottleMapper.selectList(new LambdaQueryWrapper<DriftBottle>()
                 .eq(DriftBottle::getPickerUserId, userId)
+                .eq(DriftBottle::getIsHidden, false)
                 .orderByDesc(DriftBottle::getId)
                 .last("LIMIT 100"));
 
         List<DriftBottle> all = new ArrayList<>(thrown);
         all.addAll(picked);
         Map<Long, Long> commentCounts = countComments(all);
-        Map<Long, UserInfo> userInfo = fetchUserInfo(bottleThrowerIds(all));
+        Map<Long, UserInfo> userInfo = fetchUserInfo(bottleParticipantIds(all));
 
         List<DriftBottleVO> result = new ArrayList<>();
         for (DriftBottle bottle : thrown) {
@@ -186,6 +228,71 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         }
         result.sort(Comparator.comparing(DriftBottleVO::bottleId).reversed());
         return result;
+    }
+
+    @Override
+    @Transactional
+    public void returnBottle(Long userId, Long bottleId) {
+        DriftBottle bottle = requireBottleViewable(userId, bottleId);
+        if (!userId.equals(bottle.getPickerUserId())) {
+            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "只有捞起人可以把瓶子扔回海里");
+        }
+        if (bottle.getStatus() != DriftBottleStatus.PICKED) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该漂流瓶当前不可扔回海里");
+        }
+        // 扔回海里：回到海面可再被捞起；捞起人清空、收藏与匿名开关重置；评论保留
+        int updated = bottleMapper.update(null, new LambdaUpdateWrapper<DriftBottle>()
+                .set(DriftBottle::getStatus, DriftBottleStatus.RETURNED)
+                .set(DriftBottle::getPickerUserId, null)
+                .set(DriftBottle::getPickedAt, null)
+                .set(DriftBottle::getPickerIsAnonymous, true)
+                .set(DriftBottle::getIsCollected, false)
+                .setSql("return_count = return_count + 1")
+                .eq(DriftBottle::getId, bottleId)
+                .eq(DriftBottle::getStatus, DriftBottleStatus.PICKED)
+                .eq(DriftBottle::getPickerUserId, userId));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该漂流瓶状态已变更，请刷新后重试");
+        }
+    }
+
+    @Override
+    @Transactional
+    public DriftBottleVO collectBottle(Long userId, Long bottleId) {
+        DriftBottle bottle = requireBottleViewable(userId, bottleId);
+        if (!userId.equals(bottle.getPickerUserId())) {
+            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "只有捞起人可以收藏漂流瓶");
+        }
+        if (bottle.getStatus() != DriftBottleStatus.PICKED) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该漂流瓶当前不可收藏");
+        }
+        // 幂等：重复收藏仅条件更新未命中，直接返回现状
+        bottleMapper.update(null, new LambdaUpdateWrapper<DriftBottle>()
+                .set(DriftBottle::getIsCollected, true)
+                .eq(DriftBottle::getId, bottleId)
+                .eq(DriftBottle::getIsCollected, false));
+        bottle.setIsCollected(true);
+        List<DriftBottle> bottles = List.of(bottle);
+        return toVo(bottle, "PICKED", countComments(bottles), fetchUserInfo(bottleParticipantIds(bottles)));
+    }
+
+    @Override
+    @Transactional
+    public DriftBottleVO updatePickerAnonymity(Long userId, Long bottleId, boolean isAnonymous) {
+        DriftBottle bottle = requireBottleViewable(userId, bottleId);
+        if (!userId.equals(bottle.getPickerUserId())) {
+            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "只有捞起人可以设置捞瓶匿名");
+        }
+        if (bottle.getStatus() != DriftBottleStatus.PICKED) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该漂流瓶当前不可修改捞瓶匿名");
+        }
+        bottleMapper.update(null, new LambdaUpdateWrapper<DriftBottle>()
+                .set(DriftBottle::getPickerIsAnonymous, isAnonymous)
+                .eq(DriftBottle::getId, bottleId)
+                .eq(DriftBottle::getPickerUserId, userId));
+        bottle.setPickerIsAnonymous(isAnonymous);
+        List<DriftBottle> bottles = List.of(bottle);
+        return toVo(bottle, "PICKED", countComments(bottles), fetchUserInfo(bottleParticipantIds(bottles)));
     }
 
     @Override
@@ -227,7 +334,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         encounterEventProducer.publishBottleInteraction(bottle.getThrowerUserId(), isLight);
 
         List<DriftBottle> bottles = List.of(bottle);
-        return toVo(bottle, "PICKED", countComments(bottles), fetchUserInfo(bottleThrowerIds(bottles)));
+        return toVo(bottle, "PICKED", countComments(bottles), fetchUserInfo(bottleParticipantIds(bottles)));
     }
 
     @Override
@@ -274,7 +381,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         comment.setIsAnonymous(!Boolean.FALSE.equals(request.isAnonymous()));
         commentMapper.insert(comment);
 
-        Set<Long> needUserIds = new java.util.HashSet<>();
+        Set<Long> needUserIds = new HashSet<>();
         if (!Boolean.TRUE.equals(comment.getIsAnonymous())) {
             needUserIds.add(userId);
         }
@@ -286,6 +393,29 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     }
 
     // ==================== 内部工具 ====================
+
+    /** 统计用户自指定时间起的投瓶数（每日配额用，idx(thrower_user_id, thrown_at)） */
+    private long countThrowsSince(Long userId, LocalDateTime since) {
+        Long count = bottleMapper.selectCount(new LambdaQueryWrapper<DriftBottle>()
+                .eq(DriftBottle::getThrowerUserId, userId)
+                .ge(DriftBottle::getThrownAt, since));
+        return count == null ? 0 : count;
+    }
+
+    /** 统计用户自指定时间起的打捞次数（打捞流水，扔回海里不回退） */
+    private long countFishSince(Long userId, LocalDateTime since) {
+        Long count = fishLogMapper.selectCount(new LambdaQueryWrapper<DriftBottleFishLog>()
+                .eq(DriftBottleFishLog::getUserId, userId)
+                .ge(DriftBottleFishLog::getCreatedAt, since));
+        return count == null ? 0 : count;
+    }
+
+    private void recordFishLog(Long bottleId, Long userId) {
+        DriftBottleFishLog fishLog = new DriftBottleFishLog();
+        fishLog.setBottleId(bottleId);
+        fishLog.setUserId(userId);
+        fishLogMapper.insert(fishLog);
+    }
 
     /** 校验漂流瓶对当前用户可见（投瓶人或捞起人），否则 404 防探测 */
     private DriftBottle requireBottleViewable(Long userId, Long bottleId) {
@@ -315,12 +445,18 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         return counts;
     }
 
-    /** 实名投瓶时透出的投瓶人用户 ID 集合 */
-    private Set<Long> bottleThrowerIds(List<DriftBottle> bottles) {
-        return bottles.stream()
-                .filter(b -> Boolean.FALSE.equals(b.getIsAnonymous()))
-                .map(DriftBottle::getThrowerUserId)
-                .collect(Collectors.toSet());
+    /** 实名参与者的用户 ID 集合（仅显式实名 is_anonymous=false 才透出昵称头像；null 视为匿名） */
+    private Set<Long> bottleParticipantIds(List<DriftBottle> bottles) {
+        Set<Long> ids = new HashSet<>();
+        for (DriftBottle bottle : bottles) {
+            if (Boolean.FALSE.equals(bottle.getIsAnonymous())) {
+                ids.add(bottle.getThrowerUserId());
+            }
+            if (bottle.getPickerUserId() != null && Boolean.FALSE.equals(bottle.getPickerIsAnonymous())) {
+                ids.add(bottle.getPickerUserId());
+            }
+        }
+        return ids;
     }
 
     /** 批量获取用户昵称头像（Feign 失败降级空 Map，前端按占位展示，Fail Open） */
@@ -346,9 +482,14 @@ public class DriftBottleServiceImpl implements DriftBottleService {
 
     private DriftBottleVO toVo(DriftBottle bottle, String role,
                                Map<Long, Long> commentCounts, Map<Long, UserInfo> userInfo) {
-        boolean anonymous = !Boolean.FALSE.equals(bottle.getIsAnonymous());
-        Long throwerId = anonymous ? null : bottle.getThrowerUserId();
-        UserInfo info = throwerId == null ? null : userInfo.get(throwerId);
+        boolean throwerAnon = !Boolean.FALSE.equals(bottle.getIsAnonymous());
+        Long throwerId = throwerAnon ? null : bottle.getThrowerUserId();
+        UserInfo throwerInfo = throwerId == null ? null : userInfo.get(throwerId);
+
+        boolean pickerAnon = !Boolean.FALSE.equals(bottle.getPickerIsAnonymous());
+        Long pickerId = pickerAnon ? null : bottle.getPickerUserId();
+        UserInfo pickerInfo = pickerId == null ? null : userInfo.get(pickerId);
+
         return new DriftBottleVO(
                 bottle.getId(),
                 bottle.getContent(),
@@ -359,10 +500,15 @@ public class DriftBottleServiceImpl implements DriftBottleService {
                 role,
                 bottle.getThrownAt(),
                 bottle.getPickedAt(),
-                anonymous,
+                throwerAnon,
                 throwerId,
-                info == null ? null : info.nickname(),
-                info == null ? null : info.avatar(),
+                throwerInfo == null ? null : throwerInfo.nickname(),
+                throwerInfo == null ? null : throwerInfo.avatar(),
+                pickerAnon,
+                pickerId,
+                pickerInfo == null ? null : pickerInfo.nickname(),
+                pickerInfo == null ? null : pickerInfo.avatar(),
+                Boolean.TRUE.equals(bottle.getIsCollected()),
                 commentCounts.getOrDefault(bottle.getId(), 0L));
     }
 
@@ -374,14 +520,14 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         // 父评论可能不在当前页：补查（一次批量），并收集需展示真实身份的用户
         Set<Long> parentIds = comments.stream()
                 .map(DriftBottleComment::getParentId)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, DriftBottleComment> parents = new HashMap<>();
         if (!parentIds.isEmpty()) {
             commentMapper.selectBatchIds(parentIds)
                     .forEach(p -> parents.put(p.getId(), p));
         }
-        Set<Long> needUserIds = new java.util.HashSet<>();
+        Set<Long> needUserIds = new HashSet<>();
         comments.forEach(c -> {
             if (!Boolean.TRUE.equals(c.getIsAnonymous())) {
                 needUserIds.add(c.getUserId());

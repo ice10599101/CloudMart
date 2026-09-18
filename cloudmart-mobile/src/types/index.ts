@@ -1022,7 +1022,8 @@ export interface DriftBottleItem {
   wishId: number | null
   wishTitle: string | null
   wishTags: string[]
-  status: 'FLOATING' | 'PICKED'
+  /** RETURNED=被扔回海里（后端漂流瓶重设计新增，扔回后回到海面可再被捞起） */
+  status: 'FLOATING' | 'PICKED' | 'RETURNED'
   role: 'THROWN' | 'PICKED'
   thrownAt: string
   pickedAt: string | null
