@@ -184,15 +184,12 @@ export default function DriftBottles() {
       title: '投瓶人',
       dataIndex: 'throwerUserId',
       width: 170,
-      render: (userId: number, bottle) => (
+      render: (_, bottle) => (
         <span>
           <Text strong>{bottle.throwerNickname}</Text>
           <Tag color={bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
             {bottle.isAnonymous ? '匿名' : '实名'}
           </Tag>
-          <Tooltip title={`用户 ID：${userId}`}>
-            <Text type="secondary" style={{ fontSize: 12 }}>#{userId}</Text>
-          </Tooltip>
         </span>
       ),
     },
@@ -200,8 +197,8 @@ export default function DriftBottles() {
       title: '捞瓶人',
       dataIndex: 'pickerUserId',
       width: 170,
-      render: (userId: number | null, bottle) =>
-        userId === null ? (
+      render: (_, bottle) =>
+        bottle.pickerUserId === null ? (
           <Text type="secondary">-</Text>
         ) : (
           <span>
@@ -209,9 +206,6 @@ export default function DriftBottles() {
             <Tag color={bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
               {bottle.pickerIsAnonymous ? '匿名' : '实名'}
             </Tag>
-            <Tooltip title={`用户 ID：${userId}`}>
-              <Text type="secondary" style={{ fontSize: 12 }}>#{userId}</Text>
-            </Tooltip>
           </span>
         ),
     },
@@ -411,7 +405,7 @@ export default function DriftBottles() {
                 <Tag color={detail.bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
                   {detail.bottle.isAnonymous ? '匿名' : '实名'}
                 </Tag>
-                （用户 {detail.bottle.throwerUserId}）· {formatTime(detail.bottle.thrownAt)}
+                · {formatTime(detail.bottle.thrownAt)}
               </Descriptions.Item>
               <Descriptions.Item label="捞瓶人">
                 {detail.bottle.pickerUserId
@@ -421,7 +415,7 @@ export default function DriftBottles() {
                       <Tag color={detail.bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
                         {detail.bottle.pickerIsAnonymous ? '匿名' : '实名'}
                       </Tag>
-                      （用户 {detail.bottle.pickerUserId}）· {formatTime(detail.bottle.pickedAt)}
+                      · {formatTime(detail.bottle.pickedAt)}
                     </span>
                   )
                   : '-'}

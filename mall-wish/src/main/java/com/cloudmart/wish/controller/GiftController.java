@@ -7,6 +7,7 @@ import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.wish.dto.SendGiftRequest;
 import com.cloudmart.wish.service.GiftService;
 import com.cloudmart.wish.vo.GiftRecordPageVO;
+import com.cloudmart.wish.vo.GiftRecordVO;
 import com.cloudmart.wish.vo.GiftSummaryVO;
 import com.cloudmart.wish.vo.GiftVO;
 import com.cloudmart.wish.vo.SendGiftResultVO;
@@ -70,38 +71,44 @@ public class GiftController {
 
     @GetMapping("/records/sent")
     @Operation(summary = "我送出的礼物", description = "id 倒序 cursor 分页（游标为上一页末条 id）")
-    public ApiResponse<GiftRecordPageVO> listSentRecords(
+    public ApiResponse<List<GiftRecordVO>> listSentRecords(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "游标（上一页末条记录 ID）")
             @RequestParam(value = "cursor", required = false) Long cursor,
             @Parameter(description = "页大小（默认 20，上限 50）")
             @RequestParam(value = "pageSize", required = false) Integer pageSize) {
-        return ApiResponse.ok(giftService.listSentRecords(userId, cursor, pageSize));
+        GiftRecordPageVO page = giftService.listSentRecords(userId, cursor, pageSize);
+        return ApiResponse.okWithCursor(page.records(), page.pageSize(),
+                page.nextCursor(), Boolean.TRUE.equals(page.hasMore()));
     }
 
     @GetMapping("/records/received")
     @Operation(summary = "我收到的礼物", description = "id 倒序 cursor 分页")
-    public ApiResponse<GiftRecordPageVO> listReceivedRecords(
+    public ApiResponse<List<GiftRecordVO>> listReceivedRecords(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "游标（上一页末条记录 ID）")
             @RequestParam(value = "cursor", required = false) Long cursor,
             @Parameter(description = "页大小（默认 20，上限 50）")
             @RequestParam(value = "pageSize", required = false) Integer pageSize) {
-        return ApiResponse.ok(giftService.listReceivedRecords(userId, cursor, pageSize));
+        GiftRecordPageVO page = giftService.listReceivedRecords(userId, cursor, pageSize);
+        return ApiResponse.okWithCursor(page.records(), page.pageSize(),
+                page.nextCursor(), Boolean.TRUE.equals(page.hasMore()));
     }
 
     @GetMapping("/targets/{targetType}/{targetId}")
     @Operation(summary = "场景礼物墙", description = "某心愿/帖子/直播间的最新送礼记录（id 倒序 cursor 分页）")
     @SentinelResource("GIFT_TARGET_RECORDS")
-    public ApiResponse<GiftRecordPageVO> listTargetRecords(
+    public ApiResponse<List<GiftRecordVO>> listTargetRecords(
             @Parameter(description = "送礼场景", required = true) @PathVariable("targetType") String targetType,
             @Parameter(description = "场景对象 ID", required = true) @PathVariable("targetId") Long targetId,
             @Parameter(description = "游标（上一页末条记录 ID）")
             @RequestParam(value = "cursor", required = false) Long cursor,
             @Parameter(description = "页大小（默认 20，上限 50）")
             @RequestParam(value = "pageSize", required = false) Integer pageSize) {
-        return ApiResponse.ok(giftService.listTargetRecords(targetType, targetId, cursor, pageSize));
+        GiftRecordPageVO page = giftService.listTargetRecords(targetType, targetId, cursor, pageSize);
+        return ApiResponse.okWithCursor(page.records(), page.pageSize(),
+                page.nextCursor(), Boolean.TRUE.equals(page.hasMore()));
     }
 }

@@ -71,7 +71,7 @@ export default function MyGifts() {
         PAGE_SIZE,
       )
       if (res.success) {
-        const list = res.data ?? []
+        const list = Array.isArray(res.data) ? res.data : []
         setRecords((prev) => (reset ? list : [...prev, ...list]))
         setCursor(res.meta?.nextCursor ?? null)
         setHasMore(res.meta?.hasMore ?? false)

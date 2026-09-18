@@ -205,7 +205,7 @@ public class GiftServiceImpl implements GiftService {
         String nextCursor = records.size() == size && !records.isEmpty()
                 ? String.valueOf(records.get(records.size() - 1).getId())
                 : null;
-        return new GiftRecordPageVO(vos, nextCursor, records.size() == size);
+        return new GiftRecordPageVO(vos, size, nextCursor, records.size() == size);
     }
 
     // ==================== 管理端 ====================

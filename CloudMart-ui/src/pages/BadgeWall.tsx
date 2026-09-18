@@ -112,7 +112,7 @@ export default function BadgeWall() {
                 percent={Math.min(Math.max(req.percentage, 0), 100)}
                 showInfo={false}
                 strokeColor={{ from: '#00D4FF', to: '#FFD700' }}
-                trailColor="rgba(255,255,255,0.08)"
+                trailColor="var(--color-divider)"
               />
             </div>
           ))}
@@ -170,7 +170,7 @@ export default function BadgeWall() {
                         percent={badge.progress.percentage}
                         showInfo={false}
                         strokeColor={{ from: '#00D4FF', to: '#9370DB' }}
-                        trailColor="rgba(255,255,255,0.08)"
+                        trailColor="var(--color-divider)"
                       />
                       <span className={styles.progressText}>
                         {badge.progress.current}/{badge.progress.threshold}

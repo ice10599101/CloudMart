@@ -303,5 +303,6 @@
         <module>mall-gen</module>
         <module>mall-community</module>
         <module>mall-wish</module>
+        <module>mall-pet</module>
     </modules>
 </project>

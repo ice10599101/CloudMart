@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Checkbox, Input, Modal, Select, Space, Typography } from 'antd'
+import { App, Button, Checkbox, Input, Modal, Select, Space, Typography } from 'antd'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import type { SurveyQuestionConfig, SurveyQuestionType } from '../extensions/surveyNode'
 import styles from './modals.module.css'
@@ -31,6 +31,7 @@ function emptyQuestion(): SurveyQuestionConfig {
 }
 
 export default function SurveyConfigModal({ open, onClose, onSubmit }: SurveyConfigModalProps) {
+  const { modal } = App.useApp()
   const [title, setTitle] = useState('')
   const [questions, setQuestions] = useState<SurveyQuestionConfig[]>([emptyQuestion()])
   const [error, setError] = useState('')
@@ -55,12 +56,13 @@ export default function SurveyConfigModal({ open, onClose, onSubmit }: SurveyCon
       onClose()
       return
     }
-    Modal.confirm({
+    modal.confirm({
       title: '关闭后填写的内容将丢失',
       content: '确定要关闭问卷配置吗？',
       okText: '关闭并放弃',
       okButtonProps: { danger: true },
       cancelText: '继续编辑',
+      zIndex: 2000,
       onOk: () => {
         reset()
         onClose()

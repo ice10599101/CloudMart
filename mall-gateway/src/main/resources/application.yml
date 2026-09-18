@@ -212,6 +212,12 @@ spring:
                 - Path=/api/wish/**
               filters:
                 - StripPrefix=2
+            - id: mall-pet
+              uri: lb://mall-pet
+              predicates:
+                - Path=/api/pet/**
+              filters:
+                - StripPrefix=2
           default-filters:
             - name: Retry
               args:

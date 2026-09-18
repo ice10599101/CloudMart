@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Input, Modal, Space, Switch, Typography } from 'antd'
+import { App, Button, Input, Modal, Space, Switch, Typography } from 'antd'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import styles from './modals.module.css'
 
@@ -20,6 +20,7 @@ const MIN_OPTIONS = 2
 const MAX_OPTIONS = 10
 
 export default function PollConfigModal({ open, onClose, onSubmit }: PollConfigModalProps) {
+  const { modal } = App.useApp()
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState<string[]>(['', ''])
   const [multiple, setMultiple] = useState(false)
@@ -43,12 +44,13 @@ export default function PollConfigModal({ open, onClose, onSubmit }: PollConfigM
       onClose()
       return
     }
-    Modal.confirm({
+    modal.confirm({
       title: '关闭后填写的内容将丢失',
       content: '确定要关闭投票配置吗？',
       okText: '关闭并放弃',
       okButtonProps: { danger: true },
       cancelText: '继续编辑',
+      zIndex: 2000,
       onOk: () => {
         reset()
         onClose()

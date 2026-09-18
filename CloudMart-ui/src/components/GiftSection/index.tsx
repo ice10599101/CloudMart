@@ -30,7 +30,7 @@ export default function GiftSection({ targetType, targetId }: GiftSectionProps) 
     setLoading(true)
     try {
       const { data: res } = await listTargetGiftRecords(targetType, targetId, undefined, 10)
-      if (res.success) setRecords(res.data ?? [])
+      if (res.success) setRecords(Array.isArray(res.data) ? res.data : [])
     } catch {
       // 礼物墙加载失败不阻塞主内容展示
     } finally {

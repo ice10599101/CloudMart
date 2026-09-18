@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Modal, Popconfirm, Space, Slider, Typography } from 'antd'
+import { App, Button, Modal, Popconfirm, Space, Slider, Typography } from 'antd'
 import { CheckOutlined, ClearOutlined, UndoOutlined } from '@ant-design/icons'
 import { uploadFile } from '@/api/file'
 import { message } from '@/utils/appMessage'
@@ -24,6 +24,7 @@ const PALETTE = ['#333333', '#ffffff', '#f5222d', '#fa8c16', '#52c41a', '#1890ff
 const MAX_UNDO_STEPS = 20
 
 export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalProps) {
+  const { modal } = App.useApp()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const drawingRef = useRef(false)
   const undoStackRef = useRef<ImageData[]>([])
@@ -113,12 +114,13 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
       onClose()
       return
     }
-    Modal.confirm({
+    modal.confirm({
       title: '关闭后画的内容将丢失',
       content: '确定要关闭涂鸦画板吗？',
       okText: '关闭并放弃',
       okButtonProps: { danger: true },
       cancelText: '继续涂鸦',
+      zIndex: 2000,
       onOk: onClose,
     })
   }

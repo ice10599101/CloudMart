@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { App, Button, Checkbox, Empty, Input, Spin, Upload } from 'antd'
-import { AudioOutlined, CommentOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
+import { AudioFilled, AudioOutlined, CloseOutlined, CommentOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import type { TextAreaRef } from 'antd/es/input/TextArea'
 import { history } from 'umi'
 import {
@@ -18,8 +18,8 @@ import styles from './style.module.css'
 /**
  * 漂流瓶瓶下评论树（捞到瓶后与瓶子作者交流的载体）：
  * 仅投瓶人与捞起人可看/可评；评论默认匿名（可切实名）；支持回复（parentId）。
- * 输入框支持表情选择器、图片上传与语音（经 mall-file 上传后以标记插入文本）；
- * 渲染时将 ![图片](url) / [语音](url) 标记还原为图片与播放器。
+ * 输入框支持表情选择器、图片上传与语音录制：图片/语音作为附件预览（缩略图/芯片），
+ * 发送时以 ![图片](url) / [语音](url) 标记拼进内容；渲染时还原为图片与播放器。
  * cursor 分页 + 发表后重载首屏。
  */
 
@@ -60,6 +60,9 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
   const [loadingMore, setLoadingMore] = useState(false)
   const [posting, setPosting] = useState(false)
   const [draft, setDraft] = useState('')
+  /** 待发送附件：图片（缩略图预览）与语音（芯片预览），发送时拼接为标记 */
+  const [pendingImages, setPendingImages] = useState<string[]>([])
+  const [pendingVoices, setPendingVoices] = useState<string[]>([])
   /** 回复目标（null = 发表顶级评论） */
   const [replyTo, setReplyTo] = useState<DriftBottleCommentItem | null>(null)
   /** 是否匿名发言（默认匿名） */
@@ -120,7 +123,7 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
     }
   }
 
-  /** 在光标处插入文本（表情/图片/语音标记），插入后光标移到插入内容末尾 */
+  /** 在光标处插入文本（表情），插入后光标移到插入内容末尾 */
   const insertToDraft = (text: string) => {
     const el = inputRef.current?.resizableTextArea?.textArea
     if (!el) {
@@ -145,7 +148,7 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
     try {
       const { data: response } = await uploadFile(file)
       if (response.data?.url) {
-        insertToDraft(`![图片](${response.data.url})`)
+        setPendingImages((prev) => [...prev, response.data.url])
       } else if (response.error) {
         message.error(response.error.message || '图片上传失败')
       }
@@ -157,11 +160,16 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
   }
 
   const handleVoiceUploaded = (url: string) => {
-    insertToDraft(`[语音](${url})`)
+    setPendingVoices((prev) => [...prev, url])
   }
 
   const handleSubmit = async () => {
-    const content = draft.trim()
+    // 附件标记在发送时拼进内容；字符数与正文共享 500 上限（服务端校验兜底）
+    const attachmentMarkers = [
+      ...pendingImages.map((url) => `![图片](${url})`),
+      ...pendingVoices.map((url) => `[语音](${url})`),
+    ]
+    const content = [draft.trim(), ...attachmentMarkers].filter(Boolean).join('\n')
     if (!content) {
       message.warning('先写点什么吧')
       return
@@ -175,6 +183,8 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
       })
       message.success(replyTo ? '回复已送达 💬' : '评论已发出 💬')
       setDraft('')
+      setPendingImages([])
+      setPendingVoices([])
       setReplyTo(null)
       loadFirstPage()
     } catch {
@@ -190,6 +200,8 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
 
   const renderTime = (createdAt: string) =>
     new Date(createdAt).toLocaleString('zh-CN', { hour12: false })
+
+  const isComposerEmpty = !draft.trim() && pendingImages.length === 0 && pendingVoices.length === 0
 
   return (
     <div className={styles.section}>
@@ -212,6 +224,40 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
           maxLength={500}
           className={styles.composerInput}
         />
+
+        {/* 附件预览：图片缩略图 + 语音芯片（发送前可移除） */}
+        {(pendingImages.length > 0 || pendingVoices.length > 0) && (
+          <div className={styles.attachmentRow}>
+            {pendingImages.map((url) => (
+              <div key={url} className={styles.imageThumb}>
+                <img src={url} alt="待发送图片" />
+                <button
+                  type="button"
+                  className={styles.thumbRemove}
+                  aria-label="移除图片"
+                  onClick={() => setPendingImages((prev) => prev.filter((item) => item !== url))}
+                >
+                  <CloseOutlined />
+                </button>
+              </div>
+            ))}
+            {pendingVoices.map((url) => (
+              <div key={url} className={styles.voiceChip}>
+                <AudioFilled />
+                <span>语音消息</span>
+                <button
+                  type="button"
+                  className={styles.thumbRemove}
+                  aria-label="移除语音"
+                  onClick={() => setPendingVoices((prev) => prev.filter((item) => item !== url))}
+                >
+                  <CloseOutlined />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className={styles.composerFooter}>
           <div className={styles.toolsRow}>
             <EmojiPanel onPick={insertToDraft} />
@@ -251,6 +297,7 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
               size="small"
               icon={<SendOutlined />}
               loading={posting}
+              disabled={isComposerEmpty}
               onClick={handleSubmit}
             >
               发送

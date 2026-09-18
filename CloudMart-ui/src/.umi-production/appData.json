@@ -81,7 +81,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 19
+        "register": 38
       },
       "enableBy": "register",
       "type": "preset",
@@ -112,10 +112,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            5
+            6
           ]
         },
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -145,7 +145,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -159,10 +159,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            145
+            168
           ]
         },
-        "register": 21
+        "register": 27
       },
       "enableBy": "register",
       "type": "plugin",
@@ -195,7 +195,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -242,7 +242,7 @@
             0
           ]
         },
-        "register": 10
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1111,7 +1111,7 @@
             0
           ]
         },
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1124,7 +1124,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1137,7 +1137,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 68
+        "register": 99
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1150,7 +1150,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 50
+        "register": 63
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1163,7 +1163,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 16
+        "register": 20
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1206,7 +1206,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1219,7 +1219,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 36
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
@@ -1244,7 +1244,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1269,7 +1269,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1286,7 +1286,7 @@
             1
           ]
         },
-        "register": 3
+        "register": 4
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
@@ -1350,7 +1350,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1363,7 +1363,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 8
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1389,7 +1389,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
@@ -1401,7 +1401,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1414,7 +1414,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1427,7 +1427,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1466,7 +1466,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 8
+        "register": 13
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1478,7 +1478,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 20
+        "register": 22
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1503,7 +1503,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent.js",
@@ -1515,7 +1515,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 589
+        "register": 779
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1528,7 +1528,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1557,7 +1557,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1570,7 +1570,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1582,7 +1582,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1595,7 +1595,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1608,7 +1608,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1644,7 +1644,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 25
+        "register": 31
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1656,7 +1656,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1669,7 +1669,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1682,7 +1682,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 31
+        "register": 43
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1695,7 +1695,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 49
+        "register": 60
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1707,7 +1707,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1720,7 +1720,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1772,7 +1772,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1785,7 +1785,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1798,7 +1798,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1811,7 +1811,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1928,7 +1928,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1941,7 +1941,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1954,7 +1954,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1967,7 +1967,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1980,7 +1980,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -3461,7 +3461,7 @@
       "parentId": "1",
       "id": "31",
       "absPath": "/gift/my",
-      "__content": "import { useCallback, useEffect, useState } from 'react'\nimport { Button, Card, Empty, Skeleton, Statistic, Tabs, Tag } from 'antd'\nimport { ArrowLeftOutlined, GiftOutlined, StarFilled } from '@ant-design/icons'\nimport { history } from 'umi'\nimport {\n  getMyGiftSummary,\n  listReceivedGiftRecords,\n  listSentGiftRecords,\n  type GiftRecordItem,\n  type MyGiftSummary,\n} from '@/api/gift'\nimport { getMyResources } from '@/api/wish'\nimport { useAuthStore } from '@/stores/auth'\nimport { formatDateTime } from '@/utils/format'\nimport styles from './MyGifts.module.css'\n\n/**\n * 我的礼物（全站虚拟礼物个人中心）。\n *\n * 资产总览：送/收两方向累计件数与星光（礼物为即时消费，无库存语义）\n * + 当前星光余额（与心愿宇宙星光体系同源）；「我送出的 / 我收到的」\n * 游标分页列表，记录可跳回送礼场景（心愿/帖子/直播间）。\n */\n\ntype RecordTab = 'sent' | 'received'\n\nconst TARGET_META: Record<GiftRecordItem['targetType'], { label: string; path: (id: number) => string }> = {\n  WISH: { label: '心愿', path: (id) => `/wish/${id}` },\n  POST: { label: '帖子', path: (id) => `/post/${id}` },\n  LIVE_ROOM: { label: '直播间', path: (id) => `/live/${id}` },\n}\n\nconst PAGE_SIZE = 20\n\nexport default function MyGifts() {\n  const { user, userLoading } = useAuthStore()\n  const [summary, setSummary] = useState<MyGiftSummary | null>(null)\n  const [balance, setBalance] = useState<number | null>(null)\n  const [tab, setTab] = useState<RecordTab>('sent')\n  const [records, setRecords] = useState<GiftRecordItem[]>([])\n  const [cursor, setCursor] = useState<string | null>(null)\n  const [hasMore, setHasMore] = useState(false)\n  const [loading, setLoading] = useState(true)\n  const [loadingMore, setLoadingMore] = useState(false)\n\n  useEffect(() => {\n    if (!user && !userLoading) {\n      history.push('/login?redirect=/gift/my')\n      return\n    }\n    if (!user) return\n    getMyGiftSummary()\n      .then(({ data: res }) => {\n        if (res.success && res.data) setSummary(res.data)\n      })\n      .catch(() => setSummary(null))\n    getMyResources()\n      .then(({ data: res }) => {\n        if (res.success && res.data) setBalance(res.data.balance ?? null)\n      })\n      .catch(() => setBalance(null))\n  }, [user, userLoading])\n\n  const load = useCallback(async (tabKey: RecordTab, nextCursor?: string | null, reset = true) => {\n    if (reset) setLoading(true)\n    else setLoadingMore(true)\n    try {\n      const fetcher = tabKey === 'sent' ? listSentGiftRecords : listReceivedGiftRecords\n      const { data: res } = await fetcher(\n        nextCursor ? Number(nextCursor) : undefined,\n        PAGE_SIZE,\n      )\n      if (res.success) {\n        const list = res.data ?? []\n        setRecords((prev) => (reset ? list : [...prev, ...list]))\n        setCursor(res.meta?.nextCursor ?? null)\n        setHasMore(res.meta?.hasMore ?? false)\n      }\n    } catch {\n      if (reset) setRecords([])\n    } finally {\n      setLoading(false)\n      setLoadingMore(false)\n    }\n  }, [])\n\n  useEffect(() => {\n    if (user) load(tab, null, true)\n  }, [tab, user, load])\n\n  return (\n    <div style={{ maxWidth: 860, margin: '24px auto', padding: '0 16px' }}>\n      <Button type=\"text\" icon={<ArrowLeftOutlined />} onClick={() => history.push('/profile')} style={{ marginBottom: 12 }}>\n        个人中心\n      </Button>\n\n      <Card title=\"礼物资产\" className={styles.summaryCard} loading={!summary && !userLoading}>\n        <div className={styles.statGrid}>\n          <Statistic title=\"累计送出\" value={summary?.sentCount ?? 0} suffix=\"件\" />\n          <Statistic\n            title=\"送出消耗星光\"\n            value={summary?.sentStarlight ?? 0}\n            prefix={<StarFilled style={{ color: '#faad14', fontSize: 14 }} />}\n          />\n          <Statistic title=\"累计收到\" value={summary?.receivedCount ?? 0} suffix=\"件\" />\n          <Statistic\n            title=\"收到星光价值\"\n            value={summary?.receivedStarlight ?? 0}\n            prefix={<StarFilled style={{ color: '#faad14', fontSize: 14 }} />}\n          />\n          <div>\n            <Statistic\n              title=\"当前星光余额\"\n              value={balance ?? 0}\n              prefix={<StarFilled style={{ color: '#00d4ff', fontSize: 14 }} />}\n            />\n            <a className={styles.balanceLink} onClick={() => history.push('/wish/starlight-log')}>\n              查看星光流水\n            </a>\n          </div>\n        </div>\n      </Card>\n\n      <Card styles={{ body: { paddingTop: 0 } }}>\n        <Tabs\n          activeKey={tab}\n          onChange={(key) => setTab(key as RecordTab)}\n          items={[\n            { key: 'sent', label: '我送出的' },\n            { key: 'received', label: '我收到的' },\n          ]}\n        />\n\n        {loading ? (\n          <Skeleton active paragraph={{ rows: 4 }} />\n        ) : records.length === 0 ? (\n          <Empty\n            image={Empty.PRESENTED_IMAGE_SIMPLE}\n            description={tab === 'sent' ? '还没有送出礼物，去心愿广场逛逛吧' : '还没有收到礼物'}\n          />\n        ) : (\n          <div className={styles.recordList}>\n            {records.map((record) => {\n              const meta = TARGET_META[record.targetType]\n              return (\n                <div key={record.id} className={styles.recordRow}>\n                  {record.giftIconUrl ? (\n                    <img className={styles.recordIcon} src={record.giftIconUrl} alt={record.giftName} />\n                  ) : (\n                    <GiftOutlined className={styles.recordIconFallback} />\n                  )}\n                  <div className={styles.recordMain}>\n                    <div className={styles.recordTitle}>\n                      <span className={styles.recordName}>\n                        {record.giftName} ×{record.count}\n                      </span>\n                      <Tag color=\"gold\" className={styles.recordPrice}>\n                        <StarFilled /> {record.totalPrice}\n                      </Tag>\n                    </div>\n                    <div className={styles.recordMeta}>\n                      {tab === 'sent' ? (\n                        <span>\n                          送给我 · {meta.label}\n                          <a className={styles.recordLink} onClick={() => history.push(meta.path(record.targetId))}>\n                            查看\n                          </a>\n                        </span>\n                      ) : (\n                        <span>来自 {record.senderNickname ?? `用户#${record.senderId}`} · {meta.label}</span>\n                      )}\n                      <span>{formatDateTime(record.createdAt)}</span>\n                    </div>\n                    {record.message && <div className={styles.recordMessage}>“{record.message}”</div>}\n                  </div>\n                </div>\n              )\n            })}\n            {hasMore && (\n              <Button block loading={loadingMore} onClick={() => load(tab, cursor, false)} className={styles.loadMore}>\n                加载更多\n              </Button>\n            )}\n          </div>\n        )}\n      </Card>\n    </div>\n  )\n}\n",
+      "__content": "import { useCallback, useEffect, useState } from 'react'\nimport { Button, Card, Empty, Skeleton, Statistic, Tabs, Tag } from 'antd'\nimport { ArrowLeftOutlined, GiftOutlined, StarFilled } from '@ant-design/icons'\nimport { history } from 'umi'\nimport {\n  getMyGiftSummary,\n  listReceivedGiftRecords,\n  listSentGiftRecords,\n  type GiftRecordItem,\n  type MyGiftSummary,\n} from '@/api/gift'\nimport { getMyResources } from '@/api/wish'\nimport { useAuthStore } from '@/stores/auth'\nimport { formatDateTime } from '@/utils/format'\nimport styles from './MyGifts.module.css'\n\n/**\n * 我的礼物（全站虚拟礼物个人中心）。\n *\n * 资产总览：送/收两方向累计件数与星光（礼物为即时消费，无库存语义）\n * + 当前星光余额（与心愿宇宙星光体系同源）；「我送出的 / 我收到的」\n * 游标分页列表，记录可跳回送礼场景（心愿/帖子/直播间）。\n */\n\ntype RecordTab = 'sent' | 'received'\n\nconst TARGET_META: Record<GiftRecordItem['targetType'], { label: string; path: (id: number) => string }> = {\n  WISH: { label: '心愿', path: (id) => `/wish/${id}` },\n  POST: { label: '帖子', path: (id) => `/post/${id}` },\n  LIVE_ROOM: { label: '直播间', path: (id) => `/live/${id}` },\n}\n\nconst PAGE_SIZE = 20\n\nexport default function MyGifts() {\n  const { user, userLoading } = useAuthStore()\n  const [summary, setSummary] = useState<MyGiftSummary | null>(null)\n  const [balance, setBalance] = useState<number | null>(null)\n  const [tab, setTab] = useState<RecordTab>('sent')\n  const [records, setRecords] = useState<GiftRecordItem[]>([])\n  const [cursor, setCursor] = useState<string | null>(null)\n  const [hasMore, setHasMore] = useState(false)\n  const [loading, setLoading] = useState(true)\n  const [loadingMore, setLoadingMore] = useState(false)\n\n  useEffect(() => {\n    if (!user && !userLoading) {\n      history.push('/login?redirect=/gift/my')\n      return\n    }\n    if (!user) return\n    getMyGiftSummary()\n      .then(({ data: res }) => {\n        if (res.success && res.data) setSummary(res.data)\n      })\n      .catch(() => setSummary(null))\n    getMyResources()\n      .then(({ data: res }) => {\n        if (res.success && res.data) setBalance(res.data.balance ?? null)\n      })\n      .catch(() => setBalance(null))\n  }, [user, userLoading])\n\n  const load = useCallback(async (tabKey: RecordTab, nextCursor?: string | null, reset = true) => {\n    if (reset) setLoading(true)\n    else setLoadingMore(true)\n    try {\n      const fetcher = tabKey === 'sent' ? listSentGiftRecords : listReceivedGiftRecords\n      const { data: res } = await fetcher(\n        nextCursor ? Number(nextCursor) : undefined,\n        PAGE_SIZE,\n      )\n      if (res.success) {\n        const list = Array.isArray(res.data) ? res.data : []\n        setRecords((prev) => (reset ? list : [...prev, ...list]))\n        setCursor(res.meta?.nextCursor ?? null)\n        setHasMore(res.meta?.hasMore ?? false)\n      }\n    } catch {\n      if (reset) setRecords([])\n    } finally {\n      setLoading(false)\n      setLoadingMore(false)\n    }\n  }, [])\n\n  useEffect(() => {\n    if (user) load(tab, null, true)\n  }, [tab, user, load])\n\n  return (\n    <div style={{ maxWidth: 860, margin: '24px auto', padding: '0 16px' }}>\n      <Button type=\"text\" icon={<ArrowLeftOutlined />} onClick={() => history.push('/profile')} style={{ marginBottom: 12 }}>\n        个人中心\n      </Button>\n\n      <Card title=\"礼物资产\" className={styles.summaryCard} loading={!summary && !userLoading}>\n        <div className={styles.statGrid}>\n          <Statistic title=\"累计送出\" value={summary?.sentCount ?? 0} suffix=\"件\" />\n          <Statistic\n            title=\"送出消耗星光\"\n            value={summary?.sentStarlight ?? 0}\n            prefix={<StarFilled style={{ color: '#faad14', fontSize: 14 }} />}\n          />\n          <Statistic title=\"累计收到\" value={summary?.receivedCount ?? 0} suffix=\"件\" />\n          <Statistic\n            title=\"收到星光价值\"\n            value={summary?.receivedStarlight ?? 0}\n            prefix={<StarFilled style={{ color: '#faad14', fontSize: 14 }} />}\n          />\n          <div>\n            <Statistic\n              title=\"当前星光余额\"\n              value={balance ?? 0}\n              prefix={<StarFilled style={{ color: '#00d4ff', fontSize: 14 }} />}\n            />\n            <a className={styles.balanceLink} onClick={() => history.push('/wish/starlight-log')}>\n              查看星光流水\n            </a>\n          </div>\n        </div>\n      </Card>\n\n      <Card styles={{ body: { paddingTop: 0 } }}>\n        <Tabs\n          activeKey={tab}\n          onChange={(key) => setTab(key as RecordTab)}\n          items={[\n            { key: 'sent', label: '我送出的' },\n            { key: 'received', label: '我收到的' },\n          ]}\n        />\n\n        {loading ? (\n          <Skeleton active paragraph={{ rows: 4 }} />\n        ) : records.length === 0 ? (\n          <Empty\n            image={Empty.PRESENTED_IMAGE_SIMPLE}\n            description={tab === 'sent' ? '还没有送出礼物，去心愿广场逛逛吧' : '还没有收到礼物'}\n          />\n        ) : (\n          <div className={styles.recordList}>\n            {records.map((record) => {\n              const meta = TARGET_META[record.targetType]\n              return (\n                <div key={record.id} className={styles.recordRow}>\n                  {record.giftIconUrl ? (\n                    <img className={styles.recordIcon} src={record.giftIconUrl} alt={record.giftName} />\n                  ) : (\n                    <GiftOutlined className={styles.recordIconFallback} />\n                  )}\n                  <div className={styles.recordMain}>\n                    <div className={styles.recordTitle}>\n                      <span className={styles.recordName}>\n                        {record.giftName} ×{record.count}\n                      </span>\n                      <Tag color=\"gold\" className={styles.recordPrice}>\n                        <StarFilled /> {record.totalPrice}\n                      </Tag>\n                    </div>\n                    <div className={styles.recordMeta}>\n                      {tab === 'sent' ? (\n                        <span>\n                          送给我 · {meta.label}\n                          <a className={styles.recordLink} onClick={() => history.push(meta.path(record.targetId))}>\n                            查看\n                          </a>\n                        </span>\n                      ) : (\n                        <span>来自 {record.senderNickname ?? `用户#${record.senderId}`} · {meta.label}</span>\n                      )}\n                      <span>{formatDateTime(record.createdAt)}</span>\n                    </div>\n                    {record.message && <div className={styles.recordMessage}>“{record.message}”</div>}\n                  </div>\n                </div>\n              )\n            })}\n            {hasMore && (\n              <Button block loading={loadingMore} onClick={() => load(tab, cursor, false)} className={styles.loadMore}>\n                加载更多\n              </Button>\n            )}\n          </div>\n        )}\n      </Card>\n    </div>\n  )\n}\n",
       "__isJSFile": true,
       "__absFile": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/src/pages/MyGifts.tsx"
     },
@@ -4204,7 +4204,7 @@
       "parentId": "55",
       "id": "106",
       "absPath": "/admin/business/drift-bottles",
-      "__content": "import { useEffect, useState } from 'react'\nimport {\n  Button,\n  Descriptions,\n  Drawer,\n  Input,\n  InputNumber,\n  Popconfirm,\n  Select,\n  Space,\n  Spin,\n  Statistic,\n  Table,\n  Tabs,\n  Tag,\n  Tooltip,\n  Typography,\n} from 'antd'\nimport type { ColumnsType, TablePaginationConfig } from 'antd/es/table'\nimport RichText from '@/components/RichText'\nimport {\n  getAdminDriftBottleDashboard,\n  getAdminDriftBottleDetail,\n  listAdminDriftBottles,\n  updateAdminDriftBottleHidden,\n  type AdminDriftBottle,\n  type AdminDriftBottleDashboard,\n  type AdminDriftBottleDetail,\n} from '@/api/admin/wish'\nimport { useMessage } from '@/utils/useMessage'\n\nconst { Text } = Typography\n\n/**\n * 漂流瓶管理（重设计）：数据看板（状态分布/今日活动/14 天趋势/投瓶榜）+ 瓶子管理\n * （状态/用户/关键词筛选，详情含瓶下评论真实身份，下架为软隐藏）。\n */\n\nconst STATUS_META: Record<AdminDriftBottle['status'], { label: string; color: string }> = {\n  FLOATING: { label: '漂流中', color: 'processing' },\n  PICKED: { label: '已被捞起', color: 'cyan' },\n  RETURNED: { label: '被扔回海里', color: 'warning' },\n}\n\nconst formatTime = (iso: string | null) =>\n  iso ? new Date(iso).toLocaleString('zh-CN', { hour12: false }) : '-'\n\nexport default function DriftBottles() {\n  const message = useMessage()\n\n  // 看板\n  const [dashboard, setDashboard] = useState<AdminDriftBottleDashboard | null>(null)\n  const [dashboardLoading, setDashboardLoading] = useState(true)\n\n  // 列表\n  const [bottles, setBottles] = useState<AdminDriftBottle[]>([])\n  const [total, setTotal] = useState(0)\n  const [page, setPage] = useState(1)\n  const [pageSize, setPageSize] = useState(20)\n  const [loading, setLoading] = useState(true)\n  const [filterStatus, setFilterStatus] = useState<AdminDriftBottle['status'] | undefined>()\n  const [filterUserId, setFilterUserId] = useState<number | undefined>()\n  const [filterKeyword, setFilterKeyword] = useState('')\n\n  // 详情抽屉\n  const [detail, setDetail] = useState<AdminDriftBottleDetail | null>(null)\n  const [detailOpen, setDetailOpen] = useState(false)\n  const [detailLoading, setDetailLoading] = useState(false)\n\n  const loadDashboard = async () => {\n    setDashboardLoading(true)\n    try {\n      const res = await getAdminDriftBottleDashboard()\n      if (res.data.success) setDashboard(res.data.data)\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setDashboardLoading(false)\n    }\n  }\n\n  const loadBottles = async (\n    targetPage = page,\n    targetPageSize = pageSize,\n  ) => {\n    setLoading(true)\n    try {\n      const res = await listAdminDriftBottles({\n        userId: filterUserId,\n        status: filterStatus,\n        keyword: filterKeyword.trim() || undefined,\n        page: targetPage,\n        pageSize: targetPageSize,\n      })\n      if (res.data.success) {\n        setBottles(res.data.data ?? [])\n        setTotal(Number(res.data.meta?.total ?? 0))\n      }\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  useEffect(() => {\n    loadDashboard()\n    loadBottles(1, 20)\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [])\n\n  const handleSearch = () => {\n    setPage(1)\n    loadBottles(1, pageSize)\n  }\n\n  const handleTableChange = (pagination: TablePaginationConfig) => {\n    const next = pagination.current ?? 1\n    const nextSize = pagination.pageSize ?? 20\n    setPage(next)\n    setPageSize(nextSize)\n    loadBottles(next, nextSize)\n  }\n\n  const openDetail = async (id: number) => {\n    setDetailOpen(true)\n    setDetailLoading(true)\n    try {\n      const res = await getAdminDriftBottleDetail(id)\n      if (res.data.success) setDetail(res.data.data)\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setDetailLoading(false)\n    }\n  }\n\n  const toggleHidden = async (bottle: AdminDriftBottle) => {\n    try {\n      await updateAdminDriftBottleHidden(bottle.id, !bottle.isHidden)\n      message.success(bottle.isHidden ? '已恢复展示' : '已下架（用户端不可见）')\n      loadBottles()\n      loadDashboard()\n    } catch {\n      // 拦截器已提示\n    }\n  }\n\n  const trendMax = dashboard\n    ? Math.max(1, ...dashboard.trend.map((d) => Math.max(d.throwCount, d.fishCount)))\n    : 1\n\n  const columns: ColumnsType<AdminDriftBottle> = [\n    { title: 'ID', dataIndex: 'id', width: 150, render: (id: number) => <Text copyable>{id}</Text> },\n    {\n      title: '类型',\n      width: 80,\n      render: (_, bottle) =>\n        bottle.wishId ? <Tag color=\"gold\">关联心愿</Tag> : <Tag>自由文字</Tag>,\n    },\n    {\n      title: '内容',\n      ellipsis: true,\n      render: (_, bottle) => (\n        <div style={{ maxWidth: 320 }}>\n          {bottle.wishId ? (\n            <span><Tag color=\"gold\">心愿</Tag>{bottle.wishTitle}</span>\n          ) : (\n            <RichText content={bottle.content} clamp={3} variant=\"preview\" />\n          )}\n        </div>\n      ),\n    },\n    {\n      title: '状态',\n      dataIndex: 'status',\n      width: 110,\n      render: (status: AdminDriftBottle['status']) => {\n        const meta = STATUS_META[status]\n        return <Tag color={meta.color}>{meta.label}</Tag>\n      },\n    },\n    {\n      title: '投瓶人',\n      dataIndex: 'throwerUserId',\n      width: 170,\n      render: (userId: number, bottle) => (\n        <span>\n          <Text strong>{bottle.throwerNickname}</Text>\n          <Tag color={bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n            {bottle.isAnonymous ? '匿名' : '实名'}\n          </Tag>\n          <Tooltip title={`用户 ID：${userId}`}>\n            <Text type=\"secondary\" style={{ fontSize: 12 }}>#{userId}</Text>\n          </Tooltip>\n        </span>\n      ),\n    },\n    {\n      title: '捞瓶人',\n      dataIndex: 'pickerUserId',\n      width: 170,\n      render: (userId: number | null, bottle) =>\n        userId === null ? (\n          <Text type=\"secondary\">-</Text>\n        ) : (\n          <span>\n            <Text strong>{bottle.pickerNickname}</Text>\n            <Tag color={bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n              {bottle.pickerIsAnonymous ? '匿名' : '实名'}\n            </Tag>\n            <Tooltip title={`用户 ID：${userId}`}>\n              <Text type=\"secondary\" style={{ fontSize: 12 }}>#{userId}</Text>\n            </Tooltip>\n          </span>\n        ),\n    },\n    {\n      title: '评论',\n      dataIndex: 'commentCount',\n      width: 70,\n    },\n    {\n      title: '回流',\n      dataIndex: 'returnCount',\n      width: 70,\n      render: (count: number) => (count > 0 ? <Tag color=\"orange\">{count} 次</Tag> : '-'),\n    },\n    {\n      title: '收藏',\n      dataIndex: 'isCollected',\n      width: 70,\n      render: (collected: boolean) => (collected ? <Tag color=\"gold\">已收藏</Tag> : '-'),\n    },\n    { title: '投瓶时间', dataIndex: 'thrownAt', width: 150, render: formatTime },\n    {\n      title: '操作',\n      width: 160,\n      render: (_, bottle) => (\n        <Space size=\"small\">\n          <Button size=\"small\" type=\"link\" onClick={() => openDetail(bottle.id)}>详情</Button>\n          <Popconfirm\n            title={bottle.isHidden ? '恢复该漂流瓶展示？' : '下架该漂流瓶？'}\n            description=\"下架为软隐藏，用户端不可见，数据保留\"\n            onConfirm={() => toggleHidden(bottle)}\n          >\n            <Button size=\"small\" type=\"link\" danger={!bottle.isHidden}>\n              {bottle.isHidden ? '恢复' : '下架'}\n            </Button>\n          </Popconfirm>\n        </Space>\n      ),\n    },\n  ]\n\n  const dashboardPanel = (\n    <Spin spinning={dashboardLoading}>\n      {dashboard && (\n        <>\n          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 8 }}>\n            <Statistic title=\"瓶子总数\" value={dashboard.totalBottles} />\n            <Statistic title=\"漂流中\" value={dashboard.floatingCount} />\n            <Statistic title=\"已被捞起\" value={dashboard.pickedCount} />\n            <Statistic title=\"被扔回海里\" value={dashboard.returnedCount} />\n            <Statistic title=\"有评论瓶子\" value={dashboard.repliedCount} />\n            <Statistic title=\"被收藏\" value={dashboard.collectedCount} />\n            <Statistic\n              title=\"已下架\"\n              value={dashboard.hiddenCount}\n              styles={{ content: { color: dashboard.hiddenCount > 0 ? '#ffb347' : undefined } }}\n            />\n          </div>\n          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 24 }}>\n            <Statistic title=\"今日投瓶\" value={dashboard.todayThrowCount} />\n            <Statistic title=\"今日打捞\" value={dashboard.todayFishCount} />\n            <Statistic title=\"今日评论\" value={dashboard.todayCommentCount} />\n          </div>\n\n          <Typography.Title level={5}>近 14 天趋势（投瓶 / 打捞）</Typography.Title>\n          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140, marginBottom: 4 }}>\n            {dashboard.trend.map((day) => (\n              <Tooltip\n                key={day.date}\n                title={`${day.date} · 投瓶 ${day.throwCount} / 打捞 ${day.fishCount}`}\n              >\n                <div style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', height: '100%' }}>\n                  <div\n                    style={{\n                      flex: 1,\n                      height: `${(day.throwCount / trendMax) * 100}%`,\n                      minHeight: 2,\n                      background: '#1677ff',\n                      borderRadius: '2px 2px 0 0',\n                    }}\n                  />\n                  <div\n                    style={{\n                      flex: 1,\n                      height: `${(day.fishCount / trendMax) * 100}%`,\n                      minHeight: 2,\n                      background: '#36cfc9',\n                      borderRadius: '2px 2px 0 0',\n                    }}\n                  />\n                </div>\n              </Tooltip>\n            ))}\n          </div>\n          <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>\n            <span><Tag color=\"blue\" />投瓶</span>\n            <span><Tag color=\"cyan\" />打捞</span>\n          </div>\n\n          <Typography.Title level={5}>投瓶榜 Top10</Typography.Title>\n          <ol style={{ paddingLeft: 20, margin: 0 }}>\n            {dashboard.topThrowers.map((thrower) => (\n              <li key={thrower.userId} style={{ marginBottom: 4 }}>\n                用户 {thrower.userId}\n                <Text type=\"secondary\">（{thrower.nickname}）</Text>\n                ：{thrower.throwCount} 瓶\n              </li>\n            ))}\n            {dashboard.topThrowers.length === 0 && <Text type=\"secondary\">暂无数据</Text>}\n          </ol>\n        </>\n      )}\n    </Spin>\n  )\n\n  const managePanel = (\n    <>\n      <Space style={{ marginBottom: 16 }} wrap>\n        <Select\n          allowClear\n          placeholder=\"状态\"\n          style={{ width: 150 }}\n          value={filterStatus}\n          onChange={(v) => setFilterStatus(v)}\n          options={Object.entries(STATUS_META).map(([value, meta]) => ({\n            value,\n            label: meta.label,\n          }))}\n        />\n        <InputNumber\n          min={1}\n          placeholder=\"用户 ID（投/捞）\"\n          style={{ width: 170 }}\n          value={filterUserId}\n          onChange={(v) => setFilterUserId(v ?? undefined)}\n        />\n        <Input\n          allowClear\n          placeholder=\"关键词（瓶内文字/心愿标题）\"\n          style={{ width: 220 }}\n          value={filterKeyword}\n          onChange={(e) => setFilterKeyword(e.target.value)}\n          onPressEnter={handleSearch}\n        />\n        <Button type=\"primary\" onClick={handleSearch}>查询</Button>\n      </Space>\n      <Table\n        rowKey=\"id\"\n        columns={columns}\n        dataSource={bottles}\n        loading={loading}\n        onChange={handleTableChange}\n        pagination={{ current: page, pageSize, total, showSizeChanger: true }}\n        scroll={{ x: 1200 }}\n      />\n    </>\n  )\n\n  return (\n    <>\n      <Tabs\n        defaultActiveKey=\"dashboard\"\n        items={[\n          { key: 'dashboard', label: '数据看板', children: dashboardPanel },\n          { key: 'manage', label: '瓶子管理', children: managePanel },\n        ]}\n      />\n      <Drawer\n        title={`漂流瓶详情${detail ? ` #${detail.bottle.id}` : ''}`}\n        width={560}\n        open={detailOpen}\n        onClose={() => setDetailOpen(false)}\n        destroyOnHidden\n      >\n        <Spin spinning={detailLoading}>\n        {detail && (\n          <>\n            <Descriptions bordered size=\"small\" column={1}>\n              <Descriptions.Item label=\"类型\">\n                {detail.bottle.wishId\n                  ? <Tag color=\"gold\">关联心愿 #{detail.bottle.wishId} {detail.bottle.wishTitle}</Tag>\n                  : '自由文字'}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"状态\">\n                <Tag color={STATUS_META[detail.bottle.status].color}>\n                  {STATUS_META[detail.bottle.status].label}\n                </Tag>\n                {detail.bottle.isHidden && <Tag color=\"red\">已下架</Tag>}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"内容\">\n                {detail.bottle.wishId\n                  ? <Text type=\"secondary\">瓶子关联心愿，正文见「类型」行</Text>\n                  : <RichText content={detail.bottle.content} />}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"投瓶人\">\n                <Text strong>{detail.bottle.throwerNickname}</Text>\n                <Tag color={detail.bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n                  {detail.bottle.isAnonymous ? '匿名' : '实名'}\n                </Tag>\n                （用户 {detail.bottle.throwerUserId}）· {formatTime(detail.bottle.thrownAt)}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"捞瓶人\">\n                {detail.bottle.pickerUserId\n                  ? (\n                    <span>\n                      <Text strong>{detail.bottle.pickerNickname}</Text>\n                      <Tag color={detail.bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n                        {detail.bottle.pickerIsAnonymous ? '匿名' : '实名'}\n                      </Tag>\n                      （用户 {detail.bottle.pickerUserId}）· {formatTime(detail.bottle.pickedAt)}\n                    </span>\n                  )\n                  : '-'}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"回流次数\">{detail.bottle.returnCount}</Descriptions.Item>\n              <Descriptions.Item label=\"收藏\">{detail.bottle.isCollected ? '已收藏' : '未收藏'}</Descriptions.Item>\n            </Descriptions>\n\n            <Typography.Title level={5} style={{ marginTop: 16 }}>\n              瓶下评论（{detail.comments.length}，真实身份）\n            </Typography.Title>\n            {detail.comments.length === 0 && <Text type=\"secondary\">暂无评论</Text>}\n            {detail.comments.map((comment) => (\n              <div key={comment.id} style={{ marginBottom: 8 }}>\n                <Text strong>用户 {comment.userId}</Text>\n                <Text type=\"secondary\" style={{ fontSize: 12 }}>\n                  （{comment.isAnonymous ? '匿名' : comment.nickname}）· {formatTime(comment.createdAt)}\n                  {comment.parentId ? ` · 回复 #${comment.parentId}` : ''}\n                </Text>\n                <div style={{ fontSize: 13 }}>{comment.content}</div>\n              </div>\n            ))}\n          </>\n        )}\n        </Spin>\n      </Drawer>\n    </>\n  )\n}\n",
+      "__content": "import { useEffect, useState } from 'react'\nimport {\n  Button,\n  Descriptions,\n  Drawer,\n  Input,\n  InputNumber,\n  Popconfirm,\n  Select,\n  Space,\n  Spin,\n  Statistic,\n  Table,\n  Tabs,\n  Tag,\n  Tooltip,\n  Typography,\n} from 'antd'\nimport type { ColumnsType, TablePaginationConfig } from 'antd/es/table'\nimport RichText from '@/components/RichText'\nimport {\n  getAdminDriftBottleDashboard,\n  getAdminDriftBottleDetail,\n  listAdminDriftBottles,\n  updateAdminDriftBottleHidden,\n  type AdminDriftBottle,\n  type AdminDriftBottleDashboard,\n  type AdminDriftBottleDetail,\n} from '@/api/admin/wish'\nimport { useMessage } from '@/utils/useMessage'\n\nconst { Text } = Typography\n\n/**\n * 漂流瓶管理（重设计）：数据看板（状态分布/今日活动/14 天趋势/投瓶榜）+ 瓶子管理\n * （状态/用户/关键词筛选，详情含瓶下评论真实身份，下架为软隐藏）。\n */\n\nconst STATUS_META: Record<AdminDriftBottle['status'], { label: string; color: string }> = {\n  FLOATING: { label: '漂流中', color: 'processing' },\n  PICKED: { label: '已被捞起', color: 'cyan' },\n  RETURNED: { label: '被扔回海里', color: 'warning' },\n}\n\nconst formatTime = (iso: string | null) =>\n  iso ? new Date(iso).toLocaleString('zh-CN', { hour12: false }) : '-'\n\nexport default function DriftBottles() {\n  const message = useMessage()\n\n  // 看板\n  const [dashboard, setDashboard] = useState<AdminDriftBottleDashboard | null>(null)\n  const [dashboardLoading, setDashboardLoading] = useState(true)\n\n  // 列表\n  const [bottles, setBottles] = useState<AdminDriftBottle[]>([])\n  const [total, setTotal] = useState(0)\n  const [page, setPage] = useState(1)\n  const [pageSize, setPageSize] = useState(20)\n  const [loading, setLoading] = useState(true)\n  const [filterStatus, setFilterStatus] = useState<AdminDriftBottle['status'] | undefined>()\n  const [filterUserId, setFilterUserId] = useState<number | undefined>()\n  const [filterKeyword, setFilterKeyword] = useState('')\n\n  // 详情抽屉\n  const [detail, setDetail] = useState<AdminDriftBottleDetail | null>(null)\n  const [detailOpen, setDetailOpen] = useState(false)\n  const [detailLoading, setDetailLoading] = useState(false)\n\n  const loadDashboard = async () => {\n    setDashboardLoading(true)\n    try {\n      const res = await getAdminDriftBottleDashboard()\n      if (res.data.success) setDashboard(res.data.data)\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setDashboardLoading(false)\n    }\n  }\n\n  const loadBottles = async (\n    targetPage = page,\n    targetPageSize = pageSize,\n  ) => {\n    setLoading(true)\n    try {\n      const res = await listAdminDriftBottles({\n        userId: filterUserId,\n        status: filterStatus,\n        keyword: filterKeyword.trim() || undefined,\n        page: targetPage,\n        pageSize: targetPageSize,\n      })\n      if (res.data.success) {\n        setBottles(res.data.data ?? [])\n        setTotal(Number(res.data.meta?.total ?? 0))\n      }\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  useEffect(() => {\n    loadDashboard()\n    loadBottles(1, 20)\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [])\n\n  const handleSearch = () => {\n    setPage(1)\n    loadBottles(1, pageSize)\n  }\n\n  const handleTableChange = (pagination: TablePaginationConfig) => {\n    const next = pagination.current ?? 1\n    const nextSize = pagination.pageSize ?? 20\n    setPage(next)\n    setPageSize(nextSize)\n    loadBottles(next, nextSize)\n  }\n\n  const openDetail = async (id: number) => {\n    setDetailOpen(true)\n    setDetailLoading(true)\n    try {\n      const res = await getAdminDriftBottleDetail(id)\n      if (res.data.success) setDetail(res.data.data)\n    } catch {\n      // 拦截器已提示\n    } finally {\n      setDetailLoading(false)\n    }\n  }\n\n  const toggleHidden = async (bottle: AdminDriftBottle) => {\n    try {\n      await updateAdminDriftBottleHidden(bottle.id, !bottle.isHidden)\n      message.success(bottle.isHidden ? '已恢复展示' : '已下架（用户端不可见）')\n      loadBottles()\n      loadDashboard()\n    } catch {\n      // 拦截器已提示\n    }\n  }\n\n  const trendMax = dashboard\n    ? Math.max(1, ...dashboard.trend.map((d) => Math.max(d.throwCount, d.fishCount)))\n    : 1\n\n  const columns: ColumnsType<AdminDriftBottle> = [\n    { title: 'ID', dataIndex: 'id', width: 150, render: (id: number) => <Text copyable>{id}</Text> },\n    {\n      title: '类型',\n      width: 80,\n      render: (_, bottle) =>\n        bottle.wishId ? <Tag color=\"gold\">关联心愿</Tag> : <Tag>自由文字</Tag>,\n    },\n    {\n      title: '内容',\n      ellipsis: true,\n      render: (_, bottle) => (\n        <div style={{ maxWidth: 320 }}>\n          {bottle.wishId ? (\n            <span><Tag color=\"gold\">心愿</Tag>{bottle.wishTitle}</span>\n          ) : (\n            <RichText content={bottle.content} clamp={3} variant=\"preview\" />\n          )}\n        </div>\n      ),\n    },\n    {\n      title: '状态',\n      dataIndex: 'status',\n      width: 110,\n      render: (status: AdminDriftBottle['status']) => {\n        const meta = STATUS_META[status]\n        return <Tag color={meta.color}>{meta.label}</Tag>\n      },\n    },\n    {\n      title: '投瓶人',\n      dataIndex: 'throwerUserId',\n      width: 170,\n      render: (_, bottle) => (\n        <span>\n          <Text strong>{bottle.throwerNickname}</Text>\n          <Tag color={bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n            {bottle.isAnonymous ? '匿名' : '实名'}\n          </Tag>\n        </span>\n      ),\n    },\n    {\n      title: '捞瓶人',\n      dataIndex: 'pickerUserId',\n      width: 170,\n      render: (_, bottle) =>\n        bottle.pickerUserId === null ? (\n          <Text type=\"secondary\">-</Text>\n        ) : (\n          <span>\n            <Text strong>{bottle.pickerNickname}</Text>\n            <Tag color={bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n              {bottle.pickerIsAnonymous ? '匿名' : '实名'}\n            </Tag>\n          </span>\n        ),\n    },\n    {\n      title: '评论',\n      dataIndex: 'commentCount',\n      width: 70,\n    },\n    {\n      title: '回流',\n      dataIndex: 'returnCount',\n      width: 70,\n      render: (count: number) => (count > 0 ? <Tag color=\"orange\">{count} 次</Tag> : '-'),\n    },\n    {\n      title: '收藏',\n      dataIndex: 'isCollected',\n      width: 70,\n      render: (collected: boolean) => (collected ? <Tag color=\"gold\">已收藏</Tag> : '-'),\n    },\n    { title: '投瓶时间', dataIndex: 'thrownAt', width: 150, render: formatTime },\n    {\n      title: '操作',\n      width: 160,\n      render: (_, bottle) => (\n        <Space size=\"small\">\n          <Button size=\"small\" type=\"link\" onClick={() => openDetail(bottle.id)}>详情</Button>\n          <Popconfirm\n            title={bottle.isHidden ? '恢复该漂流瓶展示？' : '下架该漂流瓶？'}\n            description=\"下架为软隐藏，用户端不可见，数据保留\"\n            onConfirm={() => toggleHidden(bottle)}\n          >\n            <Button size=\"small\" type=\"link\" danger={!bottle.isHidden}>\n              {bottle.isHidden ? '恢复' : '下架'}\n            </Button>\n          </Popconfirm>\n        </Space>\n      ),\n    },\n  ]\n\n  const dashboardPanel = (\n    <Spin spinning={dashboardLoading}>\n      {dashboard && (\n        <>\n          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 8 }}>\n            <Statistic title=\"瓶子总数\" value={dashboard.totalBottles} />\n            <Statistic title=\"漂流中\" value={dashboard.floatingCount} />\n            <Statistic title=\"已被捞起\" value={dashboard.pickedCount} />\n            <Statistic title=\"被扔回海里\" value={dashboard.returnedCount} />\n            <Statistic title=\"有评论瓶子\" value={dashboard.repliedCount} />\n            <Statistic title=\"被收藏\" value={dashboard.collectedCount} />\n            <Statistic\n              title=\"已下架\"\n              value={dashboard.hiddenCount}\n              styles={{ content: { color: dashboard.hiddenCount > 0 ? '#ffb347' : undefined } }}\n            />\n          </div>\n          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 24 }}>\n            <Statistic title=\"今日投瓶\" value={dashboard.todayThrowCount} />\n            <Statistic title=\"今日打捞\" value={dashboard.todayFishCount} />\n            <Statistic title=\"今日评论\" value={dashboard.todayCommentCount} />\n          </div>\n\n          <Typography.Title level={5}>近 14 天趋势（投瓶 / 打捞）</Typography.Title>\n          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140, marginBottom: 4 }}>\n            {dashboard.trend.map((day) => (\n              <Tooltip\n                key={day.date}\n                title={`${day.date} · 投瓶 ${day.throwCount} / 打捞 ${day.fishCount}`}\n              >\n                <div style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'flex-end', height: '100%' }}>\n                  <div\n                    style={{\n                      flex: 1,\n                      height: `${(day.throwCount / trendMax) * 100}%`,\n                      minHeight: 2,\n                      background: '#1677ff',\n                      borderRadius: '2px 2px 0 0',\n                    }}\n                  />\n                  <div\n                    style={{\n                      flex: 1,\n                      height: `${(day.fishCount / trendMax) * 100}%`,\n                      minHeight: 2,\n                      background: '#36cfc9',\n                      borderRadius: '2px 2px 0 0',\n                    }}\n                  />\n                </div>\n              </Tooltip>\n            ))}\n          </div>\n          <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>\n            <span><Tag color=\"blue\" />投瓶</span>\n            <span><Tag color=\"cyan\" />打捞</span>\n          </div>\n\n          <Typography.Title level={5}>投瓶榜 Top10</Typography.Title>\n          <ol style={{ paddingLeft: 20, margin: 0 }}>\n            {dashboard.topThrowers.map((thrower) => (\n              <li key={thrower.userId} style={{ marginBottom: 4 }}>\n                用户 {thrower.userId}\n                <Text type=\"secondary\">（{thrower.nickname}）</Text>\n                ：{thrower.throwCount} 瓶\n              </li>\n            ))}\n            {dashboard.topThrowers.length === 0 && <Text type=\"secondary\">暂无数据</Text>}\n          </ol>\n        </>\n      )}\n    </Spin>\n  )\n\n  const managePanel = (\n    <>\n      <Space style={{ marginBottom: 16 }} wrap>\n        <Select\n          allowClear\n          placeholder=\"状态\"\n          style={{ width: 150 }}\n          value={filterStatus}\n          onChange={(v) => setFilterStatus(v)}\n          options={Object.entries(STATUS_META).map(([value, meta]) => ({\n            value,\n            label: meta.label,\n          }))}\n        />\n        <InputNumber\n          min={1}\n          placeholder=\"用户 ID（投/捞）\"\n          style={{ width: 170 }}\n          value={filterUserId}\n          onChange={(v) => setFilterUserId(v ?? undefined)}\n        />\n        <Input\n          allowClear\n          placeholder=\"关键词（瓶内文字/心愿标题）\"\n          style={{ width: 220 }}\n          value={filterKeyword}\n          onChange={(e) => setFilterKeyword(e.target.value)}\n          onPressEnter={handleSearch}\n        />\n        <Button type=\"primary\" onClick={handleSearch}>查询</Button>\n      </Space>\n      <Table\n        rowKey=\"id\"\n        columns={columns}\n        dataSource={bottles}\n        loading={loading}\n        onChange={handleTableChange}\n        pagination={{ current: page, pageSize, total, showSizeChanger: true }}\n        scroll={{ x: 1200 }}\n      />\n    </>\n  )\n\n  return (\n    <>\n      <Tabs\n        defaultActiveKey=\"dashboard\"\n        items={[\n          { key: 'dashboard', label: '数据看板', children: dashboardPanel },\n          { key: 'manage', label: '瓶子管理', children: managePanel },\n        ]}\n      />\n      <Drawer\n        title={`漂流瓶详情${detail ? ` #${detail.bottle.id}` : ''}`}\n        width={560}\n        open={detailOpen}\n        onClose={() => setDetailOpen(false)}\n        destroyOnHidden\n      >\n        <Spin spinning={detailLoading}>\n        {detail && (\n          <>\n            <Descriptions bordered size=\"small\" column={1}>\n              <Descriptions.Item label=\"类型\">\n                {detail.bottle.wishId\n                  ? <Tag color=\"gold\">关联心愿 #{detail.bottle.wishId} {detail.bottle.wishTitle}</Tag>\n                  : '自由文字'}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"状态\">\n                <Tag color={STATUS_META[detail.bottle.status].color}>\n                  {STATUS_META[detail.bottle.status].label}\n                </Tag>\n                {detail.bottle.isHidden && <Tag color=\"red\">已下架</Tag>}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"内容\">\n                {detail.bottle.wishId\n                  ? <Text type=\"secondary\">瓶子关联心愿，正文见「类型」行</Text>\n                  : <RichText content={detail.bottle.content} />}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"投瓶人\">\n                <Text strong>{detail.bottle.throwerNickname}</Text>\n                <Tag color={detail.bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n                  {detail.bottle.isAnonymous ? '匿名' : '实名'}\n                </Tag>\n                · {formatTime(detail.bottle.thrownAt)}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"捞瓶人\">\n                {detail.bottle.pickerUserId\n                  ? (\n                    <span>\n                      <Text strong>{detail.bottle.pickerNickname}</Text>\n                      <Tag color={detail.bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>\n                        {detail.bottle.pickerIsAnonymous ? '匿名' : '实名'}\n                      </Tag>\n                      · {formatTime(detail.bottle.pickedAt)}\n                    </span>\n                  )\n                  : '-'}\n              </Descriptions.Item>\n              <Descriptions.Item label=\"回流次数\">{detail.bottle.returnCount}</Descriptions.Item>\n              <Descriptions.Item label=\"收藏\">{detail.bottle.isCollected ? '已收藏' : '未收藏'}</Descriptions.Item>\n            </Descriptions>\n\n            <Typography.Title level={5} style={{ marginTop: 16 }}>\n              瓶下评论（{detail.comments.length}，真实身份）\n            </Typography.Title>\n            {detail.comments.length === 0 && <Text type=\"secondary\">暂无评论</Text>}\n            {detail.comments.map((comment) => (\n              <div key={comment.id} style={{ marginBottom: 8 }}>\n                <Text strong>用户 {comment.userId}</Text>\n                <Text type=\"secondary\" style={{ fontSize: 12 }}>\n                  （{comment.isAnonymous ? '匿名' : comment.nickname}）· {formatTime(comment.createdAt)}\n                  {comment.parentId ? ` · 回复 #${comment.parentId}` : ''}\n                </Text>\n                <div style={{ fontSize: 13 }}>{comment.content}</div>\n              </div>\n            ))}\n          </>\n        )}\n        </Spin>\n      </Drawer>\n    </>\n  )\n}\n",
       "__isJSFile": true,
       "__absFile": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/src/pages/admin/business/DriftBottles.tsx"
     },
