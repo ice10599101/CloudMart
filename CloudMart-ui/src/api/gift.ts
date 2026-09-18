@@ -88,3 +88,19 @@ export function listTargetGiftRecords(
     { params: { cursor, pageSize } },
   )
 }
+
+export interface MyGiftSummary {
+  /** 累计送出件数 */
+  sentCount: number
+  /** 累计送出消耗星光 */
+  sentStarlight: number
+  /** 累计收到件数 */
+  receivedCount: number
+  /** 累计收到星光价值 */
+  receivedStarlight: number
+}
+
+/** 我的礼物资产总览（送/收两方向累计；星光余额经 getMyResources 查询） */
+export function getMyGiftSummary() {
+  return request.get<ApiResponse<MyGiftSummary>>('/wish/gifts/my/summary')
+}

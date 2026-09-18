@@ -1136,6 +1136,11 @@ export function listMyDriftBottles() {
   return request.get<ApiResponse<DriftBottleItem[]>>('/wish/drift-bottles/mine')
 }
 
+/** 我收藏的漂流瓶（捞起人视角，倒序）；个人页收藏面板数据源 */
+export function listMyCollectedDriftBottles() {
+  return request.get<ApiResponse<DriftBottleItem[]>>('/wish/drift-bottles/collected')
+}
+
 /** 扔回海里（仅捞起人；瓶子回到海面可再被捞起，收藏与捞起人清空） */
 export function returnDriftBottle(bottleId: number) {
   return request.post<ApiResponse<null>>(`/wish/drift-bottles/${bottleId}/return`)

@@ -231,6 +231,22 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     }
 
     @Override
+    public List<DriftBottleVO> listCollected(Long userId) {
+        List<DriftBottle> collected = bottleMapper.selectList(new LambdaQueryWrapper<DriftBottle>()
+                .eq(DriftBottle::getPickerUserId, userId)
+                .eq(DriftBottle::getIsCollected, true)
+                .eq(DriftBottle::getStatus, DriftBottleStatus.PICKED)
+                .eq(DriftBottle::getIsHidden, false)
+                .orderByDesc(DriftBottle::getId)
+                .last("LIMIT 100"));
+        Map<Long, Long> commentCounts = countComments(collected);
+        Map<Long, UserInfo> userInfo = fetchUserInfo(bottleParticipantIds(collected));
+        return collected.stream()
+                .map(bottle -> toVo(bottle, "PICKED", commentCounts, userInfo))
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void returnBottle(Long userId, Long bottleId) {
         DriftBottle bottle = requireBottleViewable(userId, bottleId);

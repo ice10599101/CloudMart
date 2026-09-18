@@ -19,7 +19,9 @@ import com.cloudmart.wish.repository.GiftRecordMapper;
 import com.cloudmart.wish.repository.WishMapper;
 import com.cloudmart.wish.service.GiftService;
 import com.cloudmart.wish.service.UserStatService;
+import com.cloudmart.wish.vo.GiftRecordPageVO;
 import com.cloudmart.wish.vo.GiftRecordVO;
+import com.cloudmart.wish.vo.GiftSummaryVO;
 import com.cloudmart.wish.vo.GiftVO;
 import com.cloudmart.wish.vo.SendGiftResultVO;
 import lombok.RequiredArgsConstructor;
@@ -134,27 +136,27 @@ public class GiftServiceImpl implements GiftService {
     }
 
     @Override
-    public List<GiftRecordVO> listSentRecords(Long userId, Long cursor, Integer pageSize) {
+    public GiftRecordPageVO listSentRecords(Long userId, Long cursor, Integer pageSize) {
         List<GiftRecord> records = giftRecordMapper.selectList(new LambdaQueryWrapper<GiftRecord>()
                 .eq(GiftRecord::getSenderId, userId)
                 .lt(cursor != null, GiftRecord::getId, cursor)
                 .orderByDesc(GiftRecord::getId)
                 .last("LIMIT " + normalizePageSize(pageSize)));
-        return toVOsWithUserInfo(records);
+        return toPageVO(records, pageSize);
     }
 
     @Override
-    public List<GiftRecordVO> listReceivedRecords(Long userId, Long cursor, Integer pageSize) {
+    public GiftRecordPageVO listReceivedRecords(Long userId, Long cursor, Integer pageSize) {
         List<GiftRecord> records = giftRecordMapper.selectList(new LambdaQueryWrapper<GiftRecord>()
                 .eq(GiftRecord::getReceiverId, userId)
                 .lt(cursor != null, GiftRecord::getId, cursor)
                 .orderByDesc(GiftRecord::getId)
                 .last("LIMIT " + normalizePageSize(pageSize)));
-        return toVOsWithUserInfo(records);
+        return toPageVO(records, pageSize);
     }
 
     @Override
-    public List<GiftRecordVO> listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize) {
+    public GiftRecordPageVO listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize) {
         GiftTargetType type = parseTargetType(targetType);
         List<GiftRecord> records = giftRecordMapper.selectList(new LambdaQueryWrapper<GiftRecord>()
                 .eq(GiftRecord::getTargetType, type.name())
@@ -162,7 +164,48 @@ public class GiftServiceImpl implements GiftService {
                 .lt(cursor != null, GiftRecord::getId, cursor)
                 .orderByDesc(GiftRecord::getId)
                 .last("LIMIT " + normalizePageSize(pageSize)));
-        return toVOsWithUserInfo(records);
+        return toPageVO(records, pageSize);
+    }
+
+    @Override
+    public GiftSummaryVO getMyGiftSummary(Long userId) {
+        long[] sent = aggregateRecords("sender_id", userId);
+        long[] received = aggregateRecords("receiver_id", userId);
+        return new GiftSummaryVO(sent[0], sent[1], received[0], received[1]);
+    }
+
+    /**
+     * 按方向聚合送礼记录（件数 = Σ count，星光 = Σ total_price）。
+     * 列名固定为本模块建表列（snake_case），无外部输入拼接面。
+     */
+    private long[] aggregateRecords(String directionColumn, Long userId) {
+        List<Map<String, Object>> rows = giftRecordMapper.selectMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<GiftRecord>()
+                        .select("COALESCE(SUM(count), 0) AS total_count",
+                                "COALESCE(SUM(total_price), 0) AS total_price")
+                        .eq(directionColumn, userId));
+        if (rows.isEmpty() || rows.get(0) == null) {
+            return new long[]{0L, 0L};
+        }
+        Map<String, Object> row = rows.get(0);
+        return new long[]{
+                asLong(row.get("total_count")),
+                asLong(row.get("total_price"))
+        };
+    }
+
+    private long asLong(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    /** 记录列表 → cursor 分页 VO：游标为本页末条 ID，hasMore 按满页推断 */
+    private GiftRecordPageVO toPageVO(List<GiftRecord> records, Integer pageSize) {
+        int size = normalizePageSize(pageSize);
+        List<GiftRecordVO> vos = toVOsWithUserInfo(records);
+        String nextCursor = records.size() == size && !records.isEmpty()
+                ? String.valueOf(records.get(records.size() - 1).getId())
+                : null;
+        return new GiftRecordPageVO(vos, nextCursor, records.size() == size);
     }
 
     // ==================== 管理端 ====================

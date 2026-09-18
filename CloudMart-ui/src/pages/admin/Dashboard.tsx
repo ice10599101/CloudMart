@@ -15,12 +15,13 @@ import {
   HeartOutlined,
   CheckCircleOutlined,
   FireOutlined,
+  SendOutlined,
 } from '@ant-design/icons'
 import { getDashboardStats } from '@/api/admin/system'
 import { getAdminPosts, getCommunityStats, getCommunityTrend } from '@/api/admin/community'
 import type { AdminPostRecord } from '@/api/admin/community'
-import { getAdminWishes, getAdminWishStats } from '@/api/admin/wish'
-import type { AdminWishRecord, AdminWishStats } from '@/api/admin/wish'
+import { getAdminWishes, getAdminWishStats, getAdminDriftBottleDashboard } from '@/api/admin/wish'
+import type { AdminWishRecord, AdminWishStats, AdminDriftBottleDashboard } from '@/api/admin/wish'
 
 interface DashboardStats {
   userCount: number
@@ -66,6 +67,16 @@ const WISH_CARDS = [
   { title: '已实现', key: 'fulfilledWishCount', icon: CheckCircleOutlined, accentColor: '#2ED573', to: '/admin/business/wishes' },
   { title: '今日打卡', key: 'todayCheckinCount', icon: FireOutlined, accentColor: '#FFA502', to: '/admin/business/wish-interactions' },
   { title: '今日互动', key: 'todayInteractionCount', icon: HeartOutlined, accentColor: '#FF6B6B', to: '/admin/business/wish-interactions' },
+] as const
+
+// 漂流瓶面板指标卡：key 对齐 AdminDriftBottleDashboard 字段
+const DRIFT_BOTTLE_CARDS = [
+  { title: '瓶子总数', key: 'totalBottles', icon: SendOutlined, accentColor: '#4ECDC4' },
+  { title: '漂流中', key: 'floatingCount', icon: SendOutlined, accentColor: '#70A1FF' },
+  { title: '今日投瓶', key: 'todayThrowCount', icon: FileTextOutlined, accentColor: '#2ED573' },
+  { title: '今日打捞', key: 'todayFishCount', icon: FireOutlined, accentColor: '#FFA502' },
+  { title: '被收藏', key: 'collectedCount', icon: StarOutlined, accentColor: '#A78BFA' },
+  { title: '被扔回海里', key: 'returnedCount', icon: HeartOutlined, accentColor: '#FF6B6B' },
 ] as const
 
 // 待办提醒卡：待办两项指向待处理工作区，总量两项指向对应列表
@@ -131,6 +142,7 @@ export default function Dashboard() {
   const [overview, setOverview] = useState<Record<string, number>>({})
   const [communityTrend, setCommunityTrend] = useState<CommunityTrendItem[]>([])
   const [wishStats, setWishStats] = useState<AdminWishStats | null>(null)
+  const [bottleStats, setBottleStats] = useState<AdminDriftBottleDashboard | null>(null)
   const [latestWishes, setLatestWishes] = useState<AdminWishRecord[]>([])
   const [latestPosts, setLatestPosts] = useState<AdminPostRecord[]>([])
   const [trendDays, setTrendDays] = useState(7)
@@ -140,12 +152,13 @@ export default function Dashboard() {
     setLoading(true)
     try {
       // allSettled 容错：无对应模块权限/服务降级时对应分区显示空态，不阻塞整页
-      const [statsRes, postsRes, communityRes, wishStatsRes, wishListRes] = await Promise.allSettled([
+      const [statsRes, postsRes, communityRes, wishStatsRes, wishListRes, bottleStatsRes] = await Promise.allSettled([
         getDashboardStats(),
         getAdminPosts({ page: 1, pageSize: 6 }),
         getCommunityStats(),
         getAdminWishStats(),
         getAdminWishes({ page: 1, pageSize: 5 }),
+        getAdminDriftBottleDashboard(),
       ])
 
       if (statsRes.status === 'fulfilled' && statsRes.value.data) {
@@ -183,6 +196,10 @@ export default function Dashboard() {
       if (wishListRes.status === 'fulfilled' && wishListRes.value.data) {
         const resData = wishListRes.value.data as { data: AdminWishRecord[] }
         setLatestWishes(resData.data ?? [])
+      }
+      if (bottleStatsRes.status === 'fulfilled' && bottleStatsRes.value.data) {
+        const resData = (bottleStatsRes.value.data as { data: AdminDriftBottleDashboard }).data
+        setBottleStats(resData)
       }
     } finally {
       setLoading(false)
@@ -349,6 +366,40 @@ export default function Dashboard() {
             </Row>
             <div style={{ marginTop: 12, color: 'var(--color-text-tertiary)', fontSize: 12, textAlign: 'center' }}>
               进行中 {wishStats?.activeWishCount ?? 0} 个心愿正在被守护
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 漂流瓶数据面板：点击进入漂流瓶管理（看板 + 瓶子治理） */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col span={24}>
+          <Card
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>🍾 漂流瓶</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/business/drift-bottles')}
+            style={{ borderRadius: 10, border: '1px solid var(--color-border)' }}
+          >
+            <Row gutter={[12, 12]}>
+              {DRIFT_BOTTLE_CARDS.map((card) => {
+                const IconComp = card.icon
+                const value = bottleStats?.[card.key] ?? 0
+                return (
+                  <Col xs={12} sm={8} md={4} key={card.key}>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(var(--color-primary-rgb), 0.06)' }}
+                    >
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconComp style={{ fontSize: 22, color: card.accentColor }} />
+                      </div>
+                      <Statistic title={card.title} value={value} styles={{ content: { color: card.accentColor, fontSize: 22 } }} />
+                    </div>
+                  </Col>
+                )
+              })}
+            </Row>
+            <div style={{ marginTop: 12, color: 'var(--color-text-tertiary)', fontSize: 12, textAlign: 'center' }}>
+              今日瓶下评论 {bottleStats?.todayCommentCount ?? 0} 条 · 有评论瓶子 {bottleStats?.repliedCount ?? 0} 个 · 已下架 {bottleStats?.hiddenCount ?? 0} 个
             </div>
           </Card>
         </Col>

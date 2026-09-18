@@ -407,6 +407,36 @@ class DriftBottleServiceImplTest {
         }
     }
 
+    // ========== listCollected ==========
+
+    @Nested
+    @DisplayName("listCollected - 我收藏的漂流瓶")
+    class ListCollectedTests {
+
+        @Test
+        @DisplayName("仅返回我捞起且已收藏的漂流瓶（role=PICKED，脱敏规则同 listMine）")
+        void listCollected_success() {
+            DriftBottle collected = buildBottle(DriftBottleStatus.PICKED, USER_ID, WISH_ID);
+            collected.setIsCollected(true);
+            when(bottleMapper.selectList(any())).thenReturn(List.of(collected));
+
+            var result = driftBottleService.listCollected(USER_ID);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).role()).isEqualTo("PICKED");
+            assertThat(result.get(0).isCollected()).isTrue();
+            assertThat(result.get(0).bottleId()).isEqualTo(BOTTLE_ID);
+        }
+
+        @Test
+        @DisplayName("未收藏 → 空列表")
+        void listCollected_empty() {
+            when(bottleMapper.selectList(any())).thenReturn(List.of());
+
+            assertThat(driftBottleService.listCollected(USER_ID)).isEmpty();
+        }
+    }
+
     // ========== returnBottle ==========
 
     @Nested

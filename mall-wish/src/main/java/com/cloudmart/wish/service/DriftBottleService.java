@@ -43,6 +43,9 @@ public interface DriftBottleService {
     /** 我的漂流瓶（我投出的 + 我捞到的，倒序），含评论数与双方实名身份信息 */
     List<DriftBottleVO> listMine(Long userId);
 
+    /** 我收藏的漂流瓶（捞起人视角，倒序）：个人页收藏面板数据源 */
+    List<DriftBottleVO> listCollected(Long userId);
+
     /** 扔回海里（仅捞起人，PICKED → RETURNED）：回到海面可再被捞起，收藏与捞起人清空 */
     void returnBottle(Long userId, Long bottleId);
 

@@ -4,7 +4,7 @@ import { searchUsers } from '@/api/community'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import s from './style.module.css'
 
-const EMOJI_GROUPS: Array<{ label: string; emojis: string[] }> = [
+export const EMOJI_GROUPS: Array<{ label: string; emojis: string[] }> = [
   { label: '常用', emojis: ['😄', '😊', '🥰', '😂', '🤣', '😍', '🤔', '😅', '😭', '🥺', '😘', '😎', '🤩', '😴', '🙄', '😳', '🤗', '🤫', '😤', '🫡'] },
   { label: '手势', emojis: ['👍', '👎', '👌', '✌️', '🤝', '🙏', '👏', '💪', '🤙', '✊', '👊', '🫶', '🤞', '🖐️'] },
   { label: '心情', emojis: ['❤️', '💔', '💖', '✨', '🔥', '🎉', '💯', '⭐', '🌈', '☀️', '🌧️', '⚡', '🌸', '🎂', '🎁', '🎵'] },

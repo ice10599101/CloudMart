@@ -34,6 +34,28 @@ export default function PollConfigModal({ open, onClose, onSubmit }: PollConfigM
     setOptionsError('')
   }
 
+  const isDirty = question.trim() !== '' || options.some((option) => option.trim() !== '')
+
+  /** 关闭前二次确认：已填写内容时防误触丢失 */
+  const requestClose = () => {
+    if (!isDirty) {
+      reset()
+      onClose()
+      return
+    }
+    Modal.confirm({
+      title: '关闭后填写的内容将丢失',
+      content: '确定要关闭投票配置吗？',
+      okText: '关闭并放弃',
+      okButtonProps: { danger: true },
+      cancelText: '继续编辑',
+      onOk: () => {
+        reset()
+        onClose()
+      },
+    })
+  }
+
   const handleOptionChange = (index: number, value: string) => {
     setOptions((prev) => prev.map((option, i) => (i === index ? value : option)))
   }
@@ -58,19 +80,11 @@ export default function PollConfigModal({ open, onClose, onSubmit }: PollConfigM
     <Modal
       title="发起投票"
       open={open}
-      onCancel={() => {
-        reset()
-        onClose()
-      }}
+      onCancel={requestClose}
       width={480}
       footer={
         <Space>
-          <Button
-            onClick={() => {
-              reset()
-              onClose()
-            }}
-          >
+          <Button onClick={requestClose}>
             取消
           </Button>
           <Button type="primary" onClick={handleSubmit}>

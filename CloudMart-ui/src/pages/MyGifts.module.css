@@ -1,0 +1,100 @@
+.summaryCard {
+  margin-bottom: 16px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.recordList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recordRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--color-border, #f0f0f0);
+}
+
+.recordRow:last-of-type {
+  border-bottom: none;
+}
+
+.recordIcon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.recordIconFallback {
+  font-size: 30px;
+  color: #faad14;
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.recordMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recordTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recordName {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.recordPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-end: 0;
+}
+
+.recordMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text-tertiary, #999);
+}
+
+.recordLink {
+  margin-left: 6px;
+}
+
+.recordMessage {
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+  background: var(--color-border, #f7f7f7);
+  border-radius: 8px;
+  padding: 6px 10px;
+  word-break: break-word;
+}
+
+.loadMore {
+  margin-top: 12px;
+}
+
+.balanceLink {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+}

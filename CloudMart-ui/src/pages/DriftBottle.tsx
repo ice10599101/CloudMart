@@ -498,7 +498,7 @@ export default function DriftBottlePage() {
               <TiptapEditor
                 value={throwText}
                 onChange={setThrowText}
-                placeholder="写下你想随海漂流的一句话…（与发帖同款编辑器）"
+                placeholder="写下你想随海漂流的一句话…"
               />
             </div>
           ) : (

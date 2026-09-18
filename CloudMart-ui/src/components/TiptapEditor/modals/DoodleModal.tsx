@@ -107,6 +107,22 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
     setHasStrokes(false)
   }
 
+  /** 关闭前二次确认：已绘制内容时防误触丢失 */
+  const requestClose = () => {
+    if (!hasStrokes) {
+      onClose()
+      return
+    }
+    Modal.confirm({
+      title: '关闭后画的内容将丢失',
+      content: '确定要关闭涂鸦画板吗？',
+      okText: '关闭并放弃',
+      okButtonProps: { danger: true },
+      cancelText: '继续涂鸦',
+      onOk: onClose,
+    })
+  }
+
   const handleConfirm = async () => {
     const canvas = canvasRef.current
     if (!canvas || uploading) return
@@ -133,11 +149,11 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
     <Modal
       title="涂鸦"
       open={open}
-      onCancel={onClose}
+      onCancel={requestClose}
       width={600}
       footer={
         <Space>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={requestClose}>取消</Button>
           <Button
             type="primary"
             icon={<CheckOutlined />}

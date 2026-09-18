@@ -6,7 +6,8 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.wish.dto.SendGiftRequest;
 import com.cloudmart.wish.service.GiftService;
-import com.cloudmart.wish.vo.GiftRecordVO;
+import com.cloudmart.wish.vo.GiftRecordPageVO;
+import com.cloudmart.wish.vo.GiftSummaryVO;
 import com.cloudmart.wish.vo.GiftVO;
 import com.cloudmart.wish.vo.SendGiftResultVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,9 +59,18 @@ public class GiftController {
         return ApiResponse.ok(giftService.sendGift(userId, request));
     }
 
+    @GetMapping("/my/summary")
+    @Operation(summary = "我的礼物资产总览", description = "送/收两方向累计件数与星光；"
+            + "礼物为即时消费（送礼即扣星光），无库存语义；当前星光余额见 /wish/my/resources")
+    public ApiResponse<GiftSummaryVO> mySummary(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(giftService.getMyGiftSummary(userId));
+    }
+
     @GetMapping("/records/sent")
     @Operation(summary = "我送出的礼物", description = "id 倒序 cursor 分页（游标为上一页末条 id）")
-    public ApiResponse<List<GiftRecordVO>> listSentRecords(
+    public ApiResponse<GiftRecordPageVO> listSentRecords(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "游标（上一页末条记录 ID）")
@@ -72,7 +82,7 @@ public class GiftController {
 
     @GetMapping("/records/received")
     @Operation(summary = "我收到的礼物", description = "id 倒序 cursor 分页")
-    public ApiResponse<List<GiftRecordVO>> listReceivedRecords(
+    public ApiResponse<GiftRecordPageVO> listReceivedRecords(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "游标（上一页末条记录 ID）")
@@ -85,7 +95,7 @@ public class GiftController {
     @GetMapping("/targets/{targetType}/{targetId}")
     @Operation(summary = "场景礼物墙", description = "某心愿/帖子/直播间的最新送礼记录（id 倒序 cursor 分页）")
     @SentinelResource("GIFT_TARGET_RECORDS")
-    public ApiResponse<List<GiftRecordVO>> listTargetRecords(
+    public ApiResponse<GiftRecordPageVO> listTargetRecords(
             @Parameter(description = "送礼场景", required = true) @PathVariable("targetType") String targetType,
             @Parameter(description = "场景对象 ID", required = true) @PathVariable("targetId") Long targetId,
             @Parameter(description = "游标（上一页末条记录 ID）")

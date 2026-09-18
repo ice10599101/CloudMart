@@ -17,6 +17,7 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
+import RichText from '@/components/RichText'
 import {
   getAdminDriftBottleDashboard,
   getAdminDriftBottleDetail,
@@ -28,7 +29,7 @@ import {
 } from '@/api/admin/wish'
 import { useMessage } from '@/utils/useMessage'
 
-const { Text, Paragraph } = Typography
+const { Text } = Typography
 
 /**
  * 漂流瓶管理（重设计）：数据看板（状态分布/今日活动/14 天趋势/投瓶榜）+ 瓶子管理
@@ -161,9 +162,13 @@ export default function DriftBottles() {
       title: '内容',
       ellipsis: true,
       render: (_, bottle) => (
-        <Tooltip title={bottle.wishTitle ?? bottle.content}>
-          <span>{bottle.wishTitle ?? bottle.content}</span>
-        </Tooltip>
+        <div style={{ maxWidth: 320 }}>
+          {bottle.wishId ? (
+            <span><Tag color="gold">心愿</Tag>{bottle.wishTitle}</span>
+          ) : (
+            <RichText content={bottle.content} clamp={3} variant="preview" />
+          )}
+        </div>
       ),
     },
     {
@@ -178,25 +183,35 @@ export default function DriftBottles() {
     {
       title: '投瓶人',
       dataIndex: 'throwerUserId',
-      width: 140,
+      width: 170,
       render: (userId: number, bottle) => (
         <span>
-          用户 {userId}
-          <Text type="secondary" style={{ fontSize: 12 }}>（{bottle.isAnonymous ? '匿名' : bottle.throwerNickname}）</Text>
+          <Text strong>{bottle.throwerNickname}</Text>
+          <Tag color={bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
+            {bottle.isAnonymous ? '匿名' : '实名'}
+          </Tag>
+          <Tooltip title={`用户 ID：${userId}`}>
+            <Text type="secondary" style={{ fontSize: 12 }}>#{userId}</Text>
+          </Tooltip>
         </span>
       ),
     },
     {
       title: '捞瓶人',
       dataIndex: 'pickerUserId',
-      width: 140,
+      width: 170,
       render: (userId: number | null, bottle) =>
         userId === null ? (
           <Text type="secondary">-</Text>
         ) : (
           <span>
-            用户 {userId}
-            <Text type="secondary" style={{ fontSize: 12 }}>（{bottle.pickerIsAnonymous ? '匿名' : bottle.pickerNickname}）</Text>
+            <Text strong>{bottle.pickerNickname}</Text>
+            <Tag color={bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
+              {bottle.pickerIsAnonymous ? '匿名' : '实名'}
+            </Tag>
+            <Tooltip title={`用户 ID：${userId}`}>
+              <Text type="secondary" style={{ fontSize: 12 }}>#{userId}</Text>
+            </Tooltip>
           </span>
         ),
     },
@@ -387,18 +402,28 @@ export default function DriftBottles() {
                 {detail.bottle.isHidden && <Tag color="red">已下架</Tag>}
               </Descriptions.Item>
               <Descriptions.Item label="内容">
-                <Paragraph style={{ maxHeight: 200, overflow: 'auto', whiteSpace: 'pre-wrap', marginBottom: 0 }}>
-                  {detail.bottle.content ?? '-'}
-                </Paragraph>
+                {detail.bottle.wishId
+                  ? <Text type="secondary">瓶子关联心愿，正文见「类型」行</Text>
+                  : <RichText content={detail.bottle.content} />}
               </Descriptions.Item>
               <Descriptions.Item label="投瓶人">
-                用户 {detail.bottle.throwerUserId}
-                （{detail.bottle.isAnonymous ? '匿名' : detail.bottle.throwerNickname}）
-                · {formatTime(detail.bottle.thrownAt)}
+                <Text strong>{detail.bottle.throwerNickname}</Text>
+                <Tag color={detail.bottle.isAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
+                  {detail.bottle.isAnonymous ? '匿名' : '实名'}
+                </Tag>
+                （用户 {detail.bottle.throwerUserId}）· {formatTime(detail.bottle.thrownAt)}
               </Descriptions.Item>
               <Descriptions.Item label="捞瓶人">
                 {detail.bottle.pickerUserId
-                  ? `用户 ${detail.bottle.pickerUserId}（${detail.bottle.pickerIsAnonymous ? '匿名' : detail.bottle.pickerNickname}）· ${formatTime(detail.bottle.pickedAt)}`
+                  ? (
+                    <span>
+                      <Text strong>{detail.bottle.pickerNickname}</Text>
+                      <Tag color={detail.bottle.pickerIsAnonymous ? 'default' : 'green'} style={{ marginLeft: 6 }}>
+                        {detail.bottle.pickerIsAnonymous ? '匿名' : '实名'}
+                      </Tag>
+                      （用户 {detail.bottle.pickerUserId}）· {formatTime(detail.bottle.pickedAt)}
+                    </span>
+                  )
                   : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="回流次数">{detail.bottle.returnCount}</Descriptions.Item>

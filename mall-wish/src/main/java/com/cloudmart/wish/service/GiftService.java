@@ -2,7 +2,9 @@ package com.cloudmart.wish.service;
 
 import com.cloudmart.wish.dto.AdminGiftRequest;
 import com.cloudmart.wish.dto.SendGiftRequest;
+import com.cloudmart.wish.vo.GiftRecordPageVO;
 import com.cloudmart.wish.vo.GiftRecordVO;
+import com.cloudmart.wish.vo.GiftSummaryVO;
 import com.cloudmart.wish.vo.GiftVO;
 import com.cloudmart.wish.vo.SendGiftResultVO;
 
@@ -37,18 +39,23 @@ public interface GiftService {
     SendGiftResultVO sendGift(Long userId, SendGiftRequest request);
 
     /**
+     * 我的礼物资产总览（送/收两方向累计件数与星光；礼物为即时消费，无库存语义）。
+     */
+    GiftSummaryVO getMyGiftSummary(Long userId);
+
+    /**
      * 我送出的礼物记录（id 倒序 cursor 分页）。
      *
      * @param userId   用户 ID
      * @param cursor   游标（上一页末条记录 ID，null = 第一页）
      * @param pageSize 页大小（默认 20，上限 50）
      */
-    List<GiftRecordVO> listSentRecords(Long userId, Long cursor, Integer pageSize);
+    GiftRecordPageVO listSentRecords(Long userId, Long cursor, Integer pageSize);
 
     /**
      * 我收到的礼物记录（id 倒序 cursor 分页）。
      */
-    List<GiftRecordVO> listReceivedRecords(Long userId, Long cursor, Integer pageSize);
+    GiftRecordPageVO listReceivedRecords(Long userId, Long cursor, Integer pageSize);
 
     /**
      * 场景礼物墙：某心愿/帖子/直播间的最新送礼记录（id 倒序 cursor 分页）。
@@ -56,7 +63,7 @@ public interface GiftService {
      * @param targetType 场景：WISH / POST / LIVE_ROOM
      * @param targetId   场景对象 ID
      */
-    List<GiftRecordVO> listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize);
+    GiftRecordPageVO listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize);
 
     /**
      * 管理端：全量礼物目录（含下架，sort 升序）。

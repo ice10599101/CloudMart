@@ -1,10 +1,10 @@
-import RichText from '@/components/RichText'
+import RichText, { richTextToPlainText } from '@/components/RichText'
 import { stripHtml, formatDateTime } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Empty, Spin, Pagination } from 'antd'
-import { StarOutlined, TrophyOutlined, BookOutlined } from '@ant-design/icons'
+import { StarOutlined, TrophyOutlined, BookOutlined, GiftOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -19,7 +19,7 @@ import {
 import type { ShippingAddress, CreateAddressRequest, UpdateAddressRequest } from '@/types'
 import { getWishlistList, removeWishlist } from '@/api/wishlist'
 import { getUserCollections, type CollectionPostItem } from '@/api/community'
-import { listWishCollections, type WishCollectionItem } from '@/api/wish'
+import { listWishCollections, listMyCollectedDriftBottles, type WishCollectionItem, type DriftBottleItem } from '@/api/wish'
 import type { WishlistItem } from '@/api/wishlist'
 import { getUserProfile as getCommunityProfile, getUserPosts, getUserDrafts, getLikedPosts, getMyComments, getMyBrowseHistory, type Post, type BrowseHistoryItem } from '@/api/community'
 import {
@@ -307,6 +307,9 @@ function ProfileTab() {
         <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           <Button size="small" icon={<StarOutlined />} onClick={() => history.push('/wish/starlight-log')}>
             星光流水
+          </Button>
+          <Button size="small" icon={<GiftOutlined />} onClick={() => history.push('/gift/my')}>
+            我的礼物
           </Button>
           <Button size="small" icon={<TrophyOutlined />} onClick={() => history.push('/wish/badges')}>
             心愿殿堂
@@ -1195,14 +1198,15 @@ function AddressTab({ onToast }: { onToast: (msg: string, type: 'success' | 'err
 
 function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'error') => void }) {
   const { user } = useAuthStore()
-  const [category, setCategory] = useState<'products' | 'posts' | 'wishes'>('products')
+  const [category, setCategory] = useState<'products' | 'posts' | 'wishes' | 'bottles'>('products')
   // 商品收藏
   const [items, setItems] = useState<WishlistItem[]>([])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [removeTargetId, setRemoveTargetId] = useState<number | null>(null)
-  // 帖子收藏 / 心愿收藏（懒加载）
+  // 帖子收藏 / 心愿收藏 / 漂流瓶收藏（懒加载）
   const [postCollects, setPostCollects] = useState<CollectionPostItem[] | null>(null)
   const [wishCollects, setWishCollects] = useState<WishCollectionItem[] | null>(null)
+  const [bottleCollects, setBottleCollects] = useState<DriftBottleItem[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   const fetchWishlist = useCallback(async () => {
@@ -1233,6 +1237,14 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
       .catch(() => setWishCollects([]))
   }, [category, wishCollects])
 
+  // 漂流瓶收藏：切到漂流瓶分类时懒加载
+  useEffect(() => {
+    if (category !== 'bottles' || bottleCollects) return
+    listMyCollectedDriftBottles()
+      .then((res) => setBottleCollects(res.data.data ?? []))
+      .catch(() => setBottleCollects([]))
+  }, [category, bottleCollects])
+
   const handleRemoveClick = (productId: number) => {
     setRemoveTargetId(productId)
     setConfirmOpen(true)
@@ -1248,10 +1260,11 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
       .catch(() => onToast('操作失败', 'error'))
   }
 
-  const categories: Array<{ key: 'products' | 'posts' | 'wishes'; label: string }> = [
+  const categories: Array<{ key: 'products' | 'posts' | 'wishes' | 'bottles'; label: string }> = [
     { key: 'products', label: '🛍️ 商品' },
     { key: 'posts', label: '📝 帖子' },
     { key: 'wishes', label: '🌟 心愿' },
+    { key: 'bottles', label: '🍾 漂流瓶' },
   ]
 
   return (
@@ -1380,6 +1393,44 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
                 </div>
               </div>
             ))}
+          </div>
+        )
+      )}
+
+      {/* 漂流瓶收藏：捞起时收藏的瓶子，点击进入漂流瓶页查看 */}
+      {category === 'bottles' && (
+        bottleCollects === null ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className={s.spinner} /></div>
+        ) : bottleCollects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>🍾</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>还没有收藏的漂流瓶，去海上捞一个吧</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
+            {bottleCollects.map((bottle) => {
+              const excerpt = bottle.wishTitle ?? richTextToPlainText(bottle.content).slice(0, 60)
+              return (
+                <div
+                  key={bottle.bottleId}
+                  className={s.wishlistCard}
+                  onClick={() => history.push('/wish/drift-bottle')}
+                  style={{ display: 'flex', gap: 14, alignItems: 'center' }}
+                >
+                  <div style={{ fontSize: 26, flexShrink: 0 }}>🍾</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                      {excerpt || '一只空瓶子'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                      {bottle.wishId && <span>关联心愿</span>}
+                      <span>💬 {bottle.commentCount}</span>
+                      <span>捞于 {bottle.pickedAt ? new Date(bottle.pickedAt).toLocaleDateString('zh-CN') : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
       )}

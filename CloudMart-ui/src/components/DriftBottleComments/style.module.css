@@ -35,6 +35,38 @@
   gap: 8px;
 }
 
+/* 输入框下方工具行：表情 / 图片 / 语音 */
+.toolsRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 评论内嵌图片/语音（由 ![图片](url) / [语音](url) 标记渲染） */
+.inlineImage {
+  display: block;
+  max-width: 220px;
+  max-height: 180px;
+  border-radius: 10px;
+  margin: 4px 0;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+.inlineAudio {
+  display: block;
+  width: 240px;
+  height: 36px;
+  margin: 4px 0;
+}
+
 /* 列表 */
 .list {
   list-style: none;

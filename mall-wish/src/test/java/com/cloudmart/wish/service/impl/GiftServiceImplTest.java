@@ -29,6 +29,7 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -279,6 +280,39 @@ class GiftServiceImplTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("GIFT_TARGET_TYPE_INVALID");
         }
+    }
+
+    @Test
+    @DisplayName("资产总览 - 聚合送/收两方向件数与星光")
+    void shouldAggregateMyGiftSummary() {
+        Map<String, Object> sentRow = new HashMap<>();
+        sentRow.put("total_count", new java.math.BigDecimal("5"));
+        sentRow.put("total_price", 88L);
+        Map<String, Object> receivedRow = new HashMap<>();
+        receivedRow.put("total_count", 3);
+        receivedRow.put("total_price", new java.math.BigDecimal("120"));
+
+        when(giftRecordMapper.selectMaps(any())).thenReturn(List.of(sentRow), List.of(receivedRow));
+
+        var summary = giftService.getMyGiftSummary(USER_ID);
+
+        assertThat(summary.sentCount()).isEqualTo(5L);
+        assertThat(summary.sentStarlight()).isEqualTo(88L);
+        assertThat(summary.receivedCount()).isEqualTo(3L);
+        assertThat(summary.receivedStarlight()).isEqualTo(120L);
+    }
+
+    @Test
+    @DisplayName("资产总览 - 无记录时返回 0")
+    void shouldReturnZeroSummaryWhenNoRecords() {
+        when(giftRecordMapper.selectMaps(any())).thenReturn(List.of());
+
+        var summary = giftService.getMyGiftSummary(USER_ID);
+
+        assertThat(summary.sentCount()).isZero();
+        assertThat(summary.sentStarlight()).isZero();
+        assertThat(summary.receivedCount()).isZero();
+        assertThat(summary.receivedStarlight()).isZero();
     }
 
     @Test

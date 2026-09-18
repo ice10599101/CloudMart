@@ -45,6 +45,29 @@ export default function SurveyConfigModal({ open, onClose, onSubmit }: SurveyCon
     setQuestions((prev) => prev.map((question, i) => (i === index ? { ...question, ...patch } : question)))
   }
 
+  const isDirty = title.trim() !== ''
+    || questions.some((question) => question.text.trim() !== '' || question.options.some((option) => option.trim() !== ''))
+
+  /** 关闭前二次确认：已填写内容时防误触丢失 */
+  const requestClose = () => {
+    if (!isDirty) {
+      reset()
+      onClose()
+      return
+    }
+    Modal.confirm({
+      title: '关闭后填写的内容将丢失',
+      content: '确定要关闭问卷配置吗？',
+      okText: '关闭并放弃',
+      okButtonProps: { danger: true },
+      cancelText: '继续编辑',
+      onOk: () => {
+        reset()
+        onClose()
+      },
+    })
+  }
+
   const handleSubmit = () => {
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
@@ -78,19 +101,11 @@ export default function SurveyConfigModal({ open, onClose, onSubmit }: SurveyCon
     <Modal
       title="发起问卷"
       open={open}
-      onCancel={() => {
-        reset()
-        onClose()
-      }}
+      onCancel={requestClose}
       width={560}
       footer={
         <Space>
-          <Button
-            onClick={() => {
-              reset()
-              onClose()
-            }}
-          >
+          <Button onClick={requestClose}>
             取消
           </Button>
           <Button type="primary" onClick={handleSubmit}>

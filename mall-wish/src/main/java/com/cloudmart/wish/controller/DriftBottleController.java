@@ -94,6 +94,15 @@ public class DriftBottleController {
         return ApiResponse.ok(driftBottleService.listMine(userId));
     }
 
+    @GetMapping("/collected")
+    @Operation(summary = "我收藏的漂流瓶", description = "我捞起并收藏的漂流瓶（倒序）；个人页收藏面板数据源")
+    @SentinelResource("WISH_DRIFT_COLLECTED")
+    public ApiResponse<List<DriftBottleVO>> listCollected(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(driftBottleService.listCollected(userId));
+    }
+
     @PostMapping("/{id}/return")
     @Operation(summary = "扔回海里", description = "仅捞起人可操作（PICKED → RETURNED）：瓶子回到海面可再被捞起，"
             + "捞起人与收藏清空；评论保留")
