@@ -845,7 +845,7 @@ export default function PetScreen() {
         </View>
         <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs, marginTop: Spacing.md, marginBottom: 4 }}>性别</Text>
         <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center' }}>
-          {([['MALE', '♂ 雄性'], ['FEMALE', '♀ 雌性']] as const).map(([key, label]) => (
+          {([['MALE', '♂ 男'], ['FEMALE', '♀ 女']] as const).map(([key, label]) => (
             <TouchableOpacity
               key={key}
               onPress={() => setAdoptGender(key)}

@@ -415,14 +415,14 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
           className={`${styles.personalityChip} ${styles.genderChip} ${gender === 'MALE' ? styles.personalityActive : ''}`}
           onClick={() => setGender('MALE')}
         >
-          ♂ 雄性
+          ♂ 男
         </button>
         <button
           type="button"
           className={`${styles.personalityChip} ${styles.genderChip} ${styles.genderFemale} ${gender === 'FEMALE' ? styles.personalityActive : ''}`}
           onClick={() => setGender('FEMALE')}
         >
-          ♀ 雌性
+          ♀ 女
         </button>
       </div>
       <h4 className={styles.sectionTitle}>外观颜色</h4>
@@ -1321,7 +1321,7 @@ function ProfileModal({ pet, open, onClose, onSaved }: ProfileModalProps) {
       <p className={styles.profileLabel}>性别（领养时确定）</p>
       <p style={{ margin: 0 }}>
         <span className={pet.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale} style={{ fontSize: 16 }}>
-          {pet.gender === 'FEMALE' ? '♀ 雌性' : '♂ 雄性'}
+          {pet.gender === 'FEMALE' ? '♀ 女' : '♂ 男'}
         </span>
       </p>
       <p className={styles.profileLabel}>名字（30 天可改一次）</p>

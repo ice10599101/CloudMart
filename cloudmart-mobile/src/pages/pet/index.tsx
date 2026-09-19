@@ -55,8 +55,8 @@ const SPECIES_OPTIONS = [
 
 /** 领养可选性别（与服务端 PetGender 一致） */
 const GENDER_OPTIONS = [
-  { value: 'MALE', label: '♂ 雄性' },
-  { value: 'FEMALE', label: '♀ 雌性' },
+  { value: 'MALE', label: '♂ 男' },
+  { value: 'FEMALE', label: '♀ 女' },
 ] as const
 
 const PERSONALITY_OPTIONS = [

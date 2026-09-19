@@ -120,7 +120,7 @@ export default function StageHud({ snapshot, bubble, onIntent }: StageHudProps) 
                         {SPECIES_EMOJI[snapshot.species] || '🐾'} {snapshot.name}
                         <span
                             className={snapshot.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale}
-                            aria-label={snapshot.gender === 'FEMALE' ? '雌性' : '雄性'}
+                            aria-label={snapshot.gender === 'FEMALE' ? '女' : '男'}
                         >
                             {snapshot.gender === 'FEMALE' ? '♀' : '♂'}
                         </span>

@@ -113,7 +113,7 @@ public class PetServiceImpl implements PetService {
         pet.setUserId(userId);
         pet.setName(request.name().trim());
         pet.setSpecies(request.species());
-        // 性别：领养可选，未传（旧客户端）默认雄性
+        // 性别：领养可选，未传（旧客户端）默认男
         pet.setGender(request.gender() != null ? request.gender() : PetGender.MALE.name());
         pet.setAppearance(PetJsonUtils.toJson(Map.of(
                 "color", request.color() != null ? request.color() : "orange",
