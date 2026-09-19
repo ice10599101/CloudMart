@@ -51,7 +51,7 @@ const PET_POS = new Vec3(0, 0, 0.35)
 const DEMO_STATE: PetDisplayState = {
     name: '糖糖', species: 'CAT', growthStage: 'YOUNG', level: 6, expPercent: 0.62,
     hp: 92, maxHp: 100, hunger: 58, happiness: 82, energy: 74, cleanliness: 90,
-    status: 'IDLE', speech: '主人，陪我玩一会嘛～', color: 'orange', accessory: 'bell', evolutionStage: 0,
+    status: 'IDLE', speech: '主人，陪我玩一会嘛～', color: '', accessory: 'bell', evolutionStage: 0,
 }
 
 /** 情绪 → 表演参数（耳朵/尾巴/眼睛/嘴） */
@@ -114,8 +114,15 @@ export class PetGameRoot extends Component {
         this.bindBridge()
 
         this.bridge.send({ source: 'pet-game', type: 'ready' })
-        if (new URLSearchParams(window.location.search).get('demo') === '1') {
-            this.applyPetState(DEMO_STATE)
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('demo') === '1') {
+            // 演示模式支持 ?species=PIG / ?color=pink / ?accessory=bowtie，便于逐种验收造型
+            this.applyPetState({
+                ...DEMO_STATE,
+                species: params.get('species') || DEMO_STATE.species,
+                color: params.get('color') || DEMO_STATE.color,
+                accessory: params.get('accessory') || DEMO_STATE.accessory,
+            })
         }
     }
 
@@ -143,7 +150,11 @@ export class PetGameRoot extends Component {
 
         const cameraNode = scene.getChildByName('Main3DCamera')
         this.camera3d = cameraNode ? cameraNode.getComponent(Camera) : null
-        if (this.camera3d) {
+        if (cameraNode && this.camera3d) {
+            // 视觉重构 v4：拉近并正对宠物，让角色成为画面主体（对齐参考图的构图）
+            // 构图：宠物连腿脚一起落在画面约 20%-52%，完全避开底部 HUD（按钮区从约 59% 开始）
+            cameraNode.setPosition(0, 1.20, 6.3)
+            cameraNode.lookAt(new Vec3(0, 0.08, 0.35), new Vec3(0, 1, 0))
             // 室内暖色兜底背景（墙体之外的边缘区域）
             this.camera3d.clearColor = new Color(0x6E, 0x5A, 0x66, 255)
         }
@@ -239,14 +250,16 @@ export class PetGameRoot extends Component {
         )
     }
 
-    /** 宠物头顶（世界坐标；爱心/星星/气泡的发射点） */
+    /** 宠物头顶（世界坐标；爱心/星星/气泡的发射点）—— 锚点由造型层给出，换物种自动适配 */
     private get headWorld(): Vec3 {
-        return new Vec3(PET_POS.x, 1.95, PET_POS.z + 0.1)
+        const m = this.rig ? this.rig.markers.head : new Vec3(0, 1.72, 0.06)
+        return new Vec3(PET_POS.x + m.x, m.y, PET_POS.z + m.z)
     }
 
     /** 宠物嘴边（世界坐标；食物/浮字的落点） */
     private get mouthWorld(): Vec3 {
-        return new Vec3(PET_POS.x, 1.1, PET_POS.z + 0.5)
+        const m = this.rig ? this.rig.markers.mouth : new Vec3(0, 1.05, 0.34)
+        return new Vec3(PET_POS.x + m.x, m.y, PET_POS.z + m.z)
     }
 
     // ---------------- 逐帧生命感 ----------------

@@ -1,10 +1,10 @@
 import { Color } from 'cc'
 
 /**
- * 宠物视觉设计系统（统一视觉语言，视觉重构 v3）。
+ * 宠物视觉设计系统（统一视觉语言，视觉重构 v4）。
  *
  * 本文件是 Cocos 场景与宿主 HUD 共用的"设计令牌"来源：
- *  - 配色：物种基色 + 皮肤色 → 完整调色板（主色/深色/肚皮/爪垫/腮红）自动推导；
+ *  - 配色：物种基色（对齐参考图色板）→ 完整调色板（主色/深色/肚皮/爪垫/腮红）自动推导；
  *  - HUD：卡片、文字、强调色、状态条颜色的统一取值（禁止在构建代码里散落魔法色值）；
  *  - 情绪：由服务端数值推导的基础情绪枚举（驱动表情与待机演出）。
  *
@@ -16,37 +16,59 @@ import { Color } from 'cc'
 export interface PetPalette {
     /** 主色（身体/头/耳/尾） */
     body: Color
-    /** 深色（耳内/尾巴/花纹） */
+    /** 深色（耳内/尾巴/花纹/龟壳） */
     dark: Color
     /** 肚皮/口鼻亮色 */
     belly: Color
-    /** 爪垫色（脚掌） */
+    /** 爪垫色（脚掌/脚趾） */
     paw: Color
     /** 腮红 */
     blush: Color
 }
 
-/** 物种基色（唯一色源：其余部位由基色推导） */
+/** 物种基色（唯一色源：其余部位由基色推导；取值对齐参考图的柔和彩度） */
 const SPECIES_BODY: Record<string, string> = {
-    CAT: '#F7B05A',
-    DOG: '#E8B87A',
-    RABBIT: '#FAF5F0',
-    FOX: '#F08A4B',
-    PANDA: '#F9F6F2',
-    WILD: '#A9B6C9',
+    CAT: '#F4F1F6',      // 银白长毛
+    DOG: '#F8EEDA',      // 奶油白
+    RABBIT: '#F8D7A6',   // 浅橙奶油
+    HAMSTER: '#D9D6DE',  // 银灰
+    TURTLE: '#A9CE7C',   // 浅绿（软陶质感）
+    PIG: '#F8C6CA',      // 柔粉
+    FOX: '#F2A15C',
+    PANDA: '#F6F2EE',
+    WILD: '#B4BFD0',
 }
 
-/** 深色部位覆盖（熊猫/兔子等需要真实动物特征；缺省由基色压暗推导） */
+/** 深色部位覆盖（耳内/壳/花纹；缺省由基色推导） */
 const SPECIES_DARK: Record<string, string> = {
-    CAT: '#E08A38',
-    DOG: '#C98F52',
-    RABBIT: '#E6DCE8',
-    FOX: '#D2662E',
+    CAT: '#C9C2D0',
+    DOG: '#E2D2B8',
+    RABBIT: '#E7BE86',
+    HAMSTER: '#BEB9C6',
+    TURTLE: '#8BAE5A',   // 龟壳
+    PIG: '#E9A8B0',
+    FOX: '#D97F36',
     PANDA: '#3B3344',
-    WILD: '#7E8AA0',
+    WILD: '#8A96A8',
 }
 
-/** 皮肤色键（pet_skin_config.color）→ 基色 */
+/** 肚皮覆盖（缺省 = 基色提亮 42%） */
+const SPECIES_BELLY: Record<string, string> = {
+    CAT: '#FDFCFE',
+    HAMSTER: '#F7F4F4',
+    TURTLE: '#E4E0A6',   // 腹甲浅黄
+    PIG: '#FDE7E5',
+}
+
+/** 爪垫覆盖（缺省 = 基色提亮 52%） */
+const SPECIES_PAW: Record<string, string> = {
+    HAMSTER: '#F2C6CE',
+    TURTLE: '#EDE3A8',
+    PIG: '#F5B6BE',
+    RABBIT: '#F6E3C8',
+}
+
+/** 皮肤色键（pet_skin_config.color）→ 基色（保留宿主自定义换色能力） */
 const SKIN_BODY: Record<string, string> = {
     orange: '#F7B05A',
     gray: '#B7BDC9',
@@ -152,19 +174,23 @@ export function shift(color: Color, amount: number): Color {
     )
 }
 
-/** 解析宠物调色板：皮肤色优先，其次物种配色；未知键回落橘猫 */
+/**
+ * 解析宠物调色板：皮肤色优先，其次物种配色；未知键回落银白猫。
+ *
+ * 说明：物种专属的肚皮/爪垫覆盖只在"未自定义肤色"时生效，
+ * 否则按用户选的基色重新推导，保证换色后整体协调。
+ */
 export function resolvePalette(species: string, colorKey?: string): PetPalette {
     const baseHex = (colorKey && SKIN_BODY[colorKey]) || SPECIES_BODY[species] || SPECIES_BODY.CAT
-    const darkHex = SPECIES_DARK[species] || baseHex
     const body = hex(baseHex)
-    const dark = hex(darkHex)
+    const speciesTint = !colorKey
     return {
         body,
-        dark,
+        dark: speciesTint && SPECIES_DARK[species] ? hex(SPECIES_DARK[species]) : shift(body, -0.22),
         // 肚皮：基色大幅提亮（白色系物种不会过曝，shift 有上限保护）
-        belly: shift(body, 0.42),
+        belly: speciesTint && SPECIES_BELLY[species] ? hex(SPECIES_BELLY[species]) : shift(body, 0.42),
         // 爪垫：比肚皮更亮一点点，形成"袜子"层次
-        paw: shift(body, 0.52),
+        paw: speciesTint && SPECIES_PAW[species] ? hex(SPECIES_PAW[species]) : shift(body, 0.52),
         // 腮红：固定的暖粉，与任何主色都协调
         blush: hex('#FF9FB4'),
     }

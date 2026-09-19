@@ -65,3 +65,4 @@ desktop.ini
 # pet-game Cocos 构建产物（构建到 Web 宿主静态目录）
 CloudMart-ui/public/pet-game/
 /pet-game/cocos-cli/
+/pet-game/模型/
