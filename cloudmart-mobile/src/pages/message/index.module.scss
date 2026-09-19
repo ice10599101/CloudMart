@@ -149,3 +149,9 @@
   font-size: 20rpx;
   color: #FFFFFF;
 }
+
+.markAllRead {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+  padding: 0 $spacing-lg;
+}

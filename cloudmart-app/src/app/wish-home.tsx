@@ -335,6 +335,31 @@ export default function WishHomeScreen() {
         {/* 社区活动入口（Sprint 3.5，四AC R4） */}
         <TouchableOpacity
           activeOpacity={0.8}
+          onPress={() => router.push('/daily-signin')}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: Spacing.md,
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(15, 52, 96, 0.6)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 184, 0, 0.35)',
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: '#ffb800' }}>📅 每日签到</Text>
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
+              每日签到领星光，连续签到赢里程碑礼包
+            </Text>
+          </View>
+          <Text style={{ fontSize: FontSize.xl, color: WishColors.textTertiary }}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.push('/activities')}
           style={{
             flexDirection: 'row',

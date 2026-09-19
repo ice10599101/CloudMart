@@ -7,13 +7,15 @@ import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import * as Location from 'expo-location'
+import AmapWishMap from '@/components/AmapWishMap'
 import type { NearbyWish, WarmEventItem } from '@/types'
 import type { MyWishListItem } from '@/types'
 
 /**
- * 附近心愿（Sprint 3.1 APP 端）：列表模式（同一 API 契约，数据与三端一致）。
- * 地图渲染需 react-native-amap3d（原生依赖 + 高德 Key），待配置后升级
- * 地图模式（偏差留档进度文件四V·5）；本页为无依赖可用形态。
+ * 附近心愿（Sprint 3.1 APP 端）：地图 + 列表双形态。
+ * 地图经 react-native-webview 加载高德 JS API 2.0（Key 由后端 /wish/map/config
+ * 下发、内置 Key 兜底，与 Web 端同链路），心愿点 MarkerCluster 自动聚合，
+ * 点击心愿点跳详情；Key/SDK 不可用时降级为纯列表模式（对齐 Web 端 fallback）。
  */
 export default function NearbyWishesScreen() {
   const insets = useSafeAreaInsets()
@@ -165,6 +167,17 @@ export default function NearbyWishesScreen() {
       >
         坐标经 geohash 模糊化（约 150m 网格 + 偏移），仅展示公开心愿 · 定位失败时展示默认城市
       </Text>
+
+      {/* 地图模式（对齐 Web 端 WishMap：高德 JS API + 聚合，点击心愿点跳详情） */}
+      {wishes.length > 0 && (
+        <View style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.sm }}>
+          <AmapWishMap
+            wishes={wishes}
+            center={userPos}
+            onWishPress={(wishId) => router.push(`/wish-detail?id=${wishId}`)}
+          />
+        </View>
+      )}
 
       {/* B7：围栏打卡 */}
       <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.sm, backgroundColor: WishColors.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md }}>

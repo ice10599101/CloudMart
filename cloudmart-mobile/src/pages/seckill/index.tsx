@@ -93,6 +93,52 @@ export default function SeckillPage() {
     Taro.showToast({ title: '刷新成功', icon: 'success', duration: 1_000 })
   }
 
+  interface SeckillResultShape {
+    status?: string
+    message?: string
+    orderId?: number | null
+  }
+
+  /** 处理终态结果（对齐 Web 端：SUCCESS 弹窗看订单 / FAILED 提示原因） */
+  const finishSeckill = (result: SeckillResultShape) => {
+    if (result.status === 'SUCCESS') {
+      Taro.showModal({
+        title: '抢购成功',
+        content: '恭喜你抢到了，去看看订单吧',
+        confirmText: '查看订单',
+        cancelText: '继续逛',
+        success: (res) => {
+          if (res.confirm) Taro.navigateTo({ url: '/pages/orders/index' })
+        },
+      })
+    } else {
+      Taro.showToast({ title: result.message || '抢购失败', icon: 'none' })
+    }
+  }
+
+  /** 排队轮询（对齐 Web 端 PENDING 轮询；2s 间隔，最多 15 次） */
+  const pollSeckillResult = (activityId: number, productId: number): Promise<SeckillResultShape> =>
+    new Promise((resolve) => {
+      let attempts = 0
+      const poll = setInterval(async () => {
+        attempts += 1
+        try {
+          const pollRes = await marketingApi.getSeckillResult({ activityId, seckillProductId: productId })
+          const pollResult = (pollRes.data?.data ?? {}) as unknown as SeckillResultShape
+          if (pollResult.status && pollResult.status !== 'PENDING') {
+            clearInterval(poll)
+            resolve(pollResult)
+          } else if (attempts >= 15) {
+            clearInterval(poll)
+            resolve({ status: 'FAILED', message: '排队超时，请稍后在订单中查看' })
+          }
+        } catch {
+          clearInterval(poll)
+          resolve({ status: 'FAILED', message: '查询排队结果失败' })
+        }
+      }, 2_000)
+    })
+
   const handleSeckill = async (activityId: number, product: SeckillProduct) => {
     const key = `${activityId}-${product.id}`
     if (executingIds.has(key)) return
@@ -106,19 +152,17 @@ export default function SeckillPage() {
     setExecutingIds((prev) => new Set(prev).add(key))
     try {
       const res = await marketingApi.executeSeckill({ activityId, seckillProductId: product.id })
-      const orderNo = res.data?.data?.orderNo || res.data?.data
-      Taro.showToast({ title: '秒杀成功', icon: 'success' })
-      if (orderNo) {
-        setTimeout(() => {
-          Taro.navigateTo({ url: `/pages/orderDetail/index?orderNo=${orderNo}` })
-        }, 1_500)
+      const result = (res.data?.data ?? {}) as unknown as SeckillResultShape
+      if (result.status === 'PENDING') {
+        Taro.showToast({ title: '排队中...', icon: 'none', duration: 1_000 })
+        finishSeckill(await pollSeckillResult(activityId, product.id))
       } else {
-        setTimeout(() => {
-          Taro.navigateTo({ url: '/pages/orders/index' })
-        }, 1_500)
+        finishSeckill(result)
       }
-    } catch {
-      Taro.showToast({ title: '秒杀失败，请重试', icon: 'none' })
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
+      Taro.showToast({ title: message || '秒杀失败，请重试', icon: 'none' })
     } finally {
       setExecutingIds((prev) => {
         const next = new Set(prev)

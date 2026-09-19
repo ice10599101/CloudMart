@@ -179,3 +179,95 @@
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
+
+.commentMetaRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-top: $spacing-xs;
+}
+
+.commentLikeBtn {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.repliesBlock {
+  margin-top: $spacing-sm;
+  padding-left: $spacing-md;
+  border-left: 4rpx solid var(--color-border);
+}
+
+.replyItem {
+  padding: $spacing-xs 0;
+}
+
+.replyName {
+  display: block;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  color: $color-text-secondary;
+  margin-bottom: 2rpx;
+}
+
+.commentLoadMore {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-md 0;
+}
+
+.commentLoadMoreText {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+}
+
+.replyBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-xs $spacing-lg;
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+}
+
+.replyBannerText {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.replyBannerCancel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.relatedRow {
+  display: flex;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.relatedCover {
+  width: 140rpx;
+  height: 100rpx;
+  border-radius: $radius-md;
+  flex-shrink: 0;
+}
+
+.relatedInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.relatedTitle {
+  display: block;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+
+.relatedMeta {
+  display: block;
+  margin-top: 4rpx;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard'
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native'
 import { useState } from 'react'
 import { router } from 'expo-router'
@@ -16,6 +17,16 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!nickname || !email || !password) {
       Alert.alert('提示', '请填写所有字段')
+      return
+    }
+
+    // 邮箱格式校验（对齐 Web 端注册表单）
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert('提示', '请输入正确的邮箱格式')
+      return
+    }
+    if (password.length < 6) {
+      Alert.alert('提示', '密码至少 6 位')
       return
     }
     if (password !== confirmPassword) {

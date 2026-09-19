@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { Post, Comment, Tag, User, UserBasic, FollowUser, PaginatedResult } from '@/types'
+import type { Post, Comment, Tag, User, UserBasic, FollowUser, PaginatedResult, BrowseHistoryItem, RecommendUserItem } from '@/types'
 
 function buildQuery(params?: Record<string, unknown>): string {
   if (!params) return ''
@@ -26,7 +26,7 @@ export const communityApi = {
   sharePost: (id: number) => request<void>({ url: `/community/posts/${id}/share`, method: 'POST' }),
   getComments: (postId: number, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Comment>>({ url: `/community/posts/${postId}/comments${buildQuery(params as Record<string, unknown>)}` }),
-  createComment: (postId: number, data: { content: string; parentId?: number }) =>
+  createComment: (postId: number, data: { content: string; parentId?: number; replyToUserId?: number }) =>
     request<Comment>({ url: `/community/posts/${postId}/comments`, method: 'POST', data }),
   likeComment: (id: number) => request<void>({ url: `/community/comments/${id}/like`, method: 'POST' }),
   unlikeComment: (id: number) => request<void>({ url: `/community/comments/${id}/like`, method: 'DELETE' }),
@@ -68,4 +68,20 @@ export const communityApi = {
   clearSearchHistory: () => request<void>({ url: '/community/search/history', method: 'DELETE' }),
   recordBrowseHistory: (data: { targetType: 'PRODUCT' | 'POST' | 'WISH'; targetId: number | string; title?: string; cover?: string }) =>
     request<void>({ url: '/community/browse-history', method: 'POST', data }),
+  getMyBrowseHistory: (params?: { page?: number; pageSize?: number }) =>
+    request<PaginatedResult<BrowseHistoryItem>>({ url: `/community/browse-history${buildQuery(params as Record<string, unknown>)}` }),
+  subscribeTag: (tagId: number | string) =>
+    request<void>({ url: `/community/tags/subscriptions/${tagId}`, method: 'POST' }),
+  unsubscribeTag: (tagId: number | string) =>
+    request<void>({ url: `/community/tags/subscriptions/${tagId}`, method: 'DELETE' }),
+  checkTagSubscription: (tagId: number | string) =>
+    request<boolean>({ url: `/community/tags/subscriptions/${tagId}/status` }),
+  getRecommendUsers: (params?: { limit?: number }) =>
+    request<RecommendUserItem[]>({ url: `/community/users/recommend${buildQuery(params as Record<string, unknown>)}` }),
+  getUserComments: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
+    request<PaginatedResult<Comment>>({ url: `/community/users/${userId}/comments${buildQuery(params as Record<string, unknown>)}` }),
+  getUserLikedPosts: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
+    request<PaginatedResult<Post>>({ url: `/community/users/${userId}/liked${buildQuery(params as Record<string, unknown>)}` }),
+  deleteComment: (postId: number | string, commentId: number | string) =>
+    request<void>({ url: `/community/posts/${postId}/comments/${commentId}`, method: 'DELETE' }),
 }

@@ -29,3 +29,45 @@
   font-size: $font-size-md;
   color: $color-text-tertiary;
 }
+
+.orderActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+  padding-top: $spacing-sm;
+  border-top: 1rpx solid var(--color-border);
+}
+
+.actionGhostBtn {
+  padding: 8rpx 28rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.actionGhostText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.actionPrimaryBtn {
+  padding: 8rpx 28rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.actionPrimaryText {
+  font-size: $font-size-sm;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.footerHint {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-md 0;
+}
+
+.footerHintText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

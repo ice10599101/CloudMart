@@ -14,9 +14,9 @@ const QUICK_ENTRIES = [
   { icon: '👥', name: '拼团', path: '/pages/groupBuy/index', gradient: 'linear-gradient(135deg, #9370DB, #B06AB3)' },
   { icon: '🎫', name: '优惠券', path: '/pages/coupons/index', gradient: 'linear-gradient(135deg, #FFD700, #FFA500)' },
   { icon: '📺', name: '直播', path: '/pages/live/index', gradient: 'linear-gradient(135deg, #00D4FF, #0099CC)' },
-  { icon: '🆕', name: '新品', path: '/pages/search/index?type=product&sort=newest', gradient: 'linear-gradient(135deg, #32CD32, #4CAF50)' },
-  { icon: '🔥', name: '热销', path: '/pages/search/index?type=product&sort=hot', gradient: 'linear-gradient(135deg, #FF6B35, #FF4757)' },
-  { icon: '💡', name: '推荐', path: '/pages/search/index?type=product&sort=recommended', gradient: 'linear-gradient(135deg, #9370DB, #00D4FF)' },
+  { icon: '🆕', name: '新品', path: '/pages/search/index?type=product&sort=created', gradient: 'linear-gradient(135deg, #32CD32, #4CAF50)' },
+  { icon: '🔥', name: '热销', path: '/pages/search/index?type=product&sort=sales_desc', gradient: 'linear-gradient(135deg, #FF6B35, #FF4757)' },
+  { icon: '💡', name: '推荐', path: '/pages/search/index?type=product&sort=relevance', gradient: 'linear-gradient(135deg, #9370DB, #00D4FF)' },
   { icon: '📋', name: '更多', path: '/pages/search/index?type=product', gradient: 'linear-gradient(135deg, #8B9DC3, #5A6F8E)' },
 ]
 
@@ -34,7 +34,8 @@ export default function MallPage() {
     setLoading(true)
     try {
       const res = await productApi.search({ page: 1, size: 20 })
-      setProducts(res.data?.data?.list || [])
+      // 后端 ProductSearchResultVO 返回 products 字段（非 list）
+      setProducts((res.data?.data as unknown as { products?: Product[] })?.products || [])
     } catch {
       // API unavailable
     } finally {

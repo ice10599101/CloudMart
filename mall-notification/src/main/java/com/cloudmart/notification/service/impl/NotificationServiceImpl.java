@@ -214,6 +214,17 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public long countUnreadByType(Long userId, String type) {
+        Long count = notificationMapper.selectCount(
+                new LambdaQueryWrapper<Notification>()
+                        .eq(Notification::getUserId, userId)
+                        .eq(Notification::getIsRead, 0)
+                        .eq(type != null && !type.isBlank(), Notification::getType, type)
+        );
+        return count != null ? count : 0L;
+    }
+
+    @Override
     @Transactional
     public void markAsRead(Long userId, Long notificationId) {
         Notification entity = notificationMapper.selectById(notificationId);

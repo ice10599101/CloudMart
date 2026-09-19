@@ -1,0 +1,208 @@
+.section {
+  margin: $spacing-md $spacing-lg;
+  padding: $spacing-md;
+  background-color: $color-bg-white;
+  border-radius: $radius-lg;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-sm;
+}
+
+.title {
+  font-size: $font-size-md;
+  font-weight: 700;
+  color: $color-text-primary;
+}
+
+.sendBtn {
+  padding: 10rpx 32rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.sendBtnText {
+  font-size: $font-size-sm;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.recordsScroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.recordsRow {
+  display: inline-flex;
+  gap: $spacing-sm;
+  padding-bottom: $spacing-xs;
+}
+
+.recordChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 20rpx;
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+  border-radius: $radius-xl;
+  margin-right: $spacing-sm;
+}
+
+.recordText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.emptyText {
+  display: block;
+  text-align: center;
+  padding: $spacing-md 0;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.mask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  z-index: 1200;
+}
+
+.modal {
+  width: 100%;
+  max-height: 80vh;
+  background-color: $color-bg-white;
+  border-radius: $radius-xl $radius-xl 0 0;
+  padding: $spacing-lg;
+  padding-bottom: calc(#{$spacing-lg} + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.modalTitle {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $color-text-primary;
+}
+
+.balance {
+  font-size: $font-size-sm;
+  color: var(--color-accent-gold, #FFB800);
+  font-weight: 600;
+}
+
+.giftGrid {
+  max-height: 44vh;
+}
+
+.gridRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.giftCard {
+  width: calc(33.33% - #{$spacing-sm});
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $spacing-sm;
+  border: 2rpx solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.giftCardActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+}
+
+.giftName {
+  margin-top: 8rpx;
+  font-size: $font-size-xs;
+  color: $color-text-primary;
+}
+
+.giftPrice {
+  font-size: $font-size-xs;
+  color: var(--color-accent-gold, #FFB800);
+}
+
+.countRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-md;
+}
+
+.countChip {
+  padding: 8rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.countChipActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+}
+
+.countChipText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.countInput {
+  width: 110rpx;
+  padding: 8rpx 16rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  text-align: center;
+}
+
+.messageInput {
+  margin-top: $spacing-sm;
+  padding: 12rpx 20rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: $spacing-md;
+}
+
+.totalText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.confirmBtn {
+  padding: 14rpx 56rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.confirmBtnDisabled {
+  background-color: var(--color-border);
+}
+
+.confirmBtnText {
+  font-size: $font-size-sm;
+  color: #ffffff;
+  font-weight: 600;
+}

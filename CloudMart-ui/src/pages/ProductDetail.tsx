@@ -810,7 +810,7 @@ export default function ProductDetail() {
         }
         .ant-input-number-input {
           background: transparent !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
           text-align: center !important;
         }
         .ant-input-number {
@@ -820,7 +820,7 @@ export default function ProductDetail() {
         .ant-empty-description { color: var(--color-text-tertiary) !important; }
         .ant-message-notice-content {
           background: var(--color-bg-container) !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
           border: 1px solid var(--color-border) !important;
         }
       `}</style>

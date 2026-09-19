@@ -3,7 +3,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { marketingApi } from '@/api/marketing'
 import { useThemeClass } from '@/composables/useThemeClass'
-import type { GroupActivity } from '@/types'
+import type { GroupActivity, GroupOrder } from '@/types'
 import styles from './index.module.scss'
 
 interface Countdown {
@@ -21,9 +21,15 @@ function calcCountdown(endTime: string): Countdown {
   return { hours, minutes, seconds }
 }
 
+// 对齐 Web 端：拼团活动 / 我的拼团 双 Tab
+const MAIN_TABS = ['拼团活动', '我的拼团'] as const
+
 export default function GroupBuyPage() {
   const { dataTheme, themeStyle } = useThemeClass()
 
+  const [mainTab, setMainTab] = useState(0)
+  const [myGroups, setMyGroups] = useState<GroupOrder[]>([])
+  const [myLoading, setMyLoading] = useState(false)
   const [activities, setActivities] = useState<GroupActivity[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
@@ -99,7 +105,7 @@ export default function GroupBuyPage() {
       const res = await marketingApi.joinGroup({ activityId: activity.id })
       if (res.data?.success) {
         Taro.showToast({ title: '参与成功', icon: 'success' })
-        const orderNo = res.data?.data?.orderNo
+        const orderNo = (res.data?.data as unknown as { orderNo?: string })?.orderNo
         if (orderNo) {
           Taro.navigateTo({ url: `/pages/orderDetail/index?orderNo=${orderNo}` })
         } else {
@@ -117,6 +123,30 @@ export default function GroupBuyPage() {
 
   const formatPrice = (price: number) => price.toFixed(2)
 
+  const groupStatusText: Record<string, string> = {
+    PENDING: '拼团中',
+    SUCCESS: '拼团成功',
+    FAILED: '拼团失败',
+    EXPIRED: '已过期',
+  }
+
+  const loadMyGroups = async () => {
+    setMyLoading(true)
+    try {
+      const res = await marketingApi.getGroupOrders({ page: 1, pageSize: 50 })
+      setMyGroups(res.data?.data?.list || [])
+    } catch {
+      setMyGroups([])
+    } finally {
+      setMyLoading(false)
+    }
+  }
+
+  const handleSwitchTab = (tab: number) => {
+    setMainTab(tab)
+    if (tab === 1) void loadMyGroups()
+  }
+
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
       {/* Header */}
@@ -125,7 +155,54 @@ export default function GroupBuyPage() {
         <Text className={styles.headerSub}>超值拼团 限时开抢</Text>
       </View>
 
-      {/* Activity List */}
+      {/* Main Tabs（对齐 Web 端「拼团活动 / 我的拼团」） */}
+      <View className={styles.mainTabs}>
+        {MAIN_TABS.map((tab, i) => (
+          <View key={i} className={`${styles.mainTab} ${mainTab === i ? styles.mainTabActive : ''}`} onClick={() => handleSwitchTab(i)}>
+            <Text className={mainTab === i ? styles.mainTabTextActive : styles.mainTabText}>{tab}</Text>
+          </View>
+        ))}
+      </View>
+
+      {mainTab === 1 ? (
+        <ScrollView scrollY className={styles.scrollView}>
+          {myLoading ? (
+            <View className={styles.loadingWrap}>
+              <View className={styles.loadingDot} />
+              <Text className={styles.loadingText}>加载中</Text>
+            </View>
+          ) : myGroups.length > 0 ? (
+            myGroups.map((group) => (
+              <View key={group.id} className={styles.card}>
+                <View className={styles.cardBody}>
+                  <View className={styles.myGroupHeader}>
+                    <Text className={styles.productName}>我的拼团 #{group.id}</Text>
+                    <Text className={styles.myGroupStatus}>{groupStatusText[group.status] ?? group.status}</Text>
+                  </View>
+                  <View className={styles.groupInfo}>
+                    <Text className={styles.participantCount}>
+                      {group.leaderUserId ? `团长用户 #${group.leaderUserId} · ` : ''}成团进度 {group.currentNumber}/{group.targetNumber} 人
+                    </Text>
+                  </View>
+                  <View className={styles.progressBar}>
+                    <View
+                      className={styles.progressFill}
+                      style={{ width: `${group.targetNumber > 0 ? Math.min((group.currentNumber / group.targetNumber) * 100, 100) : 0}%` }}
+                    />
+                  </View>
+                  <Text className={styles.myGroupExpire}>成团截止 {new Date(group.expireTime).toLocaleString()}</Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View className={styles.empty}>
+              <Text className={styles.emptyIcon}>👥</Text>
+              <Text className={styles.emptyTitle}>还没有参与拼团</Text>
+              <Text className={styles.emptyDesc}>去拼团活动页开一团吧</Text>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
       <ScrollView
         scrollY
         className={styles.scrollView}
@@ -224,6 +301,7 @@ export default function GroupBuyPage() {
           </View>
         )}
       </ScrollView>
+      )}
     </View>
   )
 }

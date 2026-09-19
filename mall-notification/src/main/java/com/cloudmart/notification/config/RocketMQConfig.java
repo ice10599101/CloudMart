@@ -17,6 +17,8 @@ public final class RocketMQConfig {
     public static final String ORDER_TOPIC = "order-events";
     public static final String COMMUNITY_TOPIC = "community-events";
     public static final String WISH_TOPIC = "wish-events";
+    /** 宠物事件 topic（mall-pet 生产：打工/读书/捞瓶/对战/升级/主动消息） */
+    public static final String PET_TOPIC = "pet-events";
 
     public static final String ORDER_TAG_STATUS_CHANGE = "status-change";
     public static final String COMMUNITY_TAG_EVENT = "event";
@@ -38,4 +40,5 @@ public final class RocketMQConfig {
     public static final String CG_NOTIFICATION_COMMUNITY_EVENT = "notification-community-event-cg";
     public static final String CG_NOTIFICATION_WISH_EVENT = "notification-wish-event-cg";
     public static final String CG_NOTIFICATION_AI_REMINDER = "notification-ai-reminder-cg";
+    public static final String CG_NOTIFICATION_PET_EVENT = "notification-pet-event-cg";
 }

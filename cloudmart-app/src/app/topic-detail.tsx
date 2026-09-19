@@ -81,16 +81,28 @@ export default function TopicDetailScreen() {
     await loadPosts(page + 1)
   }, [loadPosts, page, loading, hasMore])
 
+  // 订阅状态回显（进入页面时查询，对齐 Web 端 TopicDetail）
+  useEffect(() => {
+    if (tag?.id) {
+      communityApi
+        .checkTagSubscription(tag.id)
+        .then((res) => setIsSubscribed(!!res.data?.data))
+        .catch(() => {})
+    }
+  }, [tag?.id])
+
+  /** 关注话题/已关注（真实话题订阅接口；原实现误用 followUser(标签ID) 语义错位） */
   const handleSubscribe = async () => {
     if (subscribing || !tag) return
     setSubscribing(true)
     try {
       if (isSubscribed) {
-        await communityApi.unfollowUser(tag.id)
+        await communityApi.unsubscribeTag(tag.id)
+        setIsSubscribed(false)
       } else {
-        await communityApi.followUser(tag.id)
+        await communityApi.subscribeTag(tag.id)
+        setIsSubscribed(true)
       }
-      setIsSubscribed(!isSubscribed)
     } catch {
       // subscribe action failed silently
     } finally {

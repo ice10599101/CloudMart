@@ -32,28 +32,39 @@ export default function FollowingScreen() {
   const [followersList, setFollowersList] = useState<FollowUser[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  // 分页（对齐 Web 端 Following「加载更多」；tab 切换/刷新重置）
+  const [followingPage, setFollowingPage] = useState(1)
+  const [followersPage, setFollowersPage] = useState(1)
+  const [followingHasMore, setFollowingHasMore] = useState(false)
+  const [followersHasMore, setFollowersHasMore] = useState(false)
 
-  const fetchFollowing = useCallback(async () => {
+  const fetchFollowing = useCallback(async (pageNum = 1, append = false) => {
     if (!targetUserId) return
     setLoading(true)
     try {
-      const res = await communityApi.getUserFollowing(targetUserId, { page: 1, pageSize: 50 })
-      setFollowingList(res.data?.data?.list || res.data?.data || [])
+      const res = await communityApi.getUserFollowing(targetUserId, { page: pageNum, pageSize: 20 })
+      const list = res.data?.data?.list || res.data?.data || []
+      setFollowingList((prev) => (append ? [...prev, ...list] : list))
+      setFollowingPage(pageNum)
+      setFollowingHasMore(list.length >= 20)
     } catch {
-      setFollowingList([])
+      setFollowingHasMore(false)
     } finally {
       setLoading(false)
     }
   }, [targetUserId])
 
-  const fetchFollowers = useCallback(async () => {
+  const fetchFollowers = useCallback(async (pageNum = 1, append = false) => {
     if (!targetUserId) return
     setLoading(true)
     try {
-      const res = await communityApi.getUserFollowers(targetUserId, { page: 1, pageSize: 50 })
-      setFollowersList(res.data?.data?.list || res.data?.data || [])
+      const res = await communityApi.getUserFollowers(targetUserId, { page: pageNum, pageSize: 20 })
+      const list = res.data?.data?.list || res.data?.data || []
+      setFollowersList((prev) => (append ? [...prev, ...list] : list))
+      setFollowersPage(pageNum)
+      setFollowersHasMore(list.length >= 20)
     } catch {
-      setFollowersList([])
+      setFollowersHasMore(false)
     } finally {
       setLoading(false)
     }
@@ -258,6 +269,22 @@ export default function FollowingScreen() {
           {currentList.length > 0
             ? currentList.map(renderUserRow)
             : renderEmpty(activeTab === 'following' ? '暂无关注' : '暂无粉丝')}
+          {(activeTab === 'following' ? followingHasMore : followersHasMore) && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={loading}
+              onPress={() =>
+                activeTab === 'following'
+                  ? fetchFollowing(followingPage + 1, true)
+                  : fetchFollowers(followersPage + 1, true)
+              }
+              style={{ alignItems: 'center', paddingVertical: Spacing.lg }}
+            >
+              <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>
+                {loading ? '加载中...' : '加载更多'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
     </View>

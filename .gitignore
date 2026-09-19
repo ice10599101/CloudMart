@@ -61,3 +61,7 @@ desktop.ini
 /前端页面访问.txt
 /.ice/
 /CloudMart-ui/src/.umi/
+
+# pet-game Cocos 构建产物（构建到 Web 宿主静态目录）
+CloudMart-ui/public/pet-game/
+/pet-game/cocos-cli/

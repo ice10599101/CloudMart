@@ -892,7 +892,7 @@ export default function PostDetail() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 4,
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      border: '1px solid var(--color-border)',
                       borderRadius: '8px',
                       background: 'transparent',
                       color: 'var(--color-text-secondary)',
@@ -985,7 +985,7 @@ export default function PostDetail() {
               <div
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
                 style={{
-                  color: '#C8D6E5',
+                  color: 'var(--color-text)',
                   lineHeight: 1.8,
                   fontSize: 15,
                   wordBreak: 'break-word',
@@ -1425,7 +1425,7 @@ export default function PostDetail() {
         .post-content-dark h4,
         .post-content-dark h5,
         .post-content-dark h6 {
-          color: #FFFFFF;
+          color: var(--color-text);
           margin: 20px 0 12px;
           font-weight: 700;
         }
@@ -1501,13 +1501,13 @@ export default function PostDetail() {
         }
         .post-content-dark th {
           background: rgba(var(--color-primary-rgb), 0.05);
-          color: #FFFFFF;
+          color: var(--color-text);
           font-weight: 600;
         }
         .ant-input {
           background: var(--color-bg-input) !important;
           border-color: var(--color-border) !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
         }
         .ant-input:focus,
         .ant-input-focused {
@@ -1521,7 +1521,7 @@ export default function PostDetail() {
         .ant-empty-description { color: var(--color-text-tertiary) !important; }
         .ant-message-notice-content {
           background: var(--color-bg-container) !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
           border: 1px solid var(--color-border) !important;
         }
       `}</style>

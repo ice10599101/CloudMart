@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { growthApi } from '@/api/growth'
+import type { ExpLog, LevelConfig } from '@/types'
 import styles from './index.module.scss'
 
 interface LevelInfo {
@@ -34,6 +35,19 @@ export default function CheckInPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
   const [checkingIn, setCheckingIn] = useState(false)
   const [expAnim, setExpAnim] = useState('')
+  const [levelConfigs, setLevelConfigs] = useState<LevelConfig[]>([])
+  const [expLogs, setExpLogs] = useState<ExpLog[]>([])
+  const [expOpen, setExpOpen] = useState(false)
+  const [avatarFrame, setAvatarFrameState] = useState('none')
+  // 头像框方案（对齐 Web 端 AVATAR_FRAMES，Lv2+ 解锁）
+  const AVATAR_FRAMES = [
+    { key: 'none', label: '默认', color: 'transparent' },
+    { key: 'gold', label: '金环', color: '#ffd700' },
+    { key: 'purple', label: '紫晕', color: '#9370db' },
+    { key: 'green', label: '翠光', color: '#2ed573' },
+    { key: 'pink', label: '樱粉', color: '#ff7eb3' },
+    { key: 'rainbow', label: '彩虹', color: '#00d4ff' },
+  ]
 
   useDidShow(() => {
     loadData()
@@ -56,7 +70,22 @@ export default function CheckInPage() {
     } catch {
       // API unavailable
     }
+    // 等级体系 + 经验变动 + 头像框（对齐 Web 端 UserCenter 面板数据源）
+    growthApi.getLevelConfigs().then((res) => setLevelConfigs(res.data?.data || [])).catch(() => {})
+    growthApi.getExpLogs({ page: 1, pageSize: 20 }).then((res) => setExpLogs(res.data?.data?.list || [])).catch(() => {})
+    setAvatarFrameState(Taro.getStorageSync('avatar_frame') || 'none')
     loadCalendar(currentYear, currentMonth)
+  }
+
+  /** 头像框切换（Lv2+ 权益；本地持久化 + 后端同步，对齐 Web 端） */
+  const applyAvatarFrame = (key: string) => {
+    if ((levelInfo?.level ?? 0) < 2) {
+      Taro.showToast({ title: 'Lv2 解锁自定义头像框', icon: 'none' })
+      return
+    }
+    setAvatarFrameState(key)
+    Taro.setStorageSync('avatar_frame', key)
+    growthApi.setAvatarFrame(key).catch(() => {})
   }
 
   const loadCalendar = async (year: number, month: number) => {
@@ -208,6 +237,62 @@ export default function CheckInPage() {
             </View>
           ))}
         </View>
+      </View>
+
+      {/* 等级体系（对齐 Web 端 UserCenter 等级卡） */}
+      {levelConfigs.length > 0 && (
+        <View className={styles.rulesCard}>
+          <Text className={styles.rulesTitle}>等级体系</Text>
+          {levelConfigs.map((config) => (
+            <View
+              key={config.level}
+              className={`${styles.levelRow} ${levelInfo?.level === config.level ? styles.levelRowActive : ''}`}
+            >
+              <Text className={styles.levelBadge}>Lv{config.level}</Text>
+              <Text className={styles.levelName}>{config.title}</Text>
+              <Text className={styles.levelExp}>{config.minExp} EXP</Text>
+              {levelInfo?.level === config.level && <Text className={styles.levelCurrent}>当前</Text>}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* 自定义头像框（Lv2+ 权益，对齐 Web 端） */}
+      <View className={styles.rulesCard}>
+        <Text className={styles.rulesTitle}>头像框 {levelInfo && levelInfo.level < 2 ? '（Lv2 解锁）' : ''}</Text>
+        <View className={styles.frameRow}>
+          {AVATAR_FRAMES.map((frame) => (
+            <View
+              key={frame.key}
+              className={`${styles.frameChip} ${avatarFrame === frame.key ? styles.frameChipActive : ''}`}
+              onClick={() => applyAvatarFrame(frame.key)}
+            >
+              <View className={styles.frameDot} style={{ borderColor: frame.color }} />
+              <Text className={styles.frameLabel}>{frame.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* 经验变动（对齐 Web 端经验变动折叠列表） */}
+      <View className={styles.rulesCard}>
+        <View className={styles.expHeader} onClick={() => setExpOpen(!expOpen)}>
+          <Text className={styles.rulesTitle}>经验变动</Text>
+          <Text className={styles.expToggle}>{expOpen ? '收起' : `展开(${expLogs.length})`}</Text>
+        </View>
+        {expOpen && (
+          expLogs.length > 0 ? (
+            expLogs.map((log) => (
+              <View key={log.id} className={styles.expRow}>
+                <Text className={styles.expDesc}>{log.description || log.source}</Text>
+                <Text className={styles.expChange}>+{log.exp}</Text>
+                <Text className={styles.expTime}>{log.createdAt?.slice(5, 10)}</Text>
+              </View>
+            ))
+          ) : (
+            <Text className={styles.expEmpty}>暂无经验变动</Text>
+          )
+        )}
       </View>
 
       {/* Reward Rules */}

@@ -343,3 +343,63 @@
   border-radius: 999rpx;
   padding: 10rpx 20rpx;
 }
+
+.liveStatusTag {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  padding: 6rpx 20rpx;
+  border-radius: $radius-xl;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.liveStatusText {
+  font-size: $font-size-xs;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.liveProductCard {
+  position: absolute;
+  right: 16rpx;
+  bottom: 200rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 14rpx 24rpx;
+  border-radius: $radius-xl;
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+.liveProductIcon {
+  font-size: 32rpx;
+}
+
+.liveProductText {
+  font-size: $font-size-xs;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.liveProductCta {
+  font-size: $font-size-xs;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.giftEntry {
+  padding: 0 $spacing-sm;
+}
+
+.giftIcon {
+  font-size: 40rpx;
+}
+
+.commentGift {
+  font-size: $font-size-sm;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.commentSystem {
+  font-size: $font-size-xs;
+  color: rgba(255, 255, 255, 0.4);
+}

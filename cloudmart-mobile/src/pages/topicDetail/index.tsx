@@ -40,6 +40,8 @@ export default function TopicDetailPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [isSearchMode, setIsSearchMode] = useState(false)
+  const [subscribed, setSubscribed] = useState(false)
+  const [subLoading, setSubLoading] = useState(false)
 
   const isSearchFallback = !tagId && !!tagName
 
@@ -78,7 +80,35 @@ export default function TopicDetailPage() {
 
   useEffect(() => {
     loadPosts(1, true)
-  }, [loadPosts])
+    // 订阅状态回显（对齐 Web 端话题订阅）
+    if (tagId) {
+      communityApi
+        .checkTagSubscription(tagId)
+        .then((res) => setSubscribed(!!res.data?.data))
+        .catch(() => {})
+    }
+  }, [loadPosts, tagId])
+
+  /** 关注话题/已关注（对齐 Web 端 TopicDetail 订阅接口） */
+  const handleToggleSubscribe = async () => {
+    if (!tagId || subLoading) return
+    setSubLoading(true)
+    try {
+      if (subscribed) {
+        await communityApi.unsubscribeTag(tagId)
+        setSubscribed(false)
+        Taro.showToast({ title: '已取消订阅', icon: 'none' })
+      } else {
+        await communityApi.subscribeTag(tagId)
+        setSubscribed(true)
+        Taro.showToast({ title: '订阅成功', icon: 'success' })
+      }
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } finally {
+      setSubLoading(false)
+    }
+  }
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -158,6 +188,14 @@ export default function TopicDetailPage() {
           </Text>
           {isSearchMode && (
             <Text className={styles.searchHint}>按关键词搜索的结果</Text>
+          )}
+          {tagId && (
+            <View
+              className={`${styles.subscribeBtn} ${subscribed ? styles.subscribeBtnActive : ''}`}
+              onClick={handleToggleSubscribe}
+            >
+              <Text className={styles.subscribeBtnText}>{subLoading ? '...' : subscribed ? '已订阅' : '+ 订阅'}</Text>
+            </View>
           )}
         </View>
       </View>

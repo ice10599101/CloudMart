@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
-import type { DailySigninResult, LevelUpEvent, MyResourcesData } from '@/api/wish'
+import type { DailySigninResult, LevelUpEvent, MyResourcesData, SigninMilestone } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -45,6 +45,7 @@ export default function DailySigninPage() {
   const [resources, setResources] = useState<MyResourcesData | null>(null)
   const [rewardDelta, setRewardDelta] = useState(0)
   const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null)
+  const [milestones, setMilestones] = useState<SigninMilestone[]>([])
 
   const todayStr = useMemo(
     () => formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate()),
@@ -85,7 +86,31 @@ export default function DailySigninPage() {
       return
     }
     Promise.all([loadCalendar(year, month), loadResources()])
+    // 连续签到里程碑（7/14/30 天礼包，对齐 Web 端）
+    wishApi
+      .getSigninMilestones()
+      .then((res) => setMilestones(res.data?.data || []))
+      .catch(() => {})
   })
+
+  /** 领取连续签到里程碑奖励（days∈{7,14,30}；对齐 Web 端） */
+  const handleClaimMilestone = async (days: number) => {
+    try {
+      const res = await wishApi.claimSigninMilestone(days)
+      const result = res.data?.data
+      setMilestones((prev) => prev.map((m) => (m.milestoneDays === days ? { ...m, claimed: true } : m)))
+      if (result?.levelUp) {
+        setLevelUp(result.levelUp)
+      } else {
+        Taro.showToast({ title: `已领取：星光+${result?.starlightReward ?? 0}`, icon: 'success' })
+      }
+      void loadResources()
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '领取失败'
+      Taro.showToast({ title: message, icon: 'none' })
+    }
+  }
 
   const switchMonth = (direction: 1 | -1) => {
     let nextYear = year
@@ -236,6 +261,29 @@ export default function DailySigninPage() {
             })}
           </View>
         </View>
+
+        {/* 连续签到里程碑（对齐 Web 端：7/14/30 天礼包领取） */}
+        {milestones.length > 0 && (
+          <View className={styles.rulesCard}>
+            <Text className={styles.rulesTitle}>连续签到里程碑</Text>
+            {milestones.map((m) => (
+              <View key={m.milestoneDays} className={styles.milestoneRow}>
+                <Text className={styles.milestoneLabel}>
+                  {m.milestoneDays}天 · 星光+{m.starlightReward}
+                  {m.expReward > 0 ? ` · 经验+${m.expReward}` : ''}
+                </Text>
+                <View
+                  className={`${styles.milestoneBtn} ${m.claimed || !m.claimable ? styles.milestoneBtnDisabled : ''}`}
+                  onClick={() => !m.claimed && m.claimable && handleClaimMilestone(m.milestoneDays)}
+                >
+                  <Text className={styles.milestoneBtnText}>
+                    {m.claimed ? '已领取' : m.claimable ? '领取' : '未达成'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* 签到规则 */}
         <View className={styles.rulesCard}>

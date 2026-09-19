@@ -45,6 +45,23 @@ const PRIVACY_ITEMS = [
   { key: 'PRIVACY_SEARCH_VISIBLE' as const, label: '搜索可见', desc: '在搜索结果中显示我的主页' },
 ]
 
+/** 资料可见范围三档（对齐 Web 端：所有人/互关好友/仅自己） */
+const VISIBILITY_OPTIONS = [
+  { value: 'ALL', label: '所有人' },
+  { value: 'MUTUAL', label: '互关好友' },
+  { value: 'SELF', label: '仅自己' },
+]
+
+/** 可设置可见范围的资料字段（对齐 Web 端 VISIBILITY_FIELDS） */
+const VISIBILITY_FIELDS = [
+  { key: 'PRIVACY_BIRTHDAY_VISIBILITY', label: '生日', desc: '选择谁可以看到你的生日信息' },
+  { key: 'PRIVACY_EMAIL_VISIBILITY', label: '邮箱', desc: '选择谁可以看到你的邮箱信息' },
+  { key: 'PRIVACY_FOLLOWERS_VISIBILITY', label: '粉丝', desc: '选择谁可以看到你的粉丝列表' },
+  { key: 'PRIVACY_FOLLOWING_VISIBILITY', label: '关注', desc: '选择谁可以看到你的关注列表' },
+  { key: 'PRIVACY_COLLECTIONS_VISIBILITY', label: '收藏', desc: '选择谁可以看到你的收藏' },
+  { key: 'PRIVACY_POSTS_VISIBILITY', label: '帖子/回复', desc: '选择谁可以看到你的帖子和回复' },
+]
+
 export default function SettingsPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const { user, logout } = useAuthStore()
@@ -52,6 +69,7 @@ export default function SettingsPage() {
   useAuthGuard()
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, string>>({})
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -66,6 +84,12 @@ export default function SettingsPage() {
       const res = await communityApi.getSettings()
       const data = res.data?.data
       if (data) {
+        // 资料可见范围（未设置项默认 ALL，对齐 Web 端）
+        const visMap: Record<string, string> = {}
+        VISIBILITY_FIELDS.forEach((f) => {
+          visMap[f.key] = data[f.key] !== undefined && data[f.key] !== null ? data[f.key] : 'ALL'
+        })
+        setVisibilityMap(visMap)
         setSettings({
           NOTIFICATION_LIKE: data.NOTIFICATION_LIKE !== 'false',
           NOTIFICATION_COMMENT: data.NOTIFICATION_COMMENT !== 'false',
@@ -79,6 +103,19 @@ export default function SettingsPage() {
       }
     } catch {
       // Use defaults
+    }
+  }
+
+  /** 资料可见范围变更（即时保存，失败回滚，对齐 Web 端） */
+  const handleVisibilityChange = async (key: string, value: string) => {
+    const prev = visibilityMap[key]
+    setVisibilityMap((map) => ({ ...map, [key]: value }))
+    try {
+      await communityApi.updateSettings({ [key]: value })
+      Taro.showToast({ title: '保存成功', icon: 'success', duration: 800 })
+    } catch {
+      setVisibilityMap((map) => ({ ...map, [key]: prev }))
+      Taro.showToast({ title: '保存失败', icon: 'none' })
     }
   }
 
@@ -211,6 +248,30 @@ export default function SettingsPage() {
               onChange={(e) => handleSettingChange(item.key, e.detail.value)}
               color='var(--color-primary)'
             />
+          </View>
+        ))}
+      </View>
+
+      {/* 资料可见范围（对齐 Web 端 Settings 六字段三档） */}
+      <View className={styles.sectionTitle}>资料可见范围</View>
+      <View className={styles.section}>
+        {VISIBILITY_FIELDS.map((field) => (
+          <View key={field.key} className={styles.visibilityItem}>
+            <View className={styles.switchInfo}>
+              <Text className={styles.switchLabel}>{field.label}</Text>
+              <Text className={styles.switchDesc}>{field.desc}</Text>
+            </View>
+            <View className={styles.visibilityOptions}>
+              {VISIBILITY_OPTIONS.map((option) => (
+                <View
+                  key={option.value}
+                  className={`${styles.visibilityOption} ${(visibilityMap[field.key] ?? 'ALL') === option.value ? styles.visibilityOptionActive : ''}`}
+                  onClick={() => handleVisibilityChange(field.key, option.value)}
+                >
+                  <Text className={styles.visibilityOptionText}>{option.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         ))}
       </View>

@@ -9,7 +9,7 @@ interface AuthState {
   user: User | null
   isLoggedIn: boolean
   login: (account: string, password: string) => Promise<void>
-  register: (nickname: string, email: string, password: string) => Promise<void>
+  register: (nickname: string, email: string, password: string) => Promise<string | undefined>
   logout: () => Promise<void>
   fetchUser: () => Promise<void>
   updateUser: (user: Partial<User>) => void
@@ -36,7 +36,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (nickname, email, password) => {
-    await authApi.register({ nickname, email, password })
+    const res = await authApi.register({ nickname, email, password })
+    // 返回专属小答号（对齐 Web 端注册成功展示）
+    return (res.data as { data?: { username?: string } })?.data?.username
   },
 
   logout: async () => {

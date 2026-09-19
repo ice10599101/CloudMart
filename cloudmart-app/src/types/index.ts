@@ -67,6 +67,10 @@ export interface Post {
   user?: UserBasic
   coverImage?: string
   mediaUrls?: string[]
+  /** 关联好物商品 ID（好物帖；null=普通帖，对齐 Web 端契约） */
+  productId?: number | null
+  viewCount?: number
+  isFollowingAuthor?: boolean
 }
 
 // Comment
@@ -99,6 +103,7 @@ export interface Product {
   rating?: number
   reviewCount: number
   status: number
+  skus?: Sku[]
 }
 
 export interface ProductCategory {
@@ -155,13 +160,18 @@ export interface OrderItem {
 export interface CouponTemplate {
   id: number
   name: string
-  type: number
-  value: number
-  minAmount: number
-  startTime: string
-  endTime: string
-  status: number
-  claimed?: boolean
+  type: string
+  thresholdAmount: number
+  discountAmount: number | null
+  discountRate: number | null
+  totalQuantity: number
+  remainingQuantity: number
+  perUserLimit: number
+  validityType: string
+  startTime: string | null
+  endTime: string | null
+  validDays: number | null
+  status: string
 }
 
 // 优惠券推荐结果
@@ -249,8 +259,10 @@ export interface Notification {
   sender?: UserBasic
   /** 关联业务 ID（心愿域通知为心愿/胶囊 ID） */
   bizId?: number | null
-  /** 关联业务类型（EXPECTED_MANAGEMENT/COMPANION_REMINDER/WISH/CAPSULE 等） */
+  /** 关联业务类型（EXPECTED_MANAGEMENT/COMPANION_REMINDER/WISH/CAPSULE/POST/USER 等） */
   bizType?: string | null
+  /** 操作者用户 ID（谁做的互动，前端据此跳转其主页/回关） */
+  actorId?: number | null
 }
 
 // Conversation
@@ -267,7 +279,8 @@ export interface ChatMessage {
   conversationId: number
   senderId: number
   content: string
-  type: number
+  /** 消息类型（后端为字符串：TEXT / IMAGE） */
+  type: string
   createdAt: string
   isRecalled: boolean
 }
@@ -1035,6 +1048,14 @@ export interface DriftBottleItem {
   throwerUserId: number | null
   throwerNickname: string | null
   throwerAvatar: string | null
+  /** 捞瓶是否匿名（true=匿名隐藏捞瓶人身份，默认） */
+  pickerIsAnonymous: boolean
+  /** 实名捞瓶时捞瓶人用户 ID（匿名时为 null） */
+  pickerUserId: number | null
+  pickerNickname: string | null
+  pickerAvatar: string | null
+  /** 捞起人是否已收藏该瓶 */
+  isCollected: boolean
   commentCount: number
 }
 
@@ -1139,4 +1160,156 @@ export interface PartnerBoard {
   activityId: number
   leaderUserId: number
   members: ActivityBoardMember[]
+}
+
+// ========== 三端对齐补充（契约对齐 Web 端 CloudMart-ui） ==========
+
+/** 商品 SKU（契约对齐 mall-product SkuVO，Product.skus 由详情接口返回） */
+export interface Sku {
+  id: number
+  productId: number
+  attributes: string
+  price: number
+  originalPrice: number
+  stock: number
+  image: string
+  status: number
+}
+
+/** 用户优惠券（契约对齐 mall-coupon UserCouponVO） */
+export interface UserCoupon {
+  id: number
+  userId: number
+  templateId: number
+  templateName: string
+  templateType: string
+  discountAmount: number | null
+  discountRate: number | null
+  thresholdAmount: number
+  status: 'UNUSED' | 'USED' | 'EXPIRED'
+  orderId: number | null
+  receivedAt: string
+  usedAt: string | null
+  expiredAt: string
+}
+
+// ==== 全站虚拟礼物（心愿 / 帖子 / 直播间；契约对齐 mall-wish GiftController） ====
+
+export type GiftTargetType = 'WISH' | 'POST' | 'LIVE_ROOM'
+
+export interface GiftItem {
+  id: number
+  name: string
+  iconUrl: string | null
+  animationUrl: string | null
+  priceStarlight: number
+  status: 'ON_SHELF' | 'OFF_SHELF'
+  sort: number
+  description: string | null
+}
+
+export interface SendGiftResult {
+  recordId: number
+  giftId: number
+  giftName: string
+  giftIconUrl: string | null
+  count: number
+  totalPrice: number
+  balanceAfter: number
+  receiverId: number
+  targetType: GiftTargetType
+  targetId: number
+}
+
+export interface GiftRecordItem {
+  id: number
+  giftId: number
+  giftName: string
+  giftIconUrl: string | null
+  count: number
+  totalPrice: number
+  senderId: number
+  senderNickname: string | null
+  receiverId: number
+  receiverNickname: string | null
+  targetType: GiftTargetType
+  targetId: number
+  message: string | null
+  createdAt: string
+}
+
+// ==== 签到里程碑（契约对齐 mall-wish CheckinMilestoneController） ====
+
+export interface SigninMilestone {
+  milestoneDays: number
+  starlightReward: number
+  expReward: number
+  claimed: boolean
+  claimable: boolean
+}
+
+export interface SigninMilestoneClaimResult {
+  milestoneDays: number
+  starlightReward: number
+  expReward: number
+  expGranted: boolean
+  levelUp: { previousLevel: number; newLevel: number; newLevelTitle: string } | null
+}
+
+// ==== 漂流瓶配额（投瓶 10 个/天、打捞 20 次/天，UTC 自然日） ====
+
+export interface DriftBottleQuota {
+  throwUsed: number
+  throwLimit: number
+  fishUsed: number
+  fishLimit: number
+}
+
+// ==== 浏览足迹（契约对齐 community BrowseHistoryItem） ====
+
+export interface BrowseHistoryItem {
+  id: number
+  targetType: 'PRODUCT' | 'POST' | 'WISH'
+  targetId: number
+  title: string
+  cover: string
+  viewedAt: string
+}
+
+// ==== 首页侧栏数据（热门话题 / 推荐关注） ====
+
+export interface HotTopic {
+  id: number | string
+  name: string
+  postCount: number
+  icon?: string | null
+  isHot?: boolean
+}
+
+export interface RecommendUserItem {
+  userId: number
+  nickname: string
+  avatar: string | null
+  signature?: string | null
+  isFollowed?: boolean
+  followerCount?: number
+}
+
+/** 地图前端配置（契约对齐 mall-wish GET /wish/map/config：nacos amap.* 由后端下发） */
+export interface MapFrontendConfig {
+  amapKey: string
+  securityCode: string
+}
+
+/** 拼团订单（契约对齐 mall-marketing GroupOrderVO） */
+export interface GroupOrder {
+  id: number
+  activityId: number
+  leaderUserId: number
+  leaderNickname?: string | null
+  currentNumber: number
+  targetNumber: number
+  status: string
+  expireTime: string
+  createdAt?: string
 }

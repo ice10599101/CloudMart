@@ -6,12 +6,28 @@ import { orderApi } from '@/api/order'
 import { userApi } from '@/api/user'
 import { cartApi } from '@/api/cart'
 import { productApi } from '@/api/product'
+import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import type { Address, CartItem, Product } from '@/types'
+import type { Address, CartItem, Product, UserCoupon } from '@/types'
 
 interface OrderItemInput {
+  productId?: number
   skuId: number
   quantity: number
+  productName?: string
+  skuImage?: string
+  skuAttributes?: string
+  price: number
+}
+
+/** 券抵扣金额（契约对齐后端 Discount：AMOUNT_OFF 直减；PERCENT_OFF=金额×(1-折扣率)） */
+function calcCouponDiscount(coupon: UserCoupon, subtotal: number): number {
+  if (subtotal < coupon.thresholdAmount) return 0
+  if (coupon.templateType === 'AMOUNT_OFF' && coupon.discountAmount != null) return coupon.discountAmount
+  if (coupon.templateType === 'PERCENT_OFF' && coupon.discountRate != null) {
+    return Math.round(subtotal * (1 - coupon.discountRate) * 100) / 100
+  }
+  return 0
 }
 
 interface DisplayItem {
@@ -29,8 +45,9 @@ const SHIPPING_FEE = 10
 
 export default function CheckoutPage() {
   const theme = useTheme()
-  const { productId: productIdParam, quantity: quantityParam } = useLocalSearchParams<{
+  const { productId: productIdParam, skuId: skuIdParam, quantity: quantityParam } = useLocalSearchParams<{
     productId?: string
+    skuId?: string
     quantity?: string
   }>()
 
@@ -39,6 +56,9 @@ export default function CheckoutPage() {
   const [remark, setRemark] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [coupons, setCoupons] = useState<UserCoupon[]>([])
+  const [selectedCouponId, setSelectedCouponId] = useState<number | null>(null)
+  const [couponOpen, setCouponOpen] = useState(false)
 
   const isDirectBuy = !!productIdParam
 
@@ -58,12 +78,14 @@ export default function CheckoutPage() {
       const res = await productApi.getDetail(productId)
       const product: Product = res.data?.data
       if (!product) return
+      const sku = product.skus?.find((item) => String(item.id) === String(skuIdParam)) ?? product.skus?.[0]
       setItems([{
-        skuId: productId,
+        skuId: sku?.id ?? productId,
         productId: product.id,
         name: product.name,
-        image: product.mainImage,
-        price: product.price,
+        image: sku?.image || product.mainImage,
+        skuName: sku?.attributes,
+        price: sku?.price ?? product.price,
         quantity,
       }])
     } catch {
@@ -102,6 +124,10 @@ export default function CheckoutPage() {
       await Promise.all([
         loadAddress(),
         isDirectBuy ? loadDirectBuyItems() : loadCartItems(),
+        // 可用优惠券（UNUSED；失败允许无券下单）
+        marketingApi.getMyCoupons({ status: 'UNUSED', page: 1, pageSize: 50 })
+          .then((res) => setCoupons((res.data as { data?: { list?: UserCoupon[] } })?.data?.list ?? []))
+          .catch(() => setCoupons([])),
       ])
     } finally {
       setLoading(false)
@@ -119,8 +145,16 @@ export default function CheckoutPage() {
   }, [productIdParam, quantityParam])
 
   const itemTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const availableCoupons = coupons.filter((coupon) => itemTotal >= coupon.thresholdAmount && calcCouponDiscount(coupon, itemTotal) > 0)
+  const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) ?? null
+  const couponDiscount = selectedCoupon ? calcCouponDiscount(selectedCoupon, itemTotal) : 0
   const shippingFee = itemTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
-  const totalAmount = itemTotal + shippingFee
+  const totalAmount = Math.max(itemTotal - couponDiscount, 0) + shippingFee
+
+  const couponLabel = (coupon: UserCoupon) =>
+    coupon.templateType === 'PERCENT_OFF' && coupon.discountRate != null
+      ? `${coupon.templateName} · ${Math.round((1 - coupon.discountRate) * 100)}%off`
+      : `${coupon.templateName} · 减${coupon.discountAmount}`
 
   const handleSubmit = () => {
     if (!address) {
@@ -139,18 +173,28 @@ export default function CheckoutPage() {
         onPress: async () => {
           setSubmitting(true)
           try {
+            // 契约对齐后端 CreateOrderRequest：requestId 幂等 + 每项 price + 收货人三要素
             const orderItems: OrderItemInput[] = items.map((item) => ({
+              productId: item.productId,
               skuId: item.skuId,
               quantity: item.quantity,
+              productName: item.name,
+              skuImage: item.image,
+              skuAttributes: item.skuName,
+              price: item.price,
             }))
             const res = await orderApi.create({
-              addressId: address.id,
+              requestId: `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
               items: orderItems,
-              remark: remark.trim() || undefined,
+              receiverName: address.name,
+              receiverPhone: address.phone,
+              receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,
+              couponId: selectedCoupon?.id,
             })
-            const orderId = res.data?.data?.id ?? res.data?.data
+            const orderId = (res.data?.data as { id?: number })?.id ?? res.data?.data
             if (orderId) {
-              router.replace(`/order-detail?id=${orderId}`)
+              // 下单成功进收银台（对齐 Web 端流程）
+              router.replace(`/payment?id=${orderId}`)
             } else {
               Alert.alert('成功', '订单创建成功')
               router.back()
@@ -277,6 +321,12 @@ export default function CheckoutPage() {
             <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>商品合计</Text>
             <Text style={{ fontSize: FontSize.md, color: theme.text }}>¥{itemTotal.toFixed(2)}</Text>
           </View>
+          {couponDiscount > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm }}>
+              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>优惠券</Text>
+              <Text style={{ fontSize: FontSize.md, color: theme.accentGreen }}>-¥{couponDiscount.toFixed(2)}</Text>
+            </View>
+          )}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm }}>
             <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>运费</Text>
             <Text style={{ fontSize: FontSize.md, color: shippingFee === 0 ? theme.accentGreen : theme.text }}>
@@ -294,6 +344,55 @@ export default function CheckoutPage() {
               ¥{totalAmount.toFixed(2)}
             </Text>
           </View>
+        </View>
+
+        {/* 优惠券选择（对齐 Web 端结算页） */}
+        <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.lg, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}>
+          <TouchableOpacity
+            activeOpacity={availableCoupons.length > 0 ? 0.7 : 1}
+            onPress={() => availableCoupons.length > 0 && setCouponOpen(!couponOpen)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500' }}>优惠券</Text>
+            <Text style={{ fontSize: FontSize.sm, color: selectedCoupon ? theme.primary : theme.textTertiary }}>
+              {selectedCoupon
+                ? couponLabel(selectedCoupon)
+                : availableCoupons.length > 0
+                  ? `选择优惠券 (${availableCoupons.length}张可用)`
+                  : '暂无可用优惠券'}
+            </Text>
+          </TouchableOpacity>
+          {selectedCoupon && (
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedCouponId(null)} style={{ alignSelf: 'flex-end', marginTop: Spacing.xs }}>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>不使用优惠券</Text>
+            </TouchableOpacity>
+          )}
+          {couponOpen && availableCoupons.map((coupon) => (
+            <TouchableOpacity
+              key={coupon.id}
+              activeOpacity={0.7}
+              onPress={() => {
+                setSelectedCouponId(coupon.id)
+                setCouponOpen(false)
+              }}
+              style={{
+                marginTop: Spacing.sm,
+                padding: Spacing.sm,
+                borderWidth: 1,
+                borderColor: coupon.id === selectedCouponId ? theme.primary : theme.border,
+                borderRadius: BorderRadius.md,
+                backgroundColor: coupon.id === selectedCouponId ? theme.primary + '14' : 'transparent',
+              }}
+            >
+              <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text }}>{coupon.templateName}</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>
+                {coupon.templateType === 'PERCENT_OFF' && coupon.discountRate != null
+                  ? `${Math.round((1 - coupon.discountRate) * 100)}%off`
+                  : `减${coupon.discountAmount}`}
+                （满{coupon.thresholdAmount}可用）
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Remark */}

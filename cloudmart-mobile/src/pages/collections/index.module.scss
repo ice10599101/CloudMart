@@ -324,3 +324,38 @@
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
+
+.historyList {
+  padding: $spacing-md $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  background-color: $color-bg-white;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+}
+
+.historyIcon {
+  font-size: 36rpx;
+}
+
+.historyTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyTime {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

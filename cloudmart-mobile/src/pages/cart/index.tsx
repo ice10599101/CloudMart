@@ -63,6 +63,45 @@ export default function CartPage() {
     }
   }
 
+  const handleRemoveItem = (index: number) => {
+    const item = items[index]
+    Taro.showModal({
+      title: '移除商品',
+      content: `确定将「${item.productName}」移出购物车吗？`,
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await cartApi.removeItem(item.skuId)
+          const newItems = items.filter((_, i) => i !== index)
+          setItems(newItems)
+          recalculate(newItems)
+          Taro.showToast({ title: '已移除', icon: 'success' })
+        } catch {
+          Taro.showToast({ title: '删除失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
+  const handleClearCart = () => {
+    Taro.showModal({
+      title: '清空购物车',
+      content: '确定要清空购物车中的全部商品吗？',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await cartApi.clearCart()
+          setItems([])
+          setTotalPrice(0)
+          setAllChecked(false)
+          Taro.showToast({ title: '已清空', icon: 'success' })
+        } catch {
+          Taro.showToast({ title: '清空失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
   const handleCheckout = () => {
     const checkedItems = items.filter(i => i.checked)
     if (checkedItems.length === 0) {
@@ -74,6 +113,12 @@ export default function CartPage() {
 
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
+      {items.length > 0 && (
+        <View className={styles.cartHeader}>
+          <Text className={styles.cartTitle}>购物车</Text>
+          <Text className={styles.clearBtn} onClick={handleClearCart}>清空购物车</Text>
+        </View>
+      )}
       <ScrollView scrollY className={styles.content}>
         {items.length === 0 ? (
           <View className={styles.empty}>
@@ -97,6 +142,7 @@ export default function CartPage() {
                     <Text className={styles.quantity}>{item.quantity}</Text>
                     <Text className={styles.quantityBtn} onClick={() => handleQuantityChange(index, 1)}>+</Text>
                   </View>
+                  <Text className={styles.removeBtn} onClick={() => handleRemoveItem(index)}>删除</Text>
                 </View>
               </View>
             </View>

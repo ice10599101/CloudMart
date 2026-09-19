@@ -144,3 +144,34 @@
   font-size: $font-size-lg;
   font-weight: 600;
 }
+
+.visibilityItem {
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.visibilityItem:last-child {
+  border-bottom: none;
+}
+
+.visibilityOptions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+}
+
+.visibilityOption {
+  padding: 6rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.visibilityOptionActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.08));
+}
+
+.visibilityOptionText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}

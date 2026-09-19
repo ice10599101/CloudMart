@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
-import { fileApi } from '@/api/file'
+import { API_BASE } from '@/api/file'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -71,7 +71,7 @@ export default function WishFulfillmentPage() {
 
     try {
       const uploadTask = Taro.uploadFile({
-        url: `${fileApi.upload.toString()}`,
+        url: `${API_BASE}/file/upload`,
         filePath: item.filePath,
         name: 'file',
         header: { Authorization: `Bearer ${Taro.getStorageSync('access_token')}` },

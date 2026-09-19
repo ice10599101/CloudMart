@@ -400,7 +400,7 @@ export default function TopicDetail() {
         .ant-empty-description { color: var(--color-text-tertiary) !important; }
         .ant-message-notice-content {
           background: var(--color-bg-container) !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
           border: 1px solid var(--color-border) !important;
         }
       `}</style>

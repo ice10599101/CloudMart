@@ -55,6 +55,9 @@ import type {
     DriftBottleItem,
     DriftBottleCommentItem,
     DriftBottleCandidateWish,
+    DriftBottleQuota,
+    SigninMilestone,
+    SigninMilestoneClaimResult,
     WorkshopAsset,
     CollectionAssetGroup,
     BrandItem,
@@ -196,6 +199,8 @@ export interface UpdateWishPayload {
 }
 
 export interface WishListQuery {
+    /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端强制仅返回 PUBLIC） */
+    userId?: number
     categoryId?: number
     keyword?: string
     cursor?: string
@@ -580,6 +585,36 @@ export const wishApi = {
             method: 'POST',
             data: data as unknown as Record<string, unknown>,
         }),
+    /** 每日配额（投瓶 10 个/天、打捞 20 次/天，UTC 自然日） */
+    getDriftBottleQuota: () =>
+        request<DriftBottleQuota>({ url: '/wish/drift-bottles/quota' }),
+    /** 我收藏的漂流瓶（捞起人视角，倒序） */
+    listMyCollectedDriftBottles: () =>
+        request<DriftBottleItem[]>({ url: '/wish/drift-bottles/collected' }),
+    /** 扔回海里（仅捞起人；瓶子回到海面可再被捞起，收藏与捞起人清空） */
+    returnDriftBottle: (bottleId: number | string) =>
+        request<null>({ url: `/wish/drift-bottles/${bottleId}/return`, method: 'POST' }),
+    /** 收藏漂流瓶（仅捞起人，仅 PICKED 状态；幂等） */
+    collectDriftBottle: (bottleId: number | string) =>
+        request<DriftBottleItem>({ url: `/wish/drift-bottles/${bottleId}/collect`, method: 'POST' }),
+    /** 捞瓶人匿名开关（仅捞起人；切实名后投瓶人可见捞瓶人身份） */
+    updateDriftBottlePickerAnonymity: (bottleId: number | string, isAnonymous: boolean) =>
+        request<DriftBottleItem>({
+            url: `/wish/drift-bottles/${bottleId}/picker-anonymity`,
+            method: 'PUT',
+            data: { isAnonymous },
+        }),
+
+    // ---- 签到里程碑（契约对齐 mall-wish CheckinMilestoneController）----
+    /** 连续签到里程碑列表（含领取状态；7/14/30 天） */
+    getSigninMilestones: () =>
+        request<SigninMilestone[]>({ url: '/wish/my/checkin/milestones' }),
+    /** 领取连续签到里程碑奖励（days∈{7,14,30}；未达成 409） */
+    claimSigninMilestone: (days: number) =>
+        request<SigninMilestoneClaimResult>({
+            url: `/wish/my/checkin/milestones/${days}/claim`,
+            method: 'POST',
+        }),
 
     // ---- 通知偏好矩阵（Sprint 2.5）----
     getNotificationPreferences: () =>
@@ -641,3 +676,5 @@ export const wishApi = {
     getPartnerBoard: (id: number | string) =>
         request<PartnerBoard>({ url: `/wish/activities/${id}/board` }),
 }
+
+export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'

@@ -2,21 +2,35 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { userApi } from '@/api/user'
+import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
+import type { WishListItem, User } from '@/types'
 import styles from './index.module.scss'
 
+// 对齐 Web 端 UserProfile：帖子 / 收藏 / TA的心愿 / TA的评论
 const TABS = [
   { key: 'posts', label: '帖子' },
   { key: 'collections', label: '收藏' },
+  { key: 'wishes', label: 'TA的心愿' },
+  { key: 'comments', label: 'TA的评论' },
 ]
 
 type TabKey = typeof TABS[number]['key']
 
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
 
+interface UserCommentItem {
+  id: number
+  postId?: number
+  content: string
+  createdAt: string
+  user?: { id: number; nickname: string; avatar: string }
+}
+
 export default function UserProfilePage() {
-  const userId = Taro.getCurrentInstance().router?.params?.id || ''
+  const userId = Taro.getCurrentInstance().router?.params?.id || Taro.getCurrentInstance().router?.params?.userId || ''
   const { dataTheme, themeStyle } = useThemeClass()
   const { user: currentUser } = useAuthStore()
 
@@ -26,9 +40,13 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('posts')
   const [posts, setPosts] = useState<any[]>([])
   const [collections, setCollections] = useState<any[]>([])
+  const [wishes, setWishes] = useState<WishListItem[]>([])
+  const [comments, setComments] = useState<UserCommentItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const isOwnProfile = String(currentUser?.id ?? '') === userId
+
+  const [publicInfo, setPublicInfo] = useState<User | null>(null)
 
   const loadProfile = useCallback(async () => {
     if (!userId) return
@@ -36,7 +54,13 @@ export default function UserProfilePage() {
       const res = await communityApi.getUserProfile(userId)
       const data = res.data?.data
       setProfile(data)
+      // 公开资料（后端按隐私过滤字段）：加入时间/详细资料卡数据源（对齐 Web 端）
+      userApi
+        .getPublicProfile(userId)
+        .then((r) => setPublicInfo(r.data?.data ?? null))
+        .catch(() => {})
       setIsFollowing(data?.isFollowing || false)
+      setIsBlocked(data?.isBlocked || false)
     } catch {
       // API unavailable
     }
@@ -49,6 +73,8 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (activeTab === 'posts') loadPosts()
     else if (activeTab === 'collections') loadCollections()
+    else if (activeTab === 'wishes') loadWishes()
+    else if (activeTab === 'comments') loadComments()
   }, [activeTab])
 
   const loadPosts = async () => {
@@ -72,6 +98,34 @@ export default function UserProfilePage() {
       setCollections(res.data?.data?.list || res.data?.data || [])
     } catch {
       setCollections([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** TA 的心愿（服务端强制仅公开心愿，对齐 Web 端） */
+  const loadWishes = async () => {
+    if (!userId) return
+    setLoading(true)
+    try {
+      const res = await wishApi.listWishes({ userId: Number(userId), pageSize: 30 })
+      setWishes(res.data?.data || [])
+    } catch {
+      setWishes([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** TA 的评论（对齐 Web 端 UserProfile 评论 Tab） */
+  const loadComments = async () => {
+    if (!userId) return
+    setLoading(true)
+    try {
+      const res = await communityApi.getUserComments(userId, { page: 1, pageSize: 20 })
+      setComments(res.data?.data?.list || [])
+    } catch {
+      setComments([])
     } finally {
       setLoading(false)
     }
@@ -146,6 +200,8 @@ export default function UserProfilePage() {
     )
   }
 
+  const FRUIT_LABELS: Record<string, string> = { GLOW: '🌱 微光', RESONANCE: '💫 共鸣', BLOOM: '🌸 绽放', SPARK: '⭐ 星火' }
+
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
       <ScrollView scrollY className={styles.scrollContent}>
@@ -162,6 +218,35 @@ export default function UserProfilePage() {
           </View>
           <Text className={styles.nickname}>{profile.nickname || '用户'}</Text>
           {profile.signature && <Text className={styles.bio}>{profile.signature}</Text>}
+          {publicInfo?.createdAt && (
+            <Text className={styles.joinedText}>
+              加入 {new Date(publicInfo.createdAt).toLocaleDateString('zh-CN')} · 已加入{' '}
+              {Math.max(1, Math.ceil((Date.now() - new Date(publicInfo.createdAt).getTime()) / 86_400_000))} 天
+            </Text>
+          )}
+          {(() => {
+            const info = publicInfo
+            if (!info) return null
+            const fields: Array<[string, string | undefined]> = [
+              ['性别', info.gender === 'MALE' ? '男' : info.gender === 'FEMALE' ? '女' : undefined],
+              ['星座', info.constellation],
+              ['职业', info.occupation],
+              ['学校', info.school],
+              ['地区', info.location],
+              ['爱好', info.hobbies],
+            ]
+            const visible = fields.filter(([, v]) => v)
+            if (visible.length === 0) return null
+            return (
+              <View className={styles.detailCard}>
+                {visible.map(([label, value]) => (
+                  <Text key={label} className={styles.detailLine}>
+                    {label}：{value}
+                  </Text>
+                ))}
+              </View>
+            )
+          })()}
 
           {/* Badges */}
           {profile.badges?.length > 0 && (
@@ -270,26 +355,64 @@ export default function UserProfilePage() {
               <Text className={styles.emptyText}>暂无帖子</Text>
             </View>
           )
-        ) : collections.length > 0 ? (
-          <View className={styles.postGrid}>
-            {collections.map((item: any) => (
-              <View key={item.id} className={styles.postCard} onClick={() => Taro.navigateTo({ url: `/pages/postDetail/index?id=${item.id}` })}>
-                {item.coverImage ? (
-                  <Image className={styles.postCover} src={item.coverImage} mode='aspectFill' />
-                ) : (
-                  <View className={styles.postCoverPlaceholder}>
-                    <Text className={styles.placeholderIcon}>⭐</Text>
+        ) : activeTab === 'collections' ? (
+          collections.length > 0 ? (
+            <View className={styles.postGrid}>
+              {collections.map((item: any) => (
+                <View key={item.id} className={styles.postCard} onClick={() => Taro.navigateTo({ url: `/pages/postDetail/index?id=${item.id}` })}>
+                  {item.coverImage ? (
+                    <Image className={styles.postCover} src={item.coverImage} mode='aspectFill' />
+                  ) : (
+                    <View className={styles.postCoverPlaceholder}>
+                      <Text className={styles.placeholderIcon}>⭐</Text>
+                    </View>
+                  )}
+                  <View className={styles.postInfo}>
+                    <Text className={styles.postTitle}>{item.title}</Text>
                   </View>
-                )}
-                <View className={styles.postInfo}>
-                  <Text className={styles.postTitle}>{item.title}</Text>
                 </View>
+              ))}
+            </View>
+          ) : (
+            <View className={styles.empty}>
+              <Text className={styles.emptyText}>暂无收藏</Text>
+            </View>
+          )
+        ) : activeTab === 'wishes' ? (
+          wishes.length > 0 ? (
+            <View className={styles.wishList}>
+              {wishes.map((wish) => (
+                <View key={wish.wishId ?? wish.id} className={styles.wishCard} onClick={() => Taro.navigateTo({ url: `/pages/wishDetail/index?id=${wish.wishId ?? wish.id}` })}>
+                  <View className={styles.wishCardHeader}>
+                    <Text className={styles.wishFruit}>{FRUIT_LABELS[wish.fruitType] ?? '🌱 微光'}</Text>
+                    <Text className={styles.wishStatus}>{wish.status === 'ACTIVE' ? '进行中' : wish.status === 'FULFILLED' ? '已还愿' : wish.status === 'FULFILLING' ? '还愿中' : ''}</Text>
+                  </View>
+                  <Text className={styles.wishTitle}>{wish.title}</Text>
+                  {wish.authorNickname && <Text className={styles.wishAuthor}>by {wish.authorNickname}</Text>}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View className={styles.empty}>
+              <Text className={styles.emptyText}>暂无公开心愿</Text>
+            </View>
+          )
+        ) : comments.length > 0 ? (
+          <View className={styles.commentList}>
+            {comments.map((comment) => (
+              <View
+                key={comment.id}
+                className={styles.commentRow}
+                onClick={() => comment.postId && Taro.navigateTo({ url: `/pages/postDetail/index?id=${comment.postId}` })}
+              >
+                <Text className={styles.commentContent}>{comment.content}</Text>
+                <Text className={styles.commentDate}>{comment.createdAt?.slice(0, 10)}</Text>
               </View>
             ))}
           </View>
         ) : (
           <View className={styles.empty}>
-            <Text className={styles.emptyText}>暂无收藏</Text>
+            <Text className={styles.emptyText}>暂无评论</Text>
           </View>
         )}
       </ScrollView>

@@ -115,6 +115,10 @@
   border-radius: 12px;
   background: rgba(22, 33, 62, 80%);
   border: 1px solid rgba(255, 255, 255, 8%);
+
+  /* 3D 画布恒为深色星空（组件按 env 主题写入 #04070f 系背景），
+     浮层文字固定浅色，不随站点主题切换 */
+  color: rgba(255, 255, 255, 75%);
 }
 
 /* ===== 图例与提示 ===== */
@@ -135,7 +139,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 75%);
   font-size: 13px;
 }
 
@@ -154,7 +158,7 @@
   border-radius: 12px;
   background: rgba(22, 33, 62, 75%);
   border: 1px solid rgba(255, 255, 255, 8%);
-  color: var(--color-text-tertiary);
+  color: rgba(255, 255, 255, 55%);
   font-size: 13px;
   backdrop-filter: blur(4px);
 }

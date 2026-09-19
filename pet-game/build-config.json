@@ -1,0 +1,8 @@
+{
+  "platform": "web-mobile",
+  "buildPath": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/public",
+  "outputName": "pet-game",
+  "debug": false,
+  "md5Cache": false,
+  "sourceMaps": false
+}

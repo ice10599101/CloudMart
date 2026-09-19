@@ -13,6 +13,7 @@ import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { notificationApi } from '@/api/notification'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { ExpectedActionType, Notification } from '@/types'
 
@@ -53,11 +54,15 @@ function NotificationItem({
   theme,
   onPress,
   onExpectedAction,
+  followState,
+  onFollowBack,
 }: {
   item: Notification
   theme: ReturnType<typeof useTheme>
   onPress: (item: Notification) => void
   onExpectedAction: (item: Notification, action: ExpectedActionType) => void
+  followState?: boolean
+  onFollowBack?: (actorId: number) => void
 }) {
   const TYPE_ICON_MAP: Record<number, string> = {
     1: '👍',
@@ -176,6 +181,33 @@ function NotificationItem({
             ))}
           </View>
         ) : null}
+        {item.type === 'FOLLOW' && item.actorId && onFollowBack ? (
+          <TouchableOpacity
+            accessibilityLabel="回关"
+            onPress={() => onFollowBack(item.actorId!)}
+            style={{ alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.primary, marginTop: Spacing.sm }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>{followState ? '已关注' : '回关'}</Text>
+          </TouchableOpacity>
+        ) : null}
+        {item.type === 'WISH_FULFILL' && item.bizId ? (
+          <TouchableOpacity
+            accessibilityLabel="查看同愿的故事"
+            onPress={() => router.push(`/wish-detail?id=${item.bizId}`)}
+            style={{ alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.primary, marginTop: Spacing.sm }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>查看同愿的故事</Text>
+          </TouchableOpacity>
+        ) : null}
+        {item.type === 'ENCOUNTER_LETTER' ? (
+          <TouchableOpacity
+            accessibilityLabel="查看漂流瓶"
+            onPress={() => router.push('/encounter-letters')}
+            style={{ alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.primary, marginTop: Spacing.sm }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>查看漂流瓶</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </TouchableOpacity>
   )
@@ -280,6 +312,18 @@ export default function NotificationsScreen() {
   }, [])
 
   /** 预期管理通知 3 选项（延长预期/调整目标/转入时间胶囊，Sprint 2.5） */
+  const [followStates, setFollowStates] = useState<Record<number, boolean>>({})
+  const handleFollowBack = useCallback(async (actorId: number) => {
+    const isFollowing = followStates[actorId]
+    try {
+      if (isFollowing) await communityApi.unfollowUser(actorId)
+      else await communityApi.followUser(actorId)
+      setFollowStates((prev) => ({ ...prev, [actorId]: !isFollowing }))
+    } catch {
+      // 静默
+    }
+  }, [followStates])
+
   const handleExpectedAction = useCallback(async (item: Notification, action: ExpectedActionType) => {
     const wishId = item.bizId
     if (!wishId) return
@@ -304,6 +348,8 @@ export default function NotificationsScreen() {
       theme={theme}
       onPress={handleNotificationPress}
       onExpectedAction={handleExpectedAction}
+      followState={item.actorId ? followStates[item.actorId] : undefined}
+      onFollowBack={handleFollowBack}
     />
   )
 

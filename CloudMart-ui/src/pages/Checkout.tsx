@@ -472,7 +472,7 @@ export default function Checkout() {
                   onClick={() => history.push('/profile')}
                   style={{
                     background: 'none',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    border: '1px solid var(--color-border)',
                     borderRadius: 6,
                     color: 'var(--color-text-secondary)',
                     fontSize: 12,

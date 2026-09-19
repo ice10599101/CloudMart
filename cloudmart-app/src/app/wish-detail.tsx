@@ -15,6 +15,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
 import WishInteractionBar from '@/components/WishInteractionBar'
 import WishBlessList from '@/components/WishBlessList'
+import GiftSection from '@/components/GiftSection'
 import WishCommentSection from '@/components/WishCommentSection'
 import WishBGM from '@/components/WishBGM'
 import WishShareCard from '@/components/WishShareCard'
@@ -654,6 +655,9 @@ export default function WishDetailScreen() {
 
       {/* 祝福墙（Sprint 1.2 补充）：祝福者与被祝福者都能看到 */}
       <WishBlessList wishId={wishId} blessCount={wish.blessCount} refreshTick={blessTick} />
+
+      {/* 全站虚拟礼物（对齐 Web 端心愿详情礼物区块） */}
+      <GiftSection targetType='WISH' targetId={wishId} />
 
       {/* 还愿故事（Sprint 1.10） */}
       {fulfillment && (

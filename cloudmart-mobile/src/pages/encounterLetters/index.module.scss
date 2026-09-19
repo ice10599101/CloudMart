@@ -437,3 +437,63 @@
   font-size: 24rpx;
   opacity: 0.6;
 }
+.sectionTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.quotaText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.counterpartRow {
+  display: flex;
+  gap: $spacing-lg;
+  margin-top: $spacing-sm;
+}
+
+.counterpartLink {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+}
+
+.pickerActions {
+  margin-top: $spacing-sm;
+  padding-top: $spacing-sm;
+  border-top: 1rpx dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+}
+
+.pickerActionBtn {
+  padding: 8rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.pickerActionText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.collectedBadge {
+  font-size: $font-size-xs;
+  color: var(--color-accent-gold, #FFB800);
+}
+
+.pickerAnonRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  width: 100%;
+}
+
+.pickerAnonLabel {
+  flex: 1;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

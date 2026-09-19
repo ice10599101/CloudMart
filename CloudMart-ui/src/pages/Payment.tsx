@@ -197,7 +197,7 @@ function PaymentResult({
               fontWeight: 600,
               color: 'var(--color-text-secondary)',
               background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: '1px solid var(--color-border)',
               borderRadius: 8,
               cursor: 'pointer',
               transition: 'all 0.2s',

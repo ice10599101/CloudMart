@@ -265,6 +265,35 @@ export default function PublishPage() {
     }
   }
 
+  /** 添加视频（对齐 Web 端发布：图片+视频混合上传，单视频 ≤50MB） */
+  const handleAddVideo = async () => {
+    try {
+      const res = await Taro.chooseVideo({
+        sourceType: ['album', 'camera'],
+        maxDuration: 60,
+      })
+      const filePath = res.tempFilePath
+      if (!filePath) return
+      const size = res.size ?? 0
+      if (size > 50 * 1024 * 1024) {
+        Taro.showToast({ title: '视频不能超过 50MB', icon: 'none' })
+        return
+      }
+      setMediaList((prev) => [
+        ...prev,
+        {
+          uid: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          type: 'video',
+          url: filePath,
+          file: filePath,
+          uploaded: false,
+        },
+      ])
+    } catch {
+      // User cancelled
+    }
+  }
+
   const handleRemoveMedia = (uid: string) => {
     setMediaList((prev) => prev.filter((item) => item.uid !== uid))
   }
@@ -327,6 +356,12 @@ export default function PublishPage() {
                 </View>
               </View>
             ))}
+            {mediaList.length < 9 && (
+              <View className={styles.mediaAdd} onClick={handleAddVideo}>
+                <Text className={styles.mediaAddIcon}>🎬</Text>
+                <Text className={styles.mediaAddText}>添加视频</Text>
+              </View>
+            )}
             {mediaList.length < 9 && (
               <View className={styles.mediaAdd} onClick={handleAddImage}>
                 <Text className={styles.mediaAddIcon}>+</Text>

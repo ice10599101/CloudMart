@@ -120,3 +120,253 @@
   font-size: $font-size-md;
   font-weight: 600;
 }
+
+.gallery {
+  width: 100%;
+  height: 750rpx;
+}
+
+.priceRange {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.specSection {
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.specName {
+  display: block;
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: $color-text-primary;
+  margin-bottom: $spacing-sm;
+}
+
+.specValues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.specChip {
+  padding: 10rpx 28rpx;
+  border-radius: $radius-lg;
+  border: 2rpx solid var(--color-border);
+  background-color: $color-bg-white;
+}
+
+.specChipActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.08));
+}
+
+.specChipText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.specChipTextActive {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.qtyStepper {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.qtyBtn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-lg;
+  border: 2rpx solid var(--color-border);
+}
+
+.qtyBtnDisabled {
+  opacity: 0.4;
+}
+
+.qtyBtnText {
+  font-size: 36rpx;
+  color: $color-text-primary;
+}
+
+.qtyValue {
+  min-width: 80rpx;
+  text-align: center;
+  font-size: $font-size-lg;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+
+.stockText {
+  margin-left: $spacing-lg;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.guarantee {
+  display: flex;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.guaranteeItem {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.tabBar {
+  display: flex;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.tabItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-md 0;
+}
+
+.tabActive {
+  border-bottom: 4rpx solid var(--color-primary);
+}
+
+.tabText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.tabTextActive {
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.detailSection {
+  padding: $spacing-lg;
+}
+
+.detailText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.reviewSection {
+  padding: $spacing-md $spacing-lg;
+}
+
+.reviewSummary {
+  display: flex;
+  align-items: center;
+  gap: $spacing-lg;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  background-color: var(--color-bg-secondary, #F7F8FA);
+  border-radius: $radius-lg;
+}
+
+.reviewScore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reviewScoreNum {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--color-accent-gold);
+}
+
+.reviewScoreLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.reviewDist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.reviewDistItem {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.reviewCard {
+  padding: $spacing-md 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.reviewHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: $spacing-xs;
+}
+
+.reviewUser {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+
+.reviewStars {
+  font-size: $font-size-xs;
+  color: var(--color-accent-gold);
+}
+
+.reviewContent {
+  display: block;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  line-height: 1.6;
+}
+
+.reviewImages {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.reviewImage {
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: $radius-md;
+}
+
+.reviewTime {
+  display: block;
+  margin-top: $spacing-xs;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.reviewEmpty {
+  padding: $spacing-xl 0;
+  display: flex;
+  justify-content: center;
+}
+
+.loadMore {
+  padding: $spacing-md 0;
+  display: flex;
+  justify-content: center;
+}
+
+.loadMoreText {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+}

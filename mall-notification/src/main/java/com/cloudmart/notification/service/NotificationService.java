@@ -32,6 +32,9 @@ public interface NotificationService {
 
     UnreadCountDTO getUnreadCount(Long userId);
 
+    /** 未读数量（可按类型过滤；type 为空等价于 getUnreadCount） */
+    long countUnreadByType(Long userId, String type);
+
     void markAsRead(Long userId, Long notificationId);
 
     void markAllAsRead(Long userId);

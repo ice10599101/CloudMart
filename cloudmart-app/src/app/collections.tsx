@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
+import type { BrowseHistoryItem } from '@/types'
 import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -31,8 +32,10 @@ interface CommentItem {
 const TAB_LIST = [
   { key: 'posts', label: '我的帖子', icon: '📝' },
   { key: 'drafts', label: '我的草稿', icon: '📋' },
+  { key: 'collections', label: '我的收藏', icon: '⭐' },
   { key: 'liked', label: '我的点赞', icon: '👍' },
   { key: 'replies', label: '我的回复', icon: '💬' },
+  { key: 'history', label: '浏览足迹', icon: '🕘' },
 ]
 
 type TabKey = typeof TAB_LIST[number]['key']
@@ -44,6 +47,8 @@ export default function CollectionsScreen() {
   const initialTab = TAB_LIST.some((t) => t.key === params.type) ? params.type as TabKey : 'posts'
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
+  const [collectedPosts, setCollectedPosts] = useState<any[]>([])
+  const [history, setHistory] = useState<BrowseHistoryItem[]>([])
   const [posts, setPosts] = useState<PostItem[]>([])
   const [drafts, setDrafts] = useState<PostItem[]>([])
   const [likedPosts, setLikedPosts] = useState<PostItem[]>([])
@@ -72,6 +77,25 @@ export default function CollectionsScreen() {
       setDrafts([])
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const fetchCollected = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const res = await communityApi.getUserCollections(user.id, { page: 1, pageSize: 50 })
+      setCollectedPosts(res.data?.data?.list ?? [])
+    } catch {
+      setCollectedPosts([])
+    }
+  }, [user?.id])
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await communityApi.getMyBrowseHistory({ page: 1, pageSize: 50 })
+      setHistory((res.data as { data?: { list?: BrowseHistoryItem[] } })?.data?.list ?? [])
+    } catch {
+      setHistory([])
     }
   }, [])
 
@@ -104,7 +128,9 @@ export default function CollectionsScreen() {
     else if (activeTab === 'drafts') fetchDrafts()
     else if (activeTab === 'liked') fetchLiked()
     else if (activeTab === 'replies') fetchComments()
-  }, [activeTab, fetchPosts, fetchDrafts, fetchLiked, fetchComments])
+    else if (activeTab === 'collections') fetchCollected()
+    else if (activeTab === 'history') fetchHistory()
+  }, [activeTab, fetchPosts, fetchDrafts, fetchLiked, fetchCollected, fetchHistory, fetchComments])
 
   const handlePublishDraft = (id: number) => {
     Alert.alert('确认发布', '确定要发布该草稿吗？发布后将在社区公开展示。', [
@@ -286,6 +312,33 @@ export default function CollectionsScreen() {
         return drafts.length > 0
           ? <View style={{ gap: Spacing.md }}>{drafts.map(renderDraftCard)}</View>
           : renderEmpty('📋', '暂无草稿', '发布内容时可保存为草稿稍后编辑')
+      case 'collections':
+        return collectedPosts.length > 0
+          ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>{collectedPosts.map(renderPostCard)}</View>
+          : renderEmpty('⭐', '暂无收藏', '在帖子详情点击收藏吧')
+      case 'history': {
+        const TYPE_ICON: Record<string, string> = { WISH: '🌠', POST: '📝', PRODUCT: '🛍️' }
+        return history.length > 0 ? (
+          <View style={{ gap: Spacing.md }}>
+            {history.map((h) => (
+              <TouchableOpacity
+                key={h.id}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (h.targetType === 'WISH') router.push(`/wish-detail?id=${h.targetId}`)
+                  else if (h.targetType === 'PRODUCT') router.push(`/product/${h.targetId}`)
+                  else router.push(`/post-detail?id=${h.targetId}`)
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}
+              >
+                <Text style={{ fontSize: 20 }}>{TYPE_ICON[h.targetType] ?? '🕘'}</Text>
+                <Text numberOfLines={1} style={{ flex: 1, fontSize: FontSize.sm, color: theme.text }}>{h.title || '未命名'}</Text>
+                <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>{h.viewedAt?.slice(0, 10)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : renderEmpty('🕘', '暂无浏览足迹')
+      }
       case 'liked':
         return likedPosts.length > 0
           ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>{likedPosts.map(renderPostCard)}</View>

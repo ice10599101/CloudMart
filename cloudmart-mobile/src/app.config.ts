@@ -47,6 +47,8 @@ export default defineAppConfig({
     'pages/badgeWall/index',
     'pages/treeHole/index',
     'pages/worldTree/index',
+    'pages/pet/index',
+    'pages/petStage/index',
     'pages/capsuleList/index',
     'pages/capsuleCreate/index',
     'pages/capsuleDetail/index',

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
   Switch,
   Modal,
   TextInput,
@@ -15,7 +16,7 @@ import {
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
-import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem } from '@/types'
+import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem, DriftBottleQuota } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -146,9 +147,12 @@ interface BottleCardProps {
   bottle: DriftBottleItem
   contentWidth: number
   onBottleChange: (bottle: DriftBottleItem) => void
+  onCollect?: (bottle: DriftBottleItem) => void
+  onReturn?: (bottle: DriftBottleItem) => void
+  onPickerAnonymityChange?: (bottle: DriftBottleItem, isAnonymous: boolean) => void
 }
 
-function BottleCard({ bottle, contentWidth, onBottleChange }: BottleCardProps) {
+function BottleCard({ bottle, contentWidth, onBottleChange, onCollect, onReturn, onPickerAnonymityChange }: BottleCardProps) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const [interacting, setInteracting] = useState<'BLESS' | 'LIGHT' | null>(null)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -345,6 +349,65 @@ function BottleCard({ bottle, contentWidth, onBottleChange }: BottleCardProps) {
         <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary, marginTop: Spacing.sm }}>
           投瓶人：{bottle.throwerNickname}
         </Text>
+      ) : null}
+      {bottle.role === 'THROWN' && bottle.pickerNickname && !bottle.pickerIsAnonymous ? (
+        <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary, marginTop: Spacing.sm }}>
+          捞起人：{bottle.pickerNickname}
+        </Text>
+      ) : null}
+
+      {/* 双方身份入口：查看资料 / 私聊（对齐 Web 端；非匿名时互见） */}
+      {(() => {
+        const counterpart = bottle.role === 'PICKED'
+          ? bottle.throwerUserId != null
+            ? { id: bottle.throwerUserId }
+            : null
+          : bottle.pickerUserId != null
+            ? { id: bottle.pickerUserId }
+            : null
+        return counterpart ? (
+          <View style={{ flexDirection: 'row', gap: Spacing.lg, marginTop: Spacing.sm }}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push(`/user-profile?id=${counterpart.id}`)}>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.accentCyan }}>查看资料</Text>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push(`/chat?userId=${counterpart.id}`)}>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.accentCyan }}>私聊</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null
+      })()}
+
+      {/* 捞起人操作区（对齐 Web 端：收藏/扔回海里/捞瓶人匿名开关） */}
+      {bottle.role === 'PICKED' && bottle.status === 'PICKED' && (onCollect || onReturn || onPickerAnonymityChange) ? (
+        <View style={{ marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', gap: Spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+            {onCollect && !bottle.isCollected ? (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => onCollect(bottle)} style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>⭐ 收藏</Text>
+              </TouchableOpacity>
+            ) : null}
+            {bottle.isCollected ? (
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.accentGold }}>已收藏 ⭐</Text>
+            ) : null}
+            {onReturn ? (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => onReturn(bottle)} style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+                <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>🌊 扔回海里</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {onPickerAnonymityChange ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, flex: 1 }}>
+                匿名捞瓶（匿名则投瓶人看不到你）
+              </Text>
+              <Switch
+                value={bottle.pickerIsAnonymous}
+                onValueChange={(value) => onPickerAnonymityChange(bottle, value)}
+                trackColor={{ true: WishColors.primary, false: 'rgba(255,255,255,0.2)' }}
+              />
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {canInteract ? (
@@ -561,6 +624,83 @@ export default function DriftBottleScreen() {
     loadBottles()
   }, [loadBottles])
 
+  // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
+  const [quota, setQuota] = useState<DriftBottleQuota | null>(null)
+  const loadQuota = useCallback(async () => {
+    if (!isLoggedIn) return
+    try {
+      const res = await wishApi.getDriftBottleQuota()
+      if (res.data?.success) setQuota(res.data.data ?? null)
+    } catch {
+      // 静默
+    }
+  }, [isLoggedIn])
+
+  useEffect(() => {
+    void loadQuota()
+  }, [loadQuota])
+
+  /** 收藏漂流瓶（仅捞起人，PICKED 态；幂等） */
+  const handleCollect = useCallback(async (bottle: DriftBottleItem) => {
+    try {
+      const res = await wishApi.collectDriftBottle(bottle.bottleId)
+      if (res.data?.success) {
+        const updated = res.data.data ?? { ...bottle, isCollected: true }
+        setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
+        alert('已收藏 ⭐')
+      } else if (res.data) {
+        alert(res.data.error?.message || '收藏失败')
+      }
+    } catch (err) {
+      const e = extractError(err)
+      alert(e?.message || '收藏失败')
+    }
+  }, [])
+
+  /** 扔回海里（仅捞起人；瓶子回到海面可再被捞起，收藏与捞起人清空） */
+  const handleReturn = useCallback(async (bottle: DriftBottleItem) => {
+    Alert.alert('扔回海里', '瓶子将回到海面，等待下一个人捞起，确定吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await wishApi.returnDriftBottle(bottle.bottleId)
+            if (res.data?.success) {
+              setBottles((prev) => prev.filter((b) => b.bottleId !== bottle.bottleId))
+              setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
+              alert('已扔回海里 🌊')
+            } else if (res.data) {
+              alert(res.data.error?.message || '操作失败')
+            }
+          } catch (err) {
+            const e = extractError(err)
+            alert(e?.message || '操作失败')
+          }
+        },
+      },
+    ])
+  }, [])
+
+  /** 捞瓶人匿名开关（切实名后投瓶人可见捞瓶人身份） */
+  const handlePickerAnonymity = useCallback(async (bottle: DriftBottleItem, isAnonymous: boolean) => {
+    try {
+      const res = await wishApi.updateDriftBottlePickerAnonymity(bottle.bottleId, isAnonymous)
+      if (res.data?.success) {
+        const updated = res.data.data ?? { ...bottle, pickerIsAnonymous: isAnonymous }
+        setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
+      } else if (res.data) {
+        alert(res.data.error?.message || '操作失败')
+      }
+    } catch (err) {
+      const e = extractError(err)
+      alert(e?.message || '操作失败')
+    }
+  }, [])
+
   const handleFish = async () => {
     if (!isLoggedIn) {
       router.push('/login')
@@ -573,6 +713,7 @@ export default function DriftBottleScreen() {
         if (res.data.data) {
           setFishedBottle(res.data.data)
           loadBottles()
+          void loadQuota()
         } else {
           setFishedBottle(null)
           alert('海面暂时没有漂流瓶')
@@ -630,6 +771,7 @@ export default function DriftBottleScreen() {
         setThrowMode('text')
         setSelectedWish(null)
         loadBottles()
+        void loadQuota()
       } else if (res.data) {
         alert(res.data.error?.message || '投瓶失败，请稍后重试')
       }
@@ -713,7 +855,14 @@ export default function DriftBottleScreen() {
               </TouchableOpacity>
               {fishedBottle ? (
                 <View style={{ marginTop: Spacing.md }}>
-                  <BottleCard bottle={fishedBottle} contentWidth={cardContentWidth} onBottleChange={setFishedBottle} />
+                  <BottleCard
+                    bottle={fishedBottle}
+                    contentWidth={cardContentWidth}
+                    onBottleChange={setFishedBottle}
+                    onCollect={handleCollect}
+                    onReturn={handleReturn}
+                    onPickerAnonymityChange={handlePickerAnonymity}
+                  />
                 </View>
               ) : null}
             </View>
@@ -901,6 +1050,9 @@ export default function DriftBottleScreen() {
                     onBottleChange={(updated) =>
                       setBottles((prev) => prev.map((b) => (b.bottleId === updated.bottleId ? updated : b)))
                     }
+                    onCollect={handleCollect}
+                    onReturn={handleReturn}
+                    onPickerAnonymityChange={handlePickerAnonymity}
                   />
                 ))
               )}

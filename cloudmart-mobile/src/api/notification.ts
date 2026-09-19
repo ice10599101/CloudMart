@@ -20,7 +20,7 @@ export const notificationApi = {
     request<PaginatedResult<Conversation>>({ url: `/notification/conversations${buildQuery(params as Record<string, unknown>)}` }),
   getMessages: (conversationId: number, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<ChatMessage>>({ url: `/notification/conversations/${conversationId}/messages${buildQuery(params as Record<string, unknown>)}` }),
-  sendMessage: (conversationId: number, data: { content: string; type?: number }) =>
+  sendMessage: (conversationId: number, data: { content: string; type?: string }) =>
     request<ChatMessage>({ url: `/notification/conversations/${conversationId}/messages`, method: 'POST', data }),
   createConversation: (data: { otherUserId: number }) =>
     request<Conversation>({ url: '/notification/conversations', method: 'POST', data }),

@@ -13,6 +13,7 @@ import WishInteractionBar, { type WishInteractionCounts } from '@/components/Wis
 import WishBlessList from '@/components/WishBlessList'
 import WishCommentSection, { type WishCommentSectionHandle } from '@/components/WishCommentSection'
 import WishShareCard from '@/components/WishShareCard'
+import GiftSection from '@/components/GiftSection'
 import type { WishDetail, FruitType, WishFulfillmentDetail } from '@/types'
 import styles from './index.module.scss'
 
@@ -513,6 +514,9 @@ export default function WishDetailPage() {
             refreshTick={blessTick}
           />
         </View>
+
+        {/* 全站虚拟礼物（对齐 Web 端心愿详情礼物区块） */}
+        <GiftSection targetType='WISH' targetId={wishId} />
 
         {/* 进度 */}
         {wish.progress && (

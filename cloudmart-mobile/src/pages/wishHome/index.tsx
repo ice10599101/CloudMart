@@ -147,6 +147,10 @@ export default function WishHomePage() {
               <Text className={styles.entryIcon} style={{ color: '#c084fc' }}>🍾</Text>
               <Text className={styles.entryText}>漂流瓶</Text>
             </View>
+            <View className={styles.entryCard} onClick={() => navigateTo('/pages/dailySignin/index')}>
+              <Text className={styles.entryIcon} style={{ color: '#ffb800' }}>📅</Text>
+              <Text className={styles.entryText}>每日签到</Text>
+            </View>
             <View className={styles.entryCard} onClick={() => navigateTo('/pages/notificationPrefs/index')}>
               <Text className={styles.entryIcon} style={{ color: '#f59e0b' }}>🔔</Text>
               <Text className={styles.entryText}>通知偏好</Text>

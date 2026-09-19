@@ -1,0 +1,7 @@
+# Cocos Creator 编辑器生成的本机缓存与构建产物
+/library/
+/temp/
+/local/
+/build/
+profiles/local/
+.tools/

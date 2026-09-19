@@ -51,6 +51,18 @@ export default function MessagePage() {
     Taro.navigateTo({ url: `/pages/chat/index?id=${id}` })
   }
 
+  /** 全部已读（对齐 Web 端消息中心「全部已读」按钮） */
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationApi.markAllRead()
+      setUnreadCounts({})
+      setConversations((prev) => prev.map((c) => ({ ...c, unreadCount: 0 })))
+      Taro.showToast({ title: '已全部标记为已读', icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }
+
   const formatTime = (time: string) => {
     const date = new Date(time)
     const now = new Date()
@@ -83,6 +95,7 @@ export default function MessagePage() {
 
       <View className={styles.sectionHeader}>
         <Text className={styles.sectionTitle}>私信</Text>
+        <Text className={styles.markAllRead} onClick={handleMarkAllRead}>全部已读</Text>
       </View>
 
       <ScrollView scrollY className={styles.conversationList}>

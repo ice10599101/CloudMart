@@ -3,6 +3,7 @@ import request from '@/utils/request'
 
 const IS_WEAPP = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 const API_BASE = IS_WEAPP ? 'http://localhost:8080' : '/api'
+export { API_BASE }
 
 /**
  * 将后端返回的本地存储相对 URL（/files/...）解析为当前环境可访问的地址：

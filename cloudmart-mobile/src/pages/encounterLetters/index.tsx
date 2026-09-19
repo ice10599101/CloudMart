@@ -5,7 +5,7 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import RichText from '@/components/RichText'
-import type { DriftBottleItem, DriftBottleCommentItem, DriftBottleCandidateWish } from '@/types'
+import type { DriftBottleItem, DriftBottleCommentItem, DriftBottleCandidateWish, DriftBottleQuota } from '@/types'
 import styles from './index.module.scss'
 
 // 编辑器组件：H5 用 TiptapEditor，小程序用 MiniProgramEditor
@@ -255,11 +255,32 @@ interface BottleCardProps {
   interacting: boolean
   onInteract: (type: 'BLESS' | 'LIGHT') => void
   onCountChange: (delta: number) => void
+  onCollect?: (bottle: DriftBottleItem) => void
+  onReturn?: (bottle: DriftBottleItem) => void
+  onPickerAnonymityChange?: (bottle: DriftBottleItem, isAnonymous: boolean) => void
 }
 
-function BottleCard({ bottle, interacting, onInteract, onCountChange }: BottleCardProps) {
+function BottleCard({
+  bottle,
+  interacting,
+  onInteract,
+  onCountChange,
+  onCollect,
+  onReturn,
+  onPickerAnonymityChange,
+}: BottleCardProps) {
   const [expanded, setExpanded] = useState(false)
   const canInteract = bottle.role === 'PICKED' && bottle.wishId != null
+  // 捞起人操作区（对齐 Web 端：收藏 ⭐ / 扔回海里 / 捞瓶人匿名 Switch）
+  const isPicker = bottle.role === 'PICKED' && bottle.status === 'PICKED'
+  // 双方身份互见：非匿名时可查看对方资料/私聊（对齐 Web 端）
+  const counterpart = bottle.role === 'PICKED'
+    ? bottle.throwerUserId != null
+      ? { id: bottle.throwerUserId, nickname: bottle.throwerNickname ?? '瓶友' }
+      : null
+    : bottle.pickerUserId != null
+      ? { id: bottle.pickerUserId, nickname: bottle.pickerNickname ?? '瓶友' }
+      : null
 
   return (
     <View className={styles.bottleCard}>
@@ -298,6 +319,54 @@ function BottleCard({ bottle, interacting, onInteract, onCountChange }: BottleCa
 
       {!bottle.isAnonymous && bottle.throwerNickname && (
         <Text className={styles.throwerText}>投瓶人：{bottle.throwerNickname}</Text>
+      )}
+      {bottle.role === 'THROWN' && bottle.pickerNickname && !bottle.pickerIsAnonymous && (
+        <Text className={styles.throwerText}>捞起人：{bottle.pickerNickname}</Text>
+      )}
+
+      {/* 双方身份入口：查看资料 / 私聊（对齐 Web 端） */}
+      {counterpart && (
+        <View className={styles.counterpartRow}>
+          <Text
+            className={styles.counterpartLink}
+            onClick={() => Taro.navigateTo({ url: `/pages/userProfile/index?userId=${counterpart.id}` })}
+          >
+            查看资料
+          </Text>
+          <Text
+            className={styles.counterpartLink}
+            onClick={() => Taro.navigateTo({ url: `/pages/chat/index?userId=${counterpart.id}` })}
+          >
+            私聊
+          </Text>
+        </View>
+      )}
+
+      {/* 捞起人操作区（对齐 Web 端：收藏/扔回海里/捞瓶人匿名开关） */}
+      {isPicker && (onCollect || onReturn || onPickerAnonymityChange) && (
+        <View className={styles.pickerActions}>
+          {onCollect && !bottle.isCollected && (
+            <View className={styles.pickerActionBtn} onClick={() => onCollect(bottle)}>
+              <Text className={styles.pickerActionText}>⭐ 收藏</Text>
+            </View>
+          )}
+          {bottle.isCollected && <Text className={styles.collectedBadge}>已收藏 ⭐</Text>}
+          {onReturn && (
+            <View className={styles.pickerActionBtn} onClick={() => onReturn(bottle)}>
+              <Text className={styles.pickerActionText}>🌊 扔回海里</Text>
+            </View>
+          )}
+          {onPickerAnonymityChange && (
+            <View className={styles.pickerAnonRow}>
+              <Text className={styles.pickerAnonLabel}>匿名捞瓶（匿名则投瓶人看不到你）</Text>
+              <Switch
+                checked={bottle.pickerIsAnonymous}
+                onChange={(e) => onPickerAnonymityChange(bottle, e.detail.value)}
+                color='#4a90d9'
+              />
+            </View>
+          )}
+        </View>
       )}
 
       {canInteract && (
@@ -355,6 +424,73 @@ export default function EncounterLettersPage() {
   const [loadingMine, setLoadingMine] = useState(true)
   const [interactingId, setInteractingId] = useState<number | null>(null)
 
+  // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
+  const [quota, setQuota] = useState<DriftBottleQuota | null>(null)
+
+  const loadQuota = useCallback(async () => {
+    if (!isLoggedIn) return
+    try {
+      const res = await wishApi.getDriftBottleQuota()
+      if (res.data.success) setQuota(res.data.data ?? null)
+    } catch {
+      // 静默
+    }
+  }, [isLoggedIn])
+
+  /** 收藏漂流瓶（仅捞起人，PICKED 态；幂等） */
+  const handleCollect = async (bottle: DriftBottleItem) => {
+    try {
+      const res = await wishApi.collectDriftBottle(bottle.bottleId)
+      if (res.data.success) {
+        const updated = res.data.data
+        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, isCollected: true }) : it)))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, isCollected: true }) : prev))
+        Taro.showToast({ title: '已收藏 ⭐', icon: 'none' })
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '收藏失败', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
+    }
+  }
+
+  /** 扔回海里（仅捞起人；瓶子回到海面可再被捞起，收藏与捞起人清空） */
+  const handleReturn = async (bottle: DriftBottleItem) => {
+    const res = await Taro.showModal({
+      title: '扔回海里',
+      content: '瓶子将回到海面，等待下一个人捞起，确定吗？',
+    })
+    if (!res.confirm) return
+    try {
+      const res2 = await wishApi.returnDriftBottle(bottle.bottleId)
+      if (res2.data.success) {
+        setBottles((prev) => prev.filter((it) => it.bottleId !== bottle.bottleId))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
+        Taro.showToast({ title: '已扔回海里 🌊', icon: 'none' })
+      } else {
+        Taro.showToast({ title: res2.data.error?.message ?? '操作失败', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
+    }
+  }
+
+  /** 捞瓶人匿名开关（切实名后投瓶人可见捞瓶人身份） */
+  const handlePickerAnonymity = async (bottle: DriftBottleItem, isAnonymous: boolean) => {
+    try {
+      const res = await wishApi.updateDriftBottlePickerAnonymity(bottle.bottleId, isAnonymous)
+      if (res.data.success) {
+        const updated = res.data.data
+        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, pickerIsAnonymous: isAnonymous }) : it)))
+        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, pickerIsAnonymous: isAnonymous }) : prev))
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '操作失败', icon: 'none' })
+      }
+    } catch {
+      // 错误已由 request 处理
+    }
+  }
+
   const loadMine = useCallback(async () => {
     if (!isLoggedIn) return
     try {
@@ -370,10 +506,11 @@ export default function EncounterLettersPage() {
   useEffect(() => {
     if (!isLoggedIn) return
     loadMine()
+    loadQuota()
     wishApi.listDriftBottleCandidateWishes()
       .then((res) => { if (res.data.success) setCandidateWishes(res.data.data ?? []) })
       .catch(() => undefined)
-  }, [isLoggedIn, loadMine])
+  }, [isLoggedIn, loadMine, loadQuota])
 
   const handleFish = async () => {
     if (fishing) return
@@ -385,6 +522,7 @@ export default function EncounterLettersPage() {
           setFishedBottle(res.data.data)
           Taro.showToast({ title: '捞到一只漂流瓶 🍾', icon: 'none' })
           loadMine()
+          loadQuota()
         } else {
           setFishedBottle(null)
           Taro.showToast({ title: '海面暂时没有漂流瓶', icon: 'none' })
@@ -423,6 +561,7 @@ export default function EncounterLettersPage() {
         setContent('')
         setSelectedWishId(null)
         loadMine()
+        loadQuota()
       } else {
         Taro.showToast({ title: res.data.error?.message ?? '投瓶失败，请稍后重试', icon: 'none' })
       }
@@ -478,7 +617,14 @@ export default function EncounterLettersPage() {
         <ScrollView className={styles.scroll} scrollY>
           {/* 捞瓶区 */}
           <View className={styles.section}>
-            <Text className={styles.sectionTitle}>🌊 捞一只漂流瓶</Text>
+            <View className={styles.sectionTitleRow}>
+              <Text className={styles.sectionTitle}>🌊 捞一只漂流瓶</Text>
+              {quota && (
+                <Text className={styles.quotaText}>
+                  今日投 {quota.throwUsed}/{quota.throwLimit} · 捞 {quota.fishUsed}/{quota.fishLimit}
+                </Text>
+              )}
+            </View>
             <View className={styles.fishBtn} onClick={() => !fishing && handleFish()}>
               <Text className={styles.fishBtnText}>{fishing ? '打捞中...' : '🎣 捞漂流瓶'}</Text>
             </View>
@@ -488,6 +634,9 @@ export default function EncounterLettersPage() {
                 interacting={interactingId === fishedBottle.bottleId}
                 onInteract={(type) => handleInteract(fishedBottle, type)}
                 onCountChange={(delta) => handleCommentCountChange(fishedBottle.bottleId, delta)}
+                onCollect={handleCollect}
+                onReturn={handleReturn}
+                onPickerAnonymityChange={handlePickerAnonymity}
               />
             )}
           </View>
@@ -593,6 +742,9 @@ export default function EncounterLettersPage() {
                     interacting={interactingId === bottle.bottleId}
                     onInteract={(type) => handleInteract(bottle, type)}
                     onCountChange={(delta) => handleCommentCountChange(bottle.bottleId, delta)}
+                    onCollect={handleCollect}
+                    onReturn={handleReturn}
+                    onPickerAnonymityChange={handlePickerAnonymity}
                   />
                 ))}
               </View>

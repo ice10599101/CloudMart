@@ -237,20 +237,43 @@ export default function SeckillPage() {
             setBuyingProductId(product.id)
             try {
               const res = await marketingApi.executeSeckill({ activityId, seckillProductId: product.id })
-              const orderId = (res.data as any)?.data?.orderId ?? (res.data as any)?.data?.id
-              Alert.alert('抢购成功', '秒杀订单已创建', [
-                {
-                  text: '查看订单',
-                  onPress: () => {
-                    if (orderId) {
-                      router.push(`/order-detail?id=${orderId}`)
-                    }
+              const result = ((res.data as any)?.data ?? {}) as { status?: string; message?: string; orderId?: number | null }
+              let finalResult = result
+              if (result.status === 'PENDING') {
+                // 排队轮询秒杀结果（对齐 Web 端 PENDING 轮询；2s 间隔，最多 15 次）
+                for (let attempt = 0; attempt < 15; attempt += 1) {
+                  await new Promise((resolve) => setTimeout(resolve, 2_000))
+                  const pollRes = await marketingApi.getSeckillResult({ activityId, seckillProductId: product.id })
+                  const pollResult = ((pollRes.data as any)?.data ?? {}) as typeof result
+                  if (pollResult.status && pollResult.status !== 'PENDING') {
+                    finalResult = pollResult
+                    break
+                  }
+                  if (attempt === 14) {
+                    finalResult = { status: 'FAILED', message: '排队超时，请稍后在订单中查看' }
+                  }
+                }
+              }
+              if (finalResult.status === 'SUCCESS') {
+                const orderId = finalResult.orderId
+                Alert.alert('抢购成功', '秒杀订单已创建', [
+                  {
+                    text: '查看订单',
+                    onPress: () => {
+                      if (orderId) {
+                        router.push(`/order-detail?id=${orderId}`)
+                      }
+                    },
                   },
-                },
-                { text: '留在当前页' },
-              ])
-            } catch {
-              Alert.alert('抢购失败', '请稍后重试')
+                  { text: '留在当前页' },
+                ])
+              } else {
+                Alert.alert('抢购失败', finalResult.message || '请稍后重试')
+              }
+            } catch (err) {
+              const message =
+                (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
+              Alert.alert('抢购失败', message || '请稍后重试')
             } finally {
               setBuyingProductId(null)
             }

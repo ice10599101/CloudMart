@@ -80,12 +80,13 @@ export default function SearchScreen() {
     try {
       if (searchType === 'post') {
         const res = await communityApi.searchPosts({ keyword: trimmed, page: 1, pageSize: PAGE_SIZE })
-        const list = res.data?.data?.list || res.data?.data || []
+        const list = ((res.data?.data as unknown as { list?: Post[] & Product[] } | undefined)?.list ?? (Array.isArray(res.data?.data) ? (res.data.data as unknown as Post[] & Product[]) : []))
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword: trimmed, page: 1, size: PAGE_SIZE })
-        const list = res.data?.data?.list || []
+        // 后端 ProductSearchResultVO 返回 products 字段（非 list）
+        const list = (res.data?.data as unknown as { products?: Product[] })?.products || []
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       }
@@ -107,12 +108,12 @@ export default function SearchScreen() {
     try {
       if (searchType === 'post') {
         const res = await communityApi.searchPosts({ keyword, page: nextPage, pageSize: PAGE_SIZE })
-        const list = res.data?.data?.list || res.data?.data || []
+        const list = ((res.data?.data as unknown as { list?: Post[] & Product[] } | undefined)?.list ?? (Array.isArray(res.data?.data) ? (res.data.data as unknown as Post[] & Product[]) : []))
         setResults((prev) => [...prev, ...list] as Post[])
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword, page: nextPage, size: PAGE_SIZE })
-        const list = res.data?.data?.list || []
+        const list = (res.data?.data as unknown as { products?: Product[] })?.products || []
         setResults((prev) => [...prev, ...list] as Product[])
         setHasMore(list.length >= PAGE_SIZE)
       }
@@ -133,12 +134,12 @@ export default function SearchScreen() {
     try {
       if (searchType === 'post') {
         const res = await communityApi.searchPosts({ keyword, page: 1, pageSize: PAGE_SIZE })
-        const list = res.data?.data?.list || res.data?.data || []
+        const list = ((res.data?.data as unknown as { list?: Post[] & Product[] } | undefined)?.list ?? (Array.isArray(res.data?.data) ? (res.data.data as unknown as Post[] & Product[]) : []))
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       } else {
         const res = await productApi.search({ keyword, page: 1, size: PAGE_SIZE })
-        const list = res.data?.data?.list || []
+        const list = (res.data?.data as unknown as { products?: Product[] })?.products || []
         setResults(list)
         setHasMore(list.length >= PAGE_SIZE)
       }

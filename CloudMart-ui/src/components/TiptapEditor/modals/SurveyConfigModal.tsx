@@ -46,16 +46,8 @@ export default function SurveyConfigModal({ open, onClose, onSubmit }: SurveyCon
     setQuestions((prev) => prev.map((question, i) => (i === index ? { ...question, ...patch } : question)))
   }
 
-  const isDirty = title.trim() !== ''
-    || questions.some((question) => question.text.trim() !== '' || question.options.some((option) => option.trim() !== ''))
-
-  /** 关闭前二次确认：已填写内容时防误触丢失 */
+  /** 关闭一律二次确认，防止误触丢失已填写内容 */
   const requestClose = () => {
-    if (!isDirty) {
-      reset()
-      onClose()
-      return
-    }
     modal.confirm({
       title: '关闭后填写的内容将丢失',
       content: '确定要关闭问卷配置吗？',

@@ -11,6 +11,9 @@ import type {
 } from '@/types'
 
 export const growthApi = {
+  /** 设置当前用户头像框（Lv2+ 权益；契约对齐 Web 端 setAvatarFrame） */
+  setAvatarFrame: (frame: string) =>
+    request<void>({ url: `/community/growth/avatar-frame?frame=${encodeURIComponent(frame)}`, method: 'PUT' }),
   getCheckInStatus: () => request<CheckInStatus>({ url: '/community/growth/check-in/status' }),
   checkIn: () => request<CheckInStatus>({ url: '/community/growth/check-in', method: 'POST' }),
   getUserLevel: () => request<UserLevel>({ url: '/community/growth/level' }),

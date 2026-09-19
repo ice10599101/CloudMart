@@ -163,3 +163,28 @@
   font-size: $font-size-md;
   font-weight: 600;
 }
+
+.cartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-lg;
+}
+
+.cartTitle {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $color-text-primary;
+}
+
+.clearBtn {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.removeBtn {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  margin-left: $spacing-md;
+  padding: 4rpx 12rpx;
+}

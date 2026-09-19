@@ -135,7 +135,8 @@ export default function MinePage() {
           <MenuRow icon="🛒" label="我的订单" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/orders') }} theme={theme} />
           <MenuRow icon="💝" label="心愿单" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/wishlist') }} theme={theme} />
           <MenuRow icon="🏅" label="我的徽章" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/badge-wall') }} theme={theme} />
-          <MenuRow icon="❤️" label="我的收藏" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/collections') }} theme={theme} />
+          <MenuRow icon="🐾" label="我的宠物" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/pet') }} theme={theme} />
+          <MenuRow icon="❤️" label="我的收藏" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/collections?type=collections') }} theme={theme} />
           <MenuRow icon="📝" label="我的帖子" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/collections?type=posts') }} theme={theme} />
           <MenuRow icon="📋" label="我的草稿" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/collections?type=drafts') }} theme={theme} />
           <MenuRow icon="👍" label="我的点赞" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/collections?type=liked') }} theme={theme} />
@@ -149,6 +150,7 @@ export default function MinePage() {
           <MenuRow icon="📺" label="直播" onPress={() => router.push('/live')} theme={theme} />
           <MenuRow icon="📍" label="收货地址" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/address') }} theme={theme} />
           <MenuRow icon="⭐" label="签到" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/checkin') }} theme={theme} />
+          <MenuRow icon="✨" label="星光流水" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/starlight-log') }} theme={theme} />
         </View>
 
         <View style={{ marginHorizontal: Spacing.lg, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.lg }}>

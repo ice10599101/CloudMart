@@ -27,5 +27,7 @@ public enum ResourceLogSource {
     /** 连续签到里程碑奖励（7/14/30 天手动领取） */
     SIGNIN_MILESTONE,
     /** 送礼物消耗（全站虚拟礼物，V37） */
-    GIFT_SEND
+    GIFT_SEND,
+    /** 宠物打工/对战奖励（社区宠物模块经内部端点发放） */
+    PET_REWARD
 }

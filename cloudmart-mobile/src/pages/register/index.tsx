@@ -19,14 +19,36 @@ export default function RegisterPage() {
       Taro.showToast({ title: '请填写完整信息', icon: 'none' })
       return
     }
+    // 邮箱格式校验（对齐 Web 端注册表单）
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Taro.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
+      return
+    }
+    if (password.length < 6) {
+      Taro.showToast({ title: '密码至少 6 位', icon: 'none' })
+      return
+    }
     if (password !== confirmPassword) {
       Taro.showToast({ title: '两次密码不一致', icon: 'none' })
       return
     }
     setLoading(true)
     try {
-      await register(nickname, email, password)
-      Taro.showToast({ title: '注册成功', icon: 'success' })
+      const username = await register(nickname, email, password)
+      if (username) {
+        // 展示专属小答号并支持复制（对齐 Web 端注册成功弹窗）
+        const res = await Taro.showModal({
+          title: '注册成功',
+          content: `你的专属小答号：${username}（可用于登录，请牢记）`,
+          confirmText: '复制',
+          cancelText: '去登录',
+        })
+        if (res.confirm) {
+          await Taro.setClipboardData({ data: username }).catch(() => {})
+        }
+      } else {
+        Taro.showToast({ title: '注册成功', icon: 'success' })
+      }
       setTimeout(() => {
         Taro.navigateBack()
       }, 1500)

@@ -76,7 +76,7 @@ export default function ReportModal({ visible, onClose, targetType, targetId }: 
         },
       }}
       cancelButtonProps={{
-        style: { border: '1px solid rgba(255,255,255,0.12)', color: 'var(--color-text-secondary)' },
+        style: { border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' },
       }}
       width={460}
       centered

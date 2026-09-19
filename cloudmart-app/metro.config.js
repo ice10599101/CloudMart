@@ -25,6 +25,10 @@ const GATEWAY_HOST = resolveGatewayHost()
 
 const config = getDefaultConfig(__dirname)
 
+// expo-sqlite web 端依赖 wa-sqlite.wasm 二进制资源；
+// 默认 assetExts 不含 wasm，`expo export --platform web` 会报 Unable to resolve module
+config.resolver.assetExts.push('wasm')
+
 // Proxy /api requests to backend gateway in web dev mode
 config.server = config.server || {}
 config.server.enhanceMiddleware = (middleware) => {

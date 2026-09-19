@@ -1,8 +1,9 @@
 package com.cloudmart.pet.enums;
 
 /**
- * 统一活动类型：打工/读书/捞瓶/休息共用 pet_activity 一张表 + 一套状态机
- *（原文档 §74：尽量不重新开发一套任务框架）。
+ * 统一活动类型（原文档 §74：尽量不重新开发一套任务框架）。
+ * WORK/STUDY/BOTTLE_FISHING 走完整状态机；REST/FEED/PLAY/CLEAN 为即时行为留痕
+ * （直接 CLAIMED，原文档 §10"记录宠物行为"，成就 ACTIVITY_COUNT 依此计数）。
  */
 public enum PetActivityType {
     /** 打工（pet_job_config） */
@@ -12,5 +13,11 @@ public enum PetActivityType {
     /** 捞漂流瓶（时长/冷却在 PetProperties 配置） */
     BOTTLE_FISHING,
     /** 休息（即时结算，不产生 IN_PROGRESS 记录） */
-    REST
+    REST,
+    /** 喂食（即时留痕） */
+    FEED,
+    /** 玩耍（即时留痕） */
+    PLAY,
+    /** 清洁（即时留痕） */
+    CLEAN
 }

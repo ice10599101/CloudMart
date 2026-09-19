@@ -1,7 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, Animated } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Animated, Alert } from 'react-native'
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { growthApi } from '@/api/growth'
+import { useAuthStore } from '@/store/auth'
+import { storage } from '@/utils/storage'
+import type { ExpLog, LevelConfig } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface LevelInfo {
@@ -23,6 +26,20 @@ export default function CheckInPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
   const [checkingIn, setCheckingIn] = useState(false)
   const [expAnim, setExpAnim] = useState('')
+  const [levelConfigs, setLevelConfigs] = useState<LevelConfig[]>([])
+  const [expLogs, setExpLogs] = useState<ExpLog[]>([])
+  const [expOpen, setExpOpen] = useState(false)
+  const [avatarFrame, setAvatarFrameState] = useState('none')
+  const { user } = useAuthStore()
+  // 头像框方案（对齐 Web 端 AVATAR_FRAMES，Lv2+ 解锁）
+  const AVATAR_FRAMES = [
+    { key: 'none', label: '默认', color: 'transparent' },
+    { key: 'gold', label: '金环', color: '#ffd700' },
+    { key: 'purple', label: '紫晕', color: '#9370db' },
+    { key: 'green', label: '翠光', color: '#2ed573' },
+    { key: 'pink', label: '樱粉', color: '#ff7eb3' },
+    { key: 'rainbow', label: '彩虹', color: '#00d4ff' },
+  ]
   const fadeAnim = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
@@ -40,10 +57,32 @@ export default function CheckInPage() {
       const ld = levelRes.data?.data
       if (ld) setLevelInfo({ level: ld.level, exp: ld.exp, nextLevelExp: ld.nextLevelExp, title: ld.title })
       setContinuousDays(continuousRes.data?.data || 0)
+
+      // 等级体系 + 经验变动 + 头像框（对齐 Web 端 UserCenter 面板数据源）
+      growthApi.getLevelConfigs().then((res) => setLevelConfigs((res.data as { data?: LevelConfig[] })?.data ?? [])).catch(() => {})
+      growthApi.getExpLogs({ page: 1, pageSize: 20 }).then((res) => setExpLogs((res.data as { data?: { list?: ExpLog[] } })?.data?.list ?? [])).catch(() => {})
     } catch {
       // API unavailable
     }
     loadCalendar(currentYear, currentMonth)
+  }
+
+  useEffect(() => {
+    void (async () => {
+      const stored = await storage.getItem('avatar_frame')
+      setAvatarFrameState(stored || 'none')
+    })()
+  }, [])
+
+  /** 头像框切换（Lv2+ 权益；本地持久化 + 后端同步，对齐 Web 端） */
+  const applyAvatarFrame = async (key: string) => {
+    if ((levelInfo?.level ?? 0) < 2) {
+      Alert.alert('提示', 'Lv2 解锁自定义头像框')
+      return
+    }
+    setAvatarFrameState(key)
+    void storage.setItem('avatar_frame', key)
+    void growthApi.setAvatarFrame(key).catch(() => {})
   }
 
   const loadCalendar = async (year: number, month: number) => {

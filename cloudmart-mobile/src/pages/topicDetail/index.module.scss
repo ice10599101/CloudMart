@@ -211,3 +211,25 @@
   color: $color-text-tertiary;
   opacity: 0.6;
 }
+
+.subscribeBtn {
+  margin-top: $spacing-sm;
+  align-self: center;
+  padding: 10rpx 44rpx;
+  border: 2rpx solid var(--color-primary);
+  border-radius: $radius-xl;
+}
+
+.subscribeBtnActive {
+  border-color: var(--color-border);
+}
+
+.subscribeBtnText {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.subscribeBtnActive .subscribeBtnText {
+  color: $color-text-tertiary;
+}

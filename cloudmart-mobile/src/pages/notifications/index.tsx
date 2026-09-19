@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -22,12 +23,71 @@ export default function NotificationsPage() {
 
   const loadNotifications = async () => {
     try {
-      const params: any = { page: 1, pageSize: 20 }
+      const params: { page: number; pageSize: number; type?: number } = { page: 1, pageSize: 20 }
       if (activeTab > 0) params.type = TAB_TYPES[activeTab]
       const res = await notificationApi.getList(params)
       setNotifications(res.data?.data?.list || [])
     } catch {
       // API unavailable
+    }
+  }
+
+  /** 通知点击跳转（对齐 Web 端 Messages：帖子/用户/话题按 bizType 跳对应详情） */
+  const goNotificationTarget = (n: { type?: string; bizType?: string; bizId?: number | null; actorId?: number | null }) => {
+    if (n.type === 'LIKE' || n.type === 'COMMENT' || n.type === 'COLLECT' || n.type === 'SHARE' || n.type === 'MENTION') {
+      if (n.bizType === 'POST' && n.bizId) {
+        Taro.navigateTo({ url: `/pages/postDetail/index?id=${n.bizId}` })
+        return
+      }
+    }
+    if (n.type === 'TAG_NEW_POST' && n.bizId) {
+      Taro.navigateTo({ url: `/pages/topicDetail/index?tagId=${n.bizId}` })
+      return
+    }
+    if (n.type === 'FOLLOW' && n.actorId) {
+      Taro.navigateTo({ url: `/pages/userProfile/index?userId=${n.actorId}` })
+      return
+    }
+    if (n.bizType === 'POST' && n.bizId) {
+      Taro.navigateTo({ url: `/pages/postDetail/index?id=${n.bizId}` })
+    }
+  }
+
+  /** 点击通知：跳转目标页并标记已读（对齐 Web 端） */
+  const handleNotificationClick = (n: { id: number; isRead?: boolean; type?: string; bizType?: string; bizId?: number | null; actorId?: number | null }) => {
+    if (!n.isRead) {
+      setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item)))
+      notificationApi.markRead(n.id).catch(() => {})
+    }
+    if (n.type === 'WISH_FULFILL' || n.type === 'ENCOUNTER_LETTER' || n.type === 'CHECKIN_REMINDER') return
+    goNotificationTarget(n)
+  }
+
+  /** 回关/取消关注（对齐 Web 端 Messages 关注通知内联按钮） */
+  const [followStates, setFollowStates] = useState<Record<number, boolean>>({})
+  const handleFollowBack = async (actorId: number) => {
+    const isFollowing = followStates[actorId]
+    try {
+      if (isFollowing) {
+        await communityApi.unfollowUser(actorId)
+      } else {
+        await communityApi.followUser(actorId)
+      }
+      setFollowStates((prev) => ({ ...prev, [actorId]: !isFollowing }))
+      Taro.showToast({ title: isFollowing ? '已取消关注' : '关注成功', icon: 'none' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }
+
+  /** 全部已读（对齐 Web 端） */
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationApi.markAllRead()
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })))
+      Taro.showToast({ title: '已全部标记为已读', icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
     }
   }
 
@@ -65,14 +125,37 @@ export default function NotificationsPage() {
             <Text className={activeTab === i ? styles.tabTextActive : styles.tabText}>{tab}</Text>
           </View>
         ))}
+        <View className={styles.markAllBtn} onClick={handleMarkAllRead}>
+          <Text className={styles.markAllText}>全部已读</Text>
+        </View>
       </View>
       <ScrollView scrollY>
         {notifications.length > 0 ? notifications.map((n) => (
-          <View key={n.id} className={styles.notificationItem}>
-            {n.senderAvatar && <Image className={styles.avatar} src={n.senderAvatar} />}
+          <View key={n.id} className={`${styles.notificationItem} ${!n.isRead ? styles.notificationUnread : ''}`} onClick={() => handleNotificationClick(n)}>
+            {n.senderAvatar && (
+              <Image
+                className={styles.avatar}
+                src={n.senderAvatar}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (n.actorId) Taro.navigateTo({ url: `/pages/userProfile/index?userId=${n.actorId}` })
+                }}
+              />
+            )}
             <View className={styles.notificationBody}>
               <Text className={styles.notificationContent}>{n.content}</Text>
               <Text className={styles.notificationTime}>{formatTime(n.createdAt)}</Text>
+              {n.type === 'FOLLOW' && !!n.actorId && (
+                <View
+                  className={styles.followBackBtn}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleFollowBack(n.actorId!)
+                  }}
+                >
+                  <Text className={styles.followBackText}>{followStates[n.actorId!] ? '已关注' : '回关'}</Text>
+                </View>
+              )}
               {n.type === 'WISH_FULFILL' && n.bizType === 'FULFILLMENT_LEGACY' && n.bizId && (
                 <View className={styles.expectedActions} onClick={() => Taro.navigateTo({ url: `/pages/wishDetail/index?id=${n.bizId}` })}>
                   <View className={styles.expectedBtn}>

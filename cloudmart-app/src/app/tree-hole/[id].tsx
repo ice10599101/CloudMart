@@ -6,6 +6,7 @@ import * as Linking from 'expo-linking'
 import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import WishBGM from '@/components/WishBGM'
 import { WishColors } from '@/constants/wish-theme'
 import type { AiResource } from '@/types'
 
@@ -439,6 +440,7 @@ export default function TreeHoleScreen() {
           <Text style={{ fontSize: FontSize.sm, color: '#fff' }}>{sending ? '...' : '倾诉'}</Text>
         </TouchableOpacity>
       </View>
+          <WishBGM />
     </View>
   )
 }

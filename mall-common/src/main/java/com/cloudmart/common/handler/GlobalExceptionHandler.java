@@ -123,7 +123,8 @@ public class GlobalExceptionHandler {
             case "ACCOUNT_LOCKED", "FORBIDDEN",
                  "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN",
                  "WISH_CONSENT_REQUIRED",
-                 "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED" -> HttpStatus.FORBIDDEN;
+                 "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED",
+                 "PET_NOT_OWNER", "PET_NOT_PUBLIC", "PET_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -153,7 +154,9 @@ public class GlobalExceptionHandler {
                  "GIFT_NOT_FOUND", "GIFT_TARGET_NOT_FOUND",
                  "POLL_NOT_FOUND", "SURVEY_NOT_FOUND",
                  "TREE_SPECIAL_EVENT_NOT_FOUND", "TREE_ENV_CONFIG_NOT_FOUND",
-                 "WISH_GROUP_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                 "WISH_GROUP_NOT_FOUND",
+                 "PET_NOT_FOUND", "PET_ACTIVITY_NOT_FOUND", "PET_BATTLE_NOT_FOUND",
+                 "PET_JOB_NOT_FOUND", "PET_STUDY_NOT_FOUND", "PET_ACHIEVEMENT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
             case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
                  "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
@@ -165,10 +168,18 @@ public class GlobalExceptionHandler {
                  "WISH_GROUP_FULL", "WISH_ALREADY_MEMBER",
                  "WISH_GROUP_KEYWORD_DUPLICATED",
                  "WISH_ASSET_IN_USE",
-                 "POLL_ALREADY_VOTED" -> HttpStatus.CONFLICT;
-            case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
+                 "POLL_ALREADY_VOTED",
+                 "PET_ALREADY_EXISTS", "PET_ACTIVITY_CONFLICT",
+                 "PET_ACTIVITY_NOT_FINISHED", "PET_ACTIVITY_ALREADY_CLAIMED",
+                 "PET_BOTTLE_COOLDOWN", "PET_ENERGY_INSUFFICIENT", "PET_HUNGER_TOO_LOW",
+                 "PET_STATE_FULL", "PET_LEVEL_REQUIRED",
+                 "PET_BATTLE_CONFLICT", "PET_BATTLE_ALREADY_HANDLED",
+                 "PET_BATTLE_SELF_CHALLENGE", "PET_BATTLE_OPPONENT_INVALID",
+                 "PET_RENAME_COOLDOWN" -> HttpStatus.CONFLICT;
+            case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
+                 "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
-                 "WISH_AI_UNAVAILABLE",
+                 "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
             // 否则会被 default 分支误映射成 400，掩盖真实的服务端异常

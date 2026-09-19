@@ -34,8 +34,11 @@ public class PetAchievement {
     /** 图标（emoji 或 URL） */
     private String icon;
 
-    /** 判定类型：BOTTLE_COUNT/BATTLE_WIN/COUNT_ACTIVITY/LEVEL/CHAT_COUNT/STATS_FULL */
+    /** 判定类型：BOTTLE_COUNT/BATTLE_WIN/LEVEL/CHAT_COUNT/STATS_FULL/ACTIVITY_COUNT */
     private String conditionType;
+
+    /** 计数子类型（ACTIVITY_COUNT 时: WORK/STUDY/FEED/CLEAN） */
+    private String conditionSubtype;
 
     /** 判定阈值 */
     private Integer conditionValue;

@@ -35,6 +35,7 @@ import type { Post, UserCommunityStats, MyComment, CollectionPostItem, UserPriva
 import { getUserPublicProfile } from '@/api/user'
 import type { UserProfile as UserProfileDetail } from '@/api/user'
 import { createConversation } from '@/api/chat'
+import { getPetPublicCard, type PetPublicCard } from '@/api/pet'
 import { listWishes, listWishCollections } from '@/api/wish'
 import type { WishListItem, WishCollectionItem } from '@/api/wish'
 import { getWishlistList } from '@/api/wishlist'
@@ -289,6 +290,14 @@ function WishCard({ wish }: { wish: WishListItem }) {
   )
 }
 
+/** 性格枚举 → 中文（与领养向导选项一致） */
+function personalityLabelFor(personality: string): string {
+  const map: Record<string, string> = {
+    LIVELY: '活泼', GENTLE: '温柔', TSUNDERE: '傲娇', SIMPLE: '憨厚', COOL: '高冷', CHATTERBOX: '话痨',
+  }
+  return map[personality] || '未知'
+}
+
 export default function UserProfile() {
   const { id } = useParams<{ id: string }>()
   const currentUser = useAuthStore((s) => s.user)
@@ -313,8 +322,23 @@ export default function UserProfile() {
   const [userComments, setUserComments] = useState<MyComment[] | null>(null)
   const [likedPosts, setLikedPosts] = useState<Post[] | null>(null)
   const [privacy, setPrivacy] = useState<UserPrivacyVisibility | null>(null)
+  const [petCard, setPetCard] = useState<PetPublicCard | null>(null)
+  const [petCardHidden, setPetCardHidden] = useState(false)
 
   const isOwnProfile = String(currentUser?.id ?? '') === (id ?? '')
+
+  // TA的宠物（公开卡片；未养/未公开 404 → 静默隐藏，实施文档 §1.12）
+  useEffect(() => {
+    if (!id) return
+    let stale = false
+    setPetCardHidden(false)
+    getPetPublicCard(id).then(({ data: res }) => {
+      if (!stale && res.success && res.data) setPetCard(res.data)
+    }).catch(() => {
+      if (!stale) setPetCardHidden(true)
+    })
+    return () => { stale = true }
+  }, [id])
 
   const fetchProfile = useCallback(async () => {
     if (!id) return
@@ -911,6 +935,46 @@ export default function UserProfile() {
       </div>
 
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 24px 0' }}>
+        {/* TA的宠物（公开卡片，隐私开关由宠物主人控制） */}
+        {petCard && !petCardHidden && (
+          <div style={{ ...cardSectionStyle, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: 40, lineHeight: 1 }}>
+              {{ CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }[petCard.species] || '🐾'}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong style={{ fontSize: 15 }}>{petCard.name}</strong>
+                <span style={{
+                  padding: '1px 8px',
+                  borderRadius: 6,
+                  background: 'rgba(var(--color-primary-rgb), 0.1)',
+                  color: 'var(--color-primary)',
+                  fontSize: 12,
+                }}>
+                  Lv.{petCard.level} · {petCard.growthStage === 'BABY' ? '幼年' : petCard.growthStage === 'YOUNG' ? '成长' : '成年'}
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                🏆 {petCard.achievementCount} 个成就 · 性格{personalityLabelFor(petCard.personality)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => history.push('/pet')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--color-border)',
+                background: 'transparent',
+                color: 'var(--color-text-secondary)',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              看看TA的宠物
+            </button>
+          </div>
+        )}
         {/* 数据面板：TA的评论 / 我赞过的（仅本人） / 加入天数 */}
         <div style={cardSectionStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${metricPanels.length}, 1fr)`, gap: 12 }}>
@@ -1362,7 +1426,7 @@ export default function UserProfile() {
         .ant-empty-description { color: var(--color-text-tertiary) !important; }
         .ant-message-notice-content {
           background: var(--color-bg-container) !important;
-          color: #FFFFFF !important;
+          color: var(--color-text) !important;
           border: 1px solid var(--color-border) !important;
         }
       `}</style>

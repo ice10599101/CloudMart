@@ -1,9 +1,11 @@
 import request from '@/utils/request'
 import type {
   CouponTemplate,
+  UserCoupon,
   SeckillActivity,
   SeckillProduct,
   GroupActivity,
+  GroupOrder,
   RecommendationResult,
   PaginatedResult,
 } from '@/types'
@@ -23,12 +25,12 @@ interface OrderResult {
 
 export const marketingApi = {
   // Coupons
-  getCouponTemplates: (params?: { page?: number; pageSize?: number }) =>
+  getCouponTemplates: (params?: { type?: string; status?: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<CouponTemplate>>({ url: `/coupon/coupon-templates${buildQuery(params as Record<string, unknown>)}` }),
   claimCoupon: (templateId: number) =>
-    request<void>({ url: `/coupon/user-coupons/claim?templateId=${templateId}`, method: 'POST' }),
-  getUserCoupons: (params?: { status?: number; page?: number; pageSize?: number }) =>
-    request<PaginatedResult<CouponTemplate>>({ url: `/coupon/user-coupons${buildQuery(params as Record<string, unknown>)}` }),
+    request<UserCoupon>({ url: `/coupon/user-coupons/claim?templateId=${templateId}`, method: 'POST' }),
+  getUserCoupons: (params?: { status?: string; page?: number; pageSize?: number }) =>
+    request<PaginatedResult<UserCoupon>>({ url: `/coupon/user-coupons${buildQuery(params as Record<string, unknown>)}` }),
   // Seckill
   getSeckillActivities: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<SeckillActivity>>({ url: `/seckill/activities${buildQuery(params as Record<string, unknown>)}` }),
@@ -44,9 +46,9 @@ export const marketingApi = {
     request<PaginatedResult<GroupActivity>>({ url: `/marketing/group/activities${buildQuery(params as Record<string, unknown>)}` }),
   getGroupActivity: (id: number) => request<GroupActivity>({ url: `/marketing/group/activities/${id}` }),
   joinGroup: (data: { activityId: number; groupOrderId?: number }) =>
-    request<OrderResult>({ url: '/marketing/group/join', method: 'POST', data }),
-  getGroupOrders: (params?: { page?: number; pageSize?: number }) =>
-    request<PaginatedResult<OrderResult>>({ url: `/marketing/group/orders${buildQuery(params as Record<string, unknown>)}` }),
+    request<GroupOrder>({ url: '/marketing/group/join', method: 'POST', data }),
+  getGroupOrders: (params?: { activityId?: number; page?: number; pageSize?: number }) =>
+    request<PaginatedResult<GroupOrder>>({ url: `/marketing/group/orders${buildQuery(params as Record<string, unknown>)}` }),
   // Tiered Promotion
   calculateTiered: (data: { productId: number; quantity: number }) =>
     request<unknown>({ url: '/marketing/tiered/calculate', method: 'POST', data }),

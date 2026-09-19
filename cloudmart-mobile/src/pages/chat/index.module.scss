@@ -55,3 +55,36 @@
   font-size: $font-size-sm;
   font-weight: 600;
 }
+
+.recalledText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  padding: $spacing-sm 0;
+}
+
+.messageTime {
+  display: block;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  margin-top: 4rpx;
+}
+
+.dayDivider {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-sm 0;
+}
+
+.dayDividerText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  background-color: var(--color-border);
+  padding: 4rpx 24rpx;
+  border-radius: $radius-xl;
+}
+
+.imageMessage {
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: $radius-md;
+}

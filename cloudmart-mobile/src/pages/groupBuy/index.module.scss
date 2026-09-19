@@ -301,3 +301,52 @@
   color: $color-text-tertiary;
   white-space: nowrap;
 }
+
+.mainTabs {
+  display: flex;
+  background-color: $color-bg-white;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.mainTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-md 0;
+}
+
+.mainTabActive {
+  border-bottom: 4rpx solid var(--color-primary);
+}
+
+.mainTabText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.mainTabTextActive {
+  font-size: $font-size-md;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.myGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-sm;
+}
+
+.myGroupStatus {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.myGroupExpire {
+  display: block;
+  margin-top: $spacing-sm;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

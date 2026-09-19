@@ -1,15 +1,21 @@
-import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native'
 import { useState, useRef, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { aiApi } from '@/api/ai'
+import type { Product } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface ChatMessage {
   id: number
   role: 'user' | 'assistant'
   content: string
+  /** 搜索模式返回的商品卡片结果 */
+  products?: Product[]
 }
+
+// 对齐 Web 端 AiChat：对话/搜索双模式 + 快捷提问 chips
+const QUICK_QUESTIONS = ['推荐一款手机', '笔记本电脑怎么选', '春季穿搭推荐', '家居好物分享']
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 0,
@@ -23,6 +29,7 @@ export default function AiChatScreen() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | undefined>(undefined)
+  const [mode, setMode] = useState<'chat' | 'search'>('chat')
   const flatListRef = useRef<FlatList>(null)
   const nextId = useRef(1)
 
@@ -49,6 +56,19 @@ export default function AiChatScreen() {
     scrollToBottom()
 
     try {
+      if (mode === 'search') {
+        // 搜索模式：返回商品卡片结果（对齐 Web 端搜索模式）
+        const res = await aiApi.search(trimmed)
+        const products = (res.data as { data?: { list?: Product[] } })?.data?.list ?? []
+        const assistantMessage: ChatMessage = {
+          id: nextId.current++,
+          role: 'assistant',
+          content: products.length > 0 ? `为你找到 ${products.length} 件相关商品：` : '没有找到相关商品，换个关键词试试？',
+          products: products.slice(0, 6),
+        }
+        setMessages((prev) => [...prev, assistantMessage])
+        return
+      }
       const res = await aiApi.chat({ message: trimmed, conversationId })
       const content = res.data?.data?.content || res.data?.data?.message || res.data?.data?.reply || '抱歉，我暂时无法回答，请稍后再试。'
       const returnedConversationId = res.data?.data?.conversationId
@@ -70,7 +90,7 @@ export default function AiChatScreen() {
       setIsLoading(false)
       scrollToBottom()
     }
-  }, [input, isLoading, messages, scrollToBottom])
+  }, [input, isLoading, messages, scrollToBottom, conversationId, mode])
 
   const renderItem = useCallback(
     ({ item }: { item: ChatMessage }) => {
@@ -134,6 +154,27 @@ export default function AiChatScreen() {
                 {item.content}
               </Text>
             </View>
+            {/* 搜索模式的商品卡片结果 */}
+            {item.products && item.products.length > 0 ? (
+              <View style={{ marginTop: Spacing.sm, gap: Spacing.sm }}>
+                {item.products.map((product) => (
+                  <TouchableOpacity
+                    key={product.id}
+                    activeOpacity={0.7}
+                    onPress={() => router.push(`/product/${product.id}`)}
+                    style={{ flexDirection: 'row', backgroundColor: theme.bgContainer, borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.sm, gap: Spacing.sm }}
+                  >
+                    {product.mainImage ? (
+                      <Image source={{ uri: product.mainImage }} style={{ width: 56, height: 56, borderRadius: BorderRadius.sm }} />
+                    ) : null}
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={2} style={{ fontSize: FontSize.sm, color: theme.text }}>{product.name}</Text>
+                      <Text style={{ marginTop: 4, fontSize: FontSize.md, fontWeight: '700', color: theme.accentRed }}>¥{product.price}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
       )
@@ -235,6 +276,59 @@ export default function AiChatScreen() {
         keyboardShouldPersistTaps="handled"
       />
 
+      {/* 模式切换（对齐 Web 端「对话 / 🔍搜索模式」） */}
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm }}>
+        {([
+          { key: 'chat', label: '💬 对话' },
+          { key: 'search', label: '🔍 搜索' },
+        ] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            activeOpacity={0.7}
+            onPress={() => setMode(tab.key)}
+            style={{
+              paddingHorizontal: Spacing.lg,
+              paddingVertical: Spacing.xs,
+              borderRadius: BorderRadius.xl,
+              borderWidth: 1,
+              borderColor: mode === tab.key ? theme.primary : theme.border,
+              backgroundColor: mode === tab.key ? theme.primary + '14' : 'transparent',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.xs, fontWeight: mode === tab.key ? '600' : '400', color: mode === tab.key ? theme.primary : theme.textSecondary }}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* 快捷提问 chips（对话模式展示） */}
+      {mode === 'chat' && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xs }}>
+          {QUICK_QUESTIONS.map((question) => (
+            <TouchableOpacity
+              key={question}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (isLoading) return
+                setInput(question)
+                setTimeout(handleSend, 0)
+              }}
+              style={{
+                paddingHorizontal: Spacing.md,
+                paddingVertical: Spacing.xs,
+                borderRadius: BorderRadius.xl,
+                borderWidth: 1,
+                borderColor: theme.border,
+                marginRight: Spacing.sm,
+              }}
+            >
+              <Text style={{ fontSize: FontSize.xs, color: theme.textSecondary }}>{question}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* Input Bar */}
       <View
         style={{
@@ -251,7 +345,7 @@ export default function AiChatScreen() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="输入消息..."
+          placeholder={mode === "search" ? "搜索你想找的商品..." : "输入消息..."}
           placeholderTextColor={theme.textTertiary}
           editable={!isLoading}
           style={{

@@ -283,7 +283,7 @@
   border-radius: 14px;
   background: rgba(233, 69, 96, 12%);
   border: 1px solid rgba(233, 69, 96, 35%);
-  color: #fff;
+  color: var(--color-text);
   text-align: left;
   transition: transform 0.2s ease, background 0.2s ease;
 }

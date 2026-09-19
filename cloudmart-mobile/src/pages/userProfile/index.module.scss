@@ -330,3 +330,95 @@
   font-size: $font-size-md;
   color: $color-text-tertiary;
 }
+
+.wishList {
+  padding: $spacing-md $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.wishCard {
+  background-color: $color-bg-white;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+}
+
+.wishCardHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: $spacing-xs;
+}
+
+.wishFruit {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.wishStatus {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.wishTitle {
+  display: block;
+  font-size: $font-size-md;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+
+.wishAuthor {
+  display: block;
+  margin-top: 4rpx;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.commentList {
+  padding: $spacing-md $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.commentRow {
+  background-color: $color-bg-white;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+}
+
+.commentContent {
+  display: block;
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  line-height: 1.6;
+}
+
+.commentDate {
+  display: block;
+  margin-top: $spacing-xs;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.joinedText {
+  display: block;
+  margin-top: $spacing-xs;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.detailCard {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.05));
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.detailLine {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}

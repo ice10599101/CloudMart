@@ -268,3 +268,114 @@
   display: block;
   line-height: 2;
 }
+
+.levelRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx dashed var(--color-border);
+}
+
+.levelRowActive {
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
+}
+
+.levelBadge {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  color: var(--color-primary);
+  min-width: 72rpx;
+}
+
+.levelName {
+  flex: 1;
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+}
+
+.levelExp {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.levelCurrent {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.frameRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+}
+
+.frameChip {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.frameChipActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.06));
+}
+
+.frameDot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+  border: 6rpx solid var(--color-border);
+}
+
+.frameLabel {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.expHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.expToggle {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.expRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-xs 0;
+}
+
+.expDesc {
+  flex: 1;
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.expChange {
+  font-size: $font-size-xs;
+  font-weight: 600;
+  color: #2ed573;
+}
+
+.expTime {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.expEmpty {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  padding: $spacing-sm 0;
+}

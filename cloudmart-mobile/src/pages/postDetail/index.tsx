@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { useAuthStore } from '@/store/auth'
+import GiftSection from '@/components/GiftSection'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Post, Comment } from '@/types'
 import styles from './index.module.scss'
@@ -11,11 +13,18 @@ const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权�
 
 export default function PostDetailPage() {
   const id = Taro.getCurrentInstance().router?.params?.id || ''
+  // 相关推荐（对齐 Web 端 PostDetail：同话题帖 fallback 推荐流）
+  const [relatedPosts, setRelatedPosts] = useState<Post[]>([])
+  const [giftTick] = useState(0)
   const [post, setPost] = useState<Post | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentContent, setCommentContent] = useState('')
   const [isFollowing, setIsFollowing] = useState(false)
+  const [replyTo, setReplyTo] = useState<Comment | null>(null)
+  const [commentPage, setCommentPage] = useState(1)
+  const [commentHasMore, setCommentHasMore] = useState(false)
   const { dataTheme, themeStyle } = useThemeClass()
+  const { user } = useAuthStore()
 
   useEffect(() => {
     if (id) {
@@ -27,16 +36,58 @@ export default function PostDetailPage() {
   const loadPost = async () => {
     try {
       const res = await communityApi.getPost(id)
-      setPost(res.data?.data)
+      const detail = res.data?.data
+      setPost(detail)
+      // 浏览足迹上报（对齐 Web 端 PostDetail）
+      if (detail && user?.id) {
+        communityApi
+          .recordBrowseHistory({
+            targetType: 'POST',
+            targetId: detail.id,
+            title: detail.title,
+            cover: detail.coverImage,
+          })
+          .catch(() => {})
+        loadRelatedPosts(detail)
+      }
+      // 关注状态回显（后端 PostVO.user.isFollowed）
+      if (detail?.user && (detail.user as { isFollowed?: boolean }).isFollowed != null) {
+        setIsFollowing(!!(detail.user as { isFollowed?: boolean }).isFollowed)
+      }
     } catch {
       // API unavailable
     }
   }
 
-  const loadComments = async () => {
+  /** 相关推荐：首个话题下的帖子，不足时回退推荐流（对齐 Web 端逻辑） */
+  const loadRelatedPosts = async (detail: Post) => {
+    const firstTagId = detail.tags?.[0]?.id
     try {
-      const res = await communityApi.getComments(id, { page: 1, pageSize: 50 })
-      setComments(res.data?.data?.list || [])
+      if (firstTagId) {
+        const res = await communityApi.getTagPosts(firstTagId, { page: 1, pageSize: 8 })
+        const list = res.data?.data?.list || res.data?.data || []
+        setRelatedPosts(list.filter((p) => p.id !== detail.id).slice(0, 4))
+        if (list.filter((p) => p.id !== detail.id).length >= 4) return
+      }
+      const res = await communityApi.getFeed({ page: 1, pageSize: 8 })
+      const list = res.data?.data?.list || []
+      setRelatedPosts((prev) => {
+        const seen = new Set([detail.id, ...prev.map((p) => p.id)])
+        const extra = list.filter((p) => !seen.has(p.id)).slice(0, 4 - prev.length)
+        return [...prev, ...extra]
+      })
+    } catch {
+      // 相关推荐失败静默
+    }
+  }
+
+  const loadComments = async (pageNum = 1, append = false) => {
+    try {
+      const res = await communityApi.getComments(id, { page: pageNum, pageSize: 20 })
+      const list = res.data?.data?.list || []
+      setComments((prev) => (append ? [...prev, ...list] : list))
+      setCommentPage(pageNum)
+      setCommentHasMore(list.length >= 20)
     } catch {
       // API unavailable
     }
@@ -86,14 +137,97 @@ export default function PostDetailPage() {
 
   const handleComment = async () => {
     if (!commentContent.trim()) return
+    if (!user?.id) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
     try {
-      await communityApi.createComment(id, { content: commentContent })
+      // 回复模式：携带 parentId 与 replyToUserId（对齐 Web 端楼中楼）
+      await communityApi.createComment(id, {
+        content: commentContent,
+        parentId: replyTo?.parentId ?? replyTo?.id,
+        replyToUserId: replyTo ? (replyTo.replyToUserId ?? replyTo.userId) : undefined,
+      })
       setCommentContent('')
+      setReplyTo(null)
       Taro.showToast({ title: '评论成功', icon: 'success' })
-      loadComments()
+      loadComments(1, false)
     } catch {
       Taro.showToast({ title: '评论失败', icon: 'none' })
     }
+  }
+
+  /** 评论点赞/取消（对齐 Web 端评论工具条） */
+  const handleCommentLike = async (comment: Comment) => {
+    try {
+      if (comment.isLiked) {
+        await communityApi.unlikeComment(comment.id)
+      } else {
+        await communityApi.likeComment(comment.id)
+      }
+      const patch = (c: Comment): Comment =>
+        c.id === comment.id
+          ? { ...c, isLiked: !c.isLiked, likeCount: c.isLiked ? c.likeCount - 1 : c.likeCount + 1 }
+          : { ...c, replies: c.replies?.map(patch) }
+      setComments((prev) => prev.map(patch))
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }
+
+  /** 删除自己的评论（对齐 Web 端 modal.confirm 语义） */
+  const handleCommentDelete = (comment: Comment) => {
+    Taro.showModal({
+      title: '删除评论',
+      content: '确定删除这条评论吗？',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await communityApi.deleteComment(id, comment.id)
+          setComments((prev) => prev.filter((c) => c.id !== comment.id))
+          Taro.showToast({ title: '已删除', icon: 'success' })
+        } catch {
+          Taro.showToast({ title: '删除失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
+  /** 点击评论弹出操作（回复/删除） */
+  const handleCommentPress = (comment: Comment) => {
+    const isMine = comment.userId === user?.id
+    const options = isMine ? ['回复', '删除'] : ['回复']
+    Taro.showActionSheet({ itemList: options })
+      .then((res) => {
+        if (options[res.tapIndex] === '回复') {
+          setReplyTo(comment)
+        } else if (options[res.tapIndex] === '删除') {
+          handleCommentDelete(comment)
+        }
+      })
+      .catch(() => {})
+  }
+
+  /** 删除自己的帖子（对齐 Web 端 Dropdown+确认） */
+  const handleDeletePost = () => {
+    Taro.showModal({
+      title: '删除帖子',
+      content: '删除后不可恢复，确定删除吗？',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await communityApi.deletePost(post!.id)
+          Taro.showToast({ title: '已删除', icon: 'success' })
+          setTimeout(() => Taro.switchTab({ url: '/pages/home/index' }), 1_200)
+        } catch {
+          Taro.showToast({ title: '删除失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
+  const handleEditPost = () => {
+    Taro.navigateTo({ url: `/pages/publish/index?edit=${post!.id}` })
   }
 
   const handleShare = async () => {
@@ -130,11 +264,16 @@ export default function PostDetailPage() {
   }
 
   const handleMoreActions = () => {
+    const isMine = post?.userId === user?.id
+    const options = isMine ? ['分享', '编辑', '删除', '举报'] : ['分享', '举报']
     Taro.showActionSheet({
-      itemList: ['分享', '举报'],
+      itemList: options,
     }).then((res) => {
-      if (res.tapIndex === 0) handleShare()
-      else if (res.tapIndex === 1) handleReport()
+      const chosen = options[res.tapIndex]
+      if (chosen === '分享') handleShare()
+      else if (chosen === '编辑') handleEditPost()
+      else if (chosen === '删除') handleDeletePost()
+      else if (chosen === '举报') handleReport()
     }).catch(() => {})
   }
 
@@ -185,23 +324,82 @@ export default function PostDetailPage() {
           )}
         </View>
 
+        {/* 全站虚拟礼物（对齐 Web 端帖子详情礼物区块） */}
+        <GiftSection targetType='POST' targetId={id} refreshTick={giftTick} />
+
+        {/* 相关推荐（对齐 Web 端 PostDetail） */}
+        {relatedPosts.length > 0 && (
+          <View className={styles.commentSection}>
+            <Text className={styles.commentTitle}>相关推荐</Text>
+            {relatedPosts.map((rel) => (
+              <View key={rel.id} className={styles.relatedRow} onClick={() => Taro.navigateTo({ url: `/pages/postDetail/index?id=${rel.id}` })}>
+                {rel.coverImage && <Image className={styles.relatedCover} src={rel.coverImage} mode='aspectFill' />}
+                <View className={styles.relatedInfo}>
+                  <Text className={styles.relatedTitle} numberOfLines={2}>{rel.title}</Text>
+                  <Text className={styles.relatedMeta}>❤ {rel.likeCount} · 💬 {rel.commentCount}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Comments */}
         <View className={styles.commentSection}>
           <Text className={styles.commentTitle}>评论 ({post.commentCount})</Text>
           {comments.map((comment) => (
-            <View key={comment.id} className={styles.commentItem}>
-              {comment.user && <Image className={styles.commentAvatar} src={comment.user.avatar} />}
+            <View key={comment.id} className={styles.commentItem} onClick={() => handleCommentPress(comment)}>
+              {(comment.user?.avatar || comment.authorAvatar) && (
+                <Image className={styles.commentAvatar} src={(comment.user?.avatar || comment.authorAvatar) ?? ''} />
+              )}
               <View className={styles.commentBody}>
-                {comment.user && <Text className={styles.commentName}>{comment.user.nickname}</Text>}
+                <Text className={styles.commentName}>
+                  {comment.user?.nickname ?? comment.authorNickname ?? '匿名用户'}
+                  {comment.replyToNickname ? ` · 回复 @${comment.replyToNickname}` : ''}
+                </Text>
                 <Text className={styles.commentText}>{comment.content}</Text>
-                <Text className={styles.commentTime}>{formatTime(comment.createdAt)}</Text>
+                <View className={styles.commentMetaRow}>
+                  <Text className={styles.commentTime}>{formatTime(comment.createdAt)}</Text>
+                  <Text
+                    className={styles.commentLikeBtn}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCommentLike(comment)
+                    }}
+                  >
+                    {comment.isLiked ? '❤️' : '🤍'} {comment.likeCount > 0 ? comment.likeCount : ''}
+                  </Text>
+                </View>
+                {comment.replies && comment.replies.length > 0 && (
+                  <View className={styles.repliesBlock}>
+                    {comment.replies.map((reply) => (
+                      <View key={reply.id} className={styles.replyItem} onClick={() => handleCommentPress(reply)}>
+                        <Text className={styles.replyName}>
+                          {reply.user?.nickname ?? reply.authorNickname ?? '匿名用户'}
+                          {reply.replyToNickname ? ` · 回复 @${reply.replyToNickname}` : ''}
+                        </Text>
+                        <Text className={styles.commentText}>{reply.content}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
           ))}
+          {commentHasMore && (
+            <View className={styles.commentLoadMore} onClick={() => loadComments(commentPage + 1, true)}>
+              <Text className={styles.commentLoadMoreText}>加载更多评论</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
       {/* Bottom Action Bar */}
+      {replyTo && (
+        <View className={styles.replyBanner}>
+          <Text className={styles.replyBannerText}>回复 @{replyTo.user?.nickname ?? '匿名用户'}</Text>
+          <Text className={styles.replyBannerCancel} onClick={() => setReplyTo(null)}>取消</Text>
+        </View>
+      )}
       <View className={styles.bottomBar}>
         <View className={styles.commentInput}>
           <Textarea

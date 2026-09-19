@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { userApi } from '@/api/user'
+import { cartApi } from '@/api/cart'
+import { productApi } from '@/api/product'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { WishlistItem } from '@/types'
 
@@ -47,6 +49,22 @@ export default function WishlistScreen() {
       loadWishlist(page + 1)
     }
   }, [hasMore, loading, page, loadWishlist])
+
+  /** 加入购物车（对齐 Web 端心愿单：取商品默认 SKU） */
+  const handleAddToCart = async (item: WishlistItem) => {
+    try {
+      const res = await productApi.getDetail(item.productId)
+      const skuId = (res.data as { data?: { skus?: Array<{ id: number }> } })?.data?.skus?.[0]?.id
+      if (!skuId) {
+        Alert.alert('提示', '商品暂无可售规格')
+        return
+      }
+      await cartApi.addItem({ skuId, quantity: 1 })
+      Alert.alert('提示', `已将「${item.productName}」加入购物车`)
+    } catch {
+      Alert.alert('错误', '加入购物车失败，请稍后重试')
+    }
+  }
 
   const handleRemove = (item: WishlistItem) => {
     Alert.alert('取消收藏', `确定要取消收藏「${item.productName}」吗？`, [
@@ -115,6 +133,13 @@ export default function WishlistScreen() {
           </Text>
         </View>
       </View>
+
+      <TouchableOpacity
+        onPress={() => handleAddToCart(item)}
+        style={{ justifyContent: 'center', paddingHorizontal: Spacing.sm }}
+      >
+        <Text style={{ fontSize: FontSize.sm, color: theme.primary, fontWeight: '600' }}>加购</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={() => handleRemove(item)}

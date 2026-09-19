@@ -1,0 +1,11 @@
+{
+    "name": "pet-game",
+    "type": "3d",
+    "version": "4.0.0",
+    "uuid": "f3a1c2d4-5b6e-4a7c-8d9e-0f1a2b3c4d5e",
+    "creator": {
+        "version": "4.0.0",
+        "dependencies": {}
+    },
+    "description": "CloudMart 社区宠物 3D 场景（web-mobile 构建，三端宿主嵌入）"
+}

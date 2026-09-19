@@ -1,0 +1,17 @@
+{
+  /* Cocos Creator 打开工程后会在 temp/ 生成带引擎类型的 tsconfig；
+     未打开编辑器前本文件保证 IDE 基本可用（引擎 API 无类型为预期状态） */
+  "extends": "./temp/tsconfig.cocos.json",
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "ES2015",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "assets",
+    "temp/declarations"
+  ]
+}

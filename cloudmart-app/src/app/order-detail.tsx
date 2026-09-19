@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Modal } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
@@ -28,6 +28,8 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refundReason, setRefundReason] = useState('')
 
   const fetchOrder = useCallback(async () => {
     if (!id) return
@@ -72,9 +74,31 @@ export default function OrderDetailPage() {
     ])
   }
 
+  /** 去支付 → 收银台（修复原 checkout?orderId 断链；对齐 Web 端 /payment/:id） */
   const handlePay = () => {
     if (!order) return
-    router.push(`/checkout?orderId=${order.id}`)
+    router.push(`/payment?id=${order.id}`)
+  }
+
+  /** 申请退款（对齐 Web 端：已付款/已发货可申请，必填原因） */
+  const submitRefund = async () => {
+    if (!order) return
+    if (!refundReason.trim()) {
+      Alert.alert('提示', '请填写退款原因')
+      return
+    }
+    setActionLoading(true)
+    try {
+      await orderApi.refund(order.id, refundReason.trim())
+      setRefundOpen(false)
+      setRefundReason('')
+      Alert.alert('提示', '退款申请已提交')
+      fetchOrder()
+    } catch {
+      Alert.alert('错误', '退款申请失败')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   const handleConfirmReceive = () => {
@@ -100,7 +124,12 @@ export default function OrderDetailPage() {
   }
 
   const handleRebuy = () => {
-    router.push('/(tabs)/mall')
+    const first = order?.items?.[0]
+    if (first?.productId) {
+      router.push(`/product/${first.productId}`)
+    } else {
+      router.push('/(tabs)/mall')
+    }
   }
 
   if (loading) {
@@ -165,6 +194,42 @@ export default function OrderDetailPage() {
             订单号：{order.orderNo}
           </Text>
         </View>
+
+        {/* 状态进度条（对齐 Web 端：提交订单→支付成功→已发货→已完成） */}
+        {order.status !== 4 && (
+          <View style={{
+            marginHorizontal: Spacing.lg,
+            marginBottom: Spacing.lg,
+            backgroundColor: theme.bgContainer,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+          }}>
+            {([
+              { key: 'created', label: '提交订单', done: true },
+              { key: 'paid', label: '支付成功', done: !!order.payTime },
+              { key: 'shipped', label: '已发货', done: !!order.shipTime },
+              { key: 'completed', label: '已完成', done: !!order.receiveTime },
+            ] as const).map((step, i) => (
+              <View key={step.key} style={{ alignItems: 'center', flex: 1 }}>
+                <View style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: step.done ? theme.primary : theme.border,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 12, color: '#FFFFFF' }}>{step.done ? '✓' : i + 1}</Text>
+                </View>
+                <Text style={{ fontSize: FontSize.xs, color: step.done ? theme.primary : theme.textTertiary, marginTop: 4 }}>
+                  {step.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Address Section */}
         <View style={{
@@ -314,7 +379,7 @@ export default function OrderDetailPage() {
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      {(order.status === 0 || order.status === 2 || order.status === 3) && (
+      {(order.status === 0 || order.status === 1 || order.status === 2 || order.status === 3) && (
         <View style={{
           position: 'absolute',
           bottom: 0,
@@ -365,6 +430,23 @@ export default function OrderDetailPage() {
               </TouchableOpacity>
             </>
           )}
+          {(order.status === 1 || order.status === 2) && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={actionLoading ? undefined : () => setRefundOpen(true)}
+              disabled={actionLoading}
+              style={{
+                paddingHorizontal: Spacing.xl,
+                paddingVertical: Spacing.md,
+                borderRadius: BorderRadius.xl,
+                borderWidth: 1,
+                borderColor: theme.border,
+                opacity: actionLoading ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, fontWeight: '500' }}>申请退款</Text>
+            </TouchableOpacity>
+          )}
           {order.status === 2 && (
             <TouchableOpacity
               activeOpacity={0.8}
@@ -397,6 +479,54 @@ export default function OrderDetailPage() {
           )}
         </View>
       )}
+
+      {/* 申请退款弹窗（必填原因，对齐 Web 端） */}
+      <Modal visible={refundOpen} transparent animationType="slide" onRequestClose={() => !actionLoading && setRefundOpen(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => !actionLoading && setRefundOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: theme.bgContainer, borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl, padding: Spacing.xl }}>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: theme.text }}>申请退款</Text>
+            <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.xs }}>说明退款原因，提交后由平台审核处理</Text>
+            <TextInput
+              value={refundReason}
+              onChangeText={setRefundReason}
+              placeholder="请填写退款原因（必填）"
+              placeholderTextColor={theme.textTertiary}
+              maxLength={200}
+              multiline
+              style={{
+                marginTop: Spacing.md,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: BorderRadius.md,
+                paddingHorizontal: Spacing.md,
+                paddingVertical: Spacing.sm,
+                color: theme.text,
+                fontSize: FontSize.sm,
+                minHeight: 80,
+                textAlignVertical: 'top',
+                backgroundColor: theme.bgBase,
+              }}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.lg }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setRefundOpen(false)}
+                style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: theme.border }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={actionLoading ? undefined : submitRefund}
+                disabled={actionLoading}
+                style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, backgroundColor: theme.primary, opacity: actionLoading ? 0.6 : 1 }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>{actionLoading ? '提交中...' : '提交申请'}</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   )
 }

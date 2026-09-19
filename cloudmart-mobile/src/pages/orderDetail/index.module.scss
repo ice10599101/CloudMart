@@ -306,3 +306,115 @@
   color: var(--color-text-secondary);
   font-weight: 500;
 }
+
+.progressRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.progressStep {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.progressDot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background-color: var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progressDotDone {
+  background: var(--color-gradient-primary);
+}
+
+.progressDotText {
+  color: #ffffff;
+  font-size: $font-size-xs;
+}
+
+.progressLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.progressLabelDone {
+  color: var(--color-primary);
+}
+
+.refundMask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: 1000;
+}
+
+.refundModal {
+  width: 100%;
+  background-color: $color-bg-white;
+  border-radius: $radius-xl $radius-xl 0 0;
+  padding: $spacing-lg;
+  padding-bottom: calc(#{$spacing-lg} + env(safe-area-inset-bottom));
+}
+
+.refundTitle {
+  display: block;
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $color-text-primary;
+  margin-bottom: $spacing-xs;
+}
+
+.refundHint {
+  display: block;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  margin-bottom: $spacing-md;
+}
+
+.refundTextarea {
+  width: 100%;
+  height: 180rpx;
+  padding: $spacing-sm;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+}
+
+.refundActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+}
+
+.refundCancel {
+  padding: 12rpx 40rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.refundCancelText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.refundSubmit {
+  padding: 12rpx 40rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.refundSubmitText {
+  font-size: $font-size-sm;
+  color: #ffffff;
+  font-weight: 600;
+}

@@ -24,6 +24,8 @@ const TAB_LIST = [
   { label: '待发货', status: 1 },
   { label: '待收货', status: 2 },
   { label: '已完成', status: 3 },
+  // 状态语义对齐 Web 端订单列表（含已取消）
+  { label: '已取消', status: 4 },
 ] as const
 
 type StatusColorKey = 'accentOrange' | 'accentPurple' | 'primary' | 'accentGreen'

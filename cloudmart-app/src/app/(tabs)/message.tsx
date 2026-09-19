@@ -92,6 +92,43 @@ export default function MessagePage() {
     loadData()
   }
 
+  /** 通知点击：标记已读 + 按业务类型跳转（对齐 Web 端 Messages 跳转语义） */
+  const handleNotificationPress = (notif: AppNotification) => {
+    if (!notif.isRead) {
+      setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)))
+      notificationApi.markRead(notif.id).catch(() => {})
+    }
+    const type = (notif as unknown as { type?: string }).type
+    const bizType = (notif as unknown as { bizType?: string }).bizType
+    const bizId = (notif as unknown as { bizId?: number }).bizId
+    const actorId = (notif as unknown as { actorId?: number }).actorId
+    if (type === 'TAG_NEW_POST' && bizId) {
+      router.push(`/topic-detail?tagId=${bizId}`)
+      return
+    }
+    if (type === 'FOLLOW' && actorId) {
+      router.push(`/user-profile?id=${actorId}`)
+      return
+    }
+    if (bizType === 'POST' && bizId) {
+      router.push(`/post-detail?id=${bizId}`)
+      return
+    }
+    if (actorId) {
+      router.push(`/user-profile?id=${actorId}`)
+    }
+  }
+
+  /** 全部已读（对齐 Web 端） */
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationApi.markAllRead()
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    } catch {
+      // ignore
+    }
+  }
+
   if (!isLoggedIn) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.bgBase, justifyContent: 'center', alignItems: 'center' }}>
@@ -178,11 +215,22 @@ export default function MessagePage() {
               <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>暂无聊天</Text>
             </View>
           )
-        ) : notifications.length > 0 ? (
-          notifications.map((notif) => (
+        ) : (
+          <>
+            {notifications.length > 0 && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleMarkAllRead}
+                style={{ alignSelf: 'flex-end', marginBottom: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4 }}
+              >
+                <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>全部已读</Text>
+              </TouchableOpacity>
+            )}
+            {notifications.map((notif) => (
             <TouchableOpacity
               key={notif.id}
               activeOpacity={0.7}
+              onPress={() => handleNotificationPress(notif)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -202,12 +250,8 @@ export default function MessagePage() {
                 <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 4 }}>{notif.createdAt}</Text>
               </View>
             </TouchableOpacity>
-          ))
-        ) : (
-          <View style={{ alignItems: 'center', paddingVertical: Spacing.xxxl * 2 }}>
-            <Text style={{ fontSize: 48, marginBottom: Spacing.lg }}>🔔</Text>
-            <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>暂无通知</Text>
-          </View>
+            ))}
+          </>
         )}
       </ScrollView>
     </View>

@@ -1,9 +1,9 @@
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 4%) 25%,
-    rgba(255, 255, 255, 8%) 50%,
-    rgba(255, 255, 255, 4%) 75%
+    rgba(var(--color-primary-rgb), 5%) 25%,
+    rgba(var(--color-primary-rgb), 10%) 50%,
+    rgba(var(--color-primary-rgb), 5%) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -94,7 +94,7 @@
 }
 
 .skeleton-card-item {
-  background: rgba(21, 32, 56, 60%);
+  background: var(--color-stat-card-bg);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -123,7 +123,7 @@
   align-items: flex-start;
   gap: 14px;
   padding: 12px;
-  background: rgba(21, 32, 56, 40%);
+  background: var(--color-bg-elevated);
   border-radius: 10px;
 }
 
@@ -157,7 +157,7 @@
 
 .skeleton-chat-sidebar {
   width: 320px;
-  border-right: 1px solid rgba(255, 255, 255, 6%);
+  border-right: 1px solid var(--color-border);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -182,7 +182,7 @@
 
 .skeleton-chat-bubble-other {
   align-self: flex-start;
-  background: rgba(21, 32, 56, 60%);
+  background: var(--color-stat-card-bg);
   border-bottom-left-radius: 4px;
 }
 
@@ -216,7 +216,7 @@
   gap: 40px;
   margin-bottom: 32px;
   padding: 20px;
-  background: rgba(21, 32, 56, 40%);
+  background: var(--color-bg-elevated);
   border-radius: 12px;
 }
 
@@ -242,10 +242,10 @@
 }
 
 .skeleton-wish-masonry-item {
-  background: rgba(21, 32, 56, 60%);
+  background: var(--color-stat-card-bg);
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 4%);
+  border: 1px solid var(--color-border);
 }
 
 .skeleton-wish-cover {
@@ -283,9 +283,9 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: rgba(21, 32, 56, 60%);
+  background: var(--color-stat-card-bg);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 4%);
+  border: 1px solid var(--color-border);
 }
 
 .skeleton-tag {

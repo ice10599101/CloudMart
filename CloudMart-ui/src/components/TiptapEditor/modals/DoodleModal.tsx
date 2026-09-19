@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { App, Button, Modal, Popconfirm, Space, Slider, Typography } from 'antd'
+import { App, Button, ColorPicker, Modal, Popconfirm, Space, Slider, Typography } from 'antd'
 import { CheckOutlined, ClearOutlined, UndoOutlined } from '@ant-design/icons'
 import { uploadFile } from '@/api/file'
 import { message } from '@/utils/appMessage'
@@ -108,12 +108,8 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
     setHasStrokes(false)
   }
 
-  /** 关闭前二次确认：已绘制内容时防误触丢失 */
+  /** 关闭一律二次确认，防止误触丢失已绘制内容 */
   const requestClose = () => {
-    if (!hasStrokes) {
-      onClose()
-      return
-    }
     modal.confirm({
       title: '关闭后画的内容将丢失',
       content: '确定要关闭涂鸦画板吗？',
@@ -171,16 +167,13 @@ export default function DoodleModal({ open, onClose, onUploaded }: DoodleModalPr
     >
       <Space direction="vertical" style={{ width: '100%' }} size={10}>
         <Space size={8} wrap align="center">
-          {PALETTE.map((paletteColor) => (
-            <button
-              key={paletteColor}
-              type="button"
-              aria-label={`画笔颜色${paletteColor}`}
-              onClick={() => setColor(paletteColor)}
-              className={`${styles.doodleColorDot} ${color === paletteColor ? styles.doodleColorDotActive : ''}`}
-              style={{ backgroundColor: paletteColor }}
-            />
-          ))}
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>颜色</Typography.Text>
+          <ColorPicker
+            value={color}
+            onChange={(c) => setColor(c.toHexString())}
+            showText
+            presets={[{ label: '常用色', colors: [...PALETTE] }]}
+          />
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>粗细</Typography.Text>
           <Slider
             min={1}

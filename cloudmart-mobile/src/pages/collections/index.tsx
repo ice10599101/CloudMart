@@ -24,7 +24,7 @@ interface CommentItem {
   postId: number
   postTitle?: string
   content: string
-  replyToNickname?: string
+  replyToNickname?: string | null
   likeCount: number
   createdAt: string
 }
@@ -32,8 +32,10 @@ interface CommentItem {
 const TAB_LIST = [
   { key: 'posts', label: '我的帖子', icon: '📝' },
   { key: 'drafts', label: '我的草稿', icon: '📋' },
+  { key: 'collections', label: '我的收藏', icon: '⭐' },
   { key: 'liked', label: '我的点赞', icon: '👍' },
   { key: 'replies', label: '我的回复', icon: '💬' },
+  { key: 'history', label: '浏览足迹', icon: '🕘' },
 ]
 
 type TabKey = typeof TAB_LIST[number]['key']
@@ -49,6 +51,8 @@ export default function CollectionsPage() {
   const [posts, setPosts] = useState<PostItem[]>([])
   const [drafts, setDrafts] = useState<PostItem[]>([])
   const [likedPosts, setLikedPosts] = useState<PostItem[]>([])
+  const [collectedPosts, setCollectedPosts] = useState<PostItem[]>([])
+  const [history, setHistory] = useState<Array<{ id: number; targetType: string; targetId: number; title: string; cover: string; viewedAt: string }>>([])
   const [comments, setComments] = useState<CommentItem[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -89,6 +93,33 @@ export default function CollectionsPage() {
     }
   }, [])
 
+  /** 我的帖子收藏（对齐 Web 端 UserCenter 收藏面板，帖子部分） */
+  const fetchCollected = useCallback(async () => {
+    if (!user?.id) return
+    setLoading(true)
+    try {
+      const res = await communityApi.getUserCollections(user.id, { page: 1, pageSize: 50 })
+      setCollectedPosts(res.data?.data?.list || res.data?.data || [])
+    } catch {
+      setCollectedPosts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
+
+  /** 浏览足迹（心愿/帖子/商品 分类，对齐 Web 端浏览足迹面板） */
+  const fetchHistory = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await communityApi.getMyBrowseHistory({ page: 1, pageSize: 50 })
+      setHistory(res.data?.data?.list || [])
+    } catch {
+      setHistory([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const fetchComments = useCallback(async () => {
     setLoading(true)
     try {
@@ -104,9 +135,11 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (activeTab === 'posts') fetchPosts()
     else if (activeTab === 'drafts') fetchDrafts()
+    else if (activeTab === 'collections') fetchCollected()
     else if (activeTab === 'liked') fetchLiked()
     else if (activeTab === 'replies') fetchComments()
-  }, [activeTab, fetchPosts, fetchDrafts, fetchLiked, fetchComments])
+    else if (activeTab === 'history') fetchHistory()
+  }, [activeTab, fetchPosts, fetchDrafts, fetchLiked, fetchCollected, fetchHistory, fetchComments])
 
   const handlePublishDraft = async (id: number) => {
     const res = await Taro.showModal({
@@ -218,6 +251,10 @@ export default function CollectionsPage() {
         return drafts.length > 0
           ? <View className={styles.draftList}>{drafts.map(renderDraftCard)}</View>
           : renderEmpty('📋', '暂无草稿', '发布内容时可保存为草稿稍后编辑')
+      case 'collections':
+        return collectedPosts.length > 0
+          ? <View className={styles.postGrid}>{collectedPosts.map(renderPostCard)}</View>
+          : renderEmpty('⭐', '暂无收藏', '在帖子详情点击收藏吧')
       case 'liked':
         return likedPosts.length > 0
           ? <View className={styles.postGrid}>{likedPosts.map(renderPostCard)}</View>
@@ -226,6 +263,28 @@ export default function CollectionsPage() {
         return comments.length > 0
           ? <View className={styles.commentList}>{comments.map(renderCommentCard)}</View>
           : renderEmpty('💬', '暂无回复')
+      case 'history': {
+        const TYPE_ICON: Record<string, string> = { WISH: '🌠', POST: '📝', PRODUCT: '🛍️' }
+        return history.length > 0 ? (
+          <View className={styles.historyList}>
+            {history.map((h) => (
+              <View
+                key={h.id}
+                className={styles.historyRow}
+                onClick={() => {
+                  if (h.targetType === 'WISH') Taro.navigateTo({ url: `/pages/wishDetail/index?id=${h.targetId}` })
+                  else if (h.targetType === 'PRODUCT') Taro.navigateTo({ url: `/pages/productDetail/index?id=${h.targetId}` })
+                  else Taro.navigateTo({ url: `/pages/postDetail/index?id=${h.targetId}` })
+                }}
+              >
+                <Text className={styles.historyIcon}>{TYPE_ICON[h.targetType] ?? '🕘'}</Text>
+                <Text className={styles.historyTitle}>{h.title || '未命名'}</Text>
+                <Text className={styles.historyTime}>{h.viewedAt?.slice(0, 10)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : renderEmpty('🕘', '暂无浏览足迹')
+      }
       default:
         return null
     }

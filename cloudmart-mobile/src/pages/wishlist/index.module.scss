@@ -28,3 +28,20 @@
   border-radius: $radius-xl;
   font-size: $font-size-md;
 }
+
+.removeBtn {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  padding: 8rpx 20rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-xl;
+}
+
+.cartAddBtn {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+  padding: 8rpx 20rpx;
+  border: 1rpx solid var(--color-primary);
+  border-radius: $radius-xl;
+  margin-right: $spacing-sm;
+}

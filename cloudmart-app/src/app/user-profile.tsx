@@ -4,11 +4,16 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
+import { userApi } from '@/api/user'
+import type { User } from '@/types'
+import { wishApi } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const TABS = [
   { key: 'posts', label: '帖子' },
   { key: 'collections', label: '收藏' },
+  { key: 'wishes', label: 'TA的心愿' },
+  { key: 'comments', label: 'TA的评论' },
 ]
 
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
@@ -22,12 +27,16 @@ export default function UserProfileScreen() {
   const [profile, setProfile] = useState<any>(null)
   const [isFollowing, setIsFollowing] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'collections'>('posts')
+  const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes' | 'comments'>('posts')
   const [posts, setPosts] = useState<any[]>([])
   const [collections, setCollections] = useState<any[]>([])
+  const [wishes, setWishes] = useState<Array<{ wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }>>([])
+  const [userComments, setUserComments] = useState<Array<{ id: number; postId?: number; content: string; createdAt: string }>>([])
   const [loading, setLoading] = useState(false)
 
   const isOwnProfile = String(currentUser?.id ?? '') === userId
+
+  const [publicInfo, setPublicInfo] = useState<User | null>(null)
 
   const loadProfile = useCallback(async () => {
     if (!userId) return
@@ -35,6 +44,11 @@ export default function UserProfileScreen() {
       const res = await communityApi.getUserProfile(userId)
       const data = res.data?.data
       setProfile(data)
+      // 公开资料（后端按隐私过滤字段）：加入时间/详细资料卡数据源（对齐 Web 端）
+      userApi
+        .getPublicProfile(userId)
+        .then((r) => setPublicInfo((r.data as { data?: User })?.data ?? null))
+        .catch(() => {})
       setIsFollowing(data?.isFollowing || false)
     } catch {
       // API unavailable
@@ -45,6 +59,8 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     if (activeTab === 'posts') loadPosts()
+    else if (activeTab === 'wishes') loadWishes()
+    else if (activeTab === 'comments') loadUserComments()
     else loadCollections()
   }, [activeTab])
 
@@ -66,6 +82,28 @@ export default function UserProfileScreen() {
       setCollections(res.data?.data?.list || res.data?.data || [])
     } catch { setCollections([]) }
     finally { setLoading(false) }
+  }
+
+  /** TA 的心愿（服务端强制仅返回公开心愿，对齐 Web 端） */
+  const loadWishes = async () => {
+    if (!userId) return
+    try {
+      const res = await wishApi.listWishes({ userId: Number(userId), pageSize: 30 })
+      setWishes((res.data as { data?: Array<{ wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }> })?.data ?? [])
+    } catch {
+      setWishes([])
+    }
+  }
+
+  /** TA 的评论（对齐 Web 端 UserProfile 评论 Tab） */
+  const loadUserComments = async () => {
+    if (!userId) return
+    try {
+      const res = await communityApi.getUserComments(userId, { page: 1, pageSize: 20 })
+      setUserComments((res.data as { data?: { list?: Array<{ id: number; postId?: number; content: string; createdAt: string }> } })?.data?.list ?? [])
+    } catch {
+      setUserComments([])
+    }
   }
 
   const handleFollow = async () => {
@@ -99,12 +137,26 @@ export default function UserProfileScreen() {
     ])
   }
 
+  /** 举报用户（7 类原因逐项提交，对齐 Web 端 ReportModal） */
+  const submitReport = async (reason: string) => {
+    try {
+      await communityApi.report({ targetType: 'USER', targetId: Number(userId), reason })
+      Alert.alert('提示', '举报成功，感谢你的反馈')
+    } catch {
+      Alert.alert('错误', '举报失败')
+    }
+  }
+
   const handleReport = () => {
-    Alert.alert('举报用户', '请选择举报原因', REPORT_REASONS.map((r) => ({ text: r })), {
-      cancelable: true,
-      onDismiss: () => {},
-    })
-    // Use ActionSheet alternative for RN
+    Alert.alert(
+      '举报用户',
+      '请选择举报原因',
+      [
+        ...REPORT_REASONS.map((r) => ({ text: r, onPress: () => void submitReport(r) })),
+        { text: '取消', style: 'cancel' as const },
+      ],
+      { cancelable: true },
+    )
   }
 
   const handleMessage = () => {
@@ -115,12 +167,7 @@ export default function UserProfileScreen() {
     Alert.alert('更多操作', '', [
       { text: '取消', style: 'cancel' },
       { text: isBlocked ? '取消拉黑' : '拉黑', onPress: handleBlock },
-      { text: '举报', style: 'destructive', onPress: () => {
-        Alert.alert('举报原因', '请选择', REPORT_REASONS.map((r) => ({ text: r })) as any, {
-          cancelable: true,
-          onDismiss: () => {},
-        })
-      }},
+      { text: '举报', style: 'destructive', onPress: handleReport },
     ])
   }
 
@@ -189,6 +236,13 @@ export default function UserProfileScreen() {
               {profile.signature}
             </Text>
           )}
+
+          {publicInfo?.createdAt ? (
+            <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 4 }}>
+              加入 {new Date(publicInfo.createdAt).toLocaleDateString('zh-CN')} · 已加入{' '}
+              {Math.max(1, Math.ceil((Date.now() - new Date(publicInfo.createdAt).getTime()) / 86_400_000))} 天
+            </Text>
+          ) : null}
 
           {/* Badges */}
           {profile.badges?.length > 0 && (
@@ -304,9 +358,59 @@ export default function UserProfileScreen() {
             )
           ) : collections.length > 0 ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>{collections.map(renderPostCard)}</View>
-          ) : (
+          ) : activeTab === 'collections' ? (
             <View style={{ alignItems: 'center', padding: 60 }}>
               <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>暂无收藏</Text>
+            </View>
+          ) : activeTab === 'wishes' ? (
+            wishes.length > 0 ? (
+              <View style={{ gap: Spacing.md }}>
+                {wishes.map((wish) => {
+                  const wid = wish.wishId ?? wish.id
+                  const FRUIT_LABELS: Record<string, string> = { GLOW: '🌱 微光', RESONANCE: '💫 共鸣', BLOOM: '🌸 绽放', SPARK: '⭐ 星火' }
+                  return (
+                    <TouchableOpacity
+                      key={wid}
+                      activeOpacity={0.7}
+                      onPress={() => wid && router.push(`/wish-detail?id=${wid}`)}
+                      style={{ backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs }}>
+                        <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>{FRUIT_LABELS[wish.fruitType ?? ''] ?? '🌱 微光'}</Text>
+                        <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>
+                          {wish.status === 'ACTIVE' ? '进行中' : wish.status === 'FULFILLED' ? '已还愿' : wish.status === 'FULFILLING' ? '还愿中' : ''}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>{wish.title}</Text>
+                      {wish.authorNickname && (
+                        <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 4 }}>by {wish.authorNickname}</Text>
+                      )}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', padding: 60 }}>
+                <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>暂无公开心愿</Text>
+              </View>
+            )
+          ) : userComments.length > 0 ? (
+            <View style={{ gap: Spacing.md }}>
+              {userComments.map((comment) => (
+                <TouchableOpacity
+                  key={comment.id}
+                  activeOpacity={0.7}
+                  onPress={() => comment.postId && router.push(`/post-detail?id=${comment.postId}`)}
+                  style={{ backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: theme.text, lineHeight: 22 }}>{comment.content}</Text>
+                  <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.xs }}>{comment.createdAt?.slice(0, 10)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={{ alignItems: 'center', padding: 60 }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>暂无评论</Text>
             </View>
           )}
         </View>

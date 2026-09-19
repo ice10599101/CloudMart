@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -36,7 +37,11 @@ function formatMessageTime(time: string): string {
   return `${month}/${day} ${timeStr}`
 }
 
-export default function ChatScreen() {
+/** 撤回时限（对齐 Web 端：发送 2 分钟内可撤回） */
+const RECALL_WINDOW_MS = 2 * 60 * 1000
+/** 新消息轮询间隔（移动端无 WS，轮询保证能收到新消息） */
+const POLL_INTERVAL_MS = 5_000
+export default function ChatPage() {
   const theme = useTheme()
   const { targetUserId, conversationId: conversationIdParam } =
     useLocalSearchParams<{ targetUserId?: string; conversationId?: string }>()
@@ -52,6 +57,8 @@ export default function ChatScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null)
   const currentUserId = currentUser?.id
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
 
   const loadMessages = useCallback(async (convId: number) => {
     try {
@@ -107,6 +114,51 @@ export default function ChatScreen() {
       })
     }
   }, [messages.length])
+
+  // 新消息轮询（移动端无 WS：5s 增量拉取，保证能收到对方新消息）
+  useEffect(() => {
+    if (!conversationId) return
+    const timer = setInterval(async () => {
+      try {
+        const res = await notificationApi.getMessages(conversationId, { page: 1, pageSize: 50 })
+        const list = res.data?.data?.list ?? res.data?.data ?? []
+        if (Array.isArray(list) && list.length > 0) {
+          const latestId = list[list.length - 1].id
+          if (latestId !== messagesRef.current[messagesRef.current.length - 1]?.id) {
+            setMessages(list)
+          }
+        }
+      } catch {
+        // 轮询失败静默
+      }
+    }, POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [conversationId])
+
+  /** 撤回自己的消息（2 分钟内，对齐 Web 端；WS 同步「该消息已撤回」） */
+  const handleRecall = (msg: ChatMessage) => {
+    if (Date.now() - new Date(msg.createdAt).getTime() > RECALL_WINDOW_MS) {
+      Alert.alert('提示', '超过 2 分钟，无法撤回')
+      return
+    }
+    Alert.alert('撤回消息', '确定撤回这条消息吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '撤回',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await notificationApi.recallMessage(msg.id)
+            setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRecalled: true } : m)))
+          } catch (err) {
+            const message =
+              (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
+            Alert.alert('提示', message || '撤回失败')
+          }
+        },
+      },
+    ])
+  }
 
   const handleSend = async () => {
     const content = inputText.trim()
@@ -175,6 +227,27 @@ export default function ChatScreen() {
                   marginBottom: Spacing.md,
                 }}
               >
+                {msg.isRecalled ? (
+                  <Text
+                    style={{
+                      fontSize: FontSize.xs,
+                      color: theme.textTertiary,
+                      paddingVertical: Spacing.sm,
+                      textAlign: 'center',
+                      flex: 1,
+                    }}
+                  >
+                    该消息已撤回
+                  </Text>
+                ) : msg.type === 'IMAGE' ? (
+                  <TouchableOpacity activeOpacity={0.9} onPress={() => { /* 图片消息点击预览 */ }}>
+                    <Image
+                      source={{ uri: msg.content }}
+                      style={{ maxWidth: '75%', height: 180, borderRadius: BorderRadius.lg }}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ) : (
                 <View
                   style={{
                     maxWidth: '75%',
@@ -208,6 +281,17 @@ export default function ChatScreen() {
                     {formatMessageTime(msg.createdAt)}
                   </Text>
                 </View>
+                )}
+                {/* 撤回入口：长按自己 2 分钟内的消息 */}
+                {!msg.isRecalled && isMine && (
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onLongPress={() => handleRecall(msg)}
+                    style={{ justifyContent: 'flex-end', paddingBottom: Spacing.sm }}
+                  >
+                    <Text style={{ fontSize: 12, color: theme.textTertiary }}>⏱</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )
           })

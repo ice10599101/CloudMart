@@ -22,6 +22,7 @@ const MENU_ITEMS = [
   { icon: '🤖', name: 'AI 助手', path: '/pages/aiChat/index', color: 'var(--color-accent-purple)' },
   { icon: '🌟', name: '心愿助手', path: '/pages/aiAssistant/index', color: 'var(--color-accent-purple)' },
   { icon: '🏅', name: '我的徽章', path: '/pages/badgeWall/index', color: 'var(--color-accent-gold)' },
+  { icon: '🐾', name: '我的宠物', path: '/pages/pet/index', color: 'var(--color-accent-green)' },
   { icon: '📝', name: '我的帖子', path: '/pages/collections/index?type=posts', color: 'var(--color-accent-green)' },
   { icon: '📋', name: '我的草稿', path: '/pages/collections/index?type=drafts', color: 'var(--color-primary)' },
   { icon: '👍', name: '我的点赞', path: '/pages/collections/index?type=liked', color: 'var(--color-accent-red)' },

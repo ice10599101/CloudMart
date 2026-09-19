@@ -12,7 +12,10 @@ function buildQuery(params?: Record<string, unknown>): string {
 
 export const userApi = {
   getProfile: () => request<User>({ url: '/user/users/me' }),
-  updateProfile: (data: {
+  /** 他人公开资料（契约对齐 Web 端 getUserPublicProfile：GET /user/users/{id}，后端按隐私过滤字段） */
+  getPublicProfile: (id: number | string) => request<User>({ url: `/user/users/${id}` }),
+  /** 他人公开资料（契约对齐 Web 端 getUserPublicProfile：GET /user/users/{id}，后端按隐私过滤字段） */
+    updateProfile: (data: {
     nickname?: string
     avatar?: string
     signature?: string

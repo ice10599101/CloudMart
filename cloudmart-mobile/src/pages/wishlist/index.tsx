@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { userApi } from '@/api/user'
+import { cartApi } from '@/api/cart'
+import { productApi } from '@/api/product'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -27,6 +29,40 @@ export default function WishlistPage() {
     }
   }
 
+  /** 加入购物车（对齐 Web 端心愿单：取商品默认 SKU） */
+  const handleAddToCart = async (productId: number, name: string) => {
+    try {
+      const res = await productApi.getDetail(productId)
+      const product = res.data?.data
+      const skuId = product?.skus?.[0]?.id
+      if (!skuId) {
+        Taro.showToast({ title: '商品暂无可售规格', icon: 'none' })
+        return
+      }
+      await cartApi.addItem({ skuId, quantity: 1 })
+      Taro.showToast({ title: `已将「${name}」加入购物车`, icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '加入购物车失败', icon: 'none' })
+    }
+  }
+
+  const handleRemove = (productId: number, name: string) => {
+    Taro.showModal({
+      title: '移除收藏',
+      content: `确定将「${name}」移出心愿单吗？`,
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await userApi.removeFromWishlist(productId)
+          setWishlist((prev) => prev.filter((w) => w.productId !== productId))
+          Taro.showToast({ title: '已移除', icon: 'success' })
+        } catch {
+          Taro.showToast({ title: '移除失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
   if (!loading && wishlist.length === 0) {
     return (
       <View className={styles.page}>
@@ -49,6 +85,24 @@ export default function WishlistPage() {
               <Text className={styles.itemName}>{item.productName}</Text>
               <Text className={styles.itemPrice}>¥{item.productPrice}</Text>
             </View>
+            <Text
+              className={styles.cartAddBtn}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleAddToCart(item.productId, item.productName)
+              }}
+            >
+              加购
+            </Text>
+            <Text
+              className={styles.removeBtn}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRemove(item.productId, item.productName)
+              }}
+            >
+              移除
+            </Text>
           </View>
         ))}
       </ScrollView>

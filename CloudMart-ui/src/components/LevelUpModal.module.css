@@ -43,27 +43,27 @@
   width: 52px;
   height: 52px;
   font-size: 18px;
-  color: rgba(255, 255, 255, 75%);
-  background: rgba(255, 255, 255, 8%);
-  border: 1px dashed rgba(255, 255, 255, 25%);
+  color: var(--color-text-secondary);
+  background: var(--color-stat-card-bg);
+  border: 1px dashed var(--color-border);
   box-shadow: none;
   opacity: 0.8;
 }
 
 .arrow {
-  color: rgba(255, 255, 255, 50%);
+  color: var(--color-text-tertiary);
   font-size: 20px;
 }
 
 .newTitle {
   text-align: center;
   font-size: 15px;
-  color: rgba(255, 255, 255, 75%);
+  color: var(--color-text-secondary);
 }
 
 .desc {
   text-align: center;
   font-size: 13px;
-  color: rgba(255, 255, 255, 50%);
+  color: var(--color-text-tertiary);
   margin-top: 12px;
 }

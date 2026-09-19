@@ -13,7 +13,7 @@ import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import type { GroupActivity } from '@/types'
+import type { GroupActivity, GroupOrder } from '@/types'
 
 const PAGE_SIZE = 20
 
@@ -169,6 +169,11 @@ export default function GroupBuyPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  // 我的拼团（对齐 Web 端「拼团活动 / 我的拼团」双 Tab）
+  const [mainTab, setMainTab] = useState<'activities' | 'mine'>('activities')
+  const [myGroups, setMyGroups] = useState<GroupOrder[]>([])
+  const [myLoading, setMyLoading] = useState(false)
+  const [joiningId, setJoiningId] = useState<number | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [, setTick] = useState(0)
 
@@ -215,15 +220,46 @@ export default function GroupBuyPage() {
     }
   }, [hasMore, loading, page, loadActivities])
 
+  /** 我的拼团列表（getGroupOrders，对齐 Web 端） */
+  const loadMyGroups = useCallback(async () => {
+    setMyLoading(true)
+    try {
+      const res = await marketingApi.getGroupOrders({ page: 1, pageSize: 50 })
+      setMyGroups((res.data as { data?: { list?: GroupOrder[] } })?.data?.list ?? [])
+    } catch {
+      setMyGroups([])
+    } finally {
+      setMyLoading(false)
+    }
+  }, [])
+
+  /** 参与拼团（真实调 joinGroup；满员/重复/冷却分文案） */
   const handleJoin = useCallback((activity: GroupActivity) => {
     Alert.alert('参与拼团', `确定要参与「${activity.productName}」的${activity.groupSize}人拼团吗？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确定',
-        onPress: () => router.push(`/product/${activity.productId}`),
+        onPress: async () => {
+          if (joiningId === activity.id) return
+          setJoiningId(activity.id)
+          try {
+            const res = await marketingApi.joinGroup({ activityId: activity.id })
+            const groupOrder = (res.data as { data?: { id?: number } })?.data
+            Alert.alert('参与成功', '拼团订单已创建，成团后自动发货', [
+              { text: '查看我的拼团', onPress: () => { setMainTab('mine'); void loadMyGroups() } },
+              { text: '留在当前页' },
+            ])
+          } catch (err) {
+            const message =
+              (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
+            Alert.alert('参与失败', message || '请稍后重试')
+          } finally {
+            setJoiningId(null)
+          }
+        },
       },
     ])
-  }, [])
+  }, [joiningId, loadMyGroups])
 
   const renderItem = ({ item }: { item: GroupActivity }) => (
     <GroupActivityCard activity={item} theme={theme} onJoin={handleJoin} />
@@ -280,17 +316,74 @@ export default function GroupBuyPage() {
         <Text style={{ fontSize: FontSize.xl, fontWeight: '700', color: theme.text }}>👥 拼团专区</Text>
       </View>
 
-      <FlatList
-        data={activities}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xxl }}
-        renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={!loading ? renderEmpty : null}
-        ListFooterComponent={renderFooter}
-      />
+      {/* 主 Tab（对齐 Web 端：拼团活动 / 我的拼团） */}
+      <View style={{ flexDirection: 'row', backgroundColor: theme.bgHeader, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+        {([
+          { key: 'activities', label: '拼团活动' },
+          { key: 'mine', label: '我的拼团' },
+        ] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            activeOpacity={0.7}
+            onPress={() => {
+              setMainTab(tab.key)
+              if (tab.key === 'mine') void loadMyGroups()
+            }}
+            style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 2, borderBottomColor: mainTab === tab.key ? theme.primary : 'transparent' }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: mainTab === tab.key ? '600' : '400', color: mainTab === tab.key ? theme.primary : theme.textSecondary }}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {mainTab === 'mine' ? (
+        <FlatList
+          data={myGroups}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xxl }}
+          refreshControl={<RefreshControl refreshing={myLoading} onRefresh={loadMyGroups} tintColor={theme.primary} />}
+          renderItem={({ item }) => (
+            <View style={{ backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
+                <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>我的拼团 #{item.id}</Text>
+                <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.primary }}>
+                  {item.status === 'PENDING' ? '拼团中' : item.status === 'SUCCESS' ? '拼团成功' : item.status === 'FAILED' ? '拼团失败' : item.status}
+                </Text>
+              </View>
+              <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>
+                {item.leaderUserId ? `团长用户 #${item.leaderUserId} · ` : ''}成团进度 {item.currentNumber}/{item.targetNumber} 人
+              </Text>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.border, marginTop: Spacing.sm, overflow: 'hidden' }}>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: theme.primary, width: `${item.targetNumber > 0 ? Math.min((item.currentNumber / item.targetNumber) * 100, 100) : 0}%` }} />
+              </View>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.sm }}>
+                成团截止 {new Date(item.expireTime).toLocaleString()}
+              </Text>
+            </View>
+          )}
+          ListEmptyComponent={!myLoading ? (
+            <View style={{ alignItems: 'center', paddingVertical: Spacing.xxxl * 3 }}>
+              <Text style={{ fontSize: 48, marginBottom: Spacing.lg, opacity: 0.3 }}>👥</Text>
+              <Text style={{ fontSize: FontSize.lg, color: theme.textSecondary }}>还没有参与拼团</Text>
+              <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary, marginTop: Spacing.xs }}>去拼团活动页开一团吧</Text>
+            </View>
+          ) : null}
+        />
+      ) : (
+        <FlatList
+          data={activities}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xxl }}
+          renderItem={renderItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={!loading ? renderEmpty : null}
+          ListFooterComponent={renderFooter}
+        />
+      )}
     </View>
   )
 }

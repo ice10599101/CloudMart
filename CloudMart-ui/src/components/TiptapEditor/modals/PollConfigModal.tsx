@@ -35,15 +35,8 @@ export default function PollConfigModal({ open, onClose, onSubmit }: PollConfigM
     setOptionsError('')
   }
 
-  const isDirty = question.trim() !== '' || options.some((option) => option.trim() !== '')
-
-  /** 关闭前二次确认：已填写内容时防误触丢失 */
+  /** 关闭一律二次确认，防止误触丢失已填写内容 */
   const requestClose = () => {
-    if (!isDirty) {
-      reset()
-      onClose()
-      return
-    }
     modal.confirm({
       title: '关闭后填写的内容将丢失',
       content: '确定要关闭投票配置吗？',

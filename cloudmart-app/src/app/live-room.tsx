@@ -12,10 +12,16 @@ import {
 } from 'react-native'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
+import { Platform } from 'react-native'
 import { useTheme } from '@/hooks/use-theme-context'
+import { useAuthStore } from '@/store/auth'
 import { liveApi } from '@/api/live'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
+import GiftSection from '@/components/GiftSection'
 import type { LiveWidgetData } from '@/api/wish'
+import { API_BASE } from '@/utils/request'
+import { storage } from '@/utils/storage'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const SCREEN_HEIGHT = Dimensions.get('window').height
@@ -31,22 +37,26 @@ interface LiveRoom {
   viewerCount: number
   status: number
   startTime?: string
+  productId?: number | null
+  isFollowed?: boolean
 }
 
-interface ChatMessage {
+interface DanmakuMessage {
   id: number
   nickname: string
   content: string
-  isAnchor?: boolean
+  type: 'chat' | 'system' | 'gift'
 }
 
-const SAMPLE_COMMENTS: ChatMessage[] = [
-  { id: 1, nickname: '小明', content: '主播好厉害！' },
-  { id: 2, nickname: '阿花', content: '这个商品多少钱？' },
-  { id: 3, nickname: '大壮', content: '来了来了，支持主播' },
-  { id: 4, nickname: '小红', content: '能再展示一下吗？' },
-  { id: 5, nickname: '老王', content: '已下单，坐等收货' },
-]
+/** 由 API_BASE 推导 WS 基址：网关 WS 端点在 /ws（web 同源 /ws 反代，native 直连网关） */
+function resolveWsBase(): string {
+  if (Platform.OS === 'web') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}/ws`
+  }
+  // API_BASE 形如 http://host:8090/api → ws://host:8090/ws
+  return API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '/ws')
+}
 
 function getCountdown(targetTime: string): string {
   const diff = new Date(targetTime).getTime() - Date.now()
@@ -62,6 +72,7 @@ export default function LiveRoomScreen() {
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const roomId = Number(id)
+  const { user, isLoggedIn } = useAuthStore()
 
   const [room, setRoom] = useState<LiveRoom | null>(null)
   // 直播心愿挂件（Sprint 3.4 B10）：10s 轮询，失败保留上次值
@@ -70,19 +81,31 @@ export default function LiveRoomScreen() {
   const [loading, setLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
   const [commentText, setCommentText] = useState('')
-  const [comments, setComments] = useState<ChatMessage[]>(SAMPLE_COMMENTS)
+  const [comments, setComments] = useState<DanmakuMessage[]>([])
   const [countdown, setCountdown] = useState('')
   const [likeCount, setLikeCount] = useState(0)
+  const [wsConnected, setWsConnected] = useState(false)
 
   const likeScale = useRef(new Animated.Value(1)).current
   const heartAnimations = useRef<Animated.Value[]>([])
-  const commentIdRef = useRef(SAMPLE_COMMENTS.length + 1)
+  const msgIdRef = useRef(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectAttemptsRef = useRef(0)
+
+  const pushMessage = useCallback((msg: Omit<DanmakuMessage, 'id'>) => {
+    msgIdRef.current += 1
+    const full = { ...msg, id: msgIdRef.current }
+    setComments((prev) => [...prev.slice(-80), full])
+  }, [])
 
   const loadRoom = useCallback(async () => {
     try {
       const res = await liveApi.getRoom(roomId)
-      setRoom((res.data as any)?.data ?? null)
+      const data = (res.data as { data?: LiveRoom })?.data ?? null
+      setRoom(data)
+      setIsFollowing(!!data?.isFollowed)
     } catch {
       setRoom(null)
     } finally {
@@ -113,8 +136,81 @@ export default function LiveRoomScreen() {
     }
     return () => {
       leaveRoom()
+      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+      if (wsRef.current) {
+        wsRef.current.onclose = null
+        wsRef.current.close()
+        wsRef.current = null
+      }
     }
   }, [roomId, loadRoom, enterRoom, leaveRoom])
+
+  /** WS 弹幕连接（对齐 Web 端 LiveRoom：/ws/live/danmaku，退避重连最多 5 次） */
+  const connectSocket = useCallback(() => {
+    if (!isLoggedIn || !roomId) return
+    // token 由 storage 异步读取
+    void storage.getItem('access_token').then((token) => {
+        if (!token || wsRef.current) return
+        const url = `${resolveWsBase()}/live/danmaku?roomId=${roomId}&token=${encodeURIComponent(token)}`
+        const ws = new WebSocket(url)
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          setWsConnected(true)
+          reconnectAttemptsRef.current = 0
+          pushMessage({ nickname: '系统', content: '已连接到直播间', type: 'system' })
+        }
+
+        ws.onmessage = (event) => {
+          if (typeof event.data !== 'string') return
+          if (event.data === 'pong') return
+          try {
+            const data = JSON.parse(event.data) as Record<string, unknown>
+            if (data.type === 'like') {
+              setLikeCount((prev) => prev + 1)
+              return
+            }
+            if (data.type === 'system') {
+              pushMessage({ nickname: '系统', content: String(data.content ?? ''), type: 'system' })
+              return
+            }
+            if (data.type === 'GIFT') {
+              pushMessage({
+                nickname: String(data.senderNickname ?? '神秘人'),
+                content: `送出 ${data.giftName ?? '礼物'} ×${data.count ?? 1}${data.message ? `：“${data.message}”` : ''}`,
+                type: 'gift',
+              })
+              return
+            }
+            pushMessage({
+              nickname: String(data.nickname ?? data.username ?? '匿名'),
+              content: String(data.content ?? ''),
+              type: 'chat',
+            })
+          } catch {
+            // 非 JSON 消息忽略
+          }
+        }
+
+        ws.onclose = () => {
+          setWsConnected(false)
+          wsRef.current = null
+          // 指数退避重连（对齐 Web 端）
+          if (reconnectAttemptsRef.current < 5) {
+            const delay = 1000 * Math.pow(2, reconnectAttemptsRef.current)
+            reconnectAttemptsRef.current += 1
+            reconnectRef.current = setTimeout(() => connectSocket(), delay)
+          }
+        }
+
+        ws.onerror = () => setWsConnected(false)
+      })
+  }, [isLoggedIn, roomId, pushMessage])
+
+  // 直播中才连弹幕 WS（hooks 在早退 return 之前，修复原 Hooks 规则违例）
+  useEffect(() => {
+    if (room?.status === 1) connectSocket()
+  }, [room?.status, connectSocket])
 
   // 倒计时
   useEffect(() => {
@@ -128,45 +224,42 @@ export default function LiveRoomScreen() {
     }
   }, [room])
 
-  // 模拟弹幕
+  // 挂件数据轮询（10s；streamerId=主播用户 ID；hooks 提前到早退 return 之前）
   useEffect(() => {
-    if (!room || room.status !== 1) return
-
-    const fakeNicknames = ['观众A', '观众B', '观众C', '观众D', '观众E']
-    const fakeMessages = [
-      '主播加油！',
-      '太棒了',
-      '666',
-      '好看',
-      '买买买',
-      '已关注',
-      '冲冲冲',
-      '好物推荐',
-    ]
-
-    const timer = setInterval(() => {
-      const newComment: ChatMessage = {
-        id: commentIdRef.current++,
-        nickname: fakeNicknames[Math.floor(Math.random() * fakeNicknames.length)],
-        content: fakeMessages[Math.floor(Math.random() * fakeMessages.length)],
-      }
-      setComments((prev) => [...prev.slice(-30), newComment])
-    }, 3000)
-
-    return () => clearInterval(timer)
-  }, [room])
+    if (!room?.anchorUserId) return
+    let alive = true
+    const load = () => {
+      wishApi.getLiveWidget(room.anchorUserId)
+        .then((res) => {
+          if (alive && res.data?.success && res.data.data) setWidget(res.data.data)
+        })
+        .catch(() => undefined)
+    }
+    load()
+    const timer = setInterval(load, 10_000)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [room?.anchorUserId])
 
   const handleSendComment = () => {
-    if (!commentText.trim()) return
-    const newComment: ChatMessage = {
-      id: commentIdRef.current++,
-      nickname: '我',
-      content: commentText.trim(),
+    const content = commentText.trim()
+    if (!content) return
+    if (!isLoggedIn) {
+      Alert.alert('提示', '请先登录')
+      return
     }
-    setComments((prev) => [...prev, newComment])
+    pushMessage({ nickname: user?.nickname ?? '我', content, type: 'chat' })
     setCommentText('')
+    try {
+      wsRef.current?.send(JSON.stringify({ type: 'chat', username: user?.nickname ?? '匿名', content }))
+    } catch {
+      // 未连接时仅本地回显
+    }
   }
 
+  /** 点赞：WS 广播 + 本地计数（对齐 Web 端 sendLike） */
   const handleLike = () => {
     setLikeCount((prev) => prev + 1)
 
@@ -176,26 +269,32 @@ export default function LiveRoomScreen() {
     ]).start()
 
     const heartY = new Animated.Value(0)
-    const heartOpacity = new Animated.Value(1)
     heartAnimations.current.push(heartY)
 
-    Animated.parallel([
-      Animated.timing(heartY, { toValue: -120, duration: 1000, useNativeDriver: true }),
-      Animated.timing(heartOpacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
-    ]).start(() => {
+    Animated.timing(heartY, { toValue: -120, duration: 1000, useNativeDriver: true }).start(() => {
       heartAnimations.current = heartAnimations.current.filter((v) => v !== heartY)
     })
+
+    try {
+      wsRef.current?.send(JSON.stringify({ type: 'like' }))
+    } catch {
+      // 未连接时仅本地计数
+    }
   }
 
-  const handleShare = () => {
-    Alert.alert('分享', '复制直播间链接分享给好友', [
-      { text: '取消', style: 'cancel' },
-      { text: '复制链接', onPress: () => Alert.alert('提示', '链接已复制') },
-    ])
-  }
-
-  const handleFollow = () => {
-    setIsFollowing((prev) => !prev)
+  const handleFollow = async () => {
+    if (!isLoggedIn) {
+      Alert.alert('提示', '请先登录')
+      return
+    }
+    if (!room?.anchorUserId) return
+    try {
+      if (isFollowing) await communityApi.unfollowUser(room.anchorUserId)
+      else await communityApi.followUser(room.anchorUserId)
+      setIsFollowing(!isFollowing)
+    } catch {
+      Alert.alert('提示', '操作失败')
+    }
   }
 
   if (loading) {
@@ -220,25 +319,6 @@ export default function LiveRoomScreen() {
     )
   }
 
-  // 挂件数据轮询（10s；streamerId=主播用户 ID）
-  useEffect(() => {
-    if (!room?.anchorUserId) return
-    let alive = true
-    const load = () => {
-      wishApi.getLiveWidget(room.anchorUserId)
-        .then((res) => {
-          if (alive && res.data?.success && res.data.data) setWidget(res.data.data)
-        })
-        .catch(() => undefined)
-    }
-    load()
-    const timer = setInterval(load, 10_000)
-    return () => {
-      alive = false
-      clearInterval(timer)
-    }
-  }, [room?.anchorUserId])
-
   const isLive = room.status === 1
   const isScheduled = room.status === 0
   const isEnded = room.status === 2
@@ -255,6 +335,18 @@ export default function LiveRoomScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: FontSize.md, marginTop: Spacing.md }}>
               直播画面
             </Text>
+            {/* 直播商品入口（对齐 Web 端「直播商品/立即购买」） */}
+            {room.productId ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push(`/product/${room.productId}`)}
+                style={{ position: 'absolute', right: Spacing.md, bottom: -Spacing.xxxl, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl }}
+              >
+                <Text style={{ fontSize: 16 }}>🛍️</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: FontSize.xs }}>讲解商品</Text>
+                <Text style={{ color: '#FFD700', fontSize: FontSize.xs, fontWeight: '700' }}>去购买</Text>
+              </TouchableOpacity>
+            ) : null}
             {widget && widget.visible && !widgetClosed && (
               <View
                 style={{
@@ -382,7 +474,7 @@ export default function LiveRoomScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: FontSize.xs }}>👁</Text>
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: FontSize.xs, fontVariant: ['tabular-nums'] }}>
-              {room.viewerCount}
+              {room.viewerCount + likeCount}
             </Text>
           </View>
         </View>
@@ -403,12 +495,17 @@ export default function LiveRoomScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 直播状态标签 */}
+      {/* 直播状态标签（连接状态随 WS 同步） */}
       {isLive && (
-        <View style={{ position: 'absolute', top: STATUS_BAR_HEIGHT + 52, left: Spacing.md }}>
+        <View style={{ position: 'absolute', top: STATUS_BAR_HEIGHT + 52, left: Spacing.md, flexDirection: 'row', gap: Spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,50,50,0.8)', paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: BorderRadius.sm, gap: 4 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' }} />
             <Text style={{ color: '#FFFFFF', fontSize: FontSize.xs, fontWeight: '600' }}>直播中</Text>
+          </View>
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: BorderRadius.sm }}>
+            <Text style={{ color: wsConnected ? '#2ED573' : 'rgba(255,255,255,0.5)', fontSize: FontSize.xs, fontWeight: '600' }}>
+              {wsConnected ? '已连接' : '弹幕未连接'}
+            </Text>
           </View>
         </View>
       )}
@@ -422,7 +519,7 @@ export default function LiveRoomScreen() {
               flexDirection: 'row',
               alignItems: 'flex-start',
               marginBottom: Spacing.xs,
-              backgroundColor: msg.isAnchor ? 'rgba(255,215,0,0.15)' : 'rgba(0,0,0,0.35)',
+              backgroundColor: msg.type === 'gift' ? 'rgba(255,215,0,0.15)' : 'rgba(0,0,0,0.35)',
               alignSelf: 'flex-start',
               borderRadius: BorderRadius.sm,
               paddingHorizontal: Spacing.sm,
@@ -430,18 +527,28 @@ export default function LiveRoomScreen() {
               maxWidth: '80%',
             }}
           >
-            <Text style={{ color: msg.isAnchor ? '#FFD700' : theme.primary, fontSize: FontSize.sm, fontWeight: '600', marginRight: Spacing.xs }}>
-              {msg.nickname}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: FontSize.sm, lineHeight: 18 }}>
-              {msg.content}
-            </Text>
+            {msg.type === 'system' ? (
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: FontSize.xs }}>{msg.content}</Text>
+            ) : msg.type === 'gift' ? (
+              <Text style={{ color: '#FFD700', fontSize: FontSize.sm, fontWeight: '600' }}>
+                🎁 {msg.nickname} {msg.content}
+              </Text>
+            ) : (
+              <>
+                <Text style={{ color: theme.primary, fontSize: FontSize.sm, fontWeight: '600', marginRight: Spacing.xs }}>
+                  {msg.nickname}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: FontSize.sm, lineHeight: 18 }}>
+                  {msg.content}
+                </Text>
+              </>
+            )}
           </View>
         ))}
       </View>
 
       {/* 点赞飘心动画 */}
-      {heartAnimations.current.map((_, idx) => {
+      {heartAnimations.current.map((anim, idx) => {
         const offsetX = (Math.random() - 0.5) * 40
         return (
           <Animated.View
@@ -450,8 +557,8 @@ export default function LiveRoomScreen() {
               position: 'absolute',
               bottom: 80,
               right: 60 + offsetX,
-              transform: [{ translateY: heartAnimations.current[idx] || new Animated.Value(0) }],
-              opacity: new Animated.Value(1),
+              transform: [{ translateY: anim }],
+              opacity: anim.interpolate({ inputRange: [-120, 0], outputRange: [0, 1] }),
             }}
           >
             <Text style={{ fontSize: 24 }}>❤️</Text>
@@ -491,10 +598,10 @@ export default function LiveRoomScreen() {
             )}
           </TouchableOpacity>
         </Animated.View>
-        <TouchableOpacity onPress={handleShare} style={{ paddingHorizontal: Spacing.sm }}>
-          <Text style={{ fontSize: 24 }}>🔗</Text>
-        </TouchableOpacity>
       </View>
+
+      {/* 全站虚拟礼物（直播间场景，对齐 Web 端 GiftPickerModal） */}
+      <GiftSection targetType="LIVE_ROOM" targetId={roomId} />
     </View>
   )
 }

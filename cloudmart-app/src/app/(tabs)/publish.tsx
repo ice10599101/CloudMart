@@ -246,6 +246,30 @@ export default function PublishPage() {
     setMediaList((prev) => [...prev, ...newItems])
   }
 
+  /** 添加视频（对齐 Web 端发布：图片+视频混合上传，单视频 ≤50MB） */
+  const handleAddVideo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsMultipleSelection: false,
+    })
+    if (result.canceled || !result.assets?.[0]) return
+    const asset = result.assets[0]
+    if ((asset.fileSize ?? 0) > 50 * 1024 * 1024) {
+      Alert.alert('提示', '视频不能超过 50MB')
+      return
+    }
+    setMediaList((prev) => [
+      ...prev,
+      {
+        uid: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'video' as const,
+        url: asset.uri,
+        localUri: asset.uri,
+        uploaded: false,
+      },
+    ])
+  }
+
   const handleInsertImageToEditor = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -406,6 +430,25 @@ export default function PublishPage() {
                 </TouchableOpacity>
               </View>
             ))}
+            {mediaList.length < 9 && (
+              <TouchableOpacity
+                onPress={handleAddVideo}
+                style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: BorderRadius.md,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderStyle: 'dashed',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: Spacing.sm,
+                }}
+              >
+                <Text style={{ fontSize: 22 }}>🎬</Text>
+                <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>添加视频</Text>
+              </TouchableOpacity>
+            )}
             {mediaList.length < 9 && (
               <TouchableOpacity
                 onPress={handleAddImage}

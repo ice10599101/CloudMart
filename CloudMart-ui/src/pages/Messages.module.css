@@ -90,7 +90,7 @@
 
 .tab:hover {
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 5%);
+  background: var(--color-bg-elevated);
 }
 
 .tabActive {
@@ -140,7 +140,7 @@
   padding: 16px 18px;
   background: var(--color-bg-container);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 6%);
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 0.25s ease;
   position: relative;
@@ -245,7 +245,7 @@
   color: var(--color-text-secondary);
   margin-top: 6px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 3%);
+  background: var(--color-stat-card-bg);
   border-radius: 8px;
   border-left: 3px solid rgba(var(--color-primary-rgb), 0.3);
   line-height: 1.5;
@@ -312,13 +312,13 @@
 }
 
 .followBackBtnFollowed {
-  border-color: rgba(255, 255, 255, 10%);
+  border-color: var(--color-border);
   color: var(--color-text-tertiary);
   background: transparent;
 }
 
 .followBackBtnFollowed:hover {
-  border-color: rgba(255, 255, 255, 20%);
+  border-color: var(--color-border-hover);
   color: var(--color-text-secondary);
 }
 
@@ -369,8 +369,8 @@
 .loadMoreBtn {
   padding: 8px 28px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 10%);
-  background: rgba(255, 255, 255, 3%);
+  border: 1px solid var(--color-border);
+  background: var(--color-stat-card-bg);
   color: var(--color-text-secondary);
   font-size: 13px;
   cursor: pointer;

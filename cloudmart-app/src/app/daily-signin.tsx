@@ -1,9 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
-import type { DailySigninResult, LevelUpEvent, MyResourcesData } from '@/api/wish'
+import type { DailySigninResult, LevelUpEvent, MyResourcesData, SigninMilestone } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -47,6 +47,7 @@ export default function DailySigninScreen() {
   const [resources, setResources] = useState<MyResourcesData | null>(null)
   const [rewardDelta, setRewardDelta] = useState(0)
   const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null)
+  const [milestones, setMilestones] = useState<SigninMilestone[]>([])
 
   const todayStr = useMemo(
     () => formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate()),
@@ -87,7 +88,14 @@ export default function DailySigninScreen() {
   }, [])
 
   const loadAll = useCallback(async () => {
-    await Promise.all([loadCalendar(year, month), loadResources()])
+    await Promise.all([
+      loadCalendar(year, month),
+      loadResources(),
+      // 连续签到里程碑（7/14/30 天礼包，对齐 Web 端）
+      wishApi.getSigninMilestones()
+        .then((res) => setMilestones((res.data as { data?: SigninMilestone[] })?.data ?? []))
+        .catch(() => {}),
+    ])
     setLoading(false)
     setRefreshing(false)
   }, [year, month, loadCalendar, loadResources])
@@ -119,6 +127,26 @@ export default function DailySigninScreen() {
     setYear(nextYear)
     setMonth(nextMonth)
     loadCalendar(nextYear, nextMonth)
+  }
+
+  /** 领取连续签到里程碑奖励（days∈{7,14,30}；对齐 Web 端） */
+  const handleClaimMilestone = async (days: number) => {
+    try {
+      const res = await wishApi.claimSigninMilestone(days)
+      const result = (res.data as { data?: { starlightReward?: number; expReward?: number; levelUp?: LevelUpEvent | null } })?.data
+      setMilestones((prev) => prev.map((m) => (m.milestoneDays === days ? { ...m, claimed: true } : m)))
+      if (result?.levelUp) {
+        setLevelUp(result.levelUp)
+        void notifyLevelUp(result.levelUp)
+      } else {
+        Alert.alert('领取成功', `星光 +${result?.starlightReward ?? 0}${result?.expReward ? ` · 经验 +${result.expReward}` : ''}`)
+      }
+      void loadResources()
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '领取失败'
+      Alert.alert('提示', message)
+    }
   }
 
   const handleSignin = async () => {
@@ -345,6 +373,47 @@ export default function DailySigninScreen() {
             })}
           </View>
         </View>
+
+        {/* 连续签到里程碑（对齐 Web 端：7/14/30 天礼包领取） */}
+        {milestones.length > 0 && (
+          <View
+            style={{
+              marginTop: Spacing.md,
+              padding: Spacing.lg,
+              borderRadius: BorderRadius.lg,
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.15)',
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginBottom: Spacing.sm }}>
+              🏆 连续签到里程碑
+            </Text>
+            {milestones.map((m) => (
+              <View key={m.milestoneDays} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm }}>
+                <Text style={{ fontSize: FontSize.sm, color: WishColors.textSecondary }}>
+                  {m.milestoneDays}天 · 星光+{m.starlightReward}
+                  {m.expReward > 0 ? ` · 经验+${m.expReward}` : ''}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  disabled={m.claimed || !m.claimable}
+                  onPress={() => handleClaimMilestone(m.milestoneDays)}
+                  style={{
+                    paddingHorizontal: Spacing.lg,
+                    paddingVertical: Spacing.xs,
+                    borderRadius: BorderRadius.xl,
+                    backgroundColor: m.claimed || !m.claimable ? 'rgba(255,255,255,0.1)' : WishColors.primary,
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.xs, color: m.claimed || !m.claimable ? WishColors.textTertiary : '#FFFFFF', fontWeight: '600' }}>
+                    {m.claimed ? '已领取' : m.claimable ? '领取' : '未达成'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* 签到规则 */}
         <View

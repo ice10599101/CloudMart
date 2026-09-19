@@ -46,6 +46,23 @@ const PRIVACY_ITEMS = [
   { key: 'PRIVACY_SEARCH_VISIBLE' as const, label: '搜索可见', desc: '在搜索结果中显示我的主页' },
 ]
 
+/** 资料可见范围三档（对齐 Web 端：所有人/互关好友/仅自己） */
+const VISIBILITY_OPTIONS = [
+  { value: 'ALL', label: '所有人' },
+  { value: 'MUTUAL', label: '互关好友' },
+  { value: 'SELF', label: '仅自己' },
+]
+
+/** 可设置可见范围的资料字段（对齐 Web 端 VISIBILITY_FIELDS） */
+const VISIBILITY_FIELDS = [
+  { key: 'PRIVACY_BIRTHDAY_VISIBILITY', label: '生日', desc: '选择谁可以看到你的生日信息' },
+  { key: 'PRIVACY_EMAIL_VISIBILITY', label: '邮箱', desc: '选择谁可以看到你的邮箱信息' },
+  { key: 'PRIVACY_FOLLOWERS_VISIBILITY', label: '粉丝', desc: '选择谁可以看到你的粉丝列表' },
+  { key: 'PRIVACY_FOLLOWING_VISIBILITY', label: '关注', desc: '选择谁可以看到你的关注列表' },
+  { key: 'PRIVACY_COLLECTIONS_VISIBILITY', label: '收藏', desc: '选择谁可以看到你的收藏' },
+  { key: 'PRIVACY_POSTS_VISIBILITY', label: '帖子/回复', desc: '选择谁可以看到你的帖子和回复' },
+]
+
 function SectionTitle({ children, theme }: { children: React.ReactNode; theme: ReturnType<typeof useTheme> }) {
   return <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary, fontWeight: '500', paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.xs }}>{children}</Text>
 }
@@ -70,6 +87,7 @@ export default function SettingsPage() {
   const { mode, toggleTheme } = useThemeStore()
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, string>>({})
 
   // AI 数据处理协议状态（合规 30.4：可随时撤回同意）
   const [aiConsentGranted, setAiConsentGranted] = useState<boolean | null>(null)
@@ -139,9 +157,28 @@ export default function SettingsPage() {
           PRIVACY_ALLOW_STRANGER_MSG: data.PRIVACY_ALLOW_STRANGER_MSG !== 'false',
           PRIVACY_SEARCH_VISIBLE: data.PRIVACY_SEARCH_VISIBLE !== 'false',
         })
+        // 资料可见范围（未设置项默认 ALL，对齐 Web 端）
+        const visMap: Record<string, string> = {}
+        VISIBILITY_FIELDS.forEach((f) => {
+          const settingsData = data as Record<string, string>
+          visMap[f.key] = settingsData[f.key] !== undefined && settingsData[f.key] !== null ? settingsData[f.key] : 'ALL'
+        })
+        setVisibilityMap(visMap)
       }
     } catch {
       // Use defaults
+    }
+  }
+
+  /** 资料可见范围变更（即时保存，失败回滚，对齐 Web 端） */
+  const handleVisibilityChange = async (key: string, value: string) => {
+    const prev = visibilityMap[key]
+    setVisibilityMap((map) => ({ ...map, [key]: value }))
+    try {
+      await communityApi.updateSettings({ [key]: value })
+    } catch {
+      setVisibilityMap((map) => ({ ...map, [key]: prev }))
+      Alert.alert('提示', '保存失败')
     }
   }
 
@@ -206,7 +243,43 @@ export default function SettingsPage() {
           {PRIVACY_ITEMS.map((item) => (
             <SwitchRow key={item.key} label={item.label} desc={item.desc} value={settings[item.key]} onValueChange={(v) => handleSettingChange(item.key, v)} theme={theme} />
           ))}
-        </View>
+  
+      {/* 资料可见范围（对齐 Web 端 Settings 六字段三档） */}
+      <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text, marginTop: Spacing.lg, marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>
+        资料可见范围
+      </Text>
+      <View style={{ marginHorizontal: Spacing.lg, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}>
+        {VISIBILITY_FIELDS.map((field) => (
+          <View key={field.key} style={{ paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+            <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text }}>{field.label}</Text>
+            <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>{field.desc}</Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+              {VISIBILITY_OPTIONS.map((option) => {
+                const isActive = (visibilityMap[field.key] ?? 'ALL') === option.value
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    activeOpacity={0.7}
+                    onPress={() => handleVisibilityChange(field.key, option.value)}
+                    style={{
+                      paddingHorizontal: Spacing.md,
+                      paddingVertical: Spacing.xs,
+                      borderRadius: BorderRadius.xl,
+                      borderWidth: 1,
+                      borderColor: isActive ? theme.primary : theme.border,
+                      backgroundColor: isActive ? theme.primary + '14' : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontSize: FontSize.xs, color: isActive ? theme.primary : theme.textSecondary }}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </View>
+        ))}
+      </View>      </View>
 
         {/* Account Security */}
         <SectionTitle theme={theme}>账号安全</SectionTitle>

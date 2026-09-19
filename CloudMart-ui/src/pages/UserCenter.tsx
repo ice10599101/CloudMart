@@ -30,6 +30,7 @@ import {
 } from '@/api/growth'
 import type { UserLevelInfo, LevelConfig, ExpLogRecord } from '@/api/growth'
 import { getSigninCalendar } from '@/api/wish'
+import { getMyPet, getPetBottleStatus, type PetInfo } from '@/api/pet'
 import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { useDecorationStore } from '@/stores/decoration'
@@ -119,6 +120,7 @@ function ConfirmDialog({
 
 const TABS = [
   { key: 'profile', label: '基本信息', icon: '👤' },
+  { key: 'pet', label: '我的宠物', icon: '🐾' },
   { key: 'posts', label: '我的帖子', icon: '📝' },
   { key: 'wishPosts', label: '心愿帖子', icon: '🌟' },
   { key: 'drafts', label: '我的草稿', icon: '📋' },
@@ -268,6 +270,71 @@ const GENDER_OPTIONS = [
   { value: 'MALE', label: '男' },
   { value: 'FEMALE', label: '女' },
 ]
+
+/** 我的宠物：宠物摘要卡 + 进入宠物小窝（Cocos 舞台与全部养成玩法在 /pet 页） */
+function PetTab() {
+  const [pet, setPet] = useState<PetInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [noPet, setNoPet] = useState(false)
+
+  useEffect(() => {
+    let stale = false
+    getMyPet().then(({ data: res }) => {
+      if (!stale && res.success && res.data) {
+        setPet(res.data)
+      } else if (!stale) {
+        setNoPet(true)
+      }
+    }).catch(() => {
+      if (!stale) setNoPet(true)
+    }).finally(() => {
+      if (!stale) setLoading(false)
+    })
+    return () => { stale = true }
+  }, [])
+
+  useEffect(() => {
+    if (!pet || noPet) return
+    let stale = false
+    getPetBottleStatus().then(({ data: res }) => {
+      if (!stale && res.success && res.data && (res.data.canClaim || res.data.fishing)) {
+        // 有待领取/进行中的捞瓶时刷新一次摘要（保持简要，完整状态在宠物小窝）
+        getMyPet().then(({ data: r }) => {
+          if (!stale && r.success && r.data) setPet(r.data)
+        })
+      }
+    })
+    return () => { stale = true }
+  }, [pet, noPet])
+
+  if (loading) return <div className={s.tabLoading}><Spin /></div>
+  if (noPet || !pet) {
+    return (
+      <div className={s.petEmpty}>
+        <span className={s.petEmptyEmoji}>🐾</span>
+        <p>你还没有宠物</p>
+        <Button type="primary" onClick={() => history.push('/pet?adopt=1')}>去领养一只</Button>
+      </div>
+    )
+  }
+  const speciesEmoji: Record<string, string> = { CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }
+  const statusLabel: Record<string, string> = {
+    IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
+  }
+  return (
+    <div className={s.petSummary}>
+      <div className={s.petSummaryCard}>
+        <span className={s.petSummaryEmoji}>{speciesEmoji[pet.species] || '🐾'}</span>
+        <div className={s.petSummaryInfo}>
+          <strong>{pet.name} <span className={s.petSummaryLevel}>Lv.{pet.level}</span></strong>
+          <span>{statusLabel[pet.status] || '悠闲中'} · 心情 {pet.happiness}/100 · 饱食 {pet.hunger}/100</span>
+        </div>
+        <Button type="primary" onClick={() => history.push('/pet')}>进入宠物小窝</Button>
+      </div>
+      <p className={s.petSummaryHint}>打工、读书、捞漂流瓶、对战和聊天都在宠物小窝里</p>
+    </div>
+  )
+}
 
 function ProfileTab() {
   const { user } = useAuthStore()
@@ -1934,6 +2001,7 @@ export default function UserCenterPage() {
             </div>
             <div className={s.tabContent}>
               {activeTab === 'profile' && <ProfileTab />}
+              {activeTab === 'pet' && <PetTab />}
               {activeTab === 'posts' && <MyPostsTab />}
               {activeTab === 'wishPosts' && <WishPostsTab />}
               {activeTab === 'drafts' && <MyDraftsTab onToast={(msg, type) => setToast({ message: msg, type })} />}

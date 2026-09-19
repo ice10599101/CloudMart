@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
 import { useAuthGuard } from '@/composables/useAuthGuard'
@@ -55,6 +55,9 @@ export default function OrderDetailPage() {
   const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refunding, setRefunding] = useState(false)
 
   useEffect(() => {
     if (id) loadOrder()
@@ -113,8 +116,47 @@ export default function OrderDetailPage() {
   }
 
   const handleRebuy = () => {
-    Taro.navigateTo({ url: '/pages/mall/index' })
+    const firstItem = order?.items?.[0]
+    if (firstItem?.productId) {
+      Taro.navigateTo({ url: `/pages/productDetail/index?id=${firstItem.productId}` })
+    } else {
+      Taro.switchTab({ url: '/pages/mall/index' })
+    }
   }
+
+  /** 申请退款（对齐 Web 端：已付款/已发货可申请，需填写原因） */
+  const handleRefund = () => {
+    setRefundReason('')
+    setRefundOpen(true)
+  }
+
+  const submitRefund = async () => {
+    if (!refundReason.trim()) {
+      Taro.showToast({ title: '请填写退款原因', icon: 'none' })
+      return
+    }
+    setRefunding(true)
+    try {
+      await orderApi.refund(id, refundReason.trim())
+      setRefundOpen(false)
+      Taro.showToast({ title: '退款申请已提交', icon: 'success' })
+      loadOrder()
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '退款申请失败'
+      Taro.showToast({ title: message, icon: 'none' })
+    } finally {
+      setRefunding(false)
+    }
+  }
+
+  /** 状态进度条（对齐 Web 端：提交订单→支付成功→已发货→已完成） */
+  const progressSteps = [
+    { key: 'created', label: '提交订单', done: true },
+    { key: 'paid', label: '支付成功', done: !!order?.paidAt },
+    { key: 'shipped', label: '已发货', done: !!order?.shippedAt },
+    { key: 'completed', label: '已完成', done: !!order?.receivedAt },
+  ]
 
   if (loading) {
     return (
@@ -148,6 +190,22 @@ export default function OrderDetailPage() {
           <Text className={styles.statusIcon}>{statusConfig.icon}</Text>
           <Text className={styles.statusText}>{statusConfig.text}</Text>
         </View>
+
+        {/* 状态进度条（对齐 Web 端订单进度） */}
+        {order.status !== 4 && (
+          <View className={styles.section}>
+            <View className={styles.progressRow}>
+              {progressSteps.map((step, i) => (
+                <View key={step.key} className={styles.progressStep}>
+                  <View className={`${styles.progressDot} ${step.done ? styles.progressDotDone : ''}`}>
+                    <Text className={styles.progressDotText}>{step.done ? '✓' : i + 1}</Text>
+                  </View>
+                  <Text className={`${styles.progressLabel} ${step.done ? styles.progressLabelDone : ''}`}>{step.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* 收货地址 */}
         <View className={styles.section}>
@@ -239,7 +297,7 @@ export default function OrderDetailPage() {
       </ScrollView>
 
       {/* 底部操作栏 */}
-      {(order.status === 0 || order.status === 2 || order.status === 3) && (
+      {(order.status === 0 || order.status === 1 || order.status === 2 || order.status === 3) && (
         <View className={styles.bottomBar}>
           {order.status === 0 && (
             <>
@@ -251,6 +309,11 @@ export default function OrderDetailPage() {
               </View>
             </>
           )}
+          {(order.status === 1 || order.status === 2) && (
+            <View className={styles.btnSecondary} onClick={handleRefund}>
+              <Text className={styles.btnSecondaryText}>申请退款</Text>
+            </View>
+          )}
           {order.status === 2 && (
             <View className={styles.btnPrimary} onClick={handleConfirm}>
               <Text className={styles.btnPrimaryText}>确认收货</Text>
@@ -261,6 +324,30 @@ export default function OrderDetailPage() {
               <Text className={styles.btnPrimaryText}>再次购买</Text>
             </View>
           )}
+        </View>
+      )}
+      {/* 申请退款弹窗（对齐 Web 端必填原因） */}
+      {refundOpen && (
+        <View className={styles.refundMask} onClick={() => !refunding && setRefundOpen(false)}>
+          <View className={styles.refundModal} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.refundTitle}>申请退款</Text>
+            <Text className={styles.refundHint}>说明退款原因，提交后由平台审核处理</Text>
+            <Textarea
+              className={styles.refundTextarea}
+              value={refundReason}
+              maxlength={200}
+              placeholder='请填写退款原因（必填）'
+              onInput={(e) => setRefundReason(e.detail.value)}
+            />
+            <View className={styles.refundActions}>
+              <View className={styles.refundCancel} onClick={() => setRefundOpen(false)}>
+                <Text className={styles.refundCancelText}>取消</Text>
+              </View>
+              <View className={styles.refundSubmit} onClick={refunding ? undefined : submitRefund}>
+                <Text className={styles.refundSubmitText}>{refunding ? '提交中...' : '提交申请'}</Text>
+              </View>
+            </View>
+          </View>
         </View>
       )}
     </View>

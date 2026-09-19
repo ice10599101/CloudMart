@@ -9,6 +9,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import axios from 'axios'
 import { storage } from '@/utils/storage'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { API_BASE } from '@/utils/request'
 
 const GENDER_OPTIONS = ['未设置', '男', '女']
 const GENDER_VALUES = ['UNKNOWN', 'MALE', 'FEMALE']
@@ -128,7 +129,8 @@ export default function ProfilePage() {
         name: 'avatar.jpg',
       } as unknown as Blob)
 
-      const uploadRes = await axios.post(`${window.location.protocol}//${window.location.hostname}:8090/api/file/upload`, formData, {
+      // 上传地址用 API_BASE（原 window.location 写法在 RN Native 端不可用）
+      const uploadRes = await axios.post(`${API_BASE}/file/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: token ? `Bearer ${token}` : '' },
       })
       const avatarUrl = resolveMediaUrl(uploadRes.data?.data?.url)

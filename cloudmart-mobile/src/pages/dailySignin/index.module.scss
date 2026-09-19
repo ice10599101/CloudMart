@@ -245,3 +245,31 @@
   font-size: 24rpx;
   color: rgba(255, 255, 255, 0.5);
 }
+
+.milestoneRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-sm 0;
+}
+
+.milestoneLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.milestoneBtn {
+  padding: 8rpx 28rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-xl;
+}
+
+.milestoneBtnDisabled {
+  background-color: var(--color-border);
+}
+
+.milestoneBtnText {
+  font-size: $font-size-xs;
+  color: #ffffff;
+  font-weight: 600;
+}

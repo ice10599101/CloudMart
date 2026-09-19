@@ -53,3 +53,32 @@
   font-size: 22rpx;
   color: #e94560;
 }
+
+.markAllBtn {
+  padding: 0 $spacing-md;
+  display: flex;
+  align-items: center;
+}
+
+.markAllText {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.notificationUnread {
+  border-left: 6rpx solid var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 153, 204, 0.04));
+}
+
+.followBackBtn {
+  margin-top: $spacing-sm;
+  align-self: flex-start;
+  padding: 6rpx 28rpx;
+  border: 1rpx solid var(--color-primary);
+  border-radius: $radius-xl;
+}
+
+.followBackText {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}

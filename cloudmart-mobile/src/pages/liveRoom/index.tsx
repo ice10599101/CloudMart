@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { liveApi } from '@/api/live'
 import { wishApi } from '@/api/wish'
+import { communityApi } from '@/api/community'
+import { useAuthStore } from '@/store/auth'
+import GiftSection from '@/components/GiftSection'
 import type { LiveWidgetData } from '@/api/wish'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -18,22 +21,26 @@ interface RoomDetail {
   likeCount: number
   status: number
   startTime?: string
+  productId?: number | null
   isFollowed?: boolean
 }
 
-interface Comment {
+interface DanmakuMessage {
   id: number
   nickname: string
   content: string
+  type: 'chat' | 'system' | 'gift'
 }
 
-const MOCK_COMMENTS: Comment[] = [
-  { id: 1, nickname: '小明', content: '来了来了！' },
-  { id: 2, nickname: '阿花', content: '主播好漂亮' },
-  { id: 3, nickname: '大壮', content: '这个商品多少钱？' },
-  { id: 4, nickname: '小红', content: '666' },
-  { id: 5, nickname: '老王', content: '能再介绍一下吗' },
-]
+/** 由 API_BASE 推导 WS 基址：网关 WS 端点在 /ws（H5 走同源反代，小程序直连网关） */
+function resolveWsBase(): string {
+  if (process.env.TARO_ENV === 'weapp') {
+    const host = (process.env.TARO_APP_API_HOST || 'http://127.0.0.1').replace(/^http/, 'ws')
+    return `${host}:8090/ws`.replace(/^ws:\/\/ws/, 'ws')
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/ws`
+}
 
 function formatCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万`
@@ -43,6 +50,7 @@ function formatCount(count: number): string {
 export default function LiveRoomPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const roomId = Number(Taro.getCurrentInstance().router?.params?.id || 0)
+  const { user, isLoggedIn } = useAuthStore()
 
   const [room, setRoom] = useState<RoomDetail | null>(null)
   // 直播心愿挂件（Sprint 3.4 B10）：10s 轮询，接口失败/隐藏时保持上次值
@@ -52,9 +60,15 @@ export default function LiveRoomPage() {
   const [isFollowed, setIsFollowed] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [commentText, setCommentText] = useState('')
-  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS)
+  const [comments, setComments] = useState<DanmakuMessage[]>([])
   const [countdown, setCountdown] = useState('')
+  const [wsConnected, setWsConnected] = useState(false)
+  const [giftTick] = useState(0)
   const scrollViewRef = useRef('')
+  const socketRef = useRef<Taro.SocketTask | null>(null)
+  const msgIdRef = useRef(0)
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectAttemptsRef = useRef(0)
 
   useEffect(() => {
     if (!roomId) {
@@ -63,6 +77,17 @@ export default function LiveRoomPage() {
     }
     loadRoom()
     enterRoom()
+    return () => {
+      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+      try {
+        socketRef.current?.close({ code: 1000 })
+      } catch {
+        // 已关闭
+      }
+      socketRef.current = null
+      liveApi.leaveRoom(roomId).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadRoom = async () => {
@@ -107,29 +132,135 @@ export default function LiveRoomPage() {
     return () => clearInterval(timer)
   }
 
+  const pushMessage = useCallback((msg: Omit<DanmakuMessage, 'id'>) => {
+    msgIdRef.current += 1
+    const full = { ...msg, id: msgIdRef.current }
+    setComments((prev) => [...prev.slice(-80), full])
+    scrollViewRef.current = `comment-${full.id}`
+  }, [])
+
+  /** WS 弹幕连接（对齐 Web 端 LiveRoom：/ws/live/danmaku，心跳+退避重连） */
+  const connectSocket = useCallback(() => {
+    if (!isLoggedIn || !roomId) return
+    const token = Taro.getStorageSync('access_token')
+    if (!token) return
+
+    const url = `${resolveWsBase()}/live/danmaku?roomId=${roomId}&token=${encodeURIComponent(token)}`
+    try {
+      // Taro.connectSocket 返回 Promise<SocketTask>，事件绑定须在 resolve 后进行
+      void Taro.connectSocket({ url, fail: () => setWsConnected(false) }).then((socket) => {
+        socketRef.current = socket
+
+        socket.onOpen(() => {
+        setWsConnected(true)
+        reconnectAttemptsRef.current = 0
+        pushMessage({ nickname: '系统', content: '已连接到直播间', type: 'system' })
+      })
+
+      socket.onMessage((res) => {
+        if (typeof res.data !== 'string') return
+        if (res.data === 'pong') return
+        try {
+          const data = JSON.parse(res.data) as Record<string, unknown>
+          if (data.type === 'like') {
+            setLikeCount((prev) => prev + 1)
+            return
+          }
+          if (data.type === 'system') {
+            pushMessage({ nickname: '系统', content: String(data.content ?? ''), type: 'system' })
+            return
+          }
+          if (data.type === 'GIFT') {
+            pushMessage({
+              nickname: String(data.senderNickname ?? '神秘人'),
+              content: `送出 ${data.giftName ?? '礼物'} ×${data.count ?? 1}${data.message ? `：“${data.message}”` : ''}`,
+              type: 'gift',
+            })
+            return
+          }
+          pushMessage({
+            nickname: String(data.nickname ?? data.username ?? '匿名'),
+            content: String(data.content ?? ''),
+            type: 'chat',
+          })
+        } catch {
+          // 非 JSON 消息忽略
+        }
+      })
+
+      socket.onClose(() => {
+        setWsConnected(false)
+        // 指数退避重连（对齐 Web 端，最多 5 次）
+        if (reconnectAttemptsRef.current < 5) {
+          const delay = 1000 * Math.pow(2, reconnectAttemptsRef.current)
+          reconnectAttemptsRef.current += 1
+          reconnectRef.current = setTimeout(() => connectSocket(), delay)
+        }
+      })
+
+        socket.onError(() => setWsConnected(false))
+      })
+    } catch {
+      setWsConnected(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, roomId, pushMessage])
+
+  useEffect(() => {
+    if (room?.status === 1) connectSocket()
+  }, [room?.status, connectSocket])
+
   const handleBack = () => {
     Taro.navigateBack()
   }
 
-  const handleFollow = () => {
-    setIsFollowed(!isFollowed)
-    Taro.showToast({ title: isFollowed ? '已取消关注' : '关注成功', icon: 'none' })
-  }
-
-  const handleLike = () => {
-    setLikeCount(likeCount + 1)
-  }
-
-  const handleSendComment = () => {
-    if (!commentText.trim()) return
-    const newComment: Comment = {
-      id: Date.now(),
-      nickname: '我',
-      content: commentText.trim(),
+  /** 关注主播（真实调接口，对齐 Web 端） */
+  const handleFollow = async () => {
+    if (!isLoggedIn) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      return
     }
-    setComments([...comments, newComment])
+    if (!room?.anchorUserId) return
+    try {
+      if (isFollowed) {
+        await communityApi.unfollowUser(room.anchorUserId)
+      } else {
+        await communityApi.followUser(room.anchorUserId)
+      }
+      setIsFollowed(!isFollowed)
+      Taro.showToast({ title: isFollowed ? '已取消关注' : '关注成功', icon: 'none' })
+    } catch {
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
+  }
+
+  /** 点赞：WS 广播 + 本地计数（对齐 Web 端 sendLike） */
+  const handleLike = () => {
+    setLikeCount((prev) => prev + 1)
+    try {
+      socketRef.current?.send({ data: JSON.stringify({ type: 'like' }) })
+    } catch {
+      // 未连接时仅本地计数
+    }
+  }
+
+  /** 发送弹幕：WS 广播 + 本地回显（对齐 Web 端 sendMessage） */
+  const handleSendComment = () => {
+    const content = commentText.trim()
+    if (!content) return
+    if (!isLoggedIn) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    pushMessage({ nickname: user?.nickname ?? '我', content, type: 'chat' })
     setCommentText('')
-    scrollViewRef.current = `comment-${newComment.id}`
+    try {
+      socketRef.current?.send({
+        data: JSON.stringify({ type: 'chat', username: user?.nickname ?? '匿名', content }),
+      })
+    } catch {
+      // 未连接时仅本地回显
+    }
   }
 
   // 挂件数据轮询（10s；服务端缓存 10s；streamerId=主播用户 ID）
@@ -159,6 +290,9 @@ export default function LiveRoomPage() {
           <View className={styles.livePlaceholder}>
             <Text className={styles.playIcon}>▶</Text>
             <Text className={styles.liveLabel}>直播画面</Text>
+          </View>
+          <View className={styles.liveStatusTag}>
+            <Text className={styles.liveStatusText}>{wsConnected ? '已连接' : '弹幕未连接'}</Text>
           </View>
           {widget && widget.visible && !widgetClosed && (
             <View className={styles.wishWidget}>
@@ -196,6 +330,17 @@ export default function LiveRoomPage() {
               <Text className={styles.wishWidgetText}>🌠 心愿</Text>
             </View>
           )}
+          {/* 直播商品侧栏（对齐 Web 端「直播商品/立即购买」） */}
+          {room.productId ? (
+            <View
+              className={styles.liveProductCard}
+              onClick={() => Taro.navigateTo({ url: `/pages/productDetail/index?id=${room.productId}` })}
+            >
+              <Text className={styles.liveProductIcon}>🛍️</Text>
+              <Text className={styles.liveProductText}>讲解商品</Text>
+              <Text className={styles.liveProductCta}>去购买</Text>
+            </View>
+          ) : null}
         </View>
       )
     }
@@ -239,7 +384,7 @@ export default function LiveRoomPage() {
         <Image className={styles.anchorAvatar} src={room?.anchorAvatar || ''} />
         <Text className={styles.anchorName}>{room?.anchorName || '主播'}</Text>
         <View className={styles.viewerTag}>
-          <Text className={styles.viewerTagText}>👁 {formatCount(room?.viewerCount || 0)}</Text>
+          <Text className={styles.viewerTagText}>👁 {formatCount((room?.viewerCount || 0) + likeCount)}</Text>
         </View>
         <View
           className={`${styles.followBtn} ${isFollowed ? styles.followBtnActive : ''}`}
@@ -262,8 +407,16 @@ export default function LiveRoomPage() {
         >
           {comments.map((c) => (
             <View key={c.id} id={`comment-${c.id}`} className={styles.commentItem}>
-              <Text className={styles.commentNickname}>{c.nickname}：</Text>
-              <Text className={styles.commentContent}>{c.content}</Text>
+              {c.type === 'gift' ? (
+                <Text className={styles.commentGift}>🎁 {c.nickname} {c.content}</Text>
+              ) : c.type === 'system' ? (
+                <Text className={styles.commentSystem}>{c.content}</Text>
+              ) : (
+                <>
+                  <Text className={styles.commentNickname}>{c.nickname}：</Text>
+                  <Text className={styles.commentContent}>{c.content}</Text>
+                </>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -285,11 +438,17 @@ export default function LiveRoomPage() {
         <View className={styles.sendBtn} onClick={handleSendComment}>
           <Text className={styles.sendBtnText}>发送</Text>
         </View>
+        <View className={styles.giftEntry} onClick={() => (isLoggedIn ? undefined : Taro.showToast({ title: '请先登录', icon: 'none' }))}>
+          <Text className={styles.giftIcon}>🎁</Text>
+        </View>
         <View className={styles.likeBtn} onClick={handleLike}>
           <Text className={styles.likeIcon}>❤️</Text>
           <Text className={styles.likeCount}>{formatCount(likeCount)}</Text>
         </View>
       </View>
+
+      {/* 全站虚拟礼物（直播间场景，对齐 Web 端 GiftPickerModal） */}
+      <GiftSection targetType='LIVE_ROOM' targetId={roomId} refreshTick={giftTick} />
     </View>
   )
 }
