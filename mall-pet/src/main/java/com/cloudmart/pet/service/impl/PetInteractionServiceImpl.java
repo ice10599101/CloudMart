@@ -9,11 +9,16 @@ import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetHomeService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetInteractionService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetVO;
@@ -44,6 +49,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
     private final PetAchievementService achievementService;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
+    private final PetHomeService homeService;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final PetEventProducer eventProducer;
@@ -53,6 +61,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetActivityMapper activityMapper,
                                      PetMapper petMapper,
                                      PetAchievementService achievementService,
+                                     PetDailyQuestService dailyQuestService,
+                                     PetIntimacyService intimacyService,
+                                     PetHomeService homeService,
                                      PetProperties properties,
                                      StringRedisTemplate redisTemplate,
                                      PetEventProducer eventProducer) {
@@ -61,6 +72,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.activityMapper = activityMapper;
         this.petMapper = petMapper;
         this.achievementService = achievementService;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
+        this.homeService = homeService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
         this.eventProducer = eventProducer;
@@ -82,7 +96,10 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + cfg.getFeedHp()));
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.FEED, cfg.getFeedExp());
+        // 三期埋点：亲密度先叠加（与经验同一次乐观锁写入），每日任务进度独立落库
+        intimacyService.gain(pet, PetIntimacySource.FEED);
         int levelups = stateService.grantExp(pet, cfg.getFeedExp());
+        dailyQuestService.record(pet, PetQuestType.FEED, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.FEED);
         notifyLevelUpIfAny(userId, pet, levelups);
         return petService.getMyPet(userId);
@@ -102,7 +119,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getPlayHappiness()));
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.PLAY, cfg.getPlayExp());
+        intimacyService.gain(pet, PetIntimacySource.PLAY);
         int levelups = stateService.grantExp(pet, cfg.getPlayExp());
+        dailyQuestService.record(pet, PetQuestType.PLAY, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.PLAY);
         notifyLevelUpIfAny(userId, pet, levelups);
         return petService.getMyPet(userId);
@@ -121,7 +140,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getCleanHappiness()));
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.CLEAN, cfg.getCleanExp());
+        intimacyService.gain(pet, PetIntimacySource.CLEAN);
         int levelups = stateService.grantExp(pet, cfg.getCleanExp());
+        dailyQuestService.record(pet, PetQuestType.CLEAN, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.CLEAN);
         notifyLevelUpIfAny(userId, pet, levelups);
         return petService.getMyPet(userId);
@@ -142,9 +163,16 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setEnergy(100);
         pet.setHp(pet.getMaxHp());
         pet.setHunger(Math.max(0, pet.getHunger() - cfg.getRestHunger()));
+        // 三期：家园舒适度加成——家越舒服，休息时心情恢复越多（服务端公式，前端只展示）
+        int comfortBonus = homeService.comfortRestHappinessBonus(pet.getId());
+        if (comfortBonus > 0) {
+            pet.setHappiness(Math.min(100, pet.getHappiness() + comfortBonus));
+        }
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.REST, 0);
+        intimacyService.gain(pet, PetIntimacySource.REST);
         petMapper.updateById(pet);
+        dailyQuestService.record(pet, PetQuestType.REST, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.REST);
         return petService.getMyPet(userId);
     }

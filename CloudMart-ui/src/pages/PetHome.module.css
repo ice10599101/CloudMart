@@ -1,10 +1,12 @@
 .page {
-  max-width: 980px;
+  max-width: 1020px;
   margin: 0 auto;
-  padding: 20px 16px 48px;
+  padding: 18px 16px 48px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(255, 249, 240, 94%), rgba(255, 241, 227, 80%));
+  border-radius: 0 0 24px 24px;
 }
 
 .pageLoading {
@@ -15,10 +17,11 @@
 }
 
 .stageCard {
-  background: var(--color-bg-container, #fff);
-  border-radius: var(--border-radius-lg, 20px);
-  padding: 16px;
-  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 6%));
+  background: linear-gradient(170deg, #fffcf7, #fff4e8);
+  border-radius: 24px;
+  padding: 16px 16px 18px;
+  border: 2px solid rgba(255, 255, 255, 78%);
+  box-shadow: 0 14px 30px rgba(96, 62, 84, 14%), inset 0 2px 0 rgba(255, 255, 255, 85%);
 }
 
 .stageHeader {
@@ -69,16 +72,17 @@
 }
 
 .stateTrack {
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: var(--color-fill-tertiary, rgba(0, 0, 0, 6%));
+  background: rgba(122, 92, 122, 14%);
+  box-shadow: inset 0 1px 2px rgba(96, 62, 84, 16%);
   overflow: hidden;
 }
 
 .stateFill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.4s ease;
+  transition: width 0.6s cubic-bezier(0.22, 0.68, 0.36, 1);
 }
 
 .stateValue {
@@ -121,11 +125,20 @@
 }
 
 .panelBody {
-  background: var(--color-bg-container, #fff);
-  border-radius: var(--border-radius-lg, 20px);
-  padding: 16px;
-  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 6%));
+  background: linear-gradient(170deg, #fffcf7, #fff6ec);
+  border-radius: 22px;
+  padding: 18px;
+  border: 2px solid rgba(255, 255, 255, 78%);
+  box-shadow: 0 12px 26px rgba(96, 62, 84, 12%), inset 0 2px 0 rgba(255, 255, 255, 85%);
   min-height: 220px;
+}
+
+.panelTabs :global(.ant-segmented-item) {
+  border-radius: 999px;
+}
+
+.panelTabs :global(.ant-segmented-item-selected) {
+  border-radius: 999px;
 }
 
 .sectionTitle {
@@ -135,8 +148,10 @@
 
 /* 领养向导 */
 .adopt {
-  background: var(--color-bg-container, #fff);
-  border-radius: var(--border-radius-lg, 20px);
+  background: linear-gradient(170deg, #fffcf7, #fff6ec);
+  border-radius: 22px;
+  border: 2px solid rgba(255, 255, 255, 78%);
+  box-shadow: 0 12px 26px rgba(96, 62, 84, 12%), inset 0 2px 0 rgba(255, 255, 255, 85%);
   padding: 40px 24px;
   text-align: center;
   box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 6%));
@@ -648,6 +663,34 @@
   color: var(--color-text-secondary, #666);
 }
 
+/* 三期：亲密度与陪伴展示行 */
+.intimacyRow {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary, #8c8c8c);
+}
+
+/* 三期：家园网格（4×3）+ 房间格子 */
+.homeGrid {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.homeCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 92px;
+  padding: 8px;
+  border: 1px dashed var(--color-border-secondary, #eee);
+  border-radius: 10px;
+  background: var(--color-fill-tertiary, #fafafa);
+  text-align: center;
+}
+
 .careGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -711,4 +754,23 @@
   display: flex;
   justify-content: center;
   padding: 4px 0 8px;
+}
+
+/* v3 游戏化互动按钮 */
+.gameBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-weight: 700;
+  color: #5a4462;
+  background: linear-gradient(160deg, #fff6e6, #ffe3c2);
+  box-shadow: 0 6px 14px rgba(96, 62, 84, 18%), inset 0 2px 0 rgba(255, 255, 255, 85%);
+}
+
+.gameBtn:hover {
+  transform: translateY(-2px);
+}
+
+.gameBtn:active {
+  transform: scale(0.94);
 }

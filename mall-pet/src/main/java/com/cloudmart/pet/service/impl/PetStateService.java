@@ -6,6 +6,7 @@ import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.enums.PetGrowthStage;
 import com.cloudmart.pet.repository.PetMapper;
+import com.cloudmart.pet.util.PetIntimacyMath;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -96,7 +97,10 @@ public class PetStateService {
         if (expGain <= 0) {
             return 0;
         }
-        int exp = pet.getExp() + expGain;
+        // 亲密度加成（三期）：所有经验都从这里发，加成只需在这一处生效
+        int effectiveGain = expGain
+                + (int) Math.round(expGain * PetIntimacyMath.expBonus(pet, properties.getIntimacy()));
+        int exp = pet.getExp() + effectiveGain;
         int level = pet.getLevel();
         int levelups = 0;
         while (level < LEVEL_MAX && exp >= expToNext(level)) {

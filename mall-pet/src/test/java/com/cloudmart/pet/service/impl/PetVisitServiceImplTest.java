@@ -13,6 +13,9 @@ import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
+import com.cloudmart.pet.service.PetRelationService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetVisitResultVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -66,6 +69,12 @@ class PetVisitServiceImplTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private PetDailyQuestService dailyQuestService;
+    @Mock
+    private PetIntimacyService intimacyService;
+    @Mock
+    private PetRelationService relationService;
 
     private final PetProperties properties = new PetProperties();
     private PetVisitServiceImpl visitService;
@@ -80,7 +89,8 @@ class PetVisitServiceImplTest {
     @BeforeEach
     void setUp() {
         visitService = new PetVisitServiceImpl(petService, stateService, petMapper, activityMapper,
-                achievementService, eventProducer, wishFeignClient, properties, redisTemplate);
+                achievementService, eventProducer, wishFeignClient, properties, redisTemplate,
+                dailyQuestService, intimacyService, relationService);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 

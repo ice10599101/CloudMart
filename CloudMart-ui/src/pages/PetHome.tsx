@@ -1,10 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { App, Button, Empty, Input, Modal, Segmented, Spin, Switch, Tag } from 'antd'
+import { App, Button, Empty, Input, InputNumber, Modal, Segmented, Select, Spin, Switch, Tag } from 'antd'
 import { history } from 'umi'
 import {
   acceptPetBattle,
+  acceptPetFriend,
+  acceptPetRelation,
   activatePet,
+  applyPetCareer,
+  buyPetFurniture,
   buyPetItem,
+  claimPetCareerWork,
+  claimPetDailyQuest,
+  claimPetDailyQuestChest,
+  dissolvePetRelation,
+  getPetCareer,
+  getPetDailyQuests,
+  getPetFriends,
+  getPetHome,
+  getPetIntimacy,
+  getPetRelations,
+  getPetWall,
+  likePetHome,
+  likePetWallMessage,
+  placePetFurniture,
+  postPetWallMessage,
+  promotePetCareer,
+  rejectPetFriend,
+  rejectPetRelation,
+  removePetFurniture,
+  removePetFriend,
+  replyPetWallMessage,
+  requestPetFriend,
+  requestPetRelation,
+  sendPetCompanionHeartbeat,
+  startPetCareerWork,
+  updatePetRoomSettings,
+  updatePetRoomTheme,
+  visitPetFriend,
+  visitPetHome,
+  deletePetWallMessage as deletePetWallMessageApi,
   challengePetBattle,
   claimPetBottle,
   claimPetEvent,
@@ -69,6 +103,13 @@ import {
   type PetStudyItem,
   type PetSummary,
   type PetVisitNeighbor,
+  type PetCareerPanel,
+  type PetDailyQuestPanel,
+  type PetFriendPanel,
+  type PetHome,
+  type PetIntimacyInfo,
+  type PetRelationPanel,
+  type PetWallPage,
 } from '@/api/pet'
 import { markAllAsRead, markAsRead } from '@/api/notification'
 import PetStage, { type PetStageHandle } from '@/components/PetStage'
@@ -120,12 +161,14 @@ const STATUS_SPEECH: Record<string, string> = {
 }
 
 type PanelKey =
-  | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
+  | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
-  { key: 'home', label: '小窝', emoji: '🏠' },
+  { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'care', label: '养成', emoji: '🎒' },
+  { key: 'daily', label: '任务', emoji: '✅' },
+  { key: 'social', label: '社交', emoji: '🤝' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
@@ -1354,7 +1397,7 @@ function RenameModal({ pet, open, onClose, onRenamed }: RenameModalProps) {
   )
 }
 
-type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'pets'
+type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'pets' | 'career'
 
 const CARE_TABS: Array<{ key: CareTab; label: string; emoji: string }> = [
   { key: 'shop', label: '商城', emoji: '🛒' },
@@ -1363,6 +1406,7 @@ const CARE_TABS: Array<{ key: CareTab; label: string; emoji: string }> = [
   { key: 'evolution', label: '进化', emoji: '🌠' },
   { key: 'events', label: '活动', emoji: '🎯' },
   { key: 'visit', label: '串门', emoji: '🚪' },
+  { key: 'career', label: '职业', emoji: '💼' },
   { key: 'pets', label: '宠物', emoji: '🐾' },
 ]
 
@@ -1752,6 +1796,7 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
             </div>
           )}
 
+          {tab === 'career' && <CareerPanel onRefresh={onRefresh} />}
           {tab === 'pets' && (
             <div>
               <p className={styles.careBalance}>宠物 {pet.petCount} / {pet.maxPets}（日常玩法作用于主宠）</p>
@@ -1798,6 +1843,1031 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
   )
 }
 
+/** 职业面板（三期）：入职 / 职业工作 / 晋升 / 工作历史（挂在「养成 → 职业」页签下） */
+function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
+  const { message } = App.useApp()
+  const [panel, setPanel] = useState<PetCareerPanel | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await getPetCareer()
+      if (res.success && res.data) {
+        setPanel(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(text)
+        await load()
+        onRefresh()
+      }
+    } catch {
+      // 拦截器已提示（条件不满足等业务码）
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (loading && !panel) {
+    return <Spin />
+  }
+  if (!panel) {
+    return <p className={styles.bottleHint}>职业信息暂时打不开，稍后再试试吧</p>
+  }
+
+  const activity = panel.activeActivity
+
+  return (
+    <div>
+      <p className={styles.careBalance}>
+        {panel.careerCode
+          ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
+          : '还没有工作，挑一份喜欢的职业入职吧'}
+        {panel.canPromote && panel.promoteToName
+          ? ` · 可晋升为「${panel.promoteToName}」（消耗 ✨${panel.promoteStarCost}）`
+          : ''}
+        {panel.promoteLockReason && panel.promoteToName ? ` · 晋升条件：${panel.promoteLockReason}` : ''}
+      </p>
+
+      {panel.careerCode && (
+        <span className={styles.careActions}>
+          {activity ? (
+            <Button
+              size="small"
+              type="primary"
+              disabled={!activity.canClaim}
+              loading={pending === 'career-claim'}
+              onClick={() => run('career-claim', () => claimPetCareerWork(), '工钱到手啦！')}
+            >
+              {activity.canClaim
+                ? '领取工作奖励'
+                : `工作中，剩 ${Math.max(0, Math.ceil(activity.remainingSeconds / 60))} 分钟`}
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              type="primary"
+              loading={pending === 'career-start'}
+              onClick={() => run('career-start', () => startPetCareerWork(), '开始工作啦')}
+            >
+              去上班
+            </Button>
+          )}
+          <Button
+            size="small"
+            disabled={!panel.canPromote}
+            title={panel.promoteLockReason ?? undefined}
+            loading={pending === 'career-promote'}
+            onClick={() => run('career-promote', () => promotePetCareer(), '晋升成功！')}
+          >
+            晋升
+          </Button>
+        </span>
+      )}
+
+      <div className={styles.careGrid}>
+        {panel.careers.map((career) => (
+          <div key={career.code} className={styles.careCard}>
+            <span className={styles.careIcon}>{career.icon}</span>
+            <strong>
+              {career.name} <Tag>{career.careerLine} · {career.tier} 阶</Tag>
+            </strong>
+            <span className={styles.careMeta}>{career.description}</span>
+            <span className={styles.careMeta}>
+              Lv.{career.requiredLevel}
+              {career.requiredIntelligence > 0 ? ` · 智力 ${career.requiredIntelligence}` : ''}
+              {' · '}
+              {Math.round(career.durationSeconds / 60)} 分钟 · 精力 {career.energyCost} · 经验+{career.expReward} ✨+{career.currencyReward}
+            </span>
+            {career.workCount > 0 && <span className={styles.careMeta}>已工作 {career.workCount} 次</span>}
+            <span className={styles.careActions}>
+              {career.current ? (
+                <Tag color="green">在职</Tag>
+              ) : (
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={!career.eligible}
+                  title={career.lockReason ?? undefined}
+                  loading={pending === `apply-${career.code}`}
+                  onClick={() => run(`apply-${career.code}`, () => applyPetCareer(career.code), '入职成功！')}
+                >
+                  {career.eligible ? '入职' : career.lockReason || '未解锁'}
+                </Button>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {panel.history.length > 0 && (
+        <>
+          <p className={styles.careBalance}>工作经历</p>
+          <p className={styles.careMeta}>
+            {panel.history
+              .map((item) => `${item.name}（${item.workCount} 次 / ✨${item.totalCurrency}）`)
+              .join(' · ')}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** 家园面板（三期）：房间布置 + 家具商城 + 邻里拜访 + 家园设置 */
+function HomePanel({ onRefresh }: { onRefresh: () => void }) {
+  const { message } = App.useApp()
+  const [home, setHome] = useState<PetHome | null>(null)
+  const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<string | null>(null)
+  const [placeCode, setPlaceCode] = useState<string>('')
+  const [posX, setPosX] = useState(0)
+  const [posY, setPosY] = useState(0)
+  const [welcome, setWelcome] = useState('')
+  const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
+  const [visitResult, setVisitResult] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await getPetHome()
+      if (res.success && res.data) {
+        setHome(res.data)
+        setWelcome(res.data.welcomeMessage)
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (tab !== 'visit') {
+      return
+    }
+    void (async () => {
+      try {
+        const { data: res } = await listPetVisitNeighbors()
+        if (res.success) {
+          setNeighbors(res.data ?? [])
+        }
+      } catch {
+        // 展示型数据：失败保持原值
+      }
+    })()
+  }, [tab])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(text)
+        await load()
+        onRefresh()
+      }
+    } catch {
+      // 拦截器已提示（含 lockReason 类业务码）
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (loading && !home) {
+    return <Spin />
+  }
+  if (!home) {
+    return <p className={styles.bottleHint}>家园暂时打不开，稍后再试试吧</p>
+  }
+
+  const wallpaperOptions = home.shop.filter((item) => item.category === 'WALL' && item.owned)
+  const floorOptions = home.shop.filter((item) => item.category === 'FLOOR' && item.owned)
+  const placeableOwned = home.inventory.filter(
+    (item) => item.category !== 'WALL' && item.category !== 'FLOOR',
+  )
+
+  return (
+    <div className={styles.carePanel}>
+      <p className={styles.careBalance}>
+        🏡 舒适度 {home.comfort}（{home.comfort >= home.comfortBonusThreshold ? `休息心情 +${home.comfortRestHappinessBonus}` : `达到 ${home.comfortBonusThreshold} 触发休息加成`}）
+        · 来访 {home.visitCount} · 点赞 {home.likeCount}
+        {home.dailyEnterRewarded ? ' · 今日回家奖励已领' : ''}
+      </p>
+      <Segmented
+        block
+        size="small"
+        value={tab}
+        onChange={(key) => setTab(key as 'room' | 'shop' | 'visit')}
+        options={[
+          { value: 'room', label: '🛋️ 布置' },
+          { value: 'shop', label: '🛒 家具' },
+          { value: 'visit', label: '🚪 拜访' },
+        ]}
+      />
+
+      {tab === 'room' && (
+        <div>
+          <div className={styles.homeGrid} style={{ gridTemplateColumns: `repeat(${home.gridWidth}, 1fr)` }}>
+            {Array.from({ length: home.gridHeight }).flatMap((_, y) =>
+              Array.from({ length: home.gridWidth }).map((__, x) => {
+                const placed = home.placed.find((item) => item.posX === x && item.posY === y)
+                return (
+                  <div key={`${x}-${y}`} className={styles.homeCell} title={placed ? placed.name : `${x},${y}`}>
+                    {placed ? (
+                      <>
+                        <span className={styles.careIcon}>{placed.icon}</span>
+                        <span className={styles.careMeta}>{placed.name}</span>
+                        <Button
+                          size="small"
+                          loading={pending === `remove-${x}-${y}`}
+                          onClick={() => run(`remove-${x}-${y}`, () => removePetFurniture(x, y), '已收回仓库')}
+                        >
+                          收回
+                        </Button>
+                      </>
+                    ) : (
+                      <span className={styles.careMeta}>空位 {x},{y}</span>
+                    )}
+                  </div>
+                )
+              }),
+            )}
+          </div>
+          <p className={styles.careMeta}>
+            墙纸：
+            <Select
+              size="small"
+              style={{ width: 140 }}
+              value={home.wallCode ?? ''}
+              onChange={(value) =>
+                run(
+                  'theme',
+                  () => updatePetRoomTheme({ wallCode: String(value) || null, floorCode: home.floorCode }),
+                  '已换墙纸',
+                )
+              }
+              options={[{ value: '', label: '默认' }, ...wallpaperOptions.map((item) => ({ value: item.code, label: item.name }))]}
+            />
+            地板：
+            <Select
+              size="small"
+              style={{ width: 140 }}
+              value={home.floorCode ?? ''}
+              onChange={(value) =>
+                run(
+                  'theme',
+                  () => updatePetRoomTheme({ wallCode: home.wallCode, floorCode: String(value) || null }),
+                  '已换地板',
+                )
+              }
+              options={[{ value: '', label: '默认' }, ...floorOptions.map((item) => ({ value: item.code, label: item.name }))]}
+            />
+          </p>
+        </div>
+      )}
+
+      {tab === 'shop' && (
+        <div>
+          <p className={styles.careMeta}>
+            摆放家具：
+            <Select
+              size="small"
+              style={{ width: 160 }}
+              value={placeCode || undefined}
+              placeholder={placeableOwned.length === 0 ? '先去下面买一件' : '选择已拥有的家具'}
+              onChange={setPlaceCode}
+              options={placeableOwned.map((item) => ({ value: item.code, label: `${item.icon} ${item.name}` }))}
+            />
+            X
+            <InputNumber size="small" min={0} max={home.gridWidth - 1} value={posX} onChange={(v) => setPosX(v ?? 0)} />
+            Y
+            <InputNumber size="small" min={0} max={home.gridHeight - 1} value={posY} onChange={(v) => setPosY(v ?? 0)} />
+            <Button
+              size="small"
+              type="primary"
+              disabled={!placeCode}
+              loading={pending === 'place'}
+              onClick={() => run('place', () => placePetFurniture({ furnitureCode: placeCode, posX, posY }), '摆放好啦')}
+            >
+              摆放
+            </Button>
+          </p>
+          <div className={styles.careGrid}>
+            {home.shop.map((item) => (
+              <div key={item.code} className={styles.careCard}>
+                <span className={styles.careIcon}>{item.icon}</span>
+                <strong>{item.name}</strong>
+                <span className={styles.careMeta}>
+                  {item.categoryLabel} · 舒适度 +{item.comfort} · {item.rarity}
+                </span>
+                <span className={styles.careMeta}>需要 Lv.{item.requiredLevel}</span>
+                <span className={styles.careActions}>
+                  <span className={styles.carePrice}>✨ {item.priceStarlight}</span>
+                  {item.owned ? (
+                    <Tag color="green">已拥有</Tag>
+                  ) : (
+                    <Button
+                      size="small"
+                      type="primary"
+                      disabled={!item.eligible}
+                      loading={pending === `buy-${item.code}`}
+                      title={item.lockReason ?? undefined}
+                      onClick={() => run(`buy-${item.code}`, () => buyPetFurniture(item.code), '买到啦，去布置吧')}
+                    >
+                      {item.eligible ? '购买' : item.lockReason || '未解锁'}
+                    </Button>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'visit' && (
+        <div>
+          {visitResult && <p className={styles.careBalance}>{visitResult}</p>}
+          <p className={styles.careMeta}>
+            我的家园：
+            <Switch
+              size="small"
+              checked={home.isPublic}
+              onChange={(checked) => run('settings', () => updatePetRoomSettings({ isPublic: checked }), '设置已更新')}
+            />
+            允许来访
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              maxLength={40}
+              value={welcome}
+              onChange={(event) => setWelcome(event.target.value)}
+              placeholder="欢迎语（最多 40 字）"
+            />
+            <Button
+              size="small"
+              loading={pending === 'welcome'}
+              onClick={() => run('welcome', () => updatePetRoomSettings({ welcomeMessage: welcome }), '欢迎语已更新')}
+            >
+              保存欢迎语
+            </Button>
+          </p>
+          {neighbors.length === 0 ? (
+            <p className={styles.bottleHint}>暂时没有可拜访的邻居</p>
+          ) : (
+            <div className={styles.careGrid}>
+              {neighbors.map((neighbor) => (
+                <div key={neighbor.petId} className={styles.careCard}>
+                  <span className={styles.careIcon}>{SPECIES_EMOJI[neighbor.species] || '🐾'}</span>
+                  <strong>{neighbor.name}</strong>
+                  <span className={styles.careMeta}>
+                    Lv.{neighbor.level} · {neighbor.ownerNickname}
+                  </span>
+                  <span className={styles.careActions}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      loading={pending === `visit-${neighbor.petId}`}
+                      onClick={() =>
+                        run(
+                          `visit-${neighbor.petId}`,
+                          async () => {
+                            const res = await visitPetHome(Number(neighbor.petId))
+                            if (res.data.success && res.data.data) {
+                              setVisitResult(res.data.data.message)
+                            }
+                            return res
+                          },
+                          '拜访成功！',
+                        )
+                      }
+                    >
+                      去家里看看
+                    </Button>
+                    <Button
+                      size="small"
+                      loading={pending === `like-${neighbor.petId}`}
+                      onClick={() =>
+                        run(`like-${neighbor.petId}`, () => likePetHome(Number(neighbor.petId)), '点赞成功')
+                      }
+                    >
+                      点赞
+                    </Button>
+                    <Button
+                      size="small"
+                      loading={pending === `freq-${neighbor.petId}`}
+                      onClick={() =>
+                        run(
+                          `freq-${neighbor.petId}`,
+                          () => requestPetFriend(Number(neighbor.ownerUserId)),
+                          '好友申请已发出～',
+                        )
+                      }
+                    >
+                      加好友
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 每日任务面板（三期）：进度 + 领奖 + 全清宝箱 */
+function DailyPanel({ onRefresh }: { onRefresh: () => void }) {
+  const { message } = App.useApp()
+  const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await getPetDailyQuests()
+      if (res.success && res.data) {
+        setPanel(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(text)
+        await load()
+        onRefresh()
+      }
+    } catch {
+      // 拦截器已提示（未完成/已领取等业务码）
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (loading && !panel) {
+    return <Spin />
+  }
+  if (!panel) {
+    return <p className={styles.bottleHint}>任务列表暂时打不开，稍后再试试吧</p>
+  }
+
+  return (
+    <div className={styles.carePanel}>
+      <p className={styles.careBalance}>
+        今日进度 {panel.claimedCount}/{panel.totalCount}（已完成 {panel.completedCount}）
+        · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
+      </p>
+      <div className={styles.careGrid}>
+        {panel.quests.map((quest) => (
+          <div key={quest.code} className={styles.careCard}>
+            <span className={styles.careIcon}>{quest.icon}</span>
+            <strong>{quest.name}</strong>
+            <span className={styles.careMeta}>{quest.description}</span>
+            <span className={styles.careMeta}>
+              进度 {Math.min(quest.progress, quest.targetValue)}/{quest.targetValue} · 奖励 经验+{quest.expReward} ✨+{quest.currencyReward}
+            </span>
+            <span className={styles.careActions}>
+              {quest.status === 'CLAIMED' ? (
+                <Tag color="green">已领取</Tag>
+              ) : (
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={!quest.claimable}
+                  loading={pending === `quest-${quest.code}`}
+                  onClick={() => run(`quest-${quest.code}`, () => claimPetDailyQuest(quest.code), '奖励到手啦！')}
+                >
+                  {quest.claimable ? '领取奖励' : quest.statusLabel}
+                </Button>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+      <span className={styles.careActions}>
+        {panel.chestClaimed ? (
+          <Tag color="gold">宝箱已领取</Tag>
+        ) : (
+          <Button
+            type="primary"
+            disabled={!panel.chestClaimable}
+            loading={pending === 'chest'}
+            onClick={() => run('chest', () => claimPetDailyQuestChest(), '宝箱开啦！')}
+          >
+            {panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
+          </Button>
+        )}
+      </span>
+    </div>
+  )
+}
+
+/** 社交面板（三期）：宠物关系 + 好友互访 + 留言墙 */
+function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
+  const { message } = App.useApp()
+  const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
+  const [relations, setRelations] = useState<PetRelationPanel | null>(null)
+  const [friends, setFriends] = useState<PetFriendPanel | null>(null)
+  const [wallPetId, setWallPetId] = useState<number>(Number(pet.petId))
+  const [wall, setWall] = useState<PetWallPage | null>(null)
+  const [myPets, setMyPets] = useState<PetSummary[]>([])
+  const [pending, setPending] = useState<string | null>(null)
+  const [wallInput, setWallInput] = useState('')
+  const [replyTo, setReplyTo] = useState<number | null>(null)
+  const [replyInput, setReplyInput] = useState('')
+  const [relationTarget, setRelationTarget] = useState<{ petId: number; name: string } | null>(null)
+  const [relationType, setRelationType] = useState('BESTIE')
+  const [relationMsg, setRelationMsg] = useState('')
+  const [tip, setTip] = useState<string | null>(null)
+
+  const loadRelations = useCallback(async () => {
+    try {
+      const { data: res } = await getPetRelations()
+      if (res.success && res.data) {
+        setRelations(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [])
+
+  const loadFriends = useCallback(async () => {
+    try {
+      const { data: res } = await getPetFriends()
+      if (res.success && res.data) {
+        setFriends(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [])
+
+  const loadWall = useCallback(async (targetPetId: number) => {
+    try {
+      const { data: res } = await getPetWall(targetPetId, 1, 10)
+      if (res.success && res.data) {
+        setWall(res.data)
+      }
+    } catch {
+      // 未公开等业务码由拦截器提示
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'relation') {
+      void loadRelations()
+    } else if (tab === 'friend') {
+      void loadFriends()
+    } else {
+      void loadWall(wallPetId)
+      void (async () => {
+        try {
+          const { data: res } = await listMyPets()
+          if (res.success) {
+            setMyPets(res.data ?? [])
+          }
+        } catch {
+          // 展示型数据
+        }
+      })()
+    }
+  }, [tab, wallPetId, loadRelations, loadFriends, loadWall])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(text)
+        await (tab === 'relation' ? loadRelations() : tab === 'friend' ? loadFriends() : loadWall(wallPetId))
+        onRefresh()
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setPending(null)
+    }
+  }
+
+  return (
+    <div className={styles.carePanel}>
+      <Segmented
+        block
+        size="small"
+        value={tab}
+        onChange={(key) => setTab(key as 'relation' | 'friend' | 'wall')}
+        options={[
+          { value: 'relation', label: '💞 关系' },
+          { value: 'friend', label: '🫂 好友' },
+          { value: 'wall', label: '📝 留言墙' },
+        ]}
+      />
+      {tip && <p className={styles.careBalance}>{tip}</p>}
+
+      {tab === 'relation' && relations && (
+        <div>
+          <p className={styles.careMeta}>
+            {relations.limits.map((limit) => (
+              <Tag key={limit.relType} color={limit.exclusive ? 'magenta' : 'blue'}>
+                {limit.label} {limit.current}/{limit.max}
+              </Tag>
+            ))}
+          </p>
+          {relations.incoming.length > 0 && (
+            <>
+              <p className={styles.careBalance}>收到的申请</p>
+              <div className={styles.careGrid}>
+                {relations.incoming.map((item) => (
+                  <div key={String(item.id)} className={styles.careCard}>
+                    <span className={styles.careIcon}>{SPECIES_EMOJI[item.species] || '🐾'}</span>
+                    <strong>{item.petName}</strong>
+                    <span className={styles.careMeta}>
+                      {item.ownerNickname} 想成为{item.relTypeLabel}
+                      {item.message ? `：「${item.message}」` : ''}
+                    </span>
+                    <span className={styles.careActions}>
+                      <Button
+                        size="small"
+                        type="primary"
+                        loading={pending === `accept-${item.id}`}
+                        onClick={() => run(`accept-${item.id}`, () => acceptPetRelation(item.id as number), '关系建立啦！')}
+                      >
+                        同意
+                      </Button>
+                      <Button
+                        size="small"
+                        loading={pending === `reject-${item.id}`}
+                        onClick={() => run(`reject-${item.id}`, () => rejectPetRelation(item.id as number), '已拒绝')}
+                      >
+                        拒绝
+                      </Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <p className={styles.careBalance}>已建立的关系</p>
+          {relations.relations.length === 0 ? (
+            <p className={styles.bottleHint}>还没有关系，去下面认识一只新宠物吧</p>
+          ) : (
+            <div className={styles.careGrid}>
+              {relations.relations.map((item) => (
+                <div key={String(item.id)} className={styles.careCard}>
+                  <span className={styles.careIcon}>{SPECIES_EMOJI[item.species] || '🐾'}</span>
+                  <strong>
+                    {item.petName} <Tag color="magenta">{item.relTypeLabel}</Tag>
+                  </strong>
+                  <span className={styles.careMeta}>
+                    {item.ownerNickname} · 亲密度 {item.intimacy}（{item.intimacyLevelName}，还差 {item.intimacyToNext}）
+                  </span>
+                  <span className={styles.careActions}>
+                    <Button
+                      size="small"
+                      danger
+                      loading={pending === `dissolve-${item.id}`}
+                      onClick={() => run(`dissolve-${item.id}`, () => dissolvePetRelation(item.id as number), '已解除关系')}
+                    >
+                      解除
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {relations.outgoing.length > 0 && (
+            <p className={styles.careMeta}>
+              等待回应：{relations.outgoing.map((item) => `${item.petName}（${item.relTypeLabel}）`).join('、')}
+            </p>
+          )}
+          <p className={styles.careBalance}>可以认识的宠物</p>
+          <div className={styles.careGrid}>
+            {relations.candidates.map((candidate) => (
+              <div key={candidate.petId} className={styles.careCard}>
+                <span className={styles.careIcon}>{SPECIES_EMOJI[candidate.species] || '🐾'}</span>
+                <strong>{candidate.petName}</strong>
+                <span className={styles.careMeta}>
+                  Lv.{candidate.level} · {candidate.ownerNickname}
+                </span>
+                <span className={styles.careActions}>
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={() => {
+                      setRelationTarget({ petId: candidate.petId, name: candidate.petName })
+                      setRelationMsg('')
+                      setTip(null)
+                    }}
+                  >
+                    发起关系
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'friend' && friends && (
+        <div>
+          <p className={styles.careMeta}>
+            今日互访 {friends.todayVisitCount}/{friends.dailyVisitLimit}（剩余 {friends.remainingVisits}）· 好友上限 {friends.maxFriends}
+          </p>
+          {friends.incoming.length > 0 && (
+            <>
+              <p className={styles.careBalance}>收到的好友申请</p>
+              <div className={styles.careGrid}>
+                {friends.incoming.map((item) => (
+                  <div key={item.userId} className={styles.careCard}>
+                    <span className={styles.careIcon}>{SPECIES_EMOJI[item.species ?? ''] || '🐾'}</span>
+                    <strong>{item.nickname}</strong>
+                    <span className={styles.careMeta}>{item.petName ?? '还没有宠物'}</span>
+                    <span className={styles.careActions}>
+                      <Button
+                        size="small"
+                        type="primary"
+                        loading={pending === `faccept-${item.userId}`}
+                        onClick={() => run(`faccept-${item.userId}`, () => acceptPetFriend(item.userId), '成为好友啦！')}
+                      >
+                        同意
+                      </Button>
+                      <Button
+                        size="small"
+                        loading={pending === `freject-${item.userId}`}
+                        onClick={() => run(`freject-${item.userId}`, () => rejectPetFriend(item.userId), '已拒绝')}
+                      >
+                        拒绝
+                      </Button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <p className={styles.careBalance}>我的好友</p>
+          {friends.friends.length === 0 ? (
+            <p className={styles.bottleHint}>还没有好友，先去邻居家串门认识一下吧</p>
+          ) : (
+            <div className={styles.careGrid}>
+              {friends.friends.map((item) => (
+                <div key={item.userId} className={styles.careCard}>
+                  <span className={styles.careIcon}>{SPECIES_EMOJI[item.species ?? ''] || '🐾'}</span>
+                  <strong>{item.nickname}</strong>
+                  <span className={styles.careMeta}>
+                    {item.petName ?? '—'} Lv.{item.level ?? '-'} · 互访 {item.visitCount} 次
+                  </span>
+                  <span className={styles.careActions}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      loading={pending === `fvisit-${item.userId}`}
+                      onClick={() =>
+                        run(
+                          `fvisit-${item.userId}`,
+                          async () => {
+                            const res = await visitPetFriend(item.userId)
+                            if (res.data.success && res.data.data) {
+                              setTip(res.data.data.message)
+                            }
+                            return res
+                          },
+                          '互访成功！',
+                        )
+                      }
+                    >
+                      去互访
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      loading={pending === `fremove-${item.userId}`}
+                      onClick={() => run(`fremove-${item.userId}`, () => removePetFriend(item.userId), '已删除好友')}
+                    >
+                      删除
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {friends.outgoing.length > 0 && (
+            <p className={styles.careMeta}>等待回应：{friends.outgoing.map((item) => item.nickname).join('、')}</p>
+          )}
+        </div>
+      )}
+
+      {tab === 'wall' && (
+        <div>
+          <p className={styles.careMeta}>
+            看谁的留言墙：
+            <Select
+              size="small"
+              style={{ width: 180 }}
+              value={wallPetId}
+              onChange={(value) => setWallPetId(Number(value))}
+              options={myPets.map((item) => ({ value: item.petId, label: `${item.name}（我的）` }))}
+            />
+            {wall && <span> · 共 {wall.total} 条</span>}
+          </p>
+          {wall && (
+            <>
+              <p className={styles.careBalance}>
+                {wall.petName} 的留言墙 · {wall.ownerNickname}
+                {wall.welcomeMessage ? `：「${wall.welcomeMessage}」` : ''}（每日可留言 {wall.dailyPostLimit} 条）
+              </p>
+              <Input
+                value={wallInput}
+                maxLength={120}
+                onChange={(event) => setWallInput(event.target.value)}
+                placeholder="写一句留言吧（1-120 字）"
+                addonAfter={
+                  <Button
+                    type="link"
+                    size="small"
+                    loading={pending === 'wall-post'}
+                    onClick={() =>
+                      run(
+                        'wall-post',
+                        async () => {
+                          const res = await postPetWallMessage({ petId: wallPetId, content: wallInput })
+                          if (res.data.success) {
+                            setWallInput('')
+                          }
+                          return res
+                        },
+                        '留言成功！',
+                      )
+                    }
+                  >
+                    留言
+                  </Button>
+                }
+              />
+              {wall.messages.length === 0 ? (
+                <p className={styles.bottleHint}>还没有留言，说点什么吧～</p>
+              ) : (
+                wall.messages.map((item) => (
+                  <div key={item.id} className={styles.careCard} style={{ marginTop: 8 }}>
+                    <span className={styles.careMeta}>
+                      {item.authorPetName ? `${SPECIES_EMOJI[item.authorPetSpecies ?? ''] || '🐾'} ` : ''}
+                      {item.authorNickname}
+                      {item.ownerReply ? '（我的回复）' : ''} · {item.createdAt?.slice(5, 16).replace('T', ' ')}
+                    </span>
+                    <strong>{item.content}</strong>
+                    <span className={styles.careActions}>
+                      <Button
+                        size="small"
+                        loading={pending === `like-${item.id}`}
+                        onClick={() => run(`like-${item.id}`, () => likePetWallMessage(item.id), item.liked ? '已取消点赞' : '点赞成功')}
+                      >
+                        {item.liked ? '取消赞' : '点赞'} {item.likeCount}
+                      </Button>
+                      {item.owner && item.parentId === null && (
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setReplyTo(replyTo === item.id ? null : item.id)
+                            setReplyInput('')
+                          }}
+                        >
+                          回复
+                        </Button>
+                      )}
+                      {(item.mine || item.owner) && (
+                        <Button
+                          size="small"
+                          danger
+                          loading={pending === `del-${item.id}`}
+                          onClick={() => run(`del-${item.id}`, () => deletePetWallMessageApi(item.id), '已删除')}
+                        >
+                          删除
+                        </Button>
+                      )}
+                    </span>
+                    {replyTo === item.id && (
+                      <Input
+                        value={replyInput}
+                        maxLength={120}
+                        onChange={(event) => setReplyInput(event.target.value)}
+                        placeholder="回复这条留言"
+                        addonAfter={
+                          <Button
+                            type="link"
+                            size="small"
+                            loading={pending === `reply-${item.id}`}
+                            onClick={() =>
+                              run(
+                                `reply-${item.id}`,
+                                async () => {
+                                  const res = await replyPetWallMessage({ messageId: item.id, content: replyInput })
+                                  if (res.data.success) {
+                                    setReplyTo(null)
+                                  }
+                                  return res
+                                },
+                                '回复成功！',
+                              )
+                            }
+                          >
+                            发送
+                          </Button>
+                        }
+                      />
+                    )}
+                    {item.replies.map((reply) => (
+                      <span key={reply.id} className={styles.careMeta}>
+                        ↳ {reply.authorNickname}：{reply.content}
+                      </span>
+                    ))}
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <Modal
+        title={relationTarget ? `和 ${relationTarget.name} 建立关系` : '建立关系'}
+        open={relationTarget !== null}
+        onCancel={() => setRelationTarget(null)}
+        onOk={() =>
+          run(
+            'relation-request',
+            async () => {
+              const res = await requestPetRelation({
+                toPetId: relationTarget?.petId as number,
+                relType: relationType,
+                message: relationMsg || undefined,
+              })
+              if (res.data.success) {
+                setRelationTarget(null)
+              }
+              return res
+            },
+            '申请已发出，等对方回应～',
+          )
+        }
+        confirmLoading={pending === 'relation-request'}
+        okText="发送申请"
+      >
+        <Select
+          style={{ width: '100%', marginBottom: 12 }}
+          value={relationType}
+          onChange={setRelationType}
+          options={[
+            { value: 'COUPLE', label: '情侣（专属，每只宠物仅一段）' },
+            { value: 'BESTIE', label: '闺蜜' },
+            { value: 'BROTHER', label: '兄弟' },
+            { value: 'CONFIDANT', label: '死党' },
+          ]}
+        />
+        <Input
+          value={relationMsg}
+          maxLength={40}
+          onChange={(event) => setRelationMsg(event.target.value)}
+          placeholder="留一句申请留言（可选，40 字以内）"
+        />
+      </Modal>
+    </div>
+  )
+}
+
 export default function PetHomePage() {
   const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
@@ -1808,6 +2878,7 @@ export default function PetHomePage() {
   const [renameOpen, setRenameOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [unreadReminders, setUnreadReminders] = useState(0)
+  const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
   const [pendingInteraction, setPendingInteraction] = useState<PetIntentAction | null>(null)
   const [adoptOpen, setAdoptOpen] = useState(false)
   const stageRef = useRef<PetStageHandle>(null)
@@ -1875,6 +2946,50 @@ export default function PetHomePage() {
     }
   }, [user, refresh, loadUnread])
 
+  /** 亲密度概览（展示型数据：失败保持原值，不打断页面） */
+  const loadIntimacy = useCallback(async () => {
+    try {
+      const { data: res } = await getPetIntimacy()
+      if (res.success && res.data) {
+        setIntimacy(res.data)
+      }
+    } catch {
+      // 展示型数据：忽略
+    }
+  }, [])
+
+  useEffect(() => {
+    if (pet) {
+      void loadIntimacy()
+    }
+  }, [pet?.petId, loadIntimacy])
+
+  /**
+   * 陪伴心跳：页面可见时每 60 秒上报一次（服务端按日封顶折算亲密度，防止挂机刷分）。
+   * 页面隐藏时不上报——"陪伴"必须是真的在宠物页停留。
+   */
+  useEffect(() => {
+    if (!pet) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+      void (async () => {
+        try {
+          const { data: res } = await sendPetCompanionHeartbeat(60)
+          if (res.success && res.data) {
+            setIntimacy(res.data)
+          }
+        } catch {
+          // 心跳失败静默（下一轮重试）
+        }
+      })()
+    }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [pet?.petId])
+
   /** Cocos 意图 → 宿主 API 调用（数值/幂等全部服务端） */
   const handleIntent = useCallback(async (action: PetIntentAction) => {
     if (!pet) {
@@ -1892,6 +3007,10 @@ export default function PetHomePage() {
     if (action === 'openProfile') { setProfileOpen(true); return }
     if (action === 'openRankings') { setPanel('rankings'); return }
     if (action === 'openCare') { setPanel('care'); return }
+    if (action === 'openRoom') { setPanel('home'); return }
+    if (action === 'openDaily') { setPanel('daily'); return }
+    if (action === 'openSocial') { setPanel('social'); return }
+    if (action === 'openCareer') { setPanel('care'); return }
     // 以下 action 类型已收窄为互动四件套
     setPendingInteraction(action)
     try {
@@ -1997,13 +3116,21 @@ export default function PetHomePage() {
         />
         <PetStateBars pet={pet} />
         <div className={styles.interactionRow}>
-          <Button size="small" loading={pendingInteraction === 'feed'} onClick={() => handleIntent('feed')}>🍖 喂食</Button>
-          <Button size="small" loading={pendingInteraction === 'play'} onClick={() => handleIntent('play')}>🎾 玩耍</Button>
-          <Button size="small" loading={pendingInteraction === 'clean'} onClick={() => handleIntent('clean')}>🧼 清洁</Button>
-          <Button size="small" loading={pendingInteraction === 'rest'} onClick={() => handleIntent('rest')}>😴 休息</Button>
-          <Button size="small" onClick={() => setProfileOpen(true)}>📇 档案</Button>
-          <Button size="small" onClick={() => setPanel('care')}>🎒 养成</Button>
+          <Button className={styles.gameBtn} size="small" loading={pendingInteraction === 'feed'} onClick={() => handleIntent('feed')}>🍖 喂食</Button>
+          <Button className={styles.gameBtn} size="small" loading={pendingInteraction === 'play'} onClick={() => handleIntent('play')}>🎾 玩耍</Button>
+          <Button className={styles.gameBtn} size="small" loading={pendingInteraction === 'clean'} onClick={() => handleIntent('clean')}>🧼 清洁</Button>
+          <Button className={styles.gameBtn} size="small" loading={pendingInteraction === 'rest'} onClick={() => handleIntent('rest')}>😴 休息</Button>
+          <Button className={styles.gameBtn} size="small" onClick={() => setProfileOpen(true)}>📇 档案</Button>
+          <Button className={styles.gameBtn} size="small" onClick={() => setPanel('care')}>🎒 养成</Button>
         </div>
+        {/* 三期：亲密度与陪伴（数值服务端权威，前端只展示；陪伴时长由心跳累计） */}
+        <p className={styles.intimacyRow}>
+          💞 亲密度 {intimacy ? `${intimacy.intimacy}（${intimacy.levelName}）` : `${pet.intimacy ?? 0}（${pet.intimacyLevelName ?? '初识'}）`}
+          {intimacy && intimacy.nextLevelAt !== null ? ` · 还差 ${intimacy.toNext} 升到下一级` : ''}
+          {' · '}经验加成 +{intimacy?.expBonusPercent ?? pet.intimacyExpBonusPercent ?? 0}%
+          {' · '}已陪伴 {Math.floor((intimacy?.companionSeconds ?? pet.companionSeconds ?? 0) / 3600)} 小时
+          {intimacy ? `（今日 ${Math.round(intimacy.todayCompanionSeconds / 60)} 分钟，连续 ${intimacy.companionStreak} 天）` : ''}
+        </p>
         {pet.activityFinishedAt || pet.claimableActivityType ? (
           <ActivityCard
             pet={pet}
@@ -2047,16 +3174,21 @@ export default function PetHomePage() {
         )}
         {panel === 'reminders' && <RemindersPanel />}
         {panel === 'rankings' && <RankingsPanel />}
+        {panel === 'daily' && <DailyPanel onRefresh={refresh} />}
+        {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
         {panel === 'home' && (
-          <div className={styles.homePanel}>
-            <h4 className={styles.sectionTitle}>{pet.name} 的养成日常</h4>
-            <ul className={styles.tipsList}>
-              <li>🍖 饱食和🧼清洁会随时间自然下降，记得回来照顾它</li>
-              <li>💼 打工赚星光，📚 读书涨智力（智力影响学习与捞瓶收益）</li>
-              <li>🍾 宠物可以定时帮你捞社区漂流瓶，捞到会主动提醒你</li>
-              <li>⚔️ 对战由服务端计算，输了也有经验，放心去挑战</li>
-              <li>💬 和它聊聊天，它会记住你的喜好哦</li>
-            </ul>
+          <div>
+            <HomePanel onRefresh={refresh} />
+            <div className={styles.homePanel}>
+              <h4 className={styles.sectionTitle}>{pet.name} 的养成日常</h4>
+              <ul className={styles.tipsList}>
+                <li>🍖 饱食和🧼清洁会随时间自然下降，记得回来照顾它</li>
+                <li>💼 打工/职业赚星光，📚 读书涨智力（智力影响学习与捞瓶收益）</li>
+                <li>🧸 家园舒适度越高，休息时心情恢复越多（记得摆放家具）</li>
+                <li>🤝 关系/好友/留言墙都在「社交」里，互访双方都有收益</li>
+                <li>💬 和它聊聊天，它会记住你的喜好哦</li>
+              </ul>
+            </div>
           </div>
         )}
       </div>

@@ -42,7 +42,21 @@ public interface PetAchievementService {
         /** 串门（原文档 §1.1 宠物串门）：串门次数类成就 */
         VISIT(Set.of("VISIT_COUNT"), Set.of("VISIT")),
         /** 进化（原文档 §89 宠物进化）：进化阶数类成就 */
-        EVOLUTION(Set.of("EVOLUTION"), Set.of());
+        EVOLUTION(Set.of("EVOLUTION"), Set.of()),
+        /** 亲密度提升（三期）：亲密度类成就 */
+        INTIMACY(Set.of("INTIMACY"), Set.of()),
+        /** 每日任务领奖（三期）：任务计数类成就 */
+        QUEST(Set.of("QUEST_COUNT"), Set.of()),
+        /** 宠物关系建立/解除（三期）：关系数类成就 */
+        RELATION(Set.of("RELATION_COUNT"), Set.of()),
+        /** 好友申请/确认（三期）：好友数类成就 */
+        FRIEND(Set.of("FRIEND_COUNT"), Set.of()),
+        /** 留言墙留言/回复（三期）：留言数类成就 */
+        WALL(Set.of("WALL_MESSAGE_COUNT"), Set.of()),
+        /** 家园布置/家具变化（三期）：舒适度类成就 */
+        ROOM(Set.of("ROOM_COMFORT"), Set.of()),
+        /** 陪伴心跳（三期）：陪伴时长类成就 */
+        COMPANION(Set.of("COMPANION_HOURS"), Set.of());
 
         private final Set<String> conditionTypes;
         private final Set<String> activitySubtypes;

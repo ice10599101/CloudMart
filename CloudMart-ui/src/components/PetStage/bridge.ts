@@ -40,6 +40,8 @@ export interface BattleRound {
 }
 
 export type PetIntentAction =
+  // 三期：家园 / 每日任务 / 社交 / 职业（Cocos 场景按钮与宿主面板一一对应）
+  | 'openRoom' | 'openDaily' | 'openSocial' | 'openCareer'
   | 'feed'
   | 'play'
   | 'clean'

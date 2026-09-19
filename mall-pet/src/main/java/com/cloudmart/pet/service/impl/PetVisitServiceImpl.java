@@ -9,12 +9,18 @@ import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
+import com.cloudmart.pet.enums.PetRelationAction;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
+import com.cloudmart.pet.service.PetRelationService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.service.PetVisitService;
 import com.cloudmart.pet.vo.PetVisitResultVO;
@@ -60,6 +66,9 @@ public class PetVisitServiceImpl implements PetVisitService {
     private final WishFeignClient wishFeignClient;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
+    private final PetRelationService relationService;
 
     public PetVisitServiceImpl(PetService petService,
                                PetStateService stateService,
@@ -69,7 +78,10 @@ public class PetVisitServiceImpl implements PetVisitService {
                                PetEventProducer eventProducer,
                                WishFeignClient wishFeignClient,
                                PetProperties properties,
-                               StringRedisTemplate redisTemplate) {
+                               StringRedisTemplate redisTemplate,
+                               PetDailyQuestService dailyQuestService,
+                               PetIntimacyService intimacyService,
+                               PetRelationService relationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -79,6 +91,9 @@ public class PetVisitServiceImpl implements PetVisitService {
         this.wishFeignClient = wishFeignClient;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
+        this.relationService = relationService;
     }
 
     @Override
@@ -135,7 +150,11 @@ public class PetVisitServiceImpl implements PetVisitService {
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getHappinessGain()));
         pet.setStatus(PetStatus.IDLE.name());
         recordVisitActivity(pet, neighbor);
+        // 三期埋点：亲密度（与经验同一次写入）+ 每日任务 + 关系亲密度
+        intimacyService.gain(pet, PetIntimacySource.VISIT);
         int levelups = stateService.grantExp(pet, cfg.getExpGain());
+        dailyQuestService.record(pet, PetQuestType.VISIT, 1);
+        relationService.gainBetween(pet, neighbor, PetRelationAction.VISIT);
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
         }

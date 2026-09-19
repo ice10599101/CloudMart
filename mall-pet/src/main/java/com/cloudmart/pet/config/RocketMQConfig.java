@@ -37,6 +37,20 @@ public final class RocketMQConfig {
     public static final String PET_TAG_VISIT = "visit";
     /** Tag：社区宠物活动达成（原文档 §89 社区宠物活动） */
     public static final String PET_TAG_EVENT_READY = "event-ready";
+    /** Tag：宠物关系（申请/建立，三期） */
+    public static final String PET_TAG_RELATION = "relation";
+    /** Tag：宠物好友（申请/互访，三期） */
+    public static final String PET_TAG_FRIEND = "friend";
+    /** Tag：留言墙（收到留言/主人回复，三期） */
+    public static final String PET_TAG_WALL = "wall";
+    /** Tag：每日任务（全清宝箱可领，三期） */
+    public static final String PET_TAG_DAILY_QUEST = "daily-quest";
+    /** Tag：亲密度升级（三期） */
+    public static final String PET_TAG_INTIMACY = "intimacy";
+    /** Tag：职业晋升（三期） */
+    public static final String PET_TAG_CAREER = "career";
+    /** Tag：家园来访（三期） */
+    public static final String PET_TAG_HOME_VISIT = "home-visit";
 
     /** 社区事件 topic（mall-community 生产，mall-notification 与 mall-pet 各自消费） */
     public static final String COMMUNITY_TOPIC = "community-events";

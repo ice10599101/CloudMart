@@ -29,6 +29,13 @@ public class PetProperties {
     private final MultiPet multiPet = new MultiPet();
     private final Visit visit = new Visit();
     private final CommunityGrowth communityGrowth = new CommunityGrowth();
+    private final Career career = new Career();
+    private final Relation relation = new Relation();
+    private final Home home = new Home();
+    private final Friend friend = new Friend();
+    private final Wall wall = new Wall();
+    private final DailyQuest dailyQuest = new DailyQuest();
+    private final Intimacy intimacy = new Intimacy();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -147,5 +154,141 @@ public class PetProperties {
         private int expPerEvent = 1;
         /** 每日经验上限（Redis 计数，Fail-Open 时按上限放行） */
         private int dailyExpCap = 20;
+    }
+
+    /** 宠物职业（三期）：职业数值在 pet_career_config，这里只放风控参数 */
+    @Getter
+    @Setter
+    public static class Career {
+        /** 每日职业工作次数上限（Redis 计数，Fail-Open 放行） */
+        private int dailyWorkLimit = 6;
+    }
+
+    /** 宠物关系（三期）：情侣 1v1，其余类型每只上限；亲密度只增不减 */
+    @Getter
+    @Setter
+    public static class Relation {
+        private int maxCouple = 1;
+        private int maxBestie = 3;
+        private int maxBrother = 3;
+        private int maxConfidant = 3;
+        /** 每日关系申请次数上限 */
+        private int requestDailyLimit = 10;
+        /** 关系亲密度等级阈值（升序，首项 0） */
+        private List<Integer> levelThresholds = List.of(0, 50, 150, 400, 900);
+        /** 关系亲密度等级名（与阈值一一对应） */
+        private List<String> levelNames = List.of("初见", "熟络", "默契", "挚交", "生死之交");
+        /** 好友互访给关系加的亲密度（双方均加） */
+        private int intimacyGainVisit = 3;
+        /** 留言给关系加的亲密度 */
+        private int intimacyGainWall = 1;
+        /** 双方对战给关系加的亲密度 */
+        private int intimacyGainBattle = 2;
+        /** 关系每日亲密度上限（防止互刷） */
+        private int dailyIntimacyCap = 20;
+    }
+
+    /** 家园/房间（三期）：网格尺寸、舒适度加成与互访收益 */
+    @Getter
+    @Setter
+    public static class Home {
+        /** 网格宽（列数） */
+        private int gridWidth = 4;
+        /** 网格高（行数） */
+        private int gridHeight = 3;
+        /** 舒适度达到该值后享受休息加成 */
+        private int comfortBonusThreshold = 60;
+        /** 舒适加成：休息时额外恢复的心情（舒适度越高越多，封顶该值） */
+        private int comfortRestHappinessBonus = 10;
+        /** 每日首次进入自己家园：心情/经验 */
+        private int dailyEnterHappiness = 6;
+        private int dailyEnterExp = 5;
+        /** 来访他人房间：访客获得的心情/经验 */
+        private int visitRewardHappiness = 4;
+        private int visitRewardExp = 5;
+        /** 房间主人收到来访的经验（回礼） */
+        private int hostVisitRewardExp = 2;
+        /** 点赞他人房间：访客获得的经验 */
+        private int likeRewardExp = 1;
+        /** 每日访问他人房间次数上限 */
+        private int dailyVisitLimit = 10;
+        /** 每日点赞次数上限 */
+        private int dailyLikeLimit = 20;
+    }
+
+    /** 好友互访（三期） */
+    @Getter
+    @Setter
+    public static class Friend {
+        /** 好友数量上限 */
+        private int maxFriends = 50;
+        /** 每日好友申请次数上限 */
+        private int requestDailyLimit = 10;
+        /** 每日互访次数上限 */
+        private int dailyVisitLimit = 5;
+        /** 互访：访客宠物获得的心情/经验 */
+        private int visitRewardHappiness = 5;
+        private int visitRewardExp = 6;
+        /** 互访：好友宠物获得的经验（被访问回礼） */
+        private int visitHostExp = 2;
+    }
+
+    /** 留言墙（三期） */
+    @Getter
+    @Setter
+    public static class Wall {
+        /** 留言最大长度 */
+        private int maxLength = 120;
+        /** 每日留言条数上限（跨房间累计） */
+        private int dailyPostLimit = 10;
+        /** 每日点赞次数上限 */
+        private int dailyLikeLimit = 30;
+        /** 单页条数上限 */
+        private int maxPageSize = 50;
+    }
+
+    /** 每日任务（三期）：任务数值在 pet_daily_quest_config，这里放全清奖励 */
+    @Getter
+    @Setter
+    public static class DailyQuest {
+        /** 全清宝箱：经验 */
+        private int chestExp = 60;
+        /** 全清宝箱：星光 */
+        private int chestCurrency = 80;
+    }
+
+    /** 亲密度与陪伴时长（三期）：数值只增不减，等级提供经验加成 */
+    @Getter
+    @Setter
+    public static class Intimacy {
+        private int feedGain = 2;
+        private int playGain = 3;
+        private int cleanGain = 2;
+        private int restGain = 1;
+        private int chatGain = 1;
+        private int workGain = 4;
+        private int studyGain = 4;
+        private int bottleGain = 5;
+        private int battleGain = 3;
+        private int visitGain = 3;
+        private int roomGain = 2;
+        private int wallGain = 1;
+        private int questGain = 2;
+        /** 陪伴：每累计多少秒加 1 点亲密度 */
+        private int companionSecondsPerPoint = 600;
+        /** 陪伴：每日计入的亲密度点数上限 */
+        private int companionDailyPointCap = 8;
+        /** 陪伴：每日计入的秒数上限（超出不计，防止挂机） */
+        private int companionDailyCapSeconds = 7200;
+        /** 亲密度等级阈值（升序，首项 0） */
+        private List<Integer> levelThresholds = List.of(0, 100, 300, 700, 1500, 3000, 6000, 12000);
+        /** 亲密度等级名（与阈值一一对应） */
+        private List<String> levelNames = List.of("初识", "熟悉", "亲近", "亲密", "知心", "挚友", "家人", "灵魂伴侣");
+        /** 每级亲密度提供的经验加成（0.01 = 1%） */
+        private double expBonusPerLevel = 0.01;
+        /** 经验加成上限 */
+        private double maxExpBonus = 0.10;
+        /** 亲密度升级奖励星光 = base × 新等级序号 */
+        private int levelRewardStarlightBase = 120;
     }
 }

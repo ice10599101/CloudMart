@@ -13,6 +13,8 @@ import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetBottleOutcome;
 import com.cloudmart.pet.enums.PetBottleRarity;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
@@ -20,6 +22,8 @@ import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetBottleFishingService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
@@ -79,6 +83,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     private final PetBottleContentProvider contentProvider;
     private final PetProperties properties;
     private final PetStatsService statsService;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBottleFishingServiceImpl(PetService petService,
@@ -91,7 +97,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                                        PetEventProducer eventProducer,
                                        PetBottleContentProvider contentProvider,
                                        PetProperties properties,
-                                       PetStatsService statsService) {
+                                       PetStatsService statsService,
+                                       PetDailyQuestService dailyQuestService,
+                                       PetIntimacyService intimacyService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -103,6 +111,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         this.contentProvider = contentProvider;
         this.properties = properties;
         this.statsService = statsService;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
     }
 
     @Override
@@ -319,13 +329,18 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
 
         activity.setResult(resultJson(outcome, bottleId, expGain, rate, rarity, specialContent));
         activityMapper.updateById(activity);
+        // 三期埋点：亲密度（无经验时也要落库，故独立补写一次宠物行）
+        intimacyService.gain(pet, PetIntimacySource.BOTTLE);
         if (expGain > 0) {
             pet.setStatus(PetStatus.IDLE.name());
             int levelups = stateService.grantExp(pet, expGain);
             if (levelups > 0) {
                 achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
             }
+        } else {
+            petMapper.updateById(pet);
         }
+        dailyQuestService.record(pet, PetQuestType.BOTTLE, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.BOTTLE_SETTLED);
         if (outcome == PetBottleOutcome.CAUGHT) {
             if (rarity == PetBottleRarity.RARE) {

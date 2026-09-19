@@ -19,6 +19,8 @@ import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -72,6 +74,10 @@ class PetBottleFishingServiceImplTest {
     private PetBottleContentProvider contentProvider;
     @Mock
     private PetStatsService statsService;
+    @Mock
+    private PetDailyQuestService dailyQuestService;
+    @Mock
+    private PetIntimacyService intimacyService;
 
     private PetBottleFishingServiceImpl bottleService;
 
@@ -87,7 +93,7 @@ class PetBottleFishingServiceImplTest {
     void setUp() {
         bottleService = new PetBottleFishingServiceImpl(petService, stateService, activityMapper,
                 bottleRecordMapper, petMapper, wishFeignClient, achievementService, eventProducer,
-                contentProvider, new PetProperties(), statsService);
+                contentProvider, new PetProperties(), statsService, dailyQuestService, intimacyService);
         // 无装备/技能时战斗属性 = 宠物基础属性（与改造前成功率口径一致）
         lenient().when(statsService.combatStats(any())).thenAnswer(invocation -> {
             Pet pet = invocation.getArgument(0);

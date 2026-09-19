@@ -105,6 +105,9 @@ public class PetShopServiceImpl implements PetShopService {
             case EQUIPMENT -> buyEquipment(pet, request.itemCode());
             case SKIN -> buySkin(pet, request.itemCode());
             case SKILL_BOOK -> buySkillBook(pet, request.itemCode());
+            // 三期家具走家园商城（/home/furniture/buy）：这里显式拒绝，避免前端走错入口默默失败
+            case FURNITURE -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "家具请到家园商城购买哦");
         };
     }
 

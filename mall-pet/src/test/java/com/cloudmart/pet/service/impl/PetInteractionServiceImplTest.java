@@ -10,6 +10,9 @@ import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetHomeService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -52,6 +55,12 @@ class PetInteractionServiceImplTest {
     @Mock
     private PetAchievementService achievementService;
     @Mock
+    private PetDailyQuestService dailyQuestService;
+    @Mock
+    private PetIntimacyService intimacyService;
+    @Mock
+    private PetHomeService homeService;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private PetEventProducer eventProducer;
@@ -70,7 +79,8 @@ class PetInteractionServiceImplTest {
     @BeforeEach
     void setUp() {
         interactionService = new PetInteractionServiceImpl(petService, stateService, activityMapper,
-                petMapper, achievementService, properties, redisTemplate, eventProducer);
+                petMapper, achievementService, dailyQuestService, intimacyService, homeService,
+                properties, redisTemplate, eventProducer);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
     }
@@ -94,7 +104,8 @@ class PetInteractionServiceImplTest {
         return new PetVO(1L, 100L, "小橘", "CAT", "{}", "LIVELY", 2, 0, 200, "BABY",
                 80, 100, 60, 60, 100, 60, 5, 5, 5, 5, "IDLE", null, null, null,
                 true, null, LocalDateTime.now(ZoneId.of("UTC")),
-                0, null, 1, 3);
+                0, null, 1, 3,
+                0, 1, "初识", 100, 0, 0L, 0, 0, 0, null, null, null);
     }
 
     @Test

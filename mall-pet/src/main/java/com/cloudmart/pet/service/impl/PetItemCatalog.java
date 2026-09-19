@@ -2,11 +2,13 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
+import com.cloudmart.pet.entity.PetFurnitureConfig;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetSkillConfig;
 import com.cloudmart.pet.entity.PetSkinConfig;
 import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.repository.PetEquipmentConfigMapper;
+import com.cloudmart.pet.repository.PetFurnitureConfigMapper;
 import com.cloudmart.pet.repository.PetSkillConfigMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
 import com.cloudmart.pet.vo.PetInventoryItemVO;
@@ -39,13 +41,26 @@ public class PetItemCatalog {
     private final PetEquipmentConfigMapper equipmentConfigMapper;
     private final PetSkinConfigMapper skinConfigMapper;
     private final PetSkillConfigMapper skillConfigMapper;
+    private final PetFurnitureConfigMapper furnitureConfigMapper;
 
     public PetItemCatalog(PetEquipmentConfigMapper equipmentConfigMapper,
                           PetSkinConfigMapper skinConfigMapper,
-                          PetSkillConfigMapper skillConfigMapper) {
+                          PetSkillConfigMapper skillConfigMapper,
+                          PetFurnitureConfigMapper furnitureConfigMapper) {
         this.equipmentConfigMapper = equipmentConfigMapper;
         this.skinConfigMapper = skinConfigMapper;
         this.skillConfigMapper = skillConfigMapper;
+        this.furnitureConfigMapper = furnitureConfigMapper;
+    }
+
+    /** 家具配置（三期家园）：不存在返回空 */
+    public Optional<PetFurnitureConfig> furniture(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(furnitureConfigMapper.selectOne(new LambdaQueryWrapper<PetFurnitureConfig>()
+                .eq(PetFurnitureConfig::getCode, code)
+                .last("LIMIT 1")));
     }
 
     public Optional<PetEquipmentConfig> equipment(String code) {
@@ -117,6 +132,22 @@ public class PetItemCatalog {
                     config != null ? config.getColor() : null,
                     config != null ? config.getAccessory() : null,
                     null, null, 0, 0, 0, 0, 0,
+                    Boolean.TRUE.equals(item.getEquipped()), item.getQuantity(), used, item.getAcquiredAt());
+        }
+        if (PetItemType.FURNITURE.name().equals(type)) {
+            // 家具借用 slot 字段回传分类、effect/effectValue 回传舒适度（前端背包统一渲染）
+            PetFurnitureConfig config = furniture(item.getItemCode()).orElse(null);
+            return new PetInventoryItemVO(type, item.getItemCode(),
+                    config != null ? config.getName() : item.getItemCode(),
+                    config != null ? config.getDescription() : "",
+                    config != null ? config.getIcon() : "🧸",
+                    config != null ? config.getRarity() : "COMMON",
+                    config != null ? config.getCategory() : item.getSlot(),
+                    null, null,
+                    config != null ? config.getCategory() : null,
+                    java.math.BigDecimal.valueOf(
+                            config != null && config.getComfort() != null ? config.getComfort() : 0),
+                    0, 0, 0, 0, 0,
                     Boolean.TRUE.equals(item.getEquipped()), item.getQuantity(), used, item.getAcquiredAt());
         }
         PetSkillConfig config = skill(item.getItemCode()).orElse(null);

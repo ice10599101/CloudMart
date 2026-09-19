@@ -94,6 +94,7 @@ public class PetContextService {
         }
         return switch (PetActivityType.valueOf(active.getActivityType())) {
             case WORK -> "正在打工";
+            case CAREER_WORK -> "正在上班（职业工作）";
             case STUDY -> "正在读书";
             case BOTTLE_FISHING -> "正在海边捞漂流瓶";
             case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> "休息中";

@@ -16,7 +16,13 @@ import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetBattleMapper;
 import com.cloudmart.pet.repository.PetMapper;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
+import com.cloudmart.pet.enums.PetRelationAction;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
+import com.cloudmart.pet.service.PetRelationService;
 import com.cloudmart.pet.service.PetBattleService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
@@ -61,6 +67,9 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetEventProducer eventProducer;
     private final PetProperties properties;
     private final PetStatsService statsService;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
+    private final PetRelationService relationService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -71,7 +80,10 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetAchievementService achievementService,
                                 PetEventProducer eventProducer,
                                 PetProperties properties,
-                                PetStatsService statsService) {
+                                PetStatsService statsService,
+                                PetDailyQuestService dailyQuestService,
+                                PetIntimacyService intimacyService,
+                                PetRelationService relationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -81,6 +93,9 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.eventProducer = eventProducer;
         this.properties = properties;
         this.statsService = statsService;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
+        this.relationService = relationService;
     }
 
     @Override
@@ -295,12 +310,15 @@ public class PetBattleServiceImpl implements PetBattleService {
         int attackerExp = attackerWon
                 ? properties.getBattle().getWinExp()
                 : properties.getBattle().getLoseExp();
+        // 三期埋点：亲密度先叠加（与经验同一次写入）
+        intimacyService.gain(attacker, PetIntimacySource.BATTLE);
         int levelups = stateService.grantExp(attacker, attackerExp);
         if (levelups > 0) {
             achievementService.evaluate(attacker, PetAchievementService.Event.LEVEL_UP);
             notifyLevelUp(attacker.getUserId(), attacker);
         }
         achievementService.evaluate(attacker, PetAchievementService.Event.BATTLE_FINISHED);
+        dailyQuestService.record(attacker, PetQuestType.BATTLE, 1);
 
         if (attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
             wishFeignClient.earnStarlight(battle.getAttackerUserId(), battle.getCurrencyReward(), battle.getId());
@@ -312,12 +330,16 @@ public class PetBattleServiceImpl implements PetBattleService {
                 int defenderExp = attackerWon
                         ? properties.getBattle().getLoseExp()
                         : properties.getBattle().getWinExp();
+                intimacyService.gain(defender, PetIntimacySource.BATTLE);
                 int defenderLevelups = stateService.grantExp(defender, defenderExp);
                 if (defenderLevelups > 0) {
                     achievementService.evaluate(defender, PetAchievementService.Event.LEVEL_UP);
                     notifyLevelUp(defender.getUserId(), defender);
                 }
                 achievementService.evaluate(defender, PetAchievementService.Event.BATTLE_FINISHED);
+                dailyQuestService.record(defender, PetQuestType.BATTLE, 1);
+                // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
+                relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
                 if (!attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
                     wishFeignClient.earnStarlight(defender.getUserId(), battle.getCurrencyReward(), battle.getId());
                 }

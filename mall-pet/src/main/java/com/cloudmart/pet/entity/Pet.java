@@ -46,6 +46,9 @@ public class Pet {
     /** 性格：LIVELY/GENTLE/TSUNDERE/SIMPLE/COOL/CHATTERBOX（决定 AI 说话风格） */
     private String personality;
 
+    /** 当前职业编码（pet_career_config.code，NULL = 未入职；见三期宠物职业） */
+    private String careerCode;
+
     /** 等级（1 起） */
     private Integer level;
 
@@ -90,6 +93,24 @@ public class Pet {
 
     /** 魅力 */
     private Integer charm;
+
+    /** 与主人的亲密度（只增不减；等级阈值见 PetProperties.Intimacy） */
+    private Integer intimacy;
+
+    /** 累计陪伴时长（秒，心跳累加，日上限见配置） */
+    private Long companionSeconds;
+
+    /** 累计陪伴天数（去重日期数） */
+    private Integer companionDays;
+
+    /** 连续陪伴天数（断签重置） */
+    private Integer companionStreak;
+
+    /** 最近一次陪伴日期（UTC，连续天数判定） */
+    private java.time.LocalDate lastCompanionDate;
+
+    /** 今日陪伴秒数（跨天惰性重置） */
+    private Integer todayCompanionSeconds;
 
     /** 状态快照（展示冗余；权威状态由 pet_activity 合成） */
     private String status;

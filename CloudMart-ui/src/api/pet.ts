@@ -48,6 +48,19 @@ export interface PetInfo {
   petCount: number
   /** 宠物数量上限 */
   maxPets: number
+  // ---- 三期：亲密度 / 陪伴 / 职业（服务端权威，前端只展示）----
+  intimacy: number
+  intimacyLevel: number
+  intimacyLevelName: string
+  intimacyToNext: number
+  intimacyExpBonusPercent: number
+  companionSeconds: number
+  todayCompanionSeconds: number
+  companionDays: number
+  companionStreak: number
+  careerCode: string | null
+  careerName: string | null
+  careerTier: number | null
 }
 
 export interface PetActivityItem {
@@ -613,4 +626,469 @@ export function visitNeighborPet(petId: number | string) {
 /** 宠物提醒未读数（宠物入口角标；服务降级返回 0） */
 export function getPetReminderUnreadCount() {
   return request.get<ApiResponse<number>>('/pet/reminders/unread-count')
+}
+
+// ==================== 三期：职业 / 家园 / 每日任务 / 关系 / 好友 / 留言墙 / 亲密度 ====================
+
+/** 亲密度与陪伴（等级/进度/加成/陪伴时长） */
+export interface PetIntimacyInfo {
+  intimacy: number
+  level: number
+  levelName: string
+  levelFloor: number
+  nextLevelAt: number | null
+  toNext: number
+  expBonusPercent: number
+  companionSeconds: number
+  todayCompanionSeconds: number
+  dailyCompanionCapSeconds: number
+  companionDays: number
+  companionStreak: number
+  levels: Array<{ level: number; name: string; threshold: number; achieved: boolean }>
+}
+
+/** 职业项 */
+export interface PetCareerItem {
+  code: string
+  name: string
+  description: string
+  careerLine: string
+  tier: number
+  icon: string
+  requiredLevel: number
+  requiredIntelligence: number
+  durationSeconds: number
+  energyCost: number
+  hungerCost: number
+  expReward: number
+  currencyReward: number
+  workCount: number
+  current: boolean
+  eligible: boolean
+  lockReason: string | null
+  promoteToName: string | null
+  promoteRequiredCount: number
+  promoteStarCost: number
+  promoteCurrentCount: number
+  canPromote: boolean
+  promoteLockReason: string | null
+}
+
+/** 职业面板 */
+export interface PetCareerPanel {
+  careerCode: string | null
+  careerName: string | null
+  careerLine: string | null
+  tier: number | null
+  icon: string | null
+  workCount: number
+  activeActivity: PetActivityItem | null
+  canPromote: boolean
+  promoteToName: string | null
+  promoteRequiredCount: number
+  promoteStarCost: number
+  promoteLockReason: string | null
+  careers: PetCareerItem[]
+  history: Array<{
+    code: string
+    name: string
+    workCount: number
+    totalCurrency: number
+    startedAt: string
+    promotedAt: string
+  }>
+}
+
+/** 每日任务项 */
+export interface PetDailyQuestItem {
+  code: string
+  name: string
+  description: string
+  icon: string
+  questType: string
+  progress: number
+  targetValue: number
+  status: string
+  statusLabel: string
+  claimable: boolean
+  expReward: number
+  currencyReward: number
+}
+
+/** 每日任务面板 */
+export interface PetDailyQuestPanel {
+  questDate: string
+  quests: PetDailyQuestItem[]
+  completedCount: number
+  claimedCount: number
+  totalCount: number
+  chestClaimable: boolean
+  chestClaimed: boolean
+  chestExp: number
+  chestCurrency: number
+}
+
+/** 关系项 */
+export interface PetRelationItem {
+  id: number | null
+  relType: string | null
+  relTypeLabel: string | null
+  status: string | null
+  direction: string
+  intimacy: number
+  intimacyLevel: number
+  intimacyLevelName: string | null
+  intimacyToNext: number
+  petId: number
+  petName: string
+  species: string
+  level: number
+  growthStage: string
+  evolutionStage: number
+  skinCode: string | null
+  ownerNickname: string
+  message: string | null
+  createdAt: string | null
+  acceptedAt: string | null
+}
+
+/** 关系面板 */
+export interface PetRelationPanel {
+  relations: PetRelationItem[]
+  incoming: PetRelationItem[]
+  outgoing: PetRelationItem[]
+  candidates: PetRelationItem[]
+  limits: Array<{ relType: string; label: string; max: number; current: number; exclusive: boolean }>
+}
+
+/** 家园家具项 */
+export interface PetHomeItem {
+  code: string
+  name: string
+  description: string
+  category: string
+  categoryLabel: string
+  icon: string
+  rarity: string
+  comfort: number
+  priceStarlight: number
+  requiredLevel: number
+  posX: number | null
+  posY: number | null
+  owned: boolean
+  eligible: boolean
+  lockReason: string | null
+  themeActive: boolean
+}
+
+/** 我的家园 */
+export interface PetHome {
+  petId: number
+  petName: string
+  wallCode: string | null
+  floorCode: string | null
+  welcomeMessage: string
+  isPublic: boolean
+  comfort: number
+  visitCount: number
+  likeCount: number
+  gridWidth: number
+  gridHeight: number
+  comfortBonusThreshold: number
+  comfortRestHappinessBonus: number
+  dailyEnterRewarded: boolean
+  placed: PetHomeItem[]
+  inventory: PetHomeItem[]
+  shop: PetHomeItem[]
+}
+
+/** 访问他人家园结果 */
+export interface PetRoomVisit {
+  petId: number
+  petName: string
+  species: string
+  level: number
+  evolutionStage: number
+  skinCode: string | null
+  ownerNickname: string
+  welcomeMessage: string
+  wallCode: string | null
+  floorCode: string | null
+  comfort: number
+  visitCount: number
+  likeCount: number
+  liked: boolean
+  visitedToday: boolean
+  rewardHappiness: number
+  rewardExp: number
+  hostRewardExp: number
+  friend: boolean
+  message: string
+  placed: PetHomeItem[]
+}
+
+/** 房间点赞结果 */
+export interface PetRoomLike {
+  petId: number
+  likeCount: number
+  newlyLiked: boolean
+  rewardExp: number
+  message: string
+}
+
+/** 好友项 */
+export interface PetFriendItem {
+  userId: number
+  nickname: string
+  petId: number | null
+  petName: string | null
+  species: string | null
+  level: number | null
+  evolutionStage: number
+  skinCode: string | null
+  status: string
+  direction: string
+  visitCount: number
+  lastVisitAt: string | null
+  visitedToday: boolean
+}
+
+/** 好友面板 */
+export interface PetFriendPanel {
+  friends: PetFriendItem[]
+  incoming: PetFriendItem[]
+  outgoing: PetFriendItem[]
+  maxFriends: number
+  dailyVisitLimit: number
+  todayVisitCount: number
+  remainingVisits: number
+}
+
+/** 好友互访结果 */
+export interface PetFriendVisitResult {
+  room: PetRoomVisit
+  nickname: string
+  visitCount: number
+  relationIntimacyAdded: boolean
+  message: string
+}
+
+/** 留言墙留言 */
+export interface PetWallMessage {
+  id: number
+  petId: number
+  parentId: number | null
+  authorUserId: number
+  authorNickname: string
+  authorPetId: number | null
+  authorPetName: string | null
+  authorPetSpecies: string | null
+  content: string
+  mood: string | null
+  status: string
+  likeCount: number
+  replyCount: number
+  liked: boolean
+  mine: boolean
+  owner: boolean
+  ownerReply: boolean
+  createdAt: string
+  replies: PetWallMessage[]
+}
+
+/** 留言墙分页 */
+export interface PetWallPage {
+  petId: number
+  petName: string
+  species: string
+  level: number
+  evolutionStage: number
+  skinCode: string | null
+  ownerNickname: string
+  welcomeMessage: string | null
+  roomPublic: boolean
+  page: number
+  size: number
+  total: number
+  dailyPostLimit: number
+  messages: PetWallMessage[]
+}
+
+/** 留言点赞结果 */
+export interface PetWallLike {
+  messageId: number
+  likeCount: number
+  liked: boolean
+  newlyLiked: boolean
+  message: string
+}
+
+/** 职业面板 */
+export function getPetCareer() {
+  return request.get<ApiResponse<PetCareerPanel>>('/pet/career')
+}
+
+/** 入职/转职（等级/智力不满足 409 PET_CAREER_LOCKED） */
+export function applyPetCareer(careerCode: string) {
+  return request.post<ApiResponse<PetCareerItem>>('/pet/career/apply', { careerCode })
+}
+
+/** 开始职业工作（与打工互斥） */
+export function startPetCareerWork() {
+  return request.post<ApiResponse<PetActivityItem>>('/pet/career/work/start')
+}
+
+/** 领取职业工作奖励（CAS 幂等） */
+export function claimPetCareerWork() {
+  return request.post<ApiResponse<PetActivityItem>>('/pet/career/work/claim')
+}
+
+/** 晋升（次数/等级/星光三条件；最高阶 409 PET_CAREER_MAX_TIER） */
+export function promotePetCareer() {
+  return request.post<ApiResponse<PetCareerItem>>('/pet/career/promote')
+}
+
+/** 每日任务面板 */
+export function getPetDailyQuests() {
+  return request.get<ApiResponse<PetDailyQuestPanel>>('/pet/daily-quests')
+}
+
+/** 领取每日任务奖励 */
+export function claimPetDailyQuest(code: string) {
+  return request.post<ApiResponse<PetDailyQuestItem>>(`/pet/daily-quests/${code}/claim`)
+}
+
+/** 领取全清宝箱（有未领任务时 409 PET_QUEST_CHEST_NOT_READY） */
+export function claimPetDailyQuestChest() {
+  return request.post<ApiResponse<PetDailyQuestPanel>>('/pet/daily-quests/chest/claim')
+}
+
+/** 宠物关系面板 */
+export function getPetRelations() {
+  return request.get<ApiResponse<PetRelationPanel>>('/pet/relations')
+}
+
+/** 申请关系（情侣已有一段 409 PET_RELATION_EXCLUSIVE） */
+export function requestPetRelation(data: { toPetId: number; relType: string; message?: string }) {
+  return request.post<ApiResponse<PetRelationItem>>('/pet/relations/request', data)
+}
+
+/** 确认关系 */
+export function acceptPetRelation(relationId: number) {
+  return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/accept`)
+}
+
+/** 拒绝关系申请 */
+export function rejectPetRelation(relationId: number) {
+  return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/reject`)
+}
+
+/** 解除关系 */
+export function dissolvePetRelation(relationId: number) {
+  return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/dissolve`)
+}
+
+/** 我的家园（每日首次进入有奖励） */
+export function getPetHome() {
+  return request.get<ApiResponse<PetHome>>('/pet/home')
+}
+
+/** 购买家具（先入包再扣星光） */
+export function buyPetFurniture(furnitureCode: string) {
+  return request.post<ApiResponse<PetInventoryItem>>('/pet/home/furniture/buy', { furnitureCode })
+}
+
+/** 摆放家具（越界 400 / 格子占用 409） */
+export function placePetFurniture(data: { furnitureCode: string; posX: number; posY: number }) {
+  return request.post<ApiResponse<PetHome>>('/pet/home/furniture/place', data)
+}
+
+/** 卸下家具（按格子） */
+export function removePetFurniture(posX: number, posY: number) {
+  return request.delete<ApiResponse<PetHome>>('/pet/home/furniture', { params: { posX, posY } })
+}
+
+/** 更换墙纸/地板 */
+export function updatePetRoomTheme(data: { wallCode?: string | null; floorCode?: string | null }) {
+  return request.put<ApiResponse<PetHome>>('/pet/home/theme', data)
+}
+
+/** 家园设置（来访开关 / 欢迎语） */
+export function updatePetRoomSettings(data: { isPublic?: boolean; welcomeMessage?: string }) {
+  return request.put<ApiResponse<PetHome>>('/pet/home/settings', data)
+}
+
+/** 访问他人家园（未公开 403；每日次数上限） */
+export function visitPetHome(petId: number) {
+  return request.get<ApiResponse<PetRoomVisit>>(`/pet/home/${petId}`)
+}
+
+/** 给他人房间点赞（uk 幂等） */
+export function likePetHome(petId: number) {
+  return request.post<ApiResponse<PetRoomLike>>(`/pet/home/${petId}/like`)
+}
+
+/** 好友面板 */
+export function getPetFriends() {
+  return request.get<ApiResponse<PetFriendPanel>>('/pet/friends')
+}
+
+/** 申请加好友（对方已申请则直接互相确认） */
+export function requestPetFriend(userId: number) {
+  return request.post<ApiResponse<PetFriendItem>>(`/pet/friends/${userId}`)
+}
+
+/** 同意好友申请 */
+export function acceptPetFriend(userId: number) {
+  return request.post<ApiResponse<PetFriendItem>>(`/pet/friends/${userId}/accept`)
+}
+
+/** 拒绝好友申请 */
+export function rejectPetFriend(userId: number) {
+  return request.post<ApiResponse<PetFriendItem>>(`/pet/friends/${userId}/reject`)
+}
+
+/** 删除好友（双向） */
+export function removePetFriend(userId: number) {
+  return request.delete<ApiResponse<void>>(`/pet/friends/${userId}`)
+}
+
+/** 好友互访（每日上限；双方受益） */
+export function visitPetFriend(userId: number) {
+  return request.post<ApiResponse<PetFriendVisitResult>>(`/pet/friends/${userId}/visit`)
+}
+
+/** 留言墙分页 */
+export function getPetWall(petId: number, page = 1, size = 10) {
+  return request.get<ApiResponse<PetWallPage>>(`/pet/wall/${petId}`, { params: { page, size } })
+}
+
+/** 留言（1-120 字；每日上限 429） */
+export function postPetWallMessage(data: { petId: number; content: string; mood?: string }) {
+  return request.post<ApiResponse<PetWallMessage>>('/pet/wall/messages', data)
+}
+
+/** 主人回复留言 */
+export function replyPetWallMessage(data: { messageId: number; content: string }) {
+  return request.post<ApiResponse<PetWallMessage>>('/pet/wall/messages/reply', data)
+}
+
+/** 删除留言（作者或墙主人） */
+export function deletePetWallMessage(messageId: number) {
+  return request.delete<ApiResponse<void>>(`/pet/wall/messages/${messageId}`)
+}
+
+/** 点赞/取消点赞留言 */
+export function likePetWallMessage(messageId: number) {
+  return request.post<ApiResponse<PetWallLike>>(`/pet/wall/messages/${messageId}/like`)
+}
+
+/** 亲密度与陪伴 */
+export function getPetIntimacy() {
+  return request.get<ApiResponse<PetIntimacyInfo>>('/pet/intimacy')
+}
+
+/** 陪伴心跳（前端按间隔上报秒数，服务端按日封顶） */
+export function sendPetCompanionHeartbeat(seconds: number) {
+  return request.post<ApiResponse<PetIntimacyInfo>>('/pet/companion/heartbeat', { seconds })
 }

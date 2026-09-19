@@ -38,6 +38,13 @@ import {
   type PetStudyItem,
   type PetSummary,
   type PetVisitNeighbor,
+  type PetCareerPanel,
+  type PetDailyQuestPanel,
+  type PetFriendPanel,
+  type PetHome,
+  type PetIntimacyInfo,
+  type PetRelationPanel,
+  type PetWallPage,
 } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
 
@@ -71,11 +78,11 @@ const RARITY_LABEL: Record<string, string> = {
 }
 
 type PanelKey =
-  | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
+  | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
 
-/** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物） */
-type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'pets'
+/** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物 + 三期职业） */
+type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'career' | 'pets'
 
 const CARE_TABS: Array<{ key: CareTab; label: string }> = [
   { key: 'shop', label: '🛒 商城' },
@@ -84,6 +91,7 @@ const CARE_TABS: Array<{ key: CareTab; label: string }> = [
   { key: 'evolution', label: '🌠 进化' },
   { key: 'events', label: '🎯 活动' },
   { key: 'visit', label: '🚪 串门' },
+  { key: 'career', label: '💼 职业' },
   { key: 'pets', label: '🐾 宠物' },
 ]
 
@@ -111,8 +119,10 @@ const CARE_ERROR_HINT: Record<string, string> = {
 }
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
-  { key: 'home', label: '小窝', emoji: '🏠' },
+  { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'care', label: '养成', emoji: '🎒' },
+  { key: 'daily', label: '任务', emoji: '✅' },
+  { key: 'social', label: '社交', emoji: '🤝' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
@@ -288,6 +298,7 @@ export default function PetScreen() {
   const [rankingType, setRankingType] = useState<PetRankingType>('LEVEL')
   const [reminders, setReminders] = useState<PetReminder[]>([])
   const [reminderUnread, setReminderUnread] = useState(0)
+  const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
   const [stageBubble, setStageBubble] = useState<string | null>(null)
 
   // 养成面板（商城/背包/技能/进化/活动/串门/多宠物）
@@ -360,6 +371,36 @@ export default function PetScreen() {
     }
     refresh()
   }, [isLoggedIn, refresh])
+
+  // 三期：亲密度概览（展示型数据，失败保持原值）+ 陪伴心跳（App 在前台时每 60 秒上报一次）
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return
+    }
+    void (async () => {
+      try {
+        const { data: res } = await petApi.getIntimacy()
+        if (res.success && res.data) {
+          setIntimacy(res.data)
+        }
+      } catch {
+        // 展示型数据：忽略
+      }
+    })()
+    const timer = setInterval(() => {
+      void (async () => {
+        try {
+          const { data: res } = await petApi.companionHeartbeat(60)
+          if (res.success && res.data) {
+            setIntimacy(res.data)
+          }
+        } catch {
+          // 心跳失败静默（下一轮重试）
+        }
+      })()
+    }, 60_000)
+    return () => clearInterval(timer)
+  }, [isLoggedIn])
 
   useEffect(() => {
     if (!gameUrl) return
@@ -923,6 +964,14 @@ export default function PetScreen() {
       {/* 状态条 */}
       <View style={{ marginTop: Spacing.md, gap: 8 }}>
         {barRows.map((row) => <StateBar key={row.label} {...row} />)}
+        {/* 三期：亲密度与陪伴（服务端权威，前端只展示） */}
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, marginTop: 4 }}>
+          💞 亲密度 {intimacy ? `${intimacy.intimacy}（${intimacy.levelName}）` : `${pet.intimacy}（${pet.intimacyLevelName}）`}
+          {intimacy && intimacy.nextLevelAt !== null ? ` · 还差 ${intimacy.toNext}` : ''}
+          {` · 经验加成 +${intimacy?.expBonusPercent ?? pet.intimacyExpBonusPercent}%`}
+          {` · 已陪伴 ${Math.floor((intimacy?.companionSeconds ?? pet.companionSeconds) / 3600)} 小时`}
+          {intimacy ? `（今日 ${Math.round(intimacy.todayCompanionSeconds / 60)} 分钟，连续 ${intimacy.companionStreak} 天）` : ''}
+        </Text>
       </View>
 
       {/* 进行中任务倒计时（按服务端 finishedAt） */}
@@ -988,8 +1037,11 @@ export default function PetScreen() {
 
       {/* 面板内容 */}
       <View style={{ marginTop: Spacing.md, backgroundColor: colors.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md, borderWidth: 1, borderColor: colors.border }}>
+        {panel === 'daily' && <DailyQuestPanel onRefresh={refresh} />}
+        {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
         {panel === 'home' && (
           <View style={{ gap: 6 }}>
+            <HomePanel onRefresh={refresh} />
             <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>养成小贴士</Text>
             <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>🍖 饱食和清洁随时间下降，记得回来照顾它</Text>
             <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>💼 打工赚星光，📚 读书涨智力</Text>
@@ -1420,7 +1472,8 @@ export default function PetScreen() {
               </View>
             )}
 
-            {careTab === 'pets' && (
+            {careTab === 'career' && <CareerPanel onRefresh={refresh} />}
+        {careTab === 'pets' && (
               <View style={{ gap: Spacing.sm }}>
                 <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
                   宠物 {pet.petCount} / {pet.maxPets}（日常玩法作用于主宠）
@@ -1708,5 +1761,818 @@ export default function PetScreen() {
         </Modal>
       )}
     </ScrollView>
+  )
+}
+
+// ==================== 三期面板：职业 / 每日任务 / 社交 / 家园（服务端权威，前端只发意图） ====================
+
+/** 职业面板：入职 / 职业工作 / 晋升 / 工作历史（挂在「养成 → 职业」页签） */
+function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
+  const colors = useTheme()
+  const [panel, setPanel] = useState<PetCareerPanel | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.getCareer()
+      if (res.success && res.data) {
+        setPanel(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        Alert.alert('成功', text)
+        await load()
+        onRefresh()
+      }
+    } catch (error) {
+      Alert.alert('暂时不能这么做', CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试')
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (!panel) {
+    return <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>职业信息加载中…</Text>
+  }
+  const activity = panel.activeActivity
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+        {panel.careerCode
+          ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
+          : '还没有工作，挑一份喜欢的职业入职吧'}
+        {panel.canPromote && panel.promoteToName ? ` · 可晋升「${panel.promoteToName}」` : ''}
+        {panel.promoteLockReason && panel.promoteToName ? ` · 晋升条件：${panel.promoteLockReason}` : ''}
+      </Text>
+      {panel.careerCode && (
+        <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+          {activity ? (
+            <ChipButton
+              label={activity.canClaim ? '领取工作奖励' : `工作中 ${Math.max(0, Math.ceil(activity.remainingSeconds / 60))} 分钟`}
+              primary
+              disabled={!activity.canClaim || pending === 'claim'}
+              onPress={() => run('claim', () => petApi.claimCareerWork(), '工钱到手啦！')}
+            />
+          ) : (
+            <ChipButton
+              label="去上班"
+              primary
+              disabled={pending === 'start'}
+              onPress={() => run('start', () => petApi.startCareerWork(), '开始工作啦')}
+            />
+          )}
+          <ChipButton
+            label="晋升"
+            disabled={!panel.canPromote || pending === 'promote'}
+            onPress={() => run('promote', () => petApi.promoteCareer(), '晋升成功！')}
+          />
+        </View>
+      )}
+      {panel.careers.map((career) => (
+        <View
+          key={career.code}
+          style={{ padding: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: colors.border, gap: 2 }}
+        >
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+            {career.icon} {career.name} · {career.careerLine} {career.tier} 阶
+          </Text>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            {career.description}
+          </Text>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            Lv.{career.requiredLevel} · {Math.round(career.durationSeconds / 60)} 分钟 · 精力 {career.energyCost} · 经验+
+            {career.expReward} ✨+{career.currencyReward}
+            {career.workCount > 0 ? ` · 已工作 ${career.workCount} 次` : ''}
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            {career.current ? (
+              <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>在职</Text>
+            ) : (
+              <ChipButton
+                label={career.eligible ? '入职' : career.lockReason ?? '未解锁'}
+                primary
+                disabled={!career.eligible || pending === `apply-${career.code}`}
+                onPress={() => run(`apply-${career.code}`, () => petApi.applyCareer(career.code), '入职成功！')}
+              />
+            )}
+          </View>
+        </View>
+      ))}
+      {panel.history.length > 0 && (
+        <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+          工作经历：{panel.history.map((item) => `${item.name}（${item.workCount} 次）`).join(' · ')}
+        </Text>
+      )}
+    </View>
+  )
+}
+
+/** 每日任务面板：进度 + 领奖 + 全清宝箱 */
+function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
+  const colors = useTheme()
+  const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.getDailyQuests()
+      if (res.success && res.data) {
+        setPanel(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        Alert.alert('成功', text)
+        await load()
+        onRefresh()
+      }
+    } catch (error) {
+      Alert.alert('暂时不能这么做', CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试')
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (!panel) {
+    return <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>任务加载中…</Text>
+  }
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+        今日进度 {panel.claimedCount}/{panel.totalCount} · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
+      </Text>
+      {panel.quests.map((quest) => (
+        <View
+          key={quest.code}
+          style={{ padding: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: colors.border, gap: 2 }}
+        >
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+            {quest.icon} {quest.name}
+          </Text>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            {quest.description} · 进度 {Math.min(quest.progress, quest.targetValue)}/{quest.targetValue} · 经验+
+            {quest.expReward} ✨+{quest.currencyReward}
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            {quest.status === 'CLAIMED' ? (
+              <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>已领取</Text>
+            ) : (
+              <ChipButton
+                label={quest.claimable ? '领取奖励' : quest.statusLabel}
+                primary
+                disabled={!quest.claimable || pending === `quest-${quest.code}`}
+                onPress={() => run(`quest-${quest.code}`, () => petApi.claimDailyQuest(quest.code), '奖励到手啦！')}
+              />
+            )}
+          </View>
+        </View>
+      ))}
+      {panel.chestClaimed ? (
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>宝箱已领取</Text>
+      ) : (
+        <ChipButton
+          label={panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
+          primary
+          disabled={!panel.chestClaimable || pending === 'chest'}
+          onPress={() => run('chest', () => petApi.claimDailyQuestChest(), '宝箱开啦！')}
+        />
+      )}
+    </View>
+  )
+}
+
+/** 社交面板：宠物关系 / 好友互访 / 留言墙 */
+function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
+  const colors = useTheme()
+  const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
+  const [relations, setRelations] = useState<PetRelationPanel | null>(null)
+  const [friends, setFriends] = useState<PetFriendPanel | null>(null)
+  const [wall, setWall] = useState<PetWallPage | null>(null)
+  const [wallInput, setWallInput] = useState('')
+  const [replyTo, setReplyTo] = useState<number | null>(null)
+  const [replyInput, setReplyInput] = useState('')
+  const [tip, setTip] = useState<string | null>(null)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const loadActive = useCallback(async () => {
+    try {
+      if (tab === 'relation') {
+        const { data: res } = await petApi.getRelations()
+        if (res.success && res.data) {
+          setRelations(res.data)
+        }
+      } else if (tab === 'friend') {
+        const { data: res } = await petApi.getFriends()
+        if (res.success && res.data) {
+          setFriends(res.data)
+        }
+      } else {
+        const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
+        if (res.success && res.data) {
+          setWall(res.data)
+        }
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [tab, pet.petId])
+
+  useEffect(() => {
+    void loadActive()
+  }, [loadActive])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        Alert.alert('成功', text)
+        await loadActive()
+        onRefresh()
+      }
+    } catch (error) {
+      Alert.alert('暂时不能这么做', CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试')
+    } finally {
+      setPending(null)
+    }
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 2,
+  }
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        {([
+          ['relation', '💞 关系'],
+          ['friend', '🫂 好友'],
+          ['wall', '📝 留言墙'],
+        ] as Array<[typeof tab, string]>).map(([key, label]) => (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setTab(key)}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              backgroundColor: tab === key ? colors.primary : colors.bgBase,
+              borderWidth: 1,
+              borderColor: tab === key ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ color: tab === key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {tip && <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{tip}</Text>}
+
+      {tab === 'relation' && relations && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            {relations.limits.map((limit) => `${limit.label} ${limit.current}/${limit.max}`).join(' · ')}
+          </Text>
+          {relations.incoming.map((item) => (
+            <View key={String(item.id)} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {item.petName}（{item.ownerNickname}）想成为{item.relTypeLabel}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'flex-end' }}>
+                <ChipButton
+                  label="同意"
+                  primary
+                  disabled={pending === `a-${item.id}`}
+                  onPress={() => run(`a-${item.id}`, () => petApi.acceptRelation(item.id as number), '关系建立啦！')}
+                />
+                <ChipButton
+                  label="拒绝"
+                  disabled={pending === `r-${item.id}`}
+                  onPress={() => run(`r-${item.id}`, () => petApi.rejectRelation(item.id as number), '已拒绝')}
+                />
+              </View>
+            </View>
+          ))}
+          {relations.relations.length === 0 && (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有关系，去下面认识一只新宠物吧</Text>
+          )}
+          {relations.relations.map((item) => (
+            <View key={String(item.id)} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {item.petName} · {item.relTypeLabel}
+              </Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                {item.ownerNickname} · 亲密度 {item.intimacy}（{item.intimacyLevelName}）
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <ChipButton
+                  label="解除"
+                  disabled={pending === `d-${item.id}`}
+                  onPress={() => run(`d-${item.id}`, () => petApi.dissolveRelation(item.id as number), '已解除关系')}
+                />
+              </View>
+            </View>
+          ))}
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>可以认识的宠物</Text>
+          {relations.candidates.map((candidate) => (
+            <View key={candidate.petId} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {candidate.petName}（Lv.{candidate.level} · {candidate.ownerNickname}）
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.xs }}>
+                <ChipButton
+                  label="情侣"
+                  disabled={pending === `cr-${candidate.petId}`}
+                  onPress={() =>
+                    run(
+                      `cr-${candidate.petId}`,
+                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'COUPLE' }),
+                      '申请已发出～',
+                    )
+                  }
+                />
+                <ChipButton
+                  label="闺蜜"
+                  disabled={pending === `br-${candidate.petId}`}
+                  onPress={() =>
+                    run(
+                      `br-${candidate.petId}`,
+                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'BESTIE' }),
+                      '申请已发出～',
+                    )
+                  }
+                />
+                <ChipButton
+                  label="死党"
+                  disabled={pending === `dr-${candidate.petId}`}
+                  onPress={() =>
+                    run(
+                      `dr-${candidate.petId}`,
+                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'CONFIDANT' }),
+                      '申请已发出～',
+                    )
+                  }
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {tab === 'friend' && friends && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            今日互访 {friends.todayVisitCount}/{friends.dailyVisitLimit} · 好友上限 {friends.maxFriends}
+          </Text>
+          {friends.incoming.map((item) => (
+            <View key={item.userId} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{item.nickname}</Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'flex-end' }}>
+                <ChipButton
+                  label="同意"
+                  primary
+                  disabled={pending === `fa-${item.userId}`}
+                  onPress={() => run(`fa-${item.userId}`, () => petApi.acceptFriend(item.userId), '成为好友啦！')}
+                />
+                <ChipButton
+                  label="拒绝"
+                  disabled={pending === `fr-${item.userId}`}
+                  onPress={() => run(`fr-${item.userId}`, () => petApi.rejectFriend(item.userId), '已拒绝')}
+                />
+              </View>
+            </View>
+          ))}
+          {friends.friends.length === 0 && (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有好友，先互相串个门吧</Text>
+          )}
+          {friends.friends.map((item) => (
+            <View key={item.userId} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {item.nickname} · {item.petName ?? '—'}
+              </Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 10 }}>互访 {item.visitCount} 次</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.xs }}>
+                <ChipButton
+                  label="去互访"
+                  primary
+                  disabled={pending === `fv-${item.userId}`}
+                  onPress={() =>
+                    run(
+                      `fv-${item.userId}`,
+                      async () => {
+                        const res = await petApi.visitFriend(item.userId)
+                        if (res.data.success && res.data.data) {
+                          setTip(res.data.data.message)
+                        }
+                        return res
+                      },
+                      '互访成功！',
+                    )
+                  }
+                />
+                <ChipButton
+                  label="删除"
+                  disabled={pending === `fd-${item.userId}`}
+                  onPress={() => run(`fd-${item.userId}`, () => petApi.removeFriend(item.userId), '已删除好友')}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {tab === 'wall' && wall && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+            {wall.petName} 的留言墙 · {wall.ownerNickname} · 共 {wall.total} 条（每日可留言 {wall.dailyPostLimit} 条）
+          </Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+            <TextInput
+              value={wallInput}
+              onChangeText={setWallInput}
+              maxLength={120}
+              placeholder="写一句留言吧"
+              placeholderTextColor={colors.textTertiary}
+              style={{ flex: 1, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 8 }}
+            />
+            <ChipButton
+              label="留言"
+              primary
+              disabled={pending === 'post'}
+              onPress={() =>
+                run(
+                  'post',
+                  async () => {
+                    const res = await petApi.postWallMessage({ petId: Number(pet.petId), content: wallInput })
+                    if (res.data.success) {
+                      setWallInput('')
+                    }
+                    return res
+                  },
+                  '留言成功！',
+                )
+              }
+            />
+          </View>
+          {wall.messages.length === 0 && (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有留言，说点什么吧～</Text>
+          )}
+          {wall.messages.map((item) => (
+            <View key={item.id} style={cardStyle}>
+              <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                {item.authorNickname}
+                {item.ownerReply ? '（我的回复）' : ''} · {item.createdAt?.slice(5, 16).replace('T', ' ')}
+              </Text>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm }}>{item.content}</Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'flex-end' }}>
+                <ChipButton
+                  label={`${item.liked ? '取消赞' : '点赞'} ${item.likeCount}`}
+                  disabled={pending === `wl-${item.id}`}
+                  onPress={() => run(`wl-${item.id}`, () => petApi.likeWallMessage(item.id), '已更新点赞')}
+                />
+                {item.owner && item.parentId === null && (
+                  <ChipButton
+                    label="回复"
+                    onPress={() => {
+                      setReplyTo(replyTo === item.id ? null : item.id)
+                      setReplyInput('')
+                    }}
+                  />
+                )}
+                {(item.mine || item.owner) && (
+                  <ChipButton
+                    label="删除"
+                    disabled={pending === `wd-${item.id}`}
+                    onPress={() => run(`wd-${item.id}`, () => petApi.deleteWallMessage(item.id), '已删除')}
+                  />
+                )}
+              </View>
+              {replyTo === item.id && (
+                <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                  <TextInput
+                    value={replyInput}
+                    onChangeText={setReplyInput}
+                    maxLength={120}
+                    placeholder="回复这条留言"
+                    placeholderTextColor={colors.textTertiary}
+                    style={{ flex: 1, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 8 }}
+                  />
+                  <ChipButton
+                    label="发送"
+                    primary
+                    disabled={pending === `wr-${item.id}`}
+                    onPress={() =>
+                      run(
+                        `wr-${item.id}`,
+                        async () => {
+                          const res = await petApi.replyWallMessage({ messageId: item.id, content: replyInput })
+                          if (res.data.success) {
+                            setReplyTo(null)
+                          }
+                          return res
+                        },
+                        '回复成功！',
+                      )
+                    }
+                  />
+                </View>
+              )}
+              {item.replies.map((reply) => (
+                <Text key={reply.id} style={{ color: colors.textTertiary, fontSize: 10 }}>
+                  ↳ {reply.authorNickname}：{reply.content}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
+/** 家园面板：房间布置 / 家具商城 / 邻里拜访与设置 */
+function HomePanel({ onRefresh }: { onRefresh: () => void }) {
+  const colors = useTheme()
+  const [home, setHome] = useState<PetHome | null>(null)
+  const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
+  const [pending, setPending] = useState<string | null>(null)
+  const [welcome, setWelcome] = useState('')
+  const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
+  const [tip, setTip] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.getHome()
+      if (res.success && res.data) {
+        setHome(res.data)
+        setWelcome(res.data.welcomeMessage)
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (tab !== 'visit') {
+      return
+    }
+    void (async () => {
+      try {
+        const { data: res } = await petApi.listVisitNeighbors()
+        if (res.success) {
+          setNeighbors(res.data ?? [])
+        }
+      } catch {
+        // 展示型数据
+      }
+    })()
+  }, [tab])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        Alert.alert('成功', text)
+        await load()
+        onRefresh()
+      }
+    } catch (error) {
+      Alert.alert('暂时不能这么做', CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试')
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (!home) {
+    return <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>家园加载中…</Text>
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 2,
+  }
+  const themeOptions = home.shop.filter((item) => item.owned)
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+        🏡 舒适度 {home.comfort} · 来访 {home.visitCount} · 点赞 {home.likeCount}
+        {home.comfort >= home.comfortBonusThreshold ? ` · 休息心情 +${home.comfortRestHappinessBonus}` : ''}
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        {([
+          ['room', '🛋️ 布置'],
+          ['shop', '🛒 家具'],
+          ['visit', '🚪 拜访'],
+        ] as Array<[typeof tab, string]>).map(([key, label]) => (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setTab(key)}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              backgroundColor: tab === key ? colors.primary : colors.bgBase,
+              borderWidth: 1,
+              borderColor: tab === key ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ color: tab === key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {tab === 'room' && (
+        <View style={{ gap: Spacing.xs }}>
+          {home.placed.map((item) => (
+            <View key={`${item.posX}-${item.posY}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: colors.text, fontSize: FontSize.xs }}>
+                {item.icon} {item.name}（{item.posX},{item.posY}）舒适度 +{item.comfort}
+              </Text>
+              <ChipButton
+                label="收回"
+                disabled={pending === `rm-${item.posX}-${item.posY}`}
+                onPress={() =>
+                  run(`rm-${item.posX}-${item.posY}`, () => petApi.removeFurniture(item.posX ?? 0, item.posY ?? 0), '已收回仓库')
+                }
+              />
+            </View>
+          ))}
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            当前墙纸/地板：{home.wallCode ?? '默认'} / {home.floorCode ?? '默认'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+            {themeOptions.slice(0, 6).map((item) => (
+              <ChipButton
+                key={`theme-${item.code}`}
+                label={`${item.icon}${item.name}`}
+                disabled={pending === `theme-${item.code}`}
+                onPress={() =>
+                  run(
+                    `theme-${item.code}`,
+                    () =>
+                      petApi.updateRoomTheme(
+                        item.category === 'WALL'
+                          ? { wallCode: item.code, floorCode: home.floorCode }
+                          : { wallCode: home.wallCode, floorCode: item.code },
+                      ),
+                    '已更换主题',
+                  )
+                }
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {tab === 'shop' && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+            摆放：在「布置」页点家具即可（自动找空格）——移动端简化交互，精细摆位请用 Web 端
+          </Text>
+          {home.shop.map((item) => (
+            <View key={item.code} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {item.icon} {item.name} · {item.categoryLabel} · 舒适度 +{item.comfort}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>✨ {item.priceStarlight}</Text>
+                {item.owned ? (
+                  <ChipButton
+                    label="摆放"
+                    disabled={pending === `place-${item.code}`}
+                    onPress={() =>
+                      run(
+                        `place-${item.code}`,
+                        () => {
+                          const occupied = new Set(home.placed.map((placed) => `${placed.posX}-${placed.posY}`))
+                          for (let y = 0; y < home.gridHeight; y += 1) {
+                            for (let x = 0; x < home.gridWidth; x += 1) {
+                              if (!occupied.has(`${x}-${y}`)) {
+                                return petApi.placeFurniture({ furnitureCode: item.code, posX: x, posY: y })
+                              }
+                            }
+                          }
+                          return petApi.placeFurniture({ furnitureCode: item.code, posX: 0, posY: 0 })
+                        },
+                        '摆放好啦',
+                      )
+                    }
+                  />
+                ) : (
+                  <ChipButton
+                    label={item.eligible ? '购买' : item.lockReason ?? '未解锁'}
+                    primary
+                    disabled={!item.eligible || pending === `buy-${item.code}`}
+                    onPress={() => run(`buy-${item.code}`, () => petApi.buyFurniture(item.code), '买到啦')}
+                  />
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {tab === 'visit' && (
+        <View style={{ gap: Spacing.sm }}>
+          {tip && <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{tip}</Text>}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>允许来访</Text>
+            <Switch
+              value={home.isPublic}
+              onValueChange={(checked) => run('settings', () => petApi.updateRoomSettings({ isPublic: checked }), '设置已更新')}
+            />
+            <TextInput
+              value={welcome}
+              onChangeText={setWelcome}
+              maxLength={40}
+              placeholder="欢迎语"
+              placeholderTextColor={colors.textTertiary}
+              style={{ flex: 1, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 8 }}
+            />
+            <ChipButton
+              label="保存"
+              disabled={pending === 'welcome'}
+              onPress={() => run('welcome', () => petApi.updateRoomSettings({ welcomeMessage: welcome }), '欢迎语已更新')}
+            />
+          </View>
+          {neighbors.map((neighbor) => (
+            <View key={String(neighbor.petId)} style={cardStyle}>
+              <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                {neighbor.name}（Lv.{neighbor.level} · {neighbor.ownerNickname}）
+              </Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'flex-end' }}>
+                <ChipButton
+                  label="去家里看看"
+                  primary
+                  disabled={pending === `v-${neighbor.petId}`}
+                  onPress={() =>
+                    run(
+                      `v-${neighbor.petId}`,
+                      async () => {
+                        const res = await petApi.visitHome(Number(neighbor.petId))
+                        if (res.data.success && res.data.data) {
+                          setTip(res.data.data.message)
+                        }
+                        return res
+                      },
+                      '拜访成功！',
+                    )
+                  }
+                />
+                <ChipButton
+                  label="点赞"
+                  disabled={pending === `l-${neighbor.petId}`}
+                  onPress={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(Number(neighbor.petId)), '点赞成功')}
+                />
+                <ChipButton
+                  label="加好友"
+                  disabled={pending === `fq-${neighbor.petId}`}
+                  onPress={() =>
+                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(Number(neighbor.ownerUserId)), '好友申请已发出～')
+                  }
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   )
 }

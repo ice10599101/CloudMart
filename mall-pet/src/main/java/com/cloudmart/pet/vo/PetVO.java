@@ -42,6 +42,18 @@ public record PetVO(
         @Schema(description = "进化阶段（0 未进化/1 一阶/2 二阶）") Integer evolutionStage,
         @Schema(description = "当前穿戴皮肤编码（null=原生外观）") String skinCode,
         @Schema(description = "拥有的宠物数量（多宠物）") Integer petCount,
-        @Schema(description = "宠物数量上限") Integer maxPets
+        @Schema(description = "宠物数量上限") Integer maxPets,
+        @Schema(description = "与主人的亲密度") Integer intimacy,
+        @Schema(description = "亲密度等级（1 起）") Integer intimacyLevel,
+        @Schema(description = "亲密度等级名") String intimacyLevelName,
+        @Schema(description = "距下一亲密度等级还需点数（满级 0）") Integer intimacyToNext,
+        @Schema(description = "亲密度带来的经验加成百分比（如 3 表示 +3%）") Integer intimacyExpBonusPercent,
+        @Schema(description = "累计陪伴时长（秒）") Long companionSeconds,
+        @Schema(description = "今日陪伴时长（秒）") Integer todayCompanionSeconds,
+        @Schema(description = "累计陪伴天数") Integer companionDays,
+        @Schema(description = "连续陪伴天数") Integer companionStreak,
+        @Schema(description = "当前职业编码（null = 未入职）") String careerCode,
+        @Schema(description = "当前职业名（null = 未入职）") String careerName,
+        @Schema(description = "当前职业阶段（1/2/3）") Integer careerTier
 ) {
 }

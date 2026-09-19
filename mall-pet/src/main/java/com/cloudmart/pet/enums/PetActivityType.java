@@ -23,5 +23,7 @@ public enum PetActivityType {
     /** 串门（原文档 §1.1：去邻居家做客，即时留痕） */
     VISIT,
     /** 进化（原文档 §89：达到条件后的形态跃迁，即时留痕） */
-    EVOLVE
+    EVOLVE,
+    /** 职业工作（三期宠物职业：与打工同一状态机，configId 指向 pet_career_config） */
+    CAREER_WORK
 }

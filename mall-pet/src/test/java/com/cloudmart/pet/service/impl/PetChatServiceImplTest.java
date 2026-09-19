@@ -10,7 +10,10 @@ import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetChatSessionMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.repository.PetMemoryMapper;
+import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetChatMessageVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -54,6 +57,12 @@ class PetChatServiceImplTest {
     @Mock
     private PetAchievementService achievementService;
     @Mock
+    private PetMapper petMapper;
+    @Mock
+    private PetDailyQuestService dailyQuestService;
+    @Mock
+    private PetIntimacyService intimacyService;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
@@ -70,7 +79,8 @@ class PetChatServiceImplTest {
     @BeforeEach
     void setUp() {
         chatService = new PetChatServiceImpl(petService, contextService, aiClient, sessionMapper,
-                messageMapper, memoryMapper, achievementService, new PetProperties(), redisTemplate);
+                messageMapper, memoryMapper, petMapper, achievementService, dailyQuestService,
+                intimacyService, new PetProperties(), redisTemplate);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.increment(anyString())).thenReturn(1L);
     }

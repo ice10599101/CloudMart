@@ -1,506 +1,456 @@
 import {
+    _decorator,
+    Camera,
     Color,
     Component,
     EventTouch,
-    Graphics,
-    Label,
     Layers,
-    Material,
-    Mesh,
     Node,
-    UIOpacity,
     UITransform,
     Vec3,
-    _decorator,
-} from 'cc';
-import { PetAnimations } from './PetAnimations';
+    screen,
+} from 'cc'
 import {
     BattleRound,
     HostToGame,
     PetDisplayState,
-    PetIntentAction,
     PetGameBridge,
-} from './PetGameBridge';
+    PetIntentAction,
+} from './PetGameBridge'
+import { PetBuilderKit } from './PetBuilderKit'
+import { buildPet, PetRig } from './PetModelBuilder'
+import { PetAnimations } from './PetAnimations'
+import { PetEffects } from './PetEffects'
+import { PetHud } from './PetHud'
+import { PetEmotion, resolvePalette } from './PetGameTheme'
+import { buildRoom, RoomRefs } from './PetRoomBuilder'
 
-const { ccclass } = _decorator;
-
-/**
- * 宠物 3D 场景主组件（Cocos Creator 4.0 alpha API，全部内容程序化构建）。
- *
- * 结构（start() 时构建）：
- *  - 3D 世界（挂 Scene，DEFAULT 层）：DirectionalLightComponent 平行光 + 地面 +
- *    原语（capsule/sphere/cone）拼装的宠物模型，经 ModelComponent + Mesh 渲染；
- *  - 2D UI（挂 Root，UI_2D 层）：铭牌/经验条/状态条/动作按钮/导航按钮/气泡/对战面板。
- *
- * 服务端权威契约：本组件只做展示与动画，所有数值来自宿主下发的
- * PetDisplayState（mall-pet PetVO 映射）；用户操作仅回发 intent，
- * 由宿主调用 mall-pet API 后以 petState/actionResult 回灌。
- */
-
-/** Cocos 4.0 alpha 运行时门面与 3.x DTS 的命名差异适配：
- *  MeshRenderer→ModelComponent、DirectionalLight→DirectionalLightComponent、
- *  MeshUtils 在 cc.utils、材质经 Material.initialize({ effectAsset })。
- *  这些类不在 cc 模块导出里，须从全局 cc 取（禁 any，用最小接口约束）。 */
-interface PetCcRuntime {
-    Node: { new (name?: string): Node };
-    ModelComponent: object;
-    DirectionalLightComponent: object;
-    Material: { new (): Material };
-    utils: {
-        createMesh: (geometry: object) => Mesh;
-        MeshUtils: { createMesh: (geometry: object) => Mesh };
-    };
-    primitives: {
-        sphere: (radius?: number) => object;
-        capsule: (radiusTop?: number, radiusBottom?: number, height?: number) => object;
-        cone: (radius?: number, height?: number) => object;
-        plane: (options?: { width: number; length: number }) => object;
-    };
-}
-
-interface PetModelLike {
-    mesh: Mesh | null;
-    material: Material | null;
-    _getBuiltinMaterial(): Material;
-}
-
-/** 种类 → 主色/辅色（身体与耳/尾配色；二期替换 GLB 模型只改本表与 buildPet3D） */
-const SPECIES_COLORS: Record<string, { body: Color; dark: Color }> = {
-    CAT: { body: new Color(245, 166, 36, 255), dark: new Color(217, 128, 26, 255) },
-    DOG: { body: new Color(199, 140, 89, 255), dark: new Color(153, 102, 56, 255) },
-    RABBIT: { body: new Color(247, 247, 247, 255), dark: new Color(217, 217, 230, 255) },
-    FOX: { body: new Color(230, 115, 56, 255), dark: new Color(191, 84, 38, 255) },
-    PANDA: { body: new Color(242, 242, 242, 255), dark: new Color(31, 31, 33, 255) },
-    WILD: { body: new Color(140, 153, 173, 255), dark: new Color(102, 112, 128, 255) },
-};
+const { ccclass } = _decorator
 
 /**
- * 外观色键 → 宠物配色（原文档 §6 外观系统 / §89 宠物皮肤）。
+ * 宠物 3D 场景主组件（视觉重构 v3，Cocos Creator 4.0 alpha，全部内容程序化构建）。
  *
- * 宿主下发 `pet.color` 时优先使用（皮肤/自定义外观在 3D 场景同样可见）；
- * 未下发或键未知时回落到种类配色。色值为 0-255 语义。
+ * 结构：
+ *  - 3D 世界（Scene / DEFAULT 层）：温馨房间（PetRoomBuilder）+ Q 版宠物（PetModelBuilder），
+ *    统一走自定义卡通材质 pet-toon（两段明暗 + 顶部天光 + 轮廓光 + 描边）；
+ *  - 2D UI（Root / UI_2D 层）：HUD（PetHud）+ 特效粒子（PetEffects）。
+ *
+ * 生命感来自两条线：
+ *  1. 逐帧待机驱动（update）：呼吸 / 尾巴 / 耳朵 / 眨眼 / 视线 / 呆毛 / 随机小动作；
+ *  2. 情绪状态机：由服务端数值（饱食/心情/精力/清洁）推导基础情绪，交互时临时覆盖，
+ *     情绪决定表情（嘴部变体）、耳朵耷拉度、尾巴活跃度、眼睛开合。
+ *
+ * 服务端权威契约不变：本组件只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
+ * 用户操作仅回传 intent，由宿主调用 mall-pet API 后以 petState/actionResult 回灌。
  */
-const SKIN_COLORS: Record<string, { body: Color; dark: Color }> = {
-    orange: { body: new Color(245, 166, 36, 255), dark: new Color(217, 128, 26, 255) },
-    gray: { body: new Color(169, 174, 184, 255), dark: new Color(130, 136, 148, 255) },
-    white: { body: new Color(247, 247, 247, 255), dark: new Color(217, 217, 230, 255) },
-    brown: { body: new Color(199, 140, 89, 255), dark: new Color(153, 102, 56, 255) },
-    pink: { body: new Color(245, 170, 190, 255), dark: new Color(214, 132, 156, 255) },
-    black: { body: new Color(70, 70, 78, 255), dark: new Color(40, 40, 46, 255) },
-    // 皮肤专属色（pet_skin_config.color）
-    mint: { body: new Color(140, 225, 200, 255), dark: new Color(96, 186, 162, 255) },
-    golden: { body: new Color(240, 200, 110, 255), dark: new Color(203, 160, 70, 255) },
-    snow: { body: new Color(230, 240, 255, 255), dark: new Color(186, 203, 232, 255) },
-    midnight: { body: new Color(95, 90, 160, 255), dark: new Color(64, 60, 118, 255) },
-    ink: { body: new Color(60, 60, 70, 255), dark: new Color(30, 30, 36, 255) },
-    aurora: { body: new Color(150, 180, 255, 255), dark: new Color(110, 140, 220, 255) },
-};
 
-/** 种类 → emoji（铭牌装饰用；渲染为 3D 模型） */
-const SPECIES_EMOJI: Record<string, string> = {
-    CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼', WILD: '🐾',
-};
+/** 宠物世界位置（地毯中央；影子等地面元素与其对齐） */
+const PET_POS = new Vec3(0, 0, 0.35)
 
-/** 成长阶段 → 体型缩放（幼年更娇小、成年更挺拔；形态演进只改缩放，不重建节点） */
-const GROWTH_SCALE: Record<string, number> = { BABY: 0.78, YOUNG: 0.9, ADULT: 1 };
-const GROWTH_LABEL: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' };
-
-const COLOR_BAR_BG = new Color(255, 255, 255, 60);
-const COLOR_HP = new Color(255, 108, 108, 255);
-const COLOR_HUNGER = new Color(255, 178, 88, 255);
-const COLOR_HAPPINESS = new Color(255, 105, 180, 255);
-const COLOR_ENERGY = new Color(98, 216, 138, 255);
-const COLOR_CLEAN = new Color(96, 190, 255, 255);
-const COLOR_EXP = new Color(255, 226, 110, 255);
-const COLOR_BTN = new Color(64, 106, 168, 255);
-const COLOR_BTN_NAV = new Color(94, 84, 158, 255);
-const COLOR_WHITE = new Color(255, 255, 255, 255);
-
-interface BarRow {
-    root: Node;
-    fill: Graphics;
-    width: number;
+/** 演示模式（?demo=1）：未接宿主时也能完整展示视觉与动画，用于开发与验收 */
+const DEMO_STATE: PetDisplayState = {
+    name: '糖糖', species: 'CAT', growthStage: 'YOUNG', level: 6, expPercent: 0.62,
+    hp: 92, maxHp: 100, hunger: 58, happiness: 82, energy: 74, cleanliness: 90,
+    status: 'IDLE', speech: '主人，陪我玩一会嘛～', color: 'orange', accessory: 'bell', evolutionStage: 0,
 }
 
-/** 宠物身体部件：换色时必须覆盖全部部件，避免"只有身体变色" */
-interface PetPart {
-    node: Node;
-    role: 'body' | 'dark';
-}
-
-function getCCRuntime(): PetCcRuntime {
-    return (globalThis as unknown as { cc: PetCcRuntime }).cc;
+/** 情绪 → 表演参数（耳朵/尾巴/眼睛/嘴） */
+const EMOTION_PROFILE: Record<PetEmotion, { droop: number; mood: number; eye: number; mouth: 'smile' | 'sad' | 'open' }> = {
+    idle: { droop: 0.12, mood: 0.45, eye: 1, mouth: 'smile' },
+    happy: { droop: 0, mood: 1, eye: 1.04, mouth: 'smile' },
+    hungry: { droop: 0.55, mood: 0.22, eye: 0.92, mouth: 'sad' },
+    sad: { droop: 0.8, mood: 0.15, eye: 0.82, mouth: 'sad' },
+    sleepy: { droop: 0.6, mood: 0.25, eye: 0.5, mouth: 'smile' },
+    eat: { droop: 0.1, mood: 0.8, eye: 1, mouth: 'open' },
+    play: { droop: 0, mood: 1, eye: 1.06, mouth: 'open' },
+    clean: { droop: 0.3, mood: 0.6, eye: 0.9, mouth: 'smile' },
+    sleep: { droop: 0.9, mood: 0.1, eye: 0.05, mouth: 'smile' },
+    pet: { droop: 0.05, mood: 0.9, eye: 0.55, mouth: 'smile' },
+    love: { droop: 0, mood: 1, eye: 0.6, mouth: 'smile' },
 }
 
 @ccclass('PetGameRoot')
 export class PetGameRoot extends Component {
 
-    private readonly bridge = new PetGameBridge();
-    private pet: PetDisplayState | null = null;
-    private readonly ccRuntime: PetCcRuntime = getCCRuntime();
+    private readonly bridge = new PetGameBridge()
+    private readonly ccRuntime = (globalThis as unknown as { cc: never }).cc
 
-    /** 内置 unlit effectAsset（取自首个 ModelComponent 的兜底材质；缓存复用） */
-    private builtinEffectAsset: object | null = null;
+    private kit: PetBuilderKit | null = null
+    private world3d: Node | null = null
+    private petNode: Node | null = null
+    private rig: PetRig | null = null
+    private room: RoomRefs | null = null
+    private camera3d: Camera | null = null
+    private rootTransform: UITransform | null = null
 
-    /** 3D 世界节点（挂 Scene，DEFAULT 层） */
-    private world3d: Node | null = null;
-    private petRoot: Node | null = null;
-    private petBody: Node | null = null;
-    private readonly petParts: PetPart[] = [];
-    private readonly petBasePos = new Vec3(0, 0, 0);
-    /** Body 节点在 Pet 节点下的局部基准位置（部分动画结束会复位到基准点，不能用根节点基准） */
-    private readonly petBodyBasePos = new Vec3(0, 0.72, 0);
+    private hud: PetHud | null = null
+    private effects: PetEffects | null = null
 
-    private nameLabel: Label | null = null;
-    private expFill: Graphics | null = null;
-    private bubble: Node | null = null;
-    private bubbleLabel: Label | null = null;
-    private bars: Record<string, BarRow> = {};
-    private battleOverlay: Node | null = null;
-    private battleStep = 0;
-    private battleRounds: BattleRound[] = [];
-    private battleWon = false;
+    private pet: PetDisplayState | null = null
+    /** 演出锁：非空时暂停 body/head 的逐帧驱动，避免与 tween 演出争抢 */
+    private performance: PetEmotion | null = null
+    private emotion: PetEmotion = 'idle'
+    private petKey = ''
 
-    start() {
-        this.buildWorld3D();
-        this.buildPet3D();
-        this.buildBackgroundUI();
-        this.buildBars();
-        this.buildButtons();
-        this.buildBubble();
-        this.bindBridge();
-        this.bridge.send({ source: 'pet-game', type: 'ready' });
-        this.showBubble('主人，点点我呀～');
-    }
+    private time = 0
+    private blinkTimer = 2.2
+    private blinkPhase: 'open' | 'closing' | 'opening' = 'open'
+    private blinkProgress = 0
+    private lookTimer = 1.6
+    private lookCur = { x: 0, y: 0 }
+    private lookTarget = { x: 0, y: 0 }
+    private idleTimer = 5
+    private zzzTimer = 0
+    private lastLevel = 0
+    private roomTime = 0
+    private readonly orbSeeds: number[] = []
 
-    // ---------------- UI 构建（UI_2D 层） ----------------
+    start(): void {
+        this.rootTransform = this.node.getComponent(UITransform)
+        this.kit = new PetBuilderKit(this.ccRuntime)
+        this.buildWorld()
+        this.buildStage()
+        this.buildUi()
+        this.bindBridge()
 
-    private makeNode(name: string, parent: Node, w: number, h: number, x: number, y: number): Node {
-        const node = new Node(name);
-        node.layer = Layers.Enum.UI_2D;
-        node.addComponent(UITransform).setContentSize(w, h);
-        node.setPosition(x, y, 0);
-        parent.addChild(node);
-        return node;
-    }
-
-    private makeLabel(parent: Node, text: string, fontSize: number, x: number, y: number,
-                      color: Color = COLOR_WHITE, width = 0): Label {
-        const node = new Node('label');
-        node.layer = Layers.Enum.UI_2D;
-        node.setPosition(x, y, 0);
-        parent.addChild(node);
-        const label = node.addComponent(Label);
-        label.string = text;
-        label.fontSize = fontSize;
-        label.lineHeight = Math.round(fontSize * 1.25);
-        label.color = color;
-        if (width > 0) {
-            node.getComponent(UITransform)!.setContentSize(width, Math.round(fontSize * 1.4));
-            label.overflow = Label.Overflow.SHRINK;
+        this.bridge.send({ source: 'pet-game', type: 'ready' })
+        if (new URLSearchParams(window.location.search).get('demo') === '1') {
+            this.applyPetState(DEMO_STATE)
         }
-        return label;
     }
 
-    private makeButton(parent: Node, text: string, x: number, y: number, w: number, h: number,
-                       color: Color, onClick: () => void): Node {
-        const node = this.makeNode('btn-' + text, parent, w, h, x, y);
-        const g = node.addComponent(Graphics);
-        this.paintButton(g, w, h, color);
-        this.makeLabel(node, text, 26, 0, 0);
-        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true;
-            onClick();
-        }, this);
-        return node;
+    update(dt: number): void {
+        const step = Math.min(dt, 0.05)
+        this.time += step
+        this.roomTime += step
+        this.idleDrive(step)
+        this.roomAmbience(step)
+        this.hud && this.hud.update(step)
     }
 
-    private paintButton(g: Graphics, w: number, h: number, color: Color): void {
-        g.clear();
-        g.fillColor = color;
-        g.roundRect(-w / 2, -h / 2, w, h, h / 3);
-        g.fill();
+    onDestroy(): void {
+        this.bridge.dispose()
     }
 
-    // ---------------- 3D 世界（DEFAULT 层） ----------------
+    // ---------------- 场景构建 ----------------
 
-    private make3dNode(name: string, parent: Node, pos: Vec3): Node {
-        const node = new this.ccRuntime.Node(name);
-        node.layer = Layers.Enum.DEFAULT;
-        node.setPosition(pos);
-        parent.addChild(node);
-        return node;
+    /** 3D 世界：房间 + 相机色调（宠物在 buildStage 中按状态构建） */
+    private buildWorld(): void {
+        const kit = this.kit!
+        const scene = this.node.scene
+        this.world3d = kit.make3dNode(scene, 'World3D', new Vec3(0, 0, 0))
+        this.room = buildRoom(this.world3d, kit)
+
+        const cameraNode = scene.getChildByName('Main3DCamera')
+        this.camera3d = cameraNode ? cameraNode.getComponent(Camera) : null
+        if (this.camera3d) {
+            // 室内暖色兜底背景（墙体之外的边缘区域）
+            this.camera3d.clearColor = new Color(0x6E, 0x5A, 0x66, 255)
+        }
     }
 
-    private attachMesh(node: Node, geometry: object, color: Color): void {
-        const model = node.addComponent(this.ccRuntime.ModelComponent) as unknown as PetModelLike;
-        model.mesh = this.ccRuntime.utils.createMesh(geometry);
-        // 首次渲染前缓存引擎内置 unlit effectAsset（ModelComponent 的兜底材质来源）
-        if (!this.builtinEffectAsset) {
-            try {
-                const builtin = model._getBuiltinMaterial();
-                if (builtin && builtin.effectAsset) {
-                    this.builtinEffectAsset = builtin.effectAsset;
-                }
-            } catch (e) {
-                // 兜底材质尚未就绪：保持 null，材质走 effectName 降级
+    /** 宠物本体（物种/皮肤/配饰变化时整体重建；影子固定在房间层） */
+    private buildStage(): void {
+        const kit = this.kit!
+        const pet = this.pet
+        const species = pet ? pet.species : 'CAT'
+        const colorKey = pet ? pet.color : undefined
+        const accessory = pet ? pet.accessory : 'none'
+        this.petNode = kit.make3dNode(this.world3d!, 'Pet', PET_POS.clone())
+        this.rig = buildPet(this.petNode, this.world3d!, kit, species || 'CAT',
+            resolvePalette(species || 'CAT', colorKey), accessory || 'none')
+    }
+
+    private rebuildPetIfNeeded(pet: PetDisplayState): void {
+        const key = `${pet.species}|${pet.color || ''}|${pet.accessory || ''}|${pet.growthStage}|${pet.evolutionStage || 0}`
+        if (key === this.petKey || !this.petNode || !this.world3d) {
+            return
+        }
+        this.petKey = key
+        const hadRig = !!this.rig
+        this.petNode.destroy()
+        if (this.rig) {
+            this.rig.shadow.destroy()
+        }
+        this.buildStage()
+        if (this.rig) {
+            this.applyEmotion()
+            if (hadRig) {
+                PetAnimations.cheer(this.rig)
             }
         }
-        if (this.builtinEffectAsset) {
-            model.material = this.makeColoredMaterial(color);
-        }
-        // effectAsset 未就绪时不赋材质：ModelComponent 自带内置灰显兜底材质，后续节点再上色
     }
 
-    /** 经内置 unlit effect 建指定颜色材质（仅在 effectAsset 已缓存时调用） */
-    private makeColoredMaterial(color: Color): Material {
-        const material = new Material();
-        material.initialize({ effectAsset: this.builtinEffectAsset as never });
-        material.setProperty('mainColor', color);
-        return material;
+    // ---------------- 2D UI ----------------
+
+    private buildUi(): void {
+        const size = this.rootTransform ? this.rootTransform.contentSize : null
+        const width = size ? size.width : 960
+        const height = size ? size.height : 548
+        this.hud = new PetHud(this.node, width, height, (intent: string) => this.onHudIntent(intent))
+        this.hud.build()
+        this.effects = new PetEffects(
+            this.node,
+            (name: string, x: number, y: number) => this.makeUiNode(name, x, y),
+            (world: Vec3) => this.project(world),
+        )
+        this.buildHotspot()
     }
 
-    private buildWorld3D(): void {
-        const scene = this.node.scene;
-        this.world3d = this.make3dNode('World3D', scene, new Vec3(0, 0, 0));
-
-        // 平行光（standard 系 effect 受光；当前 unlit 不受影响，留作升级路径）
-        const lightNode = this.make3dNode('SunLight', this.world3d, new Vec3(0, 12, 8));
-        lightNode.setRotationFromEuler(-50, -25, 0);
-        const light = lightNode.addComponent(this.ccRuntime.DirectionalLightComponent) as unknown as { illuminance: number };
-        light.illuminance = 12000;
-
-        // 地面
-        const ground = this.make3dNode('Ground', this.world3d, new Vec3(0, 0, 0));
-        ground.setRotationFromEuler(-90, 0, 0);
-        this.attachMesh(ground, this.ccRuntime.primitives.plane({ width: 16, length: 16 }),
-            new Color(41, 66, 87, 255));
-
-        // 装饰漂浮球
-        const decorSpecs: Array<[number, number, number, number]> = [
-            [-2.6, 0.4, -1.8, 0.22], [2.4, 0.7, -2.2, 0.3], [3.1, 0.3, 1.6, 0.18], [-3.0, 0.55, 1.2, 0.26],
-        ];
-        for (const [x, y, z, r] of decorSpecs) {
-            const orb = this.make3dNode('orb', this.world3d, new Vec3(x, y, z));
-            this.attachMesh(orb, this.ccRuntime.primitives.sphere(r),
-                new Color(89, 140, 217, 255));
-        }
+    /** UI 层节点工厂（特效层使用） */
+    private makeUiNode(name: string, x: number, y: number): Node {
+        const node = new Node(name)
+        node.layer = Layers.Enum.UI_2D
+        node.addComponent(UITransform).setContentSize(8, 8)
+        node.setPosition(x, y, 0)
+        this.node.addChild(node)
+        return node
     }
 
-    private buildPet3D(): void {
-        // 初始配色取 CAT，宿主下发 init/petState 时按 species 全量重刷（含耳/尾）
-        const palette = SPECIES_COLORS.CAT;
-        this.petRoot = this.make3dNode('Pet', this.world3d!, this.petBasePos.clone());
-        this.petBody = this.make3dNode('Body', this.petRoot, new Vec3(0, 0.72, 0));
-        this.attachMesh(this.petBody, this.ccRuntime.primitives.capsule(0.42, 0.42, 0.95), palette.body);
-        this.petParts.push({ node: this.petBody, role: 'body' });
-
-        const head = this.make3dNode('Head', this.petRoot, new Vec3(0, 1.5, 0.06));
-        this.attachMesh(head, this.ccRuntime.primitives.sphere(0.36), palette.body);
-        this.petParts.push({ node: head, role: 'body' });
-
-        for (const side of [-1, 1]) {
-            const ear = this.make3dNode('Ear', this.petRoot, new Vec3(0.2 * side, 1.88, 0));
-            ear.setRotationFromEuler(0, 0, -16 * side);
-            this.attachMesh(ear, this.ccRuntime.primitives.cone(0.11, 0.34), palette.dark);
-            this.petParts.push({ node: ear, role: 'dark' });
-        }
-        for (const side of [-1, 1]) {
-            const eye = this.make3dNode('Eye', this.petRoot, new Vec3(0.13 * side, 1.58, 0.32));
-            this.attachMesh(eye, this.ccRuntime.primitives.sphere(0.05),
-                new Color(15, 15, 20, 255));
-        }
-        const muzzle = this.make3dNode('Muzzle', this.petRoot, new Vec3(0, 1.44, 0.3));
-        this.attachMesh(muzzle, this.ccRuntime.primitives.sphere(0.1),
-            new Color(250, 242, 230, 255));
-        const tail = this.make3dNode('Tail', this.petRoot, new Vec3(0, 0.7, -0.5));
-        this.attachMesh(tail, this.ccRuntime.primitives.sphere(0.13), palette.dark);
-        this.petParts.push({ node: tail, role: 'dark' });
-
-        PetAnimations.idleBreath(this.petBody, this.petRoot);
-
-        // 点击热区（UI 层覆盖宠物区域；web-mobile 下比 3D 射线拾取更稳）
-        const hotspot = this.makeNode('pet-hotspot', this.node, 320, 300, 0, -30);
+    /** 宠物点击热区（UI 层覆盖宠物显示区域，比 3D 射线拾取跨端更稳） */
+    private buildHotspot(): void {
+        const size = this.rootTransform ? this.rootTransform.contentSize : null
+        const height = size ? size.height : 548
+        const hotspot = this.makeUiNode('pet-hotspot', 0, height * 0.06)
+        hotspot.getComponent(UITransform)!.setContentSize(330, 320)
         hotspot.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true;
-            if (this.petRoot && this.petBody) {
-                PetAnimations.hop(this.petRoot, this.petBasePos);
-            }
-            this.bridge.send({ source: 'pet-game', type: 'petTapped' });
-            this.showBubble('嘿嘿，好痒好痒～');
-        }, this);
+            event.propagationStopped = true
+            this.onPetTapped()
+        }, this)
     }
 
-    // ---------------- 状态渲染（UI 层） ----------------
-
-    private buildBackgroundUI(): void {
-        this.nameLabel = this.makeLabel(this.node, '', 34, 0, 250);
-        const expBg = this.makeNode('exp-bg', this.node, 260, 10, 0, 222);
-        const bgGraphics = expBg.addComponent(Graphics);
-        bgGraphics.fillColor = COLOR_BAR_BG;
-        bgGraphics.roundRect(-130, -5, 260, 10, 5);
-        bgGraphics.fill();
-        const expNode = this.makeNode('exp-fill', this.node, 260, 10, 0, 222);
-        this.expFill = expNode.addComponent(Graphics);
-    }
-
-    private buildBar(key: string, text: string, color: Color, x: number, y: number): void {
-        const width = 220;
-        const row = this.makeNode('bar-' + key, this.node, width, 16, x, y);
-        this.makeLabel(row, text, 18, -width / 2 - 26, 0);
-        const bg = row.addComponent(Graphics);
-        bg.fillColor = COLOR_BAR_BG;
-        bg.roundRect(-width / 2, -8, width, 16, 8);
-        bg.fill();
-        const fillNode = this.makeNode('fill-' + key, this.node, width, 16, x, y);
-        const fill = fillNode.addComponent(Graphics);
-        this.bars[key] = { root: fillNode, fill, width };
-    }
-
-    private buildBars(): void {
-        const x = -280;
-        this.buildBar('hp', '生命', COLOR_HP, x, 150);
-        this.buildBar('hunger', '饱食', COLOR_HUNGER, x, 116);
-        this.buildBar('happiness', '心情', COLOR_HAPPINESS, x, 82);
-        this.buildBar('energy', '精力', COLOR_ENERGY, x, 48);
-        this.buildBar('cleanliness', '清洁', COLOR_CLEAN, x, 14);
-    }
-
-    private buildButtons(): void {
-        const actions: Array<[string, PetIntentAction]> = [
-            ['喂食', 'feed'], ['玩耍', 'play'], ['清洁', 'clean'], ['休息', 'rest'],
-        ];
-        actions.forEach((pair, index) => {
-            this.makeButton(this.node, pair[0], -180 + index * 120, -110, 108, 54, COLOR_BTN,
-                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
-        });
-        const navs: Array<[string, PetIntentAction]> = [
-            ['打工', 'openWork'], ['读书', 'openStudy'], ['捞瓶', 'openBottle'], ['对战', 'openBattle'],
-        ];
-        navs.forEach((pair, index) => {
-            this.makeButton(this.node, pair[0], -360 + index * 130, -200, 118, 54, COLOR_BTN_NAV,
-                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
-        });
-        const navs2: Array<[string, PetIntentAction]> = [
-            ['聊天', 'openChat'], ['成就', 'openAchievements'], ['档案', 'openProfile'], ['排行', 'openRankings'],
-        ];
-        navs2.forEach((pair, index) => {
-            this.makeButton(this.node, pair[0], -360 + index * 130, -268, 118, 54, COLOR_BTN_NAV,
-                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
-        });
-        // 二期：养成面板入口（商城/背包/技能/进化/活动/串门/多宠物，原文档 §89）
-        const navs3: Array<[string, PetIntentAction]> = [['养成', 'openCare']];
-        navs3.forEach((pair) => {
-            this.makeButton(this.node, pair[0], 100, -200, 118, 54, COLOR_BTN_NAV,
-                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
-        });
-        this.makeLabel(this.node, 'Cocos Creator 4 3D 场景 · 业务由 mall-pet 服务端结算', 16, 0, -330,
-            new Color(255, 255, 255, 130));
-    }
-
-    private buildBubble(): void {
-        this.bubble = this.makeNode('bubble', this.node, 340, 64, 0, 128);
-        const g = this.bubble.addComponent(Graphics);
-        g.fillColor = new Color(255, 255, 255, 235);
-        g.roundRect(-170, -32, 340, 64, 18);
-        g.fill();
-        g.moveTo(-12, -32);
-        g.lineTo(-24, -50);
-        g.lineTo(8, -32);
-        g.close();
-        g.fill();
-        this.bubbleLabel = this.makeLabel(this.bubble, '', 22, 0, 0, new Color(40, 50, 70, 255), 310);
-        this.bubble.addComponent(UIOpacity).opacity = 0;
-    }
-
-    private paintBar(row: BarRow, ratio: number, color: Color): void {
-        const g = row.fill;
-        g.clear();
-        const width = Math.max(0, Math.min(1, ratio)) * (row.width - 4);
-        if (width <= 0) {
-            return;
+    /** 世界坐标 → UI 坐标（粒子对齐宠物用） */
+    private project(world: Vec3): Vec3 {
+        if (!this.camera3d || !this.rootTransform) {
+            return new Vec3(0, 0, 0)
         }
-        g.fillColor = color;
-        g.roundRect(-row.width / 2 + 2, -6, width, 12, 6);
-        g.fill();
+        const screenPos = this.camera3d.worldToScreen(world, new Vec3())
+        const windowSize = screen.windowSize
+        const canvasSize = this.rootTransform.contentSize
+        if (!windowSize.width || !windowSize.height || !canvasSize.width) {
+            return new Vec3(0, 0, 0)
+        }
+        const scaleX = canvasSize.width / windowSize.width
+        const scaleY = canvasSize.height / windowSize.height
+        return new Vec3(
+            screenPos.x * scaleX - canvasSize.width / 2,
+            screenPos.y * scaleY - canvasSize.height / 2,
+            0,
+        )
     }
 
-    /** 重刷全部身体部件颜色（外观色优先，其次种类配色；body 主色 / dark 辅色作用于耳与尾） */
-    private applyPalette(pet: PetDisplayState): void {
-        const skin = pet.color ? SKIN_COLORS[pet.color] : undefined;
-        const palette = skin || SPECIES_COLORS[pet.species] || SPECIES_COLORS.CAT;
-        for (const part of this.petParts) {
-            const model = part.node.components
-                .find(c => (c as unknown as PetModelLike).mesh !== undefined) as unknown as PetModelLike | null;
-            if (model && model.material) {
-                model.material.setProperty('mainColor', part.role === 'body' ? palette.body : palette.dark);
+    /** 宠物头顶（世界坐标；爱心/星星/气泡的发射点） */
+    private get headWorld(): Vec3 {
+        return new Vec3(PET_POS.x, 1.95, PET_POS.z + 0.1)
+    }
+
+    /** 宠物嘴边（世界坐标；食物/浮字的落点） */
+    private get mouthWorld(): Vec3 {
+        return new Vec3(PET_POS.x, 1.1, PET_POS.z + 0.5)
+    }
+
+    // ---------------- 逐帧生命感 ----------------
+
+    private idleDrive(dt: number): void {
+        const rig = this.rig
+        if (!rig) {
+            return
+        }
+        const profile = EMOTION_PROFILE[this.emotion]
+        const locked = this.performance !== null
+        const sleeping = this.performance === 'sleep'
+
+        // 呼吸：演出锁定时让位给 tween；睡觉时改为极缓慢的腹部起伏
+        if (!locked) {
+            PetAnimations.breathe(rig, this.time, 2.05)
+        } else if (sleeping) {
+            const wave = Math.sin(this.time * 1.1)
+            rig.body.setScale(1.02 + wave * 0.012, 0.99 - wave * 0.012, 1.02)
+        }
+
+        if (!locked) {
+            PetAnimations.tailSway(rig, this.time, profile.mood)
+            PetAnimations.earPose(rig, this.time, profile.droop)
+        } else if (sleeping) {
+            PetAnimations.earPose(rig, this.time, 0.92)
+        }
+        PetAnimations.tuftIdle(rig, this.time)
+
+        this.driveBlink(dt, profile.eye)
+        this.driveLook(dt)
+        this.driveIdleAction(dt)
+
+        if (sleeping) {
+            this.zzzTimer -= dt
+            if (this.zzzTimer <= 0) {
+                this.zzzTimer = 1.5
+                this.effects && this.effects.sleepZ(this.headWorld, Math.floor(this.time) % 2)
             }
         }
     }
 
-    /** 成长阶段形态：只改缩放（节点树不重建，动画不受影响）；进化阶再额外放大一档 */
-    private applyGrowthStage(pet: PetDisplayState): void {
-        if (!this.petRoot) {
-            return;
-        }
-        const base = GROWTH_SCALE[pet.growthStage] || 1;
-        const evolution = pet.evolutionStage ?? 0;
-        const scale = base * (1 + Math.min(2, Math.max(0, evolution)) * 0.06);
-        this.petRoot.setScale(scale, scale, scale);
-    }
-
-    private renderPet(pet: PetDisplayState): void {
-        if (!this.nameLabel || !this.expFill) {
-            return;
-        }
-        this.applyPalette(pet);
-        this.applyGrowthStage(pet);
-        const stage = GROWTH_LABEL[pet.growthStage] || '';
-        const activity = pet.activityName ? ` · ${pet.activityName}` : '';
-        this.nameLabel.string = `${SPECIES_EMOJI[pet.species] || '🐾'} ${pet.name}  Lv.${pet.level}`
-            + (stage ? ` · ${stage}` : '') + activity;
-
-        this.expFill.clear();
-        const ratio = Math.max(0, Math.min(1, pet.expPercent));
-        this.expFill.fillColor = COLOR_EXP;
-        this.expFill.roundRect(-128, -4, Math.max(0, 256 * ratio), 8, 4);
-        this.expFill.fill();
-
-        this.paintBar(this.bars.hp, pet.maxHp > 0 ? pet.hp / pet.maxHp : 0, COLOR_HP);
-        this.paintBar(this.bars.hunger, pet.hunger / 100, COLOR_HUNGER);
-        this.paintBar(this.bars.happiness, pet.happiness / 100, COLOR_HAPPINESS);
-        this.paintBar(this.bars.energy, pet.energy / 100, COLOR_ENERGY);
-        this.paintBar(this.bars.cleanliness, pet.cleanliness / 100, COLOR_CLEAN);
-    }
-
-    private showBubble(text: string): void {
-        if (!this.bubble || !this.bubbleLabel) {
-            return;
-        }
-        this.bubbleLabel.string = text;
-        const opacity = this.bubble.getComponent(UIOpacity)!;
-        this.unschedule(this.hideBubble);
-        this.fadeOpacity(opacity, 1);
-        this.scheduleOnce(this.hideBubble, 3);
-    }
-
-    private hideBubble = (): void => {
-        if (this.bubble) {
-            this.fadeOpacity(this.bubble.getComponent(UIOpacity)!, 0);
-        }
-    };
-
-    private fadeOpacity(opacity: UIOpacity, target: number): void {
-        const step = (): void => {
-            const next = opacity.opacity + (target - opacity.opacity) * 0.25;
-            if (Math.abs(target - next) < 4) {
-                opacity.opacity = target;
-                return;
+    /** 眨眼：随机间隔 + 快速闭合/张开；情绪影响基础开合度（困倦半闭眼） */
+    private driveBlink(dt: number, baseEye: number): void {
+        const rig = this.rig!
+        this.blinkTimer -= dt
+        if (this.blinkPhase === 'open') {
+            PetAnimations.blink(rig, baseEye)
+            if (this.blinkTimer <= 0) {
+                this.blinkPhase = 'closing'
+                this.blinkProgress = 0
             }
-            opacity.opacity = next;
-            requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
+            return
+        }
+        this.blinkProgress += dt
+        if (this.blinkPhase === 'closing') {
+            const t = Math.min(1, this.blinkProgress / 0.07)
+            PetAnimations.blink(rig, baseEye * (1 - t * 0.94))
+            if (t >= 1) {
+                this.blinkPhase = 'opening'
+                this.blinkProgress = 0
+            }
+            return
+        }
+        const t = Math.min(1, this.blinkProgress / 0.1)
+        PetAnimations.blink(rig, baseEye * (0.06 + t * 0.94))
+        if (t >= 1) {
+            this.blinkPhase = 'open'
+            this.blinkProgress = 0
+            this.blinkTimer = 2.0 + Math.random() * 3.2
+        }
+    }
+
+    /** 视线：周期性看向随机方向，平滑追随（瞳孔偏移，制造"在观察"的感觉） */
+    private driveLook(dt: number): void {
+        const rig = this.rig!
+        this.lookTimer -= dt
+        if (this.lookTimer <= 0) {
+            this.lookTimer = 2.4 + Math.random() * 4.2
+            this.lookTarget = {
+                x: (Math.random() * 2 - 1) * 0.9,
+                y: (Math.random() * 2 - 1) * 0.5,
+            }
+        }
+        const k = Math.min(1, dt * 4)
+        this.lookCur.x += (this.lookTarget.x - this.lookCur.x) * k
+        this.lookCur.y += (this.lookTarget.y - this.lookCur.y) * k
+        PetAnimations.look(rig, this.lookCur.x, this.lookCur.y)
+    }
+
+    /** 待机小动作：每 8-16 秒随机来一个（歪头/抖耳/看肚子/小跳），制造"它自己在动" */
+    private driveIdleAction(dt: number): void {
+        if (this.performance !== null) {
+            return
+        }
+        this.idleTimer -= dt
+        if (this.idleTimer > 0) {
+            return
+        }
+        this.idleTimer = 8 + Math.random() * 8
+        const rig = this.rig!
+        const pick = Math.floor(Math.random() * 4)
+        switch (pick) {
+            case 0:
+                PetAnimations.glance(rig, (Math.random() * 2 - 1) * 26, (Math.random() * 2 - 1) * 10)
+                break
+            case 1:
+                PetAnimations.hop(rig)
+                break
+            case 2:
+                PetAnimations.glance(rig, 0, 18)
+                break
+            default:
+                this.effects && this.effects.sparkle(this.headWorld, 2)
+                PetAnimations.glance(rig, 14, -6)
+                break
+        }
+    }
+
+    /** 房间氛围：光点上升循环 / 灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
+    private roomAmbience(dt: number): void {
+        const room = this.room
+        if (!room) {
+            return
+        }
+        room.orbs.forEach((orb, index) => {
+            if (this.orbSeeds.length <= index) {
+                this.orbSeeds.push(Math.random() * 6.28)
+            }
+            const seed = this.orbSeeds[index]
+            const y = orb.position.y + dt * 0.16
+            orb.setPosition(
+                orb.position.x + Math.sin(this.roomTime * 0.8 + seed) * dt * 0.1,
+                y > 3.4 ? 0.5 : y,
+                orb.position.z,
+            )
+            const scale = 0.85 + Math.sin(this.roomTime * 1.7 + seed) * 0.15
+            orb.setScale(scale, scale, scale)
+        })
+        room.bulbs.forEach((bulb, index) => {
+            const scale = 0.92 + Math.sin(this.roomTime * 2.1 + index * 0.7) * 0.08
+            bulb.setScale(scale, scale, scale)
+        })
+        const beamScale = 1 + Math.sin(this.roomTime * 0.9) * 0.06
+        room.sunBeam.setScale(beamScale, 1, beamScale)
+        const toy = room.toyBall
+        toy.setPosition(-1.35 + Math.sin(this.roomTime * 0.6) * 0.1, 0.19 + Math.abs(Math.sin(this.roomTime * 1.4)) * 0.03, 1.05)
+    }
+
+    // ---------------- 情绪 ----------------
+
+    /** 由服务端数值推导基础情绪（交互演出时被 performance 覆盖） */
+    private computeEmotion(): PetEmotion {
+        if (this.performance) {
+            return this.performance
+        }
+        const pet = this.pet
+        if (!pet) {
+            return 'idle'
+        }
+        const hunger = pet.hunger / 100
+        const happiness = pet.happiness / 100
+        const energy = pet.energy / 100
+        const clean = pet.cleanliness / 100
+        if (energy < 0.2) {
+            return 'sleepy'
+        }
+        if (hunger < 0.25) {
+            return 'hungry'
+        }
+        if (happiness < 0.28 || clean < 0.2) {
+            return 'sad'
+        }
+        if (happiness > 0.78) {
+            return 'happy'
+        }
+        return 'idle'
+    }
+
+    private applyEmotion(): void {
+        const rig = this.rig
+        if (!rig) {
+            return
+        }
+        const emotion = this.computeEmotion()
+        this.emotion = emotion
+        const profile = EMOTION_PROFILE[emotion]
+        PetAnimations.setMouth(rig, profile.mouth)
+        PetAnimations.setBlush(rig, emotion === 'happy' || emotion === 'pet' || emotion === 'love' ? 1.25 : 1)
+        if (this.performance === null) {
+            PetAnimations.earPose(rig, this.time, profile.droop)
+        }
+    }
+
+    /** 临时情绪演出（love/eat 等），结束后回到派生情绪 */
+    private withPerformance(emotion: PetEmotion, run: () => void): void {
+        this.performance = emotion
+        this.applyEmotion()
+        run()
+    }
+
+    private endPerformance(): void {
+        this.performance = null
+        this.applyEmotion()
     }
 
     // ---------------- 桥接 ----------------
@@ -509,135 +459,230 @@ export class PetGameRoot extends Component {
         this.bridge.bind((message: HostToGame) => {
             switch (message.type) {
                 case 'init':
-                case 'petState': {
-                    const previousLevel = this.pet ? this.pet.level : 0;
-                    this.pet = message.pet;
-                    this.renderPet(message.pet);
-                    if (message.pet.level > previousLevel && previousLevel > 0 && this.petBody) {
-                        PetAnimations.levelUp(this.petBody, this.petBodyBasePos);
-                        this.showBubble(`我升级啦！现在是 Lv.${message.pet.level}～`);
-                    } else if (message.pet.speech) {
-                        this.showBubble(message.pet.speech);
-                    }
-                    break;
-                }
+                case 'petState':
+                    this.applyPetState(message.pet)
+                    break
                 case 'actionResult':
-                    this.playActionResult(message.action, message.ok, message.message);
-                    break;
+                    this.playActionResult(message.action, message.ok, message.message)
+                    break
                 case 'battleRounds':
-                    this.playBattle(message.rounds, message.won);
-                    break;
+                    this.playBattle(message.rounds, message.won)
+                    break
                 case 'chatBubble':
-                    this.showBubble(message.content);
-                    break;
+                    this.hud && this.hud.showBubble(message.content, 4.2)
+                    break
                 default:
-                    break;
+                    break
             }
-        });
+        })
     }
 
-    private playActionResult(action: string, ok: boolean, message: string | undefined): void {
-        if (!this.petRoot || !this.petBody) {
-            return;
+    /** 应用服务端状态：数值 → HUD 平滑动画；外观变化 → 重建宠物；升级 → 星光演出 */
+    private applyPetState(pet: PetDisplayState): void {
+        const previousLevel = this.pet ? this.pet.level : 0
+        const wasSleeping = this.performance === 'sleep'
+        this.pet = pet
+        this.rebuildPetIfNeeded(pet)
+        this.hud && this.hud.setName(`${pet.name}`)
+        this.hud && this.hud.setLevel(pet.level)
+        this.hud && this.hud.setStatus(this.statusText(pet))
+        this.hud && this.hud.setState('hp', pet.maxHp > 0 ? pet.hp / pet.maxHp : 0)
+        this.hud && this.hud.setState('hunger', pet.hunger / 100)
+        this.hud && this.hud.setState('happiness', pet.happiness / 100)
+        this.hud && this.hud.setState('energy', pet.energy / 100)
+        this.hud && this.hud.setState('cleanliness', pet.cleanliness / 100)
+        this.hud && this.hud.setExp(pet.expPercent)
+
+        if (pet.level > previousLevel && previousLevel > 0 && this.rig) {
+            this.withPerformance('love', () => {
+                PetAnimations.levelUp(this.rig!, () => this.endPerformance())
+                this.effects && this.effects.stars(this.headWorld, 8)
+                this.effects && this.effects.ring(this.headWorld)
+                this.hud && this.hud.showBubble(`我升级啦！现在是 Lv.${pet.level}～`, 4)
+            })
+            this.blinkTimer = 3
+        } else if (pet.speech && !wasSleeping) {
+            this.hud && this.hud.showBubble(pet.speech)
+        } else {
+            this.applyEmotion()
         }
-        const base = this.petBasePos;
-        const done = () => {
-            if (message) {
-                this.floatMessage(message, ok);
-            }
-        };
+
+        // 服务端状态离开休息 → 唤醒
+        if (wasSleeping && pet.status !== 'RESTING') {
+            this.wakeUp()
+        }
+    }
+
+    private statusText(pet: PetDisplayState): string {
+        const label: Record<string, string> = {
+            IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
+        }
+        const stage: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' }
+        const activity = pet.activityName ? ` · ${pet.activityName}` : ''
+        return `${label[pet.status] || '悠闲中'} · ${stage[pet.growthStage] || ''}${activity}`
+    }
+
+    /** 交互结果演出：喂食 / 玩耍 / 清洁 / 休息 / 失败（情绪 + 动画 + 粒子 + 浮字） */
+    private playActionResult(action: string, ok: boolean, message: string | undefined): void {
+        const rig = this.rig
+        if (!rig) {
+            return
+        }
+        if (this.performance === 'sleep' && action !== 'rest') {
+            this.wakeUp()
+        }
         if (!ok) {
-            PetAnimations.hurt(this.petRoot, base, done);
-            this.showBubble('呜…' + (message || '先看看我的状态吧'));
-            return;
+            this.withPerformance('sad', () => {
+                PetAnimations.hurt(rig, () => this.endPerformance())
+                this.hud && this.hud.showBubble('呜…' + (message || '先看看我的状态吧'))
+            })
+            return
         }
         switch (action) {
             case 'feed':
-                PetAnimations.feed(this.petBody, this.petBodyBasePos, done);
-                this.showBubble('谢谢主人，好满足～');
-                break;
+                this.playFeedSequence(rig, message)
+                break
             case 'play':
-                PetAnimations.play(this.petRoot, base, done);
-                this.showBubble('再来一次！再来一次！');
-                break;
+                this.withPerformance('play', () => {
+                    this.lookTarget = { x: 0.9, y: 0.4 }
+                    PetAnimations.play(rig, () => {
+                        this.endPerformance()
+                        this.effects && this.effects.hearts(this.headWorld, 2)
+                    })
+                    this.effects && this.effects.stars(this.headWorld, 5, new Color(255, 196, 226, 255))
+                    this.hud && this.hud.showBubble(message || '再来一次！再来一次！')
+                })
+                break
             case 'clean':
-                PetAnimations.clean(this.petRoot, base, done);
-                this.showBubble('洗得香喷喷！');
-                break;
+                this.withPerformance('clean', () => {
+                    PetAnimations.clean(rig, () => this.endPerformance())
+                    this.effects && this.effects.bubbles(this.headWorld, 10)
+                    this.hud && this.hud.showBubble(message || '洗得香喷喷～')
+                })
+                break
             case 'rest':
-                PetAnimations.rest(this.petBody, this.petBodyBasePos, done);
-                this.showBubble('呼…呼…精力充沛！');
-                break;
+                this.withPerformance('sleep', () => {
+                    PetAnimations.sleepEnter(rig)
+                    this.zzzTimer = 1.2
+                    this.hud && this.hud.showBubble(message || '呼…呼…睡一会儿…', 4)
+                })
+                break
             default:
-                PetAnimations.hop(this.petRoot, base, done);
-                break;
+                this.withPerformance('love', () => {
+                    PetAnimations.hop(rig, () => this.endPerformance())
+                    this.effects && this.effects.ring(this.headWorld)
+                })
+                break
         }
     }
 
-    private floatMessage(text: string, ok: boolean): void {
-        const node = this.makeNode('float', this.node, 400, 30, 0, 40);
-        const label = this.makeLabel(node, text, 22, 0, 0, ok ? COLOR_WHITE : new Color(255, 150, 150, 255), 380);
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-        const opacity = node.addComponent(UIOpacity);
-        PetAnimations.floatText(node, opacity, () => node.destroy());
+    /** 喂食完整序列：看向食物 → 食物飞入 → 进食咀嚼 → 爱心与数值反馈 */
+    private playFeedSequence(rig: PetRig, message: string | undefined): void {
+        this.withPerformance('eat', () => {
+            this.lookTarget = { x: -0.6, y: -0.9 }
+            PetAnimations.glance(rig, -10, 22)
+            this.scheduleOnce(() => {
+                this.effects && this.effects.food(this.mouthWorld, '🍖', () => {
+                    if (this.performance !== 'eat') {
+                        return
+                    }
+                    PetAnimations.feed(rig, () => {
+                        this.endPerformance()
+                        this.effects && this.effects.hearts(this.headWorld, 3)
+                        this.effects && this.effects.sparkle(this.mouthWorld, 3)
+                    })
+                    this.scheduleOnce(() => {
+                        if (this.effects) {
+                            this.effects.floatText(this.mouthWorld, message || '饱食度 +30', new Color(255, 226, 168, 255))
+                        }
+                    }, 0.5)
+                })
+            }, 0.45)
+        })
+        this.hud && this.hud.showBubble('哇，是好吃哒！', 2.6)
+    }
+
+    private wakeUp(): void {
+        const rig = this.rig
+        if (!rig) {
+            return
+        }
+        this.performance = null
+        PetAnimations.wakeUp(rig, () => this.applyEmotion())
+        this.applyEmotion()
+    }
+
+    /** 宠物被点击/抚摸：看向用户 → 蹭头享受 → 爱心（Cocos 场景内的点击可直接反馈，不等服务端） */
+    private onPetTapped(): void {
+        const rig = this.rig
+        if (!rig) {
+            return
+        }
+        const sleeping = this.performance === 'sleep'
+        if (sleeping) {
+            this.wakeUp()
+            this.hud && this.hud.showBubble('唔…谁呀…？')
+            this.bridge.send({ source: 'pet-game', type: 'petTapped' })
+            return
+        }
+        this.withPerformance('pet', () => {
+            this.lookTarget = { x: 0, y: 0 }
+            PetAnimations.glance(rig, 0, -8)
+            this.scheduleOnce(() => {
+                if (this.performance !== 'pet') {
+                    return
+                }
+                PetAnimations.petting(rig, () => this.endPerformance())
+                this.effects && this.effects.hearts(this.headWorld, 2)
+            }, 0.3)
+        })
+        const speech = ['嘿嘿，好痒好痒～', '最喜欢主人了！', '再摸一会儿嘛～', '咕噜咕噜…'][Math.floor(Math.random() * 4)]
+        this.hud && this.hud.showBubble(speech, 2.6)
+        this.bridge.send({ source: 'pet-game', type: 'petTapped' })
+    }
+
+    /** HUD 意图：回传宿主（数值/幂等由服务端保证），带即时按钮反馈 */
+    private onHudIntent(intent: string): void {
+        this.bridge.send({ source: 'pet-game', type: 'intent', action: intent as PetIntentAction })
+        this.effects && this.effects.sparkle(this.headWorld, 2)
     }
 
     // ---------------- 对战演出（服务端回合流水逐条播放，点击可跳过） ----------------
 
     private playBattle(rounds: BattleRound[], won: boolean): void {
-        this.battleRounds = rounds;
-        this.battleWon = won;
-        this.battleStep = 0;
-        if (!this.battleOverlay) {
-            this.battleOverlay = this.makeNode('battle', this.node, 620, 200, 0, 20);
-            const g = this.battleOverlay.addComponent(Graphics);
-            g.fillColor = new Color(10, 16, 32, 225);
-            g.roundRect(-310, -100, 620, 200, 20);
-            g.fill();
-            this.battleOverlay.addComponent(UIOpacity);
-            this.battleOverlay.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                event.propagationStopped = true;
-                this.battleStep = this.battleRounds.length;
-            }, this);
+        const rig = this.rig
+        if (!rig || rounds.length === 0) {
+            return
         }
-        this.battleOverlay.active = true;
-        this.advanceBattle();
-    }
-
-    private advanceBattle(): void {
-        if (!this.battleOverlay) {
-            return;
-        }
-        const children = this.battleOverlay.children.filter(child => child.name === 'battle-text');
-        children.forEach(child => child.destroy());
-        const opacity = this.battleOverlay.getComponent(UIOpacity)!;
-        opacity.opacity = 255;
-
-        const finished = this.battleStep >= this.battleRounds.length;
-        let text: string;
-        if (finished) {
-            text = this.battleWon ? '⚔️ 对战大获全胜！' : '💧 惜败了，下次再战！';
-        } else {
-            const round = this.battleRounds[this.battleStep];
-            this.battleStep += 1;
-            const effect = round.dodged ? '，被闪开了！' : round.critical ? '，暴击！' : '';
-            // action=skill：主动技生效回合（服务端判定，客户端只播报）
-            const skill = round.action === 'skill' ? ' 使用技能' : '';
-            text = '第 ' + round.round + ' 回合：' + round.actorName + skill + ' 造成 ' + round.damage + ' 点伤害' + effect
-                + '\n' + round.targetName + ' 剩余 HP ' + round.targetRemainingHp;
-        }
-        const label = this.makeLabel(this.battleOverlay, text, 24, 0, 0, COLOR_WHITE, 560);
-        label.node.name = 'battle-text';
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-
-        if (finished) {
-            this.scheduleOnce(() => {
-                if (this.battleOverlay) {
-                    this.battleOverlay.active = false;
+        const step = (index: number): void => {
+            if (index >= rounds.length) {
+                this.hud && this.hud.showBubble(won ? '⚔️ 大获全胜！' : '💧 惜败了，下次再战！', 4)
+                if (won) {
+                    this.withPerformance('love', () => {
+                        PetAnimations.cheer(this.rig!, () => this.endPerformance())
+                        this.effects && this.effects.stars(this.headWorld, 9)
+                    })
+                } else {
+                    this.withPerformance('sad', () => {
+                        PetAnimations.hurt(this.rig!, () => this.endPerformance())
+                    })
                 }
-            }, 1.6);
-        } else {
-            this.scheduleOnce(() => this.advanceBattle(), 0.85);
+                return
+            }
+            const round = rounds[index]
+            const text = round.dodged
+                ? `${round.actorName} 出手被闪开！`
+                : `${round.actorName} 造成 ${round.damage} 伤害${round.critical ? ' 暴击！' : ''}`
+            this.effects && this.effects.floatText(this.headWorld, text, new Color(255, 220, 220, 255), 22)
+            if (this.effects) {
+                if (round.critical) {
+                    this.effects.stars(this.mouthWorld, 4, new Color(255, 140, 140, 255))
+                } else {
+                    this.effects.sparkle(this.mouthWorld, 2)
+                }
+            }
+            this.scheduleOnce(() => step(index + 1), 0.85)
         }
+        step(0)
     }
 }

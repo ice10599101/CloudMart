@@ -76,7 +76,7 @@ public class PetActivityScheduler {
     private void handleFinished(PetActivity activity) {
         PetActivityType type = PetActivityType.valueOf(activity.getActivityType());
         switch (type) {
-            case WORK, STUDY -> {
+            case WORK, STUDY, CAREER_WORK -> {
                 int updated = activityMapper.update(null, new LambdaUpdateWrapper<PetActivity>()
                         .set(PetActivity::getStatus, PetActivityStatus.COMPLETED.name())
                         .eq(PetActivity::getId, activity.getId())
@@ -86,7 +86,7 @@ public class PetActivityScheduler {
                 }
             }
             case BOTTLE_FISHING -> bottleFishingService.settle(activity.getUserId());
-            case REST, FEED, PLAY, CLEAN -> {
+            case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> {
                 // 即时行为不存在 IN_PROGRESS 状态，正常不会扫到；防御性日志
                 log.warn("扫描到非预期进行中活动: activityId={}, type={}", activity.getId(), type);
             }
@@ -101,6 +101,11 @@ public class PetActivityScheduler {
                     activity.getUserId(), "PET_WORK_COMPLETED",
                     "我的打工结束啦！",
                     petName + "：" + "主人，我打工回来啦，快来领取奖励！", activity.getId(), "PET_WORK_COMPLETED"));
+        } else if (type == PetActivityType.CAREER_WORK) {
+            eventProducer.publish(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
+                    activity.getUserId(), "PET_WORK_COMPLETED",
+                    "我的工作结束啦！",
+                    petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", activity.getId(), "PET_WORK_COMPLETED"));
         } else {
             eventProducer.publish(RocketMQConfig.PET_TAG_STUDY_COMPLETED, new PetEventProducer.PetEventMessage(
                     activity.getUserId(), "PET_STUDY_COMPLETED",

@@ -60,7 +60,15 @@ export type PetIntentAction =
     | 'openProfile'
     | 'openRankings'
     /** 养成面板（商城/背包/技能/进化/活动/串门/多宠物；原文档 §89） */
-    | 'openCare';
+    | 'openCare'
+    /** 三期：家园（房间布置/家具/拜访） */
+    | 'openRoom'
+    /** 三期：每日任务（进度/领奖/全清宝箱） */
+    | 'openDaily'
+    /** 三期：社交（关系/好友/留言墙） */
+    | 'openSocial'
+    /** 三期：职业（入职/工作/晋升，落养成面板职业页签） */
+    | 'openCareer';
 
 export type HostToGame =
     | { source: 'pet-host'; type: 'init'; pet: PetDisplayState; theme?: { dark: boolean } }
@@ -82,6 +90,9 @@ interface WeappMiniProgram {
 export class PetGameBridge {
 
     private hostHandler: ((message: HostToGame) => void) | null = null;
+    private readonly onMessage = (event: MessageEvent): void => {
+        this.dispatch(event.data);
+    };
 
     /** 宿主环境：iframe(web) / ReactNativeWebView(app) / wx.miniProgram(weapp) */
     private detectHost(): 'web' | 'app' | 'weapp' {
@@ -101,9 +112,7 @@ export class PetGameBridge {
     /** 接收宿主消息（iframe postMessage + RN injectJavaScript 双通道） */
     bind(hostHandler: (message: HostToGame) => void): void {
         this.hostHandler = hostHandler;
-        window.addEventListener('message', (event: MessageEvent) => {
-            this.dispatch(event.data);
-        });
+        window.addEventListener('message', this.onMessage);
         // App 宿主通过 injectJavaScript 调用该入口（Web 端 iframe 场景同样可用）
         (window as unknown as { __petHostMessage?: (raw: unknown) => void }).__petHostMessage =
             (raw: unknown) => {
@@ -118,6 +127,13 @@ export class PetGameBridge {
                     this.dispatch(raw);
                 }
             };
+    }
+
+    /** 卸载（组件销毁时调用，避免事件监听泄漏） */
+    dispose(): void {
+        window.removeEventListener('message', this.onMessage);
+        this.hostHandler = null;
+        delete (window as unknown as { __petHostMessage?: (raw: unknown) => void }).__petHostMessage;
     }
 
     private dispatch(data: unknown): void {

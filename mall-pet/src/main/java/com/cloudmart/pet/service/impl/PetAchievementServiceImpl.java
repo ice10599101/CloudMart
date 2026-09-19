@@ -10,11 +10,20 @@ import com.cloudmart.pet.entity.PetBattle;
 import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.entity.PetChatMessage;
 import com.cloudmart.pet.entity.PetChatSession;
+import com.cloudmart.pet.entity.PetDailyQuest;
+import com.cloudmart.pet.entity.PetFriend;
+import com.cloudmart.pet.entity.PetRelation;
+import com.cloudmart.pet.entity.PetRoom;
+import com.cloudmart.pet.entity.PetWallMessage;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetBattleStatus;
 import com.cloudmart.pet.enums.PetBottleOutcome;
 import com.cloudmart.pet.enums.PetChatRole;
+import com.cloudmart.pet.enums.PetFriendStatus;
+import com.cloudmart.pet.enums.PetQuestStatus;
+import com.cloudmart.pet.enums.PetRelationStatus;
+import com.cloudmart.pet.enums.PetWallStatus;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetAchievementMapper;
 import com.cloudmart.pet.repository.PetAchievementRecordMapper;
@@ -23,6 +32,11 @@ import com.cloudmart.pet.repository.PetBattleMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
 import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetChatSessionMapper;
+import com.cloudmart.pet.repository.PetDailyQuestMapper;
+import com.cloudmart.pet.repository.PetFriendMapper;
+import com.cloudmart.pet.repository.PetRelationMapper;
+import com.cloudmart.pet.repository.PetRoomMapper;
+import com.cloudmart.pet.repository.PetWallMessageMapper;
 import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.vo.PetAchievementVO;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +68,11 @@ public class PetAchievementServiceImpl implements PetAchievementService {
     private final PetBottleRecordMapper bottleRecordMapper;
     private final PetChatSessionMapper chatSessionMapper;
     private final PetChatMessageMapper chatMessageMapper;
+    private final PetRelationMapper relationMapper;
+    private final PetFriendMapper friendMapper;
+    private final PetWallMessageMapper wallMessageMapper;
+    private final PetRoomMapper roomMapper;
+    private final PetDailyQuestMapper dailyQuestMapper;
     private final PetStateService stateService;
     private final PetEventProducer eventProducer;
 
@@ -64,6 +83,11 @@ public class PetAchievementServiceImpl implements PetAchievementService {
                                      PetBottleRecordMapper bottleRecordMapper,
                                      PetChatSessionMapper chatSessionMapper,
                                      PetChatMessageMapper chatMessageMapper,
+                                     PetRelationMapper relationMapper,
+                                     PetFriendMapper friendMapper,
+                                     PetWallMessageMapper wallMessageMapper,
+                                     PetRoomMapper roomMapper,
+                                     PetDailyQuestMapper dailyQuestMapper,
                                      PetStateService stateService,
                                      PetEventProducer eventProducer) {
         this.achievementMapper = achievementMapper;
@@ -73,6 +97,11 @@ public class PetAchievementServiceImpl implements PetAchievementService {
         this.bottleRecordMapper = bottleRecordMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatMessageMapper = chatMessageMapper;
+        this.relationMapper = relationMapper;
+        this.friendMapper = friendMapper;
+        this.wallMessageMapper = wallMessageMapper;
+        this.roomMapper = roomMapper;
+        this.dailyQuestMapper = dailyQuestMapper;
         this.stateService = stateService;
         this.eventProducer = eventProducer;
     }
@@ -135,6 +164,14 @@ public class PetAchievementServiceImpl implements PetAchievementService {
             // 二期：串门次数（原文档 §1.1）/ 进化阶数（原文档 §89）
             case "VISIT_COUNT" -> activityCount(pet.getId(), PetActivityType.VISIT.name()) >= threshold;
             case "EVOLUTION" -> (pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0) >= threshold;
+            // 三期：亲密度/关系/好友/留言/舒适度/每日任务/陪伴时长
+            case "INTIMACY" -> (pet.getIntimacy() != null ? pet.getIntimacy() : 0) >= threshold;
+            case "RELATION_COUNT" -> relationCount(pet) >= threshold;
+            case "FRIEND_COUNT" -> friendCount(pet.getUserId()) >= threshold;
+            case "WALL_MESSAGE_COUNT" -> wallMessageCount(pet.getUserId()) >= threshold;
+            case "ROOM_COMFORT" -> roomComfort(pet.getId()) >= threshold;
+            case "QUEST_COUNT" -> questCount(pet.getId()) >= threshold;
+            case "COMPANION_HOURS" -> companionHours(pet) >= threshold;
             default -> {
                 log.warn("未知成就判定类型: code={}, type={}", achievement.getCode(), achievement.getConditionType());
                 yield false;
@@ -151,6 +188,50 @@ public class PetAchievementServiceImpl implements PetAchievementService {
                 .eq(PetActivity::getActivityType, subtype)
                 .in(PetActivity::getStatus, Set.of(
                         PetActivityStatus.CLAIMED.name(), PetActivityStatus.COMPLETED.name())));
+    }
+
+    /** 关系数：ACTIVE 且（我是发起方或接收方）都算一段（三期） */
+    private long relationCount(Pet pet) {
+        return relationMapper.selectCount(new LambdaQueryWrapper<PetRelation>()
+                .eq(PetRelation::getStatus, PetRelationStatus.ACTIVE.name())
+                .and(w -> w.eq(PetRelation::getFromPetId, pet.getId())
+                        .or()
+                        .eq(PetRelation::getToPetId, pet.getId())));
+    }
+
+    /** 好友数：好友表双向各一行，按 user_id 单向统计即不重复（三期） */
+    private long friendCount(Long userId) {
+        return friendMapper.selectCount(new LambdaQueryWrapper<PetFriend>()
+                .eq(PetFriend::getUserId, userId)
+                .eq(PetFriend::getStatus, PetFriendStatus.ACTIVE.name()));
+    }
+
+    /** 我发出的留言数（不含已删除/被隐藏，三期） */
+    private long wallMessageCount(Long userId) {
+        return wallMessageMapper.selectCount(new LambdaQueryWrapper<PetWallMessage>()
+                .eq(PetWallMessage::getAuthorUserId, userId)
+                .eq(PetWallMessage::getStatus, PetWallStatus.NORMAL.name()));
+    }
+
+    private int roomComfort(Long petId) {
+        PetRoom room = roomMapper.selectOne(new LambdaQueryWrapper<PetRoom>()
+                .eq(PetRoom::getPetId, petId)
+                .last("LIMIT 1"));
+        return room != null && room.getComfort() != null ? room.getComfort() : 0;
+    }
+
+    /** 已领取的每日任务数（排除全清宝箱保留行，三期） */
+    private long questCount(Long petId) {
+        return dailyQuestMapper.selectCount(new LambdaQueryWrapper<PetDailyQuest>()
+                .eq(PetDailyQuest::getPetId, petId)
+                .eq(PetDailyQuest::getStatus, PetQuestStatus.CLAIMED.name())
+                .ne(PetDailyQuest::getQuestCode, PetDailyQuestServiceImpl.CHEST_CODE));
+    }
+
+    /** 累计陪伴小时数（向下取整，三期） */
+    private int companionHours(Pet pet) {
+        long seconds = pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L;
+        return (int) (seconds / 3600);
     }
 
     private long chatMessageCount(Long userId) {

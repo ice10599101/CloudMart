@@ -13,6 +13,8 @@ import com.cloudmart.pet.entity.PetJobConfig;
 import com.cloudmart.pet.entity.PetStudyConfig;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
@@ -22,6 +24,8 @@ import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.repository.PetStudyConfigMapper;
 import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.service.PetActivityService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetActivityVO;
@@ -65,6 +69,8 @@ public class PetActivityServiceImpl implements PetActivityService {
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
     private final PetStatsService statsService;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
 
     public PetActivityServiceImpl(PetService petService,
                                   PetStateService stateService,
@@ -75,7 +81,9 @@ public class PetActivityServiceImpl implements PetActivityService {
                                   WishFeignClient wishFeignClient,
                                   PetAchievementService achievementService,
                                   PetEventProducer eventProducer,
-                                  PetStatsService statsService) {
+                                  PetStatsService statsService,
+                                  PetDailyQuestService dailyQuestService,
+                                  PetIntimacyService intimacyService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -86,6 +94,8 @@ public class PetActivityServiceImpl implements PetActivityService {
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
         this.statsService = statsService;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
     }
 
     @Override
@@ -157,6 +167,8 @@ public class PetActivityServiceImpl implements PetActivityService {
         int intelligenceBonus = intelligenceBonusPercent(pet.getIntelligence());
         expReward = expReward + Math.round(expReward * intelligenceBonus / 100f);
         currencyReward = currencyReward + Math.round(currencyReward * intelligenceBonus / 100f);
+        // 三期：亲密度先叠加（与经验同一次乐观锁写入）
+        intimacyService.gain(pet, PetIntimacySource.WORK);
         int levelups = stateService.grantExp(pet, expReward);
         if (currencyReward > 0) {
             wishFeignClient.earnStarlight(userId, currencyReward, activity.getId());
@@ -165,6 +177,7 @@ public class PetActivityServiceImpl implements PetActivityService {
                 "exp", expReward, "currency", currencyReward, "intelligenceBonus", intelligenceBonus,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
+        dailyQuestService.record(pet, PetQuestType.WORK, 1);
 
         achievementService.evaluate(pet, PetAchievementService.Event.WORK_CLAIMED);
         notifyLevelUp(userId, pet, levelups);
@@ -191,6 +204,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         // 技能被动"博览群书"（原文档 §89）：读书经验额外加成
         int skillBonusPercent = (int) Math.round(statsService.studyExpBonus(pet) * 100);
         expReward = expReward + Math.round(expReward * skillBonusPercent / 100f);
+        intimacyService.gain(pet, PetIntimacySource.STUDY);
         int levelups = stateService.grantExp(pet, expReward);
         if (intelligenceReward > 0) {
             pet.setIntelligence(Math.min(999, pet.getIntelligence() + intelligenceReward));
@@ -201,6 +215,7 @@ public class PetActivityServiceImpl implements PetActivityService {
                 "skillBonus", skillBonusPercent,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
+        dailyQuestService.record(pet, PetQuestType.STUDY, 1);
 
         achievementService.evaluate(pet, PetAchievementService.Event.STUDY_CLAIMED);
         notifyLevelUp(userId, pet, levelups);
@@ -322,7 +337,7 @@ public class PetActivityServiceImpl implements PetActivityService {
 
     private String mapBusyStatus(PetActivityType type) {
         return switch (type) {
-            case WORK -> PetStatus.WORKING.name();
+            case WORK, CAREER_WORK -> PetStatus.WORKING.name();
             case STUDY -> PetStatus.STUDYING.name();
             case BOTTLE_FISHING -> PetStatus.FISHING.name();
             case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> PetStatus.IDLE.name();

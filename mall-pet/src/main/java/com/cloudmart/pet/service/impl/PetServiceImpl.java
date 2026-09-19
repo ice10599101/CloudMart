@@ -12,14 +12,17 @@ import com.cloudmart.pet.dto.UpdatePrivacyRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetAchievementRecord;
 import com.cloudmart.pet.entity.PetActivity;
+import com.cloudmart.pet.entity.PetCareerConfig;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.repository.PetAchievementRecordMapper;
 import com.cloudmart.pet.repository.PetActivityMapper;
+import com.cloudmart.pet.repository.PetCareerConfigMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetReminderService;
 import com.cloudmart.pet.service.PetService;
+import com.cloudmart.pet.util.PetIntimacyMath;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetPublicVO;
 import com.cloudmart.pet.vo.PetSummaryVO;
@@ -60,6 +63,7 @@ public class PetServiceImpl implements PetService {
     private final PetReminderService reminderService;
     private final StringRedisTemplate redisTemplate;
     private final PetProperties properties;
+    private final PetCareerConfigMapper careerConfigMapper;
 
     public PetServiceImpl(PetMapper petMapper,
                           PetActivityMapper activityMapper,
@@ -67,7 +71,8 @@ public class PetServiceImpl implements PetService {
                           PetStateService stateService,
                           PetReminderService reminderService,
                           StringRedisTemplate redisTemplate,
-                          PetProperties properties) {
+                          PetProperties properties,
+                          PetCareerConfigMapper careerConfigMapper) {
         this.petMapper = petMapper;
         this.activityMapper = activityMapper;
         this.achievementRecordMapper = achievementRecordMapper;
@@ -75,6 +80,7 @@ public class PetServiceImpl implements PetService {
         this.reminderService = reminderService;
         this.redisTemplate = redisTemplate;
         this.properties = properties;
+        this.careerConfigMapper = careerConfigMapper;
     }
 
     @Override
@@ -277,7 +283,49 @@ public class PetServiceImpl implements PetService {
                 active != null ? active.getFinishedAt() : null, claimableType,
                 pet.getIsPublic(), feedRemaining, pet.getLastStateUpdateAt(),
                 pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0, pet.getSkinCode(),
-                (int) stateService.countByUserId(pet.getUserId()), properties.getMultiPet().getMaxPets());
+                (int) stateService.countByUserId(pet.getUserId()), properties.getMultiPet().getMaxPets(),
+                // 三期：亲密度/陪伴（公式来自 PetIntimacyMath，避免与亲密度服务循环依赖）
+                intimacyOf(pet),
+                PetIntimacyMath.levelOf(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
+                PetIntimacyMath.levelName(
+                        PetIntimacyMath.levelOf(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
+                        properties.getIntimacy().getLevelNames()),
+                PetIntimacyMath.toNext(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
+                PetIntimacyMath.expBonusPercent(pet, properties.getIntimacy()),
+                pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L,
+                pet.getTodayCompanionSeconds() != null ? pet.getTodayCompanionSeconds() : 0,
+                pet.getCompanionDays() != null ? pet.getCompanionDays() : 0,
+                pet.getCompanionStreak() != null ? pet.getCompanionStreak() : 0,
+                pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()));
+    }
+
+    private int intimacyOf(Pet pet) {
+        return pet.getIntimacy() != null ? pet.getIntimacy() : 0;
+    }
+
+    /** 当前职业名（未入职或配置已删返回 null；展示型数据静默降级） */
+    private String careerNameOf(String careerCode) {
+        PetCareerConfig config = careerConfigOf(careerCode);
+        return config != null ? config.getName() : null;
+    }
+
+    private Integer careerTierOf(String careerCode) {
+        PetCareerConfig config = careerConfigOf(careerCode);
+        return config != null ? config.getTier() : null;
+    }
+
+    private PetCareerConfig careerConfigOf(String careerCode) {
+        if (careerCode == null || careerCode.isBlank()) {
+            return null;
+        }
+        try {
+            return careerConfigMapper.selectOne(new LambdaQueryWrapper<PetCareerConfig>()
+                    .eq(PetCareerConfig::getCode, careerCode)
+                    .last("LIMIT 1"));
+        } catch (Exception e) {
+            log.warn("职业配置查询降级: careerCode={}", careerCode, e);
+            return null;
+        }
     }
 
     /** 多宠物列表项（不触发懒更新落库，列表只做展示；主宠状态以 PetVO 为准） */
@@ -292,7 +340,7 @@ public class PetServiceImpl implements PetService {
     private String resolveStatus(Pet pet, String activeType) {
         if (activeType != null) {
             return switch (PetActivityType.valueOf(activeType)) {
-                case WORK -> PetStatus.WORKING.name();
+                case WORK, CAREER_WORK -> PetStatus.WORKING.name();
                 case STUDY -> PetStatus.STUDYING.name();
                 case BOTTLE_FISHING -> PetStatus.FISHING.name();
                 case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> PetStatus.RESTING.name();

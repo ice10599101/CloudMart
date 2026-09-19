@@ -37,5 +37,23 @@ public enum PetReminderType {
     /** 有宠物来串门（原文档 §1.1 宠物串门） */
     PET_VISIT,
     /** 社区宠物活动达成可领奖（原文档 §89 社区宠物活动） */
-    PET_EVENT_READY
+    PET_EVENT_READY,
+    /** 收到宠物关系申请（三期：情侣/闺蜜/兄弟/死党） */
+    PET_RELATION_REQUEST,
+    /** 宠物关系已建立 */
+    PET_RELATION_ACCEPTED,
+    /** 收到好友申请 */
+    PET_FRIEND_REQUEST,
+    /** 好友来访 / 好友互访回礼 */
+    PET_FRIEND_VISIT,
+    /** 留言墙收到留言 / 主人回复 */
+    PET_WALL_MESSAGE,
+    /** 每日任务全部完成可领宝箱 */
+    PET_DAILY_QUEST_READY,
+    /** 与主人的亲密度升级 */
+    PET_INTIMACY_LEVEL_UP,
+    /** 职业晋升成功 */
+    PET_CAREER_PROMOTED,
+    /** 有访客来过家园 */
+    PET_HOME_VISIT
 }

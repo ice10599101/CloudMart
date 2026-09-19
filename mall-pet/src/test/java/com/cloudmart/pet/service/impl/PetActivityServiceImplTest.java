@@ -18,6 +18,8 @@ import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.repository.PetStudyConfigMapper;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetActivityVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -67,6 +69,10 @@ class PetActivityServiceImplTest {
     private PetEventProducer eventProducer;
     @Mock
     private PetStatsService statsService;
+    @Mock
+    private PetDailyQuestService dailyQuestService;
+    @Mock
+    private PetIntimacyService intimacyService;
 
     private PetActivityServiceImpl activityService;
 
@@ -82,7 +88,7 @@ class PetActivityServiceImplTest {
     void setUp() {
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
                 jobConfigMapper, studyConfigMapper, petMapper, wishFeignClient, achievementService,
-                eventProducer, statsService);
+                eventProducer, statsService, dailyQuestService, intimacyService);
         // 技能被动加成（博览群书）默认 0：无技能时与改造前收益口径一致
         lenient().when(statsService.studyExpBonus(any())).thenReturn(0.0);
     }

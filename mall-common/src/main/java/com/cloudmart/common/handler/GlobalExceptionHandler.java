@@ -124,7 +124,9 @@ public class GlobalExceptionHandler {
                  "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN",
                  "WISH_CONSENT_REQUIRED",
                  "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED",
-                 "PET_NOT_OWNER", "PET_NOT_PUBLIC", "PET_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+                 "PET_NOT_OWNER", "PET_NOT_PUBLIC", "PET_FORBIDDEN",
+                 // 三期：家园未公开 / 无权操作留言
+                 "PET_ROOM_PRIVATE", "PET_WALL_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -158,7 +160,11 @@ public class GlobalExceptionHandler {
                  "PET_NOT_FOUND", "PET_ACTIVITY_NOT_FOUND", "PET_BATTLE_NOT_FOUND",
                  "PET_JOB_NOT_FOUND", "PET_STUDY_NOT_FOUND", "PET_ACHIEVEMENT_NOT_FOUND",
                  "PET_ITEM_NOT_FOUND", "PET_SKILL_NOT_FOUND", "PET_EVOLUTION_NOT_FOUND",
-                 "PET_EVENT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                 "PET_EVENT_NOT_FOUND",
+                 // 三期：职业/关系/好友/家园/家具/留言/每日任务
+                 "PET_CAREER_NOT_FOUND", "PET_RELATION_NOT_FOUND", "PET_FRIEND_NOT_FOUND",
+                 "PET_ROOM_NOT_FOUND", "PET_FURNITURE_NOT_FOUND", "PET_WALL_MESSAGE_NOT_FOUND",
+                 "PET_QUEST_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
             case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
                  "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
@@ -183,9 +189,18 @@ public class GlobalExceptionHandler {
                  "PET_SKILL_ALREADY_LEARNED", "PET_SKILL_BOOK_REQUIRED",
                  "PET_EVOLUTION_REQUIRED", "PET_EVOLUTION_MAX",
                  "PET_VISIT_SELF", "PET_VISIT_COOLDOWN", "PET_VISIT_ENERGY_INSUFFICIENT",
-                 "PET_EVENT_NOT_FINISHED", "PET_EVENT_ALREADY_CLAIMED", "PET_EVENT_ENDED" -> HttpStatus.CONFLICT;
+                 "PET_EVENT_NOT_FINISHED", "PET_EVENT_ALREADY_CLAIMED", "PET_EVENT_ENDED",
+                 // 三期：职业/关系/好友/家园/留言/每日任务
+                 "PET_CAREER_LOCKED", "PET_CAREER_REQUIRED", "PET_CAREER_PROMOTE_REQUIRED", "PET_CAREER_MAX_TIER",
+                 "PET_RELATION_SELF", "PET_RELATION_EXISTS", "PET_RELATION_LIMIT", "PET_RELATION_EXCLUSIVE",
+                 "PET_RELATION_NOT_PENDING",
+                 "PET_FRIEND_SELF", "PET_FRIEND_EXISTS", "PET_FRIEND_LIMIT",
+                 "PET_ROOM_POS_OCCUPIED", "PET_FURNITURE_NOT_OWNED",
+                 "PET_QUEST_NOT_FINISHED", "PET_QUEST_ALREADY_CLAIMED",
+                 "PET_QUEST_CHEST_NOT_READY", "PET_QUEST_CHEST_CLAIMED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
-                 "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+                 "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED"
+                    -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;

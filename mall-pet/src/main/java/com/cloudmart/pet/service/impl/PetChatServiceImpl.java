@@ -14,7 +14,12 @@ import com.cloudmart.pet.enums.PetMemoryType;
 import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetChatSessionMapper;
 import com.cloudmart.pet.repository.PetMemoryMapper;
+import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetQuestType;
+import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
+import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetChatService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
@@ -76,13 +81,20 @@ public class PetChatServiceImpl implements PetChatService {
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
 
+    private final PetMapper petMapper;
+    private final PetDailyQuestService dailyQuestService;
+    private final PetIntimacyService intimacyService;
+
     public PetChatServiceImpl(PetService petService,
                               PetContextService contextService,
                               PetAiClient aiClient,
                               PetChatSessionMapper sessionMapper,
                               PetChatMessageMapper messageMapper,
                               PetMemoryMapper memoryMapper,
+                              PetMapper petMapper,
                               PetAchievementService achievementService,
+                              PetDailyQuestService dailyQuestService,
+                              PetIntimacyService intimacyService,
                               PetProperties properties,
                               StringRedisTemplate redisTemplate) {
         this.petService = petService;
@@ -91,7 +103,10 @@ public class PetChatServiceImpl implements PetChatService {
         this.sessionMapper = sessionMapper;
         this.messageMapper = messageMapper;
         this.memoryMapper = memoryMapper;
+        this.petMapper = petMapper;
         this.achievementService = achievementService;
+        this.dailyQuestService = dailyQuestService;
+        this.intimacyService = intimacyService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
     }
@@ -324,6 +339,10 @@ public class PetChatServiceImpl implements PetChatService {
         PetChatSession session = requireSession(userId);
         saveMessage(session.getId(), PetChatRole.USER.name(), userMessage, isAiReply);
         PetChatMessage petMessage = saveMessage(session.getId(), PetChatRole.PET.name(), reply, isAiReply);
+        // 三期埋点：聊天加亲密度（落库在这里，因为聊天本身不写宠物行）+ 每日任务进度
+        intimacyService.gain(pet, PetIntimacySource.CHAT);
+        petMapper.updateById(pet);
+        dailyQuestService.record(pet, PetQuestType.CHAT, 1);
         // 消息落库后同步宠物记忆可见性（无额外动作；宠物会话由 uk 保证一人一会话）
         return toVo(petMessage);
     }

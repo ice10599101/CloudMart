@@ -103,6 +103,70 @@ public final class PetErrorCodes {
     public static final String PET_EVENT_ALREADY_CLAIMED = "PET_EVENT_ALREADY_CLAIMED";
     /** 活动已结束 */
     public static final String PET_EVENT_ENDED = "PET_EVENT_ENDED";
+    /** 职业不存在或已停招 */
+    public static final String PET_CAREER_NOT_FOUND = "PET_CAREER_NOT_FOUND";
+    /** 尚未入职该职业（先入职再工作/晋升） */
+    public static final String PET_CAREER_REQUIRED = "PET_CAREER_REQUIRED";
+    /** 入职条件不满足（等级/智力） */
+    public static final String PET_CAREER_LOCKED = "PET_CAREER_LOCKED";
+    /** 晋升条件不满足（工作次数/等级/星光） */
+    public static final String PET_CAREER_PROMOTE_REQUIRED = "PET_CAREER_PROMOTE_REQUIRED";
+    /** 已是该职业路线最高阶 */
+    public static final String PET_CAREER_MAX_TIER = "PET_CAREER_MAX_TIER";
+    /** 关系不存在或不可操作 */
+    public static final String PET_RELATION_NOT_FOUND = "PET_RELATION_NOT_FOUND";
+    /** 不能和自己的宠物建立关系 */
+    public static final String PET_RELATION_SELF = "PET_RELATION_SELF";
+    /** 关系已存在（重复申请/重复建立） */
+    public static final String PET_RELATION_EXISTS = "PET_RELATION_EXISTS";
+    /** 关系数量已达上限 */
+    public static final String PET_RELATION_LIMIT = "PET_RELATION_LIMIT";
+    /** 该关系类型独占（情侣只能有一段） */
+    public static final String PET_RELATION_EXCLUSIVE = "PET_RELATION_EXCLUSIVE";
+    /** 关系申请已失效（非待确认状态） */
+    public static final String PET_RELATION_NOT_PENDING = "PET_RELATION_NOT_PENDING";
+    /** 不能加自己为好友 */
+    public static final String PET_FRIEND_SELF = "PET_FRIEND_SELF";
+    /** 好友关系已存在或申请中 */
+    public static final String PET_FRIEND_EXISTS = "PET_FRIEND_EXISTS";
+    /** 好友数量已达上限 */
+    public static final String PET_FRIEND_LIMIT = "PET_FRIEND_LIMIT";
+    /** 好友关系不存在 */
+    public static final String PET_FRIEND_NOT_FOUND = "PET_FRIEND_NOT_FOUND";
+    /** 还没有自己的房间（先进入一次家园） */
+    public static final String PET_ROOM_NOT_FOUND = "PET_ROOM_NOT_FOUND";
+    /** 对方家园未公开 */
+    public static final String PET_ROOM_PRIVATE = "PET_ROOM_PRIVATE";
+    /** 房间坐标非法（超出网格） */
+    public static final String PET_ROOM_POS_INVALID = "PET_ROOM_POS_INVALID";
+    /** 该格子已被占用 */
+    public static final String PET_ROOM_POS_OCCUPIED = "PET_ROOM_POS_OCCUPIED";
+    /** 家具不存在或已下架 */
+    public static final String PET_FURNITURE_NOT_FOUND = "PET_FURNITURE_NOT_FOUND";
+    /** 尚未拥有该家具 */
+    public static final String PET_FURNITURE_NOT_OWNED = "PET_FURNITURE_NOT_OWNED";
+    /** 主题家具分类不匹配（墙纸/地板） */
+    public static final String PET_FURNITURE_THEME_INVALID = "PET_FURNITURE_THEME_INVALID";
+    /** 留言内容为空或超长 */
+    public static final String PET_WALL_MESSAGE_INVALID = "PET_WALL_MESSAGE_INVALID";
+    /** 留言不存在或已被删除 */
+    public static final String PET_WALL_MESSAGE_NOT_FOUND = "PET_WALL_MESSAGE_NOT_FOUND";
+    /** 无权操作该留言（非作者/非主人） */
+    public static final String PET_WALL_FORBIDDEN = "PET_WALL_FORBIDDEN";
+    /** 留言/点赞过于频繁 */
+    public static final String PET_WALL_RATE_LIMITED = "PET_WALL_RATE_LIMITED";
+    /** 每日任务不存在或未生成 */
+    public static final String PET_QUEST_NOT_FOUND = "PET_QUEST_NOT_FOUND";
+    /** 任务尚未完成，不可领奖 */
+    public static final String PET_QUEST_NOT_FINISHED = "PET_QUEST_NOT_FINISHED";
+    /** 任务奖励已领取 */
+    public static final String PET_QUEST_ALREADY_CLAIMED = "PET_QUEST_ALREADY_CLAIMED";
+    /** 全清宝箱条件未达成 */
+    public static final String PET_QUEST_CHEST_NOT_READY = "PET_QUEST_CHEST_NOT_READY";
+    /** 全清宝箱已领取 */
+    public static final String PET_QUEST_CHEST_CLAIMED = "PET_QUEST_CHEST_CLAIMED";
+    /** 陪伴心跳参数非法 */
+    public static final String PET_COMPANION_INVALID = "PET_COMPANION_INVALID";
 
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */
