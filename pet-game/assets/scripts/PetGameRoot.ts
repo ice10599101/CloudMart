@@ -74,10 +74,36 @@ const SPECIES_COLORS: Record<string, { body: Color; dark: Color }> = {
     WILD: { body: new Color(140, 153, 173, 255), dark: new Color(102, 112, 128, 255) },
 };
 
+/**
+ * 外观色键 → 宠物配色（原文档 §6 外观系统 / §89 宠物皮肤）。
+ *
+ * 宿主下发 `pet.color` 时优先使用（皮肤/自定义外观在 3D 场景同样可见）；
+ * 未下发或键未知时回落到种类配色。色值为 0-255 语义。
+ */
+const SKIN_COLORS: Record<string, { body: Color; dark: Color }> = {
+    orange: { body: new Color(245, 166, 36, 255), dark: new Color(217, 128, 26, 255) },
+    gray: { body: new Color(169, 174, 184, 255), dark: new Color(130, 136, 148, 255) },
+    white: { body: new Color(247, 247, 247, 255), dark: new Color(217, 217, 230, 255) },
+    brown: { body: new Color(199, 140, 89, 255), dark: new Color(153, 102, 56, 255) },
+    pink: { body: new Color(245, 170, 190, 255), dark: new Color(214, 132, 156, 255) },
+    black: { body: new Color(70, 70, 78, 255), dark: new Color(40, 40, 46, 255) },
+    // 皮肤专属色（pet_skin_config.color）
+    mint: { body: new Color(140, 225, 200, 255), dark: new Color(96, 186, 162, 255) },
+    golden: { body: new Color(240, 200, 110, 255), dark: new Color(203, 160, 70, 255) },
+    snow: { body: new Color(230, 240, 255, 255), dark: new Color(186, 203, 232, 255) },
+    midnight: { body: new Color(95, 90, 160, 255), dark: new Color(64, 60, 118, 255) },
+    ink: { body: new Color(60, 60, 70, 255), dark: new Color(30, 30, 36, 255) },
+    aurora: { body: new Color(150, 180, 255, 255), dark: new Color(110, 140, 220, 255) },
+};
+
 /** 种类 → emoji（铭牌装饰用；渲染为 3D 模型） */
 const SPECIES_EMOJI: Record<string, string> = {
     CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼', WILD: '🐾',
 };
+
+/** 成长阶段 → 体型缩放（幼年更娇小、成年更挺拔；形态演进只改缩放，不重建节点） */
+const GROWTH_SCALE: Record<string, number> = { BABY: 0.78, YOUNG: 0.9, ADULT: 1 };
+const GROWTH_LABEL: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' };
 
 const COLOR_BAR_BG = new Color(255, 255, 255, 60);
 const COLOR_HP = new Color(255, 108, 108, 255);
@@ -94,6 +120,12 @@ interface BarRow {
     root: Node;
     fill: Graphics;
     width: number;
+}
+
+/** 宠物身体部件：换色时必须覆盖全部部件，避免"只有身体变色" */
+interface PetPart {
+    node: Node;
+    role: 'body' | 'dark';
 }
 
 function getCCRuntime(): PetCcRuntime {
@@ -114,7 +146,10 @@ export class PetGameRoot extends Component {
     private world3d: Node | null = null;
     private petRoot: Node | null = null;
     private petBody: Node | null = null;
+    private readonly petParts: PetPart[] = [];
     private readonly petBasePos = new Vec3(0, 0, 0);
+    /** Body 节点在 Pet 节点下的局部基准位置（部分动画结束会复位到基准点，不能用根节点基准） */
+    private readonly petBodyBasePos = new Vec3(0, 0.72, 0);
 
     private nameLabel: Label | null = null;
     private expFill: Graphics | null = null;
@@ -253,18 +288,22 @@ export class PetGameRoot extends Component {
     }
 
     private buildPet3D(): void {
+        // 初始配色取 CAT，宿主下发 init/petState 时按 species 全量重刷（含耳/尾）
         const palette = SPECIES_COLORS.CAT;
         this.petRoot = this.make3dNode('Pet', this.world3d!, this.petBasePos.clone());
         this.petBody = this.make3dNode('Body', this.petRoot, new Vec3(0, 0.72, 0));
         this.attachMesh(this.petBody, this.ccRuntime.primitives.capsule(0.42, 0.42, 0.95), palette.body);
+        this.petParts.push({ node: this.petBody, role: 'body' });
 
         const head = this.make3dNode('Head', this.petRoot, new Vec3(0, 1.5, 0.06));
         this.attachMesh(head, this.ccRuntime.primitives.sphere(0.36), palette.body);
+        this.petParts.push({ node: head, role: 'body' });
 
         for (const side of [-1, 1]) {
             const ear = this.make3dNode('Ear', this.petRoot, new Vec3(0.2 * side, 1.88, 0));
             ear.setRotationFromEuler(0, 0, -16 * side);
             this.attachMesh(ear, this.ccRuntime.primitives.cone(0.11, 0.34), palette.dark);
+            this.petParts.push({ node: ear, role: 'dark' });
         }
         for (const side of [-1, 1]) {
             const eye = this.make3dNode('Eye', this.petRoot, new Vec3(0.13 * side, 1.58, 0.32));
@@ -276,6 +315,7 @@ export class PetGameRoot extends Component {
             new Color(250, 242, 230, 255));
         const tail = this.make3dNode('Tail', this.petRoot, new Vec3(0, 0.7, -0.5));
         this.attachMesh(tail, this.ccRuntime.primitives.sphere(0.13), palette.dark);
+        this.petParts.push({ node: tail, role: 'dark' });
 
         PetAnimations.idleBreath(this.petBody, this.petRoot);
 
@@ -335,14 +375,26 @@ export class PetGameRoot extends Component {
                 () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
         });
         const navs: Array<[string, PetIntentAction]> = [
-            ['打工', 'openWork'], ['读书', 'openStudy'], ['捞瓶', 'openBottle'],
-            ['对战', 'openBattle'], ['聊天', 'openChat'], ['成就', 'openAchievements'],
+            ['打工', 'openWork'], ['读书', 'openStudy'], ['捞瓶', 'openBottle'], ['对战', 'openBattle'],
         ];
         navs.forEach((pair, index) => {
-            this.makeButton(this.node, pair[0], -325 + index * 130, -205, 118, 54, COLOR_BTN_NAV,
+            this.makeButton(this.node, pair[0], -360 + index * 130, -200, 118, 54, COLOR_BTN_NAV,
                 () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
         });
-        this.makeLabel(this.node, 'Cocos Creator 4 3D 场景 · 业务由 mall-pet 服务端结算', 16, 0, -272,
+        const navs2: Array<[string, PetIntentAction]> = [
+            ['聊天', 'openChat'], ['成就', 'openAchievements'], ['档案', 'openProfile'], ['排行', 'openRankings'],
+        ];
+        navs2.forEach((pair, index) => {
+            this.makeButton(this.node, pair[0], -360 + index * 130, -268, 118, 54, COLOR_BTN_NAV,
+                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
+        });
+        // 二期：养成面板入口（商城/背包/技能/进化/活动/串门/多宠物，原文档 §89）
+        const navs3: Array<[string, PetIntentAction]> = [['养成', 'openCare']];
+        navs3.forEach((pair) => {
+            this.makeButton(this.node, pair[0], 100, -200, 118, 54, COLOR_BTN_NAV,
+                () => this.bridge.send({ source: 'pet-game', type: 'intent', action: pair[1] }));
+        });
+        this.makeLabel(this.node, 'Cocos Creator 4 3D 场景 · 业务由 mall-pet 服务端结算', 16, 0, -330,
             new Color(255, 255, 255, 130));
     }
 
@@ -373,19 +425,40 @@ export class PetGameRoot extends Component {
         g.fill();
     }
 
+    /** 重刷全部身体部件颜色（外观色优先，其次种类配色；body 主色 / dark 辅色作用于耳与尾） */
+    private applyPalette(pet: PetDisplayState): void {
+        const skin = pet.color ? SKIN_COLORS[pet.color] : undefined;
+        const palette = skin || SPECIES_COLORS[pet.species] || SPECIES_COLORS.CAT;
+        for (const part of this.petParts) {
+            const model = part.node.components
+                .find(c => (c as unknown as PetModelLike).mesh !== undefined) as unknown as PetModelLike | null;
+            if (model && model.material) {
+                model.material.setProperty('mainColor', part.role === 'body' ? palette.body : palette.dark);
+            }
+        }
+    }
+
+    /** 成长阶段形态：只改缩放（节点树不重建，动画不受影响）；进化阶再额外放大一档 */
+    private applyGrowthStage(pet: PetDisplayState): void {
+        if (!this.petRoot) {
+            return;
+        }
+        const base = GROWTH_SCALE[pet.growthStage] || 1;
+        const evolution = pet.evolutionStage ?? 0;
+        const scale = base * (1 + Math.min(2, Math.max(0, evolution)) * 0.06);
+        this.petRoot.setScale(scale, scale, scale);
+    }
+
     private renderPet(pet: PetDisplayState): void {
         if (!this.nameLabel || !this.expFill) {
             return;
         }
-        // 换色：宠物主体材质随种类变化（模型节点树已建好，改材质即可）
-        const palette = SPECIES_COLORS[pet.species] || SPECIES_COLORS.CAT;
-        if (this.petBody) {
-            const model = this.petBody.components.find(c => (c as unknown as PetModelLike).mesh !== undefined) as unknown as PetModelLike | null;
-            if (model && model.material) {
-                model.material.setProperty('mainColor', palette.body);
-            }
-        }
-        this.nameLabel.string = `${SPECIES_EMOJI[pet.species] || '🐾'} ${pet.name}  Lv.${pet.level}`;
+        this.applyPalette(pet);
+        this.applyGrowthStage(pet);
+        const stage = GROWTH_LABEL[pet.growthStage] || '';
+        const activity = pet.activityName ? ` · ${pet.activityName}` : '';
+        this.nameLabel.string = `${SPECIES_EMOJI[pet.species] || '🐾'} ${pet.name}  Lv.${pet.level}`
+            + (stage ? ` · ${stage}` : '') + activity;
 
         this.expFill.clear();
         const ratio = Math.max(0, Math.min(1, pet.expPercent));
@@ -436,13 +509,18 @@ export class PetGameRoot extends Component {
         this.bridge.bind((message: HostToGame) => {
             switch (message.type) {
                 case 'init':
-                case 'petState':
+                case 'petState': {
+                    const previousLevel = this.pet ? this.pet.level : 0;
                     this.pet = message.pet;
                     this.renderPet(message.pet);
-                    if (message.pet.speech) {
+                    if (message.pet.level > previousLevel && previousLevel > 0 && this.petBody) {
+                        PetAnimations.levelUp(this.petBody, this.petBodyBasePos);
+                        this.showBubble(`我升级啦！现在是 Lv.${message.pet.level}～`);
+                    } else if (message.pet.speech) {
                         this.showBubble(message.pet.speech);
                     }
                     break;
+                }
                 case 'actionResult':
                     this.playActionResult(message.action, message.ok, message.message);
                     break;
@@ -475,7 +553,7 @@ export class PetGameRoot extends Component {
         }
         switch (action) {
             case 'feed':
-                PetAnimations.feed(this.petBody, base, done);
+                PetAnimations.feed(this.petBody, this.petBodyBasePos, done);
                 this.showBubble('谢谢主人，好满足～');
                 break;
             case 'play':
@@ -487,7 +565,7 @@ export class PetGameRoot extends Component {
                 this.showBubble('洗得香喷喷！');
                 break;
             case 'rest':
-                PetAnimations.rest(this.petBody, base, done);
+                PetAnimations.rest(this.petBody, this.petBodyBasePos, done);
                 this.showBubble('呼…呼…精力充沛！');
                 break;
             default:
@@ -543,7 +621,9 @@ export class PetGameRoot extends Component {
             const round = this.battleRounds[this.battleStep];
             this.battleStep += 1;
             const effect = round.dodged ? '，被闪开了！' : round.critical ? '，暴击！' : '';
-            text = '第 ' + round.round + ' 回合：' + round.actorName + ' 造成 ' + round.damage + ' 点伤害' + effect
+            // action=skill：主动技生效回合（服务端判定，客户端只播报）
+            const skill = round.action === 'skill' ? ' 使用技能' : '';
+            text = '第 ' + round.round + ' 回合：' + round.actorName + skill + ' 造成 ' + round.damage + ' 点伤害' + effect
                 + '\n' + round.targetName + ' 剩余 HP ' + round.targetRemainingHp;
         }
         const label = this.makeLabel(this.battleOverlay, text, 24, 0, 0, COLOR_WHITE, 560);

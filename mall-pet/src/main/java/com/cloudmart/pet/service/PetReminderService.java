@@ -14,6 +14,9 @@ public interface PetReminderService {
     /** 宠物口吻提醒列表（代理 mall-notification type=PET 最近 20 条） */
     List<PetReminderVO> listReminders(Long userId);
 
+    /** 未读提醒数（供宠物入口角标展示；Feign 降级 Fail-Open 返回 0，不阻断宠物页） */
+    long unreadCount(Long userId);
+
     /**
      * 用户打开宠物页时的主动消息触发器（Fail-Open，异常不阻断主流程）：
      * DAILY_GREETING / LONG_ABSENT / PET_HUNGRY / BOTTLE_READY / COMMUNITY_DIGEST（聚合并清零计数）。

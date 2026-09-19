@@ -3,12 +3,14 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
+import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetStatus;
+import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
@@ -44,6 +46,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final PetAchievementService achievementService;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
+    private final PetEventProducer eventProducer;
 
     public PetInteractionServiceImpl(PetService petService,
                                      PetStateService stateService,
@@ -51,7 +54,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetMapper petMapper,
                                      PetAchievementService achievementService,
                                      PetProperties properties,
-                                     StringRedisTemplate redisTemplate) {
+                                     StringRedisTemplate redisTemplate,
+                                     PetEventProducer eventProducer) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -59,6 +63,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.achievementService = achievementService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.eventProducer = eventProducer;
     }
 
     @Override
@@ -98,6 +103,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.PLAY, cfg.getPlayExp());
         int levelups = stateService.grantExp(pet, cfg.getPlayExp());
+        achievementService.evaluate(pet, PetAchievementService.Event.PLAY);
         notifyLevelUpIfAny(userId, pet, levelups);
         return petService.getMyPet(userId);
     }
@@ -139,6 +145,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.REST, 0);
         petMapper.updateById(pet);
+        achievementService.evaluate(pet, PetAchievementService.Event.REST);
         return petService.getMyPet(userId);
     }
 
@@ -150,9 +157,10 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             if (used != null && used == 1L) {
                 redisTemplate.expire(key, Duration.ofHours(24));
             }
-            if (used != null && used > PetServiceImpl.FEED_DAILY_LIMIT) {
+            int dailyLimit = properties.getInteraction().getFeedDailyLimit();
+            if (used != null && used > dailyLimit) {
                 throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
-                        "今天已经喂了 " + PetServiceImpl.FEED_DAILY_LIMIT + " 次啦，明天再来吧");
+                        "今天已经喂了 " + dailyLimit + " 次啦，明天再来吧");
             }
         } catch (BusinessException e) {
             throw e;
@@ -176,9 +184,16 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         activityMapper.insert(activity);
     }
 
+    /** 升级：评估成就 + 发送 MQ 事件（与打工/读书/对战同一口径，供通知侧生成宠物提醒） */
     private void notifyLevelUpIfAny(Long userId, Pet pet, int levelups) {
-        if (levelups > 0) {
-            achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+        if (levelups <= 0) {
+            return;
         }
+        achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+        eventProducer.publish(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
+                userId, "PET_LEVEL_UP",
+                "宠物升级啦！",
+                pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
+                pet.getId(), "PET_LEVEL_UP"));
     }
 }

@@ -64,6 +64,7 @@ public class PetActivityServiceImpl implements PetActivityService {
     private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
+    private final PetStatsService statsService;
 
     public PetActivityServiceImpl(PetService petService,
                                   PetStateService stateService,
@@ -73,7 +74,8 @@ public class PetActivityServiceImpl implements PetActivityService {
                                   PetMapper petMapper,
                                   WishFeignClient wishFeignClient,
                                   PetAchievementService achievementService,
-                                  PetEventProducer eventProducer) {
+                                  PetEventProducer eventProducer,
+                                  PetStatsService statsService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -83,6 +85,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         this.wishFeignClient = wishFeignClient;
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
+        this.statsService = statsService;
     }
 
     @Override
@@ -148,14 +151,18 @@ public class PetActivityServiceImpl implements PetActivityService {
         }
         activity.setStatus(PetActivityStatus.CLAIMED.name());
         // 奖励：经验（本地）+ 星光（Feign，失败抛 503 → 事务整体回滚，可安全重试）
+        // 智力影响工作收益（原文档 §12）：加成 = min(25%, 智力×0.5%)
         int expReward = job != null ? job.getExpReward() : 0;
         int currencyReward = job != null ? job.getCurrencyReward() : 0;
+        int intelligenceBonus = intelligenceBonusPercent(pet.getIntelligence());
+        expReward = expReward + Math.round(expReward * intelligenceBonus / 100f);
+        currencyReward = currencyReward + Math.round(currencyReward * intelligenceBonus / 100f);
         int levelups = stateService.grantExp(pet, expReward);
         if (currencyReward > 0) {
             wishFeignClient.earnStarlight(userId, currencyReward, activity.getId());
         }
         activity.setResult(PetJsonUtils.toJson(Map.of(
-                "exp", expReward, "currency", currencyReward,
+                "exp", expReward, "currency", currencyReward, "intelligenceBonus", intelligenceBonus,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
 
@@ -178,13 +185,20 @@ public class PetActivityServiceImpl implements PetActivityService {
         activity.setStatus(PetActivityStatus.CLAIMED.name());
         int expReward = study != null ? study.getExpReward() : 0;
         int intelligenceReward = study != null ? study.getIntelligenceReward() : 0;
+        // 智力影响学习速度（原文档 §12）：读书经验加成 = min(25%, 智力×0.5%)
+        int intelligenceBonus = intelligenceBonusPercent(pet.getIntelligence());
+        expReward = expReward + Math.round(expReward * intelligenceBonus / 100f);
+        // 技能被动"博览群书"（原文档 §89）：读书经验额外加成
+        int skillBonusPercent = (int) Math.round(statsService.studyExpBonus(pet) * 100);
+        expReward = expReward + Math.round(expReward * skillBonusPercent / 100f);
         int levelups = stateService.grantExp(pet, expReward);
         if (intelligenceReward > 0) {
             pet.setIntelligence(Math.min(999, pet.getIntelligence() + intelligenceReward));
             petMapperUpdate(pet);
         }
         activity.setResult(PetJsonUtils.toJson(Map.of(
-                "exp", expReward, "intelligence", intelligenceReward,
+                "exp", expReward, "intelligence", intelligenceReward, "intelligenceBonus", intelligenceBonus,
+                "skillBonus", skillBonusPercent,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
 
@@ -286,6 +300,11 @@ public class PetActivityServiceImpl implements PetActivityService {
                 .in(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name(), PetActivityStatus.COMPLETED.name()));
     }
 
+    /** 智力收益加成百分比：min(25, 智力×0.5)（原文档 §12 智力影响工作收益/学习速度） */
+    static int intelligenceBonusPercent(int intelligence) {
+        return Math.min(25, intelligence / 2);
+    }
+
     /** 惰性过期：COMPLETED 超时未领取置 EXPIRED（供扫描器与查询入口共用） */
     @Override
     public int expireStaleClaims() {
@@ -306,7 +325,7 @@ public class PetActivityServiceImpl implements PetActivityService {
             case WORK -> PetStatus.WORKING.name();
             case STUDY -> PetStatus.STUDYING.name();
             case BOTTLE_FISHING -> PetStatus.FISHING.name();
-            case REST, FEED, PLAY, CLEAN -> PetStatus.IDLE.name();
+            case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> PetStatus.IDLE.name();
         };
     }
 
@@ -324,13 +343,35 @@ public class PetActivityServiceImpl implements PetActivityService {
 
     private PetActivityVO toVo(PetActivity activity) {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
-        boolean inProgress = PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus());
+        String status = activity.getStatus();
+        boolean inProgress = PetActivityStatus.IN_PROGRESS.name().equals(status);
         long remaining = inProgress
                 ? Math.max(0, DurationSupport.secondsBetween(now, activity.getFinishedAt()))
                 : 0;
+        // 前端据此切换"进行中/去领取"按钮：COMPLETED，或 IN_PROGRESS 但已过完成时间
+        boolean canClaim = PetActivityStatus.COMPLETED.name().equals(status)
+                || (inProgress && !activity.getFinishedAt().isAfter(now));
         return new PetActivityVO(activity.getId(), activity.getActivityType(), activity.getConfigId(),
-                null, activity.getStatus(), activity.getStartedAt(), activity.getFinishedAt(),
-                remaining, false, activity.getClaimedAt(), activity.getResult());
+                resolveConfigName(activity), status, activity.getStartedAt(), activity.getFinishedAt(),
+                remaining, canClaim, activity.getClaimedAt(), activity.getResult());
+    }
+
+    /** 活动关联的岗位/课程名（捞瓶/即时行为无 configId，返回 null） */
+    private String resolveConfigName(PetActivity activity) {
+        if (activity.getConfigId() == null) {
+            return null;
+        }
+        return switch (activity.getActivityType()) {
+            case "WORK" -> {
+                PetJobConfig job = jobConfigMapper.selectById(activity.getConfigId());
+                yield job == null ? null : job.getName();
+            }
+            case "STUDY" -> {
+                PetStudyConfig study = studyConfigMapper.selectById(activity.getConfigId());
+                yield study == null ? null : study.getName();
+            }
+            default -> null;
+        };
     }
 
     /** 静态工具：秒差计算 */

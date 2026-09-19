@@ -23,11 +23,21 @@ public interface WishFeignClient {
     @PostMapping("/internal/pet-support/drift-bottles/fish")
     ApiResponse<WishBottleVO> fishForPet();
 
-    /** 宠物奖励发放星光（wish_resource_log 流水来源 PET_REWARD），返回发放后余额 */
+    /** 宠物奖励发放星光（wish_resource_log 流水来源 PET_REWARD），返回实际入账量（余额上限截断） */
     @PostMapping("/internal/pet-support/starlight/earn")
     ApiResponse<Integer> earnStarlight(@RequestParam("userId") Long userId,
                                        @RequestParam("amount") Integer amount,
                                        @RequestParam("refId") Long refId);
+
+    /** 宠物商城/进化扣减星光（流水来源 PET_SHOP）；余额不足由 mall-wish 返回 402 */
+    @PostMapping("/internal/pet-support/starlight/spend")
+    ApiResponse<Integer> spendStarlight(@RequestParam("userId") Long userId,
+                                        @RequestParam("amount") Integer amount,
+                                        @RequestParam("refId") Long refId);
+
+    /** 星光余额（商城展示）；失败由 fallback 抛 WISH_SERVICE_UNAVAILABLE */
+    @GetMapping("/internal/pet-support/starlight/balance")
+    ApiResponse<Integer> starlightBalance(@RequestParam("userId") Long userId);
 
     /** 批量用户信息（对战对手主人昵称；字段取子集） */
     @GetMapping("/users/batch")

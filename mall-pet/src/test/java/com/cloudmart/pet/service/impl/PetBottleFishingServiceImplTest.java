@@ -11,6 +11,7 @@ import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetBottleOutcome;
+import com.cloudmart.pet.enums.PetBottleRarity;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
@@ -67,6 +68,10 @@ class PetBottleFishingServiceImplTest {
     private PetAchievementService achievementService;
     @Mock
     private PetEventProducer eventProducer;
+    @Mock
+    private PetBottleContentProvider contentProvider;
+    @Mock
+    private PetStatsService statsService;
 
     private PetBottleFishingServiceImpl bottleService;
 
@@ -82,7 +87,18 @@ class PetBottleFishingServiceImplTest {
     void setUp() {
         bottleService = new PetBottleFishingServiceImpl(petService, stateService, activityMapper,
                 bottleRecordMapper, petMapper, wishFeignClient, achievementService, eventProducer,
-                new PetProperties());
+                contentProvider, new PetProperties(), statsService);
+        // 无装备/技能时战斗属性 = 宠物基础属性（与改造前成功率口径一致）
+        lenient().when(statsService.combatStats(any())).thenAnswer(invocation -> {
+            Pet pet = invocation.getArgument(0);
+            return new PetStatsService.CombatStats(num(pet.getHp()), num(pet.getMaxHp()), num(pet.getStrength()),
+                    num(pet.getIntelligence()), num(pet.getAgility()), num(pet.getCharm()), 0, 0, 0, 0, 0);
+        });
+        lenient().when(statsService.bottleSuccessBonus(any())).thenReturn(0.0);
+    }
+
+    private static int num(Integer value) {
+        return value != null ? value : 0;
     }
 
     private Pet pet(int agility, int level) {
@@ -116,14 +132,38 @@ class PetBottleFishingServiceImplTest {
     }
 
     @Test
-    @DisplayName("成功率公式：base70% + 敏捷×0.5% + 等级×1%，封顶 95%")
+    @DisplayName("成功率公式：base70% + 敏捷×0.5% + 等级×1% + 区域加成(每档1%)，封顶 95%")
     void successRateFormula() {
-        assertThat(bottleService.estimateSuccessRate(pet(30, 10)))
-                .isEqualTo(0.70 + 30 * 0.005 + 10 * 0.01, within(1e-9));
+        // level 6 → 区域 index 1（城市河流）；level 10 → index 2 但被 95% 封顶覆盖
+        assertThat(bottleService.estimateSuccessRate(pet(30, 6)))
+                .isEqualTo(0.70 + 30 * 0.005 + 6 * 0.01 + 0.01, within(1e-9));
         assertThat(bottleService.estimateSuccessRate(pet(100, 100)))
                 .isEqualTo(0.95, within(1e-9));
         assertThat(bottleService.estimateSuccessRate(pet(0, 1)))
                 .isEqualTo(0.71, within(1e-9));
+    }
+
+    @Test
+    @DisplayName("稀有度抽取：边界 roll 命中四档（0.08/0.16/0.20 分界）")
+    void rollRarityBoundaries() {
+        // 直接验证分布：大量 roll 全部落在四档内
+        java.util.Set<PetBottleRarity> seen = new java.util.HashSet<>();
+        for (int i = 0; i < 500; i++) {
+            seen.add(bottleService.rollRarity());
+        }
+        // 500 次采样，普通/稀有/宠物/彩蛋四档几乎必然全部出现（彩蛋 4% → P(缺)≈(0.96)^500≈1.3e-9）
+        org.assertj.core.api.Assertions.assertThat(seen)
+                .contains(PetBottleRarity.NORMAL, PetBottleRarity.RARE, PetBottleRarity.PET, PetBottleRarity.EASTER_EGG);
+    }
+
+    @Test
+    @DisplayName("特殊瓶内容源：RARE/PET/EASTER_EGG 返回非空文本，NORMAL 返回 null")
+    void contentProviderPicks() {
+        PetBottleContentProvider provider = new PetBottleContentProvider();
+        org.assertj.core.api.Assertions.assertThat(provider.pick(PetBottleRarity.RARE)).isNotBlank();
+        org.assertj.core.api.Assertions.assertThat(provider.pick(PetBottleRarity.PET)).isNotBlank();
+        org.assertj.core.api.Assertions.assertThat(provider.pick(PetBottleRarity.EASTER_EGG)).isNotBlank();
+        org.assertj.core.api.Assertions.assertThat(provider.pick(PetBottleRarity.NORMAL)).isNull();
     }
 
     @Test
@@ -134,8 +174,8 @@ class PetBottleFishingServiceImplTest {
         when(stateService.grantExp(any(Pet.class), any(Integer.class))).thenReturn(0);
         when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(11L));
         when(activityMapper.update(any(), any())).thenReturn(1);
-        // 91% 成功率：两种分支都会出现——CAUGHT 时海里有瓶 / 空手
-        when(wishFeignClient.fishForPet()).thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
+        // roll 为随机（成功率 ~95%）：CAUGHT 分支才走 Feign，故用 lenient 避免偶发未使用告警
+        lenient().when(wishFeignClient.fishForPet()).thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
                 555L, "PICKED", "PICKED", "你好呀", null, null)));
 
         bottleService.settle(100L);
@@ -147,8 +187,14 @@ class PetBottleFishingServiceImplTest {
         PetBottleRecord record = records.get(0);
         assertThat(record.getOutcome()).isIn(PetBottleOutcome.CAUGHT.name(), PetBottleOutcome.EMPTY.name());
         if (PetBottleOutcome.CAUGHT.name().equals(record.getOutcome())) {
-            assertThat(record.getBottleId()).isEqualTo(555L);
+            // 普通瓶有真实 bottleId；特殊瓶（RARE/PET/EASTER_EGG）bottleId 为空但带内容文本
+            if (PetBottleRarity.NORMAL.name().equals(record.getRarity())) {
+                assertThat(record.getBottleId()).isEqualTo(555L);
+            } else {
+                assertThat(record.getSpecialContent()).isNotBlank();
+            }
         }
+        assertThat(record.getRarity()).isIn("NORMAL", "RARE", "PET", "EASTER_EGG");
         assertThat(record.getActivityId()).isEqualTo(11L);
     }
 

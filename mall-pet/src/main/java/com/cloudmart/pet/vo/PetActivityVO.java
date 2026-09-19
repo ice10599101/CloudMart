@@ -12,7 +12,7 @@ public record PetActivityVO(
         Long activityId,
         String activityType,
         Long configId,
-        @Schema(description = "岗位/课程名（捞瓶/休息为 null）") String configName,
+        @Schema(description = "活动名：岗位/课程名，捞瓶为「捞漂流瓶」，即时行为为 null") String configName,
         String status,
         LocalDateTime startedAt,
         LocalDateTime finishedAt,

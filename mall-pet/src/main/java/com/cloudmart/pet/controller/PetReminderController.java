@@ -40,6 +40,14 @@ public class PetReminderController {
         return ApiResponse.ok(reminderService.listReminders(userId));
     }
 
+    @GetMapping("/reminders/unread-count")
+    @Operation(summary = "宠物提醒未读数", description = "type=PET 未读提醒数量，用于宠物入口角标")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<Long> unreadCount(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(reminderService.unreadCount(userId));
+    }
+
     @GetMapping("/achievements")
     @Operation(summary = "成就墙", description = "全部启用成就 + 达成状态（未达成灰显）")
     @SentinelResource("PET_QUERY")

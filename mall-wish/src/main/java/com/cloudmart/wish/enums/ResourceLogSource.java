@@ -29,5 +29,7 @@ public enum ResourceLogSource {
     /** 送礼物消耗（全站虚拟礼物，V37） */
     GIFT_SEND,
     /** 宠物打工/对战奖励（社区宠物模块经内部端点发放） */
-    PET_REWARD
+    PET_REWARD,
+    /** 宠物商城消费（装备/皮肤/技能书/进化，社区宠物模块经内部端点扣减） */
+    PET_SHOP
 }

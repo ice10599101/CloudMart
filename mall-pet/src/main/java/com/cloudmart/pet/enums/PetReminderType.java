@@ -24,8 +24,18 @@ public enum PetReminderType {
     PET_DAILY_GREETING,
     /** 长时间未陪伴 */
     PET_LONG_ABSENT,
+    /** 私信提醒（原文档 §28.3，P0） */
+    PET_MESSAGE,
+    /** 社区活动即将结束（原文档 §28.6，P0） */
+    PET_ACTIVITY_ENDING,
     /** 宠物饿了 */
     PET_HUNGRY,
     /** 社区动态聚合播报（评论/点赞/关注合并成一条） */
-    PET_COMMUNITY_DIGEST
+    PET_COMMUNITY_DIGEST,
+    /** 宠物进化成功（原文档 §89 宠物进化） */
+    PET_EVOLVED,
+    /** 有宠物来串门（原文档 §1.1 宠物串门） */
+    PET_VISIT,
+    /** 社区宠物活动达成可领奖（原文档 §89 社区宠物活动） */
+    PET_EVENT_READY
 }

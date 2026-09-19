@@ -11,6 +11,7 @@ import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.entity.PetChatMessage;
 import com.cloudmart.pet.entity.PetChatSession;
 import com.cloudmart.pet.enums.PetActivityStatus;
+import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetBattleStatus;
 import com.cloudmart.pet.enums.PetBottleOutcome;
 import com.cloudmart.pet.enums.PetChatRole;
@@ -23,7 +24,6 @@ import com.cloudmart.pet.repository.PetBottleRecordMapper;
 import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetChatSessionMapper;
 import com.cloudmart.pet.service.PetAchievementService;
-import com.cloudmart.pet.service.impl.PetStateService;
 import com.cloudmart.pet.vo.PetAchievementVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -33,11 +33,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * 成就服务实现：判定条件全部基于既有业务表计数（不另建计数器表），
  * 达成记录 uk_pet_ach_record 幂等——重复事件不重复发奖。
+ *
+ * <p>评估范围由 {@link com.cloudmart.pet.service.PetAchievementService.Event} 裁剪
+ * （见 {@link #evaluate}）：喂食不会去 COUNT 捞瓶流水，避免 N+1 查询放大。</p>
  */
 @Service
 @Slf4j
@@ -94,15 +98,19 @@ public class PetAchievementServiceImpl implements PetAchievementService {
     @Override
     @Transactional
     public void evaluate(Pet pet, Event event) {
-        List<PetAchievement> candidates = achievementMapper.selectList(new LambdaQueryWrapper<PetAchievement>()
-                .eq(PetAchievement::getEnabled, true));
+        Objects.requireNonNull(event, "成就评估事件不可为空");
         List<Long> achievedIds = recordMapper.selectList(new LambdaQueryWrapper<PetAchievementRecord>()
                         .eq(PetAchievementRecord::getPetId, pet.getId()))
                 .stream().map(PetAchievementRecord::getAchievementId).toList();
+        // 只保留本事件可能改变的成就：把"每次交互全表 COUNT"收敛成 O(相关成就)
+        List<PetAchievement> candidates = achievementMapper.selectList(new LambdaQueryWrapper<PetAchievement>()
+                        .eq(PetAchievement::getEnabled, true))
+                .stream()
+                .filter(achievement -> !achievedIds.contains(achievement.getId()))
+                .filter(achievement -> event.concerns(achievement.getConditionType(),
+                        achievement.getConditionSubtype()))
+                .toList();
         for (PetAchievement achievement : candidates) {
-            if (achievedIds.contains(achievement.getId())) {
-                continue;
-            }
             if (!matches(achievement, pet)) {
                 continue;
             }
@@ -124,6 +132,9 @@ public class PetAchievementServiceImpl implements PetAchievementService {
             case "STATS_FULL" -> Math.min(Math.min(pet.getStrength(), pet.getIntelligence()),
                     Math.min(pet.getAgility(), pet.getCharm())) >= threshold;
             case "ACTIVITY_COUNT" -> activityCount(pet.getId(), achievement.getConditionSubtype()) >= threshold;
+            // 二期：串门次数（原文档 §1.1）/ 进化阶数（原文档 §89）
+            case "VISIT_COUNT" -> activityCount(pet.getId(), PetActivityType.VISIT.name()) >= threshold;
+            case "EVOLUTION" -> (pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0) >= threshold;
             default -> {
                 log.warn("未知成就判定类型: code={}, type={}", achievement.getCode(), achievement.getConditionType());
                 yield false;

@@ -37,6 +37,12 @@ public class PetBottleRecord {
     /** CAUGHT（成功捞起）/ EMPTY（空手而归：成功率未中或海里无瓶）/ FAILED（Feign 降级，可重试领取） */
     private String outcome;
 
+    /** 稀有度：NORMAL（真实漂流瓶）/ RARE / PET / EASTER_EGG（服务端生成的特殊内容瓶） */
+    private String rarity;
+
+    /** 特殊瓶子内容文本（稀有瓶/宠物瓶/彩蛋瓶专属；普通瓶为 null，内容在 mall_wish） */
+    private String specialContent;
+
     /** 本次成功率快照（0-1，便于回放与调参） */
     private Double successRate;
 

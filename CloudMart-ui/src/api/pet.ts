@@ -40,6 +40,14 @@ export interface PetInfo {
   /** null 表示限流服务降级为不限次 */
   feedRemainingToday: number | null
   lastStateUpdateAt: string
+  /** 进化阶段（0 未进化/1 一阶/2 二阶；原文档 §89） */
+  evolutionStage: number
+  /** 当前穿戴皮肤编码（null=原生外观） */
+  skinCode: string | null
+  /** 拥有的宠物数量（多宠物，原文档 §89） */
+  petCount: number
+  /** 宠物数量上限 */
+  maxPets: number
 }
 
 export interface PetActivityItem {
@@ -53,7 +61,7 @@ export interface PetActivityItem {
   remainingSeconds: number
   canClaim: boolean
   claimedAt: string | null
-  /** 结果 JSON 字符串（领取后含奖励明细/捞瓶 outcome 与 bottleId） */
+  /** 结果 JSON 字符串（领取后含奖励明细；捞瓶含 outcome/rarity/specialContent/bottleId） */
   result: string | null
 }
 
@@ -144,6 +152,8 @@ export interface PetReminder {
   bizId: number | string | null
   isRead: boolean
   createdAt: string | null
+  /** 原文档 §30：P0 重要 / P1 普通 / P2 低 */
+  priority: 'P0' | 'P1' | 'P2' | null
 }
 
 export interface PetAchievement {
@@ -298,6 +308,44 @@ export function listPetReminders() {
   return request.get<ApiResponse<PetReminder[]>>('/pet/reminders')
 }
 
+/** 排行榜维度 */
+export type PetRankingType = 'LEVEL' | 'BATTLE_WIN' | 'BOTTLE'
+
+export interface PetRankingItem {
+  rank: number
+  petId: number | string
+  name: string
+  species: PetSpecies
+  level: number
+  value: number
+  ownerUserId: number | string
+  ownerNickname: string
+  isMe: boolean
+}
+
+export interface PetRankingResult {
+  top20: PetRankingItem[]
+  myValue: number | null
+  myRank: number | null
+}
+
+export interface PetShareCard {
+  type: string
+  title: string
+  content: string
+  highlight: string | null
+}
+
+/** 宠物排行榜（仅公开宠物入榜，Top 20 + 我的名次；原文档 §80） */
+export function getPetRankings(type: PetRankingType) {
+  return request.get<ApiResponse<PetRankingResult>>('/pet/rankings', { params: { type } })
+}
+
+/** 宠物动态分享卡片（文案服务端生成，前端复制后跳转发帖页；原文档 §36） */
+export function getPetShareCard(type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY') {
+  return request.get<ApiResponse<PetShareCard>>('/pet/share/card', { params: { type } })
+}
+
 /** 成就墙（未达成灰显） */
 export function listPetAchievements() {
   return request.get<ApiResponse<PetAchievement[]>>('/pet/achievements')
@@ -306,4 +354,263 @@ export function listPetAchievements() {
 /** 他人主页宠物卡片（未公开/无宠物 404） */
 export function getPetPublicCard(userId: number | string) {
   return request.get<ApiResponse<PetPublicCard>>(`/pet/public/${userId}`)
+}
+
+// ========== 二期能力（原文档 §1.1 宠物串门 / §89 多宠物·装备·技能·进化·皮肤商城·社区活动） ==========
+
+/** 宠物摘要（多宠物切换列表） */
+export interface PetSummary {
+  petId: number | string
+  name: string
+  species: PetSpecies
+  appearance: string
+  personality: PetPersonality
+  level: number
+  growthStage: PetGrowthStage
+  evolutionStage: number
+  skinCode: string | null
+  hp: number
+  maxHp: number
+  hunger: number
+  happiness: number
+  energy: number
+  cleanliness: number
+  isActive: boolean
+}
+
+export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK'
+
+/** 商城商品（装备/皮肤/技能书统一结构，字段按 itemType 取舍） */
+export interface PetShopItem {
+  itemType: PetItemType
+  code: string
+  name: string
+  description: string
+  icon: string
+  rarity: 'COMMON' | 'RARE' | 'EPIC'
+  priceStarlight: number
+  slot: string | null
+  species: string | null
+  color: string | null
+  accessory: string | null
+  skillType: 'ACTIVE' | 'PASSIVE' | null
+  effect: string | null
+  effectValue: number | null
+  bonusStrength: number
+  bonusIntelligence: number
+  bonusAgility: number
+  bonusCharm: number
+  bonusMaxHp: number
+  requiredLevel: number
+  requiredEvolutionStage: number
+  owned: boolean
+  eligible: boolean
+  /** 不可购买原因（服务端生成，可直接展示） */
+  lockReason: string | null
+}
+
+export interface PetShopResult {
+  /** 星光余额（null=余额服务降级，前端隐藏） */
+  starlightBalance: number | null
+  items: PetShopItem[]
+}
+
+/** 背包物品 */
+export interface PetInventoryItem {
+  itemType: PetItemType
+  code: string
+  name: string
+  description: string
+  icon: string
+  rarity: string
+  slot: string | null
+  color: string | null
+  accessory: string | null
+  effect: string | null
+  effectValue: number | null
+  bonusStrength: number
+  bonusIntelligence: number
+  bonusAgility: number
+  bonusCharm: number
+  bonusMaxHp: number
+  equipped: boolean
+  quantity: number
+  /** 技能书是否已学习（学会后仍留背包作收藏） */
+  used: boolean
+  acquiredAt: string | null
+}
+
+/** 宠物技能（含学习/背包状态） */
+export interface PetSkillItem {
+  code: string
+  name: string
+  description: string
+  skillType: 'ACTIVE' | 'PASSIVE'
+  effect: string
+  effectValue: number
+  /** 效果文案（服务端生成） */
+  effectText: string
+  icon: string
+  priceStarlight: number
+  requiredLevel: number
+  learned: boolean
+  equipped: boolean
+  bookOwned: boolean
+  eligible: boolean
+  lockReason: string | null
+}
+
+/** 进化状态（下一阶条件为空表示已满阶） */
+export interface PetEvolutionStatus {
+  currentStage: number
+  maxStage: number
+  nextCode: string | null
+  nextName: string | null
+  nextDescription: string | null
+  requiredLevel: number | null
+  costStarlight: number | null
+  bonusMaxHp: number | null
+  bonusStrength: number | null
+  bonusIntelligence: number | null
+  bonusAgility: number | null
+  bonusCharm: number | null
+  unlockSkinCode: string | null
+  icon: string | null
+  canEvolve: boolean
+  lockReason: string | null
+}
+
+/** 社区宠物活动 */
+export interface PetEventItem {
+  code: string
+  name: string
+  description: string
+  eventType: 'BOTTLE' | 'BATTLE' | 'WORK' | 'STUDY' | 'FEED' | 'PLAY' | 'VISIT'
+  targetValue: number
+  progress: number
+  completed: boolean
+  claimable: boolean
+  claimed: boolean
+  expired: boolean
+  rewardStarlight: number
+  rewardExp: number
+  rewardItemCode: string | null
+  startsAt: string | null
+  endsAt: string | null
+  claimedAt: string | null
+}
+
+/** 串门邻居 */
+export interface PetVisitNeighbor {
+  petId: number | string
+  name: string
+  species: PetSpecies
+  level: number
+  growthStage: PetGrowthStage
+  evolutionStage: number
+  skinCode: string | null
+  ownerUserId: number | string
+  ownerNickname: string
+  visitedToday: boolean
+  lastVisitedAt: string | null
+}
+
+/** 串门结果 */
+export interface PetVisitResult {
+  neighborName: string
+  ownerNickname: string
+  happinessGain: number
+  expGain: number
+  message: string
+  pet: PetInfo
+}
+
+/** 我的宠物列表（多宠物） */
+export function listMyPets() {
+  return request.get<ApiResponse<PetSummary[]>>('/pet/pets')
+}
+
+/** 切换主宠（日常玩法作用于主宠；非本人宠物 403） */
+export function activatePet(petId: number | string) {
+  return request.post<ApiResponse<PetSummary>>(`/pet/pets/${petId}/activate`)
+}
+
+/** 宠物商城（装备/皮肤/技能书 + 星光余额） */
+export function getPetShop() {
+  return request.get<ApiResponse<PetShopResult>>('/pet/shop')
+}
+
+/** 购买物品（先入包再扣星光；余额不足 402；重复购买 409 PET_ITEM_ALREADY_OWNED） */
+export function buyPetItem(data: { itemType: PetItemType; itemCode: string }) {
+  return request.post<ApiResponse<PetInventoryItem>>('/pet/shop/buy', data)
+}
+
+/** 宠物背包 */
+export function listPetInventory() {
+  return request.get<ApiResponse<PetInventoryItem[]>>('/pet/inventory')
+}
+
+/** 穿戴装备（同部位自动换下旧的） */
+export function equipPetItem(itemCode: string) {
+  return request.post<ApiResponse<PetInfo>>('/pet/inventory/equip', { itemCode })
+}
+
+/** 卸下装备（slot: HAT/NECKLACE/SCARF/BACKPACK） */
+export function unequipPetItem(slot: string) {
+  return request.post<ApiResponse<PetInfo>>('/pet/inventory/unequip', undefined, { params: { slot } })
+}
+
+/** 穿戴皮肤（种类不匹配 400 PET_SKIN_SPECIES_MISMATCH） */
+export function wearPetSkin(skinCode: string) {
+  return request.post<ApiResponse<PetInfo>>('/pet/inventory/skin', { skinCode })
+}
+
+/** 卸下皮肤（恢复种类原生外观） */
+export function removePetSkin() {
+  return request.post<ApiResponse<PetInfo>>('/pet/inventory/skin/remove')
+}
+
+/** 技能列表（含学习/背包状态） */
+export function listPetSkills() {
+  return request.get<ApiResponse<PetSkillItem[]>>('/pet/skills')
+}
+
+/** 学习技能（需背包已有技能书，否则 409 PET_SKILL_BOOK_REQUIRED） */
+export function learnPetSkill(skillCode: string) {
+  return request.post<ApiResponse<PetSkillItem>>('/pet/skills/learn', { skillCode })
+}
+
+/** 进化状态 */
+export function getPetEvolution() {
+  return request.get<ApiResponse<PetEvolutionStatus>>('/pet/evolution')
+}
+
+/** 执行进化（等级不足/已满阶 409；星光不足 402） */
+export function evolvePet() {
+  return request.post<ApiResponse<PetEvolutionStatus>>('/pet/evolution/evolve')
+}
+
+/** 社区宠物活动列表（进度惰性统计） */
+export function listPetEvents() {
+  return request.get<ApiResponse<PetEventItem[]>>('/pet/events')
+}
+
+/** 领取活动奖励（未完成/已领/已结束 409） */
+export function claimPetEvent(eventCode: string) {
+  return request.post<ApiResponse<PetEventItem>>(`/pet/events/${eventCode}/claim`)
+}
+
+/** 串门邻居列表（他人公开宠物） */
+export function listPetVisitNeighbors() {
+  return request.get<ApiResponse<PetVisitNeighbor[]>>('/pet/visit/neighbors')
+}
+
+/** 让宠物去串门（同一邻居每日一次；每日次数上限 429） */
+export function visitNeighborPet(petId: number | string) {
+  return request.post<ApiResponse<PetVisitResult>>(`/pet/visit/${petId}`)
+}
+
+/** 宠物提醒未读数（宠物入口角标；服务降级返回 0） */
+export function getPetReminderUnreadCount() {
+  return request.get<ApiResponse<number>>('/pet/reminders/unread-count')
 }

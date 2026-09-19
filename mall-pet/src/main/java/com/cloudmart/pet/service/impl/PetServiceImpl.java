@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.CreatePetRequest;
 import com.cloudmart.pet.dto.RenamePetRequest;
@@ -21,6 +22,7 @@ import com.cloudmart.pet.service.PetReminderService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetPublicVO;
+import com.cloudmart.pet.vo.PetSummaryVO;
 import com.cloudmart.pet.vo.PetVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,6 +34,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,7 +51,6 @@ public class PetServiceImpl implements PetService {
     /** Redis Key：宠物模块限频计数，规范 {service}:{module}:{type}:{id}:{date} */
     static final String KEY_FEED_COUNTER = "pet:ratelimit:feed:%d:%s";
 
-    static final int FEED_DAILY_LIMIT = 5;
     static final long RENAME_COOLDOWN_DAYS = 30;
 
     private final PetMapper petMapper;
@@ -57,19 +59,22 @@ public class PetServiceImpl implements PetService {
     private final PetStateService stateService;
     private final PetReminderService reminderService;
     private final StringRedisTemplate redisTemplate;
+    private final PetProperties properties;
 
     public PetServiceImpl(PetMapper petMapper,
                           PetActivityMapper activityMapper,
                           PetAchievementRecordMapper achievementRecordMapper,
                           PetStateService stateService,
                           PetReminderService reminderService,
-                          StringRedisTemplate redisTemplate) {
+                          StringRedisTemplate redisTemplate,
+                          PetProperties properties) {
         this.petMapper = petMapper;
         this.activityMapper = activityMapper;
         this.achievementRecordMapper = achievementRecordMapper;
         this.stateService = stateService;
         this.reminderService = reminderService;
         this.redisTemplate = redisTemplate;
+        this.properties = properties;
     }
 
     @Override
@@ -90,9 +95,12 @@ public class PetServiceImpl implements PetService {
     @Override
     @Transactional
     public PetVO createPet(Long userId, CreatePetRequest request) {
-        if (stateService.findByUserId(userId) != null) {
-            throw new BusinessException(PetErrorCodes.PET_ALREADY_EXISTS, "你已经有一只宠物啦，要好好照顾它哦");
+        long owned = stateService.countByUserId(userId);
+        if (owned >= properties.getMultiPet().getMaxPets()) {
+            throw new BusinessException(PetErrorCodes.PET_PET_LIMIT_REACHED,
+                    "最多只能养 " + properties.getMultiPet().getMaxPets() + " 只宠物，先陪陪它们吧");
         }
+        boolean first = owned == 0;
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
         Pet pet = new Pet();
         pet.setUserId(userId);
@@ -105,6 +113,7 @@ public class PetServiceImpl implements PetService {
         pet.setLevel(1);
         pet.setExp(0);
         pet.setGrowthStage(stateService.growthStageFor(1));
+        pet.setEvolutionStage(0);
         pet.setHp(100);
         pet.setMaxHp(100);
         pet.setHunger(80);
@@ -117,14 +126,51 @@ public class PetServiceImpl implements PetService {
         pet.setCharm(5);
         pet.setStatus(PetStatus.IDLE.name());
         pet.setIsPublic(true);
+        // 第一只自动成为主宠；后续领养的宠物需手动切换（原文档 §37.1 主宠物语义）
+        pet.setIsActive(first);
         pet.setLastStateUpdateAt(now);
         try {
             petMapper.insert(pet);
         } catch (DuplicateKeyException e) {
-            // 并发领养：uk_pet_user 数据库层兜底
-            throw new BusinessException(PetErrorCodes.PET_ALREADY_EXISTS, "你已经有一只宠物啦，要好好照顾它哦");
+            // 并发领养：uk_pet_user_active（唯一主宠）数据库层兜底
+            throw new BusinessException(PetErrorCodes.PET_ALREADY_EXISTS, "宠物创建冲突了，请稍后再试");
         }
         return toVo(pet, null);
+    }
+
+    @Override
+    public List<PetSummaryVO> listPets(Long userId) {
+        List<Pet> pets = stateService.listByUserId(userId);
+        if (pets.isEmpty()) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "你还没有宠物，先去领养一只吧");
+        }
+        return pets.stream().map(PetServiceImpl::toSummary).toList();
+    }
+
+    @Override
+    @Transactional
+    public PetSummaryVO activatePet(Long userId, Long petId) {
+        Pet target = petMapper.selectById(petId);
+        if (target == null || !userId.equals(target.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能切换自己的宠物");
+        }
+        if (Boolean.TRUE.equals(target.getIsActive())) {
+            return toSummary(target);
+        }
+        // 先释放原主宠再占用目标主宠：uk_pet_user_active 保证并发下不会出现双主宠
+        petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .set(Pet::getIsActive, false)
+                .eq(Pet::getUserId, userId)
+                .eq(Pet::getIsActive, true));
+        int updated = petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .set(Pet::getIsActive, true)
+                .eq(Pet::getId, petId)
+                .eq(Pet::getUserId, userId));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能切换自己的宠物");
+        }
+        target.setIsActive(true);
+        return toSummary(target);
     }
 
     @Override
@@ -148,6 +194,8 @@ public class PetServiceImpl implements PetService {
     public PetVO updateAppearance(Long userId, UpdateAppearanceRequest request) {
         Pet pet = requireOwnedPet(userId);
         pet.setAppearance(PetJsonUtils.toJson(Map.of("color", request.color(), "accessory", request.accessory())));
+        // 手动改外观视为脱离皮肤：卸下穿戴中的皮肤，避免"皮肤标记"与"实际外观"不一致
+        pet.setSkinCode(null);
         petMapper.updateById(pet);
         return toVo(pet, feedRemainingToday(userId));
     }
@@ -182,12 +230,7 @@ public class PetServiceImpl implements PetService {
 
     @Override
     public Pet requireOwnedPet(Long userId) {
-        Pet pet = stateService.findByUserId(userId);
-        if (pet == null) {
-            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "你还没有宠物，先去领养一只吧");
-        }
-        stateService.applyIdleDecay(pet);
-        return pet;
+        return stateService.requireActivePet(userId);
     }
 
     /** 今日剩余喂食次数；Redis 降级返回 null（Fail-Open 不限次，文档 §1.5） */
@@ -198,7 +241,7 @@ public class PetServiceImpl implements PetService {
             if (used == null) {
                 return null;
             }
-            return Math.max(0, FEED_DAILY_LIMIT - Integer.parseInt(used));
+            return Math.max(0, properties.getInteraction().getFeedDailyLimit() - Integer.parseInt(used));
         } catch (Exception e) {
             log.warn("喂食日计数查询降级（Fail-Open）: userId={}", userId, e);
             return null;
@@ -232,7 +275,18 @@ public class PetServiceImpl implements PetService {
                 pet.getAgility(), pet.getCharm(),
                 resolveStatus(pet, activeType), activeType,
                 active != null ? active.getFinishedAt() : null, claimableType,
-                pet.getIsPublic(), feedRemaining, pet.getLastStateUpdateAt());
+                pet.getIsPublic(), feedRemaining, pet.getLastStateUpdateAt(),
+                pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0, pet.getSkinCode(),
+                (int) stateService.countByUserId(pet.getUserId()), properties.getMultiPet().getMaxPets());
+    }
+
+    /** 多宠物列表项（不触发懒更新落库，列表只做展示；主宠状态以 PetVO 为准） */
+    private static PetSummaryVO toSummary(Pet pet) {
+        return new PetSummaryVO(pet.getId(), pet.getName(), pet.getSpecies(), pet.getAppearance(),
+                pet.getPersonality(), pet.getLevel(), pet.getGrowthStage(),
+                pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0, pet.getSkinCode(),
+                pet.getHp(), pet.getMaxHp(), pet.getHunger(), pet.getHappiness(),
+                pet.getEnergy(), pet.getCleanliness(), pet.getIsActive());
     }
 
     private String resolveStatus(Pet pet, String activeType) {
@@ -241,7 +295,7 @@ public class PetServiceImpl implements PetService {
                 case WORK -> PetStatus.WORKING.name();
                 case STUDY -> PetStatus.STUDYING.name();
                 case BOTTLE_FISHING -> PetStatus.FISHING.name();
-                case REST, FEED, PLAY, CLEAN -> PetStatus.RESTING.name();
+                case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> PetStatus.RESTING.name();
             };
         }
         return pet.getStatus() != null ? pet.getStatus() : PetStatus.IDLE.name();

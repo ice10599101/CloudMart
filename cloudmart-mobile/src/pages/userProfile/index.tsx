@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
 import { userApi } from '@/api/user'
 import { wishApi } from '@/api/wish'
+import { petApi, type PetPublicCard } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { WishListItem, User } from '@/types'
@@ -47,6 +48,8 @@ export default function UserProfilePage() {
   const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const [publicInfo, setPublicInfo] = useState<User | null>(null)
+  /** TA的宠物卡片（未公开/无宠物即隐藏，Fail-Open 不影响主页其它内容；原文档 §80） */
+  const [petCard, setPetCard] = useState<PetPublicCard | null>(null)
 
   const loadProfile = useCallback(async () => {
     if (!userId) return
@@ -54,6 +57,8 @@ export default function UserProfilePage() {
       const res = await communityApi.getUserProfile(userId)
       const data = res.data?.data
       setProfile(data)
+      // TA的宠物卡片：宠物未公开/无宠物 404 → 隐藏卡片（Fail-Open）
+      petApi.getPublicCard(userId).then((r) => setPetCard(r.data?.data ?? null)).catch(() => setPetCard(null))
       // 公开资料（后端按隐私过滤字段）：加入时间/详细资料卡数据源（对齐 Web 端）
       userApi
         .getPublicProfile(userId)
@@ -205,6 +210,22 @@ export default function UserProfilePage() {
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
       <ScrollView scrollY className={styles.scrollContent}>
+        {/* TA 的宠物（原文档 §80：社区宠物与个人主页融合） */}
+        {petCard && (
+          <View
+            className={styles.petCard}
+            onClick={() => Taro.navigateTo({ url: '/pages/pet/index' })}
+          >
+            <Text className={styles.petCardEmoji}>🐾</Text>
+            <View className={styles.petCardBody}>
+              <Text className={styles.petCardName}>TA 的宠物 · {petCard.name}</Text>
+              <Text className={styles.petCardMeta}>
+                Lv.{petCard.level} · {petCard.growthStage} · 成就 {petCard.achievementCount} 枚
+              </Text>
+            </View>
+            <Text className={styles.petCardLink}>看看TA的宠物 ›</Text>
+          </View>
+        )}
         {/* Profile Header */}
         <View className={styles.profileHeader}>
           <View className={styles.avatarRing}>

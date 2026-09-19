@@ -1,16 +1,5 @@
 package com.cloudmart.pet.config;
 
-import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
-import com.alibaba.csp.sentinel.slots.block.RuleConstant;
-import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
-import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
-import jakarta.annotation.PostConstruct;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * RocketMQ 拓扑常量定义（社区宠物模块）。
  *
@@ -42,6 +31,12 @@ public final class RocketMQConfig {
     public static final String PET_TAG_PROACTIVE = "proactive";
     /** Tag：成就达成 */
     public static final String PET_TAG_ACHIEVEMENT = "achievement";
+    /** Tag：宠物进化（原文档 §89 宠物进化） */
+    public static final String PET_TAG_EVOLVED = "evolved";
+    /** Tag：宠物串门（原文档 §1.1 宠物串门） */
+    public static final String PET_TAG_VISIT = "visit";
+    /** Tag：社区宠物活动达成（原文档 §89 社区宠物活动） */
+    public static final String PET_TAG_EVENT_READY = "event-ready";
 
     /** 社区事件 topic（mall-community 生产，mall-notification 与 mall-pet 各自消费） */
     public static final String COMMUNITY_TOPIC = "community-events";

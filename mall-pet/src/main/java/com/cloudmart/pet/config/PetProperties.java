@@ -26,6 +26,9 @@ public class PetProperties {
     private final Battle battle = new Battle();
     private final Chat chat = new Chat();
     private final Proactive proactive = new Proactive();
+    private final MultiPet multiPet = new MultiPet();
+    private final Visit visit = new Visit();
+    private final CommunityGrowth communityGrowth = new CommunityGrowth();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -113,5 +116,36 @@ public class PetProperties {
     public static class Proactive {
         private int dailyLimit = 3;
         private long minIntervalSeconds = 60;
+    }
+
+    /** 多宠物（原文档 §89 多种宠物）：一用户可拥有多只，日常玩法作用于主宠 */
+    @Getter
+    @Setter
+    public static class MultiPet {
+        /** 单用户宠物数量上限 */
+        private int maxPets = 3;
+    }
+
+    /** 宠物串门（原文档 §1.1 宠物串门）：消耗精力换心情/经验，同一邻居每日一次 */
+    @Getter
+    @Setter
+    public static class Visit {
+        private int energyCost = 10;
+        private int happinessGain = 8;
+        private int expGain = 6;
+        /** 每日串门次数上限 */
+        private int dailyLimit = 3;
+        /** 同一邻居串门冷却（小时） */
+        private int neighborCooldownHours = 24;
+    }
+
+    /** 社区行为影响宠物成长（原文档 §1.1 "通过社区行为影响宠物成长"） */
+    @Getter
+    @Setter
+    public static class CommunityGrowth {
+        /** 每次社区互动（被点赞/评论/关注/收藏）给宠物加的经验 */
+        private int expPerEvent = 1;
+        /** 每日经验上限（Redis 计数，Fail-Open 时按上限放行） */
+        private int dailyExpCap = 20;
     }
 }

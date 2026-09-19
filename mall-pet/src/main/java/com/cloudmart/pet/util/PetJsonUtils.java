@@ -35,8 +35,4 @@ public final class PetJsonUtils {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "JSON 解析失败", e);
         }
     }
-
-    public static ObjectMapper mapper() {
-        return MAPPER;
-    }
 }

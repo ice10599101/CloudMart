@@ -9,6 +9,7 @@ import com.cloudmart.pet.dto.UpdateAppearanceRequest;
 import com.cloudmart.pet.dto.UpdatePrivacyRequest;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetPublicVO;
+import com.cloudmart.pet.vo.PetSummaryVO;
 import com.cloudmart.pet.vo.PetVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,8 +24,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
- * 宠物基础接口：领养/查询/改名/外观/隐私 + 他人主页公开卡片。
+ * 宠物基础接口：领养/查询/改名/外观/隐私 + 他人主页公开卡片 + 多宠物主宠切换。
  */
 @RestController
 @RequestMapping
@@ -82,5 +85,20 @@ public class PetController {
     @Operation(summary = "他人主页宠物卡片", description = "公开资料：名称/种类/等级/成长阶段/成就数；未公开或无宠物 404")
     public ApiResponse<PetPublicVO> publicPet(@PathVariable("userId") Long userId) {
         return ApiResponse.ok(petService.getPublicPet(userId));
+    }
+
+    @GetMapping("/pets")
+    @Operation(summary = "我的宠物列表", description = "多宠物（原文档 §89）：主宠优先，用于宠物切换")
+    public ApiResponse<List<PetSummaryVO>> myPets(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(petService.listPets(userId));
+    }
+
+    @PostMapping("/pets/{petId}/activate")
+    @Operation(summary = "切换主宠", description = "日常玩法（互动/任务/对战/捞瓶）作用于主宠；非本人宠物 403")
+    public ApiResponse<PetSummaryVO> activatePet(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId) {
+        return ApiResponse.ok(petService.activatePet(userId, petId));
     }
 }

@@ -29,6 +29,11 @@ public class NotificationFeignClientFallbackFactory implements FallbackFactory<N
             public ApiResponse<Long> getUnreadCount(Long userId, String type) {
                 return ApiResponse.ok(0L);
             }
+
+            @Override
+            public ApiResponse<Long> getUnreadChatCount(Long userId) {
+                return ApiResponse.ok(0L);
+            }
         };
     }
 }

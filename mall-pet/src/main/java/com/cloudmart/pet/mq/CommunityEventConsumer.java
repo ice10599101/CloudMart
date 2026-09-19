@@ -1,27 +1,38 @@
 package com.cloudmart.pet.mq;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
+import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetContextCounter;
 import com.cloudmart.pet.repository.PetContextCounterMapper;
+import com.cloudmart.pet.service.impl.PetStateService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 /**
  * 社区事件消费者（mall-pet 自建消费组，独立于 mall-notification 的消费组）。
  *
- * <p>消费 {@code community-events: event}（LIKE/COMMENT/COLLECT/FOLLOW...），
- * 维护宠物 AI 上下文计数器（pet_context_counter）。用户打开宠物页触发
- * 主动消息评估时聚合成一条社区播报并清零（原文档 §31 通知聚合）——
- * 本消费者只累加计数，不重复落通知（通知落库由 mall-notification 完成）。</p>
+ * <p>消费 {@code community-events: event}（LIKE/COMMENT/COLLECT/FOLLOW...），做两件事：</p>
+ * <ol>
+ *   <li>维护宠物 AI 上下文计数器（pet_context_counter）——用户打开宠物页触发
+ *       主动消息评估时聚合成一条社区播报并清零（原文档 §31 通知聚合），
+ *       本消费者只累加计数，不重复落通知（通知落库由 mall-notification 完成）。</li>
+ *   <li><b>社区行为影响宠物成长</b>（原文档 §1.1）：给主宠加经验，每日上限
+ *       {@code pet.community-growth.daily-exp-cap}（Redis 计数，Fail-Open 时不再叠加）。</li>
+ * </ol>
  *
- * <p>幂等：消费假设消息可能重复（at-least-once），重复投递会导致计数多加——
- * 计数器仅用于播报文案量级展示（"收到了 N 个赞"），轻微误差可接受，
+ * <p>幂等：消费假设消息可能重复（at-least-once），重复投递会导致计数/经验多加——
+ * 计数仅用于播报文案量级展示（"收到了 N 个赞"），经验有每日上限封顶，
  * 与 mall-notification 社区消费者采用同一容错口径。</p>
  */
 @Slf4j
@@ -33,10 +44,22 @@ import java.io.Serializable;
 )
 public class CommunityEventConsumer implements RocketMQListener<CommunityEventConsumer.CommunityEventMessage> {
 
-    private final PetContextCounterMapper counterMapper;
+    /** Redis Key：社区行为成长经验日计数（每日 UTC 上限） */
+    static final String KEY_COMMUNITY_EXP = "pet:growth:community:%d:%s";
 
-    public CommunityEventConsumer(PetContextCounterMapper counterMapper) {
+    private final PetContextCounterMapper counterMapper;
+    private final PetStateService stateService;
+    private final PetProperties properties;
+    private final StringRedisTemplate redisTemplate;
+
+    public CommunityEventConsumer(PetContextCounterMapper counterMapper,
+                                  PetStateService stateService,
+                                  PetProperties properties,
+                                  StringRedisTemplate redisTemplate) {
         this.counterMapper = counterMapper;
+        this.stateService = stateService;
+        this.properties = properties;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -53,9 +76,39 @@ public class CommunityEventConsumer implements RocketMQListener<CommunityEventCo
                 return;
             }
             upsertCounter(message.targetUserId(), deltaComments, deltaLikes, deltaFollows, deltaCollects);
+            grantCommunityGrowth(message.targetUserId());
         } catch (Exception e) {
-            log.error("社区事件计数失败（不阻断消费队列）: type={}, targetUserId={}",
+            log.error("社区事件处理失败（不阻断消费队列）: type={}, targetUserId={}",
                     message.type(), message.targetUserId(), e);
+        }
+    }
+
+    /**
+     * 社区行为影响宠物成长：给主宠加经验，日上限用 Redis 计数封顶（每天首次写入设置 24h TTL）。
+     * 无宠物 / Redis 故障 / 宠物库异常均不阻断消费（成长是激励型附加收益）。
+     */
+    private void grantCommunityGrowth(Long userId) {
+        try {
+            PetProperties.CommunityGrowth cfg = properties.getCommunityGrowth();
+            int expPerEvent = cfg.getExpPerEvent();
+            if (expPerEvent <= 0) {
+                return;
+            }
+            String key = String.format(KEY_COMMUNITY_EXP, userId, LocalDate.now(ZoneId.of("UTC")));
+            Long used = redisTemplate.opsForValue().increment(key, expPerEvent);
+            if (used != null && used == expPerEvent) {
+                redisTemplate.expire(key, Duration.ofHours(24));
+            }
+            if (used != null && used > cfg.getDailyExpCap()) {
+                return;
+            }
+            Pet pet = stateService.findByUserId(userId);
+            if (pet == null) {
+                return;
+            }
+            stateService.grantExp(pet, expPerEvent);
+        } catch (Exception e) {
+            log.warn("社区行为成长结算失败（不阻断消费）: userId={}", userId, e);
         }
     }
 

@@ -8,7 +8,7 @@
     "build": "umi build",
     "postinstall": "umi setup",
     "lint": "umi lint",
-    "typecheck": "umi typecheck",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

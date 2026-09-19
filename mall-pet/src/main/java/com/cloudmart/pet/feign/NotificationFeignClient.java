@@ -26,6 +26,10 @@ public interface NotificationFeignClient {
     ApiResponse<Long> getUnreadCount(@RequestParam("userId") Long userId,
                                      @RequestParam(value = "type", required = false) String type);
 
+    /** 私信未读总数（原文档 §28.3 私信提醒触发依据；来自 conversations 未读字段聚合） */
+    @GetMapping("/internal/chat/unread-count")
+    ApiResponse<Long> getUnreadChatCount(@RequestParam("userId") Long userId);
+
     /** 通知条目（宠物模块消费的字段子集） */
     record NotificationItemVO(
             Long id,

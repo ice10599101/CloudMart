@@ -96,7 +96,7 @@ public class PetContextService {
             case WORK -> "正在打工";
             case STUDY -> "正在读书";
             case BOTTLE_FISHING -> "正在海边捞漂流瓶";
-            case REST, FEED, PLAY, CLEAN -> "休息中";
+            case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> "休息中";
         };
     }
 

@@ -20,6 +20,12 @@ export interface PetDisplayState {
   status: string
   activityName?: string
   speech?: string
+  /** 外观主色键（皮肤可改变；Cocos 调色板使用，缺省按种类配色） */
+  color?: string
+  /** 配饰键（皮肤可改变；Cocos 仅做展示性提示） */
+  accessory?: string
+  /** 进化阶段（0 未进化；Cocos 用于体型/光效强度） */
+  evolutionStage?: number
 }
 
 export interface BattleRound {
@@ -44,6 +50,10 @@ export type PetIntentAction =
   | 'openBattle'
   | 'openChat'
   | 'openAchievements'
+  | 'openProfile'
+  | 'openRankings'
+  /** 养成面板（商城/背包/技能/进化/活动/串门/多宠物；原文档 §89） */
+  | 'openCare'
 
 export type HostToGame =
   | { source: 'pet-host'; type: 'init'; pet: PetDisplayState; theme?: { dark: boolean } }

@@ -527,3 +527,313 @@
     transition: none;
   }
 }
+
+.rankList {
+  display: flex;
+  flex-direction: column;
+}
+
+.rankTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* 进行中任务倒计时 */
+.countdownCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-primary-fade, rgba(0, 150, 255, 0.08));
+  margin-bottom: 10px;
+}
+
+.countdownLabel {
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.countdownValue {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.claimRow {
+  margin-bottom: 10px;
+}
+
+/* 档案 / 分享 / 稀有瓶弹窗 */
+.modalMask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.modalCard {
+  width: 100%;
+  background: var(--color-bg-container);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.modalText {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.modalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalLabel {
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.optionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.optionChip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.optionChipActive {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-fade, rgba(0, 150, 255, 0.08));
+}
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+}
+
+.modalAction {
+  flex: 1;
+}
+
+/* 提醒 */
+.reminderCard {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  margin-bottom: 8px;
+}
+
+.reminderRead {
+  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+}
+
+.reminderUnread {
+  background: rgba(255, 214, 102, 0.18);
+}
+
+.reminderTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminderTitle {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.priorityTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.priorityP0 {
+  background: #ff6c6c;
+  border-color: #ff6c6c;
+  color: #fff;
+}
+
+.priorityP1 {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.reminderContent {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+/* 对战历史 */
+.historyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+  margin-bottom: 6px;
+}
+
+.historyText {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.historyMeta {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.shareHighlight {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.rankRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+  margin-bottom: 6px;
+}
+
+.rankNo {
+  width: 34px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rankName {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.rankOwner {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.rankValue {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* ===== 二期：养成面板 / 聊天标识 / 对战回放（原文档 §1.1 §89） ===== */
+.carePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.careTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.careCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border, #eee);
+  background: var(--color-bg-container, #fff);
+}
+
+.careTitle {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--color-text, #222);
+}
+
+.careMeta {
+  font-size: 22px;
+  color: var(--color-text-secondary, #666);
+}
+
+.careActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.chatTag {
+  font-size: 20px;
+  color: var(--color-text-tertiary, #999);
+  margin-top: 2px;
+}
+
+.chatMoreRow {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.chatMoreText {
+  font-size: 22px;
+  color: var(--color-primary, #d4380d);
+}
+
+.roundsScroll {
+  max-height: 600px;
+}
+
+.roundLine {
+  display: block;
+  font-size: 22px;
+  line-height: 1.6;
+  color: var(--color-text, #222);
+}
+
+.rankRowMe {
+  background: rgba(255, 214, 102, 0.25);
+  border-radius: 10px;
+}

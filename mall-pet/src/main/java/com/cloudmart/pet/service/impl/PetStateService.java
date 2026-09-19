@@ -165,8 +165,45 @@ public class PetStateService {
         target.setVersion(source.getVersion());
     }
 
-    /** 按用户加载宠物（软删过滤由 @TableLogic 处理），不存在抛 PET_NOT_FOUND 语义由调用方处理 */
+    /**
+     * 加载主宠并结算懒更新，不存在抛 {@code PET_NOT_FOUND}。
+     *
+     * <p>供<b>不依赖 PetService</b> 的组件使用（如活动服务被提醒服务依赖，
+     * 若反向依赖 PetService 会形成 Spring 循环依赖）；PetService 内部同语义入口
+     * 直接委托本方法，保证"取主宠"只有一处实现。</p>
+     */
+    public Pet requireActivePet(Long userId) {
+        Pet pet = findByUserId(userId);
+        if (pet == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                    "你还没有宠物，先去领养一只吧");
+        }
+        return applyIdleDecay(pet);
+    }
+
+    /**
+     * 按用户加载<b>主宠</b>（软删过滤由 @TableLogic 处理）；不存在返回 null，
+     * PET_NOT_FOUND 语义由调用方处理。日常养成/任务/对战一律作用于主宠（原文档 §37.1 主宠物）。
+     */
     public Pet findByUserId(Long userId) {
-        return petMapper.selectOne(new LambdaQueryWrapper<Pet>().eq(Pet::getUserId, userId));
+        return petMapper.selectOne(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getUserId, userId)
+                .eq(Pet::getIsActive, true)
+                .last("LIMIT 1"));
+    }
+
+    /** 用户全部宠物（主宠优先，其次按等级/ID 倒序），多宠物切换列表用 */
+    public java.util.List<Pet> listByUserId(Long userId) {
+        return petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getUserId, userId)
+                .orderByDesc(Pet::getIsActive)
+                .orderByDesc(Pet::getLevel)
+                .orderByDesc(Pet::getId));
+    }
+
+    /** 宠物数量（多宠物上限校验用） */
+    public long countByUserId(Long userId) {
+        return petMapper.selectCount(new LambdaQueryWrapper<Pet>().eq(Pet::getUserId, userId));
     }
 }

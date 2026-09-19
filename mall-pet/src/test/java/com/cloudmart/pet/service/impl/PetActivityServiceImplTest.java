@@ -65,6 +65,8 @@ class PetActivityServiceImplTest {
     private PetAchievementService achievementService;
     @Mock
     private PetEventProducer eventProducer;
+    @Mock
+    private PetStatsService statsService;
 
     private PetActivityServiceImpl activityService;
 
@@ -80,7 +82,9 @@ class PetActivityServiceImplTest {
     void setUp() {
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
                 jobConfigMapper, studyConfigMapper, petMapper, wishFeignClient, achievementService,
-                eventProducer);
+                eventProducer, statsService);
+        // 技能被动加成（博览群书）默认 0：无技能时与改造前收益口径一致
+        lenient().when(statsService.studyExpBonus(any())).thenReturn(0.0);
     }
 
     private Pet pet() {
@@ -241,14 +245,14 @@ class PetActivityServiceImplTest {
             when(activityMapper.selectOne(any())).thenReturn(completed);
             when(activityMapper.update(any(), any())).thenReturn(1);
             when(jobConfigMapper.selectById(9001002L)).thenReturn(job());
-            when(stateService.grantExp(eq(p), eq(20))).thenReturn(0);
-            when(wishFeignClient.earnStarlight(100L, 100, 11L))
+            when(stateService.grantExp(eq(p), eq(21))).thenReturn(0);
+            when(wishFeignClient.earnStarlight(100L, 105, 11L))
                     .thenReturn(com.cloudmart.common.api.ApiResponse.ok(1200));
 
             PetActivityVO vo = activityService.claimWork(100L);
 
             assertThat(vo.status()).isEqualTo(PetActivityStatus.CLAIMED.name());
-            org.mockito.Mockito.verify(wishFeignClient).earnStarlight(100L, 100, 11L);
+            org.mockito.Mockito.verify(wishFeignClient).earnStarlight(100L, 105, 11L);
         }
 
         @Test

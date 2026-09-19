@@ -21,7 +21,7 @@ public record PetBattleVO(
         String defenderPetName,
         Long defenderUserId,
         Long winnerPetId,
-        @Schema(description = "回合流水 JSON：[{round,actor,action,damage,critical,dodge,remainingHp}]") String rounds,
+        @Schema(description = "回合流水 JSON：[{round,actorPetId,actorName,action,damage,critical,dodged,targetPetId,targetRemainingHp}]") String rounds,
         Integer expReward,
         Integer currencyReward,
         LocalDateTime startedAt,

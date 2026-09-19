@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  * <p>限流：Redis 日计数（Fail-Closed——AI 成本硬上限，Redis 故障时按已达上限处理，
  * 因为这是资金性资源保护；模板降级回复不受影响）。</p>
  *
- * <p>记忆：规则抽取（我叫/我喜欢/我爱吃/我住在），uk_pet_memory_key 幂等去重；
+ * <p>记忆：规则抽取（我叫/我喜欢/我爱吃/我住在/我每天晚上…），uk_pet_memory_key 幂等去重；
  * 第一版不做全量历史回放（成本与上下文长度可控，原文档 §26）。</p>
  */
 @Service
@@ -49,12 +49,21 @@ public class PetChatServiceImpl implements PetChatService {
 
     static final String KEY_CHAT_DAILY = "pet:ratelimit:chat:%d:%s";
 
-    /** 记忆抽取规则（结构化记忆：key 规范化，正则捕获组 1 为记忆值） */
+    /**
+     * 记忆抽取规则（结构化记忆：key 规范化，正则捕获组 1 为记忆值）。
+     * key 前缀 {@code favorite_*} → FAVORITE；key 后缀 {@code *_habit} → HABIT；其余 → FACT。
+     */
     private static final Map<String, Pattern[]> MEMORY_RULES = Map.of(
             "owner_nickname", new Pattern[]{Pattern.compile("我(?:叫|的名字是|是)([\\u4e00-\\u9fa5a-zA-Z0-9]{1,12})")},
             "favorite_food", new Pattern[]{Pattern.compile("(?:我)?(?:爱|喜欢)吃([\\u4e00-\\u9fa5a-zA-Z0-9]{1,10})")},
             "favorite_thing", new Pattern[]{Pattern.compile("我喜欢([\\u4e00-\\u9fa5a-zA-Z0-9]{1,10})")},
-            "owner_home", new Pattern[]{Pattern.compile("我住在([\\u4e00-\\u9fa5a-zA-Z0-9]{1,15})")}
+            "owner_home", new Pattern[]{Pattern.compile("我住在([\\u4e00-\\u9fa5a-zA-Z0-9]{1,15})")},
+            "chat_time_habit", new Pattern[]{
+                    Pattern.compile("((?:晚上|夜里|深夜|早上|清晨|中午|下午|凌晨)[\\u4e00-\\u9fa5a-zA-Z0-9]{0,6}"
+                            + "(?:聊天|上线|在线|逛社区|看消息|玩耍|捞瓶))")},
+            "bottle_habit", new Pattern[]{
+                    Pattern.compile("((?:最近|每天|常常|经常|一直)(?:都)?(?:在|爱|喜欢)?"
+                            + "(?:玩|捞)(?:漂流瓶|捞瓶|瓶子))")}
     );
 
     private final PetService petService;
@@ -105,14 +114,16 @@ public class PetChatServiceImpl implements PetChatService {
 
         consumeChatQuota(userId);
 
-        // 第一层：固定行为（名字/在干嘛等高频意图，模板直接回复省 token）
-        String fixedReply = fixedIntentReply(message, pet);
+        // 上下文先建（固定行为中的游戏状态意图也需要它，原文档 §60）
+        PetContextService.PetContext context = contextService.buildContext(userId, pet);
+
+        // 第一层：固定行为（名字/在干嘛/游戏状态意图，模板直接回复省 token）
+        String fixedReply = fixedIntentReply(message, pet, context);
         if (fixedReply != null) {
             return persistAndReply(userId, pet, message, fixedReply, false);
         }
 
         // 第二/三层：宠物状态 + 社区上下文 + 记忆 → AI 生成（失败降级模板）
-        PetContextService.PetContext context = contextService.buildContext(userId, pet);
         String reply;
         boolean isAiReply = true;
         try {
@@ -170,8 +181,24 @@ public class PetChatServiceImpl implements PetChatService {
         }
     }
 
-    /** 第一层固定行为：命中返回模板回复，未命中返回 null */
-    private String fixedIntentReply(String message, Pet pet) {
+    /** 第一层固定行为：命中返回模板回复，未命中返回 null（含游戏状态意图，原文档 §60） */
+    private String fixedIntentReply(String message, Pet pet, PetContextService.PetContext context) {
+        // 游戏状态结合意图（优先于通用关键词）
+        if (message.contains("打架") || message.contains("对战") || message.contains("挑战")) {
+            return pet.getEnergy() < 30
+                    ? "好呀！不过我现在只有 " + pet.getEnergy() + " 点精力，要不要先让我休息一下？"
+                    : "好呀！我随时可以上战场，带我去对战吧！";
+        }
+        if (message.contains("运气") || message.contains("幸运")) {
+            return context.bottleReady()
+                    ? "嘿嘿，我刚刚帮你捞到了一个漂流瓶，说不定今天真的运气不错哦！"
+                    : "要不要让我去海边捞个漂流瓶试试手气？说不定今天就运气爆棚！";
+        }
+        if (message.contains("饿") && (message.contains("你") || message.contains("肚子") || message.contains("宠物"))) {
+            return pet.getHunger() < 50
+                    ? "肚子有点饿…主人可以喂喂我吗？"
+                    : "我饱饱的！不过还是谢谢主人关心～";
+        }
         for (String keyword : properties.getChat().getFixedIntentKeywords()) {
             if (message.contains(keyword)) {
                 if (message.contains("叫") || message.contains("名字") || message.contains("谁")) {
@@ -245,6 +272,18 @@ public class PetChatServiceImpl implements PetChatService {
         return sb.toString();
     }
 
+    /**
+     * 记忆类型归类：喜好 → FAVORITE；规律/作息 → HABIT；其余客观信息 → FACT。
+     * 三类均会注入 AI prompt（按 importance/置信度排序），因此必须真实产生。
+     */
+    private String memoryTypeOf(String memoryKey) {
+        return switch (memoryKey) {
+            case String key when key.endsWith("_habit") -> PetMemoryType.HABIT.name();
+            case String key when key.startsWith("favorite_") -> PetMemoryType.FAVORITE.name();
+            default -> PetMemoryType.FACT.name();
+        };
+    }
+
     /** 规则式记忆抽取：结构化落库（uk 幂等；第一版不做 AI 抽取） */
     private void extractMemories(Pet pet, String message) {
         for (Map.Entry<String, Pattern[]> entry : MEMORY_RULES.entrySet()) {
@@ -258,9 +297,7 @@ public class PetChatServiceImpl implements PetChatService {
                     PetMemory memory = new PetMemory();
                     memory.setUserId(pet.getUserId());
                     memory.setPetId(pet.getId());
-                    memory.setMemoryType(entry.getKey().startsWith("favorite") ? PetMemoryType.FAVORITE.name()
-                            : entry.getKey().equals("owner_home") ? PetMemoryType.FACT.name()
-                            : PetMemoryType.FACT.name());
+                    memory.setMemoryType(memoryTypeOf(entry.getKey()));
                     memory.setMemoryKey(entry.getKey());
                     memory.setMemoryValue(value);
                     memory.setImportance(3);

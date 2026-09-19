@@ -16,6 +16,7 @@ public record PetReminderVO(
         String content,
         Long bizId,
         Boolean isRead,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        @Schema(description = "优先级（原文档 §30）: P0 重要/P1 普通/P2 低（由提醒类型映射）") String priority
 ) {
 }

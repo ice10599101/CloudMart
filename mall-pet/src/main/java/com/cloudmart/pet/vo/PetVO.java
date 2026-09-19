@@ -38,6 +38,10 @@ public record PetVO(
         @Schema(description = "已完成待领取的活动类型（无则为 null）") String claimableActivityType,
         Boolean isPublic,
         @Schema(description = "今日剩余喂食次数（null 表示限流服务降级为不限）") Integer feedRemainingToday,
-        LocalDateTime lastStateUpdateAt
+        LocalDateTime lastStateUpdateAt,
+        @Schema(description = "进化阶段（0 未进化/1 一阶/2 二阶）") Integer evolutionStage,
+        @Schema(description = "当前穿戴皮肤编码（null=原生外观）") String skinCode,
+        @Schema(description = "拥有的宠物数量（多宠物）") Integer petCount,
+        @Schema(description = "宠物数量上限") Integer maxPets
 ) {
 }

@@ -14,7 +14,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 宠物主表。一期一用户一宠（uk_pet_user）；养成值 0-100、成长属性上限 999。
+ * 宠物主表。多宠物（一用户多宠，{@code uk_pet_user_active} 保证至多一只主宠；
+ * 日常养成/互动/任务全部作用于主宠）；养成值 0-100、成长属性上限 999。
  *
  * <p>状态权威在服务端：{@code lastStateUpdateAt} 为懒更新游标，任何读/写入口
  * 先按 elapsed 推算自然衰减再落库；{@code version} 乐观锁防并发覆盖
@@ -54,6 +55,12 @@ public class Pet {
     /** 成长阶段：BABY/YOUNG/ADULT（升级自动推进） */
     private String growthStage;
 
+    /** 进化阶段（0 未进化/1 一阶/2 二阶；由 pet_evolution_config 驱动，见 §89 宠物进化） */
+    private Integer evolutionStage;
+
+    /** 当前穿戴皮肤编码（pet_skin_config.code，NULL=原生外观） */
+    private String skinCode;
+
     /** 生命值 */
     private Integer hp;
 
@@ -89,6 +96,9 @@ public class Pet {
 
     /** 是否在个人主页公开（默认公开，用户可关） */
     private Boolean isPublic;
+
+    /** 是否当前主宠（每用户至多一只；多宠物切换见 §89 多种宠物） */
+    private Boolean isActive;
 
     /** 懒更新游标：上次状态自然变化结算时间（UTC） */
     private LocalDateTime lastStateUpdateAt;

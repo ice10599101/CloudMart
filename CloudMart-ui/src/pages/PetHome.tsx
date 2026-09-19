@@ -3,23 +3,43 @@ import { App, Button, Empty, Input, Modal, Segmented, Spin, Switch, Tag } from '
 import { history } from 'umi'
 import {
   acceptPetBattle,
+  activatePet,
+  buyPetItem,
   challengePetBattle,
   claimPetBottle,
+  claimPetEvent,
   claimPetStudy,
   claimPetWork,
   cleanPet,
   createPet,
   declinePetBattle,
+  equipPetItem,
+  evolvePet,
   feedPet,
   getMyPet,
+  getPetBattle,
   getPetBottleStatus,
+  getPetEvolution,
+  getPetReminderUnreadCount,
+  getPetShop,
+  listMyPets,
   listPetAchievements,
   listPetBattleHistory,
   listPetChatHistory,
+  listPetEvents,
+  listPetInventory,
+  listPetSkills,
+  listPetVisitNeighbors,
+  getPetRankings,
+  getPetShareCard,
   listPetJobs,
   listPetOpponents,
   listPetReminders,
   listPetStudies,
+  learnPetSkill,
+  removePetSkin,
+  unequipPetItem,
+  updateAppearance,
   playWithPet,
   renamePet,
   restPet,
@@ -28,16 +48,29 @@ import {
   startPetStudy,
   startPetWork,
   updatePetPrivacy,
+  visitNeighborPet,
+  wearPetSkin,
   type PetAchievement,
   type PetBattleItem,
   type PetBottleStatus,
   type PetChatMessage,
+  type PetEventItem,
+  type PetEvolutionStatus,
   type PetInfo,
+  type PetInventoryItem,
+  type PetItemType,
   type PetJobItem,
   type PetOpponent,
+  type PetRankingResult,
+  type PetRankingType,
   type PetReminder,
+  type PetShopItem,
+  type PetSkillItem,
   type PetStudyItem,
+  type PetSummary,
+  type PetVisitNeighbor,
 } from '@/api/pet'
+import { markAllAsRead, markAsRead } from '@/api/notification'
 import PetStage, { type PetStageHandle } from '@/components/PetStage'
 import type { BattleRound, PetDisplayState, PetIntentAction } from '@/components/PetStage/bridge'
 import { useAuthStore } from '@/stores/auth'
@@ -75,20 +108,82 @@ const STATUS_LABEL: Record<string, string> = {
   IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
 }
 
-type PanelKey = 'home' | 'work' | 'study' | 'bottle' | 'battle' | 'chat' | 'achievements'
+const GROWTH_STAGE_LABEL: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' }
+
+/** 宠物当前状态的口语化台词（展示用文案，不含任何业务数值判定） */
+const STATUS_SPEECH: Record<string, string> = {
+  IDLE: '主人，陪我玩一会嘛～',
+  WORKING: '我正在打工赚星光呢！',
+  STUDYING: '嘘——我在读书，别打扰我～',
+  FISHING: '我去海边看看有没有漂流瓶！',
+  RESTING: '呼…让我睡一小会儿…',
+}
+
+type PanelKey =
+  | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
+  | 'chat' | 'achievements' | 'rankings' | 'reminders'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'home', label: '小窝', emoji: '🏠' },
+  { key: 'care', label: '养成', emoji: '🎒' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
   { key: 'battle', label: '对战', emoji: '⚔️' },
   { key: 'chat', label: '聊天', emoji: '💬' },
   { key: 'achievements', label: '成就', emoji: '🏆' },
+  { key: 'rankings', label: '排行', emoji: '📊' },
+  { key: 'reminders', label: '提醒', emoji: '🔔' },
 ]
+
+/** 领养可选外观（与服务端白名单一致：color/accessory） */
+const APPEARANCE_COLORS = [
+  { value: 'orange', label: '橘色', swatch: '#f0955a' },
+  { value: 'gray', label: '灰色', swatch: '#a9aeb8' },
+  { value: 'white', label: '白色', swatch: '#f4f4f8' },
+  { value: 'brown', label: '棕色', swatch: '#9b6946' },
+  { value: 'pink', label: '粉色', swatch: '#f5aabe' },
+] as const
+
+const APPEARANCE_ACCESSORIES = [
+  { value: 'none', label: '不戴配饰' },
+  { value: 'bell', label: '小铃铛' },
+  { value: 'bowtie', label: '领结' },
+  { value: 'glasses', label: '圆框眼镜' },
+  { value: 'scarf', label: '围巾' },
+] as const
+
+/** 装备部位中文名（与服务端 PetEquipmentSlot 对应） */
+const SLOT_LABEL: Record<string, string> = {
+  HAT: '帽子', NECKLACE: '项圈', SCARF: '围巾', BACKPACK: '背包',
+}
+
+const RARITY_COLOR: Record<string, string> = { COMMON: 'default', RARE: 'blue', EPIC: 'purple' }
+
+const ITEM_TYPE_LABEL: Record<PetItemType, string> = {
+  EQUIPMENT: '装备', SKIN: '皮肤', SKILL_BOOK: '技能书',
+}
+
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  BOTTLE: '捞瓶', BATTLE: '对战胜场', WORK: '打工', STUDY: '读书', FEED: '喂食', PLAY: '玩耍', VISIT: '串门',
+}
+
+/** 外观 JSON 解析（服务端写入的 {color, accessory}；解析失败回落种类配色，不阻断演出） */
+function parseAppearance(raw: string | undefined): { color?: string; accessory?: string } {
+  if (!raw) {
+    return {}
+  }
+  try {
+    const parsed = JSON.parse(raw) as { color?: string; accessory?: string }
+    return { color: parsed.color, accessory: parsed.accessory }
+  } catch {
+    return {}
+  }
+}
 
 /** PetInfo → Cocos 展示状态映射（零计算，纯搬运服务端数据） */
 function toDisplayState(pet: PetInfo): PetDisplayState {
+  const appearance = parseAppearance(pet.appearance)
   return {
     name: pet.name,
     species: pet.species,
@@ -102,7 +197,11 @@ function toDisplayState(pet: PetInfo): PetDisplayState {
     energy: pet.energy,
     cleanliness: pet.cleanliness,
     status: pet.status,
-    speech: undefined,
+    activityName: pet.activityType ?? undefined,
+    speech: STATUS_SPEECH[pet.status] ?? undefined,
+    color: appearance.color,
+    accessory: appearance.accessory,
+    evolutionStage: pet.evolutionStage,
   }
 }
 
@@ -136,11 +235,15 @@ function PetStateBars({ pet }: PetStateBarsProps) {
         </div>
       ))}
       <div className={styles.attributes}>
+        <Tag color="blue">{GROWTH_STAGE_LABEL[pet.growthStage] || pet.growthStage}</Tag>
         <Tag>💪 力量 {pet.strength}</Tag>
         <Tag>🧠 智力 {pet.intelligence}</Tag>
         <Tag>🏃 敏捷 {pet.agility}</Tag>
         <Tag>✨ 魅力 {pet.charm}</Tag>
         <Tag color="gold">经验 {pet.exp}/{pet.expToNext}</Tag>
+        {pet.feedRemainingToday !== null && pet.feedRemainingToday !== undefined && (
+          <Tag color="orange">今日可喂食 {pet.feedRemainingToday} 次</Tag>
+        )}
       </div>
     </div>
   )
@@ -211,6 +314,8 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
   const { message } = App.useApp()
   const [species, setSpecies] = useState<string>('CAT')
   const [personality, setPersonality] = useState<string>('LIVELY')
+  const [color, setColor] = useState<string>('orange')
+  const [accessory, setAccessory] = useState<string>('none')
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -225,6 +330,8 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
         name: name.trim(),
         species: species as typeof SPECIES_OPTIONS[number]['value'],
         personality: personality as typeof PERSONALITY_OPTIONS[number]['value'],
+        color,
+        accessory,
       })
       if (res.success) {
         message.success('领养成功！好好照顾它哦～')
@@ -254,6 +361,34 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
           </button>
         ))}
       </div>
+      <h4 className={styles.sectionTitle}>外观颜色</h4>
+      <div className={styles.personalityRow}>
+        {APPEARANCE_COLORS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`${styles.personalityChip} ${color === option.value ? styles.personalityActive : ''}`}
+            onClick={() => setColor(option.value)}
+          >
+            <span className={styles.colorDot} style={{ background: option.swatch }} />
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <h4 className={styles.sectionTitle}>配饰</h4>
+      <div className={styles.personalityRow}>
+        {APPEARANCE_ACCESSORIES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`${styles.personalityChip} ${accessory === option.value ? styles.personalityActive : ''}`}
+            onClick={() => setAccessory(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <h4 className={styles.sectionTitle}>性格</h4>
       <div className={styles.personalityRow}>
         {PERSONALITY_OPTIONS.map((option) => (
           <button
@@ -503,8 +638,18 @@ function BottlePanel({ onRefresh }: BottlePanelProps) {
     try {
       const { data: res } = await claimPetBottle()
       if (res.success) {
-        const result = res.data?.result ? (JSON.parse(res.data.result) as { outcome?: string }) : null
-        if (result?.outcome === 'CAUGHT') {
+        const result = res.data?.result
+          ? (JSON.parse(res.data.result) as { outcome?: string; rarity?: string; specialContent?: string })
+          : null
+        if (result?.outcome === 'CAUGHT' && result.rarity && result.rarity !== 'NORMAL') {
+          // 特殊瓶：稀有瓶/宠物瓶/彩蛋瓶（内容服务端生成，原文档 §19）
+          const rarityLabel = result.rarity === 'RARE' ? '稀有瓶' : result.rarity === 'PET' ? '宠物瓶' : '彩蛋瓶'
+          Modal.info({
+            title: `捞到了${rarityLabel}！`,
+            content: result.specialContent || '获得特殊奖励！',
+            onOk: () => { onRefresh() },
+          })
+        } else if (result?.outcome === 'CAUGHT') {
           message.success('捞到漂流瓶啦！即将打开…')
           onRefresh()
           // 瓶子已按主人身份落入 mall-wish 捞瓶列表，直接跳转查看
@@ -574,6 +719,7 @@ function BattlePanel({ onRefresh, onBattleResult }: BattlePanelProps) {
   const [history, setHistory] = useState<PetBattleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [challenging, setChallenging] = useState<string | null>(null)
+  const [replaying, setReplaying] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const [opponentRes, historyRes] = await Promise.all([
@@ -625,6 +771,23 @@ function BattlePanel({ onRefresh, onBattleResult }: BattlePanelProps) {
       }
     } catch {
       // 拦截器已提示（已被处理 409）
+    }
+  }
+
+  /** 历史回放：拉取含回合流水的详情，交给服务端数据驱动 Cocos 演出（原文档 §63） */
+  const replay = async (battleId: number | string) => {
+    setReplaying(String(battleId))
+    try {
+      const { data: res } = await getPetBattle(battleId)
+      if (res.success && res.data?.rounds) {
+        onBattleResult(res.data)
+      } else {
+        message.info('这场对战没有可回放的回合记录')
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setReplaying(null)
     }
   }
 
@@ -687,7 +850,14 @@ function BattlePanel({ onRefresh, onBattleResult }: BattlePanelProps) {
                   {' · '}
                   {battle.role === 'ATTACKER' ? '我发起' : '我应战'}
                 </span>
-                <span>+{battle.expReward} 经验{battle.currencyReward > 0 ? ` · +${battle.currencyReward} 星光` : ''}</span>
+                <span className={styles.historyActions}>
+                  <span>+{battle.expReward} 经验{battle.currencyReward > 0 ? ` · +${battle.currencyReward} 星光` : ''}</span>
+                  {battle.status === 'FINISHED' && (
+                    <Button size="small" loading={replaying === String(battle.battleId)} onClick={() => replay(battle.battleId)}>
+                      回放
+                    </Button>
+                  )}
+                </span>
               </div>
             ))}
         </div>
@@ -698,21 +868,61 @@ function BattlePanel({ onRefresh, onBattleResult }: BattlePanelProps) {
 
 interface ChatPanelProps {
   onRefresh: () => void
+  /** 宠物回复后同步到 Cocos 气泡（宿主与场景互为冗余展示） */
+  onReply?: (content: string) => void
 }
 
 /** 聊天面板：三层结构（固定行为/状态/AI）由服务端裁决；本面板只负责收发与展示 */
-function ChatPanel({ onRefresh }: ChatPanelProps) {
+function ChatPanel({ onRefresh, onReply }: ChatPanelProps) {
   const { message } = App.useApp()
   const [messages, setMessages] = useState<PetChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [cursor, setCursor] = useState<number | string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     listPetChatHistory({ pageSize: 30 }).then(({ data: res }) => {
-      if (res.success) setMessages((res.data || []).slice().reverse())
+      if (res.success) {
+        const page = (res.data || []).slice().reverse()
+        setMessages(page)
+        // 服务端按 messageId 倒序返回：首页最后一条（时间最早）即下一页游标
+        const oldest = page[0]
+        if (res.data && res.data.length >= 30 && oldest) {
+          setCursor(oldest.messageId)
+          setHasMore(true)
+        }
+      }
     })
   }, [])
+
+  /** 加载更早的历史（cursor 分页，原文档 §26：历史不全量回放） */
+  const loadMore = async () => {
+    if (!cursor || loadingMore) {
+      return
+    }
+    setLoadingMore(true)
+    try {
+      const { data: res } = await listPetChatHistory({ cursor, pageSize: 30 })
+      if (res.success) {
+        const older = (res.data || []).slice().reverse()
+        if (older.length === 0) {
+          setHasMore(false)
+        } else {
+          setMessages((prev) => [...older, ...prev])
+          const nextCursor = older[0]?.messageId ?? null
+          setCursor(nextCursor)
+          setHasMore(older.length >= 30)
+        }
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
@@ -735,6 +945,7 @@ function ChatPanel({ onRefresh }: ChatPanelProps) {
           isAiReply: false,
           createdAt: null,
         }, res.data])
+        onReply?.(res.data.content)
         onRefresh()
       }
     } catch (error) {
@@ -749,6 +960,11 @@ function ChatPanel({ onRefresh }: ChatPanelProps) {
   return (
     <div className={styles.chatPanel}>
       <div ref={listRef} className={styles.chatList}>
+        {hasMore && (
+          <div className={styles.chatMoreRow}>
+            <Button size="small" loading={loadingMore} onClick={loadMore}>加载更早的对话</Button>
+          </div>
+        )}
         {messages.length === 0 && <p className={styles.bottleHint}>和宠物说点什么吧，它会记住你喜欢的事～</p>}
         {messages.map((item) => (
           <div key={item.messageId} className={item.role === 'USER' ? styles.chatMine : styles.chatPet}>
@@ -814,12 +1030,285 @@ function AchievementsPanel() {
           <div className={styles.historyList}>
             {reminders.map((reminder) => (
               <div key={reminder.notificationId} className={styles.historyRow}>
-                <span>{reminder.content}</span>
+                <span>
+                  {reminder.priority === 'P0' && <Tag color="red">P0</Tag>}
+                  {reminder.priority === 'P1' && <Tag color="orange">P1</Tag>}
+                  {reminder.content}
+                </span>
               </div>
             ))}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * 宠物提醒中心（原文档 §27-31）。
+ *
+ * 提醒本体落在 mall-notification（type=PET），宠物只是"新的说话方式"；
+ * 已读回写复用现有通知接口，不另建已读表。
+ */
+function RemindersPanel() {
+  const { message } = App.useApp()
+  const [items, setItems] = useState<PetReminder[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    listPetReminders()
+      .then(({ data: res }) => { if (res.success) setItems(res.data || []) })
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const markRead = async (item: PetReminder) => {
+    if (item.isRead) {
+      return
+    }
+    try {
+      await markAsRead(Number(item.notificationId))
+      setItems((prev) => prev.map((r) => (r.notificationId === item.notificationId ? { ...r, isRead: true } : r)))
+    } catch {
+      // 已读是弱一致操作，失败不影响查看
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      await markAllAsRead()
+      setItems((prev) => prev.map((r) => ({ ...r, isRead: true })))
+      message.success('宠物的话都读完啦')
+    } catch {
+      // 同上
+    }
+  }
+
+  if (loading) return <Spin />
+  if (items.length === 0) {
+    return (
+      <Empty description="还没有提醒～宠物会在打工完成、捞到漂流瓶、有人评论你时主动开口" />
+    )
+  }
+  return (
+    <div className={styles.reminderPanel}>
+      <div className={styles.reminderHeader}>
+        <span>
+          宠物想对你说（{items.filter((item) => !item.isRead).length} 条未读）
+        </span>
+        <Button size="small" onClick={markAllRead}>全部已读</Button>
+      </div>
+      <div className={styles.historyList}>
+        {items.map((item) => (
+          <div
+            key={item.notificationId}
+            className={`${styles.reminderRow} ${item.isRead ? '' : styles.reminderUnread}`}
+            onClick={() => markRead(item)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') markRead(item) }}
+          >
+            <div className={styles.reminderTitleRow}>
+              <strong>{item.title}</strong>
+              {item.priority === 'P0' && <Tag color="red">P0 重要</Tag>}
+              {item.priority === 'P1' && <Tag color="orange">P1</Tag>}
+              {item.priority === 'P2' && <Tag>P2</Tag>}
+            </div>
+            <span className={styles.reminderContent}>{item.content}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 外观选项（与服务端白名单一致） */
+const COLOR_OPTIONS = ['orange', 'gray', 'white', 'brown', 'pink'] as const
+const ACCESSORY_OPTIONS = [
+  { value: 'none', label: '无' },
+  { value: 'bell', label: '铃铛' },
+  { value: 'bowtie', label: '领结' },
+  { value: 'glasses', label: '眼镜' },
+  { value: 'scarf', label: '围巾' },
+] as const
+
+/** 排行榜面板（原文档 §80：等级/胜场/捞瓶三榜 + 我的名次） */
+function RankingsPanel() {
+  const [type, setType] = useState<PetRankingType>('LEVEL')
+  const [result, setResult] = useState<PetRankingResult | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let stale = false
+    setLoading(true)
+    getPetRankings(type).then(({ data: res }) => {
+      if (!stale && res.success) setResult(res.data)
+    }).finally(() => { if (!stale) setLoading(false) })
+    return () => { stale = true }
+  }, [type])
+
+  const SPECIES_ICON: Record<string, string> = { CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }
+  return (
+    <div className={styles.rankingsPanel}>
+      <Segmented
+        block
+        value={type}
+        onChange={(key) => setType(key as PetRankingType)}
+        options={[
+          { value: 'LEVEL', label: '等级榜' },
+          { value: 'BATTLE_WIN', label: '胜场榜' },
+          { value: 'BOTTLE', label: '捞瓶榜' },
+        ]}
+      />
+      {loading ? <Spin /> : (
+        <>
+          <div className={styles.rankList}>
+            {result?.top20.length === 0 && <Empty description="还没有宠物上榜" />}
+            {result?.top20.map((item) => (
+              <div key={String(item.petId)} className={`${styles.rankRow} ${item.isMe ? styles.rankMe : ''}`}>
+                <span className={styles.rankNo}>
+                  {item.rank <= 3 ? ['🥇', '🥈', '🥉'][item.rank - 1] : `#${item.rank}`}
+                </span>
+                <span className={styles.rankPet}>
+                  {SPECIES_ICON[item.species] || '🐾'} {item.name}
+                  <span className={styles.rankOwner}>@{item.ownerNickname}</span>
+                </span>
+                <span className={styles.rankValue}>
+                  {type === 'LEVEL' ? `Lv.${item.value}` : item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+          {result?.myRank !== null && result?.myRank !== undefined && (
+            <div className={styles.myRankBox}>
+              我的{type === 'LEVEL' ? '等级' : type === 'BATTLE_WIN' ? '胜场' : '捞瓶'}：
+              <strong>{result.myValue}</strong> · 全服第 <strong>{result.myRank}</strong> 名
+            </div>
+          )}
+          {(result?.myRank === null || result?.myRank === undefined) && (
+            <div className={styles.myRankBox}>领养宠物并公开后即可上榜冲榜！</div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+interface ProfileModalProps {
+  pet: PetInfo
+  open: boolean
+  onClose: () => void
+  onSaved: () => void
+}
+
+/** 宠物档案弹窗：改名 + 外观编辑（颜色/配饰，原文档 §47 PUT /appearance） */
+function ProfileModal({ pet, open, onClose, onSaved }: ProfileModalProps) {
+  const { message } = App.useApp()
+  const [name, setName] = useState(pet.name)
+  const [color, setColor] = useState<string>('orange')
+  const [accessory, setAccessory] = useState<string>('none')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setName(pet.name)
+      try {
+        const appearance = JSON.parse(pet.appearance) as { color?: string; accessory?: string }
+        setColor(appearance.color || 'orange')
+        setAccessory(appearance.accessory || 'none')
+      } catch {
+        // 外观 JSON 异常时使用默认
+      }
+    }
+  }, [open, pet])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      let renamed = false
+      if (name.trim() !== pet.name) {
+        const { data: res } = await renamePet({ name: name.trim() })
+        if (res.success) renamed = true
+      }
+      const { data: res2 } = await updateAppearance({ color, accessory })
+      if (res2.success) {
+        message.success(renamed ? '档案已更新（含改名）！' : '档案已更新！')
+        onSaved()
+        onClose()
+      }
+    } catch (error) {
+      if ((error as { code?: string }).code === 'PET_RENAME_COOLDOWN') {
+        message.warning('改名 30 天一次，本次只更新外观')
+        // 外观仍可保存
+        try {
+          const { data: res2 } = await updateAppearance({ color, accessory })
+          if (res2.success) { onSaved(); onClose() }
+        } catch { /* 拦截器已提示 */ }
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="宠物档案" open={open} onCancel={onClose} onOk={save} confirmLoading={saving} okText="保存">
+      <p className={styles.profileLabel}>名字（30 天可改一次）</p>
+      <Input value={name} maxLength={12} onChange={(e) => setName(e.target.value)} />
+      <p className={styles.profileLabel}>颜色</p>
+      <div className={styles.swatchRow}>
+        {COLOR_OPTIONS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`${styles.swatch} ${color === option ? styles.swatchActive : ''} swatch-${option}`}
+            onClick={() => setColor(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      <p className={styles.profileLabel}>配饰</p>
+      <Segmented
+        value={accessory}
+        onChange={(key) => setAccessory(key as string)}
+        options={ACCESSORY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+      />
+    </Modal>
+  )
+}
+
+/** 分享按钮组：拉取卡片文案 → 复制 → 跳转发帖页（原文档 §36） */
+function ShareButtons() {
+  const { message } = App.useApp()
+  const [sharing, setSharing] = useState<string | null>(null)
+
+  const share = async (type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY', label: string) => {
+    setSharing(type)
+    try {
+      const { data: res } = await getPetShareCard(type)
+      if (res.success && res.data) {
+        const text = `${res.data.title}
+${res.data.content}`
+        await navigator.clipboard.writeText(text)
+        message.success(`已复制${label}文案，去社区发帖分享吧！`)
+        history.push('/publish')
+      }
+    } catch {
+      message.error('复制失败，请重试')
+    } finally {
+      setSharing(null)
+    }
+  }
+
+  return (
+    <div className={styles.shareRow}>
+      <Button size="small" loading={sharing === 'LEVEL_UP'} onClick={() => share('LEVEL_UP', '成长')}>📤 分享成长</Button>
+      <Button size="small" loading={sharing === 'ACHIEVEMENT'} onClick={() => share('ACHIEVEMENT', '成就')}>📤 分享成就</Button>
+      <Button size="small" loading={sharing === 'BOTTLE'} onClick={() => share('BOTTLE', '捞瓶')}>📤 分享捞瓶</Button>
+      <Button size="small" loading={sharing === 'BATTLE'} onClick={() => share('BATTLE', '对战')}>📤 分享战绩</Button>
+      <Button size="small" loading={sharing === 'DAILY'} onClick={() => share('DAILY', '日常')}>📤 分享日常</Button>
     </div>
   )
 }
@@ -865,6 +1354,450 @@ function RenameModal({ pet, open, onClose, onRenamed }: RenameModalProps) {
   )
 }
 
+type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'pets'
+
+const CARE_TABS: Array<{ key: CareTab; label: string; emoji: string }> = [
+  { key: 'shop', label: '商城', emoji: '🛒' },
+  { key: 'inventory', label: '背包', emoji: '🎒' },
+  { key: 'skills', label: '技能', emoji: '🌟' },
+  { key: 'evolution', label: '进化', emoji: '🌠' },
+  { key: 'events', label: '活动', emoji: '🎯' },
+  { key: 'visit', label: '串门', emoji: '🚪' },
+  { key: 'pets', label: '宠物', emoji: '🐾' },
+]
+
+interface CarePanelProps {
+  pet: PetInfo
+  onRefresh: () => void
+}
+
+/**
+ * 养成面板（原文档 §1.1 宠物串门 / §89 多宠物·装备·技能·进化·皮肤商城·社区活动）。
+ *
+ * 与其它面板同约定：所有数值/价格/门槛由服务端下发，本组件只做展示与意图发起；
+ * 按钮禁用依据服务端返回的 eligible/lockReason，不在前端复算规则。
+ */
+function CarePanel({ pet, onRefresh }: CarePanelProps) {
+  const { message } = App.useApp()
+  const [tab, setTab] = useState<CareTab>('shop')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<string | null>(null)
+  const [shop, setShop] = useState<{ starlightBalance: number | null; items: PetShopItem[] }>({ starlightBalance: null, items: [] })
+  const [inventory, setInventory] = useState<PetInventoryItem[]>([])
+  const [skills, setSkills] = useState<PetSkillItem[]>([])
+  const [evolution, setEvolution] = useState<PetEvolutionStatus | null>(null)
+  const [events, setEvents] = useState<PetEventItem[]>([])
+  const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
+  const [pets, setPets] = useState<PetSummary[]>([])
+  const [visitMessage, setVisitMessage] = useState<string | null>(null)
+
+  const reload = useCallback(() => setReloadKey((key) => key + 1), [])
+
+  useEffect(() => {
+    let stale = false
+    setLoading(true)
+    const load = async () => {
+      try {
+        if (tab === 'shop') {
+          const { data: res } = await getPetShop()
+          if (!stale && res.success && res.data) setShop(res.data)
+        } else if (tab === 'inventory') {
+          const { data: res } = await listPetInventory()
+          if (!stale && res.success) setInventory(res.data || [])
+        } else if (tab === 'skills') {
+          const { data: res } = await listPetSkills()
+          if (!stale && res.success) setSkills(res.data || [])
+        } else if (tab === 'evolution') {
+          const { data: res } = await getPetEvolution()
+          if (!stale && res.success) setEvolution(res.data)
+        } else if (tab === 'events') {
+          const { data: res } = await listPetEvents()
+          if (!stale && res.success) setEvents(res.data || [])
+        } else if (tab === 'visit') {
+          const { data: res } = await listPetVisitNeighbors()
+          if (!stale && res.success) setNeighbors(res.data || [])
+        } else {
+          const { data: res } = await listMyPets()
+          if (!stale && res.success) setPets(res.data || [])
+        }
+      } catch {
+        // 拦截器已提示（如未领养 404）
+      } finally {
+        if (!stale) setLoading(false)
+      }
+    }
+    load()
+    return () => { stale = true }
+  }, [tab, reloadKey])
+
+  /** 统一动作执行：服务端权威 → 提示 → 刷新本面板与主宠状态 */
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean; data?: unknown } }>, successText: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(successText)
+        reload()
+        onRefresh()
+      }
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      const hints: Record<string, string> = {
+        PET_ITEM_ALREADY_OWNED: '已经拥有这个物品啦',
+        PET_ITEM_NOT_OWNED: '先拥有才能使用哦',
+        PET_SKILL_BOOK_REQUIRED: '先去商城买这本技能书',
+        PET_SKILL_ALREADY_LEARNED: '这个技能已经学会啦',
+        PET_LEVEL_REQUIRED: '等级还不够，再养养吧',
+        PET_EVOLUTION_REQUIRED: '需要先完成进化',
+        PET_EVOLUTION_MAX: '已经进化到最高阶段啦',
+        PET_PET_LIMIT_REACHED: '宠物数量已达上限',
+        PET_VISIT_COOLDOWN: '今天已经去过这家啦',
+        PET_VISIT_SELF: '不能给自己串门哦',
+        PET_EVENT_NOT_FINISHED: '活动还没完成哦',
+        PET_EVENT_ALREADY_CLAIMED: '奖励已经领过啦',
+        PET_EVENT_ENDED: '活动已经结束啦',
+        WISH_STARLIGHT_INSUFFICIENT: '星光不够啦，先让宠物去打工赚点吧',
+      }
+      if (code && hints[code]) {
+        message.warning(hints[code])
+      }
+    } finally {
+      setPending(null)
+    }
+  }
+
+  return (
+    <div className={styles.carePanel}>
+      <Segmented
+        block
+        size="small"
+        value={tab}
+        onChange={(key) => setTab(key as CareTab)}
+        options={CARE_TABS.map((item) => ({ value: item.key, label: `${item.emoji} ${item.label}` }))}
+      />
+      {loading ? (
+        <Spin />
+      ) : (
+        <>
+          {tab === 'shop' && (
+            <div>
+              <p className={styles.careBalance}>
+                ✨ 星光余额：{shop.starlightBalance === null ? '暂不可用（服务降级）' : shop.starlightBalance}
+              </p>
+              <div className={styles.careGrid}>
+                {shop.items.map((item) => (
+                  <div key={`${item.itemType}-${item.code}`} className={styles.careCard}>
+                    <span className={styles.careIcon}>{item.icon}</span>
+                    <strong>{item.name}</strong>
+                    <span className={styles.careMeta}>
+                      {ITEM_TYPE_LABEL[item.itemType]}
+                      {item.slot ? ` · ${SLOT_LABEL[item.slot] || item.slot}` : ''}
+                      {item.species ? ` · 限定${item.species}` : ''}
+                    </span>
+                    <span className={styles.careMeta}>
+                      {item.itemType === 'SKILL_BOOK'
+                        ? `技能效果：${item.effect ?? ''} ${item.effectValue ?? ''}`
+                        : item.itemType === 'EQUIPMENT'
+                          ? `力量+${item.bonusStrength} 智力+${item.bonusIntelligence} 敏捷+${item.bonusAgility} 魅力+${item.bonusCharm} 生命+${item.bonusMaxHp}`
+                          : `外观：${item.color ?? ''} / ${item.accessory ?? ''}`}
+                    </span>
+                    <span className={styles.careMeta}>
+                      <Tag color={RARITY_COLOR[item.rarity] || 'default'}>{item.rarity}</Tag>
+                      需要 Lv.{item.requiredLevel}
+                      {item.requiredEvolutionStage > 0 ? ` · 进化 ${item.requiredEvolutionStage} 阶` : ''}
+                    </span>
+                    <span className={styles.careActions}>
+                      <span className={styles.carePrice}>✨ {item.priceStarlight}</span>
+                      {item.owned ? (
+                        <Tag color="green">已拥有</Tag>
+                      ) : (
+                        <Button
+                          size="small"
+                          type="primary"
+                          disabled={!item.eligible}
+                          loading={pending === `buy-${item.code}`}
+                          title={item.lockReason ?? undefined}
+                          onClick={() => run(`buy-${item.code}`, () => buyPetItem({ itemType: item.itemType, itemCode: item.code }), '购买成功！')}
+                        >
+                          {item.eligible ? '购买' : (item.lockReason || '未解锁')}
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === 'inventory' && (
+            <div>
+              {inventory.length === 0 ? (
+                <p className={styles.bottleHint}>背包还是空的，去商城逛逛吧～</p>
+              ) : (
+                <div className={styles.careGrid}>
+                  {inventory.map((item) => (
+                    <div key={`${item.itemType}-${item.code}`} className={styles.careCard}>
+                      <span className={styles.careIcon}>{item.icon}</span>
+                      <strong>{item.name}</strong>
+                      <span className={styles.careMeta}>
+                        {ITEM_TYPE_LABEL[item.itemType]}
+                        {item.slot ? ` · ${SLOT_LABEL[item.slot] || item.slot}` : ''}
+                        {item.used ? ' · 已学习' : ''}
+                      </span>
+                      <span className={styles.careActions}>
+                        {item.equipped && <Tag color="gold">使用中</Tag>}
+                        {item.itemType === 'EQUIPMENT' && (
+                          item.equipped ? (
+                            <Button
+                              size="small"
+                              loading={pending === `unequip-${item.slot}`}
+                              onClick={() => run(`unequip-${item.slot}`, () => unequipPetItem(item.slot ?? ''), '已卸下')}
+                            >
+                              卸下
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              type="primary"
+                              loading={pending === `equip-${item.code}`}
+                              onClick={() => run(`equip-${item.code}`, () => equipPetItem(item.code), '已穿戴')}
+                            >
+                              穿戴
+                            </Button>
+                          )
+                        )}
+                        {item.itemType === 'SKIN' && (
+                          item.equipped ? (
+                            <Button
+                              size="small"
+                              loading={pending === 'remove-skin'}
+                              onClick={() => run('remove-skin', () => removePetSkin(), '已换回原生外观')}
+                            >
+                              卸下
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              type="primary"
+                              loading={pending === `skin-${item.code}`}
+                              onClick={() => run(`skin-${item.code}`, () => wearPetSkin(item.code), '已穿上新皮肤')}
+                            >
+                              穿戴
+                            </Button>
+                          )
+                        )}
+                        {item.itemType === 'SKILL_BOOK' && !item.used && (
+                          <span className={styles.careMeta}>去「技能」页学习</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'skills' && (
+            <div className={styles.careGrid}>
+              {skills.map((skill) => (
+                <div key={skill.code} className={styles.careCard}>
+                  <span className={styles.careIcon}>{skill.icon}</span>
+                  <strong>{skill.name}</strong>
+                  <span className={styles.careMeta}>
+                    <Tag color={skill.skillType === 'ACTIVE' ? 'volcano' : 'geekblue'}>
+                      {skill.skillType === 'ACTIVE' ? '主动技' : '被动技'}
+                    </Tag>
+                    {skill.effectText}
+                  </span>
+                  <span className={styles.careMeta}>{skill.description}</span>
+                  <span className={styles.careActions}>
+                    <span className={styles.carePrice}>✨ {skill.priceStarlight}</span>
+                    {skill.learned ? (
+                      <Tag color="green">已学会</Tag>
+                    ) : skill.bookOwned ? (
+                      <Button
+                        size="small"
+                        type="primary"
+                        disabled={pet.level < skill.requiredLevel}
+                        loading={pending === `learn-${skill.code}`}
+                        onClick={() => run(`learn-${skill.code}`, () => learnPetSkill(skill.code), '学会新技能啦！')}
+                      >
+                        {pet.level < skill.requiredLevel ? `需要 Lv.${skill.requiredLevel}` : '学习'}
+                      </Button>
+                    ) : (
+                      <Tag>需要技能书（商城购买）</Tag>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === 'evolution' && evolution && (
+            <div>
+              <p className={styles.careBalance}>
+                当前进化阶段：{evolution.currentStage} / {evolution.maxStage}
+              </p>
+              {evolution.nextCode === null ? (
+                <p className={styles.bottleHint}>🎉 已经进化到最高阶段啦</p>
+              ) : (
+                <div className={styles.careCard}>
+                  <span className={styles.careIcon}>{evolution.icon || '🌠'}</span>
+                  <strong>{evolution.nextName}</strong>
+                  <span className={styles.careMeta}>{evolution.nextDescription}</span>
+                  <span className={styles.careMeta}>
+                    需要 Lv.{evolution.requiredLevel} · 消耗 ✨{evolution.costStarlight}
+                  </span>
+                  <span className={styles.careMeta}>
+                    生命+{evolution.bonusMaxHp} 力量+{evolution.bonusStrength} 智力+{evolution.bonusIntelligence}
+                    敏捷+{evolution.bonusAgility} 魅力+{evolution.bonusCharm}
+                  </span>
+                  {evolution.unlockSkinCode && (
+                    <span className={styles.careMeta}>解锁皮肤：{evolution.unlockSkinCode}</span>
+                  )}
+                  <span className={styles.careActions}>
+                    <Button
+                      type="primary"
+                      size="small"
+                      disabled={!evolution.canEvolve}
+                      loading={pending === 'evolve'}
+                      onClick={() => run('evolve', () => evolvePet(), '进化成功！')}
+                    >
+                      {evolution.canEvolve ? '进化' : (evolution.lockReason || '条件未满足')}
+                    </Button>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'events' && (
+            <div className={styles.careGrid}>
+              {events.length === 0 && <p className={styles.bottleHint}>暂时没有进行中的活动</p>}
+              {events.map((event) => (
+                <div key={event.code} className={styles.careCard}>
+                  <span className={styles.careIcon}>🎯</span>
+                  <strong>{event.name}</strong>
+                  <span className={styles.careMeta}>{event.description}</span>
+                  <span className={styles.careMeta}>
+                    {EVENT_TYPE_LABEL[event.eventType] || event.eventType} 进度：{event.progress}/{event.targetValue}
+                    {event.expired ? '（已结束）' : ''}
+                  </span>
+                  <span className={styles.careMeta}>
+                    奖励：经验+{event.rewardExp} ✨+{event.rewardStarlight}
+                    {event.rewardItemCode ? ` · 物品 ${event.rewardItemCode}` : ''}
+                  </span>
+                  <span className={styles.careActions}>
+                    {event.claimed ? (
+                      <Tag color="green">已领取</Tag>
+                    ) : event.expired ? (
+                      <Tag>已结束</Tag>
+                    ) : (
+                      <Button
+                        size="small"
+                        type="primary"
+                        disabled={!event.claimable}
+                        loading={pending === `event-${event.code}`}
+                        onClick={() => run(`event-${event.code}`, () => claimPetEvent(event.code), '奖励到手啦！')}
+                      >
+                        {event.claimable ? '领取奖励' : `还差 ${Math.max(0, event.targetValue - event.progress)} 次`}
+                      </Button>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === 'visit' && (
+            <div>
+              {visitMessage && <p className={styles.careBalance}>{visitMessage}</p>}
+              {neighbors.length === 0 ? (
+                <p className={styles.bottleHint}>暂时没有可串门的邻居，稍后再来看看吧</p>
+              ) : (
+                <div className={styles.careGrid}>
+                  {neighbors.map((neighbor) => (
+                    <div key={neighbor.petId} className={styles.careCard}>
+                      <span className={styles.careIcon}>{SPECIES_EMOJI[neighbor.species] || '🐾'}</span>
+                      <strong>{neighbor.name}</strong>
+                      <span className={styles.careMeta}>
+                        Lv.{neighbor.level} · {neighbor.ownerNickname}
+                        {neighbor.evolutionStage > 0 ? ` · 进化${neighbor.evolutionStage}阶` : ''}
+                      </span>
+                      <span className={styles.careActions}>
+                        {neighbor.visitedToday ? (
+                          <Tag>今日已去过</Tag>
+                        ) : (
+                          <Button
+                            size="small"
+                            type="primary"
+                            loading={pending === `visit-${neighbor.petId}`}
+                            onClick={() => run(`visit-${neighbor.petId}`, async () => {
+                              const res = await visitNeighborPet(neighbor.petId)
+                              if (res.data.success && res.data.data) {
+                                setVisitMessage(res.data.data.message)
+                              }
+                              return res
+                            }, '串门成功！')}
+                          >
+                            去串门
+                          </Button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'pets' && (
+            <div>
+              <p className={styles.careBalance}>宠物 {pet.petCount} / {pet.maxPets}（日常玩法作用于主宠）</p>
+              <div className={styles.careGrid}>
+                {pets.map((item) => (
+                  <div key={item.petId} className={styles.careCard}>
+                    <span className={styles.careIcon}>{SPECIES_EMOJI[item.species] || '🐾'}</span>
+                    <strong>{item.name}</strong>
+                    <span className={styles.careMeta}>
+                      Lv.{item.level} · {GROWTH_STAGE_LABEL[item.growthStage] || item.growthStage}
+                      {item.evolutionStage > 0 ? ` · 进化${item.evolutionStage}阶` : ''}
+                    </span>
+                    <span className={styles.careActions}>
+                      {item.isActive ? (
+                        <Tag color="gold">主宠</Tag>
+                      ) : (
+                        <Button
+                          size="small"
+                          loading={pending === `activate-${item.petId}`}
+                          onClick={() => run(`activate-${item.petId}`, () => activatePet(item.petId), `已切换为 ${item.name}`)}
+                        >
+                          设为主宠
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+                {pet.petCount < pet.maxPets && (
+                  <div className={styles.careCard}>
+                    <span className={styles.careIcon}>➕</span>
+                    <strong>再领养一只</strong>
+                    <span className={styles.careMeta}>还有 {pet.maxPets - pet.petCount} 个名额</span>
+                    <span className={styles.careActions}>
+                      <Button size="small" onClick={() => history.push('/pet?adopt=1')}>去领养</Button>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function PetHomePage() {
   const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
@@ -873,6 +1806,10 @@ export default function PetHomePage() {
   const [noPet, setNoPet] = useState(false)
   const [panel, setPanel] = useState<PanelKey>('home')
   const [renameOpen, setRenameOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [unreadReminders, setUnreadReminders] = useState(0)
+  const [pendingInteraction, setPendingInteraction] = useState<PetIntentAction | null>(null)
+  const [adoptOpen, setAdoptOpen] = useState(false)
   const stageRef = useRef<PetStageHandle>(null)
 
   useEffect(() => {
@@ -881,9 +1818,38 @@ export default function PetHomePage() {
     }
   }, [user, userLoading])
 
+  /** 宠物提醒未读数（入口角标；服务降级由后端返回 0，不阻断页面） */
+  const loadUnread = useCallback(async () => {
+    try {
+      const { data: res } = await getPetReminderUnreadCount()
+      if (res.success) {
+        setUnreadReminders(res.data ?? 0)
+      }
+    } catch {
+      // 未读数属展示型数据：失败保持原值
+    }
+  }, [])
+
   const syncStage = useCallback((next: PetInfo) => {
     stageRef.current?.post({ source: 'pet-host', type: 'petState', pet: toDisplayState(next) })
   }, [])
+
+  /** 宠物台词同步到 Cocos 气泡（聊天回复/点击宠物；文案由服务端生成，宿主不拼业务数据） */
+  const speakToStage = useCallback((content: string) => {
+    stageRef.current?.post({ source: 'pet-host', type: 'chatBubble', content })
+  }, [])
+
+  /** 场景内点击宠物：给一句即时反馈，避免点了没反应 */
+  const handlePetTapped = useCallback(() => {
+    if (!pet) {
+      return
+    }
+    speakToStage(`${pet.name}：${STATUS_SPEECH[pet.status] ?? '主人，点点我干嘛呀～'}`)
+  }, [pet, speakToStage])
+
+  const handleChatReply = useCallback((content: string) => {
+    speakToStage(content)
+  }, [speakToStage])
 
   const refresh = useCallback(async () => {
     try {
@@ -905,8 +1871,9 @@ export default function PetHomePage() {
   useEffect(() => {
     if (user) {
       refresh()
+      loadUnread()
     }
-  }, [user, refresh])
+  }, [user, refresh, loadUnread])
 
   /** Cocos 意图 → 宿主 API 调用（数值/幂等全部服务端） */
   const handleIntent = useCallback(async (action: PetIntentAction) => {
@@ -922,6 +1889,11 @@ export default function PetHomePage() {
     if (action === 'openBattle') { setPanel('battle'); return }
     if (action === 'openChat') { setPanel('chat'); return }
     if (action === 'openAchievements') { setPanel('achievements'); return }
+    if (action === 'openProfile') { setProfileOpen(true); return }
+    if (action === 'openRankings') { setPanel('rankings'); return }
+    if (action === 'openCare') { setPanel('care'); return }
+    // 以下 action 类型已收窄为互动四件套
+    setPendingInteraction(action)
     try {
       if (action === 'feed') {
         const { data: res } = await feedPet()
@@ -944,8 +1916,20 @@ export default function PetHomePage() {
         PET_INTERACTION_RATE_LIMITED: '今天喂得够多啦',
       }
       post(false, action, hints[code ?? ''] || '现在不行哦')
+    } finally {
+      setPendingInteraction(null)
     }
   }, [pet, syncStage])
+
+  /** ?adopt=1（多宠物：从个人中心/养成面板直接进入领养） */
+  useEffect(() => {
+    if (!noPet) {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('adopt') === '1') {
+        setAdoptOpen(true)
+      }
+    }
+  }, [noPet])
 
   const handleBattleResult = useCallback((battle: PetBattleItem) => {
     if (!battle.rounds) {
@@ -1003,7 +1987,7 @@ export default function PetHomePage() {
           ref={stageRef}
           pet={displayState}
           onIntent={handleIntent}
-          onPetTapped={() => {/* 点击反馈由 Cocos 场景处理 */ }}
+          onPetTapped={handlePetTapped}
           fallback={
             <div className={styles.nativeStage}>
               <span className={styles.nativePet}>{SPECIES_EMOJI[pet.species] || '🐾'}</span>
@@ -1012,6 +1996,14 @@ export default function PetHomePage() {
           }
         />
         <PetStateBars pet={pet} />
+        <div className={styles.interactionRow}>
+          <Button size="small" loading={pendingInteraction === 'feed'} onClick={() => handleIntent('feed')}>🍖 喂食</Button>
+          <Button size="small" loading={pendingInteraction === 'play'} onClick={() => handleIntent('play')}>🎾 玩耍</Button>
+          <Button size="small" loading={pendingInteraction === 'clean'} onClick={() => handleIntent('clean')}>🧼 清洁</Button>
+          <Button size="small" loading={pendingInteraction === 'rest'} onClick={() => handleIntent('rest')}>😴 休息</Button>
+          <Button size="small" onClick={() => setProfileOpen(true)}>📇 档案</Button>
+          <Button size="small" onClick={() => setPanel('care')}>🎒 养成</Button>
+        </div>
         {pet.activityFinishedAt || pet.claimableActivityType ? (
           <ActivityCard
             pet={pet}
@@ -1026,17 +2018,35 @@ export default function PetHomePage() {
         className={styles.panelTabs}
         block
         value={panel}
-        onChange={(key) => setPanel(key as PanelKey)}
-        options={PANELS.map((item) => ({ value: item.key, label: `${item.emoji} ${item.label}` }))}
+        onChange={(key) => {
+          setPanel(key as PanelKey)
+          if (key === 'reminders') {
+            loadUnread()
+          }
+        }}
+        options={PANELS.map((item) => ({
+          value: item.key,
+          label: item.key === 'reminders' && unreadReminders > 0
+            ? `${item.emoji} ${item.label} ${unreadReminders}`
+            : `${item.emoji} ${item.label}`,
+        }))}
       />
 
       <div className={styles.panelBody}>
+        {panel === 'care' && <CarePanel pet={pet} onRefresh={refresh} />}
         {panel === 'work' && <WorkPanel pet={pet} onRefresh={refresh} />}
         {panel === 'study' && <StudyPanel pet={pet} onRefresh={refresh} />}
         {panel === 'bottle' && <BottlePanel onRefresh={refresh} />}
         {panel === 'battle' && <BattlePanel onRefresh={refresh} onBattleResult={handleBattleResult} />}
-        {panel === 'chat' && <ChatPanel onRefresh={refresh} />}
-        {panel === 'achievements' && <AchievementsPanel />}
+        {panel === 'chat' && <ChatPanel onRefresh={refresh} onReply={handleChatReply} />}
+        {panel === 'achievements' && (
+          <>
+            <AchievementsPanel />
+            <ShareButtons />
+          </>
+        )}
+        {panel === 'reminders' && <RemindersPanel />}
+        {panel === 'rankings' && <RankingsPanel />}
         {panel === 'home' && (
           <div className={styles.homePanel}>
             <h4 className={styles.sectionTitle}>{pet.name} 的养成日常</h4>
@@ -1052,6 +2062,20 @@ export default function PetHomePage() {
       </div>
 
       <RenameModal pet={pet} open={renameOpen} onClose={() => setRenameOpen(false)} onRenamed={refresh} />
+      <ProfileModal pet={pet} open={profileOpen} onClose={() => setProfileOpen(false)} onSaved={refresh} />
+      <Modal
+        open={adoptOpen}
+        footer={null}
+        width={720}
+        title="再领养一只宠物"
+        onCancel={() => setAdoptOpen(false)}
+      >
+        {pet.petCount >= pet.maxPets ? (
+          <p className={styles.bottleHint}>宠物数量已达上限（{pet.maxPets} 只），先好好照顾现有的伙伴吧～</p>
+        ) : (
+          <AdoptWizard onAdopted={() => { setAdoptOpen(false); refresh() }} />
+        )}
+      </Modal>
     </div>
   )
 }

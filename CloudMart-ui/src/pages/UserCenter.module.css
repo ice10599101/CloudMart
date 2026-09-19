@@ -540,7 +540,7 @@
   align-items: center;
   gap: 8px;
   padding: 48px 0;
-  color: var(--color-text-secondary, rgba(0, 0, 0, 0.55));
+  color: var(--color-text-secondary, rgba(0, 0, 0, 55%));
 }
 
 .petEmptyEmoji {
@@ -581,6 +581,6 @@
 
 .petSummaryHint {
   font-size: 12px;
-  color: var(--color-text-tertiary, rgba(0, 0, 0, 0.4));
+  color: var(--color-text-tertiary, rgba(0, 0, 0, 40%));
   margin: 0;
 }

@@ -60,6 +60,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
     private final PetProperties properties;
+    private final PetStatsService statsService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -69,7 +70,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 WishFeignClient wishFeignClient,
                                 PetAchievementService achievementService,
                                 PetEventProducer eventProducer,
-                                PetProperties properties) {
+                                PetProperties properties,
+                                PetStatsService statsService) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -78,6 +80,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
         this.properties = properties;
+        this.statsService = statsService;
     }
 
     @Override
@@ -385,10 +388,14 @@ public class PetBattleServiceImpl implements PetBattleService {
         }
     }
 
+    /** 快照参战者：基础属性 + 装备加成 + 技能效果（原文档 §89：装备/技能在战斗中生效） */
     private PetBattleEngine.Fighter toFighter(Pet pet) {
+        PetStatsService.CombatStats stats = statsService.combatStats(pet);
         return new PetBattleEngine.Fighter(pet.getId(), pet.getName(),
-                pet.getHp(), pet.getMaxHp(),
-                pet.getStrength(), pet.getIntelligence(), pet.getAgility(), pet.getCharm());
+                stats.hp(), stats.maxHp(),
+                stats.strength(), stats.intelligence(), stats.agility(), stats.charm(),
+                stats.critBonus(), stats.dodgeBonus(), stats.damageBonus(),
+                stats.powerStrikeBonus(), stats.damageReduction(), statsService.firstStrikeBonus(pet));
     }
 
     private Map<Long, String> resolveNicknames(List<Long> userIds) {
@@ -420,10 +427,18 @@ public class PetBattleServiceImpl implements PetBattleService {
                 ? "DEFENDER" : "ATTACKER";
         String roundsJson = rounds != null ? PetJsonUtils.toJson(rounds) : battle.getRounds();
         return new PetBattleVO(battle.getId(), battle.getMode(), battle.getStatus(), role,
-                battle.getAttackerPetId(), null, battle.getAttackerUserId(),
-                battle.getDefenderPetId(), null, battle.getDefenderUserId(),
+                battle.getAttackerPetId(), fighterName(battle.getAttackerSnapshot()), battle.getAttackerUserId(),
+                battle.getDefenderPetId(), fighterName(battle.getDefenderSnapshot()), battle.getDefenderUserId(),
                 battle.getWinnerPetId(), roundsJson,
                 battle.getExpReward(), battle.getCurrencyReward(),
                 battle.getStartedAt(), battle.getFinishedAt());
+    }
+
+    /** 从结算快照还原对手显示名（PvP 对手宠物可能已改名/放生，因此必须以快照为准） */
+    private String fighterName(String snapshotJson) {
+        PetBattleEngine.Fighter fighter = PetJsonUtils.parse(snapshotJson,
+                new com.fasterxml.jackson.core.type.TypeReference<>() {
+                });
+        return fighter == null ? null : fighter.name();
     }
 }

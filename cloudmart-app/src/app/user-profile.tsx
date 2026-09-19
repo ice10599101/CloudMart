@@ -7,6 +7,7 @@ import { communityApi } from '@/api/community'
 import { userApi } from '@/api/user'
 import type { User } from '@/types'
 import { wishApi } from '@/api/wish'
+import { petApi, type PetPublicCard } from '@/api/pet'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const TABS = [
@@ -37,6 +38,8 @@ export default function UserProfileScreen() {
   const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const [publicInfo, setPublicInfo] = useState<User | null>(null)
+  /** TA的宠物卡片（未公开/无宠物失败即隐藏，Fail-Open 不影响主页其它内容） */
+  const [petCard, setPetCard] = useState<PetPublicCard | null>(null)
 
   const loadProfile = useCallback(async () => {
     if (!userId) return
@@ -44,6 +47,7 @@ export default function UserProfileScreen() {
       const res = await communityApi.getUserProfile(userId)
       const data = res.data?.data
       setProfile(data)
+      petApi.getPublicCard(userId).then((r) => setPetCard(r.data?.data ?? null)).catch(() => setPetCard(null))
       // 公开资料（后端按隐私过滤字段）：加入时间/详细资料卡数据源（对齐 Web 端）
       userApi
         .getPublicProfile(userId)
@@ -219,6 +223,28 @@ export default function UserProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bgBase }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* TA 的宠物（原文档 §80：社区宠物与个人主页融合） */}
+        {petCard && (
+          <TouchableOpacity
+            onPress={() => router.push('/pet')}
+            style={{
+              margin: Spacing.md, padding: Spacing.md, borderRadius: BorderRadius.lg,
+              backgroundColor: theme.bgContainer, borderWidth: 1, borderColor: theme.border,
+              flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+            }}
+          >
+            <Text style={{ fontSize: 28 }}>🐾</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                TA 的宠物 · {petCard.name}
+              </Text>
+              <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>
+                Lv.{petCard.level} · {petCard.growthStage} · 成就 {petCard.achievementCount} 枚
+              </Text>
+            </View>
+            <Text style={{ color: theme.primary, fontSize: FontSize.xs }}>看看TA的宠物 ›</Text>
+          </TouchableOpacity>
+        )}
         {/* Header */}
         <View style={{ backgroundColor: theme.bgContainer, alignItems: 'center', padding: Spacing.xxl }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: theme.primary + '4D', overflow: 'hidden', marginBottom: Spacing.md }}>

@@ -33,6 +33,17 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
+            public ApiResponse<Integer> spendStarlight(Long userId, Integer amount, Long refId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Integer> starlightBalance(Long userId) {
+                // 余额是展示型数据：Fail-Open 返回 null（前端隐藏余额，不阻断商城浏览）
+                return ApiResponse.ok(null);
+            }
+
+            @Override
             public ApiResponse<List<Map<String, Object>>> batchGetUsers(List<Long> ids) {
                 // 昵称查询是展示型数据：Fail-Open 返回空列表，调用方使用占位昵称
                 return ApiResponse.ok(List.of());

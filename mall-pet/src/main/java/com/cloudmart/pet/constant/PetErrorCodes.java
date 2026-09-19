@@ -22,6 +22,8 @@ public final class PetErrorCodes {
     public static final String PET_BATTLE_MODE_INVALID = "PET_BATTLE_MODE_INVALID";
     /** 聊天内容为空或超长 */
     public static final String PET_CHAT_MESSAGE_INVALID = "PET_CHAT_MESSAGE_INVALID";
+    /** 皮肤不适用于当前宠物种类 */
+    public static final String PET_SKIN_SPECIES_MISMATCH = "PET_SKIN_SPECIES_MISMATCH";
 
     // --- 403 Forbidden ---
     /** 非宠物主人，禁止操作 */
@@ -37,6 +39,14 @@ public final class PetErrorCodes {
     public static final String PET_JOB_NOT_FOUND = "PET_JOB_NOT_FOUND";
     public static final String PET_STUDY_NOT_FOUND = "PET_STUDY_NOT_FOUND";
     public static final String PET_ACHIEVEMENT_NOT_FOUND = "PET_ACHIEVEMENT_NOT_FOUND";
+    /** 商城物品不存在或已下架 */
+    public static final String PET_ITEM_NOT_FOUND = "PET_ITEM_NOT_FOUND";
+    /** 技能不存在或已下架 */
+    public static final String PET_SKILL_NOT_FOUND = "PET_SKILL_NOT_FOUND";
+    /** 进化配置不存在或已停用 */
+    public static final String PET_EVOLUTION_NOT_FOUND = "PET_EVOLUTION_NOT_FOUND";
+    /** 社区活动不存在或已下架 */
+    public static final String PET_EVENT_NOT_FOUND = "PET_EVENT_NOT_FOUND";
 
     // --- 409 Conflict ---
     /** 已有宠物，重复领养 */
@@ -67,6 +77,32 @@ public final class PetErrorCodes {
     public static final String PET_BATTLE_OPPONENT_INVALID = "PET_BATTLE_OPPONENT_INVALID";
     /** 改名冷却中（30 天一次） */
     public static final String PET_RENAME_COOLDOWN = "PET_RENAME_COOLDOWN";
+    /** 宠物数量已达上限（多宠物） */
+    public static final String PET_PET_LIMIT_REACHED = "PET_PET_LIMIT_REACHED";
+    /** 已拥有该物品（重复购买） */
+    public static final String PET_ITEM_ALREADY_OWNED = "PET_ITEM_ALREADY_OWNED";
+    /** 尚未拥有该物品（先购买再装备/穿戴） */
+    public static final String PET_ITEM_NOT_OWNED = "PET_ITEM_NOT_OWNED";
+    /** 技能已学会（重复学习） */
+    public static final String PET_SKILL_ALREADY_LEARNED = "PET_SKILL_ALREADY_LEARNED";
+    /** 缺少技能书，需先在商城购买 */
+    public static final String PET_SKILL_BOOK_REQUIRED = "PET_SKILL_BOOK_REQUIRED";
+    /** 进化条件不满足（等级/阶段） */
+    public static final String PET_EVOLUTION_REQUIRED = "PET_EVOLUTION_REQUIRED";
+    /** 已达到最高进化阶段 */
+    public static final String PET_EVOLUTION_MAX = "PET_EVOLUTION_MAX";
+    /** 不能给自己串门 */
+    public static final String PET_VISIT_SELF = "PET_VISIT_SELF";
+    /** 串门冷却中（同一邻居每日一次） */
+    public static final String PET_VISIT_COOLDOWN = "PET_VISIT_COOLDOWN";
+    /** 串门时宠物精力不足 */
+    public static final String PET_VISIT_ENERGY_INSUFFICIENT = "PET_VISIT_ENERGY_INSUFFICIENT";
+    /** 活动目标未完成，不可领奖 */
+    public static final String PET_EVENT_NOT_FINISHED = "PET_EVENT_NOT_FINISHED";
+    /** 活动奖励已领取（幂等第二次返回） */
+    public static final String PET_EVENT_ALREADY_CLAIMED = "PET_EVENT_ALREADY_CLAIMED";
+    /** 活动已结束 */
+    public static final String PET_EVENT_ENDED = "PET_EVENT_ENDED";
 
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */

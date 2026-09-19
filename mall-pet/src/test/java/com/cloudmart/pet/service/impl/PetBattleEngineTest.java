@@ -101,4 +101,73 @@ class PetBattleEngineTest {
         assertThat(result.winnerPetId()).isEqualTo(1L);
         assertThat(result.rounds().size()).isLessThanOrEqualTo(4);
     }
+
+    /** 技能/装备加成参战者（原文档 §89：主动技/被动技在战斗生效） */
+    private PetBattleEngine.Fighter boosted(long id, String name, int strength, int intelligence,
+                                           int agility, int charm, double powerStrike,
+                                           int damageBonus, double damageReduction) {
+        return new PetBattleEngine.Fighter(id, name, 100, 100, strength, intelligence, agility, charm,
+                0, 0, damageBonus, powerStrike, damageReduction, 0);
+    }
+
+    @Test
+    @DisplayName("主动技 POWER_STRIKE：首回合 action=skill 且伤害高于无技能同 seed 局")
+    void powerStrikeMarksFirstRoundAsSkill() {
+        PetBattleEngine.Fighter plain = fighter(1L, "小橘", 30, 20, 25, 15);
+        PetBattleEngine.Fighter skilled = boosted(1L, "小橘", 30, 20, 25, 15, 0.35, 0, 0);
+        PetBattleEngine.Fighter def = fighter(2L, "旺财", 20, 20, 10, 10);
+
+        PetBattleEngine.BattleResult withSkill = PetBattleEngine.simulate(skilled, def, 123L, MAX_ROUNDS);
+        PetBattleEngine.BattleResult without = PetBattleEngine.simulate(plain, def, 123L, MAX_ROUNDS);
+
+        assertThat(withSkill.rounds().getFirst().action()).isEqualTo("skill");
+        assertThat(without.rounds().getFirst().action()).isEqualTo("attack");
+        // 同 seed 下首回合双方出手顺序一致，主动技方首击伤害更高
+        assertThat(dealOf(withSkill, 1L, 1)).isGreaterThan(dealOf(without, 1L, 1));
+    }
+
+    @Test
+    @DisplayName("被动技 TOUGH_BODY：同 seed 同一击伤害按减免比例下降")
+    void toughBodyReducesDamage() {
+        PetBattleEngine.Fighter attacker = fighter(1L, "小橘", 40, 30, 20, 10);
+        PetBattleEngine.Fighter normal = fighter(2L, "旺财", 10, 10, 5, 5);
+        PetBattleEngine.Fighter tough = boosted(2L, "旺财", 10, 10, 5, 5, 0, 0, 0.5);
+
+        PetBattleEngine.BattleResult withReduction = PetBattleEngine.simulate(attacker, tough, 7L, MAX_ROUNDS);
+        PetBattleEngine.BattleResult withoutReduction = PetBattleEngine.simulate(attacker, normal, 7L, MAX_ROUNDS);
+
+        // 同 seed 下随机序列一致，同一击伤害应为 50%（向下取整的舍入误差允许 ±1）
+        int reduced = dealOf(withReduction, 1L, 1);
+        int plain = dealOf(withoutReduction, 1L, 1);
+        assertThat(reduced).isLessThan(plain);
+        assertThat(reduced).isCloseTo((int) Math.round(plain * 0.5), org.assertj.core.data.Offset.offset(1));
+    }
+
+    @Test
+    @DisplayName("装备加成 damageBonus：同 seed 下伤害提升")
+    void damageBonusIncreasesDamage() {
+        PetBattleEngine.Fighter attacker = fighter(1L, "小橘", 20, 20, 30, 10);
+        PetBattleEngine.Fighter equipped = boosted(1L, "小橘", 20, 20, 30, 10, 0, 8, 0);
+        PetBattleEngine.Fighter def = fighter(2L, "旺财", 10, 10, 5, 5);
+
+        int plainDamage = totalDamageTo(PetBattleEngine.simulate(attacker, def, 55L, MAX_ROUNDS), 2L);
+        int boostedDamage = totalDamageTo(PetBattleEngine.simulate(equipped, def, 55L, MAX_ROUNDS), 2L);
+
+        assertThat(boostedDamage).isGreaterThan(plainDamage);
+    }
+
+    private int dealOf(PetBattleEngine.BattleResult result, long actorPetId, int round) {
+        return result.rounds().stream()
+                .filter(r -> r.round() == round && r.actorPetId() == actorPetId && !r.dodged())
+                .mapToInt(PetBattleEngine.Round::damage)
+                .findFirst()
+                .orElse(0);
+    }
+
+    private int totalDamageTo(PetBattleEngine.BattleResult result, long targetPetId) {
+        return result.rounds().stream()
+                .filter(r -> r.targetPetId() == targetPetId)
+                .mapToInt(PetBattleEngine.Round::damage)
+                .sum();
+    }
 }

@@ -12,6 +12,7 @@ import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetBottleOutcome;
+import com.cloudmart.pet.enums.PetBottleRarity;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
@@ -54,11 +55,18 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     /** 结算经验：捞到 +15 / 空手 +5（参与即有成长，原文档 §20 捞瓶与成长关联） */
     private static final int EXP_CAUGHT = 15;
     private static final int EXP_EMPTY = 5;
+    /** 特殊瓶子经验加成：稀有 +30 / 宠物瓶与彩蛋 +20 */
+    private static final int EXP_RARE = 30;
+    private static final int EXP_SPECIAL = 20;
+    /** 稀有瓶星光加成 */
+    private static final int RARE_STARLIGHT = 50;
     private static final int START_ENERGY_COST = 10;
 
     /** 捞瓶区域解锁等级（原文档 §20，一期仅文案展示） */
     private static final String[] AREA_NAMES = {"社区池塘", "城市河流", "神秘海域", "深海区域"};
     private static final int[] AREA_LEVELS = {1, 5, 10, 20};
+    /** 捞瓶活动在统一 PetActivityVO 中的展示名（无 pet_*_config 关联，兜底文案） */
+    private static final String BOTTLE_ACTIVITY_NAME = "捞漂流瓶";
 
     private final PetService petService;
     private final PetStateService stateService;
@@ -68,7 +76,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
+    private final PetBottleContentProvider contentProvider;
     private final PetProperties properties;
+    private final PetStatsService statsService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBottleFishingServiceImpl(PetService petService,
@@ -79,7 +89,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                                        WishFeignClient wishFeignClient,
                                        PetAchievementService achievementService,
                                        PetEventProducer eventProducer,
-                                       PetProperties properties) {
+                                       PetBottleContentProvider contentProvider,
+                                       PetProperties properties,
+                                       PetStatsService statsService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -88,7 +100,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         this.wishFeignClient = wishFeignClient;
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
+        this.contentProvider = contentProvider;
         this.properties = properties;
+        this.statsService = statsService;
     }
 
     @Override
@@ -244,28 +258,43 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         boolean rollSuccess = ThreadLocalRandom.current().nextDouble() < rate;
 
         PetBottleOutcome outcome;
+        PetBottleRarity rarity = PetBottleRarity.NORMAL;
+        String specialContent = null;
         Long bottleId = null;
         int expGain;
         if (!rollSuccess) {
             outcome = PetBottleOutcome.EMPTY;
             expGain = EXP_EMPTY;
         } else {
-            try {
-                WishFeignClient.WishBottleVO bottle = wishFeignClient.fishForPet().data();
-                if (bottle == null) {
-                    // 海里暂时没有瓶子：空手而归（原文档 §16）
-                    outcome = PetBottleOutcome.EMPTY;
-                    expGain = EXP_EMPTY;
-                } else {
-                    outcome = PetBottleOutcome.CAUGHT;
-                    bottleId = bottle.bottleId();
-                    expGain = EXP_CAUGHT;
+            // 稀有度抽取（原文档 §19）：普通瓶走 mall-wish 真实瓶子池；
+            // 稀有瓶/宠物瓶/彩蛋瓶为服务端生成的特殊内容，带额外奖励，不消耗瓶子池
+            rarity = rollRarity();
+            if (rarity == PetBottleRarity.NORMAL) {
+                try {
+                    WishFeignClient.WishBottleVO bottle = wishFeignClient.fishForPet().data();
+                    if (bottle == null) {
+                        // 海里暂时没有瓶子：空手而归（原文档 §16）
+                        outcome = PetBottleOutcome.EMPTY;
+                        expGain = EXP_EMPTY;
+                    } else {
+                        outcome = PetBottleOutcome.CAUGHT;
+                        bottleId = bottle.bottleId();
+                        expGain = EXP_CAUGHT;
+                    }
+                } catch (BusinessException e) {
+                    // 心愿服务降级：FAILED 可重试领取，不吞奖励
+                    log.warn("宠物捞瓶 Feign 降级，标记 FAILED 待重试: userId={}", userId, e);
+                    outcome = PetBottleOutcome.FAILED;
+                    expGain = 0;
                 }
-            } catch (BusinessException e) {
-                // 心愿服务降级：FAILED 可重试领取，不吞奖励
-                log.warn("宠物捞瓶 Feign 降级，标记 FAILED 待重试: userId={}", userId, e);
-                outcome = PetBottleOutcome.FAILED;
-                expGain = 0;
+            } else {
+                outcome = PetBottleOutcome.CAUGHT;
+                specialContent = contentProvider.pick(rarity);
+                expGain = switch (rarity) {
+                    case RARE -> EXP_RARE;
+                    case PET, EASTER_EGG -> EXP_SPECIAL;
+                    default -> EXP_CAUGHT;
+                };
             }
         }
 
@@ -276,6 +305,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
             record.setActivityId(activity.getId());
             record.setBottleId(bottleId);
             record.setOutcome(outcome.name());
+            record.setRarity(rarity.name());
+            record.setSpecialContent(specialContent);
             record.setSuccessRate(rate);
             record.setStartedAt(activity.getStartedAt());
             record.setFinishedAt(activity.getFinishedAt());
@@ -286,7 +317,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
             return toActivityVo(latest != null ? latest : activity);
         }
 
-        activity.setResult(resultJson(outcome, bottleId, expGain, rate));
+        activity.setResult(resultJson(outcome, bottleId, expGain, rate, rarity, specialContent));
         activityMapper.updateById(activity);
         if (expGain > 0) {
             pet.setStatus(PetStatus.IDLE.name());
@@ -297,13 +328,43 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         }
         achievementService.evaluate(pet, PetAchievementService.Event.BOTTLE_SETTLED);
         if (outcome == PetBottleOutcome.CAUGHT) {
+            if (rarity == PetBottleRarity.RARE) {
+                // 稀有瓶星光加成（原文档 §19：特殊内容 + 加成奖励）
+                wishFeignClient.earnStarlight(userId, RARE_STARLIGHT, activity.getId());
+            }
             eventProducer.publish(RocketMQConfig.PET_TAG_BOTTLE_CAUGHT, new PetEventProducer.PetEventMessage(
                     userId, "PET_BOTTLE_CAUGHT",
                     "宠物捞到漂流瓶啦！",
-                    pet.getName() + " 帮你捞到了一只漂流瓶，快去打开看看吧！",
+                    rarity == PetBottleRarity.NORMAL
+                            ? pet.getName() + " 帮你捞到了一只漂流瓶，快去打开看看吧！"
+                            : pet.getName() + " 捞到了一只" + rarityLabel(rarity) + "！快去看看吧！",
                     bottleId, "PET_BOTTLE_CAUGHT"));
         }
         return toActivityVo(activity);
+    }
+
+    /** 稀有度抽取：普通 80% / 稀有 8% / 宠物瓶 8% / 彩蛋 4% */
+    PetBottleRarity rollRarity() {
+        double roll = ThreadLocalRandom.current().nextDouble();
+        if (roll < 0.08) {
+            return PetBottleRarity.RARE;
+        }
+        if (roll < 0.16) {
+            return PetBottleRarity.PET;
+        }
+        if (roll < 0.20) {
+            return PetBottleRarity.EASTER_EGG;
+        }
+        return PetBottleRarity.NORMAL;
+    }
+
+    private String rarityLabel(PetBottleRarity rarity) {
+        return switch (rarity) {
+            case RARE -> "稀有瓶";
+            case PET -> "宠物瓶";
+            case EASTER_EGG -> "彩蛋瓶";
+            default -> "漂流瓶";
+        };
     }
 
     /** FAILED 重试：重新尝试捞瓶并更新流水（活动保持 COMPLETED，可反复重试） */
@@ -326,13 +387,29 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         }
     }
 
-    /** 成功率 = base + 敏捷×bonus + 等级×bonus，封顶 max（原文档 §18） */
+    /**
+     * 成功率 = base + 敏捷×bonus + 等级×bonus + 区域加成（每解锁一档 +1%）+ 技能被动（幸运打捞），
+     * 封顶 max（原文档 §18/§20/§89）。敏捷取"含装备加成"的战斗属性，装备在捞瓶同样生效。
+     */
     double estimateSuccessRate(Pet pet) {
         PetProperties.Bottle cfg = properties.getBottle();
+        int agility = statsService.combatStats(pet).agility();
         double rate = cfg.getBaseSuccessRate()
-                + pet.getAgility() * cfg.getAgilityBonusRate()
-                + pet.getLevel() * cfg.getLevelBonusRate();
+                + agility * cfg.getAgilityBonusRate()
+                + pet.getLevel() * cfg.getLevelBonusRate()
+                + unlockedAreaIndex(pet.getLevel()) * 0.01
+                + statsService.bottleSuccessBonus(pet);
         return Math.min(cfg.getMaxSuccessRate(), rate);
+    }
+
+    private int unlockedAreaIndex(int level) {
+        int index = 0;
+        for (int i = 0; i < AREA_LEVELS.length; i++) {
+            if (level >= AREA_LEVELS[i]) {
+                index = i;
+            }
+        }
+        return index;
     }
 
     private String unlockedArea(int level) {
@@ -363,18 +440,24 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                 .last("LIMIT 1"));
     }
 
-    private String resultJson(PetBottleOutcome outcome, Long bottleId, int expGain, double rate) {
+    private String resultJson(PetBottleOutcome outcome, Long bottleId, int expGain, double rate,
+                              PetBottleRarity rarity, String specialContent) {
         return PetJsonUtils.toJson(Map.of(
                 "outcome", outcome.name(),
+                "rarity", rarity.name(),
+                "specialContent", specialContent != null ? specialContent : "",
                 "bottleId", bottleId != null ? bottleId : 0,
                 "exp", expGain,
                 "successRate", rate));
     }
 
     private String resultJson(PetBottleRecord record) {
+        PetBottleRarity rarity = record.getRarity() != null
+                ? PetBottleRarity.valueOf(record.getRarity()) : PetBottleRarity.NORMAL;
         return resultJson(PetBottleOutcome.valueOf(record.getOutcome()),
                 record.getBottleId(), PetBottleOutcome.CAUGHT.name().equals(record.getOutcome()) ? EXP_CAUGHT : EXP_EMPTY,
-                record.getSuccessRate() != null ? record.getSuccessRate() : 0);
+                record.getSuccessRate() != null ? record.getSuccessRate() : 0,
+                rarity, record.getSpecialContent());
     }
 
     private PetActivityVO toActivityVo(PetActivity activity) {
@@ -383,7 +466,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         long remaining = inProgress ? Math.max(0, Duration.between(now, activity.getFinishedAt()).getSeconds()) : 0;
         boolean canClaim = PetActivityStatus.COMPLETED.name().equals(activity.getStatus());
         return new PetActivityVO(activity.getId(), activity.getActivityType(), activity.getConfigId(),
-                null, activity.getStatus(), activity.getStartedAt(), activity.getFinishedAt(),
+                BOTTLE_ACTIVITY_NAME, activity.getStatus(), activity.getStartedAt(), activity.getFinishedAt(),
                 remaining, canClaim, activity.getClaimedAt(), activity.getResult());
     }
 }
