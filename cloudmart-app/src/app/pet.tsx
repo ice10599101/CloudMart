@@ -170,6 +170,7 @@ function toDisplayState(pet: PetInfo): Record<string, unknown> {
   return {
     name: pet.name,
     species: pet.species,
+    gender: pet.gender,
     growthStage: pet.growthStage,
     level: pet.level,
     expPercent: pet.expToNext > 0 ? (pet.exp / pet.expToNext) * 100 : 0,
@@ -281,6 +282,7 @@ export default function PetScreen() {
   const [gameFailed, setGameFailed] = useState(!gameUrl)
   const [panel, setPanel] = useState<PanelKey>('home')
   const [adoptSpecies, setAdoptSpecies] = useState('CAT')
+  const [adoptGender, setAdoptGender] = useState('MALE')
   const [adoptPersonality, setAdoptPersonality] = useState('LIVELY')
   const [adoptColor, setAdoptColor] = useState('orange')
   const [adoptAccessory, setAdoptAccessory] = useState('none')
@@ -608,6 +610,7 @@ export default function PetScreen() {
       const { data: res } = await petApi.createPet({
         name: adoptName.trim(),
         species: adoptSpecies as PetInfo['species'],
+        gender: adoptGender as PetInfo['gender'],
         personality: adoptPersonality as PetInfo['personality'],
         color: adoptColor,
         accessory: adoptAccessory,
@@ -840,6 +843,22 @@ export default function PetScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs, marginTop: Spacing.md, marginBottom: 4 }}>性别</Text>
+        <View style={{ flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center' }}>
+          {([['MALE', '♂ 雄性'], ['FEMALE', '♀ 雌性']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setAdoptGender(key)}
+              style={{
+                paddingVertical: 6, paddingHorizontal: 18, borderRadius: 999,
+                borderWidth: 2, borderColor: adoptGender === key ? colors.primary : colors.border,
+                backgroundColor: adoptGender === key ? colors.primary : 'transparent',
+              }}
+            >
+              <Text style={{ color: adoptGender === key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs, fontWeight: '600' }}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, justifyContent: 'center', marginTop: Spacing.md }}>
           {Object.entries(PERSONALITY_LABEL).map(([key, label]) => (
             <TouchableOpacity
@@ -945,7 +964,11 @@ export default function PetScreen() {
       {/* 头部信息 */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: colors.text }}>
-          {SPECIES_EMOJI[pet.species]} {pet.name} · Lv.{pet.level}
+          {SPECIES_EMOJI[pet.species]} {pet.name}
+          <Text style={{ color: pet.gender === 'FEMALE' ? '#FF6E9C' : '#4FA3E3', fontSize: FontSize.sm }}>
+            {pet.gender === 'FEMALE' ? ' ♀' : ' ♂'}
+          </Text>
+          {' '}· Lv.{pet.level}
         </Text>
         <Text style={{ fontSize: FontSize.xs, color: colors.textSecondary }}>{STATUS_LABEL[pet.status]}</Text>
       </View>

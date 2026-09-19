@@ -183,6 +183,8 @@ class PetBottleFishingServiceImplTest {
         // roll 为随机（成功率 ~95%）：CAUGHT 分支才走 Feign，故用 lenient 避免偶发未使用告警
         lenient().when(wishFeignClient.fishForPet()).thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
                 555L, "PICKED", "PICKED", "你好呀", null, null)));
+        // 随机抽中罕见瓶（RARE/PET/EASTER_EGG，~5%）时 specialContent 取自 provider，mock 需兜底非空
+        lenient().when(contentProvider.pick(any(PetBottleRarity.class))).thenReturn("来自远海的悄悄话…");
 
         bottleService.settle(100L);
 

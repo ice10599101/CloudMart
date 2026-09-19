@@ -101,7 +101,7 @@ class PetInteractionServiceImplTest {
     }
 
     private PetVO petVo() {
-        return new PetVO(1L, 100L, "小橘", "CAT", "{}", "LIVELY", 2, 0, 200, "BABY",
+        return new PetVO(1L, 100L, "小橘", "CAT", "MALE", "{}", "LIVELY", 2, 0, 200, "BABY",
                 80, 100, 60, 60, 100, 60, 5, 5, 5, 5, "IDLE", null, null, null,
                 true, null, LocalDateTime.now(ZoneId.of("UTC")),
                 0, null, 1, 3,

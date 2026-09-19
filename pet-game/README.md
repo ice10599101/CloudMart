@@ -41,6 +41,34 @@ buildPath/outputName），App/小程序通过同一 URL 访问该静态目录。
 > 场景/脚本 UUID 由 `tools/gen_assets.py` 固定（场景按压缩 UUID 引用 PetGameRoot 组件）；
 > 改动脚本文件名需同步重跑生成器。
 
+## 已知构建缺陷（重要）
+
+当前 cocos-cli 工具链产出的 web-mobile 构建存在两处**既有缺陷**（与业务代码无关，基线版本同样复现）：
+
+1. **spine 打桩模块中断启动**：产物中的 spine asm.js 桩在初始化时抛出
+   embind `BindingError: Cannot register public name '' twice`，异常沿
+   `game.onPostInfrastructureInitDelegate` 中断 `cc.game.init`，场景永不加载（黑屏）。
+   **已通过 `build-templates/web-mobile/index.html`（自定义构建模板）注入 SystemJS
+   拦截补丁绕过**：本工程不使用 spine，导入 spine 运行时模块时返回空实现。
+2. **内置 effect 缺少编译产物**：`src/effect.bin` 仅包含工程内自定义 effect（pet-toon），
+   内置 unlit/splash/profiler/skybox 等程序缺失，运行时报
+   `program: builtin-unlit|... not found` 与 `The asset ... is invalid`。
+   修复需要 Creator 编辑器对内置资源执行 Refresh/Reimport（headless 构建链不产出），
+   工具链升级后重测。
+
+在缺陷 2 修复前，**Web 宿主默认使用 `CloudMart-ui/src/components/PetStage/native/`
+（Three.js 原生舞台）**，`PetStage/index.tsx` 的 `STAGE_ENGINE` 常量控制通路切换；
+缺陷修复后切回 `'cocos'` 即可复用本工程场景。
+
+## 三端移植指引（原生舞台）
+
+原生舞台与宿主解耦，桥协议（`PetGameBridge.ts`）三端不变。移植 `native/` 目录时：
+- Web（CloudMart-ui）：已接入，零依赖差异（three 已在 package.json）；
+- Expo（cloudmart-app）：用 `expo-gl` + `THREE.WebGLRenderer({ canvas: expo-gl view })`
+  承载 `stageEngine.ts`（引擎不感知 DOM；HUD 需替换为 RN 组件）；
+- Taro H5：可直接复用（同 Web）；微信小程序端 three 依赖 WebGL 适配层，暂维持 web-view
+  加载 `/pet-game/` 的通路。
+
 ## 通信契约（唯一协议，三端一致）
 
 - 游戏 → 宿主：`ready` / `intent`（feed/play/clean/rest/openWork/openStudy/openBottle/openBattle/openChat/openAchievements）/ `petTapped`

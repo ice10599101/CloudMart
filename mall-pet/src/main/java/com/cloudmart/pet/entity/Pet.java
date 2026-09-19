@@ -40,6 +40,9 @@ public class Pet {
     /** 种类：CAT/DOG/RABBIT/FOX/PANDA */
     private String species;
 
+    /** 性别：MALE/FEMALE（领养时选择；仅展示语义，不影响养成数值） */
+    private String gender;
+
     /** 外观 JSON：{"color":"orange","accessory":"bell"}（服务端白名单校验） */
     private String appearance;
 

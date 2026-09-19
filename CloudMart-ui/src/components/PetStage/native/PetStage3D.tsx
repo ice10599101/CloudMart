@@ -34,6 +34,7 @@ function toStagePetState(pet: PetDisplayState): StagePetState {
     return {
         name: pet.name,
         species: pet.species,
+        gender: pet.gender,
         growthStage: pet.growthStage,
         level: pet.level,
         expPercent: pet.expPercent,

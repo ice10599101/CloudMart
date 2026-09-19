@@ -15,6 +15,7 @@ import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetCareerConfig;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
+import com.cloudmart.pet.enums.PetGender;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.repository.PetAchievementRecordMapper;
 import com.cloudmart.pet.repository.PetActivityMapper;
@@ -112,6 +113,8 @@ public class PetServiceImpl implements PetService {
         pet.setUserId(userId);
         pet.setName(request.name().trim());
         pet.setSpecies(request.species());
+        // 性别：领养可选，未传（旧客户端）默认雄性
+        pet.setGender(request.gender() != null ? request.gender() : PetGender.MALE.name());
         pet.setAppearance(PetJsonUtils.toJson(Map.of(
                 "color", request.color() != null ? request.color() : "orange",
                 "accessory", request.accessory() != null ? request.accessory() : "none")));
@@ -230,7 +233,7 @@ public class PetServiceImpl implements PetService {
         }
         Long achievementCount = achievementRecordMapper.selectCount(new LambdaQueryWrapper<PetAchievementRecord>()
                 .eq(PetAchievementRecord::getPetId, pet.getId()));
-        return new PetPublicVO(pet.getId(), pet.getName(), pet.getSpecies(), pet.getLevel(),
+        return new PetPublicVO(pet.getId(), pet.getName(), pet.getSpecies(), pet.getGender(), pet.getLevel(),
                 pet.getGrowthStage(), pet.getPersonality(), achievementCount.intValue(), pet.getUserId());
     }
 
@@ -274,7 +277,8 @@ public class PetServiceImpl implements PetService {
         }
         String activeType = active != null ? active.getActivityType() : null;
         return new PetVO(
-                pet.getId(), pet.getUserId(), pet.getName(), pet.getSpecies(), pet.getAppearance(),
+                pet.getId(), pet.getUserId(), pet.getName(), pet.getSpecies(), pet.getGender(),
+                pet.getAppearance(),
                 pet.getPersonality(), pet.getLevel(), pet.getExp(), stateService.expToNext(pet.getLevel()),
                 pet.getGrowthStage(), pet.getHp(), pet.getMaxHp(), pet.getHunger(), pet.getHappiness(),
                 pet.getEnergy(), pet.getCleanliness(), pet.getStrength(), pet.getIntelligence(),
@@ -330,7 +334,7 @@ public class PetServiceImpl implements PetService {
 
     /** 多宠物列表项（不触发懒更新落库，列表只做展示；主宠状态以 PetVO 为准） */
     private static PetSummaryVO toSummary(Pet pet) {
-        return new PetSummaryVO(pet.getId(), pet.getName(), pet.getSpecies(), pet.getAppearance(),
+        return new PetSummaryVO(pet.getId(), pet.getName(), pet.getSpecies(), pet.getGender(), pet.getAppearance(),
                 pet.getPersonality(), pet.getLevel(), pet.getGrowthStage(),
                 pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0, pet.getSkinCode(),
                 pet.getHp(), pet.getMaxHp(), pet.getHunger(), pet.getHappiness(),

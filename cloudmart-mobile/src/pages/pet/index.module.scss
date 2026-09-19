@@ -157,6 +157,22 @@
   color: var(--color-text-primary);
 }
 
+/* 性别符号：雄蓝 / 雌粉（与 Web 端保持一致） */
+.genderMale {
+  color: #4fa3e3;
+  font-weight: 800;
+}
+
+.genderFemale {
+  color: #ff6e9c;
+  font-weight: 800;
+}
+
+.genderChip {
+  min-width: 96px;
+  text-align: center;
+}
+
 .heroStatus {
   display: block;
   font-size: 12px;

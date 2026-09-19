@@ -13,6 +13,7 @@ public record PetSummaryVO(
         Long petId,
         String name,
         String species,
+        @Schema(description = "性别: MALE/FEMALE") String gender,
         String appearance,
         String personality,
         @Schema(description = "等级") Integer level,

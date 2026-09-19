@@ -72,6 +72,19 @@
   line-height: 1.15;
 }
 
+/* 性别符号：雄蓝 / 雌粉（铭牌名字旁） */
+.genderMale {
+  margin-left: 4px;
+  color: #4fa3e3;
+  font-size: 14px;
+}
+
+.genderFemale {
+  margin-left: 4px;
+  color: #ff6e9c;
+  font-size: 14px;
+}
+
 .status {
   font-size: 11px;
   font-weight: 600;

@@ -22,6 +22,8 @@ import { EMOTION_PROFILE, PetEmotion, resolvePalette, STATUS_LABEL, GROWTH_LABEL
 export interface StagePetState {
     name: string
     species: string
+    /** 性别: MALE/FEMALE（可选；旧数据缺省按 MALE 展示） */
+    gender?: string
     growthStage: string
     level: number
     expPercent: number
@@ -42,6 +44,8 @@ export interface StagePetState {
 export interface StageHudSnapshot {
     name: string
     species: string
+    /** 性别: MALE/FEMALE（旧数据缺省 MALE） */
+    gender: string
     level: number
     growthLabel: string
     statusLabel: string
@@ -741,6 +745,7 @@ export class PetStageEngine {
         const snapshot: StageHudSnapshot = {
             name: pet.name,
             species: pet.species,
+            gender: pet.gender || 'MALE',
             level: pet.level,
             growthLabel: GROWTH_LABEL[pet.growthStage] || '',
             statusLabel: STATUS_LABEL[pet.status] || '悠闲中',

@@ -118,6 +118,12 @@ export default function StageHud({ snapshot, bubble, onIntent }: StageHudProps) 
                 <div className={styles.identity}>
                     <span className={styles.name}>
                         {SPECIES_EMOJI[snapshot.species] || '🐾'} {snapshot.name}
+                        <span
+                            className={snapshot.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale}
+                            aria-label={snapshot.gender === 'FEMALE' ? '雌性' : '雄性'}
+                        >
+                            {snapshot.gender === 'FEMALE' ? '♀' : '♂'}
+                        </span>
                     </span>
                     <span className={styles.status}>
                         {snapshot.statusLabel}{snapshot.growthLabel ? ` · ${snapshot.growthLabel}` : ''}

@@ -16,6 +16,7 @@ public record PetVO(
         Long userId,
         String name,
         String species,
+        @Schema(description = "性别: MALE/FEMALE") String gender,
         String appearance,
         String personality,
         Integer level,

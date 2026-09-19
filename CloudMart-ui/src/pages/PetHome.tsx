@@ -102,6 +102,7 @@ import {
   type PetSkillItem,
   type PetStudyItem,
   type PetSummary,
+  type PetGender,
   type PetVisitNeighbor,
   type PetCareerPanel,
   type PetDailyQuestPanel,
@@ -230,6 +231,7 @@ function toDisplayState(pet: PetInfo): PetDisplayState {
   return {
     name: pet.name,
     species: pet.species,
+    gender: pet.gender,
     growthStage: pet.growthStage,
     level: pet.level,
     expPercent: pet.expToNext > 0 ? (pet.exp / pet.expToNext) * 100 : 0,
@@ -356,6 +358,7 @@ interface AdoptWizardProps {
 function AdoptWizard({ onAdopted }: AdoptWizardProps) {
   const { message } = App.useApp()
   const [species, setSpecies] = useState<string>('CAT')
+  const [gender, setGender] = useState<string>('MALE')
   const [personality, setPersonality] = useState<string>('LIVELY')
   const [color, setColor] = useState<string>('orange')
   const [accessory, setAccessory] = useState<string>('none')
@@ -372,6 +375,7 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
       const { data: res } = await createPet({
         name: name.trim(),
         species: species as typeof SPECIES_OPTIONS[number]['value'],
+        gender: gender as PetGender,
         personality: personality as typeof PERSONALITY_OPTIONS[number]['value'],
         color,
         accessory,
@@ -403,6 +407,23 @@ function AdoptWizard({ onAdopted }: AdoptWizardProps) {
             <span>{option.label}</span>
           </button>
         ))}
+      </div>
+      <h4 className={styles.sectionTitle}>性别</h4>
+      <div className={styles.personalityRow}>
+        <button
+          type="button"
+          className={`${styles.personalityChip} ${styles.genderChip} ${gender === 'MALE' ? styles.personalityActive : ''}`}
+          onClick={() => setGender('MALE')}
+        >
+          ♂ 雄性
+        </button>
+        <button
+          type="button"
+          className={`${styles.personalityChip} ${styles.genderChip} ${styles.genderFemale} ${gender === 'FEMALE' ? styles.personalityActive : ''}`}
+          onClick={() => setGender('FEMALE')}
+        >
+          ♀ 雌性
+        </button>
       </div>
       <h4 className={styles.sectionTitle}>外观颜色</h4>
       <div className={styles.personalityRow}>
@@ -1297,6 +1318,12 @@ function ProfileModal({ pet, open, onClose, onSaved }: ProfileModalProps) {
 
   return (
     <Modal title="宠物档案" open={open} onCancel={onClose} onOk={save} confirmLoading={saving} okText="保存">
+      <p className={styles.profileLabel}>性别（领养时确定）</p>
+      <p style={{ margin: 0 }}>
+        <span className={pet.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale} style={{ fontSize: 16 }}>
+          {pet.gender === 'FEMALE' ? '♀ 雌性' : '♂ 雄性'}
+        </span>
+      </p>
       <p className={styles.profileLabel}>名字（30 天可改一次）</p>
       <Input value={name} maxLength={12} onChange={(e) => setName(e.target.value)} />
       <p className={styles.profileLabel}>颜色</p>
@@ -3082,7 +3109,11 @@ export default function PetHomePage() {
       <div className={styles.stageCard}>
         <div className={styles.stageHeader}>
           <span className={styles.stageTitle}>
-            {SPECIES_EMOJI[pet.species]} {pet.name} · Lv.{pet.level} · {STATUS_LABEL[pet.status] || '悠闲中'}
+            {SPECIES_EMOJI[pet.species]} {pet.name}
+            <span className={pet.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale}>
+              {pet.gender === 'FEMALE' ? '♀' : '♂'}
+            </span>
+            {' '}· Lv.{pet.level} · {STATUS_LABEL[pet.status] || '悠闲中'}
           </span>
           <span className={styles.stageActions}>
             <Button size="small" onClick={() => setRenameOpen(true)}>改名</Button>

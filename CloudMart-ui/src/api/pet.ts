@@ -5,6 +5,9 @@ import type { ApiResponse } from '@/types/api'
 // 数值全部服务端计算：客户端只发意图（POST /feed 等），不携带任何数值字段
 
 export type PetSpecies = 'CAT' | 'DOG' | 'RABBIT' | 'FOX' | 'PANDA'
+
+/** 宠物性别（领养时选择；服务端对未传默认 MALE） */
+export type PetGender = 'MALE' | 'FEMALE'
 export type PetPersonality = 'LIVELY' | 'GENTLE' | 'TSUNDERE' | 'SIMPLE' | 'COOL' | 'CHATTERBOX'
 export type PetGrowthStage = 'BABY' | 'YOUNG' | 'ADULT'
 export type PetStatusType = 'IDLE' | 'WORKING' | 'STUDYING' | 'FISHING' | 'RESTING'
@@ -16,6 +19,7 @@ export interface PetInfo {
   userId: number | string
   name: string
   species: PetSpecies
+  gender: PetGender
   appearance: string
   personality: PetPersonality
   level: number
@@ -198,7 +202,7 @@ export function getMyPet() {
 }
 
 /** 领养宠物（重复领养 409 PET_ALREADY_EXISTS；种类/性格/外观白名单校验 400） */
-export function createPet(data: { name: string; species: PetSpecies; color?: string; accessory?: string; personality: PetPersonality }) {
+export function createPet(data: { name: string; species: PetSpecies; gender?: PetGender; color?: string; accessory?: string; personality: PetPersonality }) {
   return request.post<ApiResponse<PetInfo>>('/pet/create', data)
 }
 
@@ -376,6 +380,7 @@ export interface PetSummary {
   petId: number | string
   name: string
   species: PetSpecies
+  gender: PetGender
   appearance: string
   personality: PetPersonality
   level: number

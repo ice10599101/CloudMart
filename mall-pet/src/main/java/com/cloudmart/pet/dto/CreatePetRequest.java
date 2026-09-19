@@ -20,6 +20,10 @@ public record CreatePetRequest(
         @Pattern(regexp = "CAT|DOG|RABBIT|FOX|PANDA", message = "宠物种类非法")
         String species,
 
+        @Schema(description = "性别: MALE/FEMALE（缺省 MALE，兼容旧客户端）")
+        @Pattern(regexp = "MALE|FEMALE", message = "宠物性别非法")
+        String gender,
+
         @Schema(description = "外观颜色: orange/gray/white/brown/pink")
         @Pattern(regexp = "orange|gray|white|brown|pink", message = "外观颜色非法")
         String color,

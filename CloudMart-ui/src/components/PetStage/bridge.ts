@@ -8,6 +8,8 @@
 export interface PetDisplayState {
   name: string
   species: string
+  /** 性别: MALE/FEMALE（可选；旧数据缺省按 MALE 展示） */
+  gender?: string
   growthStage: string
   level: number
   expPercent: number

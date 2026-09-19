@@ -53,6 +53,12 @@ const SPECIES_OPTIONS = [
   { value: 'PANDA', emoji: '🐼', label: '熊猫' },
 ] as const
 
+/** 领养可选性别（与服务端 PetGender 一致） */
+const GENDER_OPTIONS = [
+  { value: 'MALE', label: '♂ 雄性' },
+  { value: 'FEMALE', label: '♀ 雌性' },
+] as const
+
 const PERSONALITY_OPTIONS = [
   { value: 'LIVELY', label: '活泼' },
   { value: 'GENTLE', label: '温柔' },
@@ -232,6 +238,7 @@ export default function PetPage() {
   const [panel, setPanel] = useState<PanelKey>('home')
   const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
   const [adoptSpecies, setAdoptSpecies] = useState('CAT')
+  const [adoptGender, setAdoptGender] = useState('MALE')
   const [adoptPersonality, setAdoptPersonality] = useState('LIVELY')
   const [adoptName, setAdoptName] = useState('')
   const [jobs, setJobs] = useState<PetJobItem[]>([])
@@ -545,6 +552,7 @@ export default function PetPage() {
       const { data: res } = await petApi.createPet({
         name: adoptName.trim(),
         species: adoptSpecies as PetInfo['species'],
+        gender: adoptGender as PetInfo['gender'],
         personality: adoptPersonality as PetInfo['personality'],
         color: adoptColor,
         accessory: adoptAccessory,
@@ -719,6 +727,18 @@ export default function PetPage() {
               </View>
             ))}
           </View>
+          <Text className={styles.sectionTitle}>性别</Text>
+          <View className={styles.personalityRow}>
+            {GENDER_OPTIONS.map((option) => (
+              <View
+                key={option.value}
+                className={`${styles.personalityChip} ${styles.genderChip} ${adoptGender === option.value ? styles.personalityActive : ''}`}
+                onClick={() => setAdoptGender(option.value)}
+              >
+                <Text>{option.label}</Text>
+              </View>
+            ))}
+          </View>
           <View className={styles.personalityRow}>
             {PERSONALITY_OPTIONS.map((option) => (
               <View
@@ -777,7 +797,13 @@ export default function PetPage() {
           <View className={styles.heroRow}>
             <Text className={styles.heroEmoji}>{SPECIES_EMOJI[pet.species] || '🐾'}</Text>
             <View className={styles.heroInfo}>
-              <Text className={styles.heroName}>{pet.name} · Lv.{pet.level}</Text>
+              <Text className={styles.heroName}>
+                {pet.name}
+                <Text className={pet.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale}>
+                  {pet.gender === 'FEMALE' ? ' ♀' : ' ♂'}
+                </Text>
+                {' · Lv.'}{pet.level}
+              </Text>
               <Text className={styles.heroStatus}>
                 {STATUS_LABEL[pet.status]} · {GROWTH_STAGE_LABEL[pet.growthStage] ?? pet.growthStage}
               </Text>

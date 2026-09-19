@@ -5,6 +5,8 @@ import type { ApiResponse } from '@/types'
 // 数值全部服务端计算：客户端只发意图（POST /pet/feed 等），不携带任何数值字段
 
 export type PetSpecies = 'CAT' | 'DOG' | 'RABBIT' | 'FOX' | 'PANDA'
+/** 宠物性别（领养时选择；服务端对未传默认 MALE） */
+export type PetGender = 'MALE' | 'FEMALE'
 export type PetPersonality = 'LIVELY' | 'GENTLE' | 'TSUNDERE' | 'SIMPLE' | 'COOL' | 'CHATTERBOX'
 export type PetGrowthStage = 'BABY' | 'YOUNG' | 'ADULT'
 export type PetActivityType = 'WORK' | 'STUDY' | 'BOTTLE_FISHING' | 'REST'
@@ -15,6 +17,7 @@ export interface PetInfo {
   userId: number | string
   name: string
   species: PetSpecies
+  gender: PetGender
   appearance: string
   personality: PetPersonality
   level: number
@@ -236,6 +239,7 @@ export interface PetSummary {
   petId: number | string
   name: string
   species: PetSpecies
+  gender: PetGender
   appearance: string
   personality: PetPersonality
   level: number
@@ -409,7 +413,7 @@ export const petApi = {
   getMyPet: () => request<PetInfo>({ url: '/pet/me' }),
 
   /** 领养（重复领养 409；种类/性格/外观白名单校验 400） */
-  createPet: (data: { name: string; species: PetSpecies; color?: string; accessory?: string; personality: PetPersonality }) =>
+  createPet: (data: { name: string; species: PetSpecies; gender?: PetGender; color?: string; accessory?: string; personality: PetPersonality }) =>
     request<PetInfo>({ url: '/pet/create', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
   /** 改名（30 天一次 409 PET_RENAME_COOLDOWN） */
