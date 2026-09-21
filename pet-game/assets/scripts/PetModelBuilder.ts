@@ -1,6 +1,7 @@
 import { Color, Node, Vec3 } from 'cc'
 import { PartStyle, PetBuilderKit } from './PetBuilderKit'
 import { PetPalette, shift } from './PetGameTheme'
+import { buildCatPet } from './PetCatBuilder'
 import {
     Geo, ellipsoid, lathe, profileFrom, sweep, transformed,
 } from './PetMeshFactory'
@@ -52,8 +53,18 @@ export interface PetRig {
     shadow: Node
     /** 配饰节点（可能为 null） */
     accessory: Node | null
-    /** 高光基准局部坐标（视线偏移基准；z 必须保持，否则高光会缩回眼珠内部） */
+    /**
+     * 高光基准（视线驱动基准）：
+     *  - slide 模式（默认，旧造型）：pupil 节点的局部坐标基准（z 必须保持，否则高光会缩回眼珠内部）；
+     *  - orbit 模式（新造型）：pupil 节点的欧拉角基准（高光是贴合眼球的球面片，绕眼心旋转才贴合）。
+     */
     pupilBase: Vec3
+    /** 高光视线驱动方式（缺省 = slide） */
+    pupilDrive?: 'slide' | 'orbit'
+    /** 腮红强度更新（新造型把腮红烘焙进头部材质，用材质参数而不是节点缩放来调节） */
+    blushTint?: (strength: number) => void
+    /** 腮红基准缩放（缺省 = 旧造型的椭圆片缩放；新造型为 1，仅做整体强度变化） */
+    blushBase?: Vec3
     /** 基准坐标（动画复位用） */
     basePos: Vec3
     bodyBase: Vec3
@@ -202,8 +213,8 @@ const TORSO_CTRL: Array<[number, number]> = [
 
 /** 头部侧轮廓控制点：接近球体（上下都收），脸颊略丰满 —— 避免中段平直造成的"方头"感 */
 const HEAD_CTRL: Array<[number, number]> = [
-    [0.004, -0.48], [0.16, -0.452], [0.30, -0.378], [0.415, -0.265], [0.478, -0.13],
-    [0.50, 0.005], [0.487, 0.14], [0.44, 0.275], [0.355, 0.375], [0.205, 0.45], [0.004, 0.475],
+    [0.004, -0.42], [0.12, -0.40], [0.22, -0.35], [0.33, -0.26], [0.42, -0.14],
+    [0.475, 0.0], [0.50, 0.13], [0.48, 0.26], [0.41, 0.365], [0.24, 0.45], [0.004, 0.485],
 ]
 
 /** 直立腿侧轮廓（上粗下细、底部圆头） */
@@ -222,14 +233,22 @@ const LEG_CTRL: Array<[number, number]> = [
  */
 export function buildPet(petParent: Node, groundParent: Node, kit: PetBuilderKit,
                          species: string, palette: PetPalette, accessoryKey: string): PetRig {
+    // 视觉重构 v5：CAT 使用新的造型语言（轮廓优先、贴合曲率、柔和边界）。
+    // 其余物种沿用 v4 实现，待 CAT 验收通过后按同一语言逐个迁移。
+    if (species === 'CAT') {
+        return buildCatPet(petParent, groundParent, kit, palette, accessoryKey,
+            (parent, key, collarY) => buildAccessory(parent, kit, key, palette, SPECS.CAT, collarY))
+    }
+
     const spec = SPECS[species] || SPECS.CAT
     const p = palette
 
     // 材质风格：主体 / 深色 / 柔软（肚皮口鼻）/ 爪垫
+    // 描边宽度为屏幕空间值（pet-toon v5）：0.006 ≈ 屏幕高度的 0.3%，只做轮廓收边
     const main = makeStyle(p.body, spec, 0.006)
     const dark = makeStyle(p.dark, spec, 0.006)
     const soft = makeStyle(p.belly, spec, 0.005, 1.12)
-    const paw = makeStyle(p.paw, spec, 0.004)
+    const paw = makeStyle(p.paw, spec, 0.005)
 
     // ---- 躯干：旋转体（pivot 在身体中心，呼吸从中心膨胀） ----
     const bodyY = spec.sit ? RIG.bodyY - 0.05 : RIG.bodyY
@@ -267,8 +286,9 @@ export function buildPet(petParent: Node, groundParent: Node, kit: PetBuilderKit
     buildTail(tail, kit, spec, main, soft)
 
     // ---- 头部（pivot 在脖颈；挂在躯干下，呼吸/压扁时头部天然联动） ----
+    // 头部比造型表基准再抬高 0.10：让躯干（胸腹/前腿）露出更多，形成参考图的 1:1 头身比
     const head = kit.make3dNode(body, 'Head',
-        new Vec3(0, spec.headLift - RIG.bodyY, spec.headForward))
+        new Vec3(0, spec.headLift + 0.10 - RIG.bodyY, spec.headForward))
     const headProfile = profileFrom(HEAD_CTRL, 5)
     // 头部略微收窄（x 0.97）：与加宽的躯干形成"头略小于身"的幼态比例，避免身体被头部完全遮挡
     kit.surf(head, 'Skull',
@@ -337,7 +357,7 @@ function buildFace(head: Node, kit: PetBuilderKit, spec: SpeciesSpec, p: PetPale
     const headY = RIG.headCenter
     const eyeGroups: Node[] = []
     const pupils: Node[] = []
-    const r = spec.eyeR
+    const r = spec.eyeR * 0.82
     const eyeStyle: PartStyle = {
         color: new Color().fromHEX(spec.eyeColor),
         shade: shift(new Color().fromHEX(spec.eyeColor), 0.06),
@@ -355,10 +375,12 @@ function buildFace(head: Node, kit: PetBuilderKit, spec: SpeciesSpec, p: PetPale
     const glintZ = r * 0.92
 
     for (const side of [-1, 1]) {
-        const group = kit.make3dNode(head, 'Eye', new Vec3(spec.eye[0] * side, headY + spec.eye[1], spec.eye[2]),
+        // 眼睛下移到脸中部偏下（参考图的眼睛不在额头上，而在脸中央）
+        const group = kit.make3dNode(head, 'Eye',
+            new Vec3(spec.eye[0] * 0.94 * side, headY + spec.eye[1] - 0.06, spec.eye[2]),
             { rot: new Vec3(0, 9 * side, 0) })
         // 眼珠：略竖长的椭球，凸出脸颊（参考图眼睛是"凸出来的大黑豆"）
-        kit.surf(group, 'Ball', ellipsoid(r, r * 1.08, r * 0.94, 26, 18), eyeStyle, new Vec3(0, 0, 0))
+        kit.surf(group, 'Ball', ellipsoid(r, r * 1.0, r * 0.94, 26, 18), eyeStyle, new Vec3(0, 0, 0))
         // 上眼睑线：极细的深色弧，贴在眼珠上缘（参考图是"上眼睑"而非粗眉毛）
         const lashNodes: Array<[number, number, number]> = []
         for (let i = 0; i <= 6; i++) {
@@ -506,15 +528,15 @@ function buildEars(head: Node, kit: PetBuilderKit, spec: SpeciesSpec, main: Part
                 const root = kit.make3dNode(head, 'Ear', new Vec3(0.278 * side, RIG.headCenter + 0.285, -0.02),
                     { rot: new Vec3(0, 12 * side, -17 * side) })
                 const path = [
-                    { p: [0, 0, 0] as [number, number, number], r: 0.178, sx: 0.42, sy: 1.02 },
-                    { p: [0.032, 0.175, -0.014] as [number, number, number], r: 0.115, sx: 0.38, sy: 0.98 },
-                    { p: [0.078, 0.335, -0.028] as [number, number, number], r: 0.018, sx: 0.48, sy: 0.9 },
+                    { p: [0, 0, 0] as [number, number, number], r: 0.19, sx: 0.50, sy: 1.05 },
+                    { p: [0.026, 0.135, -0.012] as [number, number, number], r: 0.125, sx: 0.44, sy: 1.0 },
+                    { p: [0.062, 0.245, -0.024] as [number, number, number], r: 0.022, sx: 0.52, sy: 0.92 },
                 ]
                 kit.surf(root, 'Outer', sweep(path, 20), main, new Vec3(0, 0, 0))
                 const innerPath = [
-                    { p: [0, 0.022, 0.030] as [number, number, number], r: 0.122, sx: 0.32, sy: 0.94 },
-                    { p: [0.030, 0.165, 0.018] as [number, number, number], r: 0.074, sx: 0.30, sy: 0.90 },
-                    { p: [0.068, 0.285, 0.004] as [number, number, number], r: 0.014, sx: 0.38, sy: 0.86 },
+                    { p: [0, 0.024, 0.036] as [number, number, number], r: 0.132, sx: 0.34, sy: 0.98 },
+                    { p: [0.024, 0.132, 0.020] as [number, number, number], r: 0.082, sx: 0.32, sy: 0.92 },
+                    { p: [0.052, 0.212, 0.006] as [number, number, number], r: 0.016, sx: 0.4, sy: 0.88 },
                 ]
                 kit.surf(root, 'Inner', sweep(innerPath, 18), innerStyle, new Vec3(0, 0, 0))
                 nodes.push(root)
@@ -713,12 +735,12 @@ function buildTail(tail: Node, kit: PetBuilderKit, spec: SpeciesSpec,
 function buildShell(body: Node, kit: PetBuilderKit, p: PetPalette): void {
     const shellColor = p.dark
     const shellStyle: PartStyle = {
-        color: shellColor, shade: shift(shellColor, -0.16), outline: 0.006,
+        color: shellColor, shade: shift(shellColor, -0.16), outline: 0.004,
         fur: 0.05, spec: 0.28, specSharp: 34,
     }
     const rimColor = shift(p.belly, 0.1)
     const rimStyle: PartStyle = {
-        color: rimColor, shade: shift(rimColor, -0.14), outline: 0.005,
+        color: rimColor, shade: shift(rimColor, -0.14), outline: 0.003,
         fur: 0.06, spec: 0.22,
     }
     // 背甲：压扁的半球（甲缘外翻）；整体后移，让头能从壳前方探出
@@ -752,19 +774,22 @@ function buildShell(body: Node, kit: PetBuilderKit, p: PetPalette): void {
         { pos: [0, -0.26, -0.22], scale: [1.0, 1.0, 1.06] }), rimStyle, new Vec3(0, 0, 0))
 }
 
-/** 配饰：铃铛 / 领结 / 眼镜 / 围巾（挂在 root，不随呼吸缩放） */
-function buildAccessory(parent: Node, kit: PetBuilderKit, key: string,
-                        p: PetPalette, spec: SpeciesSpec): Node | null {
+/**
+ * 配饰：铃铛 / 领结 / 眼镜 / 围巾（挂在 root，不随呼吸缩放）。
+ *
+ * @param collarY 项圈/围巾所在的颈部高度（不同造型语言的脖子位置不同，由调用方给出）
+ */
+export function buildAccessory(parent: Node, kit: PetBuilderKit, key: string,
+                               p: PetPalette, spec: SpeciesSpec, collarY = 0.66): Node | null {
     if (!key || key === 'none') {
         return null
     }
     const root = kit.make3dNode(parent, 'Accessory', new Vec3(0, 0, 0))
     const strapColor = shift(p.dark, -0.10)
     const strap: PartStyle = {
-        color: strapColor, shade: shift(strapColor, -0.24), outline: 0.006,
+        color: strapColor, shade: shift(strapColor, -0.24), outline: 0.004,
         fur: spec.fur, spec: spec.spec,
     }
-    const collarY = spec.shell ? 0.60 : 0.66
     switch (key) {
         case 'bell': {
             const collarColor = new Color().fromHEX('#D65860')

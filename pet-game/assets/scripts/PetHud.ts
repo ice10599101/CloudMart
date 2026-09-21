@@ -272,7 +272,9 @@ export class PetHud {
 
     /** 宠物头顶对话气泡（圆角卡片 + 指向宠物的小尾巴） */
     private buildBubble(): void {
-        const node = this.node('hud-bubble', 340, 74, 0, this.height / 2 - 210)
+        // 气泡底边必须高于宠物耳尖（站姿猫的耳朵是最高点，被挡住就丢掉了最有辨识度的剪影）。
+        // 注意 HUD 是 y 向上的坐标系：**减小**减数才是往上移（曾把方向搞反，反而压到眼睛上）。
+        const node = this.node('hud-bubble', 340, 74, 0, this.height / 2 - 93)
         const g = node.addComponent(Graphics)
         g.fillColor = HUD.bubbleBg
         g.roundRect(-170, -28, 340, 74, 22)

@@ -30,16 +30,17 @@ export interface RoomRefs {
 
 /** 房间配色（集中定义，便于整体调色） */
 const C = {
-    wall: new Color(0xF7, 0xE8, 0xD6, 255),
-    wallShade: new Color(0xE6, 0xD2, 0xB8, 255),
+    wall: new Color(0xE3, 0xC4, 0x9E, 255),
+    wallShade: new Color(0xCB, 0xA6, 0x80, 255),
     baseboard: new Color(0xCE, 0xA2, 0x74, 255),
     baseboardShade: new Color(0xB4, 0x8A, 0x5E, 255),
-    floor: new Color(0xEC, 0xCF, 0xA4, 255),
-    floorShade: new Color(0xD8, 0xB4, 0x84, 255),
-    floorLine: new Color(0xCA, 0xA4, 0x76, 255),
+    floor: new Color(0xD2, 0xAD, 0x80, 255),
+    floorShade: new Color(0xBA, 0x95, 0x6A, 255),
+    floorLine: new Color(0xAB, 0x87, 0x5E, 255),
     rugOuter: new Color(0xEE, 0xAA, 0xA2, 255),
     rugInner: new Color(0xF8, 0xDC, 0xA8, 255),
-    rugCenter: new Color(0xFA, 0xC6, 0xC0, 255),
+    // 中心圆略深于角色主体色：让奶油白宠物在浅色地毯上有清晰的明度层级
+    rugCenter: new Color(0xEF, 0xB6, 0xB0, 255),
     wood: new Color(0xC8, 0x9C, 0x6E, 255),
     woodDark: new Color(0xAE, 0x82, 0x58, 255),
     bedRim: new Color(0xC2, 0x92, 0x66, 255),
@@ -65,14 +66,22 @@ const C = {
     orb: new Color(0xFF, 0xF3, 0xCE, 255),
 } as const
 
-/** 快速风格：主色 + 可选暗部/描边覆盖 */
-function style(color: Color, opts?: { shade?: Color; outline?: number; alpha?: number; glow?: boolean }): PartStyle {
+/**
+ * 快速风格：主色 + 可选暗部/描边覆盖。
+ *
+ * `plain` 用于需要**标准 alpha 混合**的部件（光点/阳光片/玻璃）：走引擎内置材质
+ * （自定义 effect 的 transparent 技术在本构建链下会丢失材质属性）。
+ */
+function style(color: Color, opts?: {
+    shade?: Color; outline?: number; alpha?: number; glow?: boolean; plain?: boolean
+}): PartStyle {
     return {
         color,
         shade: opts?.shade,
         outline: opts?.outline ?? 0,
         alpha: opts?.alpha,
         glow: opts?.glow,
+        plain: opts?.plain,
     }
 }
 
@@ -308,7 +317,7 @@ function buildOrbs(parent: Node, kit: PetBuilderKit): Node[] {
     ]
     seeds.forEach(([x, y, z, r], index) => {
         const orb = kit.ball(root, 'Orb' + index, r, {
-            color: C.orb, shade: C.orb, glow: true, alpha: 168, outline: 0,
+            color: C.orb, shade: C.orb, glow: true, alpha: 168, outline: 0, plain: true,
         }, new Vec3(x, y, z))
         orbs.push(orb)
     })
@@ -335,6 +344,6 @@ function buildLampString(parent: Node, kit: PetBuilderKit): Node[] {
 function buildSunBeam(parent: Node, kit: PetBuilderKit): Node {
     const root = kit.make3dNode(parent, 'SunBeam', new Vec3(0, 0, 0))
     return kit.boxPart(root, 'Beam', { w: 3.2, h: 0.02, d: 2.0 }, {
-        color: C.sun, shade: C.sun, glow: true, alpha: 70, outline: 0,
+        color: C.sun, shade: C.sun, glow: true, alpha: 70, outline: 0, plain: true,
     }, new Vec3(0.55, 0.012, -1.35), { rot: new Vec3(0, -18, 0) })
 }

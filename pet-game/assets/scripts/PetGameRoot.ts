@@ -3,11 +3,14 @@ import {
     Camera,
     Color,
     Component,
+    EffectAsset,
     EventTouch,
     Layers,
     Node,
     UITransform,
     Vec3,
+    Vec4,
+    resources,
     screen,
 } from 'cc'
 import {
@@ -46,6 +49,27 @@ const { ccclass } = _decorator
 
 /** 宠物世界位置（地毯中央；影子等地面元素与其对齐） */
 const PET_POS = new Vec3(0, 0, 0.35)
+
+/**
+ * 相机机位（视觉重构 v5）。
+ *
+ * 主视角：**轻微俯视的 3/4 视角**（相机在角色右前方 22°、仰角 12°）——
+ *  - 主光来自左前上方，相机在右前 → 角色左脸受光、右脸落影，体积比正面平光更耐看；
+ *  - 参考图式的构图：脚底落在 HUD 之上、头顶留出呼吸空间，角色约占可用舞台高度的 60%。
+ * 验收机位（?shot=front / q34）：正面与左前 3/4 近景，用于逐轮截图比对五官与穿模。
+ */
+const CAMERA_SHOT = {
+    // room 机位距离由实测反推：1.38 单位高的角色在 41% 画面高度时距离 4.30，
+    // 目标 58%（舞台高度的 55%~65%）→ 距离收到 3.03，角色高度约 350px / 611px。
+    // 距离按实测像素标定：角色 1.38 单位高，295px/单位 → 距离 2.85 时占画面 67%（偏高），
+    // 收到 3.29 得到约 58%（目标 55%~65%），脚底落在 HUD 按钮之上、耳尖让开对话气泡。
+    room: { pos: [1.165, 1.255, 3.154], target: [0, 0.58, 0.16] },
+    front: { pos: [0, 0.86, 3.25], target: [0, 0.74, 0.20] },
+    q34: { pos: [-2.00, 1.00, 2.80], target: [0, 0.76, 0.20] },
+} as const
+
+/** 纯色背景（?plain=1 验收模式：去掉房间与 HUD，只留角色自证轮廓与材质） */
+const PLAIN_BG = new Color(0xCF, 0xC9, 0xD6, 255)
 
 /** 演示模式（?demo=1）：未接宿主时也能完整展示视觉与动画，用于开发与验收 */
 const DEMO_STATE: PetDisplayState = {
@@ -86,6 +110,13 @@ export class PetGameRoot extends Component {
     private hud: PetHud | null = null
     private effects: PetEffects | null = null
 
+    /** 验收模式（?plain=1）：纯色背景 + 无 HUD + 无房间，只留角色本身 */
+    private plain = false
+    /** 验收机位（?shot=room|front|q34） */
+    private shot = 'room'
+    /** 已加载的 pet-toon 资产（探针与调试用） */
+    private toonAsset: EffectAsset | null = null
+
     private pet: PetDisplayState | null = null
     /** 演出锁：非空时暂停 body/head 的逐帧驱动，避免与 tween 演出争抢 */
     private performance: PetEmotion | null = null
@@ -101,20 +132,42 @@ export class PetGameRoot extends Component {
     private lookTarget = { x: 0, y: 0 }
     private idleTimer = 5
     private zzzTimer = 0
-    private lastLevel = 0
     private roomTime = 0
     private readonly orbSeeds: number[] = []
 
     start(): void {
+        const params = new URLSearchParams(window.location.search)
+        // 验收模式（?plain=1）：纯色背景 + 无 HUD + 无房间 —— 用于"只靠轮廓与比例自证"的检查
+        this.plain = params.get('plain') === '1'
+        this.shot = params.get('shot') || 'room'
+
         this.rootTransform = this.node.getComponent(UITransform)
         this.kit = new PetBuilderKit(this.ccRuntime)
+
+        // 自定义材质（pet-toon）必须先加载：EffectAsset.get 只能查到已加载的资产，
+        // 若在加载完成前构建，所有部件会静默退化成引擎内置材质（外观与工程内 effect 完全不同）。
+        // 因此这里等 effect 就绪（或加载失败）后再构建场景，保证首帧就是正确外观。
+        resources.load('effects/pet-toon', EffectAsset, (error, asset) => {
+            console.log(`[pet-probe] resources.load pet-toon: err=${error ? String(error) : 'none'} ` +
+                `asset=${asset ? asset.name : 'null'}`)
+            if (!error && asset) {
+                this.toonAsset = asset
+                this.kit!.setToonEffect(asset)
+                console.log(`[pet-probe] toon ready: isToon=${this.kit!.isToon}`)
+            } else {
+                console.warn('[pet-game] pet-toon 加载失败，材质回退为内置材质', error)
+            }
+            this.buildScene(params)
+        })
+    }
+
+    /** 资源就绪后的场景构建（与资源加载解耦，便于 Fail-Open） */
+    private buildScene(params: URLSearchParams): void {
         this.buildWorld()
         this.buildStage()
         this.buildUi()
         this.bindBridge()
 
-        this.bridge.send({ source: 'pet-game', type: 'ready' })
-        const params = new URLSearchParams(window.location.search)
         if (params.get('demo') === '1') {
             // 演示模式支持 ?species=PIG / ?color=pink / ?accessory=bowtie，便于逐种验收造型
             this.applyPetState({
@@ -124,6 +177,106 @@ export class PetGameRoot extends Component {
                 accessory: params.get('accessory') || DEMO_STATE.accessory,
             })
         }
+        if (this.plain) {
+            // 关闭 UI（连带停止逐帧待机驱动）：画面只剩静态角色，任何"可爱"都必须来自造型本身
+            this.node.active = false
+        }
+        if (params.get('probe') === '1') {
+            this.probeFraming()
+        }
+        if (params.get('probeMat') === '1') {
+            this.probeMaterials()
+        }
+
+        this.bridge.send({ source: 'pet-game', type: 'ready' })
+    }
+
+    /**
+     * 构图探针（?probe=1）：把角色脚底/头顶投影到屏幕并打印像素高度。
+     *
+     * 用于验收"角色在画面中占可用舞台高度的 55%~65%"这类硬指标 ——
+     * 依赖目测容易偏差，这里由相机自身给出精确数值。
+     */
+    private probeFraming(): void {
+        this.scheduleOnce(() => {
+            const camera = this.camera3d
+            const rig = this.rig
+            if (!camera || !rig) {
+                console.log('[pet-probe] camera or rig missing')
+                return
+            }
+            const pos = rig.basePos
+            const foot = camera.worldToScreen(new Vec3(pos.x, 0, pos.z), new Vec3())
+            const top = camera.worldToScreen(new Vec3(pos.x, rig.markers.head.y, pos.z), new Vec3())
+            const screenHeight = screen.windowSize.height
+            const ratio = Math.abs(top.y - foot.y) / screenHeight
+            console.log(`[pet-probe] cam=${camera.node.position.toString()} fov=${camera.fov} ` +
+                `screen=${screenHeight}px footY=${foot.y.toFixed(1)} topY=${top.y.toFixed(1)} ` +
+                `height=${Math.abs(top.y - foot.y).toFixed(1)}px ratio=${(ratio * 100).toFixed(1)}%`)
+        }, 0.8)
+    }
+
+    /**
+     * 材质探针（?probeMat=1）：逐个打印宠物部件的 pass 数与主色。
+     *
+     * 用于定位"某个部件颜色不对"是**属性没写进材质**还是**着色器分支问题** ——
+     * 眼睛/腮红这类小块区域靠肉眼比对颜色很容易误判。
+     */
+    private probeMaterials(): void {
+        this.scheduleOnce(() => {
+            // 运行时读取 pet-toon 的着色器源码：确认构建产物里的 effect 是否是最新版本
+            const registry = (EffectAsset as unknown as { getAll?: () => unknown }).getAll?.()
+            const list: EffectAsset[] = registry instanceof Map
+                ? Array.from(registry.values() as Iterable<EffectAsset>)
+                : (Array.isArray(registry) ? registry as EffectAsset[] : [])
+            console.log(`[pet-probe] loaded effects (${list.length}): ` +
+                list.map(entry => entry && entry.name).join(' | '))
+            const effect = this.toonAsset
+            if (!effect) {
+                console.log('[pet-probe] pet-toon effect NOT FOUND at runtime')
+            } else {
+                const shaders = (effect as unknown as { shaders?: Array<{ glsl?: string; glsl3?: string }> }).shaders
+                console.log(`[pet-probe] pet-toon shaders=${shaders ? shaders.length : 0}`)
+                ;(shaders || []).forEach((shader, index) => {
+                    const source = `${shader.glsl || ''}${shader.glsl3 || ''}`
+                    console.log(`[pet-probe] shader#${index} len=${source.length} ` +
+                        `hasBlush=${source.includes('blushCtrlA')} hasProbe=${source.includes('TEMP-PROBE')}`)
+                })
+            }
+            const visit = (node: Node): void => {
+                for (const component of node.components) {
+                    const model = component as unknown as {
+                        mesh?: unknown
+                        material?: {
+                            getProperty?: (name: string, out: Vec4, passIdx?: number) => Vec4
+                            passes?: unknown[]
+                        }
+                    }
+                    if (!model.mesh || !model.material) {
+                        continue
+                    }
+                    const out = new Vec4()
+                    let mainColor = 'n/a'
+                    try {
+                        model.material.getProperty!('mainColor', out)
+                        mainColor = `${out.x.toFixed(2)},${out.y.toFixed(2)},${out.z.toFixed(2)}/a${out.w.toFixed(2)}`
+                    } catch (error) {
+                        mainColor = 'unreadable'
+                    }
+                    const passes = model.material.passes ? model.material.passes.length : -1
+                    const effectName = (model.material as unknown as { effectAsset?: { name?: string } })
+                        .effectAsset?.name
+                    console.log(`[pet-probe] mat ${node.name} passes=${passes} effect=${effectName} ` +
+                        `mainColor=${mainColor}`)
+                }
+                for (const child of node.children) {
+                    visit(child)
+                }
+            }
+            if (this.petNode) {
+                visit(this.petNode)
+            }
+        }, 1.0)
     }
 
     update(dt: number): void {
@@ -141,22 +294,22 @@ export class PetGameRoot extends Component {
 
     // ---------------- 场景构建 ----------------
 
-    /** 3D 世界：房间 + 相机色调（宠物在 buildStage 中按状态构建） */
+    /** 3D 世界：房间 + 相机机位（宠物在 buildStage 中按状态构建） */
     private buildWorld(): void {
         const kit = this.kit!
         const scene = this.node.scene
         this.world3d = kit.make3dNode(scene, 'World3D', new Vec3(0, 0, 0))
-        this.room = buildRoom(this.world3d, kit)
+        // 验收模式不构建房间：角色在纯色背景上自证轮廓、比例与材质
+        this.room = this.plain ? null : buildRoom(this.world3d, kit)
 
         const cameraNode = scene.getChildByName('Main3DCamera')
         this.camera3d = cameraNode ? cameraNode.getComponent(Camera) : null
         if (cameraNode && this.camera3d) {
-            // 视觉重构 v4：拉近并正对宠物，让角色成为画面主体（对齐参考图的构图）
-            // 构图：宠物连腿脚一起落在画面约 20%-52%，完全避开底部 HUD（按钮区从约 59% 开始）
-            cameraNode.setPosition(0, 1.20, 6.3)
-            cameraNode.lookAt(new Vec3(0, 0.08, 0.35), new Vec3(0, 1, 0))
-            // 室内暖色兜底背景（墙体之外的边缘区域）
-            this.camera3d.clearColor = new Color(0x6E, 0x5A, 0x66, 255)
+            const shot = CAMERA_SHOT[this.shot as keyof typeof CAMERA_SHOT] || CAMERA_SHOT.room
+            cameraNode.setPosition(shot.pos[0], shot.pos[1], shot.pos[2])
+            cameraNode.lookAt(new Vec3(shot.target[0], shot.target[1], shot.target[2]), new Vec3(0, 1, 0))
+            // 室内暖色兜底背景 / 纯色验收背景
+            this.camera3d.clearColor = this.plain ? PLAIN_BG : new Color(0x6E, 0x5A, 0x66, 255)
         }
     }
 
@@ -201,7 +354,6 @@ export class PetGameRoot extends Component {
         this.hud = new PetHud(this.node, width, height, (intent: string) => this.onHudIntent(intent))
         this.hud.build()
         this.effects = new PetEffects(
-            this.node,
             (name: string, x: number, y: number) => this.makeUiNode(name, x, y),
             (world: Vec3) => this.project(world),
         )

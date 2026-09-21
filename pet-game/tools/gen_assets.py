@@ -315,6 +315,8 @@ def main() -> None:
         path = os.path.join(HERE, 'assets', fname)
         io.open(path + '.meta', 'w', encoding='utf-8', newline='\n').write(script_meta(IDS[key]))
 
+    # 说明：assets/resources/（自定义 effect 的存放位置）由 Cocos 在首次构建时自行生成
+    # 标准目录 meta（同级同名 resources.meta），无需在此生成。
     for folder in ['assets', 'assets/scenes', 'assets/scripts']:
         io.open(os.path.join(HERE, folder, '.meta'), 'w', encoding='utf-8', newline='\n') \
             .write(folder_meta())

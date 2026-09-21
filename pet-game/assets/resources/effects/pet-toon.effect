@@ -1,0 +1,284 @@
+// CloudMart 社区宠物 · 材质着色器（视觉重构 v5）—— "治愈系手办"质感。
+//
+// 与 v4 的差异（对应造型评审提出的问题）：
+//  1) 描边宽度改为**屏幕空间恒定**：视空间沿法线外扩，外扩量与到相机的距离成正比，
+//     投影后屏幕上的线宽与物体远近/大小无关 —— 解决"远景下描边忽粗忽细"；
+//  2) 光照改为三点式：左前上暖色主光 + 右后冷色补光（暗部不死黑）+ 克制背光（轮廓分离）；
+//  3) 新增"色区柔化混合"（mixColor/mixCtrl）：肚皮与口鼻等的明度区分通过曲面上的柔和渐变完成，
+//     不再用色块拼接制造生硬边界；
+//  4) 新增"柔和贴花"（decalCtrl）：径向 alpha 衰减 + 平涂色，
+//     用于腮红（柔和椭圆渐变）、眼球高光（贴面不凸出）、脚底接触阴影（软边）；
+//  5) 主体高光放宽（specSharp 可低至 6）：弱而宽的高光避免塑料感。
+//
+// 零外部资产：纯文本 effect，随工程构建打包；运行时 EffectAsset.get('pet-toon') 取用。
+
+CCEffect %{
+  techniques:
+  - name: opaque
+    passes:
+    # Pass 1：描边（背面外扩壳；outlineCtrl.x = 0 时视觉上不可见）
+    - &outline-pass
+      vert: pet-outline-vs:vert
+      frag: pet-outline-fs:frag
+      rasterizerState: { cullMode: front }
+      depthStencilState: { depthFunc: less_equal, depthTest: true, depthWrite: true }
+      properties: &outline-props
+        # x: 屏幕恒定描边宽度（NDC，0.01 ≈ 屏幕高度的 0.5%）
+        outlineCtrl:  { value: [0.006, 0.0, 0.0, 0.0] }
+        outlineColor: { value: [0.58, 0.52, 0.56, 1.0], linear: true, editor: { type: color } }
+    # Pass 2：主体着色
+    - &main-pass
+      vert: pet-toon-vs:vert
+      frag: pet-toon-fs:frag
+      depthStencilState: { depthTest: true, depthWrite: true }
+      properties: &props
+        mainColor:  { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
+        # 暗部色（JS 侧由主色推导下发；保持暖灰紫，不发黑）
+        shadeColor: { value: [0.70, 0.66, 0.72, 1.0], linear: true, editor: { type: color } }
+        # 色区柔化：在曲面上把 mainColor 渐变为 mixColor（肚皮/口鼻的明度区分）
+        mixColor:   { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
+        # x: y 上界（此处不混合） y: y 下界（此处完全混合） z: 前向权重 w: 混合强度
+        mixCtrl:    { value: [0.0, 1.0, 0.0, 0.0] }
+        # 世界空间光照方向（左前上方的柔和暖主光）
+        lightDir:   { value: [-0.42, 0.74, 0.52, 0.0] }
+        # 冷色补光方向（右后下方，填充暗部）
+        fillDir:    { value: [0.58, 0.12, -0.62, 0.0] }
+        # 背光方向（后上方，让耳朵与头部轮廓从背景中分离）
+        backDir:    { value: [0.24, 0.46, -0.86, 0.0] }
+        # x: 主光增益 y: 底部环境遮蔽 z: 补光强度 w: 背光强度
+        lightCtrl:  { value: [1.0, 0.16, 0.18, 0.14] }
+        # x: 明暗阈值 y: 羽化宽度 z: 轮廓光强度 w: 顶部天光强度
+        shadeCtrl:  { value: [0.54, 0.26, 0.12, 0.10] }
+        rimColor:   { value: [1.0, 0.96, 0.90, 1.0], linear: true, editor: { type: color } }
+        # 冷色补光颜色（暗部偏冷，形成冷暖对比）
+        fillColor:  { value: [0.74, 0.82, 0.98, 1.0], linear: true, editor: { type: color } }
+        # 绒光颜色（毛绒边缘散射：偏白暖色）
+        furColor:   { value: [1.0, 0.98, 0.95, 1.0], linear: true, editor: { type: color } }
+        # x: 绒光强度 y: 绒光锐度 z: 高光强度 w: 高光锐度（越小高光越宽）
+        furCtrl:    { value: [0.14, 2.0, 0.05, 8.0] }
+        # x: 径向衰减内半径 y: 径向衰减外半径 z: 平涂（1 = 不受光照） w: 未用
+        decalCtrl:  { value: [0.0, 0.0, 0.0, 0.0] }
+        # 面部腮红：烘焙进材质做椭圆径向混色（rgb = 颜色, a = 强度；0 = 关闭）。
+        # 不用半透明贴片的原因：贴片在凸面上会离开表面，且透明通道在本构建链上不稳定。
+        blushColor: { value: [1.0, 0.66, 0.68, 0.0], linear: true, editor: { type: color } }
+        # x: 方位 u  y: 高度 v  z: 横向半径（u 单位）  w: 纵向半径（v 单位）
+        blushCtrlA: { value: [0.0, 0.0, 0.1, 0.1] }
+        blushCtrlB: { value: [0.0, 0.0, 0.1, 0.1] }
+  # 半透明技术：腮红 / 眼高光 / 软影 / 光斑 / 玻璃透光
+  # 注意：这里的 properties 必须**显式写全**。引擎在 transparent 技术下不会解析
+  #       `*props` 锚点引用（实测：引用会导致该技术下所有属性取默认值 → 材质变成纯白），
+  #       所以不要用 YAML 锚点复用属性表。
+  - name: transparent
+    passes:
+    - vert: pet-toon-vs:vert
+      frag: pet-toon-fs:frag
+      depthStencilState: { depthTest: true, depthWrite: false }
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      properties:
+        mainColor:  { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
+        shadeColor: { value: [0.70, 0.66, 0.72, 1.0], linear: true, editor: { type: color } }
+        mixColor:   { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
+        mixCtrl:    { value: [0.0, 1.0, 0.0, 0.0] }
+        lightDir:   { value: [-0.42, 0.74, 0.52, 0.0] }
+        fillDir:    { value: [0.58, 0.12, -0.62, 0.0] }
+        backDir:    { value: [0.24, 0.46, -0.86, 0.0] }
+        lightCtrl:  { value: [1.0, 0.16, 0.18, 0.14] }
+        shadeCtrl:  { value: [0.54, 0.26, 0.12, 0.10] }
+        rimColor:   { value: [1.0, 0.96, 0.90, 1.0], linear: true, editor: { type: color } }
+        fillColor:  { value: [0.74, 0.82, 0.98, 1.0], linear: true, editor: { type: color } }
+        furColor:   { value: [1.0, 0.98, 0.95, 1.0], linear: true, editor: { type: color } }
+        furCtrl:    { value: [0.14, 2.0, 0.05, 8.0] }
+        decalCtrl:  { value: [0.0, 0.0, 0.0, 0.0] }
+        blushColor: { value: [1.0, 0.66, 0.68, 0.0], linear: true, editor: { type: color } }
+        blushCtrlA: { value: [0.0, 0.0, 0.0, 0.1] }
+        blushCtrlB: { value: [0.0, 0.0, 0.0, 0.1] }
+}%
+
+CCProgram pet-toon-vs %{
+  precision highp float;
+  #include <legacy/input-standard>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/functionalities/world-transform>
+  #include <legacy/local-batch>
+
+  out vec3 v_worldNormal;
+  out vec3 v_worldPos;
+  out vec3 v_objPos;
+  out vec3 v_objNormal;
+  out vec2 v_uv;
+
+  vec4 vert () {
+    StandardVertInput In;
+    CCVertInput(In);
+
+    mat4 matWorld, matWorldIT;
+    CCGetWorldMatrixFull(matWorld, matWorldIT);
+
+    vec4 worldPos = matWorld * In.position;
+    v_worldPos = worldPos.xyz;
+    v_worldNormal = normalize((matWorldIT * vec4(In.normal, 0.0)).xyz);
+    // 模型空间位置：色区柔化按高度取渐变
+    v_objPos = In.position.xyz;
+    // 模型空间法线：色区柔化按"朝向"取渐变（内耳/肚皮长在朝向面上，而不是塞一块几何）
+    v_objNormal = normalize(In.normal.xyz);
+    // 柔和贴花的径向通道：贴花几何把"到中心的归一化距离"写在 uv.x（见 PetMeshFactory）
+    // 注意：本版本引擎的 StandardVertInput 不含 uv，需直接取顶点属性 a_texCoord
+    v_uv = a_texCoord;
+    return cc_matProj * (cc_matView * worldPos);
+  }
+}%
+
+CCProgram pet-toon-fs %{
+  precision highp float;
+  #include <legacy/output-standard>
+  #include <builtin/uniforms/cc-global>
+
+  in vec3 v_worldNormal;
+  in vec3 v_worldPos;
+  in vec3 v_objPos;
+  in vec3 v_objNormal;
+  in vec2 v_uv;
+
+  uniform Constant {
+    vec4 mainColor;
+    vec4 shadeColor;
+    vec4 mixColor;
+    vec4 mixCtrl;
+    vec4 lightDir;
+    vec4 fillDir;
+    vec4 backDir;
+    vec4 lightCtrl;
+    vec4 shadeCtrl;
+    vec4 rimColor;
+    vec4 fillColor;
+    vec4 furColor;
+    vec4 furCtrl;
+    vec4 decalCtrl;
+    vec4 blushColor;
+    vec4 blushCtrlA;
+    vec4 blushCtrlB;
+  };
+
+  vec4 frag () {
+    vec3 n = normalize(v_worldNormal);
+    vec3 v = normalize(cc_cameraPos.xyz - v_worldPos);
+
+    // 柔和贴花：径向 alpha 衰减（贴花几何把归一化径向距离写在 uv.x）
+    float radial = 1.0;
+    if (decalCtrl.y > decalCtrl.x) {
+      radial = 1.0 - smoothstep(decalCtrl.x, decalCtrl.y, v_uv.x);
+    }
+
+    if (decalCtrl.z > 0.5) {
+      // 平涂贴花（腮红/高光/软影）：只保留柔和边缘，不参与光照
+      return CCFragOutput(vec4(mainColor.rgb, mainColor.a * radial));
+    }
+
+    vec3 l = normalize(lightDir.xyz);
+    vec3 fl = normalize(fillDir.xyz);
+    vec3 bl = normalize(backDir.xyz);
+
+    // 半兰伯特 + 宽羽化：明暗过渡柔和（没有硬色阶）
+    float ndl = dot(n, l) * 0.5 + 0.5;
+    float lit = smoothstep(shadeCtrl.x - shadeCtrl.y, shadeCtrl.x + shadeCtrl.y, ndl);
+
+    vec3 base = mainColor.rgb;
+    // 色区柔化：由下向上消退、并按**表面朝向**退回主色（肚皮 / 内耳 / 口鼻的柔和色区）
+    // 朝向用物体空间法线而不是归一化位置：薄片状形体（耳）用位置会因横向分量过大而被摊薄。
+    if (mixCtrl.w > 0.001) {
+      float ty = 1.0 - smoothstep(mixCtrl.y, mixCtrl.x, v_objPos.y);
+      float tz = mix(1.0, smoothstep(-0.10, 0.62, v_objNormal.z), mixCtrl.z);
+      base = mix(base, mixColor.rgb, clamp(ty * tz * mixCtrl.w, 0.0, 1.0));
+    }
+
+    vec3 col = mix(shadeColor.rgb, base, lit) * lightCtrl.x;
+    // 顶部天光提亮（圆润形体的上亮下暗）
+    col += base * clamp(n.y, 0.0, 1.0) * shadeCtrl.w;
+    // 冷色补光：填充暗部，避免死黑（冷暖对比让体积更耐看）
+    float ndf = dot(n, fl) * 0.5 + 0.5;
+    col += fillColor.rgb * pow(ndf, 2.2) * lightCtrl.z;
+
+    // 主体高光：弱而宽（毛绒更像布面/软陶，而非塑料）
+    vec3 h = normalize(l + v);
+    col += vec3(pow(max(dot(n, h), 0.0), max(furCtrl.w, 1.0)) * furCtrl.z);
+
+    // 轮廓光 + 背光：把角色从背景中"浮"出来（克制，不发光过度）
+    float edge = 1.0 - clamp(dot(n, v), 0.0, 1.0);
+    col += rimColor.rgb * pow(edge, 2.6) * shadeCtrl.z;
+    col += rimColor.rgb * max(dot(n, bl), 0.0) * pow(edge, 1.8) * lightCtrl.w;
+
+    // 底部环境遮蔽：形体下半部略微压暗，塑造柔软体积感
+    col *= mix(1.0 - lightCtrl.y, 1.0, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+
+    // 面部腮红：在**贴图坐标空间**做椭圆径向混色（uv 由模型生成时写入：u = 方位、v = 归一化高度）。
+    // 用 uv 而不是模型空间位置，是因为合批/局部批处理会改变顶点位置，而 uv 始终跟随表面。
+    if (blushColor.a > 0.001) {
+      vec2 duvA = vec2(v_uv.x - blushCtrlA.x, v_uv.y - blushCtrlA.y);
+      duvA.x -= floor(duvA.x + 0.5);   // u 方向环绕处理
+      vec2 duvB = vec2(v_uv.x - blushCtrlB.x, v_uv.y - blushCtrlB.y);
+      duvB.x -= floor(duvB.x + 0.5);
+      float kA = 1.0 - smoothstep(0.30, 1.0, length(vec2(duvA.x / blushCtrlA.z, duvA.y / blushCtrlA.w)));
+      float kB = 1.0 - smoothstep(0.30, 1.0, length(vec2(duvB.x / blushCtrlB.z, duvB.y / blushCtrlB.w)));
+      col = mix(col, blushColor.rgb, clamp(kA + kB, 0.0, 1.0) * blushColor.a);
+    }
+
+    // 绒毛表面颗粒：极轻微的高频明暗扰动（零几何成本的"毛躁感"）
+    float grain = sin(v_worldPos.x * 63.0) * sin(v_worldPos.y * 71.0) * sin(v_worldPos.z * 59.0);
+    col *= 1.0 + grain * 0.03 * clamp(furCtrl.x * 5.0, 0.0, 1.0);
+
+    return CCFragOutput(vec4(col, mainColor.a * radial));
+  }
+}%
+
+CCProgram pet-outline-vs %{
+  precision highp float;
+  #include <legacy/input-standard>
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/functionalities/world-transform>
+  #include <legacy/local-batch>
+
+  uniform OutlineParams {
+    vec4 outlineCtrl;
+    vec4 outlineColor;
+  };
+
+  vec4 vert () {
+    StandardVertInput In;
+    CCVertInput(In);
+
+    mat4 matWorld, matWorldIT;
+    CCGetWorldMatrixFull(matWorld, matWorldIT);
+
+    vec4 worldPos = matWorld * In.position;
+    vec3 worldNormal = normalize((matWorldIT * vec4(In.normal, 0.0)).xyz);
+
+    // 视空间沿法线外扩：外扩量 ∝ 到相机的距离 → 投影后屏幕线宽恒定，
+    // 远景与近景、不同大小的部件描边粗细一致（不再随缩放忽粗忽细）。
+    vec4 viewPos = cc_matView * worldPos;
+    vec3 viewNormal = normalize((cc_matView * vec4(worldNormal, 0.0)).xyz);
+    float projScale = max(cc_matProj[1][1], 1e-4);
+    viewPos.xyz += viewNormal * (-viewPos.z) * outlineCtrl.x / projScale;
+
+    return cc_matProj * viewPos;
+  }
+}%
+
+CCProgram pet-outline-fs %{
+  precision highp float;
+  #include <legacy/output-standard>
+
+  uniform OutlineParams {
+    vec4 outlineCtrl;
+    vec4 outlineColor;
+  };
+
+  vec4 frag () {
+    return CCFragOutput(vec4(outlineColor.rgb, 1.0));
+  }
+}%

@@ -57,9 +57,16 @@ export class PetAnimations {
         })
     }
 
-    /** 视线：x/y ∈ [-1, 1]（瞳孔在眼球内偏移，制造"看着你/看向食物"） */
+    /** 视线：x/y ∈ [-1, 1]（高光随视线移动，制造"看着你/看向食物"） */
     static look(rig: PetRig, x: number, y: number): void {
         const base = rig.pupilBase
+        if (rig.pupilDrive === 'orbit') {
+            // 高光是贴合眼球的球面片：绕眼心旋转才能始终贴合球面（平移会穿出眼球）
+            for (const pupil of rig.pupils) {
+                pupil.setRotationFromEuler(base.x - y * 15, base.y + x * 17, base.z)
+            }
+            return
+        }
         for (const pupil of rig.pupils) {
             pupil.setPosition(base.x + x * 0.032, base.y + y * 0.030, base.z)
         }
@@ -94,8 +101,14 @@ export class PetAnimations {
     /** 腮红强度：1 常驻，>1 更娇羞（被抚摸/开心时） */
     static setBlush(rig: PetRig, strength: number): void {
         const s = Math.max(0.5, Math.min(1.45, strength))
+        if (rig.blushTint) {
+            // 新造型：腮红烘焙在头部材质上，按强度调整混色比例
+            rig.blushTint(s)
+            return
+        }
+        const base = rig.blushBase || BLUSH_BASE_SCALE
         for (const blush of rig.blush) {
-            blush.setScale(BLUSH_BASE_SCALE.x * s, BLUSH_BASE_SCALE.y * s, BLUSH_BASE_SCALE.z)
+            blush.setScale(base.x * s, base.y * s, base.z * s)
         }
     }
 

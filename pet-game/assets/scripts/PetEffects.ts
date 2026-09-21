@@ -17,12 +17,10 @@ type Projector = (world: Vec3) => Vec3
 
 export class PetEffects {
 
-    private readonly layer: Node
     private readonly makeNode: NodeFactory
     private readonly toUi: Projector
 
-    constructor(layer: Node, makeNode: NodeFactory, toUi: Projector) {
-        this.layer = layer
+    constructor(makeNode: NodeFactory, toUi: Projector) {
         this.makeNode = makeNode
         this.toUi = toUi
     }

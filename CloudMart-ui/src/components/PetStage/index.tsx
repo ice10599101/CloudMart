@@ -1,21 +1,19 @@
 import { forwardRef, type ReactNode } from 'react'
 import CocosStage from './CocosStage'
 import type { HostToGame, PetDisplayState, PetIntentAction } from './bridge'
-import PetStage3D from './native/PetStage3D'
 
 export type { PetDisplayState, PetIntentAction, BattleRound } from './bridge'
 
 /**
- * 宠物舞台门面（视觉重构 v3）。
+ * 宠物舞台门面：唯一实现为 Cocos（pet-game 构建产物 iframe）。
  *
- * 两条实现通路，接口完全一致（post / onIntent / onPetTapped），宿主业务零感知：
- *  - 'native'：本项目内的 Three.js 原生舞台（宠物 / 房间 / 动画 / 特效 / HUD 全套，默认）；
- *  - 'cocos' ：pet-game（Cocos Creator）构建产物 iframe，构建链路修复后可切回。
+ * 技术路线（本项目只运行 Cocos 4）：
+ *  - 舞台本体：`pet-game/`（Cocos Creator 4.0 工程），构建产物输出到 `CloudMart-ui/public/pet-game`；
+ *  - 宿主接入：同源 iframe + postMessage 双向桥接（init / petState / actionResult / battleRounds / chatBubble）；
+ *  - 产物缺失或 15s 内未 ready：Fail-Open 渲染调用方传入的**静态**降级视图（不白屏，也不引入第二套渲染实现）。
  *
- * 之所以默认原生：cocos-cli 当前构建产物存在既有缺陷（spine 打桩模块 embind 重复注册中断
- * 引擎启动、内置 effect 缺少编译产物），舞台无法渲染；宿主侧原本就设计了
- * "构建产物不可用 → 原生舞台" 的 Fail-Open 通路，本次把该通路升级为完整实现。
- * 详见 pet-game/README.md 与交付说明。
+ * 历史说明：曾存在一条 Three.js 原生兜底舞台（PetStage/native），
+ * 与"项目只运行 Cocos 4"的路线冲突，已整体移除。
  */
 
 export interface PetStageHandle {
@@ -28,19 +26,13 @@ interface PetStageProps {
     /** 舞台意图回调（宿主据此调 mall-pet API；幂等由服务端 CAS 保证） */
     onIntent: (action: PetIntentAction) => void
     onPetTapped?: () => void
-    /** 舞台不可用时的兜底内容（仅 Cocos 通路使用；原生通路本身即完整实现） */
+    /** 舞台不可用时的静态降级内容（emoji 视图等，不引入第二套 3D 实现） */
     fallback?: ReactNode
     className?: string
 }
 
-/** 舞台实现选择（'native' 为默认；切到 'cocos' 需要 pet-game 构建产物可运行） */
-const STAGE_ENGINE = 'native' as 'native' | 'cocos'
-
 const PetStage = forwardRef<PetStageHandle, PetStageProps>(function PetStage(props, ref) {
-    if (STAGE_ENGINE === 'cocos') {
-        return <CocosStage ref={ref} {...props} />
-    }
-    return <PetStage3D ref={ref} {...props} />
+    return <CocosStage ref={ref} {...props} />
 })
 
 export default PetStage

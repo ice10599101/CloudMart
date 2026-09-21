@@ -78,10 +78,16 @@ export function lathe(profile: Array<[number, number]>, segments = 32): Geo {
         rimNormal.push([ty, -tr])
     }
 
+    // uv：u = 圆周方位（u = θ/2π），v = 归一化高度（0 = 轮廓最低点，1 = 最高点）。
+    // v 用高度而不是环索引，是为了让"按 uv 定位的贴花"（如烘焙腮红）能按实际几何位置计算。
+    const yMin = profile[0][1]
+    const yMax = profile[rings - 1][1]
+    const ySpan = Math.abs(yMax - yMin) < EPS ? 1 : yMax - yMin
+
     for (let i = 0; i < rings; i++) {
         const [radius, y] = profile[i]
         const [nr, ny] = rimNormal[i]
-        const v = rings > 1 ? i / (rings - 1) : 0
+        const v = (y - yMin) / ySpan
         for (let j = 0; j <= segments; j++) {
             const u = j / segments
             const theta = u * Math.PI * 2
@@ -162,20 +168,34 @@ function cross(a: P3, b: P3): P3 {
     return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
 
+/** 扫掠环：截面中心 + 基向量（法线/副法线）+ 椭圆半径（局部坐标系） */
+interface SweepRing {
+    c: P3
+    n: P3
+    b: P3
+    r: number
+    sx: number
+    sy: number
+}
+
 /**
- * 扫掠管：沿 3D 路径扫掠椭圆截面（耳朵/尾巴/四肢）。
+ * 扫掠管：沿 3D 路径扫掠椭圆截面（耳朵/尾巴/四肢/呆毛）。
  *
  * 使用"平行传输"框架逐节点推进截面，避免路径转弯时截面扭转撕裂；
- * 端点按半径收口，形成圆润的封头（Q 版造型里所有末端都应该是圆的）。
+ * 首尾自动补**半球封头**（Q 版造型里所有末端都必须是圆的，否则从侧后方能看到"空心管口"）。
+ *
+ * @param nodes 路径节点（位置 + 截面半径 + 可选椭圆缩放）
+ * @param radial 圆周分段
+ * @param capSteps 封头细分（0 = 不封头；3 已足够圆润）
  */
-export function sweep(nodes: SweepNode[], radial = 18): Geo {
+export function sweep(nodes: SweepNode[], radial = 18, capSteps = 3): Geo {
     const count = nodes.length
     const positions: number[] = []
     const normals: number[] = []
     const uvs: number[] = []
     const indices: number[] = []
 
-    // 每个节点的切线与截面基向量
+    // 每个节点的切线
     const tangents: P3[] = []
     for (let i = 0; i < count; i++) {
         const prev = nodes[Math.max(0, i - 1)].p
@@ -183,13 +203,12 @@ export function sweep(nodes: SweepNode[], radial = 18): Geo {
         tangents.push(norm([next[0] - prev[0], next[1] - prev[1], next[2] - prev[2]]))
     }
 
-    // 初始参考向量：与首切线不平行的任意轴
+    // 平行传输：逐节点推进截面基向量（避免急转弯处扭转撕裂）
     const ref: P3 = Math.abs(tangents[0][1]) > 0.92 ? [1, 0, 0] : [0, 1, 0]
     let normal = norm(cross(tangents[0], ref))
-
+    const rings: SweepRing[] = []
     for (let i = 0; i < count; i++) {
         const t = tangents[i]
-        // 平行传输：把上一节点的法线投影到当前切线的垂直平面
         const dot = normal[0] * t[0] + normal[1] * t[1] + normal[2] * t[2]
         let n: P3 = norm([normal[0] - t[0] * dot, normal[1] - t[1] * dot, normal[2] - t[2] * dot])
         if (!isFinite(n[0]) || !isFinite(n[1]) || !isFinite(n[2])) {
@@ -197,24 +216,65 @@ export function sweep(nodes: SweepNode[], radial = 18): Geo {
         }
         normal = n
         const binormal = norm(cross(t, normal))
-
         const node = nodes[i]
-        const sx = node.sx === undefined ? 1 : node.sx
-        const sy = node.sy === undefined ? 1 : node.sy
-        const v = count > 1 ? i / (count - 1) : 0
+        rings.push({
+            c: node.p,
+            n: normal,
+            b: binormal,
+            r: node.r,
+            sx: node.sx === undefined ? 1 : node.sx,
+            sy: node.sy === undefined ? 1 : node.sy,
+        })
+    }
+
+    // 半球封头：以端点截面为赤道，沿切线外侧按 cos 收缩到极点
+    if (capSteps > 0 && count >= 2) {
+        const startCap: SweepRing[] = []
+        const head = rings[0]
+        const dirStart: P3 = [-tangents[0][0], -tangents[0][1], -tangents[0][2]]
+        for (let k = capSteps; k >= 1; k -= 1) {
+            const angle = (k / capSteps) * (Math.PI / 2)
+            const s = Math.sin(angle)
+            const c = Math.cos(angle)
+            startCap.push({
+                c: [head.c[0] + dirStart[0] * head.r * s, head.c[1] + dirStart[1] * head.r * s, head.c[2] + dirStart[2] * head.r * s],
+                n: head.n, b: head.b, r: head.r * c, sx: head.sx, sy: head.sy,
+            })
+        }
+        const endCap: SweepRing[] = []
+        const last = rings[rings.length - 1]
+        const dirEnd = tangents[count - 1]
+        for (let k = 1; k <= capSteps; k += 1) {
+            const angle = (k / capSteps) * (Math.PI / 2)
+            const s = Math.sin(angle)
+            const c = Math.cos(angle)
+            endCap.push({
+                c: [last.c[0] + dirEnd[0] * last.r * s, last.c[1] + dirEnd[1] * last.r * s, last.c[2] + dirEnd[2] * last.r * s],
+                n: last.n, b: last.b, r: last.r * c, sx: last.sx, sy: last.sy,
+            })
+        }
+        rings.unshift(...startCap)
+        rings.push(...endCap)
+    }
+
+    const total = rings.length
+    for (let i = 0; i < total; i++) {
+        const ring = rings[i]
+        const v = total > 1 ? i / (total - 1) : 0
         for (let j = 0; j <= radial; j++) {
             const u = j / radial
             const theta = u * Math.PI * 2
-            const cos = Math.cos(theta) * sx
-            const sin = Math.sin(theta) * sy
-            const px = node.p[0] + (normal[0] * cos + binormal[0] * sin) * node.r
-            const py = node.p[1] + (normal[1] * cos + binormal[1] * sin) * node.r
-            const pz = node.p[2] + (normal[2] * cos + binormal[2] * sin) * node.r
-            positions.push(px, py, pz)
+            const cos = Math.cos(theta)
+            const sin = Math.sin(theta)
+            positions.push(
+                ring.c[0] + (ring.n[0] * cos * ring.sx + ring.b[0] * sin * ring.sy) * ring.r,
+                ring.c[1] + (ring.n[1] * cos * ring.sx + ring.b[1] * sin * ring.sy) * ring.r,
+                ring.c[2] + (ring.n[2] * cos * ring.sx + ring.b[2] * sin * ring.sy) * ring.r,
+            )
             const nrm = norm([
-                normal[0] * Math.cos(theta) * sy + binormal[0] * Math.sin(theta) * sx,
-                normal[1] * Math.cos(theta) * sy + binormal[1] * Math.sin(theta) * sx,
-                normal[2] * Math.cos(theta) * sy + binormal[2] * Math.sin(theta) * sx,
+                ring.n[0] * cos * ring.sy + ring.b[0] * sin * ring.sx,
+                ring.n[1] * cos * ring.sy + ring.b[1] * sin * ring.sx,
+                ring.n[2] * cos * ring.sy + ring.b[2] * sin * ring.sx,
             ])
             normals.push(nrm[0], nrm[1], nrm[2])
             uvs.push(u, v)
@@ -222,7 +282,7 @@ export function sweep(nodes: SweepNode[], radial = 18): Geo {
     }
 
     const stride = radial + 1
-    for (let i = 0; i < count - 1; i++) {
+    for (let i = 0; i < total - 1; i++) {
         for (let j = 0; j < radial; j++) {
             const a = i * stride + j
             const b = a + 1
@@ -336,6 +396,133 @@ export function smoothNormals(geo: Geo, precision = 4): Geo {
  * 好处：造型只写少量关键点（如头部的额/颊/下巴宽度），
  * 由插值生成几十层轮廓，保证曲面连续（不会出现折角）。
  */
+/**
+ * 旋转体轮廓在指定高度的半径（线性插值）。
+ *
+ * 用途：头部是 lathe 生成的旋转体，五官定位时需要知道"脸在某个高度有多宽"，
+ * 据此把眼睛/鼻子/嘴贴到曲面外侧的正确位置。
+ */
+export function profileAt(profile: Array<[number, number]>, y: number): number {
+    if (profile.length === 0) {
+        return 0
+    }
+    if (y <= profile[0][1]) {
+        return profile[0][0]
+    }
+    const last = profile[profile.length - 1]
+    if (y >= last[1]) {
+        return last[0]
+    }
+    for (let i = 0; i < profile.length - 1; i++) {
+        const a = profile[i]
+        const b = profile[i + 1]
+        if (y >= a[1] && y <= b[1]) {
+            const span = b[1] - a[1]
+            const t = span < 1e-6 ? 0 : (y - a[1]) / span
+            return a[0] + (b[0] - a[0]) * t
+        }
+    }
+    return last[0]
+}
+
+/**
+ * 旋转体前表面深度：给定 (x, y) 求该处表面在前半球的 z。
+ *
+ * 面部所有部件（眼/鼻/嘴/腮红）都应通过它定位，
+ * 保证五官贴合面部曲率（否则会像零件悬浮在脸前）。
+ * 超出轮廓范围时返回 0（调用方应保证 x 在脸颊范围内）。
+ *
+ * @param profile 旋转体侧轮廓（局部坐标，见 lathe）
+ * @param x 相对旋转轴的水平偏移
+ * @param y 相对旋转体原点的垂直偏移
+ * @param zScale 生成几何时 z 方向的缩放系数（默认 1）
+ */
+export function frontZ(profile: Array<[number, number]>, x: number, y: number, zScale = 1): number {
+    const radius = profileAt(profile, y)
+    const inner = radius * radius - x * x
+    return inner <= 0 ? 0 : Math.sqrt(inner) * zScale
+}
+
+/**
+ * 球面片：贴在球面上的"椭圆帽"，用于需要**贴合曲面曲率**的部件
+ * （腮红的柔和色斑、贴在眼球表面的高光片）。
+ *
+ * 顶点方向来自切平面椭圆参数化：dir(t, φ) = normalize(w + u·t·tanU·cosφ + v·t·tanV·sinφ)，
+ * t ∈ [0,1] 是到片中心的归一化径向距离，写入 uv.x（柔和 alpha 衰减直接读它）。
+ *
+ * 用球面片而不是扁平椭球的原因：扁平片贴到凸曲面上时边缘会离开表面（悬浮感），
+ * 球面片的曲率与头部/眼球一致，视觉上是"长在脸上"而不是"贴上去"。
+ *
+ * @param dir 片中心方向（球心指向片中心）
+ * @param angleU 水平张角（弧度）
+ * @param angleV 垂直张角（弧度）
+ * @param radii 椭球三轴半径
+ */
+export function spherePatch(dir: P3, angleU: number, angleV: number, radii: P3,
+                            segments = 26, rings = 5): Geo {
+    const w = norm(dir)
+    const ref: P3 = Math.abs(w[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0]
+    const u = norm(cross(ref, w))
+    const v = cross(w, u)
+    const tanU = Math.tan(angleU)
+    const tanV = Math.tan(angleV)
+    const positions: number[] = []
+    const normals: number[] = []
+    const uvs: number[] = []
+    const indices: number[] = []
+
+    for (let i = 0; i <= rings; i++) {
+        const t = i / rings
+        for (let j = 0; j <= segments; j++) {
+            const phi = (j / segments) * Math.PI * 2
+            const dx = Math.cos(phi) * tanU * t
+            const dy = Math.sin(phi) * tanV * t
+            const inv = 1 / Math.sqrt(1 + dx * dx + dy * dy)
+            const sx = (w[0] + u[0] * dx + v[0] * dy) * inv
+            const sy = (w[1] + u[1] * dx + v[1] * dy) * inv
+            const sz = (w[2] + u[2] * dx + v[2] * dy) * inv
+            positions.push(sx * radii[0], sy * radii[1], sz * radii[2])
+            // 椭球法线：逐分量除以半径平方后归一化
+            let nx = sx / (radii[0] * radii[0])
+            let ny = sy / (radii[1] * radii[1])
+            let nz = sz / (radii[2] * radii[2])
+            const nl = Math.hypot(nx, ny, nz) || 1
+            normals.push(nx / nl, ny / nl, nz / nl)
+            uvs.push(t, phi / (Math.PI * 2))
+        }
+    }
+    const stride = segments + 1
+    for (let i = 0; i < rings; i++) {
+        for (let j = 0; j < segments; j++) {
+            const a = i * stride + j
+            const b = a + 1
+            const c = a + stride
+            const d = c + 1
+            indices.push(a, c, b, b, c, d)
+        }
+    }
+    return { positions, normals, uvs, indices }
+}
+
+/** 把 uv.x 重写为"到原点的归一化距离"（单位球贴花用；柔和 alpha 衰减读取 uv.x） */
+export function radialUV(geo: Geo): Geo {
+    const count = geo.positions.length / 3
+    const uvs = geo.uvs.slice()
+    let maxLen = 0
+    for (let i = 0; i < count; i++) {
+        const len = Math.hypot(geo.positions[i * 3], geo.positions[i * 3 + 1], geo.positions[i * 3 + 2])
+        if (len > maxLen) {
+            maxLen = len
+        }
+    }
+    const inv = maxLen > 0 ? 1 / maxLen : 1
+    for (let i = 0; i < count; i++) {
+        uvs[i * 2] = Math.hypot(
+            geo.positions[i * 3], geo.positions[i * 3 + 1], geo.positions[i * 3 + 2]) * inv
+    }
+    return { positions: geo.positions.slice(), normals: geo.normals.slice(), uvs, indices: geo.indices.slice() }
+}
+
 export function profileFrom(control: Array<[number, number]>, steps = 18): Array<[number, number]> {
     if (control.length < 2) {
         return control.slice()

@@ -15,15 +15,14 @@ import type { BattleRound, GameToHost, HostToGame, PetDisplayState, PetIntentAct
 import styles from './style.module.css'
 
 /**
- * Cocos 宠物舞台宿主组件（保留通路，默认不启用）。
+ * Cocos 宠物舞台宿主组件（本项目唯一舞台实现）。
  *
  * iframe 加载 pet-game web-mobile 构建产物（同源静态目录 /pet-game），postMessage 双向桥接；
- * 构建产物缺失（ready 超时）时 Fail-Open 渲染调用方提供的原生降级舞台。
+ * 构建产物缺失（15s 内未 ready）时 Fail-Open 渲染调用方提供的静态降级视图。
  *
- * ⚠️ 现状说明：当前 cocos-cli 构建产物存在两处既有缺陷（spine 打桩模块 embind
- * "Cannot register public name '' twice" 中断 cc.game.init；内置 effect 缺少编译产物导致
- * "program not found"），舞台无法启动。因此默认走 native/PetStage3D（Three.js 原生实现）；
- * 待构建链路修复后，把 index.tsx 的 STAGE_ENGINE 切回 'cocos' 即可复用本组件。
+ * 既有缺陷说明（已解决）：早前 cocos-cli 产物缺少内置 effect 编译产物，导致
+ * "program not found" 而无法渲染；现已由工程内自定义 effect `pet-toon` 替代，
+ * 实测渲染与交互正常。
  */
 
 export interface CocosStageProps {

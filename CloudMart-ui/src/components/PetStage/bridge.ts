@@ -80,4 +80,4 @@ export function isGameToHost(data: unknown): data is GameToHost {
 
 export const PET_GAME_FRAME_PATH = '/pet-game/index.html'
 /** ready 超时（毫秒）：超时即判定构建产物缺失/加载失败，宿主 Fail-Open 切原生降级舞台 */
-export const PET_GAME_READY_TIMEOUT_MS = 2500
+export const PET_GAME_READY_TIMEOUT_MS = 15000
