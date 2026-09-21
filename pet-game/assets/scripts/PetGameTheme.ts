@@ -28,45 +28,22 @@ export interface PetPalette {
 
 /** 物种基色（唯一色源：其余部位由基色推导；取值对齐参考图的柔和彩度） */
 const SPECIES_BODY: Record<string, string> = {
-    CAT: '#F3EEE7',      // 奶油白（v5 主色）
-    DOG: '#F8EEDA',      // 奶油白
-    RABBIT: '#F8D7A6',   // 浅橙奶油
-    HAMSTER: '#D9D6DE',  // 银灰
-    TURTLE: '#A9CE7C',   // 浅绿（软陶质感）
-    PIG: '#F8C6CA',      // 柔粉
-    FOX: '#F2A15C',
-    PANDA: '#F6F2EE',
-    WILD: '#B4BFD0',
+    CAT: '#F3EEE7',      // 奶油白（唯一物种：其他物种造型已删除）
 }
 
 /** 深色部位覆盖（耳内/壳/花纹；缺省由基色推导） */
 const SPECIES_DARK: Record<string, string> = {
     CAT: '#CFC5BE',      // 暖灰阴影（暗部保持暖调、不发黑）
-    DOG: '#E2D2B8',
-    RABBIT: '#E7BE86',
-    HAMSTER: '#BEB9C6',
-    TURTLE: '#8BAE5A',   // 龟壳
-    PIG: '#E9A8B0',
-    FOX: '#D97F36',
-    PANDA: '#3B3344',
-    WILD: '#8A96A8',
 }
 
 /** 肚皮/口鼻覆盖（缺省 = 基色提亮 42%） */
 const SPECIES_BELLY: Record<string, string> = {
     CAT: '#FFF8F0',      // 口鼻与胸腹浅色
-    HAMSTER: '#F7F4F4',
-    TURTLE: '#E4E0A6',   // 腹甲浅黄
-    PIG: '#FDE7E5',
 }
 
 /** 爪垫覆盖（缺省 = 基色提亮 52%） */
 const SPECIES_PAW: Record<string, string> = {
     CAT: '#EADBD4',      // 爪垫：比主体略暗的暖灰粉（不抢眼）
-    HAMSTER: '#F2C6CE',
-    TURTLE: '#EDE3A8',
-    PIG: '#F5B6BE',
-    RABBIT: '#F6E3C8',
 }
 
 /** 强调金色（饰扣、徽章等点睛细节；低饱和的金，避免"塑料亮片"感） */

@@ -103,6 +103,8 @@ export class PetGameRoot extends Component {
     private world3d: Node | null = null
     private petNode: Node | null = null
     private rig: PetRig | null = null
+    /** 只有 CAT 一套模型：桥传其他物种键时一律回落到 CAT（其他物种的造型已删除） */
+    private readonly speciesKey = 'CAT'
     private room: RoomRefs | null = null
     private camera3d: Camera | null = null
     private rootTransform: UITransform | null = null
@@ -313,26 +315,27 @@ export class PetGameRoot extends Component {
         }
     }
 
-    /** 宠物本体（物种/皮肤/配饰变化时整体重建；影子固定在房间层） */
+    /** 宠物本体（皮肤/配饰变化时整体重建；影子固定在房间层）。只有 CAT 一套模型。 */
     private buildStage(): void {
         const kit = this.kit!
         const pet = this.pet
-        const species = pet ? pet.species : 'CAT'
         const colorKey = pet ? pet.color : undefined
         const accessory = pet ? pet.accessory : 'none'
         this.petNode = kit.make3dNode(this.world3d!, 'Pet', PET_POS.clone())
-        this.rig = buildPet(this.petNode, this.world3d!, kit, species || 'CAT',
-            resolvePalette(species || 'CAT', colorKey), accessory || 'none')
+        this.rig = buildPet(this.petNode, this.world3d!, kit, this.speciesKey,
+            resolvePalette(this.speciesKey, colorKey), accessory || 'none')
     }
 
     private rebuildPetIfNeeded(pet: PetDisplayState): void {
-        const key = `${pet.species}|${pet.color || ''}|${pet.accessory || ''}|${pet.growthStage}|${pet.evolutionStage || 0}`
+        const key = `${pet.color || ''}|${pet.accessory || ''}|${pet.growthStage}|${pet.evolutionStage || 0}`
         if (key === this.petKey || !this.petNode || !this.world3d) {
             return
         }
         this.petKey = key
         const hadRig = !!this.rig
-        this.petNode.destroy()
+        if (this.petNode) {
+            this.petNode.destroy()
+        }
         if (this.rig) {
             this.rig.shadow.destroy()
         }
