@@ -49,6 +49,25 @@ mvn -pl mall-pet,mall-admin,mall-wish,mall-notification -am package  # PASS
 
 **并发限制说明**：远程 9023 端口不接受同源并发连接（curl/python 线程 5/20 并发均连接超时），T01 真·并发竞态无法从外部触发；幂等语义已由顺序重放（T04）+ 数据库唯一键（wish_pet_operation / pet_inventory）验证。
 
+## 2c. 第三轮复验（用户 Rebuild 后，2026-09-26 21:40–21:55）
+
+| 场景 | 结果 | 说明 |
+| --- | --- | --- |
+| T16 JSON 契约 | **PASS（保持）** | 时间带 Z / Long 字符串化在重启后保持 |
+| T18 PVP 胜者星光 | **仍 FAIL** | 防守方胜 currency_reward=0——部署字节码仍是旧逻辑 |
+| B14 屏蔽（拜访/挑战/留言三入口） | **仍 FAIL** | 屏蔽行存在（SQL 已核对）但三入口全部放行 |
+
+**构件诊断结论**：本地工作区源码 4 个标记核验通过、`mvn clean package` 产物字节码核验通过（BATTLE_REWARD / jsafe-long 标记在位，编译时间 21:51）；远程运行实例三入口无拦截而 T16 定制器（更晚提交）已生效——判定为**构建机增量编译跳过部分改动文件**（PetBattleServiceImpl / PetWallServiceImpl / PetHomeServiceImpl / PetFriendServiceImpl 的 .class 为旧版）。
+
+**用户侧自检**（构建机 cmd，两条都应输出文件名）：
+
+    findstr /m /c:"isBlockedEitherWay" "C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-pet\src\main\java\com\cloudmart\pet\service\impl\PetWallServiceImpl.java"
+    findstr /m /c:"isBlockedEitherWay" "C:\Users\75557\Desktop\studyG4\资料代码G4\smartchargingstation\code\CloudMart\mall-pet\target\classes\com\cloudmart\pet\service\impl\PetWallServiceImpl.class"
+
+- 源码找不到 → 从本工作区（D:\Ide\IdeaProjects\CloudMart）整目录重新复制 mall-pet / mall-wish；
+- 源码找到但 class 找不到 → IDEA **Build → Rebuild Project**（必须 Rebuild，增量 Build 会跳过）后重启；
+- 两者都找到但仍未拦截 → 确认进程重启时间晚于 Rebuild 完成时间。
+
 **B07 根因备忘**：Spring Boot 4 MVC 走 Jackson 3（tools.jackson），Jackson 2 ObjectMapper 定制不生效；已通过 mall-common `common.jsafe-long.enabled` 开关 + mall-pet `PetJsonMapperCustomizer`（Jackson 3 `JsonMapperBuilderCustomizer`）落地契约。
 
 ## 3. 远程测试发现并已修复的缺陷（代码在本地仓库，需重新部署）

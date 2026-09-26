@@ -57,10 +57,13 @@ public class PetUserBlockServiceImpl implements PetUserBlockService {
 
     @Override
     public boolean isBlockedEitherWay(Long userA, Long userB) {
+        // 注意：不要用嵌套 and(...).or().and(...) 链——实测该写法生成的 SQL 段丢失 OR（全 AND 恒为假），
+        // 拆成两次简单点查（都走 uk_pet_user_block 索引，成本可忽略）
         return blockMapper.selectCount(new LambdaQueryWrapper<PetUserBlock>()
-                .and(w -> w.and(w1 -> w1.eq(PetUserBlock::getUserId, userA)
-                                .eq(PetUserBlock::getBlockedUserId, userB))
-                        .or().and(w2 -> w2.eq(PetUserBlock::getUserId, userB)
-                                .eq(PetUserBlock::getBlockedUserId, userA)))) > 0;
+                .eq(PetUserBlock::getUserId, userA)
+                .eq(PetUserBlock::getBlockedUserId, userB)) > 0
+                || blockMapper.selectCount(new LambdaQueryWrapper<PetUserBlock>()
+                .eq(PetUserBlock::getUserId, userB)
+                .eq(PetUserBlock::getBlockedUserId, userA)) > 0;
     }
 }
