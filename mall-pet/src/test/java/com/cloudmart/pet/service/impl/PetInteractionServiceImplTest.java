@@ -99,7 +99,8 @@ class PetInteractionServiceImplTest {
         outboxService = org.mockito.Mockito.mock(PetOutboxService.class);
         interactionService = new PetInteractionServiceImpl(petService, stateService, activityMapper,
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
-                properties, quotaService, outboxService, petClock);
+                properties, quotaService, outboxService, petClock,
+                org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
     }

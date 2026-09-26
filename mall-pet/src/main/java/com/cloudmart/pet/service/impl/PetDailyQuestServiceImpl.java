@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
@@ -61,6 +62,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final PetDailyQuestMapper questMapper;
     private final WishFeignClient wishFeignClient;
     private final PetOperationService operationService;
+    private final PetClock petClock;
     private final PetIntimacyService intimacyService;
     private final PetAchievementService achievementService;
     private final PetProperties properties;
@@ -71,6 +73,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetDailyQuestMapper questMapper,
                                     WishFeignClient wishFeignClient,
                                     PetOperationService operationService,
+                                    PetClock petClock,
                                     PetIntimacyService intimacyService,
                                     PetAchievementService achievementService,
                                     PetProperties properties) {
@@ -80,6 +83,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.questMapper = questMapper;
         this.wishFeignClient = wishFeignClient;
         this.operationService = operationService;
+        this.petClock = petClock;
         this.intimacyService = intimacyService;
         this.achievementService = achievementService;
         this.properties = properties;
@@ -158,7 +162,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_CLAIMED, "今天的宝箱已经领过啦");
         }
         boolean chestReady = !normalQuests.isEmpty()
-                && normalQuests.stream().allMatch(q -> PetQuestStatus.CLAIMED.name().equals(q.getStatus()));
+                && normalQuests.stream()
+                .filter(q -> !PetQuestStatus.CANCELLED.name().equals(q.getStatus()))
+                .allMatch(q -> PetQuestStatus.CLAIMED.name().equals(q.getStatus()));
         if (!chestReady) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_NOT_READY, "把今天的任务都领完才能开宝箱哦");
         }
@@ -239,7 +245,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         List<PetDailyQuest> existing = questMapper.selectList(todayWrapper(pet));
         List<String> existingCodes = existing.stream().map(PetDailyQuest::getQuestCode).toList();
-        List<PetDailyQuestConfig> configs = activeConfigs(pet);
+        List<PetDailyQuestConfig> configs = frozenConfigsForToday(pet, today);
         for (PetDailyQuestConfig config : configs) {
             if (existingCodes.contains(config.getCode())) {
                 continue;
@@ -296,6 +302,35 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 .toList();
     }
 
+    /**
+     * B15：生成当日任务只使用"本业务日开始前已存在"的配置——当日新增/升级解锁的配置
+     * 次日生效，冻结任务集合；targetValue 在创建时快照。
+     */
+    private List<PetDailyQuestConfig> frozenConfigsForToday(Pet pet, LocalDate today) {
+        LocalDateTime dayStartUtc = petClock.businessDateStartUtc(today);
+        return activeConfigs(pet).stream()
+                .filter(c -> c.getCreatedAt() == null || c.getCreatedAt().isBefore(dayStartUtc))
+                .toList();
+    }
+
+    /** B15：配置停用 → 当日快照显式置 CANCELLED（不静默消失，且不阻挡宝箱） */
+    private int cancelDisabledQuests(List<PetDailyQuest> quests, java.util.Set<String> enabledCodes) {
+        int cancelled = 0;
+        for (PetDailyQuest quest : quests) {
+            if (CHEST_CODE.equals(quest.getQuestCode())
+                    || PetQuestStatus.IN_PROGRESS.name().equals(quest.getStatus())
+                    && !enabledCodes.contains(quest.getQuestCode())) {
+                if (!CHEST_CODE.equals(quest.getQuestCode())) {
+                    cancelled += questMapper.update(null, new LambdaUpdateWrapper<PetDailyQuest>()
+                            .set(PetDailyQuest::getStatus, PetQuestStatus.CANCELLED.name())
+                            .eq(PetDailyQuest::getId, quest.getId())
+                            .eq(PetDailyQuest::getStatus, PetQuestStatus.IN_PROGRESS.name()));
+                }
+            }
+        }
+        return cancelled;
+    }
+
     private PetDailyQuest requireQuest(Pet pet, String questCode) {
         PetDailyQuest quest = questMapper.selectOne(new LambdaQueryWrapper<PetDailyQuest>()
                 .eq(PetDailyQuest::getPetId, pet.getId())
@@ -330,8 +365,17 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 continue;
             }
             PetDailyQuestConfig config = configMap.get(quest.getQuestCode());
-            if (config == null) {
-                // 配置已下架：仍展示进度（避免"任务凭空消失"），但不发奖
+            if (config == null || PetQuestStatus.CANCELLED.name().equals(quest.getStatus())) {
+                // B15：配置已下架/任务被取消：显式展示 CANCELLED（不静默消失），不计入宝箱门禁
+                items.add(new PetDailyQuestItemVO(quest.getQuestCode(),
+                        config != null ? config.getName() : quest.getQuestCode(),
+                        config != null ? config.getDescription() : "",
+                        config != null ? config.getIcon() : "📌",
+                        config != null ? config.getQuestType() : null,
+                        quest.getProgress(), quest.getTargetValue(), quest.getStatus(),
+                        "已取消", false,
+                        config != null ? orZero(config.getExpReward()) : 0,
+                        config != null ? orZero(config.getCurrencyReward()) : 0));
                 continue;
             }
             if (!PetQuestStatus.IN_PROGRESS.name().equals(quest.getStatus())) {

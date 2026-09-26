@@ -62,6 +62,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetStateService stateService;
     private final PetBattleMapper battleMapper;
     private final PetMapper petMapper;
+    private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
@@ -85,7 +86,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetDailyQuestService dailyQuestService,
                                 PetIntimacyService intimacyService,
                                 PetRelationService relationService,
-                                PetOperationService operationService) {
+                                PetOperationService operationService,
+                                com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -99,6 +101,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.intimacyService = intimacyService;
         this.relationService = relationService;
         this.operationService = operationService;
+        this.userBlockService = userBlockService;
     }
 
     @Override
@@ -152,6 +155,9 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_OPPONENT_INVALID, "对手宠物不存在或未公开");
         }
         if (defender.getUserId().equals(userId)) {
+        if (userBlockService.isBlockedEitherWay(userId, defender.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法挑战该用户");
+        }
             throw new BusinessException(PetErrorCodes.PET_BATTLE_SELF_CHALLENGE, "不能挑战自己的宠物哦");
         }
 

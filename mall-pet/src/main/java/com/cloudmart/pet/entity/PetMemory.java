@@ -44,6 +44,12 @@ public class PetMemory {
     /** 置信度 0-1（规则抽取默认 0.9；后续接 AI 抽取可调） */
     private BigDecimal confidence;
 
+    /** 来源：AUTO 自动抽取 / USER 用户编辑（编辑优先，不被覆盖，N03） */
+    private String source;
+
+    /** 启用状态（删除=0 删除标记，防旧消息重试复活，N03） */
+    private Boolean enabled;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

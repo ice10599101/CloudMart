@@ -73,7 +73,7 @@ class PetIntimacyServiceImplTest {
                 java.time.ZoneOffset.UTC);
         petClock = new PetClock(fixed, properties);
         intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
-                properties, eventProducer, outboxService, petClock);
+                properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock);
         lenient().when(sessionMapper.insert(any(PetCompanionSession.class))).thenReturn(1);
         lenient().when(dailyMapper.insert(any(PetCompanionDaily.class))).thenReturn(1);
         lenient().when(petMapper.update(any(), any())).thenReturn(1);

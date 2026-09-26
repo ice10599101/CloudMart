@@ -35,6 +35,9 @@ public class PetEventConfig {
     /** 统计口径：BOTTLE/BATTLE/WORK/STUDY/FEED/PLAY/VISIT */
     private String eventType;
 
+    /** LIFETIME 累计 / WINDOW 限时（B16：不再靠起止时间是否为空猜测） */
+    private String eventMode;
+
     /** 目标次数 */
     private Integer targetValue;
 

@@ -55,6 +55,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final PetHomeService homeService;
     private final PetProperties properties;
     private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
+    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
 
@@ -69,7 +71,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetProperties properties,
                                      PetQuotaService quotaService,
                                      PetOutboxService outboxService,
-                                     PetClock petClock) {
+                                     PetClock petClock,
+                                     com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
+                                     com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -82,6 +86,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.quotaService = quotaService;
         this.outboxService = outboxService;
         this.petClock = petClock;
+        this.companionFeatureService = companionFeatureService;
+        this.playFeatureService = playFeatureService;
     }
 
     @Override
@@ -112,6 +118,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setStatus(PetStatus.IDLE.name());
         pet.setHungerFrac(0.0);
         recordInstantActivity(pet, PetActivityType.FEED, cfg.getFeedExp());
+        companionFeatureService.recordStep(userId, "FEED");
+        playFeatureService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
         intimacyService.gain(pet, PetIntimacySource.FEED);
         int levelups = stateService.grantExp(pet, cfg.getFeedExp());
         dailyQuestService.record(pet, PetQuestType.FEED, 1);
@@ -147,7 +155,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getPlayHappiness()));
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.PLAY, rewardable ? cfg.getPlayExp() : 0);
+        companionFeatureService.recordStep(userId, "PLAY");
         if (rewardable) {
+            playFeatureService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
             intimacyService.gain(pet, PetIntimacySource.PLAY);
             int levelups = stateService.grantExp(pet, cfg.getPlayExp());
             dailyQuestService.record(pet, PetQuestType.PLAY, 1);

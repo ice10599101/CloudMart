@@ -33,10 +33,21 @@ public class PetOutboxService {
 
     private final PetOutboxEventMapper outboxMapper;
     private final PetEventProducer eventProducer;
+    private final org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider;
 
-    public PetOutboxService(PetOutboxEventMapper outboxMapper, PetEventProducer eventProducer) {
+    private com.cloudmart.pet.repository.PetDiaryEntryMapper petDiaryEntryMapper;
+
+    public PetOutboxService(PetOutboxEventMapper outboxMapper, PetEventProducer eventProducer,
+                            org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider) {
         this.outboxMapper = outboxMapper;
         this.eventProducer = eventProducer;
+        this.diaryMapperProvider = diaryMapperProvider;
+        this.petDiaryEntryMapper = null;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDiaryMapper(com.cloudmart.pet.repository.PetDiaryEntryMapper mapper) {
+        this.petDiaryEntryMapper = mapper;
     }
 
     /** MQ 消息体即 PetEventProducer.PetEventMessage（B07 契约：Long 一律字符串；eventId 供消费者去重） */
@@ -82,6 +93,22 @@ public class PetOutboxService {
                 new com.fasterxml.jackson.core.type.TypeReference<PetEventProducer.PetEventMessage>() {
                 });
         boolean sent = eventProducer.tryPublish(event.getEventType(), payload);
+        // N02：业务事实事件同步生成成长日记（eventId 复用，天然去重）
+        try {
+            if (petDiaryEntryMapper != null && payload.userId() != null) {
+                com.cloudmart.pet.entity.PetDiaryEntry entry = new com.cloudmart.pet.entity.PetDiaryEntry();
+                entry.setPetId(event.getPetId());
+                entry.setUserId(Long.valueOf(payload.userId()));
+                entry.setEventId(payload.eventId());
+                entry.setEventType(payload.reminderType());
+                entry.setOccurredAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+                entry.setSnapshot(event.getPayload());
+                entry.setVisibility("OWNER_ONLY");
+                petDiaryEntryMapper.insert(entry);
+            }
+        } catch (Exception e) {
+            log.debug("日记生成幂等跳过: eventId={}", event.getEventId());
+        }
         if (sent) {
             event.setStatus("SENT");
         } else {

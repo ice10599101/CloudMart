@@ -12,8 +12,9 @@ import java.time.Clock;
 @Configuration
 public class PetTimeConfig {
 
+    // Bean 名不能叫 petClock：@Component PetClock 已按类名注册同名 Bean，这里只提供底层 java.time.Clock
     @Bean
-    public Clock petClock() {
+    public Clock systemClock() {
         return Clock.systemUTC();
     }
 }

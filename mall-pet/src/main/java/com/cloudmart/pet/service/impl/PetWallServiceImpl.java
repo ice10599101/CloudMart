@@ -78,6 +78,8 @@ public class PetWallServiceImpl implements PetWallService {
     private final PetEventProducer eventProducer;
     private final WishFeignClient wishFeignClient;
     private final PetProperties properties;
+    private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final StringRedisTemplate redisTemplate;
 
     public PetWallServiceImpl(PetService petService,
@@ -92,7 +94,9 @@ public class PetWallServiceImpl implements PetWallService {
                               PetEventProducer eventProducer,
                               WishFeignClient wishFeignClient,
                               PetProperties properties,
-                              StringRedisTemplate redisTemplate) {
+                              StringRedisTemplate redisTemplate,
+                              PetQuotaService quotaService,
+                              com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.wallMessageMapper = wallMessageMapper;
@@ -106,6 +110,8 @@ public class PetWallServiceImpl implements PetWallService {
         this.wishFeignClient = wishFeignClient;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.quotaService = quotaService;
+        this.userBlockService = userBlockService;
     }
 
     @Override
@@ -169,9 +175,17 @@ public class PetWallServiceImpl implements PetWallService {
         if (userId.equals(owner.getUserId())) {
             throw new BusinessException(PetErrorCodes.PET_WALL_FORBIDDEN, "这是自己的留言墙，回复访客就好啦");
         }
+        if (userBlockService.isBlockedEitherWay(userId, owner.getUserId())) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED, "无法给该用户留言");
+        }
         requireRoomPublic(owner, false);
         String content = normalize(request.content());
-        requirePostQuota(userId, owner.getId());
+        // B14：留言与回复共享数据库日限额（Redis 故障不发奖不计数）
+        boolean allowed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.WALL_POST, 0,
+                properties.getWall().getDailyPostLimit());
+        if (!allowed) {
+            throw new BusinessException(PetErrorCodes.PET_WALL_RATE_LIMITED, "今天留言数已达上限，明天再来吧");
+        }
 
         PetWallMessage message = new PetWallMessage();
         message.setPetId(owner.getId());

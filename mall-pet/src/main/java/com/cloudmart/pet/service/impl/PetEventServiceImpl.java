@@ -119,9 +119,8 @@ public class PetEventServiceImpl implements PetEventService {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在或已下架");
         }
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
-        if (config.getEndsAt() != null && now.isAfter(config.getEndsAt())) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_ENDED, "活动已经结束啦，下次早点来～");
-        }
+        // B16：开始前不能领；结束后 24h 内仍可领取已达成奖励
+        requireClaimWindow(config, now);
         int progress = countProgress(pet, config);
         int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
         if (progress < target) {
@@ -244,8 +243,10 @@ public class PetEventServiceImpl implements PetEventService {
             return 0;
         }
         return switch (type) {
+            // B16：BOTTLE 默认只统计 CAUGHT（远程失败/空手不计入成功）；如运营要统计参与次数，新增明确事件类型
             case BOTTLE -> toInt(bottleRecordMapper.selectCount(new LambdaQueryWrapper<PetBottleRecord>()
-                    .eq(PetBottleRecord::getPetId, pet.getId())));
+                    .eq(PetBottleRecord::getPetId, pet.getId())
+                    .eq(PetBottleRecord::getOutcome, "CAUGHT")));
             case BATTLE -> toInt(battleMapper.selectCount(new LambdaQueryWrapper<PetBattle>()
                     .eq(PetBattle::getWinnerPetId, pet.getId())
                     .eq(PetBattle::getStatus, PetBattleStatus.FINISHED.name())));
@@ -262,11 +263,32 @@ public class PetEventServiceImpl implements PetEventService {
         return value != null ? value.intValue() : 0;
     }
 
+    /** B16：窗口判定按显式模式——LIFETIME 无时间窗；WINDOW 按 [startsAt, endsAt) */
     private boolean inWindow(PetEventConfig config, LocalDateTime now) {
-        if (config.getStartsAt() != null && now.isBefore(config.getStartsAt())) {
-            return false;
+        if ("WINDOW".equals(config.getEventMode())) {
+            if (config.getStartsAt() != null && now.isBefore(config.getStartsAt())) {
+                return false;
+            }
+            return config.getEndsAt() == null || now.isBefore(config.getEndsAt());
         }
-        return config.getEndsAt() == null || !now.isAfter(config.getEndsAt());
+        return true;
+    }
+
+    /** B16：活动结束后允许领取已达成奖励的时长（默认 24h，创建时快照固定） */
+    static final long CLAIM_GRACE_HOURS = 24;
+
+    /** 领奖资格：已开始、未过领取截止（WINDOW 模式） */
+    private void requireClaimWindow(PetEventConfig config, LocalDateTime now) {
+        if (!"WINDOW".equals(config.getEventMode())) {
+            return;
+        }
+        if (config.getStartsAt() != null && now.isBefore(config.getStartsAt())) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED, "活动还没有开始哦");
+        }
+        if (config.getEndsAt() != null
+                && now.isAfter(config.getEndsAt().plusHours(CLAIM_GRACE_HOURS))) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_ENDED, "活动奖励领取已截止，下次早点来～");
+        }
     }
 
     private int orZero(Integer value) {

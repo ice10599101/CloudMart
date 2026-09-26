@@ -59,6 +59,7 @@ public class PetFriendServiceImpl implements PetFriendService {
 
     private final PetService petService;
     private final PetMapper petMapper;
+    private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final PetFriendMapper friendMapper;
     private final PetHomeService homeService;
     private final PetRelationService relationService;
@@ -79,7 +80,8 @@ public class PetFriendServiceImpl implements PetFriendService {
                                 WishFeignClient wishFeignClient,
                                 PetEventProducer eventProducer,
                                 PetProperties properties,
-                                StringRedisTemplate redisTemplate) {
+                                StringRedisTemplate redisTemplate,
+                                com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.friendMapper = friendMapper;
@@ -90,6 +92,7 @@ public class PetFriendServiceImpl implements PetFriendService {
         this.wishFeignClient = wishFeignClient;
         this.eventProducer = eventProducer;
         this.properties = properties;
+        this.userBlockService = userBlockService;
         this.redisTemplate = redisTemplate;
     }
 
@@ -154,6 +157,9 @@ public class PetFriendServiceImpl implements PetFriendService {
         PetFriend existing = findRow(userId, friendUserId);
         if (existing != null && PetFriendStatus.ACTIVE.name().equals(existing.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_FRIEND_EXISTS, "你们已经是好友啦");
+        }
+        if (userBlockService.isBlockedEitherWay(userId, friendUserId)) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法向该用户发送申请");
         }
         long friendCount = friendMapper.selectCount(new LambdaQueryWrapper<PetFriend>()
                 .eq(PetFriend::getUserId, userId)

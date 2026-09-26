@@ -91,7 +91,7 @@ class PetDailyQuestServiceImplTest {
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
-                wishFeignClient, operationService, intimacyService, achievementService, properties);
+                wishFeignClient, operationService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(configMapper.selectList(any())).thenReturn(List.of(config()));
         lenient().when(configMapper.selectOne(any())).thenReturn(config());

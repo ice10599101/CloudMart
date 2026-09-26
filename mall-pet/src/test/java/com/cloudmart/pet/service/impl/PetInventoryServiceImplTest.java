@@ -67,7 +67,7 @@ class PetInventoryServiceImplTest {
     @BeforeEach
     void setUp() {
         inventoryService = new PetInventoryServiceImpl(petService, itemCatalog, inventoryMapper,
-                skillMapper, petMapper);
+                skillMapper, petMapper, org.mockito.Mockito.mock(PetStatsService.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
     }

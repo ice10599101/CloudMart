@@ -93,6 +93,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
+    private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
     private final PetEventProducer eventProducer;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
@@ -117,7 +118,8 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetOperationService operationService,
                               com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
                               PetQuotaService quotaService,
-                              com.cloudmart.pet.service.PetUserBlockService userBlockService) {
+                              com.cloudmart.pet.service.PetUserBlockService userBlockService,
+                              com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -130,6 +132,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
         this.userBlockService = userBlockService;
+        this.companionFeatureService = companionFeatureService;
         this.eventProducer = eventProducer;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
@@ -207,6 +210,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                     "墙纸和地板要在家园设置里更换哦");
         }
         requireOwned(pet, config.getCode());
+        companionFeatureService.recordStep(userId, "DECORATE");
         PetProperties.Home cfg = properties.getHome();
         if (request.posX() >= cfg.getGridWidth() || request.posY() >= cfg.getGridHeight()) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_POS_INVALID, "这个位置放不下，换个格子试试");

@@ -100,6 +100,12 @@ public class Pet {
     /** 清洁变化小数余量（B04） */
     private Double cleanlinessFrac;
 
+    /** 自动记忆提取开关（N03，默认开） */
+    private Boolean memoryExtractEnabled;
+
+    /** 记忆注入上下文开关（N03/B18，默认开） */
+    private Boolean memoryUseEnabled;
+
     /** 力量 */
     private Integer strength;
 

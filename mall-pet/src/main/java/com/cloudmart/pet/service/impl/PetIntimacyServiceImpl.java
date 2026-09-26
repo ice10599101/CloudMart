@@ -51,6 +51,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     private final PetProperties properties;
     private final PetEventProducer eventProducer;
     private final PetOutboxService outboxService;
+    private final com.cloudmart.pet.service.PetAchievementService achievementService;
     private final PetClock petClock;
 
     public PetIntimacyServiceImpl(PetMapper petMapper,
@@ -59,6 +60,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
                                   PetProperties properties,
                                   PetEventProducer eventProducer,
                                   PetOutboxService outboxService,
+                                  com.cloudmart.pet.service.PetAchievementService achievementService,
                                   PetClock petClock) {
         this.petMapper = petMapper;
         this.sessionMapper = sessionMapper;
@@ -66,6 +68,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
         this.properties = properties;
         this.eventProducer = eventProducer;
         this.outboxService = outboxService;
+        this.achievementService = achievementService;
         this.petClock = petClock;
     }
 
@@ -224,6 +227,8 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
                         .eq(PetCompanionDaily::getId, daily.getId()));
                 applyIntimacy(pet, grant);
             }
+            // B17：陪伴时长成就按时长变化检查（不要求恰好发生亲密度升级才触发）
+            achievementService.evaluate(pet, com.cloudmart.pet.service.PetAchievementService.Event.COMPANION);
             date = date.plusDays(1);
         }
 
