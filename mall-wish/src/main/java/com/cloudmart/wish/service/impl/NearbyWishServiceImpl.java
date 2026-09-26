@@ -99,8 +99,7 @@ public class NearbyWishServiceImpl implements NearbyWishService {
     /** DB 查询（geohash 前缀 9 格窗口）+ 内存距离裁剪（B07：VO 组装移至 assembleNearbyVos） */
     private List<Wish> queryNearbyWishes(double[] center, int radiusM, String geohash) {
         // 查询前缀集合：geohash 参数直取其 5 位前缀邻格；lat/lng 场景同构
-        String centerCell = GeoHashUtils.encode(center[0], center[1], QUERY_PRECISION);
-        Set<String> prefixCells = new java.util.LinkedHashSet<>(GeoHashUtils.neighbors(centerCell));
+        Set<String> prefixCells = cellsWithinRadius(center, radiusM);
 
         List<Wish> wishes = wishMapper.selectList(new LambdaQueryWrapper<Wish>()
                 .eq(Wish::getVisibility, WishVisibility.PUBLIC)
@@ -131,6 +130,37 @@ public class NearbyWishServiceImpl implements NearbyWishService {
             inRange.add(wish);
         }
         return inRange;
+    }
+
+    /**
+     * B16：按半径自适应选择 geohash 精度并枚举覆盖包围盒的全部网格——
+     * 固定 9 邻格在 20/50km 半径下会漏掉跨格心愿。每档精度限定在 ±2 环
+     * （≤25 格），查询条件数量有上界。
+     */
+    static Set<String> cellsWithinRadius(double[] center, int radiusM) {
+        int precision;
+        if (radiusM <= 6000) {
+            precision = 5;   // 格约 4.9km
+        } else if (radiusM <= 22000) {
+            precision = 4;   // 格约 19.5km
+        } else {
+            precision = 3;   // 格约 78km
+        }
+        double cellSize = precision == 5 ? 4900 : precision == 4 ? 19500 : 78000;
+        int steps = (int) Math.ceil(radiusM / cellSize) + 1;
+        Set<String> cells = new java.util.LinkedHashSet<>();
+        for (int i = -steps; i <= steps; i++) {
+            for (int j = -steps; j <= steps; j++) {
+                double lat = center[0] + i * cellSize;
+                double lng = center[1] + j * cellSize;
+                if (lat < -90.0 || lat > 90.0) {
+                    continue;
+                }
+                double lngNorm = lng > 180.0 ? lng - 360.0 : lng < -180.0 ? lng + 360.0 : lng;
+                cells.add(GeoHashUtils.encode(lat, lngNorm, precision));
+            }
+        }
+        return cells;
     }
 
     /** 模糊坐标 VO 组装（geohash7 网格中心 + wishId 种子确定性偏移 0-50m，可复现） */
@@ -204,6 +234,10 @@ public class NearbyWishServiceImpl implements NearbyWishService {
 
     /** 解析查询中心：geohash 参数优先；空坐标（null/0,0）→ 默认城市兜底 */
     private double[] resolveCenter(Double lat, Double lng, String geohash) {
+        // B16：lat/lng 必须成对出现
+        if ((geohash == null || geohash.isBlank()) && ((lat == null) != (lng == null))) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "经纬度必须成对提供");
+        }
         if (geohash != null && !geohash.isBlank()) {
             try {
                 GeoHashUtils.validate(geohash, 6);
@@ -212,10 +246,11 @@ public class NearbyWishServiceImpl implements NearbyWishService {
                 throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, ex.getMessage());
             }
         }
-        if (isBlankCoordinate(lat, lng)) {
-            // 空坐标兜底：默认城市中心（验收：避免空白页）
-            return new double[]{mapProperties.getDefaultLat(), mapProperties.getDefaultLng()};
+        // B16：非有限数（NaN/Infinity）一律拒绝
+        if (!Double.isFinite(lat) || !Double.isFinite(lng)) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "坐标非法");
         }
+        // B16：0 不是无效标记——0,0 为合法坐标正常参与查询
         if (lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "坐标越界");
         }
@@ -231,9 +266,8 @@ public class NearbyWishServiceImpl implements NearbyWishService {
     }
 
     private boolean isBlankCoordinate(Double lat, Double lng) {
-        return lat == null || lng == null
-                || (lat == 0.0 && lng == 0.0)
-                || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0;
+        // B16：仅"完全未提供"回退默认城市；0,0 是合法坐标
+        return lat == null && lng == null;
     }
 
     private boolean isValidGeohash(String geohash) {

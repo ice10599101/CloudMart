@@ -117,7 +117,13 @@ public class InteractionServiceImpl implements InteractionService {
         }
         boolean sameWishAcquired = false;
         if (type == InteractionType.SAME_WISH) {
-            sameWishAcquired = rateLimiter.tryAcquireSameWishUnique(userId, wishId);
+            // B24：唯一性以 DB 计数为事实（uk_interaction_unique 兜底），无 Redis 永久门闩
+            long existing = wishInteractionMapper.selectCount(new LambdaQueryWrapper<WishInteraction>()
+                    .eq(WishInteraction::getWishId, wishId)
+                    .eq(WishInteraction::getUserId, userId)
+                    .eq(WishInteraction::getType, InteractionType.SAME_WISH)
+                    .isNull(WishInteraction::getDeletedAt));
+            sameWishAcquired = rateLimiter.tryAcquireSameWishUnique(userId, wishId, existing);
             if (!sameWishAcquired) {
                 throw new BusinessException(WishErrorCodes.WISH_ALREADY_INTERACTED, "已同求过该心愿");
             }

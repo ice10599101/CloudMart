@@ -106,27 +106,20 @@ public class InteractionRateLimiter {
      *
      * @return true=占位成功；false=已同求过
      */
-    public boolean tryAcquireSameWishUnique(Long userId, Long wishId) {
-        String key = KEY_PREFIX + KEY_USER_WISH_DIMENSION + userId + ":" + wishId + ":same_wish";
-        try {
-            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, String.valueOf(Instant.now().toEpochMilli()));
-            return Boolean.TRUE.equals(acquired);
-        } catch (DataAccessException ex) {
-            log.warn("Redis不可用，同求唯一占位降级放行（DB唯一索引兜底）, key={}", key, ex);
-            return true;
-        }
+    public boolean tryAcquireSameWishUnique(Long userId, Long wishId, Long existingCount) {
+        // B24：废除永久 Redis 排他门闩（业务失败/异常残留 Key 会把用户永久挡住，
+        // 且 Redis 不可用时 Fail-Open 与闭键语义不一致）——SAME_WISH 唯一性
+        // 以 wish_interaction 的 uk_interaction_unique（DB）为事实，调用方传入
+        // 事务内的现有计数：0=可同求，>0=已同求。
+        return existingCount == null || existingCount == 0;
     }
 
     /**
      * 释放同求唯一占位（取消同求时调用，允许重新同求）。
      */
     public void releaseSameWishUnique(Long userId, Long wishId) {
-        String key = KEY_PREFIX + KEY_USER_WISH_DIMENSION + userId + ":" + wishId + ":same_wish";
-        try {
-            redisTemplate.delete(key);
-        } catch (DataAccessException ex) {
-            log.warn("Redis不可用，同求唯一占位释放失败（残留Key会导致需人工处理）, key={}", key, ex);
-        }
+        // B24：唯一性已收敛到 DB（撤同求删除 wish_interaction 行即释放），
+        // 无 Redis 门闩需要清理；保留方法签名以兼容调用点。
     }
 
     /**

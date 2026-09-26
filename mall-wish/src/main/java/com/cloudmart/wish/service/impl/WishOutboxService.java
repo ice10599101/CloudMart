@@ -154,6 +154,7 @@ public class WishOutboxService {
         return switch (eventType) {
             case "HelpedRecorded" -> RocketMQConfig.WISH_TAG_STAT_SYNC;
             case "WishFulfilled" -> RocketMQConfig.WISH_TAG_FULFILLED;
+            case "WishModerated" -> RocketMQConfig.WISH_TAG_AUDITED;
             default -> camelToTag(eventType);
         };
     }

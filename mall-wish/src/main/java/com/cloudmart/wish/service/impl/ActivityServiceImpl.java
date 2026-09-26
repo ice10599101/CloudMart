@@ -126,14 +126,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public long getProgress(Long activityId) {
-        try {
-            String value = redisTemplate.opsForValue().get(PROGRESS_KEY_PREFIX + activityId);
-            if (value != null) {
-                return Long.parseLong(value);
-            }
-        } catch (DataAccessException | NumberFormatException ex) {
-            log.warn("活动进度 Redis 读取失败，回源 DB: {}", ex.getMessage());
-        }
+        // B18：进度以 DB 事实列为准（Redis 仅写侧缓存，不再参与读判定）
         CommunityActivity activity = activityMapper.selectById(activityId);
         return activity == null || activity.getProgressCounter() == null ? 0 : activity.getProgressCounter();
     }
@@ -226,9 +219,17 @@ public class ActivityServiceImpl implements ActivityService {
         if (participant == null || participant.getStatus() != ActivityParticipantStatus.PENDING) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "申请不存在或已审批");
         }
-        participant.setStatus(approved ? ActivityParticipantStatus.APPROVED : ActivityParticipantStatus.REJECTED);
-        participant.setReviewedAt(LocalDateTime.now(ZoneId.of("UTC")));
-        participantMapper.updateById(participant);
+        // B18：状态 CAS——并发双审批只有一个成功，进度只计一次
+        int affected = participantMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ActivityParticipant>()
+                        .eq(ActivityParticipant::getId, participant.getId())
+                        .eq(ActivityParticipant::getStatus, ActivityParticipantStatus.PENDING)
+                        .set(ActivityParticipant::getStatus,
+                                approved ? ActivityParticipantStatus.APPROVED : ActivityParticipantStatus.REJECTED)
+                        .set(ActivityParticipant::getReviewedAt, LocalDateTime.now(ZoneId.of("UTC"))));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "申请不存在或已审批");
+        }
         if (approved) {
             incrProgress(activityId);
         }
@@ -446,8 +447,8 @@ public class ActivityServiceImpl implements ActivityService {
                     starlightIssued++;
                     anyIssued = true;
                 } else {
+                    // B18：某类型已发不阻止同用户其他未发奖励类型
                     skipped++;
-                    continue;
                 }
             }
             if (badgeId != null) {
@@ -563,6 +564,12 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     private void incrProgress(Long activityId) {
+        activityMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<CommunityActivity>()
+                        .eq(CommunityActivity::getId, activityId)
+                        .setSql("progress_counter = COALESCE(progress_counter, 0) + 1"));
+
+        // B18：DB 事实列与 Redis 缓存同增（事务内提交）；Redis 丢失后回源不再过时
         try {
             redisTemplate.opsForValue().increment(PROGRESS_KEY_PREFIX + activityId);
             redisTemplate.expire(PROGRESS_KEY_PREFIX + activityId, Duration.ofDays(30));

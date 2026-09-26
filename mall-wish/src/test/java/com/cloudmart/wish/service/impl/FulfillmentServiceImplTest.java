@@ -354,13 +354,15 @@ class FulfillmentServiceImplTest {
             when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(STARLIGHT_REWARD);
 
             SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
-                    "<script>alert('x')</script>", List.of("oss://key1.png"), "<b>感悟</b>");
+                    "<p>坚持</p><script>alert('x')</script>", List.of("oss://key1.png"), "<b>感悟</b>");
 
             fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null);
 
+            // B12：服务端富文本净化——script 整块移除，白名单标签保留
             verify(wishFulfillmentMapper).insert(org.mockito.ArgumentMatchers.<WishFulfillment>argThat(f ->
-                    f.getStory().contains("<script>")
-                            && !f.getStory().contains("&lt;script&gt;")
+                    !f.getStory().contains("script")
+                            && !f.getStory().contains("alert")
+                            && f.getStory().contains("<p>坚持</p>")
                             && f.getFeeling().contains("&lt;b&gt;")
                             && f.getAuditStatus() == AuditStatus.PENDING
                             && Boolean.TRUE.equals(f.getIsVisible())

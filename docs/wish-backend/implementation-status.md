@@ -159,6 +159,68 @@ lint / typecheck：NOT RUN（Java 后端以编译+测试为准）
 集成/并发（真实库）：NOT RUN
 ```
 
+## 8. 第五轮交付（W2 第二批：B15/B17/B24，2026-09-27）
+
+### B15 公开列表分页漏项
+- V1 `listWishes` 暂停"置顶混合排序"：首页不再 `isTop DESC` 混排、翻页不再排除置顶项——消除"置顶数≥pageSize 或旧置顶导致普通心愿被跳过"的漏项；V1 保持 `(created_at,id)` 全序稳定分页。V2 签名游标（sortVersion/feedVersion/snapshotAt）随 B22/新接口交付。
+
+### B24 限流与 AI 目标归属
+- **废除 SAME_WISH 永久 Redis 排他门闩**：唯一性以 `wish_interaction.uk_interaction_unique`（DB）为事实——`tryAcquireSameWishUnique` 改为事务内 DB 计数判定（0 可同求）；`releaseSameWishUnique` 收敛为 no-op（撤同求删 DB 行即释放）。修复"业务失败/异常残留 Key 把用户永久挡住"与"Redis 故障 Fail-Open 与闭键语义不一致"。
+- **AI 目标归属校验**：`createGoals` 校验 wishId 属于本人（否则 404）、sessionId 前缀归属本人（否则 422）——不再直接保存请求传入的 wishId/sessionId。
+- 余量：BLESS 按日唯一需 V45（wish_interaction.business_date 列）迁移，随下一批落地。
+
+### B17 漂流瓶隐藏
+- `requireBottleViewable` 增加 `isHidden` 判定：隐藏瓶对参与者本人也统一 404——评论读取/添加、互动等所有经此入口的读写全部封堵，不泄露存在性。
+- 余量：投/捞配额 DB 条件预占、关联心愿隐私复核（W2 后续）。
+
+### 验证证据（第五轮）
+```text
+编译：六模块 PASS
+单元测试：mall-wish 244 + mall-gateway 30 全部 PASS（限流器测试重写至 B24 新契约）
+集成/并发（真实库）：NOT RUN
+```
+
+## 9. 第六轮交付（B16 地图完整性，2026-09-27）
+
+- **自适应网格枚举**替代固定 9 邻格：按半径选精度（≤6km→geohash5、≤22km→4、其余→3），枚举包围盒 ±2 环（≤25 格）——修复 20/50km 半径下跨格心愿漏查；候选集上界稳定。
+- **坐标校验收紧**（B16/T26）：非有限数（NaN/Infinity）422；lat/lng 只传一个 422；越界 422；0,0 不再被当作"缺失"回退默认城市（合法坐标正常查询）；仅两者都未提供才回退默认城市。
+- 距离按本次中心重算与模糊坐标重组已在第三轮 B07 改造中完成（缓存只存 ID）。
+- 余量：truncated 标志需要响应包装 VO（API 形态变更，随 V2 契约批次）；独立 locationSharingEnabled 开关与精度降级展示随 N05。
+
+```text
+验证：编译 PASS；NearbyWishServiceImplTest+WishServiceImplTest 38 用例 PASS；全量选定回归 PASS
+```
+
+## 10. 第七轮交付（B18 活动进度与奖励，2026-09-27）
+
+- **审批状态 CAS**：reviewApplication 由"读 PENDING 再 updateById"改为条件 UPDATE `WHERE status=PENDING`——并发双审批只有一个成功、进度只计一次（T20）。
+- **进度事实化**：参与/审批通过时 `activity.progress_counter` DB 事实列 +1（与领域写同事务）；`getProgress` 直读 DB，Redis 不再参与读判定——清 Redis 不丢进度。
+- **奖励类型独立**：issueRewards 中星光已发不再 `continue` 跳过同用户徽章——每奖励类型独立判定、独立入账（修复"星光重复时跳过同用户其他奖励"）。
+- 余量：批奖励拆 job/recipient item 短事务 + 后台 jobId 查询属 N02 任务工作台范围；当前为单人短事务逐人发放（tryIssue 唯一键幂等已有）。
+
+```text
+验证：编译 PASS；活动相关选定回归 PASS
+```
+
+## 11. 第八轮交付（W3：B11 + B12，2026-09-27）
+
+### B11 审核、下架、恢复与删除治理记录
+- V45 迁移：`wish.reject_reason`。**驳回原因必填（422）并随决定落库**；恢复上架（APPROVED）时清空。
+- **审核 CAS**：条件更新 `WHERE audit_status=旧值`——两名管理员并发审核只有一个成功，未命中 409 提示刷新（不再整实体 updateById 覆盖）。
+- **恢复语义**：`updateVisibility(visible=true)` 对 REJECTED/AUTO_HIDDEN 内容拒绝（422）——恢复必须走审核接口改审核状态，不能只翻 isVisible；上下架本身改 CAS（并发单成功）。
+- **后台删除与用户侧同口径**：活跃集合才扣 activeWishes（修复后台删除误减其他心愿统计）；治理动作（WishModerated/WishVisibilityChanged/WishDeleted）与领域写同事务落 outbox，通知作者经消费端（原 TODO 注释消除）。
+- 操作者 ID 经管理代理透传头记录进日志与事件（不上传敏感正文）。
+
+### B12 富文本与附件服务端信任边界
+- 新增 `WishContentSanitizer.sanitizeRichText`（白名单净化，无第三方依赖）：script/style/iframe/object/embed/svg/math 整块移除；白名单外标签剥壳保留内文；on* 事件属性剥离；javascript:/vbscript:/data: URL 拦截。接入心愿描述（create/update）与还愿故事（此前仅路径穿越检查）。
+- `isAllowedMediaUrl` 附件白名单：仅 http/https/oss 内部存储域、单元素 ≤500 字符；还愿提交逐项校验。
+- 与前端 DOMPurify 构成纵深——服务端不再信任"前端已消毒"。
+- 余量：私密附件短时签名下载（依赖 mall-file 鉴权下载接口，W4 联动）；成长记录 DTO @Valid 补齐随 N01 批次。
+
+```text
+验证：编译 PASS；单元测试 64（净化器 7/审核治理/还愿故事净化）+ 全量选定回归 PASS
+```
+
 ## 5. 建议下一步
 
 按任务书 §12.2 顺序：`wish-privacy-policy`（本轮已完成主体）→ `wish-operation-wallet`（B04–B06，operation/outbox 迁移 V42+）→ `wish-events-tasks`（B13）。

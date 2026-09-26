@@ -93,6 +93,9 @@ public class Wish {
 
     private AuditStatus auditStatus;
 
+    /** 驳回原因（B11：REJECTED 必填；恢复上架时清空） */
+    private String rejectReason;
+
     private Boolean isVisible;
 
     /** 管理端置顶（V26）：置中心愿在用户端广场优先展示 */

@@ -67,8 +67,11 @@ public class AdminWishController {
     @SentinelResource("WISH_AUDIT")
     public ApiResponse<AdminWishVO> auditWish(
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
-            @Parameter(description = "审核请求") @Valid @RequestBody AdminAuditWishRequest request) {
-        AdminWishVO vo = adminWishService.auditWish(wishId, request);
+            @Parameter(description = "审核请求") @Valid @RequestBody AdminAuditWishRequest request,
+            @Parameter(description = "操作者 ID（管理代理透传）")
+            @RequestHeader(value = com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER, required = false) Long actorId) {
+        AdminWishVO vo = adminWishService.auditWish(wishId, request,
+                actorId);
         return ApiResponse.ok(vo);
     }
 
@@ -77,8 +80,10 @@ public class AdminWishController {
             + "下架后用户端不可见，管理端仍可查看")
     public ApiResponse<AdminWishVO> updateVisibility(
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
-            @Parameter(description = "上下架请求") @Valid @RequestBody AdminWishVisibilityRequest request) {
-        AdminWishVO vo = adminWishService.updateVisibility(wishId, request.visible());
+            @Parameter(description = "上下架请求") @Valid @RequestBody AdminWishVisibilityRequest request,
+            @Parameter(description = "操作者 ID（管理代理透传）")
+            @RequestHeader(value = com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER, required = false) Long actorId) {
+        AdminWishVO vo = adminWishService.updateVisibility(wishId, request.visible(), actorId);
         return ApiResponse.ok(vo);
     }
 
@@ -94,8 +99,10 @@ public class AdminWishController {
     @DeleteMapping("/{id}")
     @Operation(summary = "删除心愿", description = "软删（deleted_at），对齐帖子管理模式")
     public ApiResponse<Void> deleteWish(
-            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
-        adminWishService.deleteWish(wishId);
+            @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
+            @Parameter(description = "操作者 ID（管理代理透传）")
+            @RequestHeader(value = com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER, required = false) Long actorId) {
+        adminWishService.deleteWish(wishId, actorId);
         return ApiResponse.ok(null);
     }
 }

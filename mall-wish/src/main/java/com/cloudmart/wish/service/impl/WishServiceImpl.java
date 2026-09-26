@@ -95,6 +95,7 @@ public class WishServiceImpl implements WishService {
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final WishOperationExecutor operationExecutor;
     private final WishOutboxService outboxService;
+    private final WishContentSanitizer contentSanitizer;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -123,7 +124,7 @@ public class WishServiceImpl implements WishService {
         Wish wish = new Wish();
         wish.setUserId(userId);
         wish.setTitle(request.title());
-        wish.setDescription(request.description());
+        wish.setDescription(contentSanitizer.sanitizeRichText(request.description()));
         wish.setCategoryId(request.categoryId());
         wish.setVisibility(visibility);
         wish.setEnableAiReply(enableAiReply);
@@ -222,7 +223,7 @@ public class WishServiceImpl implements WishService {
             uw.set(Wish::getTitle, request.title());
         }
         if (request.description() != null) {
-            uw.set(Wish::getDescription, request.description());
+            uw.set(Wish::getDescription, contentSanitizer.sanitizeRichText(request.description()));
         }
         if (request.mediaUrls() != null) {
             uw.set(Wish::getMediaUrls, WishJsonUtils.stringifyList(request.mediaUrls()));
@@ -439,12 +440,9 @@ public class WishServiceImpl implements WishService {
                 .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
                 .eq(Wish::getIsVisible, true);
 
-        // 管理端置顶（V26）：仅第一页置顶优先；翻页排除置顶项防止跨页重复
-        if (cursor == null) {
-            wrapper.orderByDesc(Wish::getIsTop);
-        } else {
-            wrapper.eq(Wish::getIsTop, false);
-        }
+        // B15：V1 暂停"置顶混合排序"——置顶数≥页大小时普通心愿会被跳过，
+        // 且排序含 is_top 而游标仅 id 无法表达边界。V1 保持稳定列表
+        // （按 createdAt,id 全序），置顶恢复随 V2 签名游标一并交付。
         wrapper.orderByDesc(Wish::getCreatedAt)
                 .orderByDesc(Wish::getId)
                 .last("LIMIT " + fetchSize);

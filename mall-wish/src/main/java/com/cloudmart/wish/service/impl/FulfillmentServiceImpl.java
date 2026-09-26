@@ -100,6 +100,16 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         if (!contentSanitizer.isFreeOfPathTraversal(story)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "还愿故事包含非法字符");
         }
+        // B12：服务端富文本白名单净化（纵深于前端 DOMPurify）
+        story = contentSanitizer.sanitizeRichText(story);
+        // B12：媒体白名单校验
+        if (request.mediaUrls() != null) {
+            for (String url : request.mediaUrls()) {
+                if (!contentSanitizer.isAllowedMediaUrl(url)) {
+                    throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "附件地址非法");
+                }
+            }
+        }
         String feeling = request.feeling() == null ? null : contentSanitizer.escapeHtml(request.feeling().trim());
 
         // B03：社区传播必须显式授权，且仅 PUBLIC 心愿允许；默认不传播

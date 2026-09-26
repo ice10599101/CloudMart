@@ -47,7 +47,7 @@ public interface AdminWishService {
      * @param request 审核请求
      * @return 审核后的心愿 VO
      */
-    AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request);
+    AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request, Long actorId);
 
     /**
      * 上架/下架心愿（对齐帖子管理模式）：直接控制 is_visible，
@@ -57,7 +57,7 @@ public interface AdminWishService {
      * @param visible true=上架 false=下架
      * @return 更新后的心愿 VO
      */
-    AdminWishVO updateVisibility(Long wishId, Boolean visible);
+    AdminWishVO updateVisibility(Long wishId, Boolean visible, Long actorId);
 
     /**
      * 置顶/取消置顶（对齐帖子管理模式）：置顶心愿在用户端广场优先展示。
@@ -73,7 +73,7 @@ public interface AdminWishService {
      *
      * @param wishId 心愿 ID
      */
-    void deleteWish(Long wishId);
+    void deleteWish(Long wishId, Long actorId);
 
     /**
      * 心愿宇宙综合统计（管理工作台数据源）。

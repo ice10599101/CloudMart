@@ -100,7 +100,7 @@ class InteractionServiceImplTest {
         when(rateLimiter.checkUserDailyLimit(anyLong(), any(), any())).thenReturn(true);
         when(rateLimiter.checkWishLightLimit(anyLong())).thenReturn(true);
         when(rateLimiter.checkBlessPerWish(anyLong(), anyLong(), any())).thenReturn(true);
-        when(rateLimiter.tryAcquireSameWishUnique(anyLong(), anyLong())).thenReturn(true);
+        when(rateLimiter.tryAcquireSameWishUnique(anyLong(), anyLong(), anyLong())).thenReturn(true);
         when(userStatService.getUserTimezone(anyLong())).thenReturn("Asia/Shanghai");
 
         // 默认可互动的公开心愿（他人发布）
@@ -246,9 +246,10 @@ class InteractionServiceImplTest {
     class CreateSameWishTests {
 
         @Test
-        @DisplayName("Redis 占位失败（第一道防线）：返回 409")
-        void sameWish_redisOccupied() {
-            when(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID)).thenReturn(false);
+        @DisplayName("B24：DB 已有同求记录（唯一事实）→ 409")
+        void sameWish_dbCountRejected() {
+            when(wishInteractionMapper.selectCount(any())).thenReturn(1L);
+            when(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID, 1L)).thenReturn(false);
 
             assertThatThrownBy(() -> interactionService.createInteraction(
                     USER_ID, WISH_ID, new CreateInteractionRequest(InteractionType.SAME_WISH, null)))

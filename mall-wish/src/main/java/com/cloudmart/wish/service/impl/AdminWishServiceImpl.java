@@ -48,6 +48,8 @@ public class AdminWishServiceImpl implements AdminWishService {
     private final WishCategoryMapper wishCategoryMapper;
     private final WishCheckinMapper wishCheckinMapper;
     private final WishInteractionMapper wishInteractionMapper;
+    private final com.cloudmart.wish.service.UserStatService userStatService;
+    private final WishOutboxService outboxService;
 
     @Override
     public Page<AdminWishVO> listWishes(AdminWishListQuery query) {
@@ -108,16 +110,15 @@ public class AdminWishServiceImpl implements AdminWishService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request) {
+    public AdminWishVO auditWish(Long wishId, AdminAuditWishRequest request, Long actorId) {
         Wish wish = wishMapper.selectById(wishId);
         if (wish == null) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
         }
 
         AuditStatus newStatus = request.auditStatus();
-        // 发布免审（2026-09-07）后审核语义转为后置管控：同状态重复操作返回冲突，
-        // APPROVED↔REJECTED 允许双向流转（下架违规内容 / 恢复上架）
-        if (wish.getAuditStatus() == newStatus) {
+        AuditStatus oldStatus = wish.getAuditStatus();
+        if (oldStatus == newStatus) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
                     "心愿已是该审核状态: " + newStatus);
         }
@@ -125,24 +126,41 @@ public class AdminWishServiceImpl implements AdminWishService {
         boolean visible;
         switch (newStatus) {
             case APPROVED -> visible = true;
-            case REJECTED -> visible = false;
+            case REJECTED -> {
+                // B11：驳回原因必填（422），并随治理决定落库
+                if (request.rejectReason() == null || request.rejectReason().isBlank()) {
+                    throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "驳回原因不能为空");
+                }
+                visible = false;
+            }
             case AUTO_HIDDEN -> visible = false;
             default -> throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
                     "不支持的审核状态: " + newStatus);
         }
 
-        // 使用 updateById 避免 LambdaUpdateWrapper 在单元测试中的 lambda cache 问题
-        Wish updateEntity = new Wish();
-        updateEntity.setId(wishId);
-        updateEntity.setAuditStatus(newStatus);
-        updateEntity.setIsVisible(visible);
-        wishMapper.updateById(updateEntity);
+        // B11：CAS 条件更新——两名管理员并发审核只有一个成功；不覆盖其他字段
+        int affected = wishMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getAuditStatus, oldStatus)
+                        .set(Wish::getAuditStatus, newStatus)
+                        .set(Wish::getIsVisible, visible)
+                        .set(Wish::getRejectReason,
+                                newStatus == AuditStatus.REJECTED ? request.rejectReason().trim() : null));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
+                    "审核状态已被其他管理员变更，请刷新后重试");
+        }
 
-        // TODO Sprint 1.2: 发送 RocketMQ wish-audited 事件通知作者
+        // B13：治理事件与领域写同事务（通知作者走消费端）
+        outboxService.publish("WISH", wishId, 0L, "WishModerated",
+                java.util.Map.of("wishId", wishId, "auditStatus", newStatus.name(),
+                        "actorId", actorId == null ? 0L : actorId, "rejected",
+                        newStatus == AuditStatus.REJECTED));
 
-        log.info("心愿意审核完成, wishId={}, status={}, visible={}", wishId, newStatus, visible);
+        log.info("心愿审核完成, wishId={}, actorId={}, status={}→{}, visible={}",
+                wishId, actorId, oldStatus, newStatus, visible);
 
-        // 重新查询返回最新数据
         Wish updated = wishMapper.selectById(wishId);
         Map<Long, String> categoryNameMap = fetchCategoryNames(Set.of(updated.getCategoryId()));
         return toAdminWishVO(updated, categoryNameMap);
@@ -150,15 +168,28 @@ public class AdminWishServiceImpl implements AdminWishService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AdminWishVO updateVisibility(Long wishId, Boolean visible) {
+    public AdminWishVO updateVisibility(Long wishId, Boolean visible, Long actorId) {
         Wish wish = requireWish(wishId);
-        // 使用 updateById 避免 LambdaUpdateWrapper 在单元测试中的 lambda cache 问题
-        Wish updateEntity = new Wish();
-        updateEntity.setId(wishId);
-        updateEntity.setIsVisible(visible);
-        wishMapper.updateById(updateEntity);
-
-        log.info("心愿上下架完成, wishId={}, visible={}", wishId, visible);
+        // B11：被驳回/自动隐藏内容不能只翻 isVisible 恢复——恢复必须走审核接口改审核状态
+        if (Boolean.TRUE.equals(visible)
+                && (wish.getAuditStatus() == AuditStatus.REJECTED
+                || wish.getAuditStatus() == AuditStatus.AUTO_HIDDEN)) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
+                    "内容处于驳回/自动隐藏状态，恢复请通过审核接口");
+        }
+        // CAS：并发上下架只有一个成功
+        int affected = wishMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getIsVisible, !Boolean.TRUE.equals(visible))
+                        .set(Wish::getIsVisible, Boolean.TRUE.equals(visible)));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "展示状态已被并发变更");
+        }
+        outboxService.publish("WISH", wishId, 0L, "WishVisibilityChanged",
+                java.util.Map.of("wishId", wishId, "visible", Boolean.TRUE.equals(visible),
+                        "actorId", actorId == null ? 0L : actorId));
+        log.info("心愿上下架完成, wishId={}, actorId={}, visible={}", wishId, actorId, visible);
         return requeryWishVO(wish.getCategoryId(), wishId);
     }
 
@@ -177,11 +208,28 @@ public class AdminWishServiceImpl implements AdminWishService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteWish(Long wishId) {
-        requireWish(wishId);
-        // @TableLogic 自动转为软删（UPDATE deleted_at），与项目删除策略一致
-        wishMapper.deleteById(wishId);
-        log.info("心愿已软删, wishId={}", wishId);
+    public void deleteWish(Long wishId, Long actorId) {
+        Wish wish = requireWish(wishId);
+        // B10 一致口径：仅活跃集合删除扣 activeWishes，避免误减其他心愿
+        boolean isActiveSet = wish.getStatus() == com.cloudmart.wish.enums.WishStatus.ACTIVE
+                || wish.getStatus() == com.cloudmart.wish.enums.WishStatus.OVERDUE
+                || wish.getStatus() == com.cloudmart.wish.enums.WishStatus.FULFILLING;
+        int affected = wishMapper.delete(new LambdaQueryWrapper<Wish>()
+                .eq(Wish::getId, wishId)
+                .eq(isActiveSet, Wish::getStatus, wish.getStatus()));
+        if (affected == 0 && isActiveSet) {
+            affected = wishMapper.delete(new LambdaQueryWrapper<Wish>().eq(Wish::getId, wishId));
+        }
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在或已删除");
+        }
+        if (isActiveSet && affected == 1) {
+            userStatService.decrementOnWishDeleted(wish.getUserId());
+        }
+        outboxService.publish("WISH", wishId, 0L, "WishDeleted",
+                java.util.Map.of("wishId", wishId, "userId", wish.getUserId(),
+                        "actorId", actorId == null ? 0L : actorId, "byAdmin", true));
+        log.info("心愿已软删, wishId={}, actorId={}, activeSet={}", wishId, actorId, isActiveSet);
     }
 
     private Wish requireWish(Long wishId) {

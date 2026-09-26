@@ -483,7 +483,9 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     /** 校验漂流瓶对当前用户可见（投瓶人或捞起人），否则 404 防探测 */
     private DriftBottle requireBottleViewable(Long userId, Long bottleId) {
         DriftBottle bottle = bottleMapper.selectById(bottleId);
-        if (bottle == null || !(userId.equals(bottle.getThrowerUserId())
+        // B17：隐藏瓶对用户所有读写入口统一 404（含评论/互动），不泄露存在性
+        if (bottle == null || Boolean.TRUE.equals(bottle.getIsHidden())
+                || !(userId.equals(bottle.getThrowerUserId())
                 || userId.equals(bottle.getPickerUserId()))) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "漂流瓶不存在");
         }

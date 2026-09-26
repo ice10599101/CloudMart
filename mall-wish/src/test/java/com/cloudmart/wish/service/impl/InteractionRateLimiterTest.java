@@ -175,21 +175,17 @@ class InteractionRateLimiterTest {
     class SameWishUniqueTests {
 
         @Test
-        @DisplayName("占位成功返回 true；已占用返回 false")
+        @DisplayName("B24：DB 计数为事实——0 可同求，>0 拒绝")
         void tryAcquire() {
-            when(valueOperations.setIfAbsent(anyString(), anyString())).thenReturn(true);
-            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID)).isTrue();
-
-            when(valueOperations.setIfAbsent(anyString(), anyString())).thenReturn(false);
-            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID)).isFalse();
+            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID, 0L)).isTrue();
+            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID, 1L)).isFalse();
         }
 
         @Test
-        @DisplayName("释放占位删除 Key")
-        void release_deletesKey() {
+        @DisplayName("B24：释放为 no-op（唯一性由 DB 撤同求承载），无 Redis 依赖")
+        void release_noop() {
             rateLimiter.releaseSameWishUnique(USER_ID, WISH_ID);
-            String expectedKey = "wish:rate:user_wish:" + USER_ID + ":" + WISH_ID + ":same_wish";
-            verify(redisTemplate).delete(expectedKey);
+            verify(redisTemplate, never()).delete(anyString());
         }
     }
 
@@ -208,11 +204,9 @@ class InteractionRateLimiterTest {
         }
 
         @Test
-        @DisplayName("同求占位 Redis 失败时放行")
-        void acquire_failOpen() {
-            when(valueOperations.setIfAbsent(anyString(), anyString()))
-                    .thenThrow(new RedisConnectionFailureException("connection refused"));
-            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID)).isTrue();
+        @DisplayName("B24：同求唯一不再走 Redis——故障场景与正常路径一致")
+        void acquire_noRedis() {
+            assertThat(rateLimiter.tryAcquireSameWishUnique(USER_ID, WISH_ID, 0L)).isTrue();
         }
 
         @Test

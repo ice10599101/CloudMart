@@ -16,6 +16,7 @@ import com.cloudmart.wish.repository.WishCategoryMapper;
 import com.cloudmart.wish.repository.WishCheckinMapper;
 import com.cloudmart.wish.repository.WishInteractionMapper;
 import com.cloudmart.wish.repository.WishMapper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -56,10 +57,20 @@ class AdminWishServiceImplTest {
     private static final Long USER_ID = 1001L;
     private static final Long CATEGORY_ID = 100L;
 
+    @BeforeAll
+    static void initEntityMeta() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                com.cloudmart.wish.entity.Wish.class);
+    }
+
     @BeforeEach
     void setUp() {
         adminWishService = new AdminWishServiceImpl(wishMapper, wishCategoryMapper,
-                wishCheckinMapper, wishInteractionMapper);
+                wishCheckinMapper, wishInteractionMapper,
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.UserStatService.class),
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class));
     }
 
     @Nested
@@ -145,14 +156,56 @@ class AdminWishServiceImplTest {
             approvedWish.setIsVisible(true);
 
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish, approvedWish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
             when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
 
             AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.APPROVED, null);
-            var result = adminWishService.auditWish(WISH_ID, request);
+            var result = adminWishService.auditWish(WISH_ID, request, 9001L);
 
             assertThat(result.auditStatus()).isEqualTo(AuditStatus.APPROVED);
-            verify(wishMapper).updateById(any(Wish.class));
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
+        }
+
+        @Test
+        @DisplayName("B11：驳回原因为空 → 422 拒绝")
+        void auditWish_rejectWithoutReason_throws422() {
+            Wish wish = buildWish();
+            wish.setAuditStatus(AuditStatus.PENDING);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.REJECTED, "  ");
+
+            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request, 9001L))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR));
+            verify(wishMapper, never()).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("B11：并发审核 CAS 未命中 → 409 提示刷新")
+        void auditWish_casMiss_throwsConflict() {
+            Wish wish = buildWish();
+            wish.setAuditStatus(AuditStatus.PENDING);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.update(any(), any())).thenReturn(0);
+
+            AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.APPROVED, null);
+
+            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request, 9001L))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT));
+        }
+
+        @Test
+        @DisplayName("B11：REJECTED 内容不能只翻 isVisible 恢复")
+        void updateVisibility_rejectedContentCannotRestore() {
+            Wish wish = buildWish();
+            wish.setAuditStatus(AuditStatus.REJECTED);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            assertThatThrownBy(() -> adminWishService.updateVisibility(WISH_ID, true, 9001L))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT));
         }
 
         @Test
@@ -165,14 +218,14 @@ class AdminWishServiceImplTest {
             rejectedWish.setIsVisible(false);
 
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish, rejectedWish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
             when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
 
             AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.REJECTED, "内容违规");
-            var result = adminWishService.auditWish(WISH_ID, request);
+            var result = adminWishService.auditWish(WISH_ID, request, 9001L);
 
             assertThat(result.auditStatus()).isEqualTo(AuditStatus.REJECTED);
-            verify(wishMapper).updateById(any(Wish.class));
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -186,14 +239,14 @@ class AdminWishServiceImplTest {
             rejectedWish.setIsVisible(false);
 
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish, rejectedWish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
             when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
 
             AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.REJECTED, "内容违规");
-            var result = adminWishService.auditWish(WISH_ID, request);
+            var result = adminWishService.auditWish(WISH_ID, request, 9001L);
 
             assertThat(result.auditStatus()).isEqualTo(AuditStatus.REJECTED);
-            verify(wishMapper).updateById(any(Wish.class));
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -205,7 +258,7 @@ class AdminWishServiceImplTest {
 
             AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.APPROVED, null);
 
-            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request))
+            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request, 9001L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> {
                         BusinessException be = (BusinessException) ex;
@@ -222,7 +275,7 @@ class AdminWishServiceImplTest {
 
             AdminAuditWishRequest request = new AdminAuditWishRequest(AuditStatus.APPROVED, null);
 
-            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request))
+            assertThatThrownBy(() -> adminWishService.auditWish(WISH_ID, request, 9001L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> {
                         BusinessException be = (BusinessException) ex;
@@ -244,13 +297,13 @@ class AdminWishServiceImplTest {
             offWish.setIsVisible(false);
 
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish, offWish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
             when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
 
-            var result = adminWishService.updateVisibility(WISH_ID, false);
+            var result = adminWishService.updateVisibility(WISH_ID, false, 9001L);
 
             assertThat(result.isVisible()).isFalse();
-            verify(wishMapper).updateById(any(Wish.class));
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -262,10 +315,10 @@ class AdminWishServiceImplTest {
             onWish.setIsVisible(true);
 
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish, onWish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
             when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
 
-            var result = adminWishService.updateVisibility(WISH_ID, true);
+            var result = adminWishService.updateVisibility(WISH_ID, true, 9001L);
 
             assertThat(result.isVisible()).isTrue();
         }
@@ -275,14 +328,14 @@ class AdminWishServiceImplTest {
         void updateVisibility_notFound_throwsException() {
             when(wishMapper.selectById(WISH_ID)).thenReturn(null);
 
-            assertThatThrownBy(() -> adminWishService.updateVisibility(WISH_ID, false))
+            assertThatThrownBy(() -> adminWishService.updateVisibility(WISH_ID, false, 9001L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
                     });
 
-            verify(wishMapper, never()).updateById(any(Wish.class));
+            verify(wishMapper, never()).update(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any());
         }
     }
 
@@ -348,11 +401,11 @@ class AdminWishServiceImplTest {
         void deleteWish_success() {
             Wish wish = buildWish();
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
-            when(wishMapper.deleteById(WISH_ID)).thenReturn(1);
+            when(wishMapper.delete(any())).thenReturn(1);
 
-            adminWishService.deleteWish(WISH_ID);
+            adminWishService.deleteWish(WISH_ID, 9001L);
 
-            verify(wishMapper).deleteById(WISH_ID);
+            verify(wishMapper).delete(org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -360,14 +413,14 @@ class AdminWishServiceImplTest {
         void deleteWish_notFound_throwsException() {
             when(wishMapper.selectById(WISH_ID)).thenReturn(null);
 
-            assertThatThrownBy(() -> adminWishService.deleteWish(WISH_ID))
+            assertThatThrownBy(() -> adminWishService.deleteWish(WISH_ID, 9001L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
                     });
 
-            verify(wishMapper, never()).deleteById(any(Long.class));
+            verify(wishMapper, never()).delete(org.mockito.ArgumentMatchers.any());
         }
     }
 

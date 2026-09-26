@@ -106,6 +106,16 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     @Override
     public List<AiGoalVO> createGoals(Long userId, AiGoalCreateRequest request) {
+        // B24：校验 wishId 归属本人（防越权挂目标）与 sessionId 归属本人（防串会话）
+        if (request.wishId() != null) {
+            com.cloudmart.wish.entity.Wish wish = wishMapper.selectById(request.wishId());
+            if (wish == null || !userId.equals(wish.getUserId())) {
+                throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+            }
+        }
+        if (request.sessionId() != null && !request.sessionId().startsWith(SESSION_PREFIX + userId + "-")) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "会话不存在");
+        }
         LocalDateTime now = LocalDateTime.now();
         return transactionTemplate.execute(status -> {
             List<AiGoalVO> created = request.goals().stream().map(item -> {

@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -88,7 +89,7 @@ class AdminWishControllerTest {
                 vo.lightCount(), vo.sameWishCount(), vo.blessCount(), vo.supportCount(),
                 vo.expectedAt(), vo.fulfilledAt(), vo.createdAt(), vo.updatedAt(), vo.deletedAt()
         );
-        given(adminWishService.auditWish(eq(1L), any(AdminAuditWishRequest.class))).willReturn(vo);
+        given(adminWishService.auditWish(eq(1L), any(AdminAuditWishRequest.class), isNull())).willReturn(vo);
 
         mockMvc.perform(put("/admin/wishes/1/audit")
                         .contentType(MediaType.APPLICATION_JSON)
