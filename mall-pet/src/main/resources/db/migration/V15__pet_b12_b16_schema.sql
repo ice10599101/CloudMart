@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS `pet_room_like` (
     `id`         BIGINT UNSIGNED NOT NULL COMMENT '主键(雪花算法)',
     `user_id`    BIGINT UNSIGNED NOT NULL COMMENT '点赞用户ID',
     `room_id`    BIGINT UNSIGNED NOT NULL COMMENT '房间ID',
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间(UTC)',
+    `active`     TINYINT NOT NULL DEFAULT 1 COMMENT '当前是否点赞(取消置0;曾获奖标记保留防重复发奖)',
+    `rewarded`   TINYINT NOT NULL DEFAULT 0 COMMENT '是否已发过点赞经验(取消再点不再发奖)',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次点赞时间(UTC)',
     PRIMARY KEY `pk_pet_room_like` (`id`),
     UNIQUE KEY `uk_room_like` (`user_id`, `room_id`),
     INDEX `idx_room_like_room` (`room_id`)

@@ -204,6 +204,9 @@ public class PetRelationServiceImpl implements PetRelationService {
         PetRelation relation = new PetRelation();
         relation.setFromPetId(pet.getId());
         relation.setToPetId(target.getId());
+        // B14：规范化无向身份（A→B 与 B→A 归并为同一对），uk_pet_relation_pair 防重复 ACTIVE
+        relation.setPetAId(java.lang.Math.min(pet.getId(), target.getId()));
+        relation.setPetBId(java.lang.Math.max(pet.getId(), target.getId()));
         relation.setFromUserId(userId);
         relation.setToUserId(target.getUserId());
         relation.setRelType(type.name());

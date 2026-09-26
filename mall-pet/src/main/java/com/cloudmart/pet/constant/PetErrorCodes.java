@@ -181,6 +181,12 @@ public final class PetErrorCodes {
     public static final String PET_QUOTA_EXHAUSTED = "PET_QUOTA_EXHAUSTED";
     /** 用户交互互斥位被占用（长期活动/小游戏进行中，禁止并行开始另一项） */
     public static final String PET_USER_BUSY = "PET_USER_BUSY";
+    /** 家具已摆放（B13：每种家具每宠物至多一个摆放实例） */
+    public static final String PET_FURNITURE_ALREADY_PLACED = "PET_FURNITURE_ALREADY_PLACED";
+    /** 已被屏蔽/拒收（B14：屏蔽名单生效） */
+    public static final String PET_BLOCKED = "PET_BLOCKED";
+    /** 对象已私密/不可访问 */
+    public static final String PET_PERMISSION_DENIED = "PET_PERMISSION_DENIED";
 
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */

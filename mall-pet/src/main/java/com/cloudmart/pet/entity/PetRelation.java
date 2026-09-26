@@ -30,6 +30,12 @@ public class PetRelation {
     /** 发起方宠物 ID */
     private Long fromPetId;
 
+    /** 规范化较小宠物 ID（B14 无向去重） */
+    private Long petAId;
+
+    /** 规范化较大宠物 ID（B14 无向去重） */
+    private Long petBId;
+
     /** 接收方宠物 ID */
     private Long toPetId;
 

@@ -27,6 +27,9 @@ public interface PetInventoryService {
     /** 穿戴皮肤（写入 appearance + skinCode；同类型皮肤互斥） */
     PetVO wearSkin(Long userId, WearSkinRequest request);
 
-    /** 卸下皮肤，恢复种类原生外观 */
+    /** 卸下皮肤，恢复原始自定义外观（无原始值时按物种默认，B12 迁移口径） */
     PetVO removeSkin(Long userId);
+
+    /** 装备替换预览（B12）：基础/当前/替换后/增量，服务端复算，不做任何写入 */
+    com.cloudmart.pet.vo.PetEquipPreviewVO equipPreview(Long userId, String itemCode);
 }

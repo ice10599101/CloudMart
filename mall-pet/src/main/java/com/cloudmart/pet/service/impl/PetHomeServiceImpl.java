@@ -90,6 +90,9 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
     private final PetOperationService operationService;
+    private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
+    private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final PetEventProducer eventProducer;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
@@ -111,7 +114,10 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetAchievementService achievementService,
                               PetProperties properties,
                               StringRedisTemplate redisTemplate,
-                              PetOperationService operationService) {
+                              PetOperationService operationService,
+                              com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
+                              PetQuotaService quotaService,
+                              com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -121,6 +127,9 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
         this.operationService = operationService;
+        this.roomLikeMapper = roomLikeMapper;
+        this.quotaService = quotaService;
+        this.userBlockService = userBlockService;
         this.eventProducer = eventProducer;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
@@ -208,6 +217,13 @@ public class PetHomeServiceImpl implements PetHomeService {
                 .eq(PetRoomItem::getPosY, request.posY()));
         if (occupied > 0) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_POS_OCCUPIED, "这个格子已经有家具啦");
+        }
+        // B13：每种家具每宠物至多摆放 1 个实例（买一件不能摆满房间）
+        Long sameItem = roomItemMapper.selectCount(new LambdaQueryWrapper<PetRoomItem>()
+                .eq(PetRoomItem::getPetId, pet.getId())
+                .eq(PetRoomItem::getFurnitureCode, config.getCode()));
+        if (sameItem > 0) {
+            throw new BusinessException(PetErrorCodes.PET_FURNITURE_ALREADY_PLACED, "这件家具已经摆出来啦");
         }
         PetRoomItem item = new PetRoomItem();
         item.setPetId(pet.getId());
@@ -307,14 +323,35 @@ public class PetHomeServiceImpl implements PetHomeService {
         if (userId.equals(target.getUserId())) {
             throw new BusinessException(PetErrorCodes.PET_VISIT_SELF, "给自己点赞不算哦");
         }
+        if (userBlockService.isBlockedEitherWay(userId, target.getUserId())) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED, "无法点赞该用户");
+        }
         PetRoom room = ensureRoom(target);
         if (!Boolean.TRUE.equals(room.getIsPublic())) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_PRIVATE, "对方还没有开放家园");
         }
-        requireLikeQuota(userId);
-        boolean newlyLiked = setIfAbsent(String.format(KEY_LIKE_ROOM, userId, target.getId()), Duration.ofDays(30));
+        // B13：点赞收益走数据库日额度（Redis 故障不发奖），持久化点赞关系
+        boolean allowed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.LIKE_REWARD, 0,
+                properties.getHome().getDailyLikeLimit());
+        if (!allowed) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_QUOTA_EXHAUSTED,
+                    "今日点赞次数已达上限");
+        }
+        com.cloudmart.pet.entity.PetRoomLike like = roomLikeMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetRoomLike>()
+                        .eq(com.cloudmart.pet.entity.PetRoomLike::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetRoomLike::getRoomId, room.getId())
+                        .last("LIMIT 1"));
+        boolean newlyLiked;
         int rewardExp = 0;
-        if (newlyLiked) {
+        if (like == null) {
+            like = new com.cloudmart.pet.entity.PetRoomLike();
+            like.setUserId(userId);
+            like.setRoomId(room.getId());
+            like.setActive(true);
+            like.setRewarded(true);
+            roomLikeMapper.insert(like);
+            newlyLiked = true;
             roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
                     .setSql("like_count = like_count + 1")
                     .eq(PetRoom::getId, room.getId()));
@@ -322,6 +359,16 @@ public class PetHomeServiceImpl implements PetHomeService {
             if (rewardExp > 0) {
                 stateService.grantExp(pet, rewardExp);
             }
+        } else if (!Boolean.TRUE.equals(like.getActive())) {
+            // 取消后再点：恢复点赞，但 rewarded 标记保留——不再发放经验
+            like.setActive(true);
+            roomLikeMapper.updateById(like);
+            roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
+                    .setSql("like_count = like_count + 1")
+                    .eq(PetRoom::getId, room.getId()));
+            newlyLiked = true;
+        } else {
+            newlyLiked = false;
         }
         PetRoom latest = roomMapper.selectById(room.getId());
         return new PetRoomLikeVO(target.getId(),
@@ -329,7 +376,34 @@ public class PetHomeServiceImpl implements PetHomeService {
                 newlyLiked, rewardExp,
                 newlyLiked
                         ? pet.getName() + " 给 " + target.getName() + " 的小窝点了个赞，经验 +" + rewardExp + "～"
-                        : "已经点过赞啦，明天再来看看吧");
+                        : "已经点过赞啦");
+    }
+
+    /** 取消点赞（B13 显式取消；不撤销已合法发放的经验） */
+    @Override
+    @Transactional
+    public PetRoomLikeVO unlike(Long userId, Long petId) {
+        Pet target = petMapper.selectById(petId);
+        if (target == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "对方家的宠物不存在");
+        }
+        PetRoom room = ensureRoom(target);
+        com.cloudmart.pet.entity.PetRoomLike like = roomLikeMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetRoomLike>()
+                        .eq(com.cloudmart.pet.entity.PetRoomLike::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetRoomLike::getRoomId, room.getId())
+                        .last("LIMIT 1"));
+        if (like != null && Boolean.TRUE.equals(like.getActive())) {
+            like.setActive(false);
+            roomLikeMapper.updateById(like);
+            roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
+                    .setSql("like_count = GREATEST(like_count - 1, 0)")
+                    .eq(PetRoom::getId, room.getId()));
+        }
+        PetRoom latest = roomMapper.selectById(room.getId());
+        return new PetRoomLikeVO(target.getId(),
+                latest != null && latest.getLikeCount() != null ? latest.getLikeCount() : 0,
+                false, 0, "已取消点赞");
     }
 
     @Override
@@ -381,11 +455,18 @@ public class PetHomeServiceImpl implements PetHomeService {
         if (!Boolean.TRUE.equals(room.getIsPublic())) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_PRIVATE, "对方还没有开放家园，先串门看看吧");
         }
-        if (!skipDailyLimit) {
-            requireVisitQuota(userId);
+        // B14：屏蔽名单生效——被屏蔽双方不能新增拜访收益
+        if (userBlockService.isBlockedEitherWay(userId, target.getUserId())) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED, "无法拜访该用户");
         }
         PetProperties.Home cfg = properties.getHome();
-        boolean firstToday = setIfAbsent(
+        // B14：统一拜访结算器——所有入口共享数据库日额度（普通+好友 10 次，其中好友 5 次）
+        boolean quotaOk = quotaService.tryConsume(userId, PetQuotaService.QuotaType.VISIT_REWARD, 0,
+                properties.getHome().getDailyVisitLimit());
+        boolean friendQuotaOk = !friend || quotaService.tryConsume(userId,
+                PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0, properties.getFriend().getDailyVisitLimit());
+        boolean rewardable = quotaOk && friendQuotaOk;
+        boolean firstToday = rewardable && setIfAbsent(
                 String.format(KEY_VISIT_ROOM_TODAY, userId, target.getId(), LocalDate.now(ZoneId.of("UTC"))),
                 Duration.ofHours(24));
         int rewardHappiness = 0;
@@ -557,17 +638,18 @@ public class PetHomeServiceImpl implements PetHomeService {
                 }
             }
         }
+        // B13：舒适度统一封顶 comfortCap（默认 100），历史超上限值由迁移重算
+        int capped = Math.min(comfort, properties.getHome().getComfortCap());
         roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
-                .set(PetRoom::getComfort, comfort)
+                .set(PetRoom::getComfort, capped)
                 .eq(PetRoom::getId, room.getId()));
     }
 
     /** 回家奖励：每日首次进入加心情/经验/亲密度（Redis SETNX 一次/天） */
     private boolean grantDailyEnterReward(Pet pet) {
         PetProperties.Home cfg = properties.getHome();
-        boolean first = setIfAbsent(
-                String.format(KEY_ENTER_DAILY, pet.getUserId(), LocalDate.now(ZoneId.of("UTC"))),
-                Duration.ofHours(24));
+        // B13：每天首次回家奖励用数据库业务日唯一记录（Redis 故障不重复发）
+        boolean first = quotaService.tryConsume(pet.getUserId(), PetQuotaService.QuotaType.HOME_ENTER, 0, 1);
         if (!first) {
             return false;
         }

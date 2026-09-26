@@ -50,6 +50,9 @@ public interface PetHomeService {
     /** 给他人房间点赞（每日上限 + 每房间每人一次；重复点赞不重复计数） */
     PetRoomLikeVO like(Long userId, Long petId);
 
+    /** 取消点赞（B13 显式取消；已发放经验不撤销） */
+    PetRoomLikeVO unlike(Long userId, Long petId);
+
     /** 当前舒适度（供互动服务计算休息加成，房间不存在返回 0） */
     int comfortOf(Long petId);
 

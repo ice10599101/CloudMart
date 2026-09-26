@@ -47,17 +47,20 @@ public class PetInventoryServiceImpl implements PetInventoryService {
     private final PetInventoryMapper inventoryMapper;
     private final PetSkillMapper skillMapper;
     private final PetMapper petMapper;
+    private final PetStatsService statsService;
 
     public PetInventoryServiceImpl(PetService petService,
                                    PetItemCatalog itemCatalog,
                                    PetInventoryMapper inventoryMapper,
                                    PetSkillMapper skillMapper,
-                                   PetMapper petMapper) {
+                                   PetMapper petMapper,
+                                   PetStatsService statsService) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
         this.inventoryMapper = inventoryMapper;
         this.skillMapper = skillMapper;
         this.petMapper = petMapper;
+        this.statsService = statsService;
     }
 
     @Override
@@ -92,7 +95,12 @@ public class PetInventoryServiceImpl implements PetInventoryService {
                 .eq(PetInventory::getSlot, config.getSlot()));
         item.setEquipped(true);
         item.setSlot(config.getSlot());
-        inventoryMapper.updateById(item);
+        try {
+            inventoryMapper.updateById(item);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // B12：并发穿戴同槽仅一件生效（uk_inventory_slot_equipped 兜底）
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "该部位刚被另一件装备穿上，请刷新后重试");
+        }
         return petService.getMyPet(userId);
     }
 
@@ -136,13 +144,24 @@ public class PetInventoryServiceImpl implements PetInventoryService {
                 .eq(PetInventory::getPetId, pet.getId())
                 .eq(PetInventory::getItemType, PetItemType.SKIN.name()));
         item.setEquipped(true);
-        inventoryMapper.updateById(item);
+        try {
+            inventoryMapper.updateById(item);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "刚穿上了另一套皮肤，请刷新后重试");
+        }
 
+        // B12：分离原始自定义外观与皮肤覆盖外观——穿皮肤前保存原值
+        if (pet.getBaseAppearance() == null || pet.getBaseAppearance().isBlank()) {
+            pet.setBaseAppearance(pet.getAppearance());
+        }
         pet.setSkinCode(config.getCode());
         pet.setAppearance(PetJsonUtils.toJson(Map.of(
                 "color", config.getColor(),
                 "accessory", config.getAccessory() != null ? config.getAccessory() : PetItemCatalog.defaultAccessory())));
-        petMapper.updateById(pet);
+        int updated = petMapper.updateById(pet);
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
+        }
         return petService.getMyPet(userId);
     }
 
@@ -158,11 +177,42 @@ public class PetInventoryServiceImpl implements PetInventoryService {
             return petService.getMyPet(userId);
         }
         pet.setSkinCode(null);
-        pet.setAppearance(PetJsonUtils.toJson(Map.of(
-                "color", PetItemCatalog.defaultColorFor(pet.getSpecies()),
-                "accessory", PetItemCatalog.defaultAccessory())));
-        petMapper.updateById(pet);
+        if (pet.getBaseAppearance() != null && !pet.getBaseAppearance().isBlank()) {
+            // B12：卸皮肤恢复原自定义外观（而非物种默认）
+            pet.setAppearance(pet.getBaseAppearance());
+        } else {
+            pet.setAppearance(PetJsonUtils.toJson(Map.of(
+                    "color", PetItemCatalog.defaultColorFor(pet.getSpecies()),
+                    "accessory", PetItemCatalog.defaultAccessory())));
+        }
+        int updated = petMapper.updateById(pet);
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
+        }
         return petService.getMyPet(userId);
+    }
+
+    /** 装备替换预览（B12）：PetStatsService 复算三种属性口径，无写入副作用 */
+    @Override
+    public com.cloudmart.pet.vo.PetEquipPreviewVO equipPreview(Long userId, String itemCode) {
+        Pet pet = petService.requireOwnedPet(userId);
+        PetEquipmentConfig config = itemCatalog.equipment(itemCode)
+                .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这件装备不存在或已下架"));
+        PetStatsService.CombatStats base = statsService.baseStats(pet);
+        PetStatsService.CombatStats current = statsService.combatStats(pet);
+        // 试穿：临时替换该槽位再复算（不改库）
+        PetStatsService.CombatStats after = statsService.combatStatsWithOverride(pet,
+                config.getSlot(), itemCode);
+        com.cloudmart.pet.vo.PetEquipPreviewVO.Stats delta = new com.cloudmart.pet.vo.PetEquipPreviewVO.Stats(
+                after.hp() - current.hp(), after.maxHp() - current.maxHp(),
+                after.strength() - current.strength(), after.intelligence() - current.intelligence(),
+                after.agility() - current.agility(), after.charm() - current.charm());
+        return new com.cloudmart.pet.vo.PetEquipPreviewVO(itemCode, toStats(base), toStats(current), toStats(after), delta);
+    }
+
+    private com.cloudmart.pet.vo.PetEquipPreviewVO.Stats toStats(PetStatsService.CombatStats stats) {
+        return new com.cloudmart.pet.vo.PetEquipPreviewVO.Stats(stats.hp(), stats.maxHp(),
+                stats.strength(), stats.intelligence(), stats.agility(), stats.charm());
     }
 
     private PetInventory requireItem(Long petId, PetItemType type, String code) {

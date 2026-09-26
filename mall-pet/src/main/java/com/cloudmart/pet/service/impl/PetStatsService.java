@@ -57,6 +57,48 @@ public class PetStatsService {
     }
 
     /** 汇总装备 + 技能后的战斗属性（等级 1 的宠物也保持 hp ≥ 1） */
+    /** 基础属性（无装备/无技能被动，B12 预览用） */
+    public CombatStats baseStats(Pet pet) {
+        return new CombatStats(pet.getHp(), pet.getMaxHp(), pet.getStrength(),
+                pet.getIntelligence(), pet.getAgility(), pet.getCharm(), 0, 0, 0, 0, 0);
+    }
+
+    /**
+     * 试穿复算（B12 预览）：after = 当前总属性 - 该槽位现装备加成 + 目标装备加成；不写库。
+     */
+    public CombatStats combatStatsWithOverride(Pet pet, String slot, String equipmentCode) {
+        CombatStats current = combatStats(pet);
+        EquipBonus replaced = bonusOfEquippedInSlot(pet.getId(), slot);
+        PetEquipmentConfig incoming = equipmentConfigMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetEquipmentConfig>()
+                        .eq(PetEquipmentConfig::getCode, equipmentCode)
+                        .last("LIMIT 1"));
+        if (incoming == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_ITEM_NOT_FOUND, "这件装备不存在");
+        }
+        EquipBonus add = new EquipBonus(orZero(incoming.getBonusStrength()), orZero(incoming.getBonusIntelligence()),
+                orZero(incoming.getBonusAgility()), orZero(incoming.getBonusCharm()), orZero(incoming.getBonusMaxHp()));
+        return new CombatStats(
+                Math.min(current.hp() + add.maxHp() - replaced.maxHp(), current.maxHp() + add.maxHp() - replaced.maxHp()),
+                current.maxHp() + add.maxHp() - replaced.maxHp(),
+                current.strength() + add.strength() - replaced.strength(),
+                current.intelligence() + add.intelligence() - replaced.intelligence(),
+                current.agility() + add.agility() - replaced.agility(),
+                current.charm() + add.charm() - replaced.charm(),
+                current.critBonus(), current.dodgeBonus(), current.damageBonus(),
+                current.powerStrikeBonus(), current.damageReduction());
+    }
+
+    private EquipBonus bonusOfEquippedInSlot(Long petId, String slot) {
+        PetEquipmentConfig config = equippedEquipment(petId).get(slot);
+        if (config == null) {
+            return new EquipBonus(0, 0, 0, 0, 0);
+        }
+        return new EquipBonus(orZero(config.getBonusStrength()), orZero(config.getBonusIntelligence()),
+                orZero(config.getBonusAgility()), orZero(config.getBonusCharm()), orZero(config.getBonusMaxHp()));
+    }
+
     public CombatStats combatStats(Pet pet) {
         EquipBonus bonus = equipBonus(pet.getId());
         int maxHp = Math.max(1, pet.getMaxHp() + bonus.maxHp());

@@ -208,6 +208,8 @@ public class PetProperties {
     public static class Home {
         /** 网格宽（列数） */
         private int gridWidth = 4;
+        /** 舒适度上限（B13：sum 封顶，发布时校验非负） */
+        private int comfortCap = 100;
         /** 网格高（行数） */
         private int gridHeight = 3;
         /** 舒适度达到该值后享受休息加成 */
@@ -307,7 +309,6 @@ public class PetProperties {
         /** 亲密度升级奖励星光 = base × 新等级序号 */
         private int levelRewardStarlightBase = 120;
     }
-}
 
     /** 技能槽模式（B12：配置关闭的能力——默认关闭保持"已学技能全部生效"既有行为；开启需执行分配迁移） */
     @Getter

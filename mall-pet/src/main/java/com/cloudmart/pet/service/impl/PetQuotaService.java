@@ -25,7 +25,7 @@ public class PetQuotaService {
     public enum QuotaType {
         FEED, PLAY_REWARD, REST_INTIMACY, BATTLE_REWARD, PVP_OPPONENT,
         WALL_POST, WALL_REPLY, VISIT_REWARD, FRIEND_VISIT_REWARD,
-        LIKE_REWARD, MINIGAME, DECORATE, HOST_CARE
+        LIKE_REWARD, MINIGAME, DECORATE, HOST_CARE, HOME_ENTER, BATTLE_DEFEAT_TARGET
     }
 
     private final PetDailyQuotaMapper quotaMapper;

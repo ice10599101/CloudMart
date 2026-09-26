@@ -101,4 +101,13 @@ public class PetShopController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(inventoryService.removeSkin(userId));
     }
+
+    @GetMapping("/inventory/equip-preview")
+    @Operation(summary = "装备替换预览（B12）", description = "基础属性/当前总属性/替换后总属性/增量；服务端复算，无写入")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<com.cloudmart.pet.vo.PetEquipPreviewVO> equipPreview(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "装备编码") @RequestParam("itemCode") String itemCode) {
+        return ApiResponse.ok(inventoryService.equipPreview(userId, itemCode));
+    }
 }

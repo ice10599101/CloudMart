@@ -209,6 +209,19 @@ public class PetFriendServiceImpl implements PetFriendService {
         if (incoming == null || !PetFriendStatus.PENDING.name().equals(incoming.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_FRIEND_NOT_FOUND, "没有待确认的好友申请");
         }
+        // B14：接受时重验双方名额（并发接受不能超过上限）
+        long myCount = friendMapper.selectCount(new LambdaQueryWrapper<PetFriend>()
+                .eq(PetFriend::getUserId, userId)
+                .eq(PetFriend::getStatus, PetFriendStatus.ACTIVE.name()));
+        long theirCount = friendMapper.selectCount(new LambdaQueryWrapper<PetFriend>()
+                .eq(PetFriend::getUserId, friendUserId)
+                .eq(PetFriend::getStatus, PetFriendStatus.ACTIVE.name()));
+        if (myCount >= properties.getFriend().getMaxFriends()) {
+            throw new BusinessException(PetErrorCodes.PET_FRIEND_LIMIT, "你的好友名额已满");
+        }
+        if (theirCount >= properties.getFriend().getMaxFriends()) {
+            throw new BusinessException(PetErrorCodes.PET_FRIEND_LIMIT, "对方的好友名额已满");
+        }
         upsertActive(userId, friendUserId);
         upsertActive(friendUserId, userId);
         friendMapper.update(null, new LambdaUpdateWrapper<PetFriend>()
