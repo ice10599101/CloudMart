@@ -93,7 +93,8 @@ class PetVisitServiceImplTest {
     void setUp() {
         visitService = new PetVisitServiceImpl(petService, stateService, petMapper, activityMapper,
                 achievementService, eventProducer, wishFeignClient, properties, redisTemplate,
-                dailyQuestService, intimacyService, relationService);
+                dailyQuestService, intimacyService, relationService,
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 

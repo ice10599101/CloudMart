@@ -152,10 +152,10 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_OPPONENT_INVALID, "对手宠物不存在或未公开");
         }
         if (defender.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_BATTLE_SELF_CHALLENGE, "不能挑战自己的宠物哦");
+        }
         if (userBlockService.isBlockedEitherWay(userId, defender.getUserId())) {
             throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法挑战该用户");
-        }
-            throw new BusinessException(PetErrorCodes.PET_BATTLE_SELF_CHALLENGE, "不能挑战自己的宠物哦");
         }
 
         long seed = secureRandom.nextLong();

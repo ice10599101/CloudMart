@@ -67,6 +67,7 @@ public class PetVisitServiceImpl implements PetVisitService {
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final PetDailyQuestService dailyQuestService;
+    private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
 
@@ -81,7 +82,8 @@ public class PetVisitServiceImpl implements PetVisitService {
                                StringRedisTemplate redisTemplate,
                                PetDailyQuestService dailyQuestService,
                                PetIntimacyService intimacyService,
-                               PetRelationService relationService) {
+                               PetRelationService relationService,
+            com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -91,6 +93,7 @@ public class PetVisitServiceImpl implements PetVisitService {
         this.wishFeignClient = wishFeignClient;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.userBlockService = userBlockService;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.relationService = relationService;
@@ -137,6 +140,10 @@ public class PetVisitServiceImpl implements PetVisitService {
         }
         if (userId.equals(neighbor.getUserId())) {
             throw new BusinessException(PetErrorCodes.PET_VISIT_SELF, "这是自己的宠物，不能串门哦");
+        }
+        // B14：屏蔽检查前置（先于冷却/精力校验，给出明确拒绝信号）
+        if (userBlockService.isBlockedEitherWay(userId, neighbor.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法拜访该用户");
         }
         PetProperties.Visit cfg = properties.getVisit();
         if (pet.getEnergy() < cfg.getEnergyCost()) {
