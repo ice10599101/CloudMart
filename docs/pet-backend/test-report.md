@@ -68,6 +68,50 @@ mvn -pl mall-pet,mall-admin,mall-wish,mall-notification -am package  # PASS
 - 源码找到但 class 找不到 → IDEA **Build → Rebuild Project**（必须 Rebuild，增量 Build 会跳过）后重启；
 - 两者都找到但仍未拦截 → 确认进程重启时间晚于 Rebuild 完成时间。
 
+## 2d. 终轮验证（全量部署后，2026-09-26 23:15）
+
+| 场景 | 结果 | 证据 |
+| --- | --- | --- |
+| B14 屏蔽三入口 | **PASS** | 拜访/挑战/留言全部返回 PET_BLOCKED；解除后留言 200 |
+| T18 PVP 胜者星光 | **PASS** | currency_reward=20；BATTLE_REWARD:…:attacker COMPLETED；钱包 EARN 20（4610→4630 精确）|
+| T02/T03 卡单恢复 | **PASS** | UNKNOWN→强制重试→SPEND 120 扣款 + straw_hat 入包 + COMPLETED（四方一致） |
+| T04/T04b 同键幂等 | **PASS** | 5 连发 1 次扣款、2-5 次已拥有 409、同键不同内容 409 WISH_OPERATION_CONFLICT |
+| T16 JSON 契约 | **PASS** | 时间 Z / Long 字符串 / claimedAt 回显 |
+| T05 并发互斥 | **PASS** | 打工+读书并发 1 成功 1 冲突 |
+| T07 跨宠归属 | **PASS** | 切宠后按 activityId 领取，奖励归 activity.petId |
+| T12 陪伴 | **PASS** | 伪造秒数不加速 / seq 幂等 / 失效不补计 |
+| T14 额度 | **PASS** | 喂食 5 次上限 / 玩耍 10 次有收益+无收益路径 |
+| T19 负 seed | **PASS** | 负数 seed 成功入库（V12 有符号列） |
+| T23 捞瓶冷却 | **PASS** | 结算→冷却 409 |
+| T42 小游戏 | **PASS** | 乱序/错窗/超期拒绝；结算幂等；不足 3 次无奖励 |
+| T43 托管 | **PASS** | 周额度/互斥/提前退出/weekUsed |
+| N01 引导 | **PASS** | 进度自动建档、跳过幂等、WORK/FEED/PLAY 事件接线 |
+| N02 日记 | **PASS** | LEVEL_UP 事件自动生成、不可变快照、游标分页 |
+| N03 记忆 | **PASS** | 聊天抽取、归属校验、编辑/删除/开关 |
+| N05 托管+摘要 | **PASS** | 托管周额度/互斥/退出不退次数；摘要查询/确认 |
+| N06 合作 | **PASS** | 创建/接受/贡献/领取物品→替代星光幂等 |
+| N07 图鉴 | **PASS** | 列表/统计/未解锁线索 |
+| B15 批量领取 | **PASS** | claim-all + actionTarget 字段 |
+| B16 替代星光 | **PASS（代码）** | 已拥有→按活动快照发替代星光走 B01 |
+| B19 偏好 | **PASS** | GET/PUT 通知偏好、proactive mute |
+| B21 治理 | **PASS（校验+回退）** | 数值校验拦截 999999；历史端点 500 已知问题 |
+| B22 邻居抽样 | **PASS** | 随机偏移替代 ORDER BY RAND() |
+
+## 3. 仍 NOT RUN / 遗留
+
+| 项目 | 状态 | 说明 |
+| --- | --- | --- |
+| T01 真·并发 20 次 | NOT RUN | 远程 9023 拒绝同源并发连接；幂等语义已由顺序重放 + DB 唯一键验证 |
+| T02/T03 进程重启续结算 | 部分 PASS | 强制重试验证了恢复闭环；进程崩溃场景需故障注入 |
+| T06 强制版本冲突 | NOT RUN | 单测已覆盖 CAS 未命中路径 |
+| T08 领养并发上限 | NOT RUN | 单测已覆盖；FOR UPDATE 行锁 |
+| T15/T17 Redis 故障/时区边界 | NOT RUN | 需故障注入 |
+| §9.2 性能基线 | NOT RUN | 需合成数据环境 |
+| §7.3 业务日全量切库 | 暂缓 | 当前 UTC 存储 + businessZone 归属（任务书允许的暂缓方案） |
+| §7.2 星光对账报告 | NOT RUN | 表结构与路径已具备 |
+| B21 history 端点 500 | 已知问题 | PetConfigVersion 序列化问题，待排查 |
+| B20 分享链接撤销 | 未实现 | 规格为条件性（"分享链接如实现"），结构化卡片数据已交付 |
+
 ## 2d. 终轮复验（isBlockedEitherWay 重写 + 落位修正部署后，2026-09-26 22:20）
 
 | 场景 | 结果 | 证据 |

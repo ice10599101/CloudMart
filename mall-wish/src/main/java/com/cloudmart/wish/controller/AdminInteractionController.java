@@ -20,7 +20,7 @@ import java.util.List;
  * 管理后台互动记录 Controller（Sprint 1.2）。
  *
  * <p>路由前缀 /admin/interactions，仅允许内部服务调用（mall-admin 经 Feign 代理转发），
- * ROLE_INTERNAL 由 InternalCallAuthenticationFilter 授予，外部请求无法伪造。</p>
+ * ROLE_INTERNAL 由服务令牌经 ServiceTokenAuthenticationFilter 授予，外部请求无法伪造。</p>
  */
 @RestController
 @RequestMapping("/admin/interactions")

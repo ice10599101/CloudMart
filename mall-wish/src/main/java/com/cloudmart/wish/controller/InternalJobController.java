@@ -27,7 +27,7 @@ import java.util.Map;
  * 心愿宇宙定时任务内部接口（mall-job XXL-Job 触发，Sprint 1.7）。
  *
  * <p>安全：{@code hasRole('INTERNAL')}——仅网关/mall-job 携带
- * {@code X-Internal-Call: true} 的内部请求可达（见 InternalCallAuthenticationFilter），
+ * {@code X-Service-Token} 合法服务令牌的内部请求可达（见 ServiceTokenAuthenticationFilter），
  * 外部请求 403。</p>
  *
  * <p>对应 JobHandler（需在 XXL-Job 控制台登记，见进度文件四D）：</p>

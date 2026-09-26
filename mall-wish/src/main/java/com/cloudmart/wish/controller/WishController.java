@@ -208,8 +208,10 @@ public class WishController {
     @Operation(summary = "心愿进度", description = "当前值/目标值/百分比/乐观锁版本号")
     @SentinelResource("WISH_PROGRESS")
     public ApiResponse<WishService.ProgressDetail> getProgress(
+            @Parameter(description = "当前用户 ID（网关注入；匿名缺省）")
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) Long viewerId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId) {
-        return ApiResponse.ok(wishService.getWishProgress(wishId));
+        return ApiResponse.ok(wishService.getWishProgress(viewerId, wishId));
     }
 
     @PutMapping("/{id}/progress")
@@ -238,12 +240,14 @@ public class WishController {
             + "可见性与详情内嵌记录一致（is_visible=true）；DIARY 内容已按需解密")
     @SentinelResource("WISH_GROWTH_TIMELINE")
     public ApiResponse<List<com.cloudmart.wish.vo.WishGrowthRecordVO>> growthTimeline(
+            @Parameter(description = "当前用户 ID（网关注入；匿名缺省）")
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) Long viewerId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
             @Parameter(description = "分页游标（上一页最后一条记录 ID）")
             @RequestParam(required = false) String cursor,
             @Parameter(description = "每页数量，默认 20 上限 50")
             @RequestParam(required = false) Integer pageSize) {
-        WishService.GrowthTimelinePage page = wishService.listGrowthTimeline(wishId, cursor, pageSize);
+        WishService.GrowthTimelinePage page = wishService.listGrowthTimeline(viewerId, wishId, cursor, pageSize);
         return ApiResponse.okWithCursor(page.records(), pageSize == null ? 20 : pageSize,
                 page.nextCursor(), page.hasMore());
     }

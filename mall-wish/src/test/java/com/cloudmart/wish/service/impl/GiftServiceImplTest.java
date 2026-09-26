@@ -74,7 +74,8 @@ class GiftServiceImplTest {
     void setUp() {
         giftService = new GiftServiceImpl(giftMapper, giftRecordMapper, wishMapper,
                 userStatService, giftRateLimiter, communityFeignClient, liveFeignClient,
-                userFeignClient, transactionTemplate);
+                userFeignClient, transactionTemplate,
+                new com.cloudmart.wish.policy.WishAccessPolicy());
         // 事务模板直接执行回调（单元测试不依赖真实事务管理器）
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<Integer>) invocation.getArgument(0))
@@ -83,7 +84,18 @@ class GiftServiceImplTest {
         lenient().when(userStatService.spendStarlight(anyLong(), anyInt(), any(), any())).thenReturn(123);
     }
 
-    private Gift onShelfGift(long id, String name, int price) {
+        /** B03 基线：送礼目标必须公开可读（PUBLIC + APPROVED + isVisible） */
+    private Wish publicWish(Long id, Long ownerId) {
+        Wish wish = new Wish();
+        wish.setId(id);
+        wish.setUserId(ownerId);
+        wish.setVisibility(com.cloudmart.wish.enums.WishVisibility.PUBLIC);
+        wish.setAuditStatus(com.cloudmart.wish.enums.AuditStatus.APPROVED);
+        wish.setIsVisible(true);
+        return wish;
+    }
+
+private Gift onShelfGift(long id, String name, int price) {
         Gift gift = new Gift();
         gift.setId(id);
         gift.setName(name);
@@ -105,8 +117,7 @@ class GiftServiceImplTest {
         @DisplayName("心愿场景成功 - 记录快照落库 + 按单价×数量扣星光 + 返回余额")
         void shouldSendGiftToWish() {
             when(giftMapper.selectById(1L)).thenReturn(onShelfGift(1L, "爱心", 5));
-            Wish wish = new Wish();
-            wish.setUserId(20002L);
+            Wish wish = publicWish(777L, 20002L);
             when(wishMapper.selectById(777L)).thenReturn(wish);
 
             SendGiftResultVO result = giftService.sendGift(USER_ID, request(1L, 3, "WISH", 777L));
@@ -209,8 +220,7 @@ class GiftServiceImplTest {
         @DisplayName("限频命中 - 抛 WISH_RATE_LIMITED 且不扣费")
         void shouldRejectWhenRateLimited() {
             when(giftMapper.selectById(1L)).thenReturn(onShelfGift(1L, "爱心", 5));
-            Wish wish = new Wish();
-            wish.setUserId(20002L);
+            Wish wish = publicWish(777L, 20002L);
             when(wishMapper.selectById(777L)).thenReturn(wish);
             when(giftRateLimiter.checkSendDailyLimit(USER_ID)).thenReturn(false);
 
@@ -223,8 +233,7 @@ class GiftServiceImplTest {
         @DisplayName("星光不足 - spendStarlight 抛 402 且事务体异常向外传播")
         void shouldPropagateInsufficientBalance() {
             when(giftMapper.selectById(1L)).thenReturn(onShelfGift(1L, "皇冠", 88));
-            Wish wish = new Wish();
-            wish.setUserId(20002L);
+            Wish wish = publicWish(777L, 20002L);
             when(wishMapper.selectById(777L)).thenReturn(wish);
             when(userStatService.spendStarlight(anyLong(), anyInt(), any(), any()))
                     .thenThrow(new BusinessException("WISH_STARLIGHT_INSUFFICIENT", "星光余额不足"));

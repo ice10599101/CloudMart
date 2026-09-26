@@ -88,7 +88,8 @@ class WishServiceImplTest {
         wishService = new WishServiceImpl(
                 wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper,
                 new ContentCipher(new WishCryptoProperties()), wishGrowthRecordMapper,
-                wishProgressMapper, userStatService, userFeignClient
+                wishProgressMapper, userStatService, userFeignClient,
+                new com.cloudmart.wish.policy.WishAccessPolicy()
         );
     }
 
@@ -418,6 +419,68 @@ class WishServiceImplTest {
     }
 
     // ========== getWishDetail ==========
+
+    @Nested
+    @DisplayName("B02 子资源访问控制")
+    class SubResourceAccessTests {
+
+        @Test
+        @DisplayName("非作者读取 PRIVATE 心愿进度 → 404（进度是子资源）")
+        void getWishProgress_privateNonAuthor_throws404() {
+            Wish wish = buildWish();
+            wish.setUserId(USER_ID);
+            wish.setVisibility(WishVisibility.PRIVATE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            assertThatThrownBy(() -> wishService.getWishProgress(OTHER_USER_ID, WISH_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo(WishErrorCodes.WISH_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("匿名读取 PUBLIC 心愿进度正常（公开可读语义）")
+        void getWishProgress_publicAnonymous_ok() {
+            Wish wish = buildWish();
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishProgressMapper.selectById(WISH_ID)).thenReturn(buildProgress());
+
+            var result = wishService.getWishProgress(null, WISH_ID);
+
+            assertThat(result.currentValue()).isGreaterThanOrEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("成长时间轴：非作者看不到 DIARY 记录（解密前过滤），作者可见")
+        void listGrowthTimeline_filtersDiaryForNonAuthor() {
+            Wish wish = buildWish();
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            WishGrowthRecord textRecord = growthRecord(1L, GrowthRecordType.TEXT, "公开打卡内容");
+            WishGrowthRecord diaryRecord = growthRecord(2L, GrowthRecordType.DIARY, "私密日记内容");
+            when(wishGrowthRecordMapper.selectList(any()))
+                    .thenReturn(List.of(textRecord, diaryRecord));
+
+            var forOther = wishService.listGrowthTimeline(OTHER_USER_ID, WISH_ID, null, 20);
+            assertThat(forOther.records()).hasSize(1);
+            assertThat(forOther.records().get(0).content()).isEqualTo("公开打卡内容");
+
+            var forAuthor = wishService.listGrowthTimeline(USER_ID, WISH_ID, null, 20);
+            assertThat(forAuthor.records()).hasSize(2);
+        }
+
+        private WishGrowthRecord growthRecord(Long id, GrowthRecordType type, String content) {
+            WishGrowthRecord record = new WishGrowthRecord();
+            record.setId(id);
+            record.setWishId(WISH_ID);
+            record.setUserId(USER_ID);
+            record.setType(type);
+            record.setContent(content);
+            record.setIsVisible(true);
+            record.setCreatedAt(java.time.LocalDateTime.now());
+            return record;
+        }
+    }
 
     @Nested
     @DisplayName("getWishDetail - 心愿详情")

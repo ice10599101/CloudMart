@@ -20,7 +20,7 @@ import java.util.Map;
  * 管理后台徽章 Controller（文档 33.4.7 徽章管理）。
  *
  * <p>路由前缀 /admin/badges，仅内部服务调用（mall-admin 经 Feign 代理转发，
- * hasRole('INTERNAL') 由 X-Internal-Call 头授予）。</p>
+ * hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）。</p>
  */
 @RestController
 @RequestMapping("/admin/badges")

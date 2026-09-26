@@ -92,6 +92,7 @@ public class WishServiceImpl implements WishService {
     private final WishProgressMapper wishProgressMapper;
     private final UserStatService userStatService;
     private final UserFeignClient userFeignClient;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -314,7 +315,7 @@ public class WishServiceImpl implements WishService {
         WishProgress progress = wishProgressMapper.selectById(wishId);
         WishProgressVO progressVO = toProgressVO(progress);
 
-        // 最近成长记录
+        // 最近成长记录；DIARY 永远仅作者可读（B02）：非作者先过滤再解密
         List<WishGrowthRecord> records = wishGrowthRecordMapper.selectList(
                 new LambdaQueryWrapper<WishGrowthRecord>()
                         .eq(WishGrowthRecord::getWishId, wishId)
@@ -322,6 +323,11 @@ public class WishServiceImpl implements WishService {
                         .orderByDesc(WishGrowthRecord::getCreatedAt)
                         .last("LIMIT " + GROWTH_RECORDS_DETAIL_LIMIT)
         );
+        if (!accessPolicy.canReadDiary(wish, userId)) {
+            records = records.stream()
+                    .filter(record -> !com.cloudmart.wish.enums.GrowthRecordType.DIARY.equals(record.getType()))
+                    .toList();
+        }
         List<WishGrowthRecordVO> recordVOs = records.stream()
                 .map(this::toGrowthRecordVO)
                 .toList();
@@ -514,9 +520,7 @@ public class WishServiceImpl implements WishService {
      */
     private Wish getViewableWishOrThrow(Long wishId, Long userId) {
         Wish wish = getWishOrThrow(wishId);
-        if (!isViewableByUser(wish, userId)) {
-            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
-        }
+        accessPolicy.requireReadable(wish, userId);
         return wish;
     }
 
@@ -526,28 +530,9 @@ public class WishServiceImpl implements WishService {
         }
     }
 
+    /** B02：可见性判定统一收敛到 WishAccessPolicy（4.1 公共可见谓词）。 */
     private boolean isViewableByUser(Wish wish, Long userId) {
-        // 软删的心愿不可见（@TableLogic 已过滤，此处双重保险）
-        if (wish.getDeletedAt() != null) {
-            return false;
-        }
-        // 作者始终可见
-        if (wish.getUserId().equals(userId)) {
-            return true;
-        }
-        // PRIVATE/TREE_HOLE 非作者不可见
-        if (wish.getVisibility() != WishVisibility.PUBLIC) {
-            return false;
-        }
-        // 审核未通过且非作者不可见
-        if (wish.getAuditStatus() != AuditStatus.APPROVED && wish.getAuditStatus() != AuditStatus.PENDING) {
-            return false;
-        }
-        // is_visible=false 不可见
-        if (Boolean.FALSE.equals(wish.getIsVisible())) {
-            return false;
-        }
-        return true;
+        return accessPolicy.isReadableBy(wish, userId);
     }
 
     private Long parseCursor(String cursor) {
@@ -658,7 +643,11 @@ public class WishServiceImpl implements WishService {
     }
 
     @Override
-    public GrowthTimelinePage listGrowthTimeline(Long wishId, String cursor, Integer pageSize) {
+    public GrowthTimelinePage listGrowthTimeline(Long viewerId, Long wishId, String cursor, Integer pageSize) {
+        // B02：时间轴是心愿子资源，读取必须先经过父资源访问校验
+        Wish wish = getWishOrThrow(wishId);
+        accessPolicy.requireReadable(wish, viewerId);
+        boolean viewerIsAuthor = accessPolicy.isOwner(wish, viewerId);
         int size = pageSize == null ? 20 : Math.min(Math.max(pageSize, 1), 50);
         Long cursorId = parseCursor(cursor);
         LambdaQueryWrapper<WishGrowthRecord> wrapper = new LambdaQueryWrapper<WishGrowthRecord>()
@@ -670,6 +659,12 @@ public class WishServiceImpl implements WishService {
             wrapper.lt(WishGrowthRecord::getId, cursorId);
         }
         List<WishGrowthRecord> records = wishGrowthRecordMapper.selectList(wrapper);
+        // DIARY 永远仅作者可读（B02）：非作者在解密前过滤
+        if (!viewerIsAuthor) {
+            records = records.stream()
+                    .filter(record -> !com.cloudmart.wish.enums.GrowthRecordType.DIARY.equals(record.getType()))
+                    .toList();
+        }
         boolean hasMore = records.size() > size;
         List<WishGrowthRecord> pageItems = hasMore ? records.subList(0, size) : records;
         List<com.cloudmart.wish.vo.WishGrowthRecordVO> vos = pageItems.stream()
@@ -795,7 +790,9 @@ public class WishServiceImpl implements WishService {
     }
 
     @Override
-    public WishService.ProgressDetail getWishProgress(Long wishId) {
+    public WishService.ProgressDetail getWishProgress(Long viewerId, Long wishId) {
+        // B02：进度是心愿子资源，读取必须先经过父资源访问校验
+        accessPolicy.requireReadable(getWishOrThrow(wishId), viewerId);
         com.cloudmart.wish.entity.WishProgress progress = wishProgressMapper.selectById(wishId);
         if (progress == null) {
             return new WishService.ProgressDetail(0, 0, 0, 0);
@@ -831,7 +828,7 @@ public class WishServiceImpl implements WishService {
             throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT,
                     "进度已被并发修改，请刷新重试");
         }
-        return getWishProgress(wishId);
+        return getWishProgress(userId, wishId);
     }
 
     @Override

@@ -14,29 +14,37 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import java.time.Clock;
+
 /**
  * 心愿宇宙模块 Spring Security 配置。
  *
- * <p>路由可见性策略（对应文档 2.1 节）：</p>
+ * <p>身份边界（B01）：双轨认证，不再存在"头即身份"。</p>
  * <ul>
- *   <li>GET /wishes（公开列表）、GET /wishes/{id}（详情）、GET /categories（字典）、
- *       GET /home（首页聚合）→ permitAll（未登录可浏览，登录后个性化）</li>
- *   <li>POST/PUT/DELETE /wishes/**、GET /my/**、/admin/** → authenticated</li>
- *   <li>/admin/** 由 Controller 层 @PreAuthorize("hasRole('INTERNAL')") 限制为内部调用
- *       （mall-admin Feign 代理），外部经网关的普通用户请求无法到达</li>
+ *   <li>用户：网关透传的 Bearer JWT 由 {@link WishJwtAuthenticationFilter} 直接验签
+ *       （RS256/mall-auth JWKS），建立 ROLE_USER；网关注入的 {@code X-User-Id}
+ *       仅作为数据字段被 Controller 读取，不再作为身份源。</li>
+ *   <li>服务：mall-admin/mall-job/mall-pet 的内部调用必须携带短期签名服务令牌，
+ *       由 {@link ServiceTokenAuthenticationFilter} 按路径强校验 iss/aud/scope，
+ *       建立 ROLE_INTERNAL；用户令牌永远不会得到该角色。</li>
+ *   <li>匿名：公开端点（下方 permitAll）不依赖任何身份即可浏览。</li>
  * </ul>
+ *
+ * <p>路由可见性策略：GET /wishes、/wishes/{id}、/categories、/home 等公开浏览端点
+ * permitAll；写操作、/my/**、/admin/**、/internal/** 一律 authenticated
+ * （/admin 与 /internal 再由 @PreAuthorize("hasRole('INTERNAL')") 限定服务身份）。</p>
  */
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final InternalCallAuthenticationFilter internalCallAuthenticationFilter;
+    private final WishSecurityProperties securityProperties;
     private final RequestIdFilter requestIdFilter;
 
-    public SecurityConfig(InternalCallAuthenticationFilter internalCallAuthenticationFilter,
+    public SecurityConfig(WishSecurityProperties securityProperties,
                           RequestIdFilter requestIdFilter) {
-        this.internalCallAuthenticationFilter = internalCallAuthenticationFilter;
+        this.securityProperties = securityProperties;
         this.requestIdFilter = requestIdFilter;
     }
 
@@ -45,7 +53,11 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(internalCallAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // 顺序：先验用户 JWT，再验服务令牌（二者互斥建立身份）
+            .addFilterBefore(new WishJwtAuthenticationFilter(securityProperties.jwksUri()),
+                    UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(new ServiceTokenAuthenticationFilter(securityProperties, wishClock()),
+                    UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // 公开浏览：心愿列表、详情、分类字典、首页聚合
                 .requestMatchers(HttpMethod.GET, "/wishes").permitAll()
@@ -101,6 +113,12 @@ public class SecurityConfig {
             .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, authException) ->
                 JsonAuthenticationEntryPoint.writeUnauthorized(request, response)));
         return http.build();
+    }
+
+    /** 供时间相关校验注入的 UTC 时钟（后续 B09 等任务统一复用）。 */
+    @Bean
+    public Clock wishClock() {
+        return Clock.systemUTC();
     }
 
     @Bean

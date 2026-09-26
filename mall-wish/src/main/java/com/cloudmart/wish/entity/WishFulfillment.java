@@ -51,6 +51,18 @@ public class WishFulfillment {
     /** 是否已传承推送（Sprint 2.7 愿望传承，当前恒 false） */
     private Boolean isInherited;
 
+    /** 是否显式授权分享到社区（B03：默认 false，不自动传播） */
+    private Boolean shareToCommunity;
+
+    /** 分享授权时间（作者勾选时刻） */
+    private LocalDateTime shareConsentAt;
+
+    /** 分享内容版本（社区去重与撤回判定依据） */
+    private Integer contentVersion;
+
+    /** 分享撤销时间（故事撤回/转私密时回填） */
+    private LocalDateTime shareRevokedAt;
+
     @TableLogic
     private LocalDateTime deletedAt;
 

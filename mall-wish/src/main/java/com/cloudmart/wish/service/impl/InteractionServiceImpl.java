@@ -87,6 +87,7 @@ public class InteractionServiceImpl implements InteractionService {
     private final WishStatEventProducer statEventProducer;
     private final UserFeignClient userFeignClient;
     private final TransactionTemplate transactionTemplate;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Override
@@ -295,26 +296,11 @@ public class InteractionServiceImpl implements InteractionService {
      */
     private Wish requireInteractableWish(Long wishId, Long userId) {
         Wish wish = wishMapper.selectById(wishId);
-        if (wish == null || !isViewableByUser(wish, userId)) {
+        // B02：可互动性判定统一收敛到 WishAccessPolicy（作者本身可操作其私密心愿）
+        if (wish == null || !(accessPolicy.isOwner(wish, userId) || accessPolicy.isPublicReadable(wish))) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
         }
         return wish;
-    }
-
-    private boolean isViewableByUser(Wish wish, Long userId) {
-        if (wish.getDeletedAt() != null) {
-            return false;
-        }
-        if (wish.getUserId().equals(userId)) {
-            return true;
-        }
-        if (wish.getVisibility() != WishVisibility.PUBLIC) {
-            return false;
-        }
-        if (wish.getAuditStatus() != AuditStatus.APPROVED && wish.getAuditStatus() != AuditStatus.PENDING) {
-            return false;
-        }
-        return !Boolean.FALSE.equals(wish.getIsVisible());
     }
 
     /**

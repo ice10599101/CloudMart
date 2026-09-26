@@ -1,5 +1,6 @@
 package com.cloudmart.job.handler;
 
+import com.cloudmart.job.config.WishServiceTokenProvider;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +20,13 @@ public class BusinessJobHandler {
     private static final Logger log = LoggerFactory.getLogger(BusinessJobHandler.class);
 
     private final RestClient restClient;
+    private final WishServiceTokenProvider wishServiceTokenProvider;
 
-    public BusinessJobHandler(@LoadBalanced RestClient.Builder restClientBuilder) {
+    public BusinessJobHandler(@LoadBalanced RestClient.Builder restClientBuilder,
+                              WishServiceTokenProvider wishServiceTokenProvider) {
         // 服务名 URI（http://mall-wish 等）经 LoadBalancer→Nacos 解析为实际地址
         this.restClient = restClientBuilder.build();
+        this.wishServiceTokenProvider = wishServiceTokenProvider;
     }
 
     /**
@@ -99,6 +103,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/tree-env/scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 生命树情绪环境扫描完成");
@@ -122,6 +127,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/overdue-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 心愿 OVERDUE 扫描完成");
@@ -143,6 +149,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/hot-cache-refresh")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 热门推荐缓存刷新完成");
@@ -167,6 +174,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/tree-env/season-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 生命树季节落库扫描完成");
@@ -188,6 +196,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/badge-compensation-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 徽章漏发补偿扫描完成");
@@ -213,6 +222,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/capsule-open-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 时间胶囊到期扫描完成");
@@ -238,6 +248,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/ai-reminder-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: AI 陪伴提醒扫描完成");
@@ -258,6 +269,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/leaderboard-refresh")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 排行榜刷新完成");
@@ -278,6 +290,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/encounter-match")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 擦肩而过匹配完成");
@@ -298,6 +311,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/trace-cleanup")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 轨迹清理完成");
@@ -317,6 +331,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/starlight-decay")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 星光衰减完成");
@@ -336,6 +351,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/starlight-reconcile")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 星光对账完成");
@@ -355,6 +371,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/level-upgrade")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 等级升级扫描完成");
@@ -374,6 +391,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/restriction-release")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 限制解除完成");
@@ -393,6 +411,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/risk-score-decay")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 风控分衰减完成");
@@ -412,6 +431,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/inactive-archive")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 不活跃归档完成");
@@ -431,6 +451,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/data-export-purge")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 数据导出过期清理完成");
@@ -450,6 +471,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/account-deletion-scan")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 注销到期执行完成");
@@ -469,6 +491,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/activity-reward-check")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 活动达标自动发奖扫描完成");
@@ -485,6 +508,7 @@ public class BusinessJobHandler {
             restClient.post()
                     .uri("http://mall-wish/internal/jobs/brand-reward-check")
                     .header("X-Internal-Call", "true")
+                    .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 品牌池达标发奖完成");

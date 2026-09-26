@@ -32,7 +32,7 @@ import java.util.List;
  * 管理后台 AI 心愿助手 Controller（文档 2.5 管理后台，Sprint 2.5）。
  *
  * <p>路由前缀 /admin/ai，仅内部服务调用（mall-admin 经 Feign 代理转发，
- * hasRole('INTERNAL') 由 X-Internal-Call 头授予）；权限点
+ * hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）；权限点
  * {@code business:aiPrompt:*} / {@code business:aiConfig:*} 在管理后台
  * 角色界面配置。管理员身份经 {@code X-User-Id} 头透传。</p>
  *

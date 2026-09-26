@@ -201,8 +201,11 @@ public interface WishService {
      */
     GrowthRecordVO addGrowthRecord(Long userId, Long wishId, AddGrowthRequest request);
 
-    /** 查询心愿进度详情 */
-    ProgressDetail getWishProgress(Long wishId);
+    /**
+     * 查询心愿进度详情（B02：viewer 为已认证用户 ID，匿名传 null；
+     * 子资源读取先经 WishAccessPolicy 校验父资源可见性）。
+     */
+    ProgressDetail getWishProgress(Long viewerId, Long wishId);
 
     record CheckinResultVO(Long checkinId, int currentStreak, int maxStreak, int starlightCredited) {}
     record GrowthRecordVO(Long recordId, int newCurrentValue) {}
@@ -213,8 +216,9 @@ public interface WishService {
 
     /**
      * 成长记录完整时间轴（cursor 分页；可见性与详情内嵌记录一致：is_visible=true）。
+     * B02：viewer 为已认证用户 ID（匿名传 null）；DIARY 记录仅作者可见。
      */
-    GrowthTimelinePage listGrowthTimeline(Long wishId, String cursor, Integer pageSize);
+    GrowthTimelinePage listGrowthTimeline(Long viewerId, Long wishId, String cursor, Integer pageSize);
     record ProgressDetail(int currentValue, int targetValue, int percentage, int version) {}
     record AddGrowthRequest(String type, String content, List<String> mediaUrls, Short progressDelta) {}
     record ProgressUpdateRequest(int currentValue, int version) {}

@@ -18,6 +18,10 @@ spring:
 
 # 集成测试关闭 AI 重试等待，加速失败场景用例
 wish:
+  security:
+    # IT 专用服务令牌密钥（仅隔离测试环境；生产经部署密钥注入，B01 fail fast）
+    service-token-secret: it-isolated-wish-service-token-secret-0123456789abcdef
+    clock-skew-seconds: 30
   ai:
     retry-interval-ms: 0
   # 测试专用敏感词词库（生产词库由运营维护，经 Nacos 下发；此处仅保证集成测试确定性）

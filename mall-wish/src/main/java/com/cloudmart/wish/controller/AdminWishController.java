@@ -25,7 +25,7 @@ import java.util.List;
  *
  * <p>路由前缀 /admin/wishes，仅允许内部服务调用（mall-admin 经 Feign 代理转发），
  * 与 mall-community 管理端点安全模式一致：ROLE_INTERNAL 由网关注入的
- * X-Internal-Call 头经 InternalCallAuthenticationFilter 授予，外部请求无法伪造。</p>
+ * 服务令牌经 ServiceTokenAuthenticationFilter 授予，外部请求无法伪造。</p>
  */
 @RestController
 @RequestMapping("/admin/wishes")

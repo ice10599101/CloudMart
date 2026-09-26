@@ -1,6 +1,7 @@
 package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.admin.config.WishServiceTokenConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -12,7 +13,8 @@ import java.util.Map;
  * <p>下游 /admin/capsules/** 由 @PreAuthorize("hasRole('INTERNAL')") 保护，
  * X-Internal-Call 头由 AdminFeignInterceptor 全局注入。</p>
  */
-@FeignClient(contextId = "capsuleFeignClient", name = "mall-wish", path = "/admin/capsules",
+@FeignClient(contextId = "capsuleFeignClient", name = "mall-wish",
+        configuration = WishServiceTokenConfig.class, path = "/admin/capsules",
         fallbackFactory = CapsuleFeignClientFallbackFactory.class)
 public interface CapsuleFeignClient {
 

@@ -1,8 +1,6 @@
 package com.cloudmart.gateway.filter;
 
 import com.cloudmart.common.constant.SecurityConstants;
-import com.nimbusds.jwt.JWT;
-import com.nimbusds.jwt.JWTParser;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -28,18 +26,10 @@ public class AdminAuthGlobalFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        // B01：管理员角色只能来自 JwtAuthenticationFilter 在验签成功后注入的
+        // X-Admin-Role 头。禁止在此处直接 parse 未经签名校验的 JWT 恢复身份——
+        // 伪造签名但携带 scope=admin 声明的 token 会被该路径提权。
         String role = exchange.getRequest().getHeaders().getFirst(SecurityConstants.ADMIN_ROLE_HEADER);
-
-        if (role == null || role.isEmpty()) {
-            String extractedRole = extractScopeFromJwt(exchange);
-            if (extractedRole != null) {
-                role = extractedRole;
-                String finalRole = extractedRole;
-                exchange = exchange.mutate()
-                        .request(builder -> builder.header(SecurityConstants.ADMIN_ROLE_HEADER, finalRole))
-                        .build();
-            }
-        }
 
         if (role == null || role.isEmpty()) {
             return writeErrorResponse(exchange, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "未登录或登录已过期");
@@ -50,22 +40,6 @@ public class AdminAuthGlobalFilter implements GlobalFilter, Ordered {
         }
 
         return chain.filter(exchange);
-    }
-
-    private String extractScopeFromJwt(ServerWebExchange exchange) {
-        String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-
-        try {
-            String token = authHeader.substring(7);
-            JWT jwt = JWTParser.parse(token);
-            Object scope = jwt.getJWTClaimsSet().getClaim("scope");
-            return scope != null ? scope.toString() : null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private Mono<Void> writeErrorResponse(ServerWebExchange exchange, HttpStatus status, String code, String message) {

@@ -62,18 +62,14 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private final UserFeignClient userFeignClient;
     private final WishContentSanitizer contentSanitizer;
     private final LegacyFlowService legacyFlowService;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WishFulfillmentSubmitVO submitFulfillment(Long userId, Long wishId, SubmitFulfillmentRequest request) {
-        // 作者级前置校验：不可见心愿统一 404 防存在性探测，可见但非作者 403
+        // 作者级前置校验：不可见心愿统一 404 防存在性探测（B02 统一策略）
         Wish wish = wishMapper.selectById(wishId);
-        if (wish == null || !isViewableByUser(wish, userId)) {
-            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
-        }
-        if (!wish.getUserId().equals(userId)) {
-            throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅作者可还愿此心愿");
-        }
+        accessPolicy.requireOwner(wish, userId);
 
         // 状态前置校验：仅 ACTIVE/OVERDUE 可发起还愿（文档 2.4 errors）
         if (wish.getStatus() != WishStatus.ACTIVE && wish.getStatus() != WishStatus.OVERDUE) {
@@ -89,6 +85,13 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         }
         String feeling = request.feeling() == null ? null : contentSanitizer.escapeHtml(request.feeling().trim());
 
+        // B03：社区传播必须显式授权，且仅 PUBLIC 心愿允许；默认不传播
+        final boolean shareToCommunity = request.isShareToCommunity();
+        if (shareToCommunity && wish.getVisibility() != WishVisibility.PUBLIC) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                    "私密/树洞心愿不能分享到社区");
+        }
+
         WishFulfillment fulfillment = new WishFulfillment();
         fulfillment.setWishId(wishId);
         fulfillment.setUserId(userId);
@@ -98,6 +101,9 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setAuditStatus(AuditStatus.PENDING);
         fulfillment.setIsVisible(true);
         fulfillment.setIsInherited(false);
+        fulfillment.setShareToCommunity(shareToCommunity);
+        fulfillment.setShareConsentAt(shareToCommunity ? LocalDateTime.now() : null);
+        fulfillment.setContentVersion(1);
         wishFulfillmentMapper.insert(fulfillment);
 
         // 心愿状态条件流转（并发双保险）：查询与更新间状态可能变化
@@ -123,8 +129,10 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         log.info("还愿提交成功, wishId={}, userId={}, fulfillmentId={}, starlightCredited={}",
                 wishId, userId, fulfillment.getId(), credited);
 
-        // 事务提交后异步内容流转（community 帖子生成；失败重试/日志，不阻断还愿）
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+        // B03：仅作者显式授权且心愿为 PUBLIC 时才异步流转到社区；
+        // 流转执行前还会再次校验当前隐私与授权状态（防投递前转私密）
+        if (shareToCommunity
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                     new org.springframework.transaction.support.TransactionSynchronization() {
                         @Override
@@ -183,20 +191,9 @@ public class FulfillmentServiceImpl implements FulfillmentService {
      * 作者始终可见；PRIVATE/TREE_HOLE 非作者不可见；
      * 审核驳回/隐藏、is_visible=false 不可见。
      */
+    /** B02：可见性判定统一收敛到 WishAccessPolicy。 */
     private boolean isViewableByUser(Wish wish, Long userId) {
-        if (wish.getDeletedAt() != null) {
-            return false;
-        }
-        if (wish.getUserId().equals(userId)) {
-            return true;
-        }
-        if (wish.getVisibility() != WishVisibility.PUBLIC) {
-            return false;
-        }
-        if (wish.getAuditStatus() != AuditStatus.APPROVED && wish.getAuditStatus() != AuditStatus.PENDING) {
-            return false;
-        }
-        return !Boolean.FALSE.equals(wish.getIsVisible());
+        return accessPolicy.isReadableBy(wish, userId);
     }
 
     /** 作者信息获取（Feign 失败降级为占位值，不阻塞还愿详情）。 */
@@ -253,6 +250,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         }
         // 软删保留审计；心愿状态保持 FULFILLED（历史事实不回退）
         fulfillment.setDeletedAt(java.time.LocalDateTime.now());
+        // B03：撤回分享授权，投递中的流转会被执行前校验拦截，已发帖子走 hideFlow 隐藏
+        fulfillment.setShareRevokedAt(java.time.LocalDateTime.now());
         wishFulfillmentMapper.updateById(fulfillment);
 
         // 状态同步：community 帖子隐藏（文档 2.7 还愿删除 → 帖子同步隐藏）

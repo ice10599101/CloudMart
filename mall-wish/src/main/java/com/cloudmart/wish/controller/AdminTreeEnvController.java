@@ -23,7 +23,7 @@ import java.util.Map;
  * 触发台 + 环境配置管理 + 天气 API 配置说明）。
  *
  * <p>路由前缀 /admin/tree-env，仅内部服务调用（mall-admin 经 Feign 代理
- * 转发，hasRole('INTERNAL') 由 X-Internal-Call 头授予）；权限点
+ * 转发，hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）；权限点
  * {@code business:treeEnv:*} 在管理后台角色界面配置。管理员身份经
  * {@code X-User-Id} 头透传（AdminFeignInterceptor）。</p>
  *

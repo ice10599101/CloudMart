@@ -72,6 +72,7 @@ public class GiftServiceImpl implements GiftService {
     private final LiveFeignClient liveFeignClient;
     private final UserFeignClient userFeignClient;
     private final TransactionTemplate transactionTemplate;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
 
     @Override
     public List<GiftVO> listOnShelfGifts() {
@@ -156,8 +157,14 @@ public class GiftServiceImpl implements GiftService {
     }
 
     @Override
-    public GiftRecordPageVO listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize) {
+    public GiftRecordPageVO listTargetRecords(Long viewerId, String targetType, Long targetId,
+                                              Long cursor, Integer pageSize) {
         GiftTargetType type = parseTargetType(targetType);
+        // B02：场景记录查询先校验目标可读性，防止经礼物列表反查私密心愿作者
+        if (type == GiftTargetType.WISH) {
+            Wish wish = wishMapper.selectById(targetId);
+            accessPolicy.requireReadable(wish, viewerId);
+        }
         List<GiftRecord> records = giftRecordMapper.selectList(new LambdaQueryWrapper<GiftRecord>()
                 .eq(GiftRecord::getTargetType, type.name())
                 .eq(GiftRecord::getTargetId, targetId)
@@ -280,8 +287,11 @@ public class GiftServiceImpl implements GiftService {
         return switch (targetType) {
             case WISH -> {
                 Wish wish = wishMapper.selectById(targetId);
-                yield wish != null ? wish.getUserId()
-                        : targetNotFound(targetType, targetId);
+                // B02：仅公开可读心愿可被送礼（私密/下架/删除不泄露存在性，统一目标不存在）
+                if (wish == null || !accessPolicy.isPublicReadable(wish)) {
+                    yield targetNotFound(targetType, targetId);
+                }
+                yield wish.getUserId();
             }
             case POST -> {
                 Map<String, Object> owner = requireFeignData(

@@ -34,6 +34,7 @@ public class WishCollectionServiceImpl implements WishCollectionService {
     private final WishCollectionMapper collectionMapper;
     private final WishMapper wishMapper;
     private final UserFeignClient userFeignClient;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
 
     @Override
     @Transactional
@@ -45,6 +46,8 @@ public class WishCollectionServiceImpl implements WishCollectionService {
         if (wish.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "不能收藏自己的心愿");
         }
+        // B02：私密/树洞/已下架心愿不可被他人收藏（不泄露存在性，统一 404 语义）
+        accessPolicy.requireInteractable(wish, userId);
         WishCollection collection = new WishCollection();
         collection.setUserId(userId);
         collection.setWishId(wishId);
@@ -89,6 +92,8 @@ public class WishCollectionServiceImpl implements WishCollectionService {
         for (WishCollection collection : collections) {
             Wish wish = wishMapper.selectById(collection.getWishId());
             if (wish == null) continue;
+            // B02/B07：收藏关系可保留，但已转私密/下架/删除的心愿内容必须隐藏（跳过展示）
+            if (!accessPolicy.isPublicReadable(wish)) continue;
             result.add(new WishCollectionItemVO(
                     collection.getId(),
                     wish.getId(),

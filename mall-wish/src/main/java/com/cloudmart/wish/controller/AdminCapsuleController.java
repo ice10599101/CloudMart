@@ -16,7 +16,7 @@ import java.util.Map;
  * 管理后台时间胶囊统计 Controller（文档 Sprint 2.4 管理后台：胶囊统计）。
  *
  * <p>路由前缀 /admin/capsules，仅内部服务调用（mall-admin 经 Feign 代理
- * 转发，hasRole('INTERNAL') 由 X-Internal-Call 头授予）；权限点
+ * 转发，hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）；权限点
  * {@code business:capsule:stats} 在管理后台角色界面配置。</p>
  */
 @RestController

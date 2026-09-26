@@ -1,6 +1,7 @@
 package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.admin.config.WishServiceTokenConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,7 +14,8 @@ import java.util.Map;
  * 触发特殊事件的 X-User-Id（操作管理员）由 AdminFeignInterceptor 统一
  * 透传，无需方法参数显式声明。</p>
  */
-@FeignClient(contextId = "treeEnvFeignClient", name = "mall-wish", path = "/admin/tree-env",
+@FeignClient(contextId = "treeEnvFeignClient", name = "mall-wish",
+        configuration = WishServiceTokenConfig.class, path = "/admin/tree-env",
         fallbackFactory = TreeEnvFeignClientFallbackFactory.class)
 public interface TreeEnvFeignClient {
 

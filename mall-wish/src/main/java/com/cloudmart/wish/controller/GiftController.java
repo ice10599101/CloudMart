@@ -101,13 +101,15 @@ public class GiftController {
     @Operation(summary = "场景礼物墙", description = "某心愿/帖子/直播间的最新送礼记录（id 倒序 cursor 分页）")
     @SentinelResource("GIFT_TARGET_RECORDS")
     public ApiResponse<List<GiftRecordVO>> listTargetRecords(
+            @Parameter(description = "当前用户 ID（网关注入；匿名缺省）")
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) Long viewerId,
             @Parameter(description = "送礼场景", required = true) @PathVariable("targetType") String targetType,
             @Parameter(description = "场景对象 ID", required = true) @PathVariable("targetId") Long targetId,
             @Parameter(description = "游标（上一页末条记录 ID）")
             @RequestParam(value = "cursor", required = false) Long cursor,
             @Parameter(description = "页大小（默认 20，上限 50）")
             @RequestParam(value = "pageSize", required = false) Integer pageSize) {
-        GiftRecordPageVO page = giftService.listTargetRecords(targetType, targetId, cursor, pageSize);
+        GiftRecordPageVO page = giftService.listTargetRecords(viewerId, targetType, targetId, cursor, pageSize);
         return ApiResponse.okWithCursor(page.records(), page.pageSize(),
                 page.nextCursor(), Boolean.TRUE.equals(page.hasMore()));
     }

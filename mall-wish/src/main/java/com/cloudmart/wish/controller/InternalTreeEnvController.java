@@ -18,7 +18,7 @@ import java.util.Map;
  * 生命树环境内部接口（mall-job 定时调用，Sprint 2.2）。
  *
  * <p>安全：{@code hasRole('INTERNAL')}——仅网关/mall-job 携带
- * {@code X-Internal-Call: true} 的内部请求可达（见 InternalCallAuthenticationFilter），
+ * {@code X-Service-Token} 合法服务令牌的内部请求可达（见 ServiceTokenAuthenticationFilter），
  * 外部请求 403。</p>
  *
  * <p>对应 JobHandler（需在 XXL-Job 控制台登记）：</p>

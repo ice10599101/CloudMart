@@ -1,6 +1,7 @@
 package com.cloudmart.pet.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.pet.config.WishServiceTokenConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import java.util.Map;
  * 返回 409 WISH_OPERATION_CONFLICT。结果未知时可经 {@link #findOperation} 按原单查询。</p>
  */
 @FeignClient(name = "mall-wish", contextId = "petWishFeignClient",
+        configuration = WishServiceTokenConfig.class,
         fallbackFactory = WishFeignClientFallbackFactory.class)
 public interface WishFeignClient {
 

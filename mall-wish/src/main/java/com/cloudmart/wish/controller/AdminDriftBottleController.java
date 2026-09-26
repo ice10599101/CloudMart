@@ -27,7 +27,7 @@ import java.util.List;
  * 管理后台漂流瓶 Controller。
  *
  * <p>路由前缀 /admin/drift-bottles，仅允许内部服务调用（mall-admin 经 Feign 代理转发），
- * ROLE_INTERNAL 由网关注入的 X-Internal-Call 头经 InternalCallAuthenticationFilter 授予。
+ * ROLE_INTERNAL 由服务令牌经 ServiceTokenAuthenticationFilter 授予。
  * 管理 VO 含真实用户 ID（治理溯源），不受用户侧匿名规则脱敏。</p>
  */
 @RestController

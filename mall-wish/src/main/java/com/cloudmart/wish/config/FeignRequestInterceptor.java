@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>当 mall-wish 通过 Feign 调用 mall-user / mall-community / mall-file 时，
  * 注入 {@code X-Internal-Call: true} 和当前用户 ID，使下游服务可识别调用方身份
- * 并复用 {@code InternalCallAuthenticationFilter} 完成认证。</p>
+ * 下游服务端点按自身安全策略处理（B01 后 mall-wish 不再信任裸头）。</p>
  */
 @Component
 public class FeignRequestInterceptor implements RequestInterceptor {

@@ -28,7 +28,7 @@ import java.util.Map;
  * 管理后台礼物管理 Controller（全站虚拟礼物）。
  *
  * <p>路由前缀 /admin/gifts，仅内部服务调用（mall-admin 经 Feign 代理转发，
- * hasRole('INTERNAL') 由 X-Internal-Call 头授予）；权限点
+ * hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）；权限点
  * {@code business:gift:*} 在管理后台角色界面配置。</p>
  */
 @RestController

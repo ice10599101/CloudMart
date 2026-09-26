@@ -46,6 +46,7 @@ public class CollectionServiceImpl implements CollectionService {
     private final WishUserBadgeMapper userBadgeMapper;
     private final WishMapper wishMapper;
     private final StringRedisTemplate redisTemplate;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
 
     // ---------------- 虚拟工坊 ----------------
 
@@ -240,6 +241,8 @@ public class CollectionServiceImpl implements CollectionService {
         if (wish == null || wish.getFruitType() != FruitType.SPARK) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "仅星火(SPARK)心愿可收藏");
         }
+        // B02：星火收藏是作者对自己心愿的操作（4.2 星火=本人），防越权收藏他人星火
+        accessPolicy.requireOwner(wish, userId);
         // 幂等：同一心愿不可重复收藏
         if (userAssetMapper.selectCount(new LambdaQueryWrapper<UserAsset>()
                 .eq(UserAsset::getUserId, userId)

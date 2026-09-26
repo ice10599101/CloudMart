@@ -20,6 +20,20 @@ public record SubmitFulfillmentRequest(
         List<String> mediaUrls,
 
         @Size(max = 1000, message = "感悟不能超过1000字符")
-        String feeling
+        String feeling,
+
+        Boolean shareToCommunity
 ) {
+
+    /**
+     * B03：分享到社区必须显式授权；缺省构造视为不分享
+     * （默认关闭自动传播，私密/树洞心愿携带 true 将被 422 拒绝）。
+     */
+    public SubmitFulfillmentRequest(String story, List<String> mediaUrls, String feeling) {
+        this(story, mediaUrls, feeling, Boolean.FALSE);
+    }
+
+    public boolean isShareToCommunity() {
+        return Boolean.TRUE.equals(shareToCommunity);
+    }
 }

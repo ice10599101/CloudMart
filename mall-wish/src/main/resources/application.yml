@@ -168,6 +168,15 @@ knife4j:
 
 # 心愿模块业务配置（支持 Nacos 热更新）
 wish:
+  security:
+    # B01 身份边界：用户身份由可验证 JWT 建立（网关透传 Authorization，本服务自行验签）；
+    # 服务身份由 X-Service-Token（HS256 短期令牌）建立，按路径强校验 iss/aud/scope。
+    # 共享密钥由部署环境注入，禁止写入仓库；缺失时启动失败（fail fast）。
+    service-token-secret: ${WISH_SERVICE_TOKEN_SECRET:}
+    # mall-auth JWKS（RS256 公钥），与网关一致
+    jwks-uri: ${WISH_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
+    # 令牌时钟偏移容忍
+    clock-skew-seconds: 30
   ai:
     # 树洞单用户每日调用上限（文档 30.3：10 次/日）
     tree-hole-daily-limit: 10

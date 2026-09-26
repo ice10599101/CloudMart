@@ -63,7 +63,7 @@ public interface GiftService {
      * @param targetType 场景：WISH / POST / LIVE_ROOM
      * @param targetId   场景对象 ID
      */
-    GiftRecordPageVO listTargetRecords(String targetType, Long targetId, Long cursor, Integer pageSize);
+    GiftRecordPageVO listTargetRecords(Long viewerId, String targetType, Long targetId, Long cursor, Integer pageSize);
 
     /**
      * 管理端：全量礼物目录（含下架，sort 升序）。

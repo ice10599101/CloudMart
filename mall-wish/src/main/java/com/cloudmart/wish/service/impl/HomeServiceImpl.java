@@ -104,11 +104,15 @@ public class HomeServiceImpl implements HomeService {
      * 获取热门心愿列表（先查 Redis ZSet，未命中回源 DB 并回填）。
      */
     private List<Wish> getHotWishes() {
-        // 尝试从 ZSet 缓存读取（Fail-Open：脏数据/Redis 故障时删键回源，不阻塞首页）
-        List<Wish> cached = readHotFeedCache();
-        if (!cached.isEmpty()) {
-            log.debug("首页热门缓存命中, count={}", cached.size());
-            return cached;
+        // B07：缓存只保存候选 ID/排序分值；命中后必须批量回查当前公共可见状态，
+        // 防止已转私密/下架/删除的心愿从旧缓存泄露标题与内容
+        List<Long> cachedIds = readHotFeedCacheIds();
+        if (!cachedIds.isEmpty()) {
+            List<Wish> fresh = loadPublicWishesByIds(cachedIds);
+            if (!fresh.isEmpty()) {
+                log.debug("首页热门缓存命中, count={}", fresh.size());
+                return fresh;
+            }
         }
 
         // 缓存未命中，回源 DB：近 7 天 PUBLIC + APPROVED
@@ -127,10 +131,10 @@ public class HomeServiceImpl implements HomeService {
             return Collections.emptyList();
         }
 
-        // 回填 ZSet 缓存（score = support_count，便于按互动量排序；写入失败仅告警）
+        // 回填 ZSet 缓存（member = 心愿 ID，score = support_count；B07：不缓存实体，写入失败仅告警）
         try {
             for (Wish wish : candidates) {
-                redisTemplate.opsForZSet().add(HOT_FEED_KEY, wish, wish.getSupportCount());
+                redisTemplate.opsForZSet().add(HOT_FEED_KEY, wish.getId(), wish.getSupportCount());
             }
             long ttl = HOT_FEED_TTL_SECONDS + ThreadLocalRandom.current().nextLong(HOT_FEED_JITTER_MAX_SECONDS);
             redisTemplate.expire(HOT_FEED_KEY, ttl, TimeUnit.SECONDS);
@@ -142,7 +146,8 @@ public class HomeServiceImpl implements HomeService {
         return candidates;
     }
 
-    private List<Wish> readHotFeedCache() {
+    /** B07：缓存只承载 ID 与排序分值 */
+    private List<Long> readHotFeedCacheIds() {
         try {
             Set<ZSetOperations.TypedTuple<Object>> cached = redisTemplate.opsForZSet()
                     .reverseRangeWithScores(HOT_FEED_KEY, 0, RECOMMEND_CANDIDATE_LIMIT - 1);
@@ -150,7 +155,7 @@ public class HomeServiceImpl implements HomeService {
                 return Collections.emptyList();
             }
             return cached.stream()
-                    .map(tuple -> (Wish) tuple.getValue())
+                    .map(tuple -> tuple.getValue() instanceof Number number ? number.longValue() : null)
                     .filter(java.util.Objects::nonNull)
                     .toList();
         } catch (Exception ex) {
@@ -161,6 +166,31 @@ public class HomeServiceImpl implements HomeService {
             } catch (Exception delEx) {
                 log.warn("脏键删除失败（键过期后自动消失）: {}", delEx.getMessage());
             }
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * B07：按缓存 ID 批量回查心愿，并重新执行公共可见谓词
+     * （未删除 + PUBLIC + isVisible + APPROVED）；不可见者直接剔除，
+     * 顺序沿用缓存排序分值。批量一次查询，无 N+1。
+     */
+    private List<Wish> loadPublicWishesByIds(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            List<Wish> wishes = wishMapper.selectList(new LambdaQueryWrapper<Wish>()
+                    .in(Wish::getId, ids)
+                    .eq(Wish::getVisibility, WishVisibility.PUBLIC)
+                    .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
+                    .eq(Wish::getIsVisible, true));
+            var byId = wishes.stream()
+                    .collect(java.util.stream.Collectors.toMap(Wish::getId, w -> w));
+            return ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+        } catch (Exception ex) {
+            // DB 回查失败时不能把旧缓存内容当兜底展示（Fail-Closed 于隐私）
+            log.warn("首页热门回查失败，按空处理: {}", ex.getMessage());
             return Collections.emptyList();
         }
     }

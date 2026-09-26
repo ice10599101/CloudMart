@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 面向内部微服务的宠物支持端点（mall-pet Feign 调用）。
  *
- * <p>安全：{@code hasRole('INTERNAL')}——仅携带 {@code X-Internal-Call: true} 的
- * 内部请求可达（见 InternalCallAuthenticationFilter），外部请求 403。</p>
+ * <p>安全：{@code hasRole('INTERNAL')}——仅携带合法 {@code X-Service-Token} 服务令牌的
+ * 内部请求可达（见 ServiceTokenAuthenticationFilter），外部请求 403。</p>
  *
  * <p>复用边界（社区宠物实施文档 §0.1 原则 2/3）：宠物不建第二套漂流瓶/钱包——
  * 捞瓶直接委托 {@link DriftBottleService#fishBottle}（计入用户每日打捞配额，防刷），

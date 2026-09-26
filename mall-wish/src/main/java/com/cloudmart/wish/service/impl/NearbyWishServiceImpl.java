@@ -59,8 +59,6 @@ public class NearbyWishServiceImpl implements NearbyWishService {
     private static final String NEARBY_CACHE_PREFIX = "map:nearby:";
     private static final String CLUSTER_CACHE_PREFIX = "map:cluster:";
     private static final ObjectMapper CACHE_MAPPER = new ObjectMapper();
-    private static final TypeReference<List<NearbyWishVO>> VO_LIST_TYPE = new TypeReference<>() {
-    };
 
     private final WishMapper wishMapper;
     private final WishMapProperties mapProperties;
@@ -72,13 +70,15 @@ public class NearbyWishServiceImpl implements NearbyWishService {
         int radiusM = resolveRadius(radius);
         String cacheKey = NEARBY_CACHE_PREFIX + GeoHashUtils.encode(center[0], center[1], QUERY_PRECISION)
                 + ":" + radiusM + ":" + (geohash == null ? "c" : "g");
-        List<NearbyWishVO> cached = readCache(cacheKey);
-        if (cached != null) {
-            return cached;
+        // B07：缓存只保存候选 ID；命中后批量回查当前公共可见状态再重组 VO，
+        // 防止已转私密/下架/删除的心愿从旧缓存泄露标题与坐标
+        List<Long> cachedIds = readCache(cacheKey);
+        if (cachedIds != null) {
+            return assembleNearbyVos(loadPublicWishesByIds(cachedIds), center, radiusM);
         }
-        List<NearbyWishVO> result = queryNearby(center, radiusM, geohash);
-        writeCache(cacheKey, result);
-        return result;
+        List<Wish> wishes = queryNearbyWishes(center, radiusM, geohash);
+        writeCache(cacheKey, wishes.stream().map(Wish::getId).toList());
+        return assembleNearbyVos(wishes, center, radiusM);
     }
 
     @Override
@@ -87,17 +87,17 @@ public class NearbyWishServiceImpl implements NearbyWishService {
         int radiusM = resolveRadius(radius);
         String cacheKey = CLUSTER_CACHE_PREFIX + GeoHashUtils.encode(center[0], center[1], QUERY_PRECISION)
                 + ":" + radiusM + ":" + (geohash == null ? "c" : "g");
-        List<NearbyWishVO> cached = readCache(cacheKey);
-        if (cached != null) {
-            return aggregate(cached);
+        List<Long> cachedIds = readCache(cacheKey);
+        if (cachedIds != null) {
+            return aggregate(assembleNearbyVos(loadPublicWishesByIds(cachedIds), center, radiusM));
         }
-        List<NearbyWishVO> result = queryNearby(center, radiusM, geohash);
-        writeCache(cacheKey, result);
-        return aggregate(result);
+        List<Wish> wishes = queryNearbyWishes(center, radiusM, geohash);
+        writeCache(cacheKey, wishes.stream().map(Wish::getId).toList());
+        return aggregate(assembleNearbyVos(wishes, center, radiusM));
     }
 
-    /** DB 查询（geohash 前缀 9 格窗口）+ 内存距离裁剪 + 模糊坐标组装 */
-    private List<NearbyWishVO> queryNearby(double[] center, int radiusM, String geohash) {
+    /** DB 查询（geohash 前缀 9 格窗口）+ 内存距离裁剪（B07：VO 组装移至 assembleNearbyVos） */
+    private List<Wish> queryNearbyWishes(double[] center, int radiusM, String geohash) {
         // 查询前缀集合：geohash 参数直取其 5 位前缀邻格；lat/lng 场景同构
         String centerCell = GeoHashUtils.encode(center[0], center[1], QUERY_PRECISION);
         Set<String> prefixCells = new java.util.LinkedHashSet<>(GeoHashUtils.neighbors(centerCell));
@@ -116,7 +116,7 @@ public class NearbyWishServiceImpl implements NearbyWishService {
 
         double queryLat = center[0];
         double queryLng = center[1];
-        List<NearbyWishVO> result = new ArrayList<>();
+        List<Wish> inRange = new ArrayList<>();
         for (Wish wish : wishes) {
             String wishGeohash = wish.getGeohash();
             // 防御校验（验收：geohash 长度<6 或非法字符 → 拒绝该条而非整查询）
@@ -128,7 +128,24 @@ public class NearbyWishServiceImpl implements NearbyWishService {
             if (distance > radiusM) {
                 continue;
             }
-            // 模糊坐标：geohash7 网格中心 + wishId 种子确定性偏移（0-50m，可复现）
+            inRange.add(wish);
+        }
+        return inRange;
+    }
+
+    /** 模糊坐标 VO 组装（geohash7 网格中心 + wishId 种子确定性偏移 0-50m，可复现） */
+    private List<NearbyWishVO> assembleNearbyVos(List<Wish> wishes, double[] center, int radiusM) {
+        List<NearbyWishVO> result = new ArrayList<>();
+        for (Wish wish : wishes) {
+            String wishGeohash = wish.getGeohash();
+            if (wishGeohash == null || wishGeohash.length() < 6 || !isValidGeohash(wishGeohash)) {
+                continue;
+            }
+            double[] cellCenter = GeoHashUtils.decodeCenter(wishGeohash);
+            double distance = GeoHashUtils.distanceMeters(center[0], center[1], cellCenter[0], cellCenter[1]);
+            if (distance > radiusM) {
+                continue;
+            }
             double[] offset = GeoHashUtils.deterministicOffset(cellCenter[0], cellCenter[1], wish.getId());
             result.add(new NearbyWishVO(
                     wish.getId(),
@@ -143,6 +160,27 @@ public class NearbyWishServiceImpl implements NearbyWishService {
         }
         result.sort(Comparator.comparingInt(NearbyWishVO::distance));
         return result;
+    }
+
+    /**
+     * B07：按缓存 ID 批量回查并重新执行公共可见谓词
+     * （未删除 + PUBLIC + isVisible + APPROVED）；不可见者剔除。
+     */
+    private List<Wish> loadPublicWishesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            return wishMapper.selectList(new LambdaQueryWrapper<Wish>()
+                    .in(Wish::getId, ids)
+                    .eq(Wish::getVisibility, WishVisibility.PUBLIC)
+                    .eq(Wish::getAuditStatus, AuditStatus.APPROVED)
+                    .eq(Wish::getIsVisible, true));
+        } catch (Exception ex) {
+            // DB 回查失败不能把旧缓存内容当兜底展示（隐私 Fail-Closed）
+            log.warn("附近心愿回查失败，按空处理: {}", ex.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     /** geohash6 网格聚合（数量角标；坐标=网格中心，不返回单点） */
@@ -207,12 +245,12 @@ public class NearbyWishServiceImpl implements NearbyWishService {
         }
     }
 
-    /** 缓存读（Fail-Open：异常当未命中） */
-    private List<NearbyWishVO> readCache(String key) {
+    /** 缓存读（Fail-Open：异常当未命中；B07：只承载候选 ID 列表） */
+    private List<Long> readCache(String key) {
         try {
             String json = redisTemplate.opsForValue().get(key);
             if (json != null && !json.isBlank()) {
-                return CACHE_MAPPER.readValue(json, VO_LIST_TYPE);
+                return CACHE_MAPPER.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<Long>>() { });
             }
         } catch (DataAccessException ex) {
             log.warn("附近心愿缓存读取失败（Fail-Open 直查 DB）: {}", ex.getMessage());
@@ -222,12 +260,12 @@ public class NearbyWishServiceImpl implements NearbyWishService {
         return null;
     }
 
-    /** 缓存写：TTL 5min 基础 + 0-60s 随机抖动（文档：TTL 5min + 随机抖动）；异常 Fail-Open */
-    private void writeCache(String key, List<NearbyWishVO> result) {
+    /** 缓存写：只写候选 ID（B07），TTL 5min 基础 + 0-60s 随机抖动；异常 Fail-Open */
+    private void writeCache(String key, List<Long> wishIds) {
         try {
             long ttl = mapProperties.getCacheTtlSeconds()
                     + ThreadLocalRandom.current().nextLong(0, 60);
-            redisTemplate.opsForValue().set(key, CACHE_MAPPER.writeValueAsString(result),
+            redisTemplate.opsForValue().set(key, CACHE_MAPPER.writeValueAsString(wishIds),
                     Duration.ofSeconds(ttl));
         } catch (DataAccessException ex) {
             log.warn("附近心愿缓存写入失败（Fail-Open）: {}", ex.getMessage());

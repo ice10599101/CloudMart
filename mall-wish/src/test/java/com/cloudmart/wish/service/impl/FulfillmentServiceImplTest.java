@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import org.mockito.ArgumentCaptor;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -84,11 +85,111 @@ class FulfillmentServiceImplTest {
     void setUp() {
         contentSanitizer = new WishContentSanitizer(List.of());
         fulfillmentService = new FulfillmentServiceImpl(
-                wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService
+                wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService,
+                new com.cloudmart.wish.policy.WishAccessPolicy()
         );
     }
 
     // ========== submitFulfillment ==========
+
+    @Nested
+    @DisplayName("B03 社区分享显式授权")
+    class ShareConsentTests {
+
+        @Test
+        @DisplayName("PRIVATE 心愿携带 shareToCommunity=true → 422 拒绝")
+        void privateWish_shareTrue_rejected() {
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            wish.setVisibility(WishVisibility.PRIVATE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
+                    "故事", null, null, true);
+
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR));
+            verify(legacyFlowService, never()).submitContentFlow(any(), any());
+        }
+
+        @Test
+        @DisplayName("TREE_HOLE 心愿携带 shareToCommunity=true → 422 拒绝")
+        void treeHoleWish_shareTrue_rejected() {
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            wish.setVisibility(WishVisibility.TREE_HOLE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+
+            SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
+                    "故事", null, null, true);
+
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("默认不分享：还愿成功但不触发社区流转，授权字段为空")
+        void defaultNoShare_noFlowSubmission() {
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishFulfillmentMapper.insert(any(WishFulfillment.class))).thenAnswer(invocation -> {
+                WishFulfillment fulfillment = invocation.getArgument(0);
+                fulfillment.setId(FULFILLMENT_ID);
+                return 1;
+            });
+            when(wishMapper.update(any(), any())).thenReturn(1);
+            when(userStatService.incrementOnFulfilled(USER_ID)).thenReturn(Collections.emptyList());
+            when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(50);
+
+            org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+            try {
+                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest());
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            }
+
+            ArgumentCaptor<WishFulfillment> captor = ArgumentCaptor.forClass(WishFulfillment.class);
+            verify(wishFulfillmentMapper).insert(captor.capture());
+            assertThat(captor.getValue().getShareToCommunity()).isFalse();
+            assertThat(captor.getValue().getShareConsentAt()).isNull();
+            verify(legacyFlowService, never()).submitContentFlow(any(), any());
+        }
+
+        @Test
+        @DisplayName("PUBLIC + 显式授权：事务提交后触发社区流转，授权字段落库")
+        void publicWish_shareTrue_flowSubmittedAfterCommit() {
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishFulfillmentMapper.insert(any(WishFulfillment.class))).thenAnswer(invocation -> {
+                WishFulfillment fulfillment = invocation.getArgument(0);
+                fulfillment.setId(FULFILLMENT_ID);
+                return 1;
+            });
+            when(wishMapper.update(any(), any())).thenReturn(1);
+            when(userStatService.incrementOnFulfilled(USER_ID)).thenReturn(Collections.emptyList());
+            when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(50);
+
+            SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
+                    "故事", null, null, true);
+            org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+            try {
+                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request);
+                // 单测无真实事务提交：手动触发已注册同步器的 afterCommit
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .getSynchronizations().forEach(
+                                org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            }
+
+            ArgumentCaptor<WishFulfillment> captor = ArgumentCaptor.forClass(WishFulfillment.class);
+            verify(wishFulfillmentMapper).insert(captor.capture());
+            assertThat(captor.getValue().getShareToCommunity()).isTrue();
+            assertThat(captor.getValue().getShareConsentAt()).isNotNull();
+            assertThat(captor.getValue().getContentVersion()).isEqualTo(1);
+            verify(legacyFlowService).submitContentFlow(WISH_ID, FULFILLMENT_ID);
+        }
+    }
 
     @Nested
     @DisplayName("submitFulfillment - 提交还愿")

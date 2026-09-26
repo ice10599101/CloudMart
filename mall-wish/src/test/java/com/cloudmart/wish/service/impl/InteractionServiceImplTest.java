@@ -87,7 +87,7 @@ class InteractionServiceImplTest {
         interactionService = new InteractionServiceImpl(
                 wishMapper, wishInteractionMapper, userStatService,
                 rateLimiter, sanitizer, statEventProducer, userFeignClient, transactionTemplate,
-                redisTemplate
+                new com.cloudmart.wish.policy.WishAccessPolicy(), redisTemplate
         );
 
         // TransactionTemplate 直接执行回调体（单测无真实事务上下文）

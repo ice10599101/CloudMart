@@ -7,11 +7,7 @@ import com.cloudmart.wish.entity.ContentFlowLog;
 import com.cloudmart.wish.entity.FulfillmentInherit;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.entity.WishFulfillment;
-import com.cloudmart.wish.entity.WishGrowthRecord;
-import com.cloudmart.wish.enums.GrowthRecordType;
-import com.cloudmart.wish.util.ContentCipher;
 import com.cloudmart.wish.entity.WishInteraction;
-import com.cloudmart.wish.entity.WishProgress;
 import com.cloudmart.wish.enums.ContentFlowStatus;
 import com.cloudmart.wish.enums.InteractionType;
 import com.cloudmart.wish.enums.WishStatus;
@@ -20,10 +16,8 @@ import com.cloudmart.wish.mq.LegacyEventProducer;
 import com.cloudmart.wish.repository.ContentFlowLogMapper;
 import com.cloudmart.wish.repository.FulfillmentInheritMapper;
 import com.cloudmart.wish.repository.WishFulfillmentMapper;
-import com.cloudmart.wish.repository.WishGrowthRecordMapper;
 import com.cloudmart.wish.repository.WishInteractionMapper;
 import com.cloudmart.wish.repository.WishMapper;
-import com.cloudmart.wish.repository.WishProgressMapper;
 import com.cloudmart.wish.service.LegacyFlowService;
 import com.cloudmart.wish.util.WishJsonUtils;
 import com.cloudmart.wish.vo.InheritResultVO;
@@ -65,11 +59,9 @@ public class LegacyFlowServiceImpl implements LegacyFlowService {
     private static final int STORY_SUMMARY_LEN = 60;
 
     private final WishMapper wishMapper;
-    private final ContentCipher contentCipher;
     private final WishFulfillmentMapper fulfillmentMapper;
+    private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final WishInteractionMapper interactionMapper;
-    private final WishGrowthRecordMapper growthRecordMapper;
-    private final WishProgressMapper progressMapper;
     private final ContentFlowLogMapper flowLogMapper;
     private final FulfillmentInheritMapper inheritMapper;
     private final CommunityFeignClient communityFeignClient;
@@ -199,6 +191,16 @@ public class LegacyFlowServiceImpl implements LegacyFlowService {
             return;
         }
 
+        // B03：投递执行时再次验证当前隐私状态和分享授权（不能只信入队时快照）——
+        // 心愿已转私密/树洞/下架/删除，或作者已撤回授权，一律不再发布
+        if (!isFlowStillAuthorized(wish, fulfillment)) {
+            logRow.setStatus(ContentFlowStatus.HIDDEN);
+            logRow.setErrorMsg("分享授权已撤销或心愿不再公开，停止流转");
+            flowLogMapper.updateById(logRow);
+            log.info("内容流转已拦截: wishId={}（授权撤销或心愿不再公开）", logRow.getWishId());
+            return;
+        }
+
         Map<String, Object> payload = buildLegacyPostPayload(wish, fulfillment);
         String lastError = null;
         int attempts = withBackoff ? FLOW_MAX_RETRY : 1;
@@ -237,39 +239,32 @@ public class LegacyFlowServiceImpl implements LegacyFlowService {
     }
 
     /**
+     * B03：流转执行前的授权与隐私复核——心愿当前仍为 PUBLIC 且公共可读、
+     * 还愿记录携带有效分享授权（未被撤销）。
+     */
+    private boolean isFlowStillAuthorized(Wish wish, WishFulfillment fulfillment) {
+        if (fulfillment.getDeletedAt() != null || Boolean.FALSE.equals(fulfillment.getIsVisible())) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(fulfillment.getShareToCommunity())
+                || fulfillment.getShareRevokedAt() != null) {
+            return false;
+        }
+        return accessPolicy.isPublicReadable(wish);
+    }
+
+    /**
      * 字段映射（文档 2.7）：wish.title → post.title、fulfillment.story →
      * post.content、media_urls → post.mediaUrls；内容为图文模板
-     * （还愿故事 + 成长记录时间轴 + 进度变化），成就标签"✨ 心愿完成"。
+     * （还愿故事 + 选定媒体，B03：不再自动附加成长记录/进度），成就标签"✨ 心愿完成"。
      */
     private Map<String, Object> buildLegacyPostPayload(Wish wish, WishFulfillment fulfillment) {
         StringBuilder content = new StringBuilder();
         content.append("✨ 我实现了「").append(wish.getTitle()).append("」！\n\n");
         content.append("【还愿故事】\n").append(storySummary(fulfillment.getStory(), 2000)).append("\n");
 
-        List<WishGrowthRecord> records = growthRecordMapper.selectList(new LambdaQueryWrapper<WishGrowthRecord>()
-                .eq(WishGrowthRecord::getWishId, wish.getId())
-                .orderByDesc(WishGrowthRecord::getCreatedAt)
-                .last("LIMIT 10"));
-        if (!records.isEmpty()) {
-            content.append("\n【成长记录时间轴】\n");
-            for (WishGrowthRecord record : records) {
-                content.append("- ").append(record.getCreatedAt().toLocalDate())
-                        .append(" ").append(contentCipher.decryptGrowth(
-                                GrowthRecordType.DIARY == record.getType(), record.getContent())).append("\n");
-            }
-        }
-
-        WishProgress progress = progressMapper.selectOne(new LambdaQueryWrapper<WishProgress>()
-                .eq(WishProgress::getWishId, wish.getId())
-                .last("LIMIT 1"));
-        if (progress != null && progress.getTargetValue() != null && progress.getTargetValue() > 0) {
-            int percent = Math.min(100, Math.round(progress.getCurrentValue() * 100.0f
-                    / progress.getTargetValue()));
-            content.append("\n【进度变化】").append(progress.getCurrentValue())
-                    .append("/").append(progress.getTargetValue())
-                    .append("（").append(percent).append("%）\n");
-        }
-
+        // B03：社区投影只包含用户确认的标题、还愿故事与选定媒体；
+        // 禁止自动附加任何成长记录，禁止把加密内容（DIARY）解密后当"模板填充"
         List<String> mediaUrls = WishJsonUtils.parseStringList(fulfillment.getMediaUrls());
         List<String> tagNames = List.of(LEGACY_TAG);
 

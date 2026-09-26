@@ -164,27 +164,48 @@ class HomeServiceImplTest {
         }
 
         @Test
-        @DisplayName("Redis 缓存命中时不查热门心愿 DB")
-        void getHomeAggregation_cacheHit_skipsDb() {
+        @DisplayName("缓存命中：按候选 ID 回查公开可见状态后返回（B07：缓存只存 ID）")
+        void getHomeAggregation_cacheHit_revalidatesAndReturns() {
+            // B07：缓存命中返回的是候选 ID，而非整个 Wish 实体
             Set<ZSetOperations.TypedTuple<Object>> cached = Set.of(
-                    new TypedTupleStub(buildWishWithSupport(1L, 100), 100.0)
+                    new TypedTupleStub(1L, 100.0)
             );
             when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
             when(zSetOperations.reverseRangeWithScores(anyString(), anyLong(), anyLong()))
                     .thenReturn(cached);
 
+            // 按缓存 ID 批量回查当前公共可见状态（仍公开 → 返回）
+            when(wishMapper.selectList(any())).thenReturn(List.of(buildWishWithSupport(1L, 100)));
+
             when(userFeignClient.batchGetUsers(any()))
                     .thenReturn(ApiResponse.ok(List.of(
                             Map.of("id", 1001L, "nickname", "用户A", "avatar", "a.png")
                     )));
-            // myWishes 仍需查 DB（用户个性化数据不缓存）
-            when(wishMapper.selectList(any())).thenReturn(Collections.emptyList());
+            // myWishes 仍查 DB（用户个性化数据不缓存）
+            when(wishProgressMapper.selectBatchIds(any())).thenReturn(List.of(buildProgress(1L)));
 
             var result = homeService.getHomeAggregation(USER_ID);
 
             assertThat(result.todayRecommend()).isNotEmpty();
-            // 注意：selectList 仍被调用一次（用于 myWishes），但热门心愿不查 DB
-            // 这里验证 todayRecommend 有数据即可，不强制 verify never
+        }
+
+        @Test
+        @DisplayName("缓存命中但心愿已转私密：回查后剔除，不泄露旧内容（B07）")
+        void getHomeAggregation_cacheHit_privatizedWishFiltered() {
+            Set<ZSetOperations.TypedTuple<Object>> cached = Set.of(
+                    new TypedTupleStub(1L, 100.0)
+            );
+            when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+            when(zSetOperations.reverseRangeWithScores(anyString(), anyLong(), anyLong()))
+                    .thenReturn(cached);
+
+            // 回查结果为空（心愿已转私密/下架被谓词剔除）→ 不返回旧内容
+            when(wishMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+            var result = homeService.getHomeAggregation(USER_ID);
+
+            assertThat(result.todayRecommend()).isEmpty();
+            assertThat(result.hotResonance()).isEmpty();
         }
     }
 

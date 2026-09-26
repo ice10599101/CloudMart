@@ -27,7 +27,7 @@ import java.util.List;
  * 管理后台同愿匹配 Controller（Sprint 2.6 管理后台：小组管理 + 算法配置）。
  *
  * <p>路由前缀 /admin/match，仅内部服务调用（mall-admin 经 Feign 代理转发，
- * hasRole('INTERNAL') 由 X-Internal-Call 头授予）；权限点
+ * hasRole('INTERNAL') 由服务令牌经 ServiceTokenAuthenticationFilter 授予）；权限点
  * {@code business:matchGroup:list/close} / {@code business:matchConfig:list/edit}
  * 在管理后台角色界面配置。管理员身份经 X-User-Id 头透传。</p>
  */
