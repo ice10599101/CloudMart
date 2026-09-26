@@ -68,6 +68,17 @@ mvn -pl mall-pet,mall-admin,mall-wish,mall-notification -am package  # PASS
 - 源码找到但 class 找不到 → IDEA **Build → Rebuild Project**（必须 Rebuild，增量 Build 会跳过）后重启；
 - 两者都找到但仍未拦截 → 确认进程重启时间晚于 Rebuild 完成时间。
 
+## 2d. 终轮复验（isBlockedEitherWay 重写 + 落位修正部署后，2026-09-26 22:20）
+
+| 场景 | 结果 | 证据 |
+| --- | --- | --- |
+| B14 屏蔽三入口 | **PASS** | 屏蔽中：拜访 → PET_BLOCKED（检查已前置，不再被冷却掩盖）、挑战 → PET_BLOCKED（落位修正生效）、留言 → PET_BLOCKED；解除后留言 200 |
+| T18 PVP 胜者星光 | **PASS** | attacker 胜：currency_reward=20、`BATTLE_REWARD:...:attacker` COMPLETED、钱包 EARN 20（4610→4630 精确）、防守方不变 |
+| T02/T03 卡单恢复全流程 | **PASS** | 遗留 UNKNOWN 单（retry_count=9）经管理员强制重试：钱包 SPEND 120（余额 5000→4880 精确）+ 恢复任务补投递本地效果（straw_hat 入包 1 件）+ 操作 COMPLETED——op/钱包/背包/余额四方一致 |
+| T04/T16 回归 | **PASS（保持）** | 此前结论不变 |
+
+**B14 根因备忘（已写入代码注释）**：MyBatis-Plus 嵌套 `and(w1->...).or().and(w2->...)` 链生成的 SQL 段丢失 OR（全 AND 恒为假）——`isBlockedEitherWay` 已重写为两次简单点查并经远程实测。
+
 **B07 根因备忘**：Spring Boot 4 MVC 走 Jackson 3（tools.jackson），Jackson 2 ObjectMapper 定制不生效；已通过 mall-common `common.jsafe-long.enabled` 开关 + mall-pet `PetJsonMapperCustomizer`（Jackson 3 `JsonMapperBuilderCustomizer`）落地契约。
 
 ## 3. 远程测试发现并已修复的缺陷（代码在本地仓库，需重新部署）

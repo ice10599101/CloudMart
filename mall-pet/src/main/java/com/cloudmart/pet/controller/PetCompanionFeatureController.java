@@ -4,6 +4,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.entity.PetAlbumAsset;
 import com.cloudmart.pet.entity.PetMemory;
+import com.cloudmart.pet.entity.PetNotifyPref;
 import com.cloudmart.pet.service.impl.PetCompanionFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -124,6 +125,24 @@ public class PetCompanionFeatureController {
             @PathVariable("petId") Long petId, @RequestBody MemoryToggleRequest request) {
         featureService.toggleMemory(userId, petId, request.extract(), request.use());
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/pet/notify-settings")
+    @Operation(summary = "通知偏好查询（B19）", description = "免打扰/日常问候开关")
+    public ApiResponse<PetNotifyPref> notifyPrefs(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(featureService.notifyPrefs(userId));
+    }
+
+    public record NotifyPrefUpdate(boolean muteDailyGreeting, boolean dailyGreetingEnabled) {
+    }
+
+    @PutMapping("/pet/notify-settings")
+    @Operation(summary = "更新通知偏好（B19）", description = "仅作用于日常问候类 proactive；重要业务通知不受影响")
+    public ApiResponse<PetNotifyPref> updateNotifyPrefs(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestBody NotifyPrefUpdate request) {
+        return ApiResponse.ok(featureService.updateNotifyPrefs(userId, request.muteDailyGreeting(), request.dailyGreetingEnabled()));
     }
 
     @DeleteMapping("/pet/pets/{petId}/memories")

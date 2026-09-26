@@ -45,10 +45,16 @@ public class PetOperationService {
 
     private final PetOperationStore operationStore;
     private final WishFeignClient wishFeignClient;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
+    private final com.cloudmart.pet.config.PetProperties petProperties;
 
-    public PetOperationService(PetOperationStore operationStore, WishFeignClient wishFeignClient) {
+    public PetOperationService(PetOperationStore operationStore, WishFeignClient wishFeignClient,
+                               com.cloudmart.pet.config.PetMetrics metrics,
+                               com.cloudmart.pet.config.PetProperties petProperties) {
         this.operationStore = operationStore;
         this.wishFeignClient = wishFeignClient;
+        this.metrics = metrics;
+        this.petProperties = petProperties;
     }
 
     /**
@@ -115,6 +121,23 @@ public class PetOperationService {
         if (amount <= 0) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "星光交易金额必须为正");
         }
+        // §9.3 可回退开关：关闭幂等交易跳过本地操作记录，直接走钱包幂等端点
+        // （钱包端仍按 operationId 去重，但失去 pet_operation 审计与恢复任务兜底，仅应急回退用）
+        if (!petProperties.getFeatureSwitches().isWalletIdempotent()) {
+            try {
+                PetWalletOperationVO vo = ("SPEND".equals(direction)
+                        ? wishFeignClient.spendStarlightIdempotent(userId, amount, bizRefId, operationId).data()
+                        : wishFeignClient.earnStarlightIdempotent(userId, amount, bizRefId, operationId).data());
+                return new WalletSettlement("COMPLETED",
+                        vo == null || vo.creditedAmount() == null ? 0 : vo.creditedAmount(),
+                        vo == null ? null : vo.balanceAfter(), vo != null && vo.duplicate(), null);
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("旧链路交易失败, operationId={}", operationId, e);
+                return new WalletSettlement("UNKNOWN", 0, null, false, "旧链路结果未知");
+            }
+        }
         PetOperation operation;
         try {
             operation = operationStore.claim(operationId, userId, petId, bizType, bizRefId,
@@ -150,6 +173,7 @@ public class PetOperationService {
         } catch (Exception e) {
             // 结果未知：超时/服务不可用/网络中断——标 UNKNOWN 交恢复任务按原单收敛
             log.warn("星光交易结果未知, operationId={}, type={}", operationId, direction, e);
+            metrics.increment("pet_settlement_unknown", "direction", direction);
             operationStore.markTerminal(operation, "UNKNOWN",
                     e.getClass().getSimpleName() + ": " + e.getMessage(), null);
             return new WalletSettlement("UNKNOWN", 0, null, false, "星光服务结果未知，奖励结算中");

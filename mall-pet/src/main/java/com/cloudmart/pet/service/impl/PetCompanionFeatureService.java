@@ -53,6 +53,8 @@ public class PetCompanionFeatureService {
     private final PetMemoryMapper memoryMapper;
     private final PetOperationService operationService;
     private final PetInventoryMapper inventoryMapper;
+    private final com.cloudmart.pet.config.PetProperties properties;
+    private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
 
     public PetCompanionFeatureService(PetMapper petMapper,
                                       PetOnboardingProgressMapper onboardingMapper,
@@ -60,7 +62,9 @@ public class PetCompanionFeatureService {
                                       PetAlbumAssetMapper albumMapper,
                                       PetMemoryMapper memoryMapper,
                                       PetOperationService operationService,
-                                      PetInventoryMapper inventoryMapper) {
+                                      PetInventoryMapper inventoryMapper,
+                                      com.cloudmart.pet.config.PetProperties properties,
+                                      com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper) {
         this.petMapper = petMapper;
         this.onboardingMapper = onboardingMapper;
         this.diaryMapper = diaryMapper;
@@ -68,12 +72,50 @@ public class PetCompanionFeatureService {
         this.memoryMapper = memoryMapper;
         this.operationService = operationService;
         this.inventoryMapper = inventoryMapper;
+        this.properties = properties;
+        this.notifyPrefMapper = notifyPrefMapper;
+    }
+
+    /** B19：查询/更新宠物通知偏好（免打扰 + 日常问候开关）；重要业务通知不受偏好影响 */
+    public com.cloudmart.pet.entity.PetNotifyPref notifyPrefs(Long userId) {
+        com.cloudmart.pet.entity.PetNotifyPref pref = notifyPrefMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetNotifyPref>()
+                        .eq(com.cloudmart.pet.entity.PetNotifyPref::getUserId, userId));
+        if (pref == null) {
+            pref = new com.cloudmart.pet.entity.PetNotifyPref();
+            pref.setUserId(userId);
+            pref.setMuteDailyGreeting(false);
+            pref.setDailyGreetingEnabled(true);
+            try {
+                notifyPrefMapper.insert(pref);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                pref = notifyPrefMapper.selectOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetNotifyPref>()
+                                .eq(com.cloudmart.pet.entity.PetNotifyPref::getUserId, userId));
+            }
+        }
+        return pref;
+    }
+
+    public com.cloudmart.pet.entity.PetNotifyPref updateNotifyPrefs(Long userId, boolean mute, boolean greeting) {
+        com.cloudmart.pet.entity.PetNotifyPref pref = notifyPrefs(userId);
+        pref.setMuteDailyGreeting(mute);
+        pref.setDailyGreetingEnabled(greeting);
+        notifyPrefMapper.updateById(pref);
+        return pref;
+    }
+
+    private void requireFeature(boolean enabled) {
+        if (!enabled) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "该功能暂未开放");
+        }
     }
 
     // ---------------- N01 新手引导 ----------------
 
     /** 查询引导进度（首次进入自动建档；旧用户可跳过，不伪造步骤） */
     public Map<String, Object> onboarding(Long userId) {
+        requireFeature(properties.getFeatureSwitches().isOnboarding());
         PetOnboardingProgress progress = requireProgress(userId);
         Map<String, Object> result = new HashMap<>();
         result.put("guideVersion", progress.getGuideVersion());
@@ -195,6 +237,7 @@ public class PetCompanionFeatureService {
 
     /** 时间线（游标分页；他人仅可见 PUBLIC 条目） */
     public Map<String, Object> diary(Long userId, Long petId, String cursor, int size) {
+        requireFeature(properties.getFeatureSwitches().isDiary());
         Pet pet = petMapper.selectById(petId);
         if (pet == null) {
             throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "宠物不存在");

@@ -24,6 +24,9 @@ public interface PetDailyQuestService {
     /** 领取单个任务奖励（未完成 409 / 重复领取 409；经验本地 + 星光 Feign，失败整体回滚） */
     PetDailyQuestItemVO claim(Long userId, String questCode);
 
+    /** B15：批量领取全部已完成项（逐项独立 CAS 与幂等，单项失败跳过可重试） */
+    java.util.List<PetDailyQuestItemVO> claimAll(Long userId);
+
     /** 领取全清宝箱（有未领取任务时 409 PET_QUEST_CHEST_NOT_READY） */
     PetDailyQuestVO claimChest(Long userId);
 

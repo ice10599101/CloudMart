@@ -33,14 +33,17 @@ public class PetOutboxService {
 
     private final PetOutboxEventMapper outboxMapper;
     private final PetEventProducer eventProducer;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
     private final org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider;
 
     private com.cloudmart.pet.repository.PetDiaryEntryMapper petDiaryEntryMapper;
 
     public PetOutboxService(PetOutboxEventMapper outboxMapper, PetEventProducer eventProducer,
+                            com.cloudmart.pet.config.PetMetrics metrics,
                             org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider) {
         this.outboxMapper = outboxMapper;
         this.eventProducer = eventProducer;
+        this.metrics = metrics;
         this.diaryMapperProvider = diaryMapperProvider;
         this.petDiaryEntryMapper = null;
     }
@@ -112,6 +115,7 @@ public class PetOutboxService {
         if (sent) {
             event.setStatus("SENT");
         } else {
+            metrics.increment("pet_outbox_failed", "type", event.getEventType());
             int retryCount = event.getRetryCount() == null ? 1 : event.getRetryCount() + 1;
             event.setStatus("FAILED");
             event.setRetryCount(retryCount);

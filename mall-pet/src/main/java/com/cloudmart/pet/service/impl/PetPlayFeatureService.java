@@ -7,9 +7,11 @@ import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetCollectionEntry;
 import com.cloudmart.pet.entity.PetCollectionRecord;
+import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.entity.PetCooperationContribution;
 import com.cloudmart.pet.entity.PetCustodyRecord;
+import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetMinigameRound;
 import com.cloudmart.pet.repository.PetCollectionEntryMapper;
 import com.cloudmart.pet.repository.PetCollectionRecordMapper;
@@ -17,6 +19,7 @@ import com.cloudmart.pet.repository.PetCooperationContributionMapper;
 import com.cloudmart.pet.repository.PetCooperationMapper;
 import com.cloudmart.pet.repository.PetCustodyRecordMapper;
 import com.cloudmart.pet.repository.PetMapper;
+import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetMinigameRoundMapper;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.util.PetJsonUtils;
@@ -72,6 +75,12 @@ public class PetPlayFeatureService {
     private final PetCooperationContributionMapper contributionMapper;
     private final PetCollectionEntryMapper collectionEntryMapper;
     private final PetCollectionRecordMapper collectionRecordMapper;
+    private final com.cloudmart.pet.config.PetProperties properties;
+    private final com.cloudmart.pet.repository.PetOfflineCursorMapper offlineCursorMapper;
+    private final com.cloudmart.pet.repository.PetActivityMapper activityMapper;
+    private final com.cloudmart.pet.repository.PetDiaryEntryMapper diaryEntryMapper;
+    private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
+    private final PetOperationService operationService;
 
     public PetPlayFeatureService(PetMapper petMapper, PetClock petClock, PetQuotaService quotaService,
                                  PetMinigameRoundMapper minigameMapper,
@@ -79,7 +88,13 @@ public class PetPlayFeatureService {
                                  PetCooperationMapper cooperationMapper,
                                  PetCooperationContributionMapper contributionMapper,
                                  PetCollectionEntryMapper collectionEntryMapper,
-                                 PetCollectionRecordMapper collectionRecordMapper) {
+                                 PetCollectionRecordMapper collectionRecordMapper,
+                                 com.cloudmart.pet.config.PetProperties properties,
+                                 com.cloudmart.pet.repository.PetOfflineCursorMapper offlineCursorMapper,
+                                 com.cloudmart.pet.repository.PetActivityMapper activityMapper,
+                                 com.cloudmart.pet.repository.PetDiaryEntryMapper diaryEntryMapper,
+                                 com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper,
+                                 PetOperationService operationService) {
         this.petMapper = petMapper;
         this.petClock = petClock;
         this.quotaService = quotaService;
@@ -89,6 +104,146 @@ public class PetPlayFeatureService {
         this.contributionMapper = contributionMapper;
         this.collectionEntryMapper = collectionEntryMapper;
         this.collectionRecordMapper = collectionRecordMapper;
+        this.properties = properties;
+        this.offlineCursorMapper = offlineCursorMapper;
+        this.activityMapper = activityMapper;
+        this.diaryEntryMapper = diaryEntryMapper;
+        this.inventoryMapper = inventoryMapper;
+        this.operationService = operationService;
+    }
+
+    // ---------------- N05 离线摘要 ----------------
+
+    /** 首次查询默认回溯窗口（小时）：无游标时按 maxIdleHours 口径回溯 */
+    private static final long DIGEST_DEFAULT_LOOKBACK_HOURS = 48;
+
+    /**
+     * N05 离线摘要：按上次确认游标聚合离线期间的事实（完成任务/待领取/来访/里程碑），
+     * 查询不重发奖励、不推进游标。
+     */
+    public Map<String, Object> offlineDigest(Long userId) {
+        Pet pet = requireActivePet(userId);
+        com.cloudmart.pet.entity.PetOfflineCursor cursor = offlineCursorMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetOfflineCursor>()
+                        .eq(com.cloudmart.pet.entity.PetOfflineCursor::getUserId, userId)
+                        .last("LIMIT 1"));
+        java.time.LocalDateTime now = petClock.nowUtc();
+        java.time.LocalDateTime from = cursor != null ? cursor.getLastConfirmedAt()
+                : now.minusHours(DIGEST_DEFAULT_LOOKBACK_HOURS);
+
+        Long finished = activityMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetActivity>()
+                .eq(PetActivity::getUserId, userId)
+                .eq(PetActivity::getStatus, "COMPLETED")
+                .gt(PetActivity::getFinishedAt, from));
+        Long claimable = activityMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetActivity>()
+                .eq(PetActivity::getUserId, userId)
+                .eq(PetActivity::getStatus, "COMPLETED")
+                .gt(PetActivity::getFinishedAt, from));
+        Long visits = activityMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetActivity>()
+                .eq(PetActivity::getUserId, userId)
+                .eq(PetActivity::getActivityType, com.cloudmart.pet.enums.PetActivityType.VISIT.name())
+                .gt(PetActivity::getFinishedAt, from));
+        Long milestones = diaryEntryMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetDiaryEntry>()
+                .eq(com.cloudmart.pet.entity.PetDiaryEntry::getUserId, userId)
+                .gt(com.cloudmart.pet.entity.PetDiaryEntry::getOccurredAt, from));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("offlineHours", java.time.Duration.between(from, now).toHours());
+        result.put("from", from);
+        result.put("petState", Map.of("level", pet.getLevel(), "hunger", pet.getHunger(),
+                "happiness", pet.getHappiness(), "energy", pet.getEnergy(), "cleanliness", pet.getCleanliness()));
+        result.put("finishedTasks", finished);
+        result.put("claimableTasks", claimable);
+        result.put("visits", visits);
+        result.put("milestones", milestones);
+        result.put("hasCursor", cursor != null);
+        return result;
+    }
+
+    /** N05 确认：只推进自己的查看游标，不删除真实事件、不重发奖励（幂等） */
+    @Transactional
+    public Map<String, Object> confirmOfflineDigest(Long userId) {
+        requireActivePet(userId);
+        java.time.LocalDateTime now = petClock.nowUtc();
+        com.cloudmart.pet.entity.PetOfflineCursor cursor = offlineCursorMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetOfflineCursor>()
+                        .eq(com.cloudmart.pet.entity.PetOfflineCursor::getUserId, userId)
+                        .last("LIMIT 1"));
+        if (cursor == null) {
+            cursor = new com.cloudmart.pet.entity.PetOfflineCursor();
+            cursor.setUserId(userId);
+            cursor.setLastConfirmedAt(now);
+            try {
+                offlineCursorMapper.insert(cursor);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                cursor = offlineCursorMapper.selectOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetOfflineCursor>()
+                                .eq(com.cloudmart.pet.entity.PetOfflineCursor::getUserId, userId));
+            }
+        } else {
+            cursor.setLastConfirmedAt(now);
+            offlineCursorMapper.updateById(cursor);
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("confirmedAt", now);
+        return result;
+    }
+
+    // ---------------- N06 个人奖励领取 ----------------
+
+    /** 合作专属装饰编码（达成后每人限领一件；已拥有转固定替代星光 20，走 B01 幂等） */
+    private static final String COOP_DECOR_CODE = "cooperation_badge";
+    private static final int COOP_ALT_STARLIGHT = 20;
+
+    /** N06 个人领取：COMPLETED 后参与双方各自领取，幂等（物品 uk + 操作键收敛） */
+    @Transactional
+    public Map<String, Object> claimCooperationReward(Long userId, Long cooperationId) {
+        PetCooperation coop = cooperationMapper.selectById(cooperationId);
+        if (coop == null || (!userId.equals(coop.getInviterUserId()) && !userId.equals(coop.getInviteeUserId()))) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "合作任务不存在");
+        }
+        if (!"COMPLETED".equals(coop.getStatus())) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED, "合作任务尚未达成");
+        }
+        Pet pet = requireActivePet(userId);
+        boolean owned = inventoryMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetInventory>()
+                .eq(PetInventory::getUserId, userId)
+                .eq(PetInventory::getItemType, "FURNITURE")
+                .eq(PetInventory::getItemCode, COOP_DECOR_CODE)) > 0;
+
+        Map<String, Object> result = new HashMap<>();
+        if (!owned) {
+            com.cloudmart.pet.entity.PetInventory decor = new com.cloudmart.pet.entity.PetInventory();
+            decor.setPetId(pet.getId());
+            decor.setUserId(userId);
+            decor.setItemType("FURNITURE");
+            decor.setItemCode(COOP_DECOR_CODE);
+            decor.setQuantity(1);
+            decor.setEquipped(false);
+            decor.setAcquiredAt(petClock.nowUtc());
+            try {
+                inventoryMapper.insert(decor);
+                result.put("reward", Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE));
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                result.put("reward", Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE, "duplicate", true));
+            }
+        } else {
+            String operationId = operationService.operationKey("COOP_REWARD_ALT", cooperationId, userId);
+            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                    operationId, userId, pet.getId(), "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null);
+            if (!settlement.isCompleted()) {
+                throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING, "替代星光结算中，稍后按原操作查询");
+            }
+            result.put("reward", Map.of("type", "STARLIGHT", "amount", settlement.credited()));
+        }
+        result.put("cooperationId", cooperationId);
+        return result;
+    }
+
+    private void requireFeature(boolean enabled) {
+        if (!enabled) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "该功能暂未开放");
+        }
     }
 
     // ---------------- N04 接球小游戏 ----------------
@@ -96,6 +251,7 @@ public class PetPlayFeatureService {
     /** 开始一局：原子预占收益额度（每日 5 局 + 玩耍额度）与精力；超限转训练局 */
     @Transactional
     public Map<String, Object> startRound(Long userId) {
+        requireFeature(properties.getFeatureSwitches().isMinigame());
         Pet pet = requireActivePet(userId);
         Long active = minigameMapper.selectCount(new LambdaQueryWrapper<PetMinigameRound>()
                 .eq(PetMinigameRound::getUserId, userId)
@@ -260,6 +416,7 @@ public class PetPlayFeatureService {
     /** 启动托管：每自然周 1 次（uk 幂等）；期间无其他进行中活动；不收费不自动续 */
     @Transactional
     public Map<String, Object> startCustody(Long userId) {
+        requireFeature(properties.getFeatureSwitches().isCustody());
         Pet pet = requireActivePet(userId);
         LocalDate weekStart = petClock.businessDate().with(DayOfWeek.MONDAY);
         PetCustodyRecord record = new PetCustodyRecord();
@@ -346,6 +503,7 @@ public class PetPlayFeatureService {
     /** 创建邀请：预校验剩余业务日 ≥3（含当天） */
     @Transactional
     public Map<String, Object> createCooperation(Long userId) {
+        requireFeature(properties.getFeatureSwitches().isCooperation());
         Pet pet = requireActivePet(userId);
         LocalDate today = petClock.businessDate();
         LocalDate weekStart = today.with(DayOfWeek.MONDAY);
@@ -473,6 +631,7 @@ public class PetPlayFeatureService {
 
     /** 图鉴列表（未解锁返回线索；隐藏条目不泄漏完整正文） */
     public List<Map<String, Object>> collection(Long userId, String category, int page, int size) {
+        requireFeature(properties.getFeatureSwitches().isCollection());
         LambdaQueryWrapper<PetCollectionEntry> wrapper = new LambdaQueryWrapper<PetCollectionEntry>()
                 .orderByAsc(PetCollectionEntry::getCategory)
                 .last("LIMIT " + Math.min(size, 50) + " OFFSET " + Math.max(page - 1, 0) * Math.min(size, 50));

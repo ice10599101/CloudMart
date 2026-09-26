@@ -74,7 +74,8 @@ public class PetServiceImpl implements PetService {
                           StringRedisTemplate redisTemplate,
                           PetProperties properties,
                           PetCareerConfigMapper careerConfigMapper,
-                          com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper) {
+                          com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper,
+                          PetCompanionFeatureService companionFeatureService) {
         this.petMapper = petMapper;
         this.activityMapper = activityMapper;
         this.achievementRecordMapper = achievementRecordMapper;
@@ -84,10 +85,12 @@ public class PetServiceImpl implements PetService {
         this.properties = properties;
         this.careerConfigMapper = careerConfigMapper;
         this.skinInventoryMapper = skinInventoryMapper;
+        this.companionFeatureService = companionFeatureService;
     }
 
     /** 背包 Mapper（B12：手动改外观同步卸皮肤穿戴标记） */
     private final com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper;
+    private final PetCompanionFeatureService companionFeatureService;
 
     @Override
     public PetVO getMyPet(Long userId) {
@@ -152,6 +155,14 @@ public class PetServiceImpl implements PetService {
         } catch (DuplicateKeyException e) {
             // 并发领养：uk_pet_user_active（唯一主宠）数据库层兜底
             throw new BusinessException(PetErrorCodes.PET_ALREADY_EXISTS, "宠物创建冲突了，请稍后再试");
+        }
+        if (first) {
+            // N01：首只宠物赠送基础家具（每用户一次，操作键幂等，重试不重复入包）
+            try {
+                companionFeatureService.grantStarterFurniture(userId);
+            } catch (Exception e) {
+                log.warn("新手家具赠送失败（不阻断领养）: userId={}", userId, e);
+            }
         }
         return toVo(pet, null);
     }

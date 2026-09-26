@@ -205,7 +205,7 @@ public class GlobalExceptionHandler {
                  "PET_QUOTA_EXHAUSTED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
-                 "PET_SETTLEMENT_PENDING",
+                 "PET_SETTLEMENT_PENDING", "PET_FEATURE_DISABLED",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
             // 否则会被 default 分支误映射成 400，掩盖真实的服务端异常

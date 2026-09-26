@@ -48,6 +48,9 @@ public class PetEventConfig {
     /** 额外奖励物品编码（pet_equipment_config.code，可空） */
     private String rewardItemCode;
 
+    /** 唯一物品已拥有时的固定替代星光（B16，0=不发；活动创建时快照） */
+    private Integer rewardAltStarlight;
+
     private LocalDateTime startsAt;
 
     private LocalDateTime endsAt;

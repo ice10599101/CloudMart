@@ -18,6 +18,7 @@ public record PetDailyQuestItemVO(
         @Schema(description = "状态：IN_PROGRESS/COMPLETE/CLAIMED") String status,
         @Schema(description = "状态文案（进行中/可领取/已领取）") String statusLabel,
         @Schema(description = "是否可领奖") Boolean claimable,
+        @Schema(description = "完成动作描述（B15：questType → 客户端跳转动作，服务端权威）") String actionTarget,
         @Schema(description = "奖励经验") Integer expReward,
         @Schema(description = "奖励星光") Integer currencyReward
 ) {

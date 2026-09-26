@@ -78,6 +78,7 @@ public class PetActivityServiceImpl implements PetActivityService {
     private final PetOutboxService outboxService;
     private final PetClock petClock;
     private final PetCareerService careerService;
+    private final PetCompanionFeatureService companionFeatureService;
     private final PetBottleFishingService bottleFishingService;
 
     public PetActivityServiceImpl(PetService petService,
@@ -95,7 +96,8 @@ public class PetActivityServiceImpl implements PetActivityService {
                                   PetOutboxService outboxService,
                                   PetClock petClock,
                                   PetCareerService careerService,
-                                  PetBottleFishingService bottleFishingService) {
+                                  PetBottleFishingService bottleFishingService,
+                                  PetCompanionFeatureService companionFeatureService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -112,6 +114,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         this.petClock = petClock;
         this.careerService = careerService;
         this.bottleFishingService = bottleFishingService;
+        this.companionFeatureService = companionFeatureService;
     }
 
     @Override
@@ -261,6 +264,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         dailyQuestService.record(pet, PetQuestType.WORK, 1);
 
         achievementService.evaluate(pet, PetAchievementService.Event.WORK_CLAIMED);
+        companionFeatureService.recordStep(pet.getUserId(), "WORK");
         notifyLevelUp(pet, levelups);
         return toVo(activity, pet.getName());
     }

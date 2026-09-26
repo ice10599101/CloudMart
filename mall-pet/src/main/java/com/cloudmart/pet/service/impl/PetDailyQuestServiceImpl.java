@@ -142,6 +142,28 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         return toItemVo(quest, config);
     }
 
+    /** B15：批量领取全部已完成项（逐项独立 CAS 与幂等，单项失败跳过可重试） */
+    @Override
+    @Transactional
+    public java.util.List<PetDailyQuestItemVO> claimAll(Long userId) {
+        Pet pet = petService.requireOwnedPet(userId);
+        List<PetDailyQuest> quests = ensureToday(pet);
+        java.util.List<PetDailyQuestItemVO> results = new java.util.ArrayList<>();
+        for (PetDailyQuest quest : quests) {
+            if (CHEST_CODE.equals(quest.getQuestCode())
+                    || !PetQuestStatus.COMPLETE.name().equals(quest.getStatus())) {
+                continue;
+            }
+            try {
+                results.add(claim(userId, quest.getQuestCode()));
+            } catch (BusinessException e) {
+                // 单项失败（如并发已被领取）不阻断其余项，逐项回传
+                results.add(toItemVo(quest, configByCode(quest.getQuestCode())));
+            }
+        }
+        return results;
+    }
+
     @Override
     @Transactional
     public PetDailyQuestVO claimChest(Long userId) {
@@ -373,7 +395,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                         config != null ? config.getIcon() : "📌",
                         config != null ? config.getQuestType() : null,
                         quest.getProgress(), quest.getTargetValue(), quest.getStatus(),
-                        "已取消", false,
+                        "已取消", false, null,
                         config != null ? orZero(config.getExpReward()) : 0,
                         config != null ? orZero(config.getCurrencyReward()) : 0));
                 continue;
@@ -414,8 +436,31 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 quest.getTargetValue(),
                 status, label,
                 PetQuestStatus.COMPLETE.name().equals(status),
+                actionTargetOf(config),
                 config != null ? orZero(config.getExpReward()) : 0,
                 config != null ? orZero(config.getCurrencyReward()) : 0);
+    }
+
+    /** B15：完成动作描述（questType → 客户端动作），服务端权威，不拼接任意 URL */
+    static String actionTargetOf(PetDailyQuestConfig config) {
+        if (config == null || config.getQuestType() == null) {
+            return null;
+        }
+        return switch (config.getQuestType()) {
+            case "FEED" -> "FEED";
+            case "PLAY" -> "PLAY";
+            case "CLEAN" -> "CLEAN";
+            case "WORK" -> "WORK_START";
+            case "STUDY" -> "STUDY_START";
+            case "BOTTLE" -> "BOTTLE_START";
+            case "CAREER_WORK" -> "CAREER_WORK_START";
+            case "WALL_MESSAGE" -> "WALL_POST";
+            case "REST" -> "REST_START";
+            case "DECORATE" -> "HOME_DECORATE";
+            case "VISIT" -> "VISIT_NEIGHBOR";
+            case "COMPANION" -> "COMPANION_START";
+            default -> null;
+        };
     }
 
     private static int orZero(Integer value) {

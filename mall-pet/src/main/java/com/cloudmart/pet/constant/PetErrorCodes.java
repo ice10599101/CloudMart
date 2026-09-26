@@ -187,6 +187,8 @@ public final class PetErrorCodes {
     public static final String PET_BLOCKED = "PET_BLOCKED";
     /** 对象已私密/不可访问 */
     public static final String PET_PERMISSION_DENIED = "PET_PERMISSION_DENIED";
+    /** 功能开关关闭（§9.3 可回退开关） */
+    public static final String PET_FEATURE_DISABLED = "PET_FEATURE_DISABLED";
 
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */

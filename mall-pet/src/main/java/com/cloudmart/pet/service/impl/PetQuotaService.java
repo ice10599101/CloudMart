@@ -30,10 +30,12 @@ public class PetQuotaService {
 
     private final PetDailyQuotaMapper quotaMapper;
     private final PetClock petClock;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
 
-    public PetQuotaService(PetDailyQuotaMapper quotaMapper, PetClock petClock) {
+    public PetQuotaService(PetDailyQuotaMapper quotaMapper, PetClock petClock, com.cloudmart.pet.config.PetMetrics metrics) {
         this.quotaMapper = quotaMapper;
         this.petClock = petClock;
+        this.metrics = metrics;
     }
 
     /**
@@ -74,6 +76,7 @@ public class PetQuotaService {
                     .lt(PetDailyQuota::getUsed, limit));
             if (retry == 0) {
                 log.debug("每日额度已占满, userId={}, type={}, target={}", userId, type, targetId);
+                metrics.increment("pet_quota_rejected", "type", type.name());
             }
             return retry > 0;
         }

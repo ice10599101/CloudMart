@@ -87,6 +87,28 @@ public class PetPlayFeatureController {
         return ApiResponse.ok(playService.custodyStatus(userId));
     }
 
+    @GetMapping("/pet/offline-digest")
+    @Operation(summary = "离线摘要（N05）", description = "按上次确认游标聚合离线变化/待领取/来访/里程碑；查询不重发奖励")
+    public ApiResponse<Map<String, Object>> offlineDigest(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(playService.offlineDigest(userId));
+    }
+
+    @PostMapping("/pet/offline-digest/confirm")
+    @Operation(summary = "确认离线摘要（N05）", description = "只推进查看游标，幂等；不删除真实事件")
+    public ApiResponse<Map<String, Object>> confirmOfflineDigest(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(playService.confirmOfflineDigest(userId));
+    }
+
+    @PostMapping("/pet/cooperation/{cooperationId}/claim")
+    @Operation(summary = "领取合作奖励（N06）", description = "COMPLETED 后参与双方各自领取装饰；已拥有转替代星光 20 走 B01；幂等")
+    public ApiResponse<Map<String, Object>> claimCooperation(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("cooperationId") Long cooperationId) {
+        return ApiResponse.ok(playService.claimCooperationReward(userId, cooperationId));
+    }
+
     @PostMapping("/pet/custody/end")
     @Operation(summary = "提前结束托管（N05）", description = "不退还本周次数；恢复普通自然变化")
     public ApiResponse<Void> endCustody(

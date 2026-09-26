@@ -153,7 +153,8 @@ public class PetEventServiceImpl implements PetEventService {
                 log.info("活动奖励星光结算中, eventCode={}, operationId={}", config.getCode(), operationId);
             }
         }
-        grantRewardItem(pet, config.getRewardItemCode(), now);
+        grantRewardWithAlternative(pet, config, now);
+        // 直接以本次领奖结果构建 VO：不再回读一次（避免读路径与写路径口径不一致）
         // 直接以本次领奖结果构建 VO：不再回读一次（避免读路径与写路径口径不一致）
         return buildVo(config, now, progress, now);
     }
@@ -192,6 +193,37 @@ public class PetEventServiceImpl implements PetEventService {
     }
 
     /** 活动奖励装备入包（已拥有则跳过，不报错——奖励宁多不少地留给用户） */
+    /**
+     * B16：唯一物品发放——已拥有时按活动快照发固定替代星光（走 B01 幂等操作），
+     * 无替代或替代为 0 时明确跳过且不重复入包。
+     */
+    private void grantRewardWithAlternative(Pet pet, PetEventConfig config, LocalDateTime now) {
+        String itemCode = config.getRewardItemCode();
+        if (itemCode == null || itemCode.isBlank()) {
+            return;
+        }
+        boolean owned = inventoryMapper.selectCount(new LambdaQueryWrapper<PetInventory>()
+                .eq(PetInventory::getPetId, pet.getId())
+                .eq(PetInventory::getItemType, PetItemType.EQUIPMENT.name())
+                .eq(PetInventory::getItemCode, itemCode)) > 0;
+        if (!owned) {
+            grantRewardItem(pet, itemCode, now);
+            return;
+        }
+        int alt = orZero(config.getRewardAltStarlight());
+        if (alt <= 0) {
+            log.info("活动奖励物品已拥有且无替代星光, petId={}, item={}", pet.getId(), itemCode);
+            return;
+        }
+        String operationId = operationService.operationKey("EVENT_ALT",
+                pet.getId(), config.getCode(), now.toLocalDate());
+        PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                operationId, pet.getUserId(), pet.getId(), "EVENT_ALT", pet.getId(), alt, null);
+        if (!settlement.isCompleted()) {
+            log.info("活动替代星光结算中, operationId={}", operationId);
+        }
+    }
+
     private void grantRewardItem(Pet pet, String itemCode, LocalDateTime now) {
         if (itemCode == null || itemCode.isBlank()) {
             return;
@@ -207,7 +239,8 @@ public class PetEventServiceImpl implements PetEventService {
         try {
             inventoryMapper.insert(item);
         } catch (DuplicateKeyException e) {
-            log.debug("活动奖励物品已拥有，跳过入包: petId={}, item={}", pet.getId(), itemCode);
+            // B16：唯一物品已拥有 → 按活动快照发固定替代星光（0=不发），走 B01 幂等操作
+            log.debug("活动奖励物品已拥有，改发替代星光: petId={}, item={}", pet.getId(), itemCode);
         }
     }
 

@@ -57,6 +57,7 @@ public class PetReminderServiceImpl implements PetReminderService {
             "PET_EVOLVED", "PET_VISIT", "PET_EVENT_READY");
 
     private final NotificationFeignClient notificationFeignClient;
+    private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
     private final CommunityActivityFeignClient activityFeignClient;
     private final PetActivityMapper activityMapper;
     private final PetContextService contextService;
@@ -66,6 +67,7 @@ public class PetReminderServiceImpl implements PetReminderService {
     private final PetEventService eventService;
 
     public PetReminderServiceImpl(NotificationFeignClient notificationFeignClient,
+                                com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
                                   CommunityActivityFeignClient activityFeignClient,
                                   PetActivityMapper activityMapper,
                                   PetContextService contextService,
@@ -74,6 +76,7 @@ public class PetReminderServiceImpl implements PetReminderService {
                                   StringRedisTemplate redisTemplate,
                                   PetEventService eventService) {
         this.notificationFeignClient = notificationFeignClient;
+        this.notifyPrefMapper = notifyPrefMapper;
         this.activityFeignClient = activityFeignClient;
         this.activityMapper = activityMapper;
         this.contextService = contextService;
@@ -129,6 +132,10 @@ public class PetReminderServiceImpl implements PetReminderService {
 
     @Override
     public void evaluateOnVisit(Long userId, Pet pet) {
+        // B19：日常问候免打扰/类型开关——关闭则跳过 proactive 问候（重要业务通知不受影响）
+        if (isDailyGreetingMuted(userId)) {
+            return;
+        }
         if (!tryAcquireInterval(userId)) {
             return;
         }
@@ -376,6 +383,21 @@ public class PetReminderServiceImpl implements PetReminderService {
             return LocalDateTime.parse(value);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /** B19：日常问候是否被偏好静默（无偏好记录=开启） */
+    private boolean isDailyGreetingMuted(Long userId) {
+        try {
+            com.cloudmart.pet.entity.PetNotifyPref pref = notifyPrefMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetNotifyPref>()
+                            .eq(com.cloudmart.pet.entity.PetNotifyPref::getUserId, userId)
+                            .last("LIMIT 1"));
+            return pref != null && (Boolean.TRUE.equals(pref.getMuteDailyGreeting())
+                    || !Boolean.TRUE.equals(pref.getDailyGreetingEnabled()));
+        } catch (Exception e) {
+            // 偏好读取失败不阻断提醒主流程（默认视为开启）
+            return false;
         }
     }
 }

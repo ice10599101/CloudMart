@@ -213,6 +213,28 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         Pet pet = petService.requireOwnedPet(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
 
+        // §9.3 可回退开关：关闭定时休息回落旧即时恢复（精力/生命立即回满，无活动行）
+        if (!properties.getFeatureSwitches().isTimedRest()) {
+            Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
+                    .eq(PetActivity::getUserId, userId)
+                    .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
+            if (busy > 0) {
+                throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物正在忙，忙完再休息吧");
+            }
+            if (pet.getEnergy() >= 100 && pet.getHp() >= pet.getMaxHp()) {
+                throw new BusinessException(PetErrorCodes.PET_STATE_FULL, "宠物精力充沛，不需要休息哦");
+            }
+            pet.setEnergy(100);
+            pet.setHp(pet.getMaxHp());
+            pet.setHunger(Math.max(0, pet.getHunger() - cfg.getRestHunger()));
+            pet.setStatus(PetStatus.IDLE.name());
+            int updated = petMapper.updateById(pet);
+            if (updated == 0) {
+                throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
+            }
+            return petService.getMyPet(userId);
+        }
+
         // 长期活动互斥（每用户一条进行中）
         if (hasBusyActivity(userId)) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物正在忙，忙完再休息吧");

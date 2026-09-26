@@ -40,6 +40,7 @@ public class PetProperties {
     private final DailyQuest dailyQuest = new DailyQuest();
     private final Intimacy intimacy = new Intimacy();
     private final SkillSlots skillSlots = new SkillSlots();
+    private final FeatureSwitches featureSwitches = new FeatureSwitches();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -319,5 +320,23 @@ public class PetProperties {
         private boolean enabled = false;
         private int activeSlots = 1;
         private int passiveSlots = 2;
+    }
+
+    /**
+     * §9.3 可回退功能开关（默认全开）：
+     * 关闭定时休息回落为旧即时恢复；关闭幂等交易走旧直连链路（失去重试/补偿，仅应急）；
+     * 关闭新增玩法则对应端点返回 PET_FEATURE_DISABLED。已支付/已达成操作的查询与领取不受开关影响。
+     */
+    @Getter
+    @Setter
+    public static class FeatureSwitches {
+        private boolean timedRest = true;
+        private boolean walletIdempotent = true;
+        private boolean minigame = true;
+        private boolean custody = true;
+        private boolean cooperation = true;
+        private boolean onboarding = true;
+        private boolean collection = true;
+        private boolean diary = true;
     }
 }

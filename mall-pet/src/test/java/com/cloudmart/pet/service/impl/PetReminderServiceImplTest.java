@@ -54,7 +54,9 @@ class PetReminderServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        reminderService = new PetReminderServiceImpl(notificationFeignClient, activityFeignClient,
+        reminderService = new PetReminderServiceImpl(notificationFeignClient,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetNotifyPrefMapper.class),
+                activityFeignClient,
                 activityMapper, contextService, eventProducer, properties, redisTemplate, eventService);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         // 社区宠物活动达成提醒：默认无活动（不额外触发提醒，不影响既有断言）
