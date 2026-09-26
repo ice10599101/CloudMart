@@ -157,5 +157,6 @@ CREATE TABLE IF NOT EXISTS `pet_collection_record` (
 
 -- N03 记忆开关（提取/使用独立控制，B18 消费方读列）
 ALTER TABLE `pet`
-    ADD COLUMN `memory_extract_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '自动记忆提取开关(N03)' AFTER `cleanliness_frac`,
-    ADD COLUMN `memory_use_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '记忆注入上下文开关(N03/B18)' AFTER `memory_extract_enabled`;
+    ADD COLUMN `memory_extract_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '自动记忆提取开关(N03)' AFTER `cleanliness_frac`;
+ALTER TABLE `pet`
+    ADD COLUMN `memory_use_enabled` TINYINT NOT NULL DEFAULT 1 COMMENT '记忆注入上下文开关(N03/B18)';

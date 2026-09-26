@@ -38,9 +38,11 @@ CREATE TABLE IF NOT EXISTS `pet_report` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='宠物内容举报(管理员处理审计)';
 
 -- 4) 宠物关系规范化无向身份（B14：A→B 与 B→A 不再是两条 ACTIVE）
+-- MySQL 9 稳妥写法：两条独立 ALTER，去掉同语句内跨列 AFTER 引用
 ALTER TABLE `pet_relation`
-    ADD COLUMN `pet_a_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '规范化较小宠物ID' AFTER `to_pet_id`,
-    ADD COLUMN `pet_b_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '规范化较大宠物ID' AFTER `pet_a_id';
+    ADD COLUMN `pet_a_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '规范化较小宠物ID';
+ALTER TABLE `pet_relation`
+    ADD COLUMN `pet_b_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '规范化较大宠物ID';
 
 UPDATE `pet_relation`
 SET `pet_a_id` = LEAST(`from_pet_id`, `to_pet_id`),

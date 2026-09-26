@@ -66,6 +66,7 @@ class PetInventoryServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         inventoryService = new PetInventoryServiceImpl(petService, itemCatalog, inventoryMapper,
                 skillMapper, petMapper, org.mockito.Mockito.mock(PetStatsService.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());

@@ -158,7 +158,9 @@ class PetEventServiceImplTest {
     @DisplayName("领奖：活动已结束 → 409 PET_EVENT_ENDED")
     void claimEndedEventRejected() {
         PetEventConfig ended = bottleEvent(3);
-        ended.setEndsAt(LocalDateTime.now(ZoneId.of("UTC")).minusDays(1));
+        ended.setEventMode("WINDOW");
+        ended.setEndsAt(LocalDateTime.now(ZoneId.of("UTC")).minusDays(2));
+        // B16：结束后 24h 领取宽限——2 天前结束已超宽限，领取拒绝
         when(eventConfigMapper.selectOne(any())).thenReturn(ended);
 
         assertThatThrownBy(() -> eventService.claim(100L, "bottle_newbie"))
