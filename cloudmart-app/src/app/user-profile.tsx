@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
 import { userApi } from '@/api/user'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import type { User } from '@/types'
 import { wishApi } from '@/api/wish'
 import { petApi, type PetPublicCard } from '@/api/pet'
@@ -247,14 +248,8 @@ export default function UserProfileScreen() {
         )}
         {/* Header */}
         <View style={{ backgroundColor: theme.bgContainer, alignItems: 'center', padding: Spacing.xxl }}>
-          <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: theme.primary + '4D', overflow: 'hidden', marginBottom: Spacing.md }}>
-            {profile.avatar ? (
-              <Image source={{ uri: profile.avatar }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
-            ) : (
-              <View style={{ width: '100%', height: '100%', backgroundColor: theme.primaryGlow, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 28, color: theme.primary, fontWeight: '700' }}>{(profile.nickname || '?')[0]}</Text>
-              </View>
-            )}
+          <View style={{ marginBottom: Spacing.md }}>
+            <DecoratedAvatar src={profile.avatar || publicInfo?.avatar} userId={userId} size={80} fallbackText={(profile.nickname || '?')[0]} />
           </View>
           <Text style={{ fontSize: FontSize.xxl, fontWeight: 'bold', color: theme.text }}>{profile.nickname || '用户'}</Text>
           {profile.signature && (

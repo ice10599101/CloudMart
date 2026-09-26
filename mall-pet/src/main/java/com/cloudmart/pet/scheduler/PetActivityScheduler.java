@@ -13,6 +13,7 @@ import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetActivityService;
 import com.cloudmart.pet.service.PetBattleService;
 import com.cloudmart.pet.service.PetBottleFishingService;
+import com.cloudmart.pet.service.PetInteractionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -42,6 +43,7 @@ public class PetActivityScheduler {
     private final PetBottleFishingService bottleFishingService;
     private final PetActivityService activityService;
     private final PetBattleService battleService;
+    private final PetInteractionService interactionService;
     private final PetEventProducer eventProducer;
 
     @Scheduled(fixedDelay = 60_000)
@@ -86,7 +88,8 @@ public class PetActivityScheduler {
                 }
             }
             case BOTTLE_FISHING -> bottleFishingService.settle(activity.getUserId());
-            case REST, FEED, PLAY, CLEAN, VISIT, EVOLVE -> {
+            case REST -> interactionService.settleRest(activity.getUserId());
+            case FEED, PLAY, CLEAN, VISIT, EVOLVE -> {
                 // 即时行为不存在 IN_PROGRESS 状态，正常不会扫到；防御性日志
                 log.warn("扫描到非预期进行中活动: activityId={}, type={}", activity.getId(), type);
             }
@@ -98,19 +101,22 @@ public class PetActivityScheduler {
         String petName = pet != null ? pet.getName() : "宠物";
         if (type == PetActivityType.WORK) {
             eventProducer.publish(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
-                    activity.getUserId(), "PET_WORK_COMPLETED",
+                    "WORK_COMPLETED:" + activity.getId(),
+                    String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的打工结束啦！",
-                    petName + "：" + "主人，我打工回来啦，快来领取奖励！", activity.getId(), "PET_WORK_COMPLETED"));
+                    petName + "：" + "主人，我打工回来啦，快来领取奖励！", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
         } else if (type == PetActivityType.CAREER_WORK) {
             eventProducer.publish(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
-                    activity.getUserId(), "PET_WORK_COMPLETED",
+                    "CAREER_WORK_COMPLETED:" + activity.getId(),
+                    String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的工作结束啦！",
-                    petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", activity.getId(), "PET_WORK_COMPLETED"));
+                    petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
         } else {
             eventProducer.publish(RocketMQConfig.PET_TAG_STUDY_COMPLETED, new PetEventProducer.PetEventMessage(
-                    activity.getUserId(), "PET_STUDY_COMPLETED",
+                    "STUDY_COMPLETED:" + activity.getId(),
+                    String.valueOf(activity.getUserId()), "PET_STUDY_COMPLETED",
                     "我已经读完啦！",
-                    petName + "：" + "主人，这本书读完啦，我感觉自己变聪明了一点点！", activity.getId(), "PET_STUDY_COMPLETED"));
+                    petName + "：" + "主人，这本书读完啦，我感觉自己变聪明了一点点！", String.valueOf(activity.getId()), "PET_STUDY_COMPLETED"));
         }
     }
 }

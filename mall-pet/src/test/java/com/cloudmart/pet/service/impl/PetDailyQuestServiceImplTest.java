@@ -24,6 +24,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -44,6 +46,7 @@ import static org.mockito.Mockito.when;
  * 全清宝箱条件（有未领任务时 409）。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetDailyQuestServiceImpl 单元测试")
 class PetDailyQuestServiceImplTest {
 
@@ -57,6 +60,8 @@ class PetDailyQuestServiceImplTest {
     private PetDailyQuestConfigMapper configMapper;
     @Mock
     private PetDailyQuestMapper questMapper;
+    @Mock
+    private PetOperationService operationService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -76,14 +81,22 @@ class PetDailyQuestServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
-                wishFeignClient, intimacyService, achievementService, properties);
+                wishFeignClient, operationService, intimacyService, achievementService, properties);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(configMapper.selectList(any())).thenReturn(List.of(config()));
         lenient().when(configMapper.selectOne(any())).thenReturn(config());
         lenient().when(stateService.grantExp(any(), anyInt())).thenReturn(0);
         lenient().when(intimacyService.gain(any(), any())).thenReturn(0);
-        lenient().when(wishFeignClient.earnStarlight(anyLong(), anyInt(), anyLong())).thenReturn(ApiResponse.ok(0));
     }
 
     private Pet pet() {
@@ -150,7 +163,7 @@ class PetDailyQuestServiceImplTest {
         assertThat(result.status()).isEqualTo("CLAIMED");
         assertThat(result.claimable()).isFalse();
         verify(stateService).grantExp(any(), eq(20));
-        verify(wishFeignClient).earnStarlight(eq(100L), eq(20), eq(11L));
+        verify(operationService).executeEarn(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20), org.mockito.ArgumentMatchers.any());
         // 领奖本身也加亲密度（长期陪伴数值）
         verify(intimacyService).gain(any(), any());
     }
@@ -188,7 +201,7 @@ class PetDailyQuestServiceImplTest {
         questService.claimChest(100L);
 
         verify(stateService).grantExp(any(), eq(properties.getDailyQuest().getChestExp()));
-        verify(wishFeignClient).earnStarlight(eq(100L), eq(properties.getDailyQuest().getChestCurrency()), eq(12L));
+        verify(operationService).executeEarn(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

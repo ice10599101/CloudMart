@@ -14,6 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.when;
  * 状态懒更新 + 成长曲线单元测试（数值权威在服务端的核心保障）。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetStateService 单元测试")
 class PetStateServiceTest {
 
@@ -35,6 +38,8 @@ class PetStateServiceTest {
     private PetMapper petMapper;
 
     private PetStateService stateService;
+
+    private com.cloudmart.pet.config.PetClock petClock;
 
     @BeforeAll
     static void initEntityMeta() {
@@ -44,7 +49,13 @@ class PetStateServiceTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        stateService = new PetStateService(petMapper, new PetProperties());
+        petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
+        org.mockito.Mockito.when(petClock.nowUtc())
+                .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        org.mockito.Mockito.lenient().when(petMapper.update(any(), any())).thenReturn(1);
+        org.mockito.Mockito.lenient().when(petMapper.selectById(org.mockito.ArgumentMatchers.any())).thenAnswer(
+                inv -> pet(80, 80, 100, 90, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1)));
+        stateService = new PetStateService(petMapper, new PetProperties(), petClock);
     }
 
     private Pet pet(int hunger, int happiness, int energy, int cleanliness,

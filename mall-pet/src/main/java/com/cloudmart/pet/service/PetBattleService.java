@@ -33,5 +33,9 @@ public interface PetBattleService {
     List<PetBattleVO> history(Long userId, int page, int pageSize);
 
     /** 过期未应战挑战（供定时器调用）：PENDING 超 48h → EXPIRED */
+    /** 待应战独立分页查询（B08）：双方视角的 PENDING 对战，不再从最近战绩中筛选 */
+    java.util.List<PetBattleVO> pending(Long userId, int page, int size);
+
+    /** 过期待应战清理（定时器兜底） */
     int expirePendingBattles();
 }

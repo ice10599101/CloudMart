@@ -1,0 +1,47 @@
+[
+  {
+    "bone": "Hips",
+    "verts": 7786,
+    "wsum": 3669.54
+  },
+  {
+    "bone": "Head",
+    "verts": 7327,
+    "wsum": 5169.39
+  },
+  {
+    "bone": "Spine",
+    "verts": 7323,
+    "wsum": 1213.58
+  },
+  {
+    "bone": "Chest",
+    "verts": 4830,
+    "wsum": 256.69
+  },
+  {
+    "bone": "Neck",
+    "verts": 1548,
+    "wsum": 937.97
+  },
+  {
+    "bone": "EarR1",
+    "verts": 488,
+    "wsum": 33.81
+  },
+  {
+    "bone": "EarL1",
+    "verts": 479,
+    "wsum": 209.11
+  },
+  {
+    "bone": "EarR2",
+    "verts": 197,
+    "wsum": 58.38
+  },
+  {
+    "bone": "EarL2",
+    "verts": 119,
+    "wsum": 69.52
+  }
+]

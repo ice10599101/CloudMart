@@ -1,0 +1,23 @@
+{
+  "present": true,
+  "axis": "Y",
+  "closed_deg": 145.0,
+  "eyes": [
+    {
+      "bone": "EyelidL",
+      "center": [
+        0.0457,
+        -0.2546,
+        0.525
+      ]
+    },
+    {
+      "bone": "EyelidR",
+      "center": [
+        -0.095,
+        -0.2484,
+        0.5141
+      ]
+    }
+  ]
+}

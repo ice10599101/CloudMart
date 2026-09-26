@@ -50,6 +50,8 @@ public final class WishErrorCodes {
     /** 该里程碑奖励已领取 */
     public static final String WISH_MILESTONE_ALREADY_CLAIMED = "WISH_MILESTONE_ALREADY_CLAIMED";
     public static final String WISH_VERSION_CONFLICT = "WISH_VERSION_CONFLICT";
+    /** 宠物交易操作键已存在但请求内容不同（B01 幂等冲突：同键不同用户/金额/类型/来源） */
+    public static final String WISH_OPERATION_CONFLICT = "WISH_OPERATION_CONFLICT";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */
     public static final String WISH_CAPSULE_NOT_AVAILABLE = "WISH_CAPSULE_NOT_AVAILABLE";

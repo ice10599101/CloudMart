@@ -1,0 +1,25 @@
+{
+  "job_id": "1493682850259419136",
+  "files": [
+    {
+      "type": "OBJ",
+      "path": "model\\pet_cat_obj_20260922_024623.zip",
+      "bytes": 49418170
+    },
+    {
+      "type": "PREVIEW",
+      "path": "model\\pet_cat_20260922_024623_preview.png",
+      "bytes": 134981
+    },
+    {
+      "type": "GLB",
+      "path": "model\\pet_cat_20260922_024623.glb",
+      "bytes": 58031660
+    },
+    {
+      "type": "FBX",
+      "path": "model\\pet_cat_20260922_024623.fbx",
+      "bytes": 62753644
+    }
+  ]
+}

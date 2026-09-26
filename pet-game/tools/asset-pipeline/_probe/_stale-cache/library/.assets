@@ -1,0 +1,27 @@
+{
+    "version": "1.0.1",
+    "data": {
+        "paths": [
+            "effects",
+            "resources",
+            "scenes",
+            "scripts",
+            "resources\\effects",
+            "resources\\models",
+            "resources\\textures",
+            "resources\\models\\cat",
+            "resources\\effects\\pet-toon.effect",
+            "scripts\\PetBuilderKit.ts",
+            "scripts\\PetEffects.ts",
+            "scripts\\PetGameBridge.ts",
+            "scripts\\PetGameRoot.ts",
+            "scripts\\PetGameTheme.ts",
+            "scripts\\PetMeshFactory.ts",
+            "scripts\\PetRoomBuilder.ts",
+            "scenes\\PetHome.scene",
+            "resources\\textures\\eye_sprite.png",
+            "resources\\textures\\pet-cat-alive.png",
+            "resources\\models\\cat\\pet-cat-rigged.glb"
+        ]
+    }
+}

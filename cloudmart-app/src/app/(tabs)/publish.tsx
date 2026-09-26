@@ -1,3 +1,4 @@
+import type { Product } from '@/types'
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, BackHandler } from 'react-native'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams, useGlobalSearchParams } from 'expo-router'
@@ -5,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
+import { productApi } from '@/api/product'
 import { fileApi } from '@/api/file'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -28,6 +30,14 @@ export default function PublishPage() {
   const [content, setContent] = useState('')
   const [tags, setTags] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
+  // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
+  const [linkProduct, setLinkProduct] = useState(false)
+  const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
+  const [linkedProduct, setLinkedProduct] = useState<Product | null>(null)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productOptions, setProductOptions] = useState<Product[]>([])
+  const [searchingProducts, setSearchingProducts] = useState(false)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -137,16 +147,28 @@ export default function PublishPage() {
         onPress: async () => {
           setPublishing(true)
           try {
-            const tagList = tags.trim() ? tags.split(/[,，\s]+/).filter(Boolean) : []
-            const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
+            const tagNames = tags.trim() ? tags.split(/[,，\s]+/).filter(Boolean) : []
+                        const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
+            // 标签名解析为 tagIds（后端只接收 tagIds；失败不阻断发布）
+            let tagIds: number[] = []
+            if (tagNames.length > 0) {
+              try {
+                const resolved = await communityApi.resolveTags(tagNames)
+                tagIds = (resolved.data?.data ?? []).map((t) => t.id)
+              } catch {
+                Alert.alert('提示', '标签解析失败，本次不携带标签')
+              }
+            }
+
             const postData: Record<string, unknown> = {
               title: title.trim(),
               content,
-              tags: tagList,
+              tagIds,
               coverImage,
               mediaUrls,
               mediaType,
               status: 1,
+              productId: linkProduct && linkedProductId ? linkedProductId : undefined,
             }
 
             if (isEditing && editingId) {
@@ -183,12 +205,22 @@ export default function PublishPage() {
         onPress: async () => {
           setSaving(true)
           try {
-            const tagList = tags.trim() ? tags.split(/[,，\s]+/).filter(Boolean) : []
+            // 标签名解析为 tagIds（草稿同样携带；失败静默）
+            let tagIds: number[] = []
+            const tagNames = tags.trim() ? tags.split(/[,，\s]+/).filter(Boolean) : []
+            try {
+              if (tagNames.length > 0) {
+                const resolved = await communityApi.resolveTags(tagNames)
+                tagIds = (resolved.data?.data ?? []).map((t) => t.id)
+              }
+            } catch {
+              // 静默
+            }
             const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
             const postData: Record<string, unknown> = {
               title: title.trim() || '未命名草稿',
               content,
-              tags: tagList,
+              tagIds,
               coverImage,
               mediaUrls,
               mediaType,
@@ -268,6 +300,20 @@ export default function PublishPage() {
         uploaded: false,
       },
     ])
+  }
+
+  /** 搜索可关联的好物 */
+  const handleSearchProducts = async () => {
+    if (!productKeyword.trim() || searchingProducts) return
+    setSearchingProducts(true)
+    try {
+      const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
+      setProductOptions((res.data as { data?: { products?: Product[] } })?.data?.products ?? [])
+    } catch {
+      Alert.alert('提示', '商品搜索失败')
+    } finally {
+      setSearchingProducts(false)
+    }
   }
 
   const handleInsertImageToEditor = async () => {

@@ -203,3 +203,145 @@
   font-size: $font-size-sm;
   color: var(--color-primary);
 }
+
+.linkProductRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.linkProductSearch {
+  margin-top: $spacing-sm;
+  padding: $spacing-md;
+  border: 1rpx dashed var(--color-border);
+  border-radius: $radius-md;
+}
+
+.linkProductSearchText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.linkedProduct {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-top: $spacing-sm;
+  padding: $spacing-sm;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+}
+
+.linkedProductImage {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: $radius-md;
+}
+
+.linkedProductInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.linkedProductName {
+  display: block;
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+}
+
+.linkedProductPrice {
+  display: block;
+  font-size: $font-size-xs;
+  color: #ff4d4f;
+  margin-top: 4rpx;
+}
+
+.linkedProductReset {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.productModalMask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  z-index: 1200;
+}
+
+.productModal {
+  width: 100%;
+  max-height: 70vh;
+  background-color: $color-bg-white;
+  border-radius: $radius-xl $radius-xl 0 0;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+}
+
+.productSearchRow {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.productSearchInput {
+  flex: 1;
+  padding: 12rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+}
+
+.productSearchBtn {
+  padding: 12rpx 32rpx;
+  background: var(--color-gradient-primary);
+  border-radius: $radius-md;
+  color: #ffffff;
+  font-size: $font-size-sm;
+}
+
+.productResults {
+  max-height: 50vh;
+}
+
+.productResultRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.productResultImage {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: $radius-md;
+}
+
+.productResultInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.productResultName {
+  display: block;
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+}
+
+.productResultPrice {
+  display: block;
+  font-size: $font-size-xs;
+  color: #ff4d4f;
+  margin-top: 4rpx;
+}
+
+.productResultEmpty {
+  display: block;
+  text-align: center;
+  padding: $spacing-lg 0;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

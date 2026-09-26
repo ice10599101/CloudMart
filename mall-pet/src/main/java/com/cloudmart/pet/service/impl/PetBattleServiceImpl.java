@@ -70,6 +70,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
+    private final PetOperationService operationService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -83,7 +84,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetStatsService statsService,
                                 PetDailyQuestService dailyQuestService,
                                 PetIntimacyService intimacyService,
-                                PetRelationService relationService) {
+                                PetRelationService relationService,
+                                PetOperationService operationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -96,6 +98,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.relationService = relationService;
+        this.operationService = operationService;
     }
 
     @Override
@@ -121,7 +124,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         Map<Long, String> nicknames = resolveNicknames(rivals.stream().map(Pet::getUserId).toList());
         rivals.forEach(rival -> opponents.add(new PetOpponentVO(rival.getId(), rival.getName(),
                 rival.getSpecies(), rival.getLevel(), rival.getGrowthStage(), false, rival.getUserId(),
-                nicknames.getOrDefault(rival.getUserId(), OWNER_PLACEHOLDER))));
+                nicknames.getOrDefault(rival.getUserId(), OWNER_PLACEHOLDER), null)));
         return opponents;
     }
 
@@ -132,7 +135,12 @@ public class PetBattleServiceImpl implements PetBattleService {
         PetBattleMode mode = parseMode(request.mode());
 
         if (mode == PetBattleMode.PVE) {
-            PetBattleEngine.Fighter wild = wildFighter(attacker.getLevel());
+            // B08：稳定野生模板——按请求 templateId 挑战（旧客户端缺省 1），与列表展示一致
+            int templateId = request.templateId() != null ? request.templateId() : 1;
+            if (templateId < 1 || templateId > WILD_TEMPLATE_NAMES.length) {
+                throw new BusinessException(PetErrorCodes.PET_BATTLE_OPPONENT_INVALID, "野生对手不存在");
+            }
+            PetBattleEngine.Fighter wild = wildFighter(attacker.getLevel(), templateId);
             return settleNewBattle(attacker, wild, PetBattleMode.PVE, 0L, null);
         }
         // PvP：防守方必须存在、公开、非自己
@@ -154,10 +162,11 @@ public class PetBattleServiceImpl implements PetBattleService {
         battleMapper.insert(battle);
 
         eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
-                defender.getUserId(), "PET_BATTLE_CHALLENGE",
+                "BATTLE_CHALLENGE:" + battle.getId(),
+                String.valueOf(defender.getUserId()), "PET_BATTLE_CHALLENGE",
                 "有人向我发起挑战啦！",
                 attacker.getName() + " 向 " + defender.getName() + " 发起了对战挑战，去应战吧！",
-                battle.getId(), "PET_BATTLE_CHALLENGE"));
+                String.valueOf(battle.getId()), "PET_BATTLE_CHALLENGE"));
         return toVo(battle, userId, null);
     }
 
@@ -217,10 +226,11 @@ public class PetBattleServiceImpl implements PetBattleService {
         }
         battle.setStatus(PetBattleStatus.DECLINED.name());
         eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
-                battle.getAttackerUserId(), "PET_BATTLE_FINISHED",
+                "BATTLE_DECLINED:" + battle.getId(),
+                String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
                 "挑战被拒绝啦",
                 "对方婉拒了这次对战，换一个对手试试吧！",
-                battle.getId(), "PET_BATTLE_DECLINED"));
+                String.valueOf(battle.getId()), "PET_BATTLE_DECLINED"));
         return toVo(battle, userId, null);
     }
 
@@ -321,7 +331,15 @@ public class PetBattleServiceImpl implements PetBattleService {
         dailyQuestService.record(attacker, PetQuestType.BATTLE, 1);
 
         if (attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-            wishFeignClient.earnStarlight(battle.getAttackerUserId(), battle.getCurrencyReward(), battle.getId());
+            // B01：本地奖励已生效；星光经统一操作记录幂等发放，结果未知不回滚本地奖励
+            String operationId = operationService.operationKey("BATTLE_REWARD", battle.getId(), "attacker");
+            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                    operationId, battle.getAttackerUserId(), battle.getAttackerPetId(),
+                    "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null);
+            if (!settlement.isCompleted()) {
+                log.info("对战奖励星光结算中, battleId={}, side=attacker, operationId={}",
+                        battle.getId(), operationId);
+            }
         }
 
         if (defenderPetId != null && defenderPetId > 0) {
@@ -341,17 +359,33 @@ public class PetBattleServiceImpl implements PetBattleService {
                 // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
                 relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
                 if (!attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-                    wishFeignClient.earnStarlight(defender.getUserId(), battle.getCurrencyReward(), battle.getId());
+                    String operationId = operationService.operationKey("BATTLE_REWARD", battle.getId(), "defender");
+                    PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                            operationId, defender.getUserId(), defender.getId(),
+                            "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null);
+                    if (!settlement.isCompleted()) {
+                        log.info("对战奖励星光结算中, battleId={}, side=defender, operationId={}",
+                                battle.getId(), operationId);
+                    }
                 }
             }
         }
-        // PvE 结算即通知挑战方；PvP 结果由 accept 时通知挑战方
+        // PvE 结算即通知挑战方；PvP 结果由 accept 时分别通知双方（B08：各一次，eventId 去重）
         if (PetBattleMode.PVE.name().equals(battle.getMode()) || battle.getDefenderUserId() == null) {
             eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
-                    battle.getAttackerUserId(), "PET_BATTLE_FINISHED",
+                    "BATTLE_FINISHED:" + battle.getId() + ":attacker",
+                    String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
                     resultAttackerWon(attackerWon),
                     battleRewardText(battle, attackerWon),
-                    battle.getId(), "PET_BATTLE_FINISHED"));
+                    String.valueOf(battle.getId()), "PET_BATTLE_FINISHED"));
+        } else if (battle.getDefenderUserId() != null && defenderPetId != null && defenderPetId > 0) {
+            boolean defenderWon = !attackerWon;
+            eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
+                    "BATTLE_FINISHED:" + battle.getId() + ":defender",
+                    String.valueOf(battle.getDefenderUserId()), "PET_BATTLE_FINISHED",
+                    resultAttackerWon(defenderWon),
+                    battleRewardText(battle, defenderWon),
+                    String.valueOf(battle.getId()), "PET_BATTLE_FINISHED"));
         }
     }
 
@@ -367,10 +401,25 @@ public class PetBattleServiceImpl implements PetBattleService {
 
     private void notifyLevelUp(Long userId, Pet pet) {
         eventProducer.publish(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
-                userId, "PET_LEVEL_UP",
+                "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
+                String.valueOf(userId), "PET_LEVEL_UP",
                 "宠物升级啦！",
                 pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
-                pet.getId(), "PET_LEVEL_UP"));
+                String.valueOf(pet.getId()), "PET_LEVEL_UP"));
+    }
+
+    @Override
+    public List<PetBattleVO> pending(Long userId, int page, int size) {
+        int pageSize = Math.min(Math.max(size, 1), 50);
+        Page<PetBattle> result = battleMapper.selectPage(new Page<>(Math.max(page, 1), pageSize),
+                new LambdaQueryWrapper<PetBattle>()
+                        .eq(PetBattle::getStatus, PetBattleStatus.PENDING.name())
+                        .and(w -> w.eq(PetBattle::getAttackerUserId, userId)
+                                .or().eq(PetBattle::getDefenderUserId, userId))
+                        .orderByDesc(PetBattle::getId));
+        return result.getRecords().stream()
+                .map(battle -> toVo(battle, userId, null))
+                .toList();
     }
 
     private PetBattle requireBattle(Long battleId) {
@@ -381,23 +430,28 @@ public class PetBattleServiceImpl implements PetBattleService {
         return battle;
     }
 
-    /** PvE 野生宠物模板：等级 = 挑战者 ±2，属性随等级线性成长 */
-    private PetBattleEngine.Fighter wildFighter(int attackerLevel) {
-        String[] names = {"野猫小灰", "野犬阿黄", "野兔速速"};
-        int index = secureRandom.nextInt(names.length);
-        int level = Math.max(1, attackerLevel + secureRandom.nextInt(5) - 2);
-        return new PetBattleEngine.Fighter(0L, names[index] + " Lv." + level,
+    /** PvE 野生模板名（与 wildOpponents 一一对应，templateId 1-3） */
+    private static final String[] WILD_TEMPLATE_NAMES = {"野猫小灰", "野犬阿黄", "野兔速速"};
+
+    /**
+     * PvE 野生宠物模板（B08 稳定模板）：名称/等级/属性全部由 (templateId, 挑战者等级) 确定，
+     * 与 /battle/opponents 展示完全一致——选择哪只就挑战哪只，服务端不再随机另一只。
+     */
+    private PetBattleEngine.Fighter wildFighter(int attackerLevel, int templateId) {
+        int index = Math.max(1, Math.min(WILD_TEMPLATE_NAMES.length, templateId)) - 1;
+        int level = Math.max(1, attackerLevel + index - 1);
+        return new PetBattleEngine.Fighter(0L, WILD_TEMPLATE_NAMES[index] + " Lv." + level,
                 100 + level * 5, 100 + level * 5,
                 5 + level, 5 + level, 5 + level, 5 + level);
     }
 
     private List<PetOpponentVO> wildOpponents(Pet pet) {
-        String[] names = {"野猫小灰", "野犬阿黄", "野兔速速"};
         List<PetOpponentVO> wilds = new ArrayList<>();
         for (int i = 0; i < WILD_OPPONENT_COUNT; i++) {
+            int templateId = i + 1;
             int level = Math.max(1, pet.getLevel() + i - 1);
-            wilds.add(new PetOpponentVO(0L, names[i] + " Lv." + level, "WILD", level, "WILD",
-                    true, null, WILD_OWNER_PLACEHOLDER));
+            wilds.add(new PetOpponentVO(0L, WILD_TEMPLATE_NAMES[i] + " Lv." + level, "WILD", level, "WILD",
+                    true, null, WILD_OWNER_PLACEHOLDER, templateId));
         }
         return wilds;
     }

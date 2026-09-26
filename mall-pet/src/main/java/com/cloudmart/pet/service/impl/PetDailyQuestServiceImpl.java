@@ -60,6 +60,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final PetDailyQuestConfigMapper configMapper;
     private final PetDailyQuestMapper questMapper;
     private final WishFeignClient wishFeignClient;
+    private final PetOperationService operationService;
     private final PetIntimacyService intimacyService;
     private final PetAchievementService achievementService;
     private final PetProperties properties;
@@ -69,6 +70,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetDailyQuestConfigMapper configMapper,
                                     PetDailyQuestMapper questMapper,
                                     WishFeignClient wishFeignClient,
+                                    PetOperationService operationService,
                                     PetIntimacyService intimacyService,
                                     PetAchievementService achievementService,
                                     PetProperties properties) {
@@ -77,6 +79,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.configMapper = configMapper;
         this.questMapper = questMapper;
         this.wishFeignClient = wishFeignClient;
+        this.operationService = operationService;
         this.intimacyService = intimacyService;
         this.achievementService = achievementService;
         this.properties = properties;
@@ -119,7 +122,13 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         intimacyService.gain(pet, PetIntimacySource.QUEST);
         int levelups = stateService.grantExp(pet, expReward);
         if (currencyReward > 0) {
-            wishFeignClient.earnStarlight(userId, currencyReward, quest.getId());
+            // B01：本地奖励已生效；星光结果未知不回滚，恢复任务按原单收敛
+            String operationId = operationService.operationKey("QUEST_CLAIM", quest.getId());
+            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                    operationId, userId, pet.getId(), "QUEST_CLAIM", quest.getId(), currencyReward, null);
+            if (!settlement.isCompleted()) {
+                log.info("任务奖励星光结算中, questId={}, operationId={}", quest.getId(), operationId);
+            }
         }
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
@@ -175,7 +184,12 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         int levelups = stateService.grantExp(pet, cfg.getChestExp());
         if (cfg.getChestCurrency() > 0) {
-            wishFeignClient.earnStarlight(userId, cfg.getChestCurrency(), chest.getId());
+            String operationId = operationService.operationKey("QUEST_CHEST", userId, chest.getId());
+            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                    operationId, userId, pet.getId(), "QUEST_CHEST", chest.getId(), cfg.getChestCurrency(), null);
+            if (!settlement.isCompleted()) {
+                log.info("宝箱奖励星光结算中, chestId={}, operationId={}", chest.getId(), operationId);
+            }
         }
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);

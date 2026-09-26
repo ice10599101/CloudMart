@@ -192,10 +192,12 @@ public class PetFriendServiceImpl implements PetFriendService {
             existing = row;
         }
         eventProducer.publish(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
-                friendUserId, "PET_FRIEND_REQUEST",
+                "FRIEND_REQUEST:" + userId + ":" + friendUserId + ":"
+                        + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+                String.valueOf(friendUserId), "PET_FRIEND_REQUEST",
                 "收到好友申请啦！",
                 pet.getName() + " 的主人想和你做朋友，去宠物家园的社交页看看吧～",
-                pet.getId(), "PET_FRIEND_REQUEST"));
+                String.valueOf(pet.getId()), "PET_FRIEND_REQUEST"));
         return toVo(existing, target, resolveNicknames(List.of(friendUserId)), userId);
     }
 
@@ -219,10 +221,11 @@ public class PetFriendServiceImpl implements PetFriendService {
                 .last("LIMIT 1"));
         achievementService.evaluate(pet, PetAchievementService.Event.FRIEND);
         eventProducer.publish(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
-                friendUserId, "PET_FRIEND_REQUEST",
+                "FRIEND_ACCEPTED:" + userId + ":" + friendUserId,
+                String.valueOf(friendUserId), "PET_FRIEND_REQUEST",
                 "好友确认啦！",
                 pet.getName() + " 的主人答应了你的好友申请，去互相串个门吧～",
-                pet.getId(), "PET_FRIEND_REQUEST"));
+                String.valueOf(pet.getId()), "PET_FRIEND_REQUEST"));
         return toVo(findRow(userId, friendUserId),
                 target, resolveNicknames(List.of(friendUserId)), userId);
     }

@@ -168,6 +168,20 @@ public final class PetErrorCodes {
     /** 陪伴心跳参数非法 */
     public static final String PET_COMPANION_INVALID = "PET_COMPANION_INVALID";
 
+    // --- B01/B02 并发与结算（§6.4 错误码登记） ---
+    /** 宠物状态版本冲突（并发写未命中，可重试；不产生任何奖励） */
+    public static final String PET_STATE_CONFLICT = "PET_STATE_CONFLICT";
+    /** 星光结算结果未知/处理中（业务成功但外部待结算；按原请求重试幂等，禁止换单号） */
+    public static final String PET_SETTLEMENT_PENDING = "PET_SETTLEMENT_PENDING";
+    /** 业务操作记录不存在（结果未知，可按原单查询/重试） */
+    public static final String PET_OPERATION_NOT_FOUND = "PET_OPERATION_NOT_FOUND";
+    /** 重复请求与原操作内容冲突（同键不同业务实例） */
+    public static final String PET_OPERATION_CONFLICT = "PET_OPERATION_CONFLICT";
+    /** 每日收益额度已耗尽（可执行无收益互动，不推进奖励） */
+    public static final String PET_QUOTA_EXHAUSTED = "PET_QUOTA_EXHAUSTED";
+    /** 用户交互互斥位被占用（长期活动/小游戏进行中，禁止并行开始另一项） */
+    public static final String PET_USER_BUSY = "PET_USER_BUSY";
+
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */
     public static final String PET_AI_RATE_LIMITED = "PET_AI_RATE_LIMITED";

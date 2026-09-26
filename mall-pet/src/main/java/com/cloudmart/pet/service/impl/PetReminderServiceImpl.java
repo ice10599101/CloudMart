@@ -99,6 +99,13 @@ public class PetReminderServiceImpl implements PetReminderService {
     }
 
     @Override
+    public long markAllAsRead(Long userId) {
+        // B19：仅 PET 类型；通知服务侧按 userId 条件保证归属
+        Long remaining = notificationFeignClient.markAllAsReadByType(userId, "PET").data();
+        return remaining != null ? remaining : 0L;
+    }
+
+    @Override
     public long unreadCount(Long userId) {
         try {
             Long count = notificationFeignClient.getUnreadCount(userId, "PET").data();
@@ -284,7 +291,8 @@ public class PetReminderServiceImpl implements PetReminderService {
             return;
         }
         eventProducer.publish(RocketMQConfig.PET_TAG_PROACTIVE, new PetEventProducer.PetEventMessage(
-                userId, reminderType, title, content, bizId, reminderType));
+                "PROACTIVE:" + userId + ":" + reminderType + ":" + bizId,
+                String.valueOf(userId), reminderType, title, content, String.valueOf(bizId), reminderType));
     }
 
     /** 最小间隔（默认 60s）：SETNX 抢占，防止刷新页面连发 */

@@ -78,6 +78,17 @@ public class PetBattleController {
         return ApiResponse.ok(battleService.get(userId, battleId));
     }
 
+    @GetMapping("/pending")
+    @Operation(summary = "待应战列表（B08）", description = "双方视角的 PENDING 对战独立分页查询，"
+            + "不再依赖最近战绩筛选；到期挑战在应战接口内拒绝")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<List<PetBattleVO>> pending(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "页码") @RequestParam(value = "page", defaultValue = "1") int page,
+            @Parameter(description = "页大小") @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(battleService.pending(userId, page, size));
+    }
+
     @GetMapping("/history")
     @Operation(summary = "对战历史", description = "我的对战（攻/守双侧），offset 分页")
     @SentinelResource("PET_QUERY")

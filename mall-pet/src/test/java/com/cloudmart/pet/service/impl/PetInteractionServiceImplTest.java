@@ -11,6 +11,9 @@ import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.service.PetDailyQuestService;
+import com.cloudmart.pet.enums.PetActivityStatus;
+import com.cloudmart.pet.enums.PetActivityType;
+import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.service.PetHomeService;
 import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
@@ -23,6 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -41,6 +46,7 @@ import static org.mockito.Mockito.when;
  * 基础互动测试：喂食限频走配置（非硬编码）、升级统一发 MQ 事件、休息留痕后评估成就。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetInteractionServiceImpl 单元测试")
 class PetInteractionServiceImplTest {
 
@@ -52,6 +58,9 @@ class PetInteractionServiceImplTest {
     private PetActivityMapper activityMapper;
     @Mock
     private PetMapper petMapper;
+    @Mock
+    private PetQuotaService quotaService;
+    private PetOutboxService outboxService;
     @Mock
     private PetAchievementService achievementService;
     @Mock
@@ -78,9 +87,19 @@ class PetInteractionServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
+        org.mockito.Mockito.when(petClock.nowUtc())
+                .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        quotaService = org.mockito.Mockito.mock(PetQuotaService.class);
+        org.mockito.Mockito.when(quotaService.tryConsume(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        org.mockito.Mockito.lenient().when(petMapper.update(any(), any())).thenReturn(1);
+        org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
+        outboxService = org.mockito.Mockito.mock(PetOutboxService.class);
         interactionService = new PetInteractionServiceImpl(petService, stateService, activityMapper,
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
-                properties, redisTemplate, eventProducer);
+                properties, quotaService, outboxService, petClock);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
     }
@@ -114,7 +133,8 @@ class PetInteractionServiceImplTest {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         properties.getInteraction().setFeedDailyLimit(2);
-        when(valueOperations.increment(anyString())).thenReturn(3L);
+        // B06：喂食额度数据库权威（tryConsume 返回 false = 今日已用尽）
+        when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.FEED), eq(0L), eq(2))).thenReturn(false);
 
         org.assertj.core.api.Assertions
                 .assertThatThrownBy(() -> interactionService.feed(100L))
@@ -128,13 +148,15 @@ class PetInteractionServiceImplTest {
     void feedLevelUpPublishesEvent() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
-        when(valueOperations.increment(anyString())).thenReturn(1L);
+        when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.FEED), eq(0L), eq(5))).thenReturn(true);
         when(stateService.grantExp(any(Pet.class), eq(properties.getInteraction().getFeedExp()))).thenReturn(1);
 
         interactionService.feed(100L);
 
         verify(achievementService).evaluate(eq(pet), eq(PetAchievementService.Event.LEVEL_UP));
-        verify(eventProducer).publish(eq(RocketMQConfig.PET_TAG_LEVEL_UP), any(PetEventProducer.PetEventMessage.class));
+        // B19：升级事件经 outbox 可靠投递
+        verify(outboxService).record(org.mockito.ArgumentMatchers.anyString(),
+                eq(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_LEVEL_UP), eq(100L), eq(1L), any());
     }
 
     @Test
@@ -154,12 +176,39 @@ class PetInteractionServiceImplTest {
     @Test
     @DisplayName("休息：留痕后评估成就（此前漏评估）")
     void restEvaluatesAchievement() {
+        // B06：休息改为定时活动——开始时不发成就；到期结算（settleRest）恢复状态并给配额内亲密度
         Pet pet = pet();
+        pet.setEnergy(40);
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         when(activityMapper.selectCount(any())).thenReturn(0L);
+        when(petMapper.update(any(), any())).thenReturn(1);
 
         interactionService.rest(100L);
 
+        verify(activityMapper).insert(any(PetActivity.class));
+        org.assertj.core.api.Assertions.assertThat(pet.getStatus()).isEqualTo(PetStatus.RESTING.name());
+    }
+
+    @Test
+    @DisplayName("休息到期结算：恢复精力/生命并评估成就（额度内）")
+    void settleRestAppliesEffects() {
+        Pet pet = pet();
+        pet.setEnergy(40);
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        PetActivity rest = new PetActivity();
+        rest.setId(30L);
+        rest.setUserId(100L);
+        rest.setPetId(1L);
+        rest.setActivityType(PetActivityType.REST.name());
+        rest.setStatus(PetActivityStatus.IN_PROGRESS.name());
+        rest.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusSeconds(1));
+        when(activityMapper.selectOne(any())).thenReturn(rest);
+        when(activityMapper.update(any(), any())).thenReturn(1);
+        when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.REST_INTIMACY), eq(0L), eq(3))).thenReturn(true);
+
+        interactionService.settleRest(100L);
+
         verify(achievementService).evaluate(eq(pet), eq(PetAchievementService.Event.REST));
+        org.assertj.core.api.Assertions.assertThat(pet.getEnergy()).isEqualTo(100);
     }
 }

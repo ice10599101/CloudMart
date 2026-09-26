@@ -28,6 +28,9 @@ public class Notification {
 
     private Long bizId;
 
+    /** 业务事件唯一键（宠物 outbox 事件 TYPE:实例，B19 消费去重；其他类型为空） */
+    private String eventId;
+
     private String bizType;
 
     /** 操作者用户 ID（谁做了此互动，用于前端跳转其主页）；NULL=系统/历史通知 */

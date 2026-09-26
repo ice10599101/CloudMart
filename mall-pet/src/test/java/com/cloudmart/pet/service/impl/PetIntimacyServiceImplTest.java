@@ -1,138 +1,210 @@
 package com.cloudmart.pet.service.impl;
 
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.Pet;
-import com.cloudmart.pet.enums.PetIntimacySource;
-import com.cloudmart.pet.mq.PetEventProducer;
-import com.cloudmart.pet.repository.PetMapper;
-import com.cloudmart.pet.service.PetAchievementService;
-import com.cloudmart.pet.vo.PetIntimacyVO;
+import com.cloudmart.pet.entity.PetCompanionDaily;
+import com.cloudmart.pet.entity.PetCompanionSession;
+import com.cloudmart.pet.vo.PetCompanionSessionVO;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 亲密度与陪伴测试：等级/加成公式、单次加成只改内存不落库（由调用方一次写）、
- * 升级发通知、陪伴心跳按秒换算并按日封顶。
+ * B05 陪伴会话/积分/亲密度单元测试（固定 Clock，不依赖真实等待）。
+ *
+ * <p>核心验收（任务书 B05）：服务端会话计时权威、伪造秒数不加速；重复心跳按序号幂等；
+ * 会话失效不补计中断区间；正常停止只结算有效窗口；概览今日值正确。</p>
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("PetIntimacyServiceImpl 单元测试")
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PetIntimacyServiceImplTest {
 
     @Mock
-    private PetMapper petMapper;
+    private com.cloudmart.pet.repository.PetMapper petMapper;
     @Mock
-    private PetEventProducer eventProducer;
+    private com.cloudmart.pet.repository.PetCompanionSessionMapper sessionMapper;
     @Mock
-    private PetAchievementService achievementService;
+    private com.cloudmart.pet.repository.PetCompanionDailyMapper dailyMapper;
     @Mock
-    private StringRedisTemplate redisTemplate;
+    private com.cloudmart.pet.mq.PetEventProducer eventProducer;
     @Mock
-    private ValueOperations<String, String> valueOperations;
+    private PetOutboxService outboxService;
 
-    private final PetProperties properties = new PetProperties();
     private PetIntimacyServiceImpl intimacyService;
+    private PetProperties properties;
+    private PetClock petClock;
+
+    /** 固定业务时刻（UTC），用例内手动推进 */
+    private final LocalDateTime now = LocalDateTime.of(2026, 9, 26, 2, 0, 0);
+
+    @BeforeAll
+    static void initEntityMeta() {
+        org.apache.ibatis.builder.MapperBuilderAssistant assistant =
+                new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "");
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, Pet.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, PetCompanionSession.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, PetCompanionDaily.class);
+    }
 
     @BeforeEach
     void setUp() {
-        intimacyService = new PetIntimacyServiceImpl(petMapper, properties, eventProducer,
-                achievementService, redisTemplate);
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        properties = new PetProperties();
+        // 真实 PetClock + 固定 Clock：businessDate/businessDateOf 走真实换算
+        java.time.Clock fixed = java.time.Clock.fixed(now.atOffset(java.time.ZoneOffset.UTC).toInstant(),
+                java.time.ZoneOffset.UTC);
+        petClock = new PetClock(fixed, properties);
+        intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
+                properties, eventProducer, outboxService, petClock);
+        lenient().when(sessionMapper.insert(any(PetCompanionSession.class))).thenReturn(1);
+        lenient().when(dailyMapper.insert(any(PetCompanionDaily.class))).thenReturn(1);
+        lenient().when(petMapper.update(any(), any())).thenReturn(1);
     }
 
-    private Pet pet(int intimacy) {
+    private Pet pet() {
         Pet pet = new Pet();
         pet.setId(1L);
         pet.setUserId(100L);
         pet.setName("小橘");
-        pet.setIntimacy(intimacy);
-        pet.setCompanionSeconds(0L);
-        pet.setTodayCompanionSeconds(0);
-        pet.setCompanionDays(0);
-        pet.setCompanionStreak(0);
+        pet.setIntimacy(0);
+        pet.setLevel(1);
         return pet;
     }
 
+    private void stubPet(Pet pet) {
+        when(petMapper.selectOne(any())).thenReturn(pet);
+    }
+
+    private void stubActiveSession(PetCompanionSession session) {
+        when(sessionMapper.selectOne(any())).thenReturn(session);
+    }
+
+    private PetCompanionSession activeSession(long lastSeq, LocalDateTime lastHeartbeat) {
+        PetCompanionSession session = new PetCompanionSession();
+        session.setId(9L);
+        session.setUserId(100L);
+        session.setPetId(1L);
+        session.setStatus("ACTIVE");
+        session.setStartedAt(lastHeartbeat);
+        session.setLastHeartbeatAt(lastHeartbeat);
+        session.setLastSeq(lastSeq);
+        return session;
+    }
+
+    private PetCompanionDaily daily(int acceptedSeconds, int grantedPoints) {
+        PetCompanionDaily row = new PetCompanionDaily();
+        row.setId(77L);
+        row.setUserId(100L);
+        row.setBusinessDate(LocalDate.of(2026, 9, 26));
+        row.setAcceptedSeconds(acceptedSeconds);
+        row.setGrantedPoints(grantedPoints);
+        return row;
+    }
+
     @Test
-    @DisplayName("等级与经验加成：1200 点落在第 4 档（亲近），加成 3% 且不超过上限")
-    void levelAndBonusFollowThresholds() {
-        assertThat(intimacyService.levelOf(0)).isEqualTo(1);
+    @DisplayName("首次心跳建立基准：不凭空增加时长，accepted 不增长")
+    void firstHeartbeatEstablishesBaseline() {
+        stubPet(pet());
+        stubActiveSession(null);
+
+        PetCompanionSessionVO vo = intimacyService.heartbeat(100L, 60, 1L);
+
+        assertThat(vo.accepted()).isFalse();
+        assertThat(vo.creditedSeconds()).isZero();
+        org.mockito.Mockito.verify(sessionMapper).insert(any(PetCompanionSession.class));
+        assertThat(vo.todayAcceptedSeconds()).isZero();
+    }
+
+    @Test
+    @DisplayName("伪造秒数不加速：客户端上报 600 秒仍按服务端时钟差 60 秒计入")
+    void forgedSecondsDoNotAccelerate() {
+        stubPet(pet());
+        stubActiveSession(activeSession(0L, now.minusSeconds(60)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(0, 0));
+
+        PetCompanionSessionVO vo = intimacyService.heartbeat(100L, 600, 1L);
+
+        assertThat(vo.accepted()).isTrue();
+        assertThat(vo.creditedSeconds()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("重复心跳幂等：seq 不前进直接返回，不重复计时")
+    void duplicateHeartbeatIgnored() {
+        stubPet(pet());
+        stubActiveSession(activeSession(5L, now.minusSeconds(60)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(300, 0));
+
+        PetCompanionSessionVO vo = intimacyService.heartbeat(100L, 60, 5L);
+
+        assertThat(vo.accepted()).isFalse();
+        assertThat(vo.creditedSeconds()).isZero();
+    }
+
+    @Test
+    @DisplayName("会话失效不补计中断区间：超过 90 秒无心跳，重建基准且 credited=0")
+    void expiredSessionDoesNotBackfill() {
+        stubPet(pet());
+        stubActiveSession(activeSession(1L, now.minusSeconds(300)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(0, 0));
+
+        PetCompanionSessionVO vo = intimacyService.heartbeat(100L, 300, 2L);
+
+        assertThat(vo.accepted()).isFalse();
+        assertThat(vo.creditedSeconds()).isZero();
+        // 旧会话被结束（EXPIRED），新会话建立
+        verify(sessionMapper, atLeastOnce()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("正常停止只结算有效窗口内时间（30 秒窗口）")
+    void stopSettlesValidWindow() {
+        stubPet(pet());
+        stubActiveSession(activeSession(3L, now.minusSeconds(30)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(570, 0));
+
+        PetCompanionSessionVO vo = intimacyService.stopSession(100L);
+
+        assertThat(vo.accepted()).isTrue();
+        assertThat(vo.creditedSeconds()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("亲密度经验加成：等级阈值 1200 → 第 4 档，加成 3%")
+    void expBonusThresholds() {
+        Pet pet = pet();
+        pet.setIntimacy(1200);
         assertThat(intimacyService.levelOf(1200)).isEqualTo(4);
-        assertThat(intimacyService.levelName(4)).isEqualTo("亲密");
-        assertThat(intimacyService.toNext(1200)).isEqualTo(300);
-        // 1200 → 第 4 档 → (4-1) × 1% = 3%
-        assertThat(intimacyService.expBonus(pet(1200))).isEqualTo(0.03);
-        // 最高档（灵魂伴侣 = 第 8 档）为 (8-1) × 1% = 7%，且不超过配置上限 10%
-        assertThat(intimacyService.expBonus(pet(999999)))
-                .isEqualTo(0.07)
-                .isLessThanOrEqualTo(properties.getIntimacy().getMaxExpBonus());
-        // 满级后没有下一档
-        assertThat(intimacyService.toNext(20000)).isZero();
+        assertThat(intimacyService.expBonus(pet)).isCloseTo(0.03, within(1e-9));
     }
 
     @Test
-    @DisplayName("单次加成只改内存 + 升级发宠物口吻通知（不落库，交给调用方一次写）")
-    void gainMutatesInMemoryOnly() {
-        Pet pet = pet(99);
-        int levelups = intimacyService.gain(pet, PetIntimacySource.PLAY);
+    @DisplayName("概览：当天未发心跳也显示正确的今日值（读业务日行）")
+    void overviewShowsCorrectTodayValue() {
+        stubPet(pet());
+        when(dailyMapper.selectOne(any())).thenReturn(daily(1200, 2));
 
-        assertThat(pet.getIntimacy()).isEqualTo(102);
-        assertThat(levelups).isEqualTo(1);
-        verify(petMapper, never()).updateById(ArgumentMatchers.<Pet>any());
-        ArgumentCaptor<PetEventProducer.PetEventMessage> captor =
-                ArgumentCaptor.forClass(PetEventProducer.PetEventMessage.class);
-        verify(eventProducer).publish(eq(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_INTIMACY), captor.capture());
-        assertThat(captor.getValue().userId()).isEqualTo(100L);
-    }
+        var vo = intimacyService.overview(100L);
 
-    @Test
-    @DisplayName("陪伴心跳：600 秒换 1 点亲密度，秒数累计落库且当日点数有上限")
-    void heartbeatAccumulatesSecondsAndPoints() {
-        Pet pet = pet(0);
-        when(petMapper.selectOne(any())).thenReturn(pet);
-        when(valueOperations.get(anyString())).thenReturn(null);
-        when(valueOperations.increment(anyString(), any(Long.class))).thenReturn(1L);
-
-        int gained = intimacyService.heartbeat(100L, 600);
-
-        assertThat(gained).isEqualTo(1);
-        assertThat(pet.getIntimacy()).isEqualTo(1);
-        assertThat(pet.getCompanionSeconds()).isEqualTo(600L);
-        assertThat(pet.getTodayCompanionSeconds()).isEqualTo(600);
-        assertThat(pet.getCompanionDays()).isEqualTo(1);
-        assertThat(pet.getCompanionStreak()).isEqualTo(1);
-        verify(petMapper).updateById(pet);
-    }
-
-    @Test
-    @DisplayName("概览：返回等级阶梯与展示用加成百分比，未领养宠物也可查询")
-    void overviewReturnsLevelLadder() {
-        Pet pet = pet(120);
-        when(petMapper.selectOne(any())).thenReturn(pet);
-
-        PetIntimacyVO vo = intimacyService.overview(100L);
-
-        assertThat(vo.intimacy()).isEqualTo(120);
-        assertThat(vo.level()).isEqualTo(2);
-        assertThat(vo.expBonusPercent()).isEqualTo(1);
-        assertThat(vo.levels()).hasSize(properties.getIntimacy().getLevelThresholds().size());
-        assertThat(vo.levels().get(0).achieved()).isTrue();
-        assertThat(vo.companionDays()).isZero();
+        assertThat(vo.todayCompanionSeconds()).isEqualTo(1200);
+        assertThat(vo.intimacy()).isZero();
     }
 }

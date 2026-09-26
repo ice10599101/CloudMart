@@ -1,0 +1,189 @@
+{
+  "version": "1.0.1",
+  "map": {
+    "effects": {
+      "time": 1789933428407.973,
+      "uuid": "688938b9-7849-4b90-bf82-ae7247d39f9a"
+    },
+    "scenes": {
+      "time": 1789763555853.966,
+      "uuid": "49f15086-01a1-4999-bb84-ff3fc341fbbe"
+    },
+    "scripts": {
+      "time": 1790263410728.868,
+      "uuid": "947f2b79-b4ee-47f9-92d0-f5f25ece9759"
+    },
+    "effects\\pet-toon.effect": {
+      "time": 1789933167757.1108,
+      "uuid": "3b7c41e8-52af-4d19-9c66-0e2d8a71f4c3"
+    },
+    "scripts\\PetBuilderKit.ts": {
+      "time": 1789976267692.8135,
+      "uuid": "36d45442-d7a9-46d4-b79d-f624e2a9f06e"
+    },
+    "scripts\\PetEffects.ts": {
+      "time": 1789934995040.702,
+      "uuid": "92b701ca-ea3d-407a-bea8-6cff1babb950"
+    },
+    "scripts\\PetGameBridge.ts": {
+      "time": 1789832782028.7554,
+      "uuid": "743bd67a-5b61-46fb-a87c-2a54826671bf"
+    },
+    "scripts\\PetGameRoot.ts": {
+      "time": 1790270650983.5293,
+      "uuid": "de28b229-6641-4583-a481-86f5040a13f7"
+    },
+    "scripts\\PetGameTheme.ts": {
+      "time": 1790157109722.793,
+      "uuid": "f65e0420-f76a-45dc-9604-ee04374aab89"
+    },
+    "scripts\\PetMeshFactory.ts": {
+      "time": 1789932760440.7122,
+      "uuid": "0f82c2ce-690e-45f3-9f36-e74c6bac959b"
+    },
+    "scripts\\PetRoomBuilder.ts": {
+      "time": 1790163891525.329,
+      "uuid": "ade82860-da78-4dc1-ac7a-487155509569"
+    },
+    "effects.meta": {
+      "time": 1789832804156.1814
+    },
+    "scripts.meta": {
+      "time": 1789801506608.5398
+    },
+    "scenes.meta": {
+      "time": 1789801506608.5398
+    },
+    "effects\\pet-toon.effect.meta": {
+      "time": 1789932892200.8052
+    },
+    "scripts\\PetAnimations.ts.meta": {
+      "time": 1789933476725.1902
+    },
+    "scripts\\PetBuilderKit.ts.meta": {
+      "time": 1789832806094.2422
+    },
+    "scripts\\PetCatBuilder.ts.meta": {
+      "time": 1789931009208.1497
+    },
+    "scripts\\PetEffects.ts.meta": {
+      "time": 1789832806094.2422
+    },
+    "scripts\\PetGameBridge.ts.meta": {
+      "time": 1789933478585.4912
+    },
+    "scripts\\PetGameRoot.ts.meta": {
+      "time": 1789933478585.4912
+    },
+    "scripts\\PetGameTheme.ts.meta": {
+      "time": 1789832806338.9507
+    },
+    "scripts\\PetHud.ts.meta": {
+      "time": 1789832806778.1567
+    },
+    "scripts\\PetMeshFactory.ts.meta": {
+      "time": 1789845968977.0852
+    },
+    "scripts\\PetModelBuilder.ts.meta": {
+      "time": 1789832806778.1567
+    },
+    "scripts\\PetRoomBuilder.ts.meta": {
+      "time": 1789832806918.1357
+    },
+    "scenes\\PetHome.scene": {
+      "time": 1789933480011.793,
+      "uuid": "7acc2b2c-4772-4e38-8bcb-29682fc42a0a"
+    },
+    "scenes\\PetHome.scene.meta": {
+      "time": 1789933436051.2415
+    },
+    "resources": {
+      "time": 1790265997044.6519,
+      "uuid": "06b0d216-8342-41d2-b84e-f648d8640224"
+    },
+    "resources\\effects": {
+      "time": 1789935248539.6108,
+      "uuid": "947c2e53-bb93-43e5-932e-6207ae6daf46"
+    },
+    "resources\\effects\\pet-toon.effect": {
+      "time": 1790262320135.8901,
+      "uuid": "3b7c41e8-52af-4d19-9c66-0e2d8a71f4c3"
+    },
+    "resources.meta": {
+      "time": 1789933473063.1653
+    },
+    "resources\\effects.meta": {
+      "time": 1789933473063.1653
+    },
+    "resources\\effects\\pet-toon.effect.meta": {
+      "time": 1789932892200.8052
+    },
+    "resources\\pets\\layers.meta": {
+      "time": 1790011606190.9604
+    },
+    "resources\\pets.meta": {
+      "time": 1790011606190.9604
+    },
+    "scripts\\PetCatSprite.ts.meta": {
+      "time": 1790011608390.0056
+    },
+    "resources\\pets\\layers\\eyes_closed.png.meta": {
+      "time": 1790012216332.5916
+    },
+    "resources\\pets\\layers\\body.png.meta": {
+      "time": 1790012216332.5916
+    },
+    "resources\\pets\\layers\\tail.png.meta": {
+      "time": 1790012216327.0713
+    },
+    "resources\\models": {
+      "time": 1790166600457.49,
+      "uuid": "753c53ad-d458-4765-bc3b-f122271b6312"
+    },
+    "resources\\models\\cat": {
+      "time": 1790271331085.859,
+      "uuid": "93aaf713-706e-4325-ad3b-8ee803a8258c"
+    },
+    "resources\\models.meta": {
+      "time": 1790166600474.0012
+    },
+    "resources\\models\\cat.meta": {
+      "time": 1790166600474.0012
+    },
+    "resources\\models\\cat\\pet-cat-rigged.glb.meta": {
+      "time": 1790268767814.1074
+    },
+    "resources\\textures": {
+      "time": 1790271331609.5298,
+      "uuid": "e1d1cab4-4760-464b-8495-9d3b2eb80712"
+    },
+    "resources\\textures.meta": {
+      "time": 1790265997056.6587
+    },
+    "resources\\models\\cat\\pet-cat-rigged.glb.bak.meta": {
+      "time": 1790266015428.2588
+    },
+    "resources\\textures\\eye_sprite.png.meta": {
+      "time": 1790266036108.3975
+    },
+    "resources\\models\\cat\\pet-cat-rigged.glb.bak2.meta": {
+      "time": 1790268280663.3042
+    },
+    "resources\\textures\\pet-cat-alive.png.meta": {
+      "time": 1790270674210.5454
+    },
+    "resources\\textures\\eye_sprite.png": {
+      "time": 1790264891721.851,
+      "uuid": "52e4e89a-437e-452e-af12-00af6807b076"
+    },
+    "resources\\textures\\pet-cat-alive.png": {
+      "time": 1790270628307.7515,
+      "uuid": "02825ce1-9af0-4607-9525-45c264c38065"
+    },
+    "resources\\models\\cat\\pet-cat-rigged.glb": {
+      "time": 1790268753472.5244,
+      "uuid": "9d153a98-66ac-4116-a265-38af606b169f"
+    }
+  },
+  "missing": {}
+}

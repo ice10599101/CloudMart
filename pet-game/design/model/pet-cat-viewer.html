@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Model Viewer</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #eef0f4; }
+    model-viewer {
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 42%, #ffffff 0%, #e9ecf2 62%, #dfe3ea 100%);
+      --poster-color: transparent;
+    }
+    .hud {
+      position: fixed;
+      left: 24px;
+      bottom: 24px;
+      font: 500 13px/1.6 ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+      color: #5b6472;
+      background: rgba(255, 255, 255, .76);
+      border: 1px solid rgba(0, 0, 0, .06);
+      border-radius: 10px;
+      padding: 12px 14px;
+      backdrop-filter: blur(8px);
+      min-width: 238px;
+    }
+    .hud b { color: #22272f; font-weight: 600; }
+    .hud .hint { color: #89909c; font-size: 12px; }
+    .hud .row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+    .hud input[type=range] { width: 128px; accent-color: #b08a6a; }
+    .hud .val { font-variant-numeric: tabular-nums; color: #22272f; min-width: 30px; }
+    .seg { display: flex; margin-top: 10px; border: 1px solid rgba(0,0,0,.1); border-radius: 8px; overflow: hidden; }
+    .seg button {
+      flex: 1; border: 0; padding: 6px 0; cursor: pointer;
+      font: 500 12px/1 ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+      background: transparent; color: #6b7280;
+    }
+    .seg button.on { background: #b08a6a; color: #fff; }
+    .meta { margin-top: 8px; font-size: 11px; color: #89909c; font-variant-numeric: tabular-nums; }
+    #loading {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      font: 500 13px ui-sans-serif, -apple-system, "PingFang SC", sans-serif;
+      color: #8a919c; background: #eef0f4; transition: opacity .35s; pointer-events: none;
+    }
+    #loading.gone { opacity: 0; }
+  </style>
+</head>
+<body>
+  <model-viewer
+    id="mv"
+    src="pet_cat_runtime.glb"
+    alt="原创 Q 版宠物猫咪 3D 模型"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="300"
+    rotation-per-second="18deg"
+    shadow-intensity="1"
+    environment-image="neutral"
+    exposure="0.95"
+    shadow-softness="0.85"
+    camera-orbit="0deg 76deg 2.2m"
+    min-field-of-view="12deg"
+    touch-action="pan-y">
+  </model-viewer>
+
+  <div id="loading">正在加载模型…</div>
+
+  <div class="hud">
+    <b>奶盖</b> · 原创 Q 版猫咪宠物模型<br>
+    <span class="hint">拖拽旋转 · 滚轮缩放 · 松手自动回转</span>
+
+    <div class="seg">
+      <button id="btnLow" class="on">生产版</button>
+      <button id="btnHigh">高模版</button>
+    </div>
+    <div class="meta" id="meta">2.21 MB · 11,994 面 · 无扩展依赖</div>
+
+    <div class="row">
+      <span class="hint">曝光</span>
+      <input id="exposure" type="range" min="0.6" max="1.6" step="0.05" value="0.95">
+      <span class="val" id="exposureVal">0.95</span>
+    </div>
+  </div>
+
+  <script>
+    const mv = document.getElementById('mv');
+    const btnLow = document.getElementById('btnLow');
+    const btnHigh = document.getElementById('btnHigh');
+    const meta = document.getElementById('meta');
+    const loading = document.getElementById('loading');
+    const slider = document.getElementById('exposure');
+    const label = document.getElementById('exposureVal');
+
+    const LOW = 'pet_cat_runtime.glb';
+    const HIGH = 'pet_cat_final_20260922.glb';
+
+    function pick(useLow) {
+      loading.classList.remove('gone');
+      loading.textContent = useLow ? '正在加载模型…' : '正在加载高模（45 MB，请稍候）…';
+      mv.src = useLow ? LOW : HIGH;
+      btnLow.classList.toggle('on', useLow);
+      btnHigh.classList.toggle('on', !useLow);
+      meta.textContent = useLow
+        ? '2.21 MB · 11,994 面 · 无扩展依赖'
+        : '45.12 MB · 299,872 面 · 仅作对照';
+    }
+    mv.addEventListener('load', () => loading.classList.add('gone'));
+    btnLow.addEventListener('click', () => pick(true));
+    btnHigh.addEventListener('click', () => pick(false));
+
+    slider.addEventListener('input', () => {
+      mv.exposure = parseFloat(slider.value);
+      label.textContent = parseFloat(slider.value).toFixed(2);
+    });
+
+    // first paint
+    mv.addEventListener('load', function once() {
+      loading.classList.add('gone');
+      mv.removeEventListener('load', once);
+    }, { once: true });
+  </script>
+</body>
+</html>

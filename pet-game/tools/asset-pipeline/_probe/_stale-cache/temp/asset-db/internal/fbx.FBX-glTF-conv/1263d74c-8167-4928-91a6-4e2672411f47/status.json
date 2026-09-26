@@ -1,0 +1,13 @@
+{
+  "sourceTimeStamp": 1789766097965.2217,
+  "outputTimeStamps": {
+    "log.json": 1789801505192.541,
+    "out.bin": 1789801505187.5398,
+    "out.gltf": 1789801505190.5413
+  },
+  "options": {
+    "preferLocalTimeSpan": false,
+    "smartMaterialEnabled": false,
+    "matchMeshNames": false
+  }
+}

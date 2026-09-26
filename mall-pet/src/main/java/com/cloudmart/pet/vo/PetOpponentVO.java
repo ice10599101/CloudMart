@@ -14,6 +14,7 @@ public record PetOpponentVO(
         String growthStage,
         @Schema(description = "是否野生宠物（PvE）") Boolean isWild,
         Long ownerUserId,
-        @Schema(description = "主人昵称（Feign 降级时为占位昵称）") String ownerNickname
+        @Schema(description = "主人昵称（Feign 降级时为占位昵称）") String ownerNickname,
+        @Schema(description = "野生模板 ID（1-3，PvE 挑战时必须原样回传，选哪只打哪只，B08）") Integer templateId
 ) {
 }

@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,6 +47,14 @@ public class PetReminderController {
     public ApiResponse<Long> unreadCount(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(reminderService.unreadCount(userId));
+    }
+
+    @PutMapping("/reminders/read-all")
+    @Operation(summary = "宠物提醒全部已读（B19）", description = "只影响 type=PET 的通知；返回该类型剩余未读数")
+    @SentinelResource("PET_REMINDER_UPDATE")
+    public ApiResponse<Long> markAllAsRead(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(reminderService.markAllAsRead(userId));
     }
 
     @GetMapping("/achievements")

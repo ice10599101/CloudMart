@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { notificationApi } from '@/api/notification'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Conversation, Notification as AppNotification } from '@/types'
 
@@ -21,19 +22,9 @@ function ConversationItem({ item, theme }: { item: Conversation; theme: ReturnTy
         marginBottom: Spacing.sm,
       }}
     >
-      {item.targetUser?.avatar ? (
-        <View style={{ width: 48, height: 48, borderRadius: 24, marginRight: Spacing.md, overflow: 'hidden' }}>
-          <Image source={{ uri: item.targetUser.avatar }} style={{ width: 48, height: 48 }} />
-        </View>
-      ) : (
-        <View style={{
-          width: 48, height: 48, borderRadius: 24,
-          backgroundColor: theme.primaryGlow, justifyContent: 'center', alignItems: 'center',
-          marginRight: Spacing.md,
-        }}>
-          <Text style={{ fontSize: 18, color: theme.primary }}>{item.targetUser?.nickname?.[0] || '?'}</Text>
-        </View>
-      )}
+      <View style={{ marginRight: Spacing.md }}>
+        <DecoratedAvatar src={item.targetUser?.avatar} userId={item.targetUser?.id} size={48} fallbackText={item.targetUser?.nickname?.[0]} />
+      </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>{item.targetUser?.nickname}</Text>

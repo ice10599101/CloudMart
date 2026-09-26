@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
+import * as Sharing from 'expo-sharing'
 import GiftSection from '@/components/GiftSection'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -256,21 +258,23 @@ export default function PostDetailScreen() {
     ])
   }
 
-  const handleShare = () => {
-    Alert.alert('分享', '复制链接分享给好友', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '复制链接',
-        onPress: async () => {
-          try {
-            await communityApi.sharePost(postId)
-            Alert.alert('提示', '链接已复制')
-          } catch {
-            Alert.alert('错误', '分享失败')
-          }
-        },
-      },
-    ])
+  /** 分享（对齐 Web 端 ShareModal：系统分享面板可直接选微信；分享文案=帖子标题+链接路径） */
+  const handleShare = async () => {
+    const shareText = `【${post?.title ?? 'CloudMart 帖子'}】来 CloudMart 社区看这篇帖子：/post/${postId}`
+    try {
+      const available = await Sharing.isAvailableAsync()
+      if (available) {
+        await Sharing.shareAsync(`text/plain:${shareText}`, { dialogTitle: `分享帖子：${post?.title ?? ''}` })
+        await communityApi.sharePost(postId).catch(() => {})
+        return
+      }
+      // 分享不可用：回退复制文案
+      Alert.alert('分享', '分享文案已复制，粘贴给好友吧', [
+        { text: '确定', onPress: () => void communityApi.sharePost(postId).catch(() => {}) },
+      ])
+    } catch {
+      Alert.alert('错误', '分享失败')
+    }
   }
 
   const handleReport = () => {
@@ -337,7 +341,9 @@ export default function PostDetailScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: Spacing.lg }}>
           {post.user && (
             <TouchableOpacity onPress={() => router.push(`/user-profile?id=${post.user!.id}`)}>
-              <Image source={{ uri: post.user.avatar }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: Spacing.md }} />
+              <View style={{ marginRight: Spacing.md }}>
+                <DecoratedAvatar src={post.user.avatar} userId={post.user.id} size={40} fallbackText={post.user.nickname?.[0]} />
+              </View>
             </TouchableOpacity>
           )}
           <View style={{ flex: 1 }}>
@@ -412,9 +418,14 @@ export default function PostDetailScreen() {
               onPress={() => handleCommentPress(comment)}
               style={{ flexDirection: 'row', marginBottom: Spacing.lg }}
             >
-              {(comment.user?.avatar || comment.authorAvatar) && (
-                <Image source={{ uri: comment.user?.avatar || comment.authorAvatar }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: Spacing.md }} />
-              )}
+              <View style={{ marginRight: Spacing.md }}>
+                <DecoratedAvatar
+                  src={comment.user?.avatar || comment.authorAvatar}
+                  userId={comment.user?.id}
+                  size={32}
+                  fallbackText={(comment.user?.nickname ?? comment.authorNickname ?? '?')?.[0]}
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary, marginBottom: 2 }}>
                   {comment.user?.nickname ?? comment.authorNickname ?? '匿名用户'}

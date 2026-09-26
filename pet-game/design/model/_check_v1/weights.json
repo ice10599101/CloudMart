@@ -1,0 +1,102 @@
+[
+  {
+    "bone": "Head",
+    "verts": 7888,
+    "wsum": 4687.28
+  },
+  {
+    "bone": "Hips",
+    "verts": 7583,
+    "wsum": 3292.44
+  },
+  {
+    "bone": "Spine",
+    "verts": 7407,
+    "wsum": 589.59
+  },
+  {
+    "bone": "Chest",
+    "verts": 4527,
+    "wsum": 68.0
+  },
+  {
+    "bone": "Neck",
+    "verts": 1614,
+    "wsum": 1384.58
+  },
+  {
+    "bone": "EarR1",
+    "verts": 1090,
+    "wsum": 777.65
+  },
+  {
+    "bone": "Tail1",
+    "verts": 789,
+    "wsum": 482.0
+  },
+  {
+    "bone": "EarL1",
+    "verts": 665,
+    "wsum": 232.48
+  },
+  {
+    "bone": "Tail2",
+    "verts": 662,
+    "wsum": 245.49
+  },
+  {
+    "bone": "EarR2",
+    "verts": 617,
+    "wsum": 195.25
+  },
+  {
+    "bone": "EarL2",
+    "verts": 383,
+    "wsum": 145.01
+  },
+  {
+    "bone": "Tail11",
+    "verts": 118,
+    "wsum": 47.22
+  },
+  {
+    "bone": "Tail6",
+    "verts": 102,
+    "wsum": 84.21
+  },
+  {
+    "bone": "Tail10",
+    "verts": 100,
+    "wsum": 7.68
+  },
+  {
+    "bone": "Tail3",
+    "verts": 79,
+    "wsum": 3.34
+  },
+  {
+    "bone": "Tail7",
+    "verts": 66,
+    "wsum": 0.77
+  },
+  {
+    "bone": "Tail9",
+    "verts": 6,
+    "wsum": 0.01
+  },
+  {
+    "bone": "Tail4",
+    "verts": 0,
+    "wsum": 0.0
+  },
+  {
+    "bone": "Tail5",
+    "verts": 0,
+    "wsum": 0.0
+  },
+  {
+    "bone": "Tail8",
+    "verts": 0,
+    "wsum": 0.0
+  }
+]

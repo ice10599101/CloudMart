@@ -6,6 +6,7 @@ import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.vo.LevelUpVO;
 import com.cloudmart.wish.vo.MyLevelVO;
 import com.cloudmart.wish.vo.MyResourcesVO;
+import com.cloudmart.wish.vo.PetWalletOperationVO;
 import com.cloudmart.wish.vo.ResourceLogVO;
 
 import java.util.List;
@@ -102,6 +103,36 @@ public interface UserStatService {
      * @return 当前余额
      */
     int getStarlightBalance(Long userId);
+
+    /**
+     * 幂等发放星光（B01）：以 {@code operationId} 为业务操作唯一键原子去重，
+     * 去重记录与余额更新同事务。重复相同请求返回原结果（duplicate=true）；
+     * 同键不同用户/金额/类型/来源抛 {@code WISH_OPERATION_CONFLICT}。
+     *
+     * @param userId      用户 ID
+     * @param amount      发放数量（正整数）
+     * @param source      业务来源
+     * @param refId       关联业务 ID（可空）
+     * @param operationId 业务操作唯一键（调用方生成，如 CLAIM_WORK:9007199254740993）
+     * @return 操作结果（含实际入账量、操作后余额、是否重复请求命中）
+     */
+    PetWalletOperationVO earnStarlightIdempotent(Long userId, int amount, ResourceLogSource source,
+                                                 Long refId, String operationId);
+
+    /**
+     * 幂等扣减星光（B01）：语义同 {@link #earnStarlightIdempotent}；
+     * 余额不足整体回滚（不留去重行），可按原单重试。
+     *
+     * @return 操作结果（creditedAmount 等于 cost，balanceAfter 为扣减后余额）
+     */
+    PetWalletOperationVO spendStarlightIdempotent(Long userId, int cost, ResourceLogSource source,
+                                                  Long refId, String operationId);
+
+    /**
+     * 按操作键查询已完成的交易结果（B01 内部结果查询端点数据源）。
+     * 只读；不存在返回 null（表示结果未知，调用方可按原单重试）。
+     */
+    PetWalletOperationVO findOperation(String operationId);
 
     /**
      * 查询用户时区（限频 TTL 按用户时区计算当日 23:59:59，文档第 32 章）。

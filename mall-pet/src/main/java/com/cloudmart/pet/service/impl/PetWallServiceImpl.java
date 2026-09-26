@@ -190,10 +190,11 @@ public class PetWallServiceImpl implements PetWallService {
         achievementService.evaluate(me, PetAchievementService.Event.WALL);
         relationService.gainBetween(me, owner, PetRelationAction.WALL);
         eventProducer.publish(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
-                owner.getUserId(), "PET_WALL_MESSAGE",
+                "WALL_MESSAGE:" + message.getId(),
+                String.valueOf(owner.getUserId()), "PET_WALL_MESSAGE",
                 "留言墙有新留言！",
                 me.getName() + " 在 " + owner.getName() + " 的留言墙写下：「" + content + "」",
-                message.getId(), "PET_WALL_MESSAGE"));
+                String.valueOf(message.getId()), "PET_WALL_MESSAGE"));
         return toVo(message, owner, userId, Set.of(),
                 resolveNicknames(List.of(userId)), authorPets(List.of(message)), List.of());
     }
@@ -230,10 +231,11 @@ public class PetWallServiceImpl implements PetWallService {
         if (author != null) {
             relationService.gainBetween(me, author, PetRelationAction.WALL);
             eventProducer.publish(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
-                    author.getUserId(), "PET_WALL_MESSAGE",
+                    "WALL_REPLY:" + reply.getId(),
+                    String.valueOf(author.getUserId()), "PET_WALL_MESSAGE",
                     "主人回复了你的留言！",
                     me.getName() + "：" + "谢谢你来看我！「" + reply.getContent() + "」",
-                    reply.getId(), "PET_WALL_MESSAGE"));
+                    String.valueOf(reply.getId()), "PET_WALL_MESSAGE"));
         }
         Pet owner = requireWallPet(root.getPetId());
         return toVo(reply, owner, userId, Set.of(),

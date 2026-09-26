@@ -50,6 +50,9 @@ public class PetActivity {
     /** 结果 JSON（奖励明细/捞瓶 outcome 与 bottleId） */
     private String result;
 
+    /** 规则快照 JSON（开始时冻结：名称/消耗/时长/基础奖励，B09 完成结算只读快照） */
+    private String snapshot;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

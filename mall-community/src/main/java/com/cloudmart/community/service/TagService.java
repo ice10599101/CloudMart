@@ -11,6 +11,12 @@ public interface TagService {
 
     TagVO createTag(CreateTagRequest request);
 
+    /**
+     * 按名称解析标签（不存在则创建，幂等）。
+     * 供发布帖子时把用户输入的标签名解析为 tagIds（三端发布链路共用契约）。
+     */
+    List<TagVO> resolveTags(List<String> names);
+
     TagVO updateTag(Long tagId, UpdateTagRequest request);
 
     void deleteTag(Long tagId);

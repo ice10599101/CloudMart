@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import QRCode from 'qrcode'
 import { Modal, Input, Button, Tooltip } from 'antd'
 import { message } from '@/utils/appMessage'
 import { CopyOutlined, WechatOutlined, ShareAltOutlined, CloseOutlined } from '@ant-design/icons'
@@ -64,6 +66,8 @@ const SHARE_CHANNELS = [
 export default function ShareModal({ visible, onClose, postTitle, postId }: ShareModalProps) {
   const postUrl = `${window.location.origin}/post/${postId}`
 
+  const [wechatQr, setWechatQr] = useState<string | null>(null)
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(postUrl)
@@ -77,6 +81,17 @@ export default function ShareModal({ visible, onClose, postTitle, postId }: Shar
   const handleChannelClick = async (channel: (typeof SHARE_CHANNELS)[number]) => {
     const backendChannel = CHANNEL_MAP[channel.key] || 'LINK'
     sharePost(postId, backendChannel).catch(() => {})
+    // 微信：渲染链接二维码，微信扫码后打开（浏览器内无法直接调起微信分享）
+    if (channel.key === 'wechat') {
+      try {
+        const dataUrl = await QRCode.toDataURL(postUrl, { width: 220, margin: 1, color: { dark: '#07C160', light: '#FFFFFF' } })
+        setWechatQr(dataUrl)
+      } catch {
+        setWechatQr(null)
+        message.error('二维码生成失败，请复制链接发送')
+      }
+      return
+    }
     const url = channel.buildUrl(postTitle, postUrl)
     if (url) {
       window.open(url, '_blank', 'width=600,height=500')
@@ -289,6 +304,44 @@ export default function ShareModal({ visible, onClose, postTitle, postId }: Shar
             <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>扫码分享</span>
           </div>
         </div>
+
+        {/* 微信二维码（扫码在微信中打开） */}
+        {wechatQr ? (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'var(--color-bg-container)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              zIndex: 2,
+              borderRadius: 16,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)' }}>微信扫码打开</div>
+            <img src={wechatQr} alt="微信二维码" style={{ width: 220, height: 220, borderRadius: 12, border: '1px solid var(--color-border)' }} />
+            <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{postTitle}</div>
+            <button
+              type="button"
+              onClick={() => setWechatQr(null)}
+              style={{
+                marginTop: 4,
+                padding: '8px 24px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 999,
+                background: 'transparent',
+                color: 'var(--color-text-secondary)',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              返回
+            </button>
+          </div>
+        ) : null}
       </div>
     </Modal>
   )

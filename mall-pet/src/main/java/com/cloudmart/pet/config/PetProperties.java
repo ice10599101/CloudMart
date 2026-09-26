@@ -19,6 +19,9 @@ import java.util.List;
 @ConfigurationProperties(prefix = "pet")
 public class PetProperties {
 
+    /** 业务时区（每日任务/配额/陪伴的日归属，默认北京时间 00:00 重置，§7.3 基线） */
+    private String businessZone = "Asia/Shanghai";
+
     private final Decay decay = new Decay();
     private final Level level = new Level();
     private final Interaction interaction = new Interaction();
@@ -36,6 +39,7 @@ public class PetProperties {
     private final Wall wall = new Wall();
     private final DailyQuest dailyQuest = new DailyQuest();
     private final Intimacy intimacy = new Intimacy();
+    private final SkillSlots skillSlots = new SkillSlots();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -59,7 +63,7 @@ public class PetProperties {
         private int expBase = 100;
     }
 
-    /** 基础互动数值 */
+    /** 基础互动数值（2.4 防刷默认参数基线：喂食上限按用户共享；玩耍/休息收益日限额数据库权威） */
     @Getter
     @Setter
     public static class Interaction {
@@ -77,6 +81,12 @@ public class PetProperties {
         private int restHunger = 5;
         /** 饿肚子触发主动提醒的阈值 */
         private int hungryRemindThreshold = 30;
+        /** 玩耍每日有收益次数（之后仅允许无收益动画互动，B06） */
+        private int playRewardDailyLimit = 10;
+        /** 休息定时活动时长（秒，B06：10 分钟定时活动） */
+        private long restDurationSeconds = 600;
+        /** 休息每日亲密度收益次数上限（B06） */
+        private int restIntimacyDailyLimit = 3;
     }
 
     /** 捞漂流瓶 */
@@ -91,7 +101,7 @@ public class PetProperties {
         private double maxSuccessRate = 0.95;
     }
 
-    /** 对战 */
+    /** 对战（2.4：每用户每日 10 场有收益；PvP 对同一用户每天至多 1 场有收益，双方分别计额度） */
     @Getter
     @Setter
     public static class Battle {
@@ -100,6 +110,10 @@ public class PetProperties {
         private int loseExp = 10;
         private int winCurrency = 20;
         private int maxRounds = 15;
+        /** 每用户每日有收益对战上限（PVE+PVP 合计） */
+        private int rewardDailyLimit = 10;
+        /** 对同一对手用户每日有收益 PvP 上限 */
+        private int pvpPerOpponentDailyLimit = 1;
     }
 
     /** 聊天 */
@@ -280,6 +294,8 @@ public class PetProperties {
         private int companionDailyPointCap = 8;
         /** 陪伴：每日计入的秒数上限（超出不计，防止挂机） */
         private int companionDailyCapSeconds = 7200;
+        /** 陪伴心跳会话失效间隔（秒）：超过该间隔无有效心跳则会话失效，不补计中断区间（B05） */
+        private long companionSessionTimeoutSeconds = 90;
         /** 亲密度等级阈值（升序，首项 0） */
         private List<Integer> levelThresholds = List.of(0, 100, 300, 700, 1500, 3000, 6000, 12000);
         /** 亲密度等级名（与阈值一一对应） */
@@ -290,5 +306,15 @@ public class PetProperties {
         private double maxExpBonus = 0.10;
         /** 亲密度升级奖励星光 = base × 新等级序号 */
         private int levelRewardStarlightBase = 120;
+    }
+}
+
+    /** 技能槽模式（B12：配置关闭的能力——默认关闭保持"已学技能全部生效"既有行为；开启需执行分配迁移） */
+    @Getter
+    @Setter
+    public static class SkillSlots {
+        private boolean enabled = false;
+        private int activeSlots = 1;
+        private int passiveSlots = 2;
     }
 }

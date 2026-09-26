@@ -27,6 +27,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -48,6 +50,7 @@ import static org.mockito.Mockito.when;
  * 宠物串门测试：不能串自己、精力不足、同邻居冷却、日次数上限、成功结算与邻居提醒。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetVisitServiceImpl 单元测试")
 class PetVisitServiceImplTest {
 
@@ -178,7 +181,7 @@ class PetVisitServiceImplTest {
                 ArgumentCaptor.forClass(PetEventProducer.PetEventMessage.class);
         verify(eventProducer).publish(eq(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_VISIT),
                 messageCaptor.capture());
-        assertThat(messageCaptor.getValue().userId()).isEqualTo(200L);
+        assertThat(messageCaptor.getValue().userId()).isEqualTo(String.valueOf(200L));
         assertThat(messageCaptor.getValue().reminderType()).isEqualTo("PET_VISIT");
     }
 

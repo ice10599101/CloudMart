@@ -1,0 +1,62 @@
+[
+  {
+    "bone": "Hips",
+    "verts": 7676
+  },
+  {
+    "bone": "Spine",
+    "verts": 6349
+  },
+  {
+    "bone": "Head",
+    "verts": 5426
+  },
+  {
+    "bone": "Neck",
+    "verts": 4527
+  },
+  {
+    "bone": "EarR1",
+    "verts": 3098
+  },
+  {
+    "bone": "Chest",
+    "verts": 2658
+  },
+  {
+    "bone": "Tail2",
+    "verts": 1860
+  },
+  {
+    "bone": "Tail3",
+    "verts": 1791
+  },
+  {
+    "bone": "Tail1",
+    "verts": 1711
+  },
+  {
+    "bone": "Tail4",
+    "verts": 1597
+  },
+  {
+    "bone": "EarL1",
+    "verts": 1454
+  },
+  {
+    "bone": "EarR2",
+    "verts": 357
+  },
+  {
+    "bone": "EarL2",
+    "verts": 315
+  },
+  {
+    "bone": "EyelidL",
+    "verts": 0
+  },
+  {
+    "bone": "EyelidR",
+    "verts": 0
+  }
+]

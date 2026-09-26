@@ -7,6 +7,7 @@ import WaterfallFlow from '@/components/WaterfallFlow'
 import EmptyState from '@/components/EmptyState'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import type { Post, Product } from '@/types'
 import { ICON_BASE64 } from '@/components/Icon'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -178,13 +179,7 @@ export default function HomePage() {
               <View className={styles.stripRow}>
                 {recommendUsers.map((u) => (
                   <View key={u.userId} className={styles.userChip} onClick={() => Taro.navigateTo({ url: `/pages/userProfile/index?userId=${u.userId}` })}>
-                    {u.avatar ? (
-                      <Image className={styles.userChipAvatar} src={u.avatar} mode='aspectFill' />
-                    ) : (
-                      <View className={styles.userChipAvatarFallback}>
-                        <Text className={styles.userChipAvatarText}>{(u.nickname || '?')[0]}</Text>
-                      </View>
-                    )}
+                    <DecoratedAvatar src={u.avatar} userId={u.userId} size={44} fallbackText={(u.nickname || '?')[0]} />
                     <Text className={styles.userChipName}>{u.nickname}</Text>
                   </View>
                 ))}

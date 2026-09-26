@@ -25,6 +25,7 @@ import com.cloudmart.notification.repository.NotificationMapper;
 import com.cloudmart.notification.service.NotificationService;
 import com.cloudmart.notification.websocket.WebSocketSessionManager;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +83,22 @@ public class NotificationServiceImpl implements NotificationService {
                                        Long bizId, String bizType, Long actorId) {
         SendNotificationRequest request = new SendNotificationRequest(userId, type, title, content, bizId, bizType, actorId);
         sendNotification(request);
+    }
+
+    @Override
+    @Transactional
+    public void sendPetEventNotification(Long userId, String eventId, String reminderType,
+                                         String title, String content, Long bizId) {
+        Notification entity = buildNotification(userId, "PET", title, content, bizId, reminderType);
+        entity.setEventId(eventId);
+        try {
+            notificationMapper.insert(entity);
+        } catch (DuplicateKeyException duplicate) {
+            // 重复事件（重投/并发双消费）：唯一键裁决，幂等跳过
+            log.info("宠物通知重复事件幂等跳过: eventId={}", eventId);
+            return;
+        }
+        sessionManager.sendMessageToUser(userId, notificationConverter.toDTO(entity));
     }
 
     /** 统一组装通知实体：单发与广播共用，保证落库字段语义一致（isRead 初始为未读） */
@@ -247,6 +264,24 @@ public class NotificationServiceImpl implements NotificationService {
                         .eq(Notification::getIsRead, 0)
                         .set(Notification::getIsRead, 1)
         );
+    }
+
+    @Override
+    @Transactional
+    public long markAllAsReadByType(Long userId, String type) {
+        notificationMapper.update(
+                new LambdaUpdateWrapper<Notification>()
+                        .eq(Notification::getUserId, userId)
+                        .eq(Notification::getType, type)
+                        .eq(Notification::getIsRead, 0)
+                        .set(Notification::getIsRead, 1)
+        );
+        Long unread = notificationMapper.selectCount(
+                new LambdaQueryWrapper<Notification>()
+                        .eq(Notification::getUserId, userId)
+                        .eq(Notification::getType, type)
+                        .eq(Notification::getIsRead, 0));
+        return unread != null ? unread : 0L;
     }
 
     public List<NotificationDTO> getNotificationsFallback(Long userId, Integer page, Integer pageSize, Throwable throwable) {

@@ -40,6 +40,12 @@ public interface DriftBottleService {
     /** 捞瓶：随机捞取一个非自己的漂流瓶（含被扔回海里的）；海里无瓶返回 null；每日 20 次上限 */
     DriftBottleVO fishBottle(Long userId);
 
+    /**
+     * 宠物代主人打捞（B11 幂等）：requestId 为稳定业务请求标识——相同标识重入返回
+     * 原瓶子结果（不二次抢瓶、不二次计配额）；requestId 为空时退化为普通打捞。
+     */
+    DriftBottleVO fishBottleForPet(Long userId, String requestId);
+
     /** 我的漂流瓶（我投出的 + 我捞到的，倒序），含评论数与双方实名身份信息 */
     List<DriftBottleVO> listMine(Long userId);
 

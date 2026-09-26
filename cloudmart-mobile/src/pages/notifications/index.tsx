@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
 import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -133,14 +134,14 @@ export default function NotificationsPage() {
         {notifications.length > 0 ? notifications.map((n) => (
           <View key={n.id} className={`${styles.notificationItem} ${!n.isRead ? styles.notificationUnread : ''}`} onClick={() => handleNotificationClick(n)}>
             {n.senderAvatar && (
-              <Image
-                className={styles.avatar}
-                src={n.senderAvatar}
+              <View
                 onClick={(e) => {
                   e.stopPropagation()
                   if (n.actorId) Taro.navigateTo({ url: `/pages/userProfile/index?userId=${n.actorId}` })
                 }}
-              />
+              >
+                <DecoratedAvatar src={n.senderAvatar} userId={n.actorId} size={40} fallbackText='?' />
+              </View>
             )}
             <View className={styles.notificationBody}>
               <Text className={styles.notificationContent}>{n.content}</Text>

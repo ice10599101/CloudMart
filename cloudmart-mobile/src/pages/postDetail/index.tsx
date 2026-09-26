@@ -1,10 +1,11 @@
 import RichText from '@/components/RichText'
 import { useState, useEffect } from 'react'
-import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { View, Text, Image, ScrollView, Textarea, Button } from '@tarojs/components'
+import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { communityApi } from '@/api/community'
 import { useAuthStore } from '@/store/auth'
 import GiftSection from '@/components/GiftSection'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Post, Comment } from '@/types'
 import styles from './index.module.scss'
@@ -230,10 +231,24 @@ export default function PostDetailPage() {
     Taro.navigateTo({ url: `/pages/publish/index?edit=${post!.id}` })
   }
 
+  // 小程序原生分享内容（「分享到微信」入口由 useShareAppMessage 承接）
+  useShareAppMessage(() => ({
+    title: post ? post.title : 'CloudMart 社区',
+    path: `/pages/postDetail/index?id=${id}`,
+  }))
+
+  const isWeapp = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
+  const [shareOpen, setShareOpen] = useState(false)
+
   const handleShare = async () => {
+    if (isWeapp) {
+      // 小程序：弹出原生分享按钮（open-type=share 触发 useShareAppMessage 分享面板）
+      setShareOpen(true)
+      return
+    }
     try {
       await Taro.showActionSheet({
-        itemList: ['复制链接', '分享到微信'],
+        itemList: ['复制链接', '微信内分享'],
       }).then(async (res) => {
         if (res.tapIndex === 0) {
           const url = `${window.location.origin}/pages/postDetail/index?id=${id}`
@@ -241,8 +256,9 @@ export default function PostDetailPage() {
           await communityApi.sharePost(id)
           Taro.showToast({ title: '链接已复制', icon: 'success' })
         } else if (res.tapIndex === 1) {
+          // H5 浏览器内无法直接调起微信分享（需微信 JSSDK 签名），引导使用右上角菜单
           await communityApi.sharePost(id)
-          Taro.showToast({ title: '请复制链接分享到微信', icon: 'none' })
+          Taro.showToast({ title: '请点击浏览器右上角 ··· 转发给好友', icon: 'none', duration: 2500 })
         }
       }).catch(() => {})
     } catch {
@@ -297,7 +313,7 @@ export default function PostDetailPage() {
         {/* Author */}
         <View className={styles.author}>
           {post.user && (
-            <Image className={styles.authorAvatar} src={post.user.avatar} onClick={() => Taro.navigateTo({ url: `/pages/userProfile/index?id=${post.user?.id}` })} />
+            <DecoratedAvatar src={post.user.avatar} userId={post.user.id} size={40} fallbackText={post.user.nickname?.[0]} />
           )}
           <View className={styles.authorInfo}>
             {post.user && <Text className={styles.authorName} onClick={() => Taro.navigateTo({ url: `/pages/userProfile/index?id=${post.user?.id}` })}>{post.user.nickname}</Text>}
@@ -425,6 +441,37 @@ export default function PostDetailPage() {
           <Text>⋯</Text>
         </View>
       </View>
+      {/* 小程序原生分享弹层（open-type=share 触发微信分享面板） */}
+      {shareOpen && (
+        <View className={styles.shareMask} onClick={() => setShareOpen(false)}>
+          <View className={styles.shareModal} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.shareModalTitle}>分享给朋友</Text>
+            <Button
+              className={styles.shareWechatBtn}
+              openType='share'
+              onClick={() => {
+                void communityApi.sharePost(id).catch(() => {})
+                setShareOpen(false)
+              }}
+            >
+              微信好友
+            </Button>
+            <Text
+              className={styles.shareCopyBtn}
+              onClick={async () => {
+                const url = `${window.location.origin}/pages/postDetail/index?id=${id}`
+                await Taro.setClipboardData({ data: url }).catch(() => {})
+                void communityApi.sharePost(id).catch(() => {})
+                setShareOpen(false)
+                Taro.showToast({ title: '链接已复制', icon: 'success' })
+              }}
+            >
+              复制链接
+            </Text>
+            <Text className={styles.shareCancel} onClick={() => setShareOpen(false)}>取消</Text>
+          </View>
+        </View>
+      )}
     </View>
   )
 }

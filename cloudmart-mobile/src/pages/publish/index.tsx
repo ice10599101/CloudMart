@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
+import { View,
+  Switch, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { productApi } from '@/api/product'
+import type { Product } from '@/types'
 import { fileApi } from '@/api/file'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -42,6 +45,14 @@ export default function PublishPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tagInput, setTagInput] = useState('')
+  // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
+  const [linkProduct, setLinkProduct] = useState(false)
+  const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
+  const [linkedProduct, setLinkedProduct] = useState<Product | null>(null)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productOptions, setProductOptions] = useState<Product[]>([])
+  const [searchingProducts, setSearchingProducts] = useState(false)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   const [publishing, setPublishing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -169,16 +180,28 @@ export default function PublishPage() {
 
     setPublishing(true)
     try {
-      const tags = tagInput.trim() ? tagInput.split(/[\s,，]+/).map((t) => t.trim()).filter(Boolean) : []
+      const tagNames = tagInput.trim() ? tagInput.split(/[\s,，]+/).map((t) => t.trim()).filter(Boolean) : []
       const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
+      // 标签名解析为 tagIds（后端 CreatePostRequest 只接收 tagIds；解析失败不阻断发布）
+      let tagIds: number[] = []
+      if (tagNames.length > 0) {
+        try {
+          const resolved = await communityApi.resolveTags(tagNames)
+          tagIds = (resolved.data?.data ?? []).map((t) => t.id)
+        } catch {
+          Taro.showToast({ title: '标签解析失败，本次不携带标签', icon: 'none' })
+        }
+      }
+
       const postData: Record<string, unknown> = {
         title: title.trim(),
         content,
-        tags,
+        tagIds,
         coverImage,
         mediaUrls,
         mediaType,
         status: 1,
+        productId: linkProduct && linkedProductId ? linkedProductId : undefined,
       }
 
       if (isEditing && editingId) {
@@ -294,6 +317,20 @@ export default function PublishPage() {
     }
   }
 
+  /** 搜索可关联的好物 */
+  const handleSearchProducts = async () => {
+    if (!productKeyword.trim() || searchingProducts) return
+    setSearchingProducts(true)
+    try {
+      const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
+      setProductOptions((res.data?.data as unknown as { products?: Product[] })?.products || [])
+    } catch {
+      Taro.showToast({ title: '商品搜索失败', icon: 'none' })
+    } finally {
+      setSearchingProducts(false)
+    }
+  }
+
   const handleRemoveMedia = (uid: string) => {
     setMediaList((prev) => prev.filter((item) => item.uid !== uid))
   }
@@ -370,6 +407,75 @@ export default function PublishPage() {
             )}
           </View>
         </View>
+
+        {/* 关联好物（真实 productId，对齐 Web 端发布） */}
+        <View className={styles.tagWrap}>
+          <View className={styles.linkProductRow}>
+            <Text className={styles.sectionLabel}>关联好物推荐</Text>
+            <Switch checked={linkProduct} onChange={(e) => setLinkProduct(e.detail.value)} color='#4a90d9' />
+          </View>
+          {linkProduct && (
+            linkedProductId && linkedProduct ? (
+              <View className={styles.linkedProduct}>
+                {linkedProduct.mainImage && <Image className={styles.linkedProductImage} src={linkedProduct.mainImage} mode='aspectFill' />}
+                <View className={styles.linkedProductInfo}>
+                  <Text className={styles.linkedProductName} numberOfLines={1}>{linkedProduct.name}</Text>
+                  <Text className={styles.linkedProductPrice}>¥{linkedProduct.price}</Text>
+                </View>
+                <Text
+                  className={styles.linkedProductReset}
+                  onClick={() => { setLinkedProductId(null); setLinkedProduct(null) }}
+                >
+                  重新选择
+                </Text>
+              </View>
+            ) : (
+              <View className={styles.linkProductSearch} onClick={() => setProductSearchOpen(true)}>
+                <Text className={styles.linkProductSearchText}>🔍 搜索并选择要关联的好物</Text>
+              </View>
+            )
+          )}
+        </View>
+
+        {/* 好物搜索弹层 */}
+        {productSearchOpen && (
+          <View className={styles.productModalMask} onClick={() => setProductSearchOpen(false)}>
+            <View className={styles.productModal} onClick={(e) => e.stopPropagation()}>
+              <View className={styles.productSearchRow}>
+                <Input
+                  className={styles.productSearchInput}
+                  placeholder='搜索商品名称'
+                  value={productKeyword}
+                  onInput={(e) => setProductKeyword(e.detail.value)}
+                  onConfirm={() => handleSearchProducts()}
+                />
+                <Text className={styles.productSearchBtn} onClick={() => handleSearchProducts()}>搜索</Text>
+              </View>
+              <ScrollView scrollY className={styles.productResults}>
+                {productOptions.map((product) => (
+                  <View
+                    key={product.id}
+                    className={styles.productResultRow}
+                    onClick={() => {
+                      setLinkedProductId(product.id)
+                      setLinkedProduct(product)
+                      setProductSearchOpen(false)
+                    }}
+                  >
+                    {product.mainImage && <Image className={styles.productResultImage} src={product.mainImage} mode='aspectFill' />}
+                    <View className={styles.productResultInfo}>
+                      <Text className={styles.productResultName} numberOfLines={1}>{product.name}</Text>
+                      <Text className={styles.productResultPrice}>¥{product.price}</Text>
+                    </View>
+                  </View>
+                ))}
+                {productOptions.length === 0 && (
+                  <Text className={styles.productResultEmpty}>{searchingProducts ? '搜索中...' : '输入关键词搜索商品'}</Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        )}
 
         <View className={styles.tagWrap}>
           <Text className={styles.sectionLabel}>话题标签</Text>

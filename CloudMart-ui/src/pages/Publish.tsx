@@ -14,6 +14,9 @@ import { Spin, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import TiptapEditor from '@/components/TiptapEditor'
 import { createPost, getPostDetail, updatePost, saveDraft } from '@/api/community'
+import { searchProducts } from '@/api/product'
+import { resolveTagsByName } from '@/api/community'
+import type { ProductSearchItem } from '@/types'
 import { uploadFile } from '@/api/file'
 import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import { useAuthStore } from '@/stores/auth'
@@ -58,9 +61,27 @@ function PublishForm() {
   const [content, setContent] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   const [tags, setTags] = useState('')
+  // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
   const [linkProduct, setLinkProduct] = useState(false)
-  const [productName, setProductName] = useState('')
-  const [productPrice, setProductPrice] = useState('')
+  const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productOptions, setProductOptions] = useState<ProductSearchItem[]>([])
+  const [searchingProducts, setSearchingProducts] = useState(false)
+
+  /** 搜索可关联的好物（对齐后端 ProductSearchResultVO.products） */
+  const handleSearchProducts = async () => {
+    if (!productKeyword.trim() || searchingProducts) return
+    setSearchingProducts(true)
+    try {
+      const { data: res } = await searchProducts({ keyword: productKeyword.trim(), page: 1, size: 8 })
+      setProductOptions(res.data?.products ?? [])
+      setLinkedProductId(null)
+    } catch {
+      message.error('商品搜索失败')
+    } finally {
+      setSearchingProducts(false)
+    }
+  }
   const [publishing, setPublishing] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [draftId, setDraftId] = useState<number | string | null>(null)
@@ -125,6 +146,10 @@ function PublishForm() {
 
         if (post.tags?.length) {
           setTags(post.tags.map((t: { name: string }) => t.name).join(' '))
+          if (post.productId) {
+            setLinkProduct(true)
+            setLinkedProductId(post.productId)
+          }
         }
 
         if (post.productId) {
@@ -221,6 +246,18 @@ function PublishForm() {
         mediaUrls: uploadedUrls,
         mediaType,
         tagIds: [] as number[],
+        productId: linkProduct && linkedProductId ? linkedProductId : undefined,
+      }
+
+      // 标签名解析为 tagIds（不存在则由后端创建，幂等）；解析失败不阻断发布
+      const tagNames = tags.trim() ? tags.trim().split(/[\s,，]+/).map((t) => t.trim()).filter(Boolean) : []
+      if (tagNames.length > 0) {
+        try {
+          const { data: res } = await resolveTagsByName(tagNames)
+          postData.tagIds = (res.data ?? []).map((tag) => tag.id)
+        } catch {
+          message.warning('标签解析失败，本次发布暂不携带标签')
+        }
       }
 
       if (isEditing && editPostId) {
@@ -626,40 +663,85 @@ function PublishForm() {
                 <ShoppingOutlined /> 关联好物推荐
               </label>
               {linkProduct && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-                  <input
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    placeholder="商品名称"
-                    style={{
-                      padding: '10px 16px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '10px',
-                      background: 'var(--color-bg-input)',
-                      color: 'var(--color-text-secondary)',
-                      fontSize: 14,
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.4)' }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
-                  />
-                  <input
-                    value={productPrice}
-                    onChange={(e) => setProductPrice(e.target.value)}
-                    placeholder="价格"
-                    type="number"
-                    style={{
-                      padding: '10px 16px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '10px',
-                      background: 'var(--color-bg-input)',
-                      color: 'var(--color-text-secondary)',
-                      fontSize: 14,
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.4)' }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
-                  />
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={productKeyword}
+                      onChange={(e) => setProductKeyword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleSearchProducts() }}
+                      placeholder="搜索要关联的好物"
+                      style={{
+                        flex: 1,
+                        padding: '10px 16px',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '10px',
+                        background: 'var(--color-bg-input)',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: 14,
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleSearchProducts()}
+                      style={{
+                        padding: '10px 18px',
+                        border: 'none',
+                        borderRadius: '10px',
+                        background: 'var(--color-gradient-primary)',
+                        color: '#fff',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {searchingProducts ? '搜索中' : '搜索'}
+                    </button>
+                  </div>
+                  {linkedProductId ? (
+                    (() => {
+                      const picked = productOptions.find((p) => p.id === linkedProductId)
+                      return picked ? (
+                        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          已关联：{picked.name} · ¥{picked.price}
+                          <a
+                            onClick={() => setLinkedProductId(null)}
+                            style={{ marginLeft: 12, color: 'var(--color-primary)', cursor: 'pointer' }}
+                          >
+                            重新选择
+                          </a>
+                        </div>
+                      ) : null
+                    })()
+                  ) : productOptions.length > 0 ? (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '10px',
+                      }}
+                    >
+                      {productOptions.map((product) => (
+                        <div
+                          key={product.id}
+                          onClick={() => { setLinkedProductId(product.id); setProductOptions([product]) }}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--color-border)',
+                          }}
+                        >
+                          <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{product.name}</span>
+                          <span style={{ fontSize: 13, color: 'var(--color-primary)', fontWeight: 600 }}>¥{product.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

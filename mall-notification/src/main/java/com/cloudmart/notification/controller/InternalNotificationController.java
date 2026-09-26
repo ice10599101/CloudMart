@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,6 +42,15 @@ public class InternalNotificationController {
                 ? notificationService.listNotificationsByType(userId, type, page, pageSize)
                 : notificationService.listNotifications(userId, page, pageSize);
         return ApiResponse.ok(dtos);
+    }
+
+    @PutMapping("/read-all")
+    @Operation(summary = "按类型全部已读", description = "B19：宠物模块代理使用；type 必填（如 PET），只影响该类型未读")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Long> markAllAsReadByType(
+            @RequestParam("userId") Long userId,
+            @RequestParam("type") String type) {
+        return ApiResponse.ok(notificationService.markAllAsReadByType(userId, type.toUpperCase()));
     }
 
     @GetMapping("/unread-count")

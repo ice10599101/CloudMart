@@ -73,7 +73,8 @@ public class PetServiceImpl implements PetService {
                           PetReminderService reminderService,
                           StringRedisTemplate redisTemplate,
                           PetProperties properties,
-                          PetCareerConfigMapper careerConfigMapper) {
+                          PetCareerConfigMapper careerConfigMapper,
+                          com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper) {
         this.petMapper = petMapper;
         this.activityMapper = activityMapper;
         this.achievementRecordMapper = achievementRecordMapper;
@@ -82,7 +83,11 @@ public class PetServiceImpl implements PetService {
         this.redisTemplate = redisTemplate;
         this.properties = properties;
         this.careerConfigMapper = careerConfigMapper;
+        this.skinInventoryMapper = skinInventoryMapper;
     }
+
+    /** 背包 Mapper（B12：手动改外观同步卸皮肤穿戴标记） */
+    private final com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper;
 
     @Override
     public PetVO getMyPet(Long userId) {
@@ -102,7 +107,11 @@ public class PetServiceImpl implements PetService {
     @Override
     @Transactional
     public PetVO createPet(Long userId, CreatePetRequest request) {
-        long owned = stateService.countByUserId(userId);
+        // B03：用户级原子配额——先对已有宠物行加锁（FOR UPDATE 锁住 idx_pet_user 范围，
+        // 并发领养在范围间隙上互斥），再检查数量，防止上限前同时领养超限
+        long owned = petMapper.selectCount(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getUserId, userId)
+                .last("FOR UPDATE"));
         if (owned >= properties.getMultiPet().getMaxPets()) {
             throw new BusinessException(PetErrorCodes.PET_PET_LIMIT_REACHED,
                     "最多只能养 " + properties.getMultiPet().getMaxPets() + " 只宠物，先陪陪它们吧");
@@ -204,6 +213,12 @@ public class PetServiceImpl implements PetService {
         Pet pet = requireOwnedPet(userId);
         pet.setAppearance(PetJsonUtils.toJson(Map.of("color", request.color(), "accessory", request.accessory())));
         // 手动改外观视为脱离皮肤：卸下穿戴中的皮肤，避免"皮肤标记"与"实际外观"不一致
+        // B12：手动改外观按明确接口意图卸皮肤，并同步背包穿戴标记（不因改名等无关保存误触发）
+        skinInventoryMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetInventory>()
+                .set(com.cloudmart.pet.entity.PetInventory::getEquipped, false)
+                .eq(com.cloudmart.pet.entity.PetInventory::getPetId, pet.getId())
+                .eq(com.cloudmart.pet.entity.PetInventory::getItemType, com.cloudmart.pet.enums.PetItemType.SKIN.name()));
+        pet.setBaseAppearance(pet.getAppearance());
         pet.setSkinCode(null);
         petMapper.updateById(pet);
         return toVo(pet, feedRemainingToday(userId));

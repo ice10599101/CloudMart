@@ -13,6 +13,7 @@ import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { notificationApi } from '@/api/notification'
 import { wishApi } from '@/api/wish'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { ExpectedActionType, Notification } from '@/types'
@@ -84,31 +85,10 @@ function NotificationItem({
         borderBottomColor: theme.border,
       }}
     >
-      {/* Avatar or type icon */}
-      {item.sender?.avatar ? (
-        <Image
-          source={{ uri: item.sender.avatar }}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: BorderRadius.full,
-            resizeMode: 'cover',
-          }}
-        />
-      ) : (
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: BorderRadius.full,
-            backgroundColor: theme.bgInput,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 20 }}>{TYPE_ICON_MAP[Number(item.type)] ?? '🔔'}</Text>
-        </View>
-      )}
+      {/* Avatar or type icon（带头像框装饰） */}
+      <View style={{ marginRight: Spacing.sm }}>
+        <DecoratedAvatar src={item.sender?.avatar} userId={item.sender?.id ?? item.actorId} size={44} fallbackText={item.sender?.nickname?.[0]} />
+      </View>
 
       {/* Content */}
       <View style={{ flex: 1, marginLeft: Spacing.md }}>

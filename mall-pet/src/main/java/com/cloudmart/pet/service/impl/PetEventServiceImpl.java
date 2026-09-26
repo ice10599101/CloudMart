@@ -59,6 +59,7 @@ public class PetEventServiceImpl implements PetEventService {
     private final PetBattleMapper battleMapper;
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
+    private final PetOperationService operationService;
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
 
@@ -70,6 +71,7 @@ public class PetEventServiceImpl implements PetEventService {
                                PetBattleMapper battleMapper,
                                PetInventoryMapper inventoryMapper,
                                WishFeignClient wishFeignClient,
+                               PetOperationService operationService,
                                PetAchievementService achievementService,
                                PetEventProducer eventProducer) {
         this.stateService = stateService;
@@ -80,6 +82,7 @@ public class PetEventServiceImpl implements PetEventService {
         this.battleMapper = battleMapper;
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
+        this.operationService = operationService;
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
     }
@@ -133,15 +136,23 @@ public class PetEventServiceImpl implements PetEventService {
             if (levelups > 0) {
                 achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
                 eventProducer.publish(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
-                        userId, "PET_LEVEL_UP",
+                        "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
+                        String.valueOf(userId), "PET_LEVEL_UP",
                         "宠物升级啦！",
                         pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
-                        pet.getId(), "PET_LEVEL_UP"));
+                        String.valueOf(pet.getId()), "PET_LEVEL_UP"));
             }
         }
         int starlight = orZero(config.getRewardStarlight());
         if (starlight > 0) {
-            wishFeignClient.earnStarlight(userId, starlight, pet.getId());
+            // 操作键绑定 (pet, event, claimDate)：同一活动多次领取只一次收益
+            String operationId = operationService.operationKey("EVENT_CLAIM",
+                    pet.getId(), config.getCode(), now.toLocalDate());
+            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
+                    operationId, userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null);
+            if (!settlement.isCompleted()) {
+                log.info("活动奖励星光结算中, eventCode={}, operationId={}", config.getCode(), operationId);
+            }
         }
         grantRewardItem(pet, config.getRewardItemCode(), now);
         // 直接以本次领奖结果构建 VO：不再回读一次（避免读路径与写路径口径不一致）

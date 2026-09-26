@@ -89,6 +89,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetFurnitureConfigMapper furnitureConfigMapper;
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
+    private final PetOperationService operationService;
     private final PetEventProducer eventProducer;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
@@ -109,7 +110,8 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetIntimacyService intimacyService,
                               PetAchievementService achievementService,
                               PetProperties properties,
-                              StringRedisTemplate redisTemplate) {
+                              StringRedisTemplate redisTemplate,
+                              PetOperationService operationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -118,6 +120,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.furnitureConfigMapper = furnitureConfigMapper;
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
+        this.operationService = operationService;
         this.eventProducer = eventProducer;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
@@ -166,7 +169,19 @@ public class PetHomeServiceImpl implements PetHomeService {
         }
         int cost = config.getPriceStarlight() != null ? config.getPriceStarlight() : 0;
         if (cost > 0) {
-            wishFeignClient.spendStarlight(userId, cost, item.getId());
+            String operationId = operationService.operationKey("FURNITURE_BUY",
+                    userId, pet.getId(), config.getCode());
+            PetOperationService.WalletSettlement settlement = operationService.executeSpend(
+                    operationId, userId, pet.getId(), "FURNITURE_BUY", null, cost,
+                    com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                            "itemType", "FURNITURE", "itemCode", config.getCode(), "price", cost)));
+            if (settlement.isUnknown()) {
+                throw operationService.settlementPending();
+            }
+            if (!settlement.isCompleted()) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                        "星光扣款未完成: " + settlement.lastError());
+            }
         }
         return toInventoryVo(item, config);
     }
@@ -392,10 +407,12 @@ public class PetHomeServiceImpl implements PetHomeService {
                     .eq(PetRoom::getId, room.getId()));
             dailyQuestService.record(pet, PetQuestType.VISIT, 1);
             eventProducer.publish(RocketMQConfig.PET_TAG_HOME_VISIT, new PetEventProducer.PetEventMessage(
-                    target.getUserId(), "PET_HOME_VISIT",
+                    "HOME_VISIT:" + pet.getId() + ":" + target.getId() + ":"
+                            + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+                    String.valueOf(target.getUserId()), "PET_HOME_VISIT",
                     "有访客来家里啦！",
                     pet.getName() + " 来 " + target.getName() + " 的小窝做客，还夸了夸布置～",
-                    pet.getId(), "PET_HOME_VISIT"));
+                    String.valueOf(pet.getId()), "PET_HOME_VISIT"));
         }
         PetRoom latest = roomMapper.selectById(room.getId());
         String nickname = resolveNicknames(List.of(target.getUserId()))

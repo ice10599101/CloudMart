@@ -63,9 +63,14 @@ public class NotificationController {
     }
 
     @PutMapping("/read-all")
-    @Operation(summary = "全部已读", description = "将当前用户的所有通知标记为已读")
-    public ApiResponse<Void> markAllAsRead(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+    @Operation(summary = "全部已读", description = "携带 type 参数时仅标记该类型（如 PET，宠物模块专用）；"
+            + "缺省保持原语义：清空当前用户全部通知未读")
+    public ApiResponse<Long> markAllAsRead(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "通知类型（可选，如 PET）") @RequestParam(value = "type", required = false) String type) {
+        if (type != null && !type.isBlank()) {
+            return ApiResponse.ok(notificationService.markAllAsReadByType(userId, type.toUpperCase()));
+        }
         notificationService.markAllAsRead(userId);
         return ApiResponse.ok(null);
     }

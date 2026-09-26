@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { Post } from '@/types'
 import { ICON_BASE64 } from '@/components/Icon'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import styles from './index.module.scss'
 
 interface PostCardProps {
@@ -21,7 +22,7 @@ export default function PostCard({ post }: PostCardProps) {
       <View className={styles.info}>
         <Text className={styles.title}>{post.title}</Text>
         <View className={styles.author}>
-          {post.user && <Image className={styles.avatar} src={post.user.avatar} />}
+          {post.user && <DecoratedAvatar src={post.user.avatar} userId={post.user.id} size={36} fallbackText={post.user.nickname?.[0]} />}
           {post.user && <Text className={styles.name}>{post.user.nickname}</Text>}
           <View className={styles.likeWrap}>
             <Image src={ICON_BASE64.heart[post.isLiked ? 'active' : 'default']} style={{ width: '14px', height: '14px' }} mode='aspectFit' />

@@ -171,7 +171,7 @@ public class GlobalExceptionHandler {
                  "WISH_ALREADY_SIGNED_IN",
                  "GIFT_OFF_SHELF",
                  "WISH_MILESTONE_NOT_REACHED", "WISH_MILESTONE_ALREADY_CLAIMED",
-                 "WISH_VERSION_CONFLICT", "WISH_NOT_FULFILLABLE",
+                 "WISH_VERSION_CONFLICT", "WISH_OPERATION_CONFLICT", "WISH_NOT_FULFILLABLE",
                  "WISH_AI_GOAL_STATUS_INVALID",
                  "WISH_GROUP_FULL", "WISH_ALREADY_MEMBER",
                  "WISH_GROUP_KEYWORD_DUPLICATED",
@@ -197,12 +197,14 @@ public class GlobalExceptionHandler {
                  "PET_FRIEND_SELF", "PET_FRIEND_EXISTS", "PET_FRIEND_LIMIT",
                  "PET_ROOM_POS_OCCUPIED", "PET_FURNITURE_NOT_OWNED",
                  "PET_QUEST_NOT_FINISHED", "PET_QUEST_ALREADY_CLAIMED",
-                 "PET_QUEST_CHEST_NOT_READY", "PET_QUEST_CHEST_CLAIMED" -> HttpStatus.CONFLICT;
+                 "PET_QUEST_CHEST_NOT_READY", "PET_QUEST_CHEST_CLAIMED",
+                 "PET_STATE_CONFLICT", "PET_OPERATION_CONFLICT", "PET_USER_BUSY" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
-                 "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED"
-                    -> HttpStatus.TOO_MANY_REQUESTS;
+                 "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED",
+                 "PET_QUOTA_EXHAUSTED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
+                 "PET_SETTLEMENT_PENDING",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
             // 否则会被 default 分支误映射成 400，掩盖真实的服务端异常

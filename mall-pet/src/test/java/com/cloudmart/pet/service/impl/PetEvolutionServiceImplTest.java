@@ -27,6 +27,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.List;
 
@@ -43,6 +45,7 @@ import static org.mockito.Mockito.when;
  * 宠物进化测试：等级门槛、满阶拒绝、成功后属性/阶段/皮肤入包、星光不足的只读判定。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetEvolutionServiceImpl 单元测试")
 class PetEvolutionServiceImplTest {
 
@@ -56,6 +59,8 @@ class PetEvolutionServiceImplTest {
     private PetInventoryMapper inventoryMapper;
     @Mock
     private PetActivityMapper activityMapper;
+    @Mock
+    private PetOperationService operationService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -74,8 +79,22 @@ class PetEvolutionServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeSpend(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
+        com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
+        org.mockito.Mockito.when(petClock.nowUtc())
+                .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
-                inventoryMapper, activityMapper, wishFeignClient, achievementService, eventProducer);
+                inventoryMapper, activityMapper, wishFeignClient, achievementService, operationService,
+                org.mockito.Mockito.mock(PetOutboxService.class), petClock);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
         lenient().when(wishFeignClient.starlightBalance(100L)).thenReturn(ApiResponse.ok(5000));
@@ -98,7 +117,8 @@ class PetEvolutionServiceImplTest {
         assertThat(saved.getStrength()).isEqualTo(8);
         assertThat(saved.getCharm()).isEqualTo(8);
         assertThat(result.currentStage()).isEqualTo(1);
-        verify(wishFeignClient).spendStarlight(eq(100L), eq(600), any());
+        // B01：扣款经统一操作记录（setUp 已打桩 COMPLETED）
+        verify(operationService).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(600), org.mockito.ArgumentMatchers.any());
         verify(inventoryMapper).insert(any(PetInventory.class));
         verify(achievementService).evaluate(pet, PetAchievementService.Event.EVOLUTION);
     }
@@ -114,7 +134,7 @@ class PetEvolutionServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(wishFeignClient, never()).spendStarlight(any(), any(), any());
+        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

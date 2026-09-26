@@ -85,6 +85,21 @@ public class Pet {
     /** 清洁度 0-100 */
     private Integer cleanliness;
 
+    /** 原始自定义外观 JSON（穿戴皮肤前保存，卸皮肤恢复原值；NULL=从无自定义外观） */
+    private String baseAppearance;
+
+    /** 饱食变化小数余量（B04：独立累计，高频查询不丢小数） */
+    private Double hungerFrac;
+
+    /** 心情变化小数余量（B04） */
+    private Double happinessFrac;
+
+    /** 精力变化小数余量（B04） */
+    private Double energyFrac;
+
+    /** 清洁变化小数余量（B04） */
+    private Double cleanlinessFrac;
+
     /** 力量 */
     private Integer strength;
 

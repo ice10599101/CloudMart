@@ -1,0 +1,434 @@
+{
+  "688938b9-7849-4b90-bf82-ae7247d39f9a": {
+    "url": "db://assets/effects",
+    "value": {},
+    "versionCode": 1
+  },
+  "49f15086-01a1-4999-bb84-ff3fc341fbbe": {
+    "url": "db://assets/scenes",
+    "value": {},
+    "versionCode": 1
+  },
+  "947f2b79-b4ee-47f9-92d0-f5f25ece9759": {
+    "url": "db://assets/scripts",
+    "value": {},
+    "versionCode": 1
+  },
+  "3b7c41e8-52af-4d19-9c66-0e2d8a71f4c3": {
+    "url": "db://assets/resources/effects/pet-toon.effect",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "0757ad7d-00a9-415a-be79-9038924a4c2d": {
+    "url": "db://assets/scripts/PetAnimations.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "36d45442-d7a9-46d4-b79d-f624e2a9f06e": {
+    "url": "db://assets/scripts/PetBuilderKit.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "3e1a54c3-8dd0-4853-9485-af2a18766b3a": {
+    "url": "db://assets/scripts/PetCatBuilder.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "92b701ca-ea3d-407a-bea8-6cff1babb950": {
+    "url": "db://assets/scripts/PetEffects.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "743bd67a-5b61-46fb-a87c-2a54826671bf": {
+    "url": "db://assets/scripts/PetGameBridge.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "de28b229-6641-4583-a481-86f5040a13f7": {
+    "url": "db://assets/scripts/PetGameRoot.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "f65e0420-f76a-45dc-9604-ee04374aab89": {
+    "url": "db://assets/scripts/PetGameTheme.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "34f2d56b-17bf-4746-8995-434f28f4ec00": {
+    "url": "db://assets/scripts/PetHud.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "0f82c2ce-690e-45f3-9f36-e74c6bac959b": {
+    "url": "db://assets/scripts/PetMeshFactory.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "57f9b78d-0e21-46e9-9deb-f70ec32230fa": {
+    "url": "db://assets/scripts/PetModelBuilder.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "ade82860-da78-4dc1-ac7a-487155509569": {
+    "url": "db://assets/scripts/PetRoomBuilder.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "7acc2b2c-4772-4e38-8bcb-29682fc42a0a": {
+    "url": "db://assets/scenes/PetHome.scene",
+    "value": {
+      "depends": [],
+      "dependScripts": [
+        "de28b229-6641-4583-a481-86f5040a13f7"
+      ]
+    },
+    "versionCode": 2
+  },
+  "06b0d216-8342-41d2-b84e-f648d8640224": {
+    "url": "db://assets/resources",
+    "value": {},
+    "versionCode": 1
+  },
+  "947c2e53-bb93-43e5-932e-6207ae6daf46": {
+    "url": "db://assets/resources/effects",
+    "value": {},
+    "versionCode": 1
+  },
+  "210e8f11-a819-46fe-8551-fe94396b3895": {
+    "url": "db://assets/resources/pets",
+    "value": {},
+    "versionCode": 1
+  },
+  "c0081861-7505-4b59-849e-a16c729cddb5": {
+    "url": "db://assets/resources/pets/layers",
+    "value": {},
+    "versionCode": 1
+  },
+  "f61a1f45-1fbf-4b1e-9c5e-e307d77bca29": {
+    "url": "db://assets/scripts/PetCatSprite.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "799916b7-4df2-4d8d-afc0-d8504ff02886": {
+    "url": "db://assets/resources/pets/layers/body.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "f6a9a6c9-c704-4099-87d8-f5a8f90852e9": {
+    "url": "db://assets/resources/pets/layers/eyes_closed.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "771d1816-a466-4661-912e-073f6c223f46": {
+    "url": "db://assets/resources/pets/layers/tail.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "771d1816-a466-4661-912e-073f6c223f46@6c48a": {
+    "url": "db://assets/resources/pets/layers/tail.png@6c48a",
+    "value": {
+      "depends": [
+        "771d1816-a466-4661-912e-073f6c223f46"
+      ]
+    },
+    "versionCode": 1
+  },
+  "799916b7-4df2-4d8d-afc0-d8504ff02886@6c48a": {
+    "url": "db://assets/resources/pets/layers/body.png@6c48a",
+    "value": {
+      "depends": [
+        "799916b7-4df2-4d8d-afc0-d8504ff02886"
+      ]
+    },
+    "versionCode": 1
+  },
+  "f6a9a6c9-c704-4099-87d8-f5a8f90852e9@6c48a": {
+    "url": "db://assets/resources/pets/layers/eyes_closed.png@6c48a",
+    "value": {
+      "depends": [
+        "f6a9a6c9-c704-4099-87d8-f5a8f90852e9"
+      ]
+    },
+    "versionCode": 1
+  },
+  "771d1816-a466-4661-912e-073f6c223f46@f9941": {
+    "url": "db://assets/resources/pets/layers/tail.png@f9941",
+    "value": {
+      "depends": [
+        "771d1816-a466-4661-912e-073f6c223f46@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "799916b7-4df2-4d8d-afc0-d8504ff02886@f9941": {
+    "url": "db://assets/resources/pets/layers/body.png@f9941",
+    "value": {
+      "depends": [
+        "799916b7-4df2-4d8d-afc0-d8504ff02886@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "f6a9a6c9-c704-4099-87d8-f5a8f90852e9@f9941": {
+    "url": "db://assets/resources/pets/layers/eyes_closed.png@f9941",
+    "value": {
+      "depends": [
+        "f6a9a6c9-c704-4099-87d8-f5a8f90852e9@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "753c53ad-d458-4765-bc3b-f122271b6312": {
+    "url": "db://assets/resources/models",
+    "value": {},
+    "versionCode": 1
+  },
+  "93aaf713-706e-4325-ad3b-8ee803a8258c": {
+    "url": "db://assets/resources/models/cat",
+    "value": {},
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@99380": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@99380",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9d153a98-66ac-4116-a265-38af606b169f@221a5",
+        "9d153a98-66ac-4116-a265-38af606b169f@0089c",
+        "9d153a98-66ac-4116-a265-38af606b169f@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@7035a": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@7035a",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@d85fa": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c2696": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@f1e7a": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@f1e7a",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@91f19": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@91f19",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@75c27": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@75c27",
+    "value": {
+      "imageExtName": ".jpg",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@361fc": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@361fc",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@3effa": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@3effa",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@92111"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@221a5": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@221a5",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@7e97f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@0089c": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@0089c",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@df027"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c5ab7": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c5ab7",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@99380",
+        "9d153a98-66ac-4116-a265-38af606b169f@319ee",
+        "9d153a98-66ac-4116-a265-38af606b169f@f1e7a",
+        "9d153a98-66ac-4116-a265-38af606b169f@c5f6f",
+        "9d153a98-66ac-4116-a265-38af606b169f@7035a",
+        "9d153a98-66ac-4116-a265-38af606b169f@3b384",
+        "9d153a98-66ac-4116-a265-38af606b169f@d85fa",
+        "9d153a98-66ac-4116-a265-38af606b169f@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@92111": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@92111",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@319ee": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@319ee",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c5f6f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c5f6f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@3b384": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@7e97f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@7e97f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@df027": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@df027",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@cf88a": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@cf88a",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "e1d1cab4-4760-464b-8495-9d3b2eb80712": {
+    "url": "db://assets/resources/textures",
+    "value": {},
+    "versionCode": 1
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076": {
+    "url": "db://assets/resources/textures/eye_sprite.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "6116d393-d9ac-4cee-bf81-014216f64597": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb.bak",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076@6c48a": {
+    "url": "db://assets/resources/textures/eye_sprite.png@6c48a",
+    "value": {
+      "depends": [
+        "52e4e89a-437e-452e-af12-00af6807b076"
+      ]
+    },
+    "versionCode": 1
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076@f9941": {
+    "url": "db://assets/resources/textures/eye_sprite.png@f9941",
+    "value": {
+      "depends": [
+        "52e4e89a-437e-452e-af12-00af6807b076@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "a4b4e0bb-6d66-4cbe-bf99-b47847d703f0": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb.bak2",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065@6c48a": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png@6c48a",
+    "value": {
+      "depends": [
+        "02825ce1-9af0-4607-9525-45c264c38065"
+      ]
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065@f9941": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png@f9941",
+    "value": {
+      "depends": [
+        "02825ce1-9af0-4607-9525-45c264c38065@6c48a"
+      ]
+    },
+    "versionCode": 1
+  }
+}

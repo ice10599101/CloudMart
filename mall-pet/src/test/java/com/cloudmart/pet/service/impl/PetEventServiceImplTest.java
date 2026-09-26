@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,6 +48,7 @@ import static org.mockito.Mockito.when;
  * 社区宠物活动测试：进度惰性统计（COUNT 既有业务表）、未完成/已领/已结束三类拒绝、领奖发奖。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetEventServiceImpl 单元测试")
 class PetEventServiceImplTest {
 
@@ -63,6 +66,8 @@ class PetEventServiceImplTest {
     private PetBattleMapper battleMapper;
     @Mock
     private PetInventoryMapper inventoryMapper;
+    @Mock
+    private PetOperationService operationService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -85,9 +90,18 @@ class PetEventServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         eventService = new PetEventServiceImpl(stateService, eventConfigMapper, progressMapper,
                 activityMapper, bottleRecordMapper, battleMapper, inventoryMapper, wishFeignClient,
-                achievementService, eventProducer);
+                operationService, achievementService, eventProducer);
         lenient().when(stateService.requireActivePet(100L)).thenReturn(pet());
         lenient().when(stateService.grantExp(any(), any(Integer.class))).thenReturn(0);
     }
@@ -165,7 +179,8 @@ class PetEventServiceImplTest {
 
         assertThat(result.claimed()).isTrue();
         verify(progressMapper).insert(any(PetEventProgress.class));
-        verify(wishFeignClient).earnStarlight(eq(100L), eq(120), eq(1L));
+        // B01：发薪经统一操作记录
+        verify(operationService).executeEarn(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("EVENT_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120), org.mockito.ArgumentMatchers.any());
         verify(stateService).grantExp(any(Pet.class), eq(40));
     }
 

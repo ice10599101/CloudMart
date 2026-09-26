@@ -17,6 +17,9 @@ public interface PetReminderService {
     /** 未读提醒数（供宠物入口角标展示；Feign 降级 Fail-Open 返回 0，不阻断宠物页） */
     long unreadCount(Long userId);
 
+    /** 宠物提醒全部已读（B19）：只清 type=PET，不影响订单/评论等其他通知；返回剩余未读数 */
+    long markAllAsRead(Long userId);
+
     /**
      * 用户打开宠物页时的主动消息触发器（Fail-Open，异常不阻断主流程）：
      * DAILY_GREETING / LONG_ABSENT / PET_HUNGRY / BOTTLE_READY / COMMUNITY_DIGEST（聚合并清零计数）。

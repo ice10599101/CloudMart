@@ -17,6 +17,8 @@ public record CompanionHeartbeatRequest(
         @NotNull(message = "缺少陪伴时长")
         @Min(value = 1, message = "陪伴时长非法")
         @Max(value = 600, message = "单次上报时长过大")
-        Integer seconds
+        Integer seconds,
+        @Schema(description = "会话内单调递增序号（可选；提供时重复心跳按序号幂等去重，B05）")
+        Long seq
 ) {
 }

@@ -2,11 +2,13 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
 import com.cloudmart.pet.entity.PetInventory;
+import com.cloudmart.pet.entity.PetOperation;
 import com.cloudmart.pet.entity.PetSkill;
 import com.cloudmart.pet.entity.PetSkillConfig;
 import com.cloudmart.pet.entity.PetSkinConfig;
@@ -17,8 +19,10 @@ import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetSkillConfigMapper;
 import com.cloudmart.pet.repository.PetSkillMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
+import com.cloudmart.pet.service.PetOperationRecoverable;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.service.PetShopService;
+import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetShopItemVO;
 import com.cloudmart.pet.vo.PetShopVO;
@@ -28,22 +32,27 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * 宠物商城实现。
  *
- * <p>购买顺序：<b>先本地入包，再扣星光</b>——星光扣减失败（余额不足 402 / 服务降级 503）
- * 抛异常回滚本地事务，物品不会产出；反向顺序（先扣钱后入包）在入包失败时会出现
- * "付了钱没拿到东西"的补偿难题（AGENTS §17 数据完整性优先）。</p>
+ * <p>购买顺序（B01）：先可校验的配置/资格校验 → 幂等扣款（operationId =
+ * SHOP_BUY:user:pet:类型:编码，钱包端按业务操作键去重）→ 本地入包（uk 唯一键幂等）。
+ * 扣款结果未知（超时/降级）抛 PET_SETTLEMENT_PENDING，客户端按原请求重试幂等，
+ * 禁止重新生成一笔独立交易；扣款成功但进程崩溃时由恢复任务按 rewardSnapshot
+ * 幂等补入包，永久无法履约则按原单号派生唯一补偿单退款。</p>
  */
 @Service
 @Slf4j
-public class PetShopServiceImpl implements PetShopService {
+public class PetShopServiceImpl implements PetShopService, PetOperationRecoverable {
+
+    private static final String BIZ_TYPE = "SHOP_BUY";
 
     private final PetService petService;
     private final PetItemCatalog itemCatalog;
@@ -53,6 +62,8 @@ public class PetShopServiceImpl implements PetShopService {
     private final PetInventoryMapper inventoryMapper;
     private final PetSkillMapper skillMapper;
     private final WishFeignClient wishFeignClient;
+    private final PetOperationService operationService;
+    private final PetClock petClock;
 
     public PetShopServiceImpl(PetService petService,
                               PetItemCatalog itemCatalog,
@@ -61,7 +72,9 @@ public class PetShopServiceImpl implements PetShopService {
                               PetSkillConfigMapper skillConfigMapper,
                               PetInventoryMapper inventoryMapper,
                               PetSkillMapper skillMapper,
-                              WishFeignClient wishFeignClient) {
+                              WishFeignClient wishFeignClient,
+                              PetOperationService operationService,
+                              PetClock petClock) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
         this.equipmentConfigMapper = equipmentConfigMapper;
@@ -70,12 +83,14 @@ public class PetShopServiceImpl implements PetShopService {
         this.inventoryMapper = inventoryMapper;
         this.skillMapper = skillMapper;
         this.wishFeignClient = wishFeignClient;
+        this.operationService = operationService;
+        this.petClock = petClock;
     }
 
     @Override
     public PetShopVO shop(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        Set<String> ownedCodes = ownedCodes(pet.getId());
+        Map<PetItemType, Set<String>> owned = ownedCodesByType(pet.getId());
         Set<String> learnedSkills = learnedSkillCodes(pet.getId());
 
         List<PetShopItemVO> items = new ArrayList<>();
@@ -83,17 +98,21 @@ public class PetShopServiceImpl implements PetShopService {
                         .eq(PetEquipmentConfig::getEnabled, true)
                         .orderByAsc(PetEquipmentConfig::getSort))
                 .forEach(config -> items.add(itemCatalog.toShopItem(config,
-                        ownedCodes.contains(config.getCode()), equipmentLockReason(pet, config))));
+                        owned.getOrDefault(PetItemType.EQUIPMENT, Set.of()).contains(config.getCode()),
+                        equipmentLockReason(pet, config))));
         skinConfigMapper.selectList(new LambdaQueryWrapper<PetSkinConfig>()
                         .eq(PetSkinConfig::getEnabled, true)
                         .orderByAsc(PetSkinConfig::getSort))
                 .forEach(config -> items.add(itemCatalog.toShopItem(config,
-                        ownedCodes.contains(config.getCode()), skinLockReason(pet, config))));
+                        owned.getOrDefault(PetItemType.SKIN, Set.of()).contains(config.getCode()),
+                        skinLockReason(pet, config))));
         skillConfigMapper.selectList(new LambdaQueryWrapper<PetSkillConfig>()
                         .eq(PetSkillConfig::getEnabled, true)
                         .orderByAsc(PetSkillConfig::getSort))
                 .forEach(config -> items.add(itemCatalog.toShopItem(config,
-                        learnedSkills.contains(config.getCode()), skillLockReason(pet, config))));
+                        learnedSkills.contains(config.getCode())
+                                || owned.getOrDefault(PetItemType.SKILL_BOOK, Set.of()).contains(config.getCode()),
+                        skillLockReason(pet, config))));
         return new PetShopVO(starlightBalanceQuietly(userId), items);
     }
 
@@ -120,8 +139,8 @@ public class PetShopServiceImpl implements PetShopService {
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "背包里已经有这件装备啦");
         }
         requireEligible(pet, config.getRequiredLevel(), config.getRequiredEvolutionStage());
+        spendForPurchase(pet, PetItemType.EQUIPMENT, code, price(config.getPriceStarlight()));
         PetInventory item = insertInventory(pet, PetItemType.EQUIPMENT, code, config.getSlot());
-        spendStarlight(pet.getUserId(), config.getPriceStarlight(), item.getId());
         return itemCatalog.toInventoryVo(item, false);
     }
 
@@ -135,8 +154,8 @@ public class PetShopServiceImpl implements PetShopService {
         }
         requireEligible(pet, config.getRequiredLevel(), config.getRequiredEvolutionStage());
         requireSpeciesMatch(pet, config);
+        spendForPurchase(pet, PetItemType.SKIN, code, price(config.getPriceStarlight()));
         PetInventory item = insertInventory(pet, PetItemType.SKIN, code, null);
-        spendStarlight(pet.getUserId(), config.getPriceStarlight(), item.getId());
         return itemCatalog.toInventoryVo(item, false);
     }
 
@@ -145,13 +164,40 @@ public class PetShopServiceImpl implements PetShopService {
                 .filter(c -> Boolean.TRUE.equals(c.getEnabled()))
                 .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_SKILL_NOT_FOUND,
                         "这个技能不存在或已下架"));
-        if (learnedSkillCodes(pet.getId()).contains(code)) {
-            throw new BusinessException(PetErrorCodes.PET_SKILL_ALREADY_LEARNED, "这个技能已经学会啦");
+        // 技能书"已购买未学习"也算拥有（B12）：拥有判断看背包，而不是已学技能
+        if (owned(pet.getId(), PetItemType.SKILL_BOOK, code)) {
+            throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "这本技能书已经在背包里啦");
         }
         requireEligible(pet, config.getRequiredLevel(), 0);
+        spendForPurchase(pet, PetItemType.SKILL_BOOK, code, price(config.getPriceStarlight()));
         PetInventory item = insertInventory(pet, PetItemType.SKILL_BOOK, code, null);
-        spendStarlight(pet.getUserId(), config.getPriceStarlight(), item.getId());
         return itemCatalog.toInventoryVo(item, false);
+    }
+
+    private int price(Integer configPrice) {
+        return configPrice != null ? configPrice : 0;
+    }
+
+    /** 幂等扣款：价格 0 无资金流动，跳过交易（入包靠唯一键幂等） */
+    private void spendForPurchase(Pet pet, PetItemType itemType, String code, int cost) {
+        if (cost <= 0) {
+            return;
+        }
+        String operationId = operationService.operationKey(BIZ_TYPE,
+                pet.getUserId(), pet.getId(), itemType.name(), code);
+        String snapshot = PetJsonUtils.toJson(Map.of(
+                "itemType", itemType.name(),
+                "itemCode", code,
+                "price", cost));
+        PetOperationService.WalletSettlement settlement = operationService.executeSpend(
+                operationId, pet.getUserId(), pet.getId(), BIZ_TYPE, null, cost, snapshot);
+        if (settlement.isUnknown()) {
+            throw operationService.settlementPending();
+        }
+        if (!settlement.isCompleted()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "星光扣款未完成: " + settlement.lastError());
+        }
     }
 
     private PetInventory insertInventory(Pet pet, PetItemType type, String code, String slot) {
@@ -163,7 +209,7 @@ public class PetShopServiceImpl implements PetShopService {
         item.setQuantity(1);
         item.setEquipped(false);
         item.setSlot(slot);
-        item.setAcquiredAt(LocalDateTime.now(ZoneId.of("UTC")));
+        item.setAcquiredAt(petClock.nowUtc());
         try {
             inventoryMapper.insert(item);
         } catch (DuplicateKeyException e) {
@@ -171,15 +217,6 @@ public class PetShopServiceImpl implements PetShopService {
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "已经拥有这个物品啦");
         }
         return item;
-    }
-
-    /** 扣星光（价格 0 直接跳过）；余额不足/服务降级由 Feign 抛出，事务回滚即撤销入包 */
-    private void spendStarlight(Long userId, Integer price, Long refId) {
-        int cost = price != null ? price : 0;
-        if (cost <= 0) {
-            return;
-        }
-        wishFeignClient.spendStarlight(userId, cost, refId);
     }
 
     private void requireEligible(Pet pet, Integer requiredLevel, Integer requiredEvolutionStage) {
@@ -245,12 +282,15 @@ public class PetShopServiceImpl implements PetShopService {
                 .eq(PetInventory::getItemCode, code)) > 0;
     }
 
-    private Set<String> ownedCodes(Long petId) {
-        Set<String> codes = new HashSet<>();
+    /** 按 (petId, itemType, itemCode) 分型聚合拥有集合（B12：装备/皮肤/技能书编码空间独立） */
+    private Map<PetItemType, Set<String>> ownedCodesByType(Long petId) {
+        Map<PetItemType, Set<String>> owned = new HashMap<>();
         inventoryMapper.selectList(new LambdaQueryWrapper<PetInventory>()
                         .eq(PetInventory::getPetId, petId))
-                .forEach(item -> codes.add(item.getItemType() + ":" + item.getItemCode()));
-        return codes;
+                .forEach(item -> owned
+                        .computeIfAbsent(PetItemType.valueOf(item.getItemType()), type -> new HashSet<>())
+                        .add(item.getItemCode()));
+        return owned;
     }
 
     private Set<String> learnedSkillCodes(Long petId) {
@@ -268,6 +308,45 @@ public class PetShopServiceImpl implements PetShopService {
         } catch (Exception e) {
             log.warn("星光余额查询降级（Fail-Open）: userId={}", userId, e);
             return null;
+        }
+    }
+
+    @Override
+    public String supportedBizType() {
+        return BIZ_TYPE;
+    }
+
+    /**
+     * 恢复任务回调（B01）：钱包已扣款但本地入包未落地时，按 rewardSnapshot 幂等补入包。
+     * 已拥有（DuplicateKey/存在查询）视为已履约。
+     */
+    @Override
+    public boolean completePendingOperation(PetOperation operation) {
+        Map<String, Object> snapshot = PetJsonUtils.parse(operation.getRewardSnapshot(),
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                });
+        String itemType = String.valueOf(snapshot.get("itemType"));
+        String itemCode = String.valueOf(snapshot.get("itemCode"));
+        boolean exists = inventoryMapper.selectCount(new LambdaQueryWrapper<PetInventory>()
+                .eq(PetInventory::getPetId, operation.getPetId())
+                .eq(PetInventory::getItemType, itemType)
+                .eq(PetInventory::getItemCode, itemCode)) > 0;
+        if (exists) {
+            return true;
+        }
+        PetInventory item = new PetInventory();
+        item.setPetId(operation.getPetId());
+        item.setUserId(operation.getUserId());
+        item.setItemType(itemType);
+        item.setItemCode(itemCode);
+        item.setQuantity(1);
+        item.setEquipped(false);
+        item.setAcquiredAt(LocalDateTime.now(java.time.ZoneOffset.UTC));
+        try {
+            inventoryMapper.insert(item);
+            return true;
+        } catch (DuplicateKeyException e) {
+            return true;
         }
     }
 }

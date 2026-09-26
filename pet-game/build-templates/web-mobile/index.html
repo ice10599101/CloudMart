@@ -47,32 +47,6 @@
 <script src="src/import-map.json" type="systemjs-importmap" charset="utf-8"> </script>
 
 <script>
-  // 兼容补丁：cocos-cli 构建产物中的 spine 打桩模块（asm.js）初始化时抛出
-  // embind "Cannot register public name '' twice"，异常中断 cc.game.init，
-  // 场景永不加载（黑屏）。本工程不使用 spine，故在引擎加载 spine 运行时模块时
-  // 返回空实现，保证启动链路完整。详见 README「已知构建缺陷」一节。
-  (function () {
-    var hasSystem = typeof System !== 'undefined' && System && System.constructor
-    if (!hasSystem) {
-      return
-    }
-    var SystemJS = System.constructor
-    var prototype = SystemJS && SystemJS.prototype
-    if (!prototype || typeof prototype.import !== 'function') {
-      return
-    }
-    var originalImport = prototype.import
-    var stub = { default: function () { return Promise.resolve({}) } }
-    prototype.import = function (id, parentUrl) {
-      if (typeof id === 'string' && id.indexOf('spine') !== -1) {
-        return Promise.resolve(stub)
-      }
-      return originalImport.call(this, id, parentUrl)
-    }
-  })()
-</script>
-
-<script>
     System.import('./index.js').catch(function(err) { console.error(err) })
 </script>
 

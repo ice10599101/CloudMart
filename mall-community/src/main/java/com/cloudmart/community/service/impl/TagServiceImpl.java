@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -47,6 +48,38 @@ public class TagServiceImpl implements TagService {
         tagMapper.insert(tag);
 
         return convertToVO(tag);
+    }
+
+    @Override
+    @Transactional
+    public List<TagVO> resolveTags(List<String> names) {
+        if (names == null || names.isEmpty()) {
+            return List.of();
+        }
+        // 去重 + 去空白，上限 10 个（与发布页标签输入上限一致）
+        List<String> normalized = names.stream()
+                .filter(name -> name != null && !name.isBlank())
+                .map(String::trim)
+                .distinct()
+                .limit(10)
+                .toList();
+
+        List<TagVO> result = new ArrayList<>();
+        for (String name : normalized) {
+            Tag tag = tagMapper.selectOne(new LambdaQueryWrapper<Tag>()
+                    .eq(Tag::getName, name)
+                    .last("LIMIT 1"));
+            if (tag == null) {
+                tag = new Tag();
+                tag.setName(name);
+                tag.setPostCount(0);
+                tag.setIsHot(false);
+                tag.setStatus(1);
+                tagMapper.insert(tag);
+            }
+            result.add(convertToVO(tag));
+        }
+        return result;
     }
 
     @Override

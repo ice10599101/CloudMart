@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * mall-wish 降级工厂（Fail-Closed）：捞瓶/星光发放是资金与资产操作，
  * 静默返回占位数据会导致用户损失，降级统一抛 503 由调用方决定补偿语义
- * （捞瓶 FAILED 可重试领取；打工作业领取整体回滚）。
+ * （B01：发放结果未知标 UNKNOWN 交恢复任务收敛；扣款结果未知返回"结算中"，按原单重试幂等）。
  */
 @Slf4j
 @Component
@@ -23,17 +23,25 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
         log.error("mall-wish Feign 调用降级: {}", cause.getMessage());
         return new WishFeignClient() {
             @Override
-            public ApiResponse<WishFeignClient.WishBottleVO> fishForPet() {
+            public ApiResponse<WishFeignClient.WishBottleVO> fishForPet(Long userId, String requestId) {
                 throw unavailable(cause);
             }
 
             @Override
-            public ApiResponse<Integer> earnStarlight(Long userId, Integer amount, Long refId) {
+            public ApiResponse<WishFeignClient.PetWalletOperationVO> earnStarlightIdempotent(
+                    Long userId, Integer amount, Long refId, String operationId) {
                 throw unavailable(cause);
             }
 
             @Override
-            public ApiResponse<Integer> spendStarlight(Long userId, Integer amount, Long refId) {
+            public ApiResponse<WishFeignClient.PetWalletOperationVO> spendStarlightIdempotent(
+                    Long userId, Integer amount, Long refId, String operationId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<WishFeignClient.PetWalletOperationVO> findOperation(String operationId) {
+                // 结果查询降级 = 结果未知（不是"未执行"），调用方保持 UNKNOWN 状态继续退避
                 throw unavailable(cause);
             }
 

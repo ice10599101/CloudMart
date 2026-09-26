@@ -163,10 +163,12 @@ public class PetVisitServiceImpl implements PetVisitService {
         String nickname = resolveNicknames(List.of(neighbor.getUserId()))
                 .getOrDefault(neighbor.getUserId(), NICKNAME_PLACEHOLDER);
         eventProducer.publish(RocketMQConfig.PET_TAG_VISIT, new PetEventProducer.PetEventMessage(
-                neighbor.getUserId(), "PET_VISIT",
+                "VISIT:" + pet.getId() + ":" + neighbor.getId() + ":"
+                        + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+                String.valueOf(neighbor.getUserId()), "PET_VISIT",
                 "有小伙伴来串门啦！",
                 pet.getName() + " 来家里和 " + neighbor.getName() + " 玩了一会儿，主人也去回访一下吧！",
-                pet.getId(), "PET_VISIT"));
+                String.valueOf(pet.getId()), "PET_VISIT"));
 
         String message = pet.getName() + " 去 " + nickname + " 家找 " + neighbor.getName()
                 + " 玩啦，心情 +" + cfg.getHappinessGain() + "，经验 +" + cfg.getExpGain() + "～";

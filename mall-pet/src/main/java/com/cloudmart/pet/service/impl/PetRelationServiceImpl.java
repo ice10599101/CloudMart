@@ -238,11 +238,12 @@ public class PetRelationServiceImpl implements PetRelationService {
         PetRelationType type = PetRelationType.valueOf(relation.getRelType());
         if (from != null) {
             eventProducer.publish(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
-                    relation.getFromUserId(), "PET_RELATION_ACCEPTED",
+                    "RELATION_ACCEPTED:" + relation.getId(),
+                    String.valueOf(relation.getFromUserId()), "PET_RELATION_ACCEPTED",
                     "关系确认啦！",
                     from.getName() + "：主人，" + pet.getName() + " 答应了！我们正式成为"
                             + type.label() + "啦～",
-                    relation.getId(), "PET_RELATION_ACCEPTED"));
+                    String.valueOf(relation.getId()), "PET_RELATION_ACCEPTED"));
         }
         achievementService.evaluate(pet, PetAchievementService.Event.RELATION);
         return toVo(relation, from != null ? from : pet, "ACTIVE",
@@ -440,10 +441,12 @@ public class PetRelationServiceImpl implements PetRelationService {
     private void notifyRequest(Pet from, Pet target, PetRelationType type, String message) {
         String extra = message != null && !message.isBlank() ? "（" + message + "）" : "";
         eventProducer.publish(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
-                target.getUserId(), "PET_RELATION_REQUEST",
+                "RELATION_REQUEST:" + from.getId() + ":" + target.getId() + ":" + type.name() + ":"
+                        + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+                String.valueOf(target.getUserId()), "PET_RELATION_REQUEST",
                 "收到关系申请啦！",
                 from.getName() + " 想和 " + target.getName() + " 成为" + type.label() + "，去宠物页回应一下吧" + extra,
-                from.getId(), "PET_RELATION_REQUEST"));
+                String.valueOf(from.getId()), "PET_RELATION_REQUEST"));
     }
 
     /** 昵称批量查询：展示型数据 Fail-Open（占位昵称） */

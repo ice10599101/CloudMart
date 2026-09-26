@@ -33,6 +33,9 @@ export const communityApi = {
   searchPosts: (params: { keyword: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/search${buildQuery(params as Record<string, unknown>)}` }),
   getHotTags: () => request<Tag[]>({ url: '/community/tags/hot' }),
+  /** 标签名解析为 tagIds（不存在则创建，幂等；发布链路） */
+  resolveTags: (names: string[]) =>
+    request<Array<{ id: number; name: string }>>({ url: '/community/tags/resolve', method: 'POST', data: { names } }),
   getTrendingTags: () => request<Tag[]>({ url: '/community/tags/trending' }),
   getTagPosts: (tagId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/tags/${tagId}${buildQuery(params as Record<string, unknown>)}` }),

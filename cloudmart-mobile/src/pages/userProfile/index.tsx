@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
 import { userApi } from '@/api/user'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { wishApi } from '@/api/wish'
 import { petApi, type PetPublicCard } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
@@ -229,13 +230,12 @@ export default function UserProfilePage() {
         {/* Profile Header */}
         <View className={styles.profileHeader}>
           <View className={styles.avatarRing}>
-            {profile.avatar ? (
-              <Image className={styles.avatar} src={profile.avatar} />
-            ) : (
-              <View className={styles.defaultAvatar}>
-                <Text className={styles.defaultAvatarText}>{(profile.nickname || '?')[0]}</Text>
-              </View>
-            )}
+            <DecoratedAvatar
+              src={profile.avatar || publicInfo?.avatar}
+              userId={userId}
+              size={76}
+              fallbackText={(profile.nickname || '?')[0]}
+            />
           </View>
           <Text className={styles.nickname}>{profile.nickname || '用户'}</Text>
           {profile.signature && <Text className={styles.bio}>{profile.signature}</Text>}

@@ -13,7 +13,11 @@ public record ChallengeBattleRequest(
         @NotNull(message = "请选择对战模式")
         String mode,
 
-        @Schema(description = "防守方宠物 ID（PvE 时可空，服务端生成野生宠物）")
-        Long defenderPetId
+        @Schema(description = "防守方宠物 ID（PvP 必填）")
+        Long defenderPetId,
+
+        @Schema(description = "野生对手模板 ID（PvE：来自 /battle/opponents 的 templateId，1-3；"
+                + "缺省取 1 兼容旧客户端）。选哪只就挑战哪只，服务端不再随机")
+        Integer templateId
 ) {
 }

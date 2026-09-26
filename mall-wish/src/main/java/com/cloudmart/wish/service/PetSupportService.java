@@ -1,5 +1,7 @@
 package com.cloudmart.wish.service;
 
+import com.cloudmart.wish.vo.PetWalletOperationVO;
+
 /**
  * 宠物模块星光支持服务（mall-pet 内部端点专用）。
  *
@@ -18,4 +20,20 @@ public interface PetSupportService {
 
     /** 星光余额（商城展示用；只读，无事务要求） */
     int petStarlightBalance(Long userId);
+
+    /**
+     * 幂等发放宠物奖励星光（B01）：以 operationId 去重，重复相同请求返回原结果。
+     * 同键不同内容抛 WISH_OPERATION_CONFLICT。
+     */
+    PetWalletOperationVO earnForPetIdempotent(Long userId, int amount, Long refId, String operationId);
+
+    /**
+     * 幂等扣减宠物消费星光（B01）：语义同 {@link #earnForPetIdempotent}。
+     */
+    PetWalletOperationVO spendForPetIdempotent(Long userId, int cost, Long refId, String operationId);
+
+    /**
+     * 按操作键查询已完成的交易结果（B01 结果查询）；不存在返回 null。
+     */
+    PetWalletOperationVO findPetOperation(String operationId);
 }

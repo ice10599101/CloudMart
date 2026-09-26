@@ -30,21 +30,28 @@ export interface RoomRefs {
 
 /** 房间配色（集中定义，便于整体调色） */
 const C = {
-    wall: new Color(0xE3, 0xC4, 0x9E, 255),
-    wallShade: new Color(0xCB, 0xA6, 0x80, 255),
-    baseboard: new Color(0xCE, 0xA2, 0x74, 255),
-    baseboardShade: new Color(0xB4, 0x8A, 0x5E, 255),
-    floor: new Color(0xD2, 0xAD, 0x80, 255),
-    floorShade: new Color(0xBA, 0x95, 0x6A, 255),
-    floorLine: new Color(0xAB, 0x87, 0x5E, 255),
-    rugOuter: new Color(0xEE, 0xAA, 0xA2, 255),
-    rugInner: new Color(0xF8, 0xDC, 0xA8, 255),
+    // 明度阶梯（按相对亮度排序，v6 重排）：地板 210 > 地毯 181 > 墙 154 > 木家具 134 > 墙暗部 117
+    // 重排原因：v5 的墙 0xE3C49E 与地板 0xD2AD80 亮度只差 3%，打光再准也拉不开层次，
+    // 整个画面陷在一条极窄的明度带里 → 读作"塑料"。
+    wall: new Color(0xC6, 0x9A, 0x70, 255),
+    wallShade: new Color(0x7E, 0x56, 0x36, 255),
+    baseboard: new Color(0xB4, 0x88, 0x5C, 255),
+    baseboardShade: new Color(0x8E, 0x67, 0x40, 255),
+    // 地板：v6 从 0xE4D2B8 压到 0xCBB495 —— 地板是全亮面（ndl 0.78 → lit 1.0），
+    // 再叠加天光与反弹光后原色会冲到 ~240 直接过曝发白，暖燕麦底子全丢。
+    floor: new Color(0xCB, 0xB4, 0x95, 255),
+    floorShade: new Color(0xA0, 0x8B, 0x6E, 255),
+    floorLine: new Color(0x8E, 0x76, 0x58, 255),
+    rugOuter: new Color(0xE0, 0xA0, 0x99, 255),
+    rugInner: new Color(0xE8, 0xC8, 0x94, 255),
     // 中心圆略深于角色主体色：让奶油白宠物在浅色地毯上有清晰的明度层级
-    rugCenter: new Color(0xEF, 0xB6, 0xB0, 255),
-    wood: new Color(0xC8, 0x9C, 0x6E, 255),
-    woodDark: new Color(0xAE, 0x82, 0x58, 255),
-    bedRim: new Color(0xC2, 0x92, 0x66, 255),
-    bedCushion: new Color(0xFF, 0xC9, 0xD6, 255),
+    rugCenter: new Color(0xD6, 0xA0, 0x99, 255),
+    // 接触阴影用色（暖褐，绝不用黑：冷黑阴影在暖色空间里会发脏）
+    shadow: new Color(0x6B, 0x4A, 0x33, 255),
+    wood: new Color(0xAF, 0x7C, 0x4C, 255),
+    woodDark: new Color(0x8B, 0x62, 0x40, 255),
+    bedRim: new Color(0xA8, 0x77, 0x48, 255),
+    bedCushion: new Color(0xF6, 0xBF, 0xCE, 255),
     windowFrame: new Color(0xFB, 0xF7, 0xF1, 255),
     glass: new Color(0xAF, 0xDD, 0xF5, 255),
     curtain: new Color(0xF7, 0xC4, 0xC4, 255),
@@ -96,6 +103,7 @@ export function buildRoom(parent: Node, kit: PetBuilderKit): RoomRefs {
     buildCabinet(parent, kit)
     buildPlant(parent, kit)
     const toyBall = buildToys(parent, kit)
+    buildContactShadows(parent, kit)
     buildForeground(parent, kit)
     const orbs = buildOrbs(parent, kit)
     const bulbs = buildLampString(parent, kit)
@@ -341,9 +349,61 @@ function buildLampString(parent: Node, kit: PetBuilderKit): Node[] {
 }
 
 /** 窗边阳光光斑（地板上斜置的暖光片，轻微呼吸） */
+/**
+ * 家具与道具的接触阴影 + 墙脚环境遮蔽。
+ *
+ * 本工程**没有实时阴影**（场景无光源节点、ShadowsInfo 关闭，pet-toon 也是自研着色器
+ * 不采样阴影贴图），所以任何贴地物件都不会在地板上留影 —— 结果是所有家具都"浮"着。
+ * 这里用柔边贴花逐个补：暖褐色 + 径向 alpha 渐变，叠在物体正下方的地板上。
+ *
+ * ⚠️ 高度必须按**落点所在的那一层**给：地毯是逐层叠起来的圆盘
+ * （Edge 顶 ≈0.045 / Outer ≈0.055 / Inner ≈0.063 / Center ≈0.07，圆心在 z=0.35、半径 2.42），
+ * 所以落在地毯上的物件（球、磨牙棒）阴影必须抬到地毯面之上，
+ * 否则会被地毯整个盖住 —— 第一版全放在 y=0.009，结果一个都看不见。
+ *
+ * 摆位与各 build*() 一一对应（改摆位时必须同步改这里）。
+ */
+function buildContactShadows(parent: Node, kit: PetBuilderKit): void {
+    const root = kit.make3dNode(parent, 'ContactShadows', new Vec3(0, 0, 0))
+    const blob = (name: string, rx: number, rz: number, x: number, y: number, z: number, alpha: number): void => {
+        kit.decal(root, name, [rx, 0.008, rz], {
+            color: C.shadow, shade: C.shadow, alpha, soft: [0.02, 1.0],
+        }, new Vec3(x, y, z))
+    }
+    // 地毯：圆心 (0, 0.35)、半径 2.42；Inner 半径 1.92
+    blob('ShadowCabinet', 1.15, 0.62, -3.55, 0.009, -0.10, 78)   // 柜子（裸地板）
+    blob('ShadowPlant', 0.44, 0.44, -3.70, 0.009, -2.10, 66)     // 盆栽（裸地板）
+    blob('ShadowBed', 1.05, 0.78, 2.60, 0.009, 1.15, 70)         // 猫窝（裸地板）
+    blob('ShadowDuck', 0.32, 0.24, 2.15, 0.009, 1.75, 70)        // 小黄鸭（裸地板）
+    blob('ShadowBall', 0.28, 0.28, -1.35, 0.066, 1.05, 74)       // 玩具球（地毯 Inner 面之上）
+    blob('ShadowBone', 0.38, 0.16, 1.45, 0.058, 2.00, 62)        // 磨牙棒（地毯 Outer 面之上）
+    // 墙脚环境遮蔽：墙与地板交界处的暗带，是"空间感"最廉价也最有效的一笔
+    blob('AOBackWall', 5.20, 0.55, 0.00, 0.012, -2.45, 58)       // 后墙（墙面 z=-2.85）
+    blob('AOLeftWall', 0.52, 4.20, -4.10, 0.012, 0.40, 46)       // 左墙（墙面 x=-4.45）
+}
+
+/**
+ * 窗光落在地板上的柔光斑（"光落地"是判断一个虚拟空间是否真实最有效的线索）。
+ *
+ * 旧实现是一块 alpha 70 的**硬边**方板（boxPart + plain 引擎材质）——
+ * 在没有实时阴影的场景里，它读作"地上贴了一块白斑"而不是光，反而加重了假。
+ * 现改为 `kit.decal`：单位椭球把归一化径向距离写进 uv.x，由 pet-toon 的 decalCtrl
+ * 生成径向 alpha 渐变，压扁成地面椭圆后边缘自然化开；长轴按窗光入射方向
+ * （世界 +x/+z，即右前方）旋转对齐 —— 光斑的朝向必须与主光一致，否则方向感互相打架。
+ * 两层叠加（主斑 + 外圈光晕）避免单层椭圆露出边界。
+ *
+ * 落点按几何反推：窗在 (-2.0, 2.45, -2.85)，主光行进方向 (0.46,-0.56,0.69)，
+ * 落到 y=0 的地面时为 t = 2.45/0.56 ≈ 4.38 → (0.0, 0, 0.17)。
+ * 那个点正好是地毯中心（宠物站位），所以光斑会被地毯吃掉大部分 ——
+ * 因此这里把光斑放在地毯边缘外的裸地板上（左后），既在画面里看得见，也还在窗光的来向上。
+ */
 function buildSunBeam(parent: Node, kit: PetBuilderKit): Node {
     const root = kit.make3dNode(parent, 'SunBeam', new Vec3(0, 0, 0))
-    return kit.boxPart(root, 'Beam', { w: 3.2, h: 0.02, d: 2.0 }, {
-        color: C.sun, shade: C.sun, glow: true, alpha: 70, outline: 0, plain: true,
-    }, new Vec3(0.55, 0.012, -1.35), { rot: new Vec3(0, -18, 0) })
+    kit.decal(root, 'Pool', [2.30, 0.012, 1.35], {
+        color: C.sun, shade: C.sun, alpha: 132, soft: [0.06, 1.0],
+    }, new Vec3(-1.55, 0.014, -1.70), new Vec3(0, -56, 0))
+    kit.decal(root, 'Halo', [3.30, 0.010, 2.00], {
+        color: C.sun, shade: C.sun, alpha: 54, soft: [0.12, 1.0],
+    }, new Vec3(-1.05, 0.011, -1.35), new Vec3(0, -56, 0))
+    return root
 }

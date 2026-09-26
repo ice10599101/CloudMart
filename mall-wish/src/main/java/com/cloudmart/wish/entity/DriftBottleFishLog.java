@@ -32,6 +32,9 @@ public class DriftBottleFishLog {
     /** 打捞人用户 ID */
     private Long userId;
 
+    /** 业务请求标识（宠物代捞按活动生成，B11 幂等重放依据；社区手动打捞为空） */
+    private String requestId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

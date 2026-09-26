@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Post, Product } from '@/types'
 
@@ -56,13 +57,8 @@ function PostCard({ post, theme }: { post: Post; theme: ReturnType<typeof useThe
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {post.user?.avatar ? (
-              <Image source={{ uri: post.user.avatar }} style={{ width: 22, height: 22, borderRadius: 11, marginRight: Spacing.xs }} />
-            ) : (
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: theme.primaryGlow, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.xs }}>
-                <Text style={{ fontSize: 10, color: theme.primary }}>{post.user?.nickname?.[0] || '?'}</Text>
-              </View>
-            )}
+            <DecoratedAvatar src={post.user?.avatar} userId={post.user?.id} size={24} fallbackText={post.user?.nickname?.[0]} />
+            <View style={{ width: Spacing.xs }} />
             <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>{post.user?.nickname || '匿名'}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

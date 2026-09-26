@@ -31,6 +31,12 @@ public class NotificationFeignClientFallbackFactory implements FallbackFactory<N
             }
 
             @Override
+            public ApiResponse<Long> markAllAsReadByType(Long userId, String type) {
+                // 已读标记降级：Fail-Open 返回 -1（客户端按"暂时无法标记"处理，不阻断浏览）
+                return ApiResponse.ok(-1L);
+            }
+
+            @Override
             public ApiResponse<Long> getUnreadChatCount(Long userId) {
                 return ApiResponse.ok(0L);
             }

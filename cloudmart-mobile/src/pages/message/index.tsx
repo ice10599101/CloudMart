@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
 import { useAuthGuard } from '@/composables/useAuthGuard'
@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
+import DecoratedAvatar from '@/components/DecoratedAvatar'
 import type { Conversation } from '@/types'
 import styles from './index.module.scss'
 
@@ -101,7 +102,7 @@ export default function MessagePage() {
       <ScrollView scrollY className={styles.conversationList}>
         {conversations.map((conv) => (
           <View key={conv.id} className={styles.conversationItem} onClick={() => handleConversationClick(conv.id)}>
-            <Image className={styles.avatar} src={conv.targetUser.avatar} />
+            <DecoratedAvatar src={conv.targetUser.avatar} userId={conv.targetUser.id} size={44} fallbackText={conv.targetUser.nickname?.[0]} />
             <View className={styles.conversationInfo}>
               <View className={styles.conversationTop}>
                 <Text className={styles.nickname}>{conv.targetUser.nickname}</Text>

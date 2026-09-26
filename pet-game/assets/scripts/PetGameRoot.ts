@@ -1,97 +1,121 @@
 import {
     _decorator,
+    Animation,
+    AnimationClip,
     Camera,
     Color,
     Component,
+    DirectionalLight,
+    director,
     EffectAsset,
-    EventTouch,
+    instantiate,
     Layers,
+    Material,
     Node,
+    Prefab,
+    SkeletalAnimation,
+    Texture2D,
     UITransform,
     Vec3,
     Vec4,
     resources,
     screen,
 } from 'cc'
-import {
-    BattleRound,
-    HostToGame,
-    PetDisplayState,
-    PetGameBridge,
-    PetIntentAction,
-} from './PetGameBridge'
+import { HostToGame, PetDisplayState, PetGameBridge } from './PetGameBridge'
 import { PetBuilderKit } from './PetBuilderKit'
-import { buildPet, PetRig } from './PetModelBuilder'
-import { PetAnimations } from './PetAnimations'
 import { PetEffects } from './PetEffects'
-import { PetHud } from './PetHud'
-import { PetEmotion, resolvePalette } from './PetGameTheme'
 import { buildRoom, RoomRefs } from './PetRoomBuilder'
 
 const { ccclass } = _decorator
 
 /**
- * 宠物 3D 场景主组件（视觉重构 v3，Cocos Creator 4.0 alpha，全部内容程序化构建）。
+ * 家园场景主组件（视觉重构 v7）。
  *
  * 结构：
- *  - 3D 世界（Scene / DEFAULT 层）：温馨房间（PetRoomBuilder）+ Q 版宠物（PetModelBuilder），
- *    统一走自定义卡通材质 pet-toon（两段明暗 + 顶部天光 + 轮廓光 + 描边）；
- *  - 2D UI（Root / UI_2D 层）：HUD（PetHud）+ 特效粒子（PetEffects）。
+ *  - 3D 世界：房间（PetRoomBuilder，统一走 pet-toon）+ 宠物（外部绑定模型，见下）
+ *  - 相机机位（横屏 room / 竖屏 portrait 自动选择）
+ *  - 房间氛围动画（光点上升 / 灯泡呼吸 / 光斑呼吸 / 玩具轻摆）
+ *  - 2D 覆盖层：特效粒子 + 世界坐标投影
+ *  - 通信桥（契约冻结，见 PetGameBridge）
  *
- * 生命感来自两条线：
- *  1. 逐帧待机驱动（update）：呼吸 / 尾巴 / 耳朵 / 眨眼 / 视线 / 呆毛 / 随机小动作；
- *  2. 情绪状态机：由服务端数值（饱食/心情/精力/清洁）推导基础情绪，交互时临时覆盖，
- *     情绪决定表情（嘴部变体）、耳朵耷拉度、尾巴活跃度、眼睛开合。
+ * 宠物：**不再是程序化造型**。旧的 PetCatBuilder / PetModelBuilder / PetAnimations 已整体删除，
+ * 改为加载 Blender 绑好骨的 GLB（`assets/resources/models/cat/pet-cat-rigged.glb`）：
+ *  - 3 个网格（身体 + 两片眼皮）/ 15 根变形骨（含 4 节尾骨与 2 根眼皮骨）
+ *  - 三条动画剪辑：Idle 4.00s（呼吸+头漂移+耳抽动+尾巴摆动）、
+ *    Happy 1.67s（低头侧蹭+耳后压+尾巴翘摆）、Blink 0.25s（毛色眼皮扫下闭合）
+ *  - 绑骨细节见 `tools/asset-pipeline/rig_cat_v2.py` 的注释（骨热在这种碎片化网格上必然失败，
+ *    权重是自己算的：点到骨段距离场 × 解剖高度门控 × 空间邻接平滑；
+ *    眼球位置来自 probe_eye_pick.py 的射线拾取视觉核对）
  *
- * 服务端权威契约不变：本组件只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
- * 用户操作仅回传 intent，由宿主调用 mall-pet API 后以 petState/actionResult 回灌。
+ * 职责边界（不变）：只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
+ * 用户操作只回传 intent。契约一个字段都没改。
  */
 
-/** 宠物世界位置（地毯中央；影子等地面元素与其对齐） */
+/**
+ * 宠物模型资源路径（相对 assets/resources/）。
+ *
+ * ⚠️ 注意这里**多了一层重名目录**，不是笔误：glTF 导入后主资源（gltf-scene）的子资源名
+ * 等于文件名本身，所以资源库注册的路径是 `目录/文件名/文件名`。
+ * 从构建产物 `assets/resources/config.json` 的 paths 表实测确认：
+ *     "9": ["models/cat/pet-cat-rigged/pet-cat-rigged", 7, 1]
+ * 写成 `models/cat/pet-cat-rigged` 会直接报
+ * `Bundle resources doesn't contain models/cat/pet-cat-rigged`（已实测踩到）。
+ */
+const PET_MODEL_PATH = 'models/cat/pet-cat-rigged/pet-cat-rigged'
+/** 模型所在目录（剪辑子资源按 `目录/剪辑名` 取） */
+const PET_MODEL_DIR = 'models/cat/pet-cat-rigged'
+/**
+ * 生动脸贴图（独立资产，运行时覆盖到 pet-toon 的 mainTexture）。
+ *
+ * 为什么不直接烘进 GLB 内嵌槽位：上一版 bake_alive.py 用 prVw 私有区块补长 PNG
+ * 后拼接 GLB，数据层自检虽过，但把"脸"和"模型容器"绑死 —— 每次改脸都要重拼 GLB
+ * 并赌一次导入器兼容性（prVw 对 Cocos 导入器始终未在真机验证过）。
+ * 独立贴图走普通资产链路（meta 由构建时 asset-db 自动生成，eye_sprite 即先例），
+ * GLB 保持原样、零导入风险；加载失败时回退 GLB 内嵌 albedo，不会白猫也不会缺猫。
+ * 子资源路径 `.../texture` 的依据：构建产物 config.json 中
+ * `"3": ["textures/eye_sprite/texture", 2, 1]`（image 导入器的 texture 子资源）。
+ */
+const PET_ALIVE_TEX = 'textures/pet-cat-alive/texture'
+/**
+ * 需要用到的剪辑名。缺哪个就跳过哪个 —— 模型会继续迭代（比如 Blink 是后补的），
+ * 不能因为少一条剪辑就让整只猫不出现。
+ */
+const PET_CLIPS = ['Idle', 'Happy', 'Blink']
+/**
+ * 模型缩放：源模型（QQ 宠物风格猫 qqcat-prod.glb，11,525 面）在 Blender 里高 0.8028。
+ * 1.9 倍 → 身高约 1.53，与房间机位标定匹配（用 ?probe=1 复核）。
+ */
+const PET_MODEL_SCALE = 1.9
+/** 宠物身高（世界单位），供构图探针使用；= 模型源高 0.8028 × 缩放 */
+const PET_HEIGHT = 0.8028 * PET_MODEL_SCALE
+/** 宠物站位（地毯中央；与房间里的软影、玩具球对齐） */
 const PET_POS = new Vec3(0, 0, 0.35)
 
 /**
- * 相机机位（视觉重构 v5）。
+ * 相机机位。
  *
- * 主视角：**轻微俯视的 3/4 视角**（相机在角色右前方 22°、仰角 12°）——
- *  - 主光来自左前上方，相机在右前 → 角色左脸受光、右脸落影，体积比正面平光更耐看；
- *  - 参考图式的构图：脚底落在 HUD 之上、头顶留出呼吸空间，角色约占可用舞台高度的 60%。
- * 验收机位（?shot=front / q34）：正面与左前 3/4 近景，用于逐轮截图比对五官与穿模。
+ * 主视角：轻微俯视的 3/4 视角，脚底落在地板上、头顶留出呼吸空间；
+ * 比 v5 后退约 12% 把柜子/盆栽/猫窝/玩具收进画面 —— 一个"住着人"的空间需要生活痕迹。
+ * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
  */
 const CAMERA_SHOT = {
-    // room 机位距离由实测反推：1.38 单位高的角色在 41% 画面高度时距离 4.30，
-    // 目标 58%（舞台高度的 55%~65%）→ 距离收到 3.03，角色高度约 350px / 611px。
-    // 距离按实测像素标定：角色 1.38 单位高，295px/单位 → 距离 2.85 时占画面 67%（偏高），
-    // 收到 3.29 得到约 58%（目标 55%~65%），脚底落在 HUD 按钮之上、耳尖让开对话气泡。
-    room: { pos: [1.165, 1.255, 3.154], target: [0, 0.58, 0.16] },
+    room: { pos: [1.30, 1.36, 3.52], target: [0, 0.60, 0.10] },
+    portrait: { pos: [1.98, 1.48, 5.36], target: [0, 0.56, 0.16] },
     front: { pos: [0, 0.86, 3.25], target: [0, 0.74, 0.20] },
     q34: { pos: [-2.00, 1.00, 2.80], target: [0, 0.76, 0.20] },
 } as const
 
-/** 纯色背景（?plain=1 验收模式：去掉房间与 HUD，只留角色自证轮廓与材质） */
+/** 纯色背景（?plain=1 验收模式：去掉房间，只留角色自证轮廓与材质） */
 const PLAIN_BG = new Color(0xCF, 0xC9, 0xD6, 255)
 
-/** 演示模式（?demo=1）：未接宿主时也能完整展示视觉与动画，用于开发与验收 */
-const DEMO_STATE: PetDisplayState = {
-    name: '糖糖', species: 'CAT', growthStage: 'YOUNG', level: 6, expPercent: 0.62,
-    hp: 92, maxHp: 100, hunger: 58, happiness: 82, energy: 74, cleanliness: 90,
-    status: 'IDLE', speech: '主人，陪我玩一会嘛～', color: '', accessory: 'bell', evolutionStage: 0,
-}
-
-/** 情绪 → 表演参数（耳朵/尾巴/眼睛/嘴） */
-const EMOTION_PROFILE: Record<PetEmotion, { droop: number; mood: number; eye: number; mouth: 'smile' | 'sad' | 'open' }> = {
-    idle: { droop: 0.12, mood: 0.45, eye: 1, mouth: 'smile' },
-    happy: { droop: 0, mood: 1, eye: 1.04, mouth: 'smile' },
-    hungry: { droop: 0.55, mood: 0.22, eye: 0.92, mouth: 'sad' },
-    sad: { droop: 0.8, mood: 0.15, eye: 0.82, mouth: 'sad' },
-    sleepy: { droop: 0.6, mood: 0.25, eye: 0.5, mouth: 'smile' },
-    eat: { droop: 0.1, mood: 0.8, eye: 1, mouth: 'open' },
-    play: { droop: 0, mood: 1, eye: 1.06, mouth: 'open' },
-    clean: { droop: 0.3, mood: 0.6, eye: 0.9, mouth: 'smile' },
-    sleep: { droop: 0.9, mood: 0.1, eye: 0.05, mouth: 'smile' },
-    pet: { droop: 0.05, mood: 0.9, eye: 0.55, mouth: 'smile' },
-    love: { droop: 0, mood: 1, eye: 0.6, mouth: 'smile' },
-}
+/**
+ * 头部世界坐标（特效锚点）。
+ *
+ * 由模型坐标系反推：QQ 猫双眼中点 Blender 坐标约 (-0.025, -0.26, 0.52)
+ * （probe_eye_qq 边界拟合），导出为 glTF（Y 向上）后变成 (-0.025, 0.52, 0.26)，
+ * 乘缩放 1.9：→ (-0.05, 0.99, 0.49)。
+ */
+const HEAD_OFFSET = new Vec3(-0.05, 0.99, 0.49)
 
 @ccclass('PetGameRoot')
 export class PetGameRoot extends Component {
@@ -101,54 +125,48 @@ export class PetGameRoot extends Component {
 
     private kit: PetBuilderKit | null = null
     private world3d: Node | null = null
-    private petNode: Node | null = null
-    private rig: PetRig | null = null
-    /** 只有 CAT 一套模型：桥传其他物种键时一律回落到 CAT（其他物种的造型已删除） */
-    private readonly speciesKey = 'CAT'
     private room: RoomRefs | null = null
     private camera3d: Camera | null = null
     private rootTransform: UITransform | null = null
 
-    private hud: PetHud | null = null
     private effects: PetEffects | null = null
 
-    /** 验收模式（?plain=1）：纯色背景 + 无 HUD + 无房间，只留角色本身 */
-    private plain = false
-    /** 验收机位（?shot=room|front|q34） */
-    private shot = 'room'
-    /** 已加载的 pet-toon 资产（探针与调试用） */
-    private toonAsset: EffectAsset | null = null
+    /** 宠物节点（模型异步加载完成前为 null） */
+    private petNode: Node | null = null
+    private petAnim: SkeletalAnimation | Animation | null = null
+    /** 最近一次下发的状态：模型加载是异步的，到位后要用它补播正确的动画 */
+    private pendingPet: PetDisplayState | null = null
+    /** 0.35~1.0：数值低时把待机动作放慢（喘、没精神），是全片唯一的"状态→动画"映射 */
+    private speedScale = 1
+    private blinkTimer = 3.5
+    private blinkReady = false
 
-    private pet: PetDisplayState | null = null
-    /** 演出锁：非空时暂停 body/head 的逐帧驱动，避免与 tween 演出争抢 */
-    private performance: PetEmotion | null = null
-    private emotion: PetEmotion = 'idle'
-    private petKey = ''
+    private plain = false
+    private shot = 'room'
+    private probing = false
+    /** ?rawmat=1：跳过 pet-toon 材质替换（诊断蒙皮/材质问题用，保留 glTF 原材质） */
+    private rawMat = false
+    private toonAsset: EffectAsset | null = null
+    /** 生动脸贴图（材质前置，加载失败时为 null → 回退 GLB 内嵌 albedo） */
+    private aliveTexture: Texture2D | null = null
 
     private time = 0
-    private blinkTimer = 2.2
-    private blinkPhase: 'open' | 'closing' | 'opening' = 'open'
-    private blinkProgress = 0
-    private lookTimer = 1.6
-    private lookCur = { x: 0, y: 0 }
-    private lookTarget = { x: 0, y: 0 }
-    private idleTimer = 5
-    private zzzTimer = 0
     private roomTime = 0
     private readonly orbSeeds: number[] = []
 
     start(): void {
         const params = new URLSearchParams(window.location.search)
-        // 验收模式（?plain=1）：纯色背景 + 无 HUD + 无房间 —— 用于"只靠轮廓与比例自证"的检查
         this.plain = params.get('plain') === '1'
-        this.shot = params.get('shot') || 'room'
+        this.probing = params.get('probe') === '1'
+        this.shot = params.get('shot')
+            || (window.innerHeight > window.innerWidth ? 'portrait' : 'room')
 
         this.rootTransform = this.node.getComponent(UITransform)
         this.kit = new PetBuilderKit(this.ccRuntime)
+        this.rawMat = params.get('rawmat') === '1'
 
         // 自定义材质（pet-toon）必须先加载：EffectAsset.get 只能查到已加载的资产，
-        // 若在加载完成前构建，所有部件会静默退化成引擎内置材质（外观与工程内 effect 完全不同）。
-        // 因此这里等 effect 就绪（或加载失败）后再构建场景，保证首帧就是正确外观。
+        // 若在加载完成前构建，所有部件会静默退化成引擎内置材质。
         resources.load('effects/pet-toon', EffectAsset, (error, asset) => {
             console.log(`[pet-probe] resources.load pet-toon: err=${error ? String(error) : 'none'} ` +
                 `asset=${asset ? asset.name : 'null'}`)
@@ -159,28 +177,30 @@ export class PetGameRoot extends Component {
             } else {
                 console.warn('[pet-game] pet-toon 加载失败，材质回退为内置材质', error)
             }
-            this.buildScene(params)
+            // 生动脸贴图同为材质前置：configurePetMaterials 是同步换材质，
+            // 贴图必须在此之前就绪，否则首帧先用 GLB 内嵌 albedo、覆盖不生效。
+            resources.load(PET_ALIVE_TEX, Texture2D, (texError, tex) => {
+                if (texError || !tex) {
+                    console.warn('[pet-game] 生动脸贴图加载失败，回退 GLB 内嵌 albedo', texError)
+                } else {
+                    this.aliveTexture = tex
+                    console.log(`[pet-probe] alive texture ready: ${tex.name}`)
+                }
+                this.buildScene(params)
+            })
         })
     }
 
-    /** 资源就绪后的场景构建（与资源加载解耦，便于 Fail-Open） */
     private buildScene(params: URLSearchParams): void {
         this.buildWorld()
-        this.buildStage()
-        this.buildUi()
+        this.buildOverlay()
         this.bindBridge()
-
-        if (params.get('demo') === '1') {
-            // 演示模式支持 ?species=PIG / ?color=pink / ?accessory=bowtie，便于逐种验收造型
-            this.applyPetState({
-                ...DEMO_STATE,
-                species: params.get('species') || DEMO_STATE.species,
-                color: params.get('color') || DEMO_STATE.color,
-                accessory: params.get('accessory') || DEMO_STATE.accessory,
-            })
+        if (!this.plain) {
+            this.buildPetShadow()
+            this.loadPet()
         }
+
         if (this.plain) {
-            // 关闭 UI（连带停止逐帧待机驱动）：画面只剩静态角色，任何"可爱"都必须来自造型本身
             this.node.active = false
         }
         if (params.get('probe') === '1') {
@@ -193,83 +213,293 @@ export class PetGameRoot extends Component {
         this.bridge.send({ source: 'pet-game', type: 'ready' })
     }
 
+    // ---------------- 宠物（外部绑定模型） ----------------
+
     /**
-     * 构图探针（?probe=1）：把角色脚底/头顶投影到屏幕并打印像素高度。
+     * 加载并实例化宠物模型。
      *
-     * 用于验收"角色在画面中占可用舞台高度的 55%~65%"这类硬指标 ——
-     * 依赖目测容易偏差，这里由相机自身给出精确数值。
+     * 注意这是**异步**的：`ready` 会先发给宿主，模型可能稍后才到位。
+     * 因此服务端下发的状态先存进 `pendingPet`，模型就绪后立刻补播正确动画 ——
+     * 否则会出现"猫加载出来了但站着不动"或"低状态还蹦得很欢"。
      */
-    private probeFraming(): void {
-        this.scheduleOnce(() => {
-            const camera = this.camera3d
-            const rig = this.rig
-            if (!camera || !rig) {
-                console.log('[pet-probe] camera or rig missing')
+    private loadPet(): void {
+        resources.load(PET_MODEL_PATH, Prefab, (error, prefab) => {
+            if (error || !prefab) {
+                console.warn('[pet-game] 宠物模型加载失败，场景保持无角色状态', error)
                 return
             }
-            const pos = rig.basePos
-            const foot = camera.worldToScreen(new Vec3(pos.x, 0, pos.z), new Vec3())
-            const top = camera.worldToScreen(new Vec3(pos.x, rig.markers.head.y, pos.z), new Vec3())
-            const screenHeight = screen.windowSize.height
-            const ratio = Math.abs(top.y - foot.y) / screenHeight
-            console.log(`[pet-probe] cam=${camera.node.position.toString()} fov=${camera.fov} ` +
-                `screen=${screenHeight}px footY=${foot.y.toFixed(1)} topY=${top.y.toFixed(1)} ` +
-                `height=${Math.abs(top.y - foot.y).toFixed(1)}px ratio=${(ratio * 100).toFixed(1)}%`)
-        }, 0.8)
+            const node = instantiate(prefab)
+            node.name = 'Pet'
+            node.setScale(PET_MODEL_SCALE, PET_MODEL_SCALE, PET_MODEL_SCALE)
+            node.setPosition(PET_POS)
+            this.world3d!.addChild(node)
+            this.petNode = node
+
+            if (this.probing) {
+                this.dumpTree(node, 0)
+            }
+            if (!this.rawMat) {
+                this.configurePetMaterials(node)
+            }
+
+            // 逐条加载剪辑。
+            // ⚠️ 不能用 `resources.load([多条路径], ...)` —— 它是**全有或全无**：
+            // 只要有一条路径不存在（比如 Blink 还没做出来），整批都失败并报
+            // `Bundle resources doesn't contain .../Blink`，结果整只猫静止不动。已实测踩到。
+            const clipPaths = PET_CLIPS.map(name => `${PET_MODEL_DIR}/${name}`)
+            const loaded: AnimationClip[] = []
+            let remaining = clipPaths.length
+            const settle = (): void => {
+                remaining -= 1
+                if (remaining > 0) {
+                    return
+                }
+                this.attachClips(node, loaded)
+            }
+            for (const path of clipPaths) {
+                resources.load(path, AnimationClip, (clipError, clip) => {
+                    if (clipError || !clip) {
+                        console.warn(`[pet-game] 剪辑缺失（跳过）: ${path}`)
+                    } else {
+                        loaded.push(clip)
+                    }
+                    settle()
+                })
+            }
+        })
     }
 
     /**
-     * 材质探针（?probeMat=1）：逐个打印宠物部件的 pass 数与主色。
+     * 把剪辑挂到宠物根节点上并起播。
      *
-     * 用于定位"某个部件颜色不对"是**属性没写进材质**还是**着色器分支问题** ——
-     * 眼睛/腮红这类小块区域靠肉眼比对颜色很容易误判。
+     * 组件必须挂在 `Pet`（prefab 根）而不是 `CatRig`：剪辑里的轨道路径是
+     * `CatRig/Root/Hips/...`，从根解析才匹配；挂到 CatRig 上会整体少一层，全部绑不上。
      */
+    private attachClips(node: Node, list: AnimationClip[]): void {
+        if (!list.length) {
+            console.warn('[pet-game] 没有任何可用剪辑，宠物保持静止')
+            return
+        }
+        const anim = node.addComponent(SkeletalAnimation)
+        // 用实时骨骼动画：导入的 glTF 剪辑没有烘焙贴图动画，开着会走空分支
+        anim.useBakedAnimation = false
+        anim.clips = list
+        const idle = list.find(c => c.name === 'Idle')
+        if (idle) {
+            anim.defaultClip = idle
+        }
+        console.log(`[pet-probe] pet clips=[${list.map(c => c.name).join(', ')}] ` +
+            `default=${idle ? idle.name : 'null'}`)
+        this.blinkReady = list.some(c => c.name === 'Blink')
+        this.petAnim = anim
+        this.playClip('Idle', true)
+        this.applyStatsToAnimation()
+    }
+
+    /** 打印宠物节点树与各节点组件（?probe=1）—— glTF 导入的层级只能靠实测，不能猜 */
+    private dumpTree(node: Node, depth: number): void {
+        const names: string[] = []
+        for (const c of node.components) {
+            let extra = ''
+            const model = c as unknown as {
+                material?: {
+                    effectAsset?: { name?: string }
+                    getProperty?: (k: string) => unknown
+                }
+                skinningRoot?: unknown
+            }
+            if (model.material && model.material.effectAsset) {
+                extra = ` effect=${model.material.effectAsset.name}`
+                const get = model.material.getProperty
+                if (get) {
+                    // 贴图到底有没有绑上、albedo 是不是被顶到 1 —— 白纸片的两种可能成因
+                    const tex = get.call(model.material, 'mainTexture')
+                    const albedo = get.call(model.material, 'albedo')
+                    const mScale = get.call(model.material, 'albedoScale')
+                    extra += ` tex=${tex ? (tex as { name?: string }).name : 'null'}`
+                    extra += ` albedo=${albedo ? JSON.stringify(albedo) : 'null'}`
+                    extra += ` aScale=${mScale ? JSON.stringify(mScale) : 'null'}`
+                    extra += ` passes=${(model.material as unknown as { passes?: unknown[] }).passes?.length}`
+                }
+            }
+            if (model.skinningRoot) {
+                extra += ' [skinned]'
+            }
+            names.push(c.constructor.name + extra)
+        }
+        console.log(`[pet-probe] ${'  '.repeat(depth)}${node.name} layer=${node.layer} [${names.join('+') || '-'}]`)
+        for (const child of node.children) {
+            this.dumpTree(child, depth + 1)
+        }
+    }
+
+    /**
+     * 把宠物换成**和房间同一套** pet-toon 材质。
+     *
+     * 为什么不沿用 glTF 导入的 `builtin-standard`：
+     * 实测它在场景里渲染成惨白一片、毫无体积，且主光从 78000 降到 20000、环境光 HDR/LDR
+     * 双写清零，画面**几乎没有变化** —— 说明引擎的 PBR 光照在这个 headless 管线下
+     * 没有按预期参与计算（层、可见性、材质技术、贴图绑定都逐一验证过，全部正常：
+     * `albedoTex=...@221a5`、`normalTex=...@3effa` 都绑上了）。
+     * 与其继续调一个我不掌控的管线，不如让宠物和房间共用同一个自研着色器 ——
+     * 光照语言一致、视觉完全统一，而且我完全可控。
+     *
+     * 蒙皮：pet-toon 的顶点着色器走 `CCVertInput(In)`（legacy/input-standard），
+     * 该函数在 `CC_USE_SKINNING` 定义时会套用关节蒙皮，引擎按模型的蒙皮信息自动注入该宏。
+     */
+    private configurePetMaterials(node: Node): void {
+        const visit = (n: Node): void => {
+            for (const comp of n.components) {
+                const renderer = comp as unknown as {
+                    material?: Material
+                    setMaterial?: (mat: Material, index?: number) => void
+                }
+                const src = renderer.material
+                if (!src) {
+                    continue
+                }
+                // albedo 取舍：优先用"生动脸"独立贴图（琥珀眼/粉鼻/腮红烘焙版）；
+                // 它没加载成功时退回 GLB 内嵌 albedo（奶油无脸版），保证永不白板。
+                const embedded = src.getProperty('mainTexture') as Texture2D | null
+                const albedo = this.aliveTexture ?? embedded
+                const toon = new Material()
+                try {
+                    toon.initialize({ effectAsset: this.toonAsset!, technique: 0 })
+                    toon.setProperty('mainColor', new Color(255, 255, 255, 255))
+                    if (albedo) {
+                        toon.setProperty('mainTexture', albedo)
+                    }
+                    // 暗部**深暖灰**（176,158,140）+ 阈值对准可见区间：
+                    // 半兰伯特下正面法线的 ndl∈[0.5,1.0]，阈值低时暗部全落在
+                    // 看不见的背面 —— 可见面被压缩在 20% 动态范围里，调什么都平（已实测）。
+                    // x=0.72/y=0.12：右脸 ndl≈0.52 → lit≈0 → 左亮右暗的大转折。
+                    toon.setProperty('shadeColor', new Color(166, 148, 130, 255))
+                    toon.setProperty('shadeCtrl', new Vec4(0.72, 0.12, 0.16, 0.12))
+                    toon.setProperty('outlineCtrl', new Vec4(0.0035, 0, 0, 0))
+                    toon.setProperty('outlineColor', new Color(120, 102, 94, 255))
+                    // 高光略强略聚（软陶质感，避免"哑光死面"）
+                    toon.setProperty('furCtrl', new Vec4(0.16, 2.0, 0.06, 10.0))
+                    // 主光方向：**左侧强侧光**（-0.85）—— 官方参考图的立体感来自
+                    // "左亮右暗"的大转折；z 分量压低让正面不再均匀受光
+                    toon.setProperty('lightDir', new Vec4(-0.85, 0.30, 0.32, 0.0))
+                    toon.setProperty('fillDir', new Vec4(0.42, -0.18, 0.86, 0.0))
+                    // 补光/轮廓光/底部 AO 加强 + 主光增益 0.88（配合更深的暗部）
+                    toon.setProperty('lightCtrl', new Vec4(0.88, 0.28, 0.14, 0.14))
+                    // ⚠️ mapCtrl 必须放在**所有 setProperty 之后**：实测该引擎的材质
+                    // uniform 在首次绑定后才同步"最后一次写入"的值，先设置的属性
+                    // 会停留在旧值上（表现为参数怎么调渲染都不变，已实测多轮）。
+                    // x=1：贴图部件启用基色采样；y/z/w 是诊断档（uv 直出/定点采样/uniform 直读）
+                    toon.setProperty('mapCtrl', new Vec4(1, 0, 0, 1))
+                    // ⚠️ 必须走 setMaterial 显式替换：模型是异步加载的，首帧可能已经渲过，
+                    // `.material = toon` 赋值不会触发蒙皮网格的渲染侧重绑，
+                    // 实测整组 uniform 落不进渲染（猫渲染成 pet-toon 默认值的白素模）。
+                    renderer.setMaterial!(toon, 0)
+                } catch (error) {
+                    console.warn('[pet-game] 宠物 pet-toon 材质初始化失败，保留原材质', error)
+                    continue
+                }
+                const texBack = toon.getProperty('mainTexture') as Texture2D | null
+                const ctrlBack = toon.getProperty('mapCtrl') as Vec4 | null
+                const lightBack = toon.getProperty('lightCtrl') as Vec4 | null
+                console.log(`[pet-probe] pet material ${n.name}: pet-toon albedoTex=` +
+                    `${texBack ? (texBack as unknown as { uuid?: string }).uuid : 'null'} ` +
+                    `mapCtrl=${ctrlBack ? `${ctrlBack.x},${ctrlBack.y},${ctrlBack.z},${ctrlBack.w}` : 'null'} ` +
+                    `lightCtrl=${lightBack ? `${lightBack.x},${lightBack.y}` : 'null'}`)
+            }
+            for (const child of n.children) {
+                visit(child)
+            }
+        }
+        visit(node)
+    }
+
+    /** 播片：名字不存在时静默回落（模型可能还没带上该剪辑，不能因此崩掉整场） */
+    private playClip(name: string, loop: boolean): void {
+        const anim = this.petAnim
+        if (!anim) {
+            return
+        }
+        const has = anim.clips.some(c => c.name === name)
+        if (!has) {
+            return
+        }
+        const state = anim.getState(name)
+        if (state) {
+            state.speed = this.speedScale
+        }
+        anim.play(name)
+        if (!loop && anim.defaultClip) {
+            // 单次动作播完回到待机
+            this.scheduleOnce(() => this.playClip('Idle', true), anim.getState(name)?.duration ?? 1)
+        }
+    }
+
+    /** 用服务端数值决定待机强度：越虚弱，动作越慢（v1 唯一可用的状态→动画映射） */
+    private applyStatsToAnimation(): void {
+        const pet = this.pendingPet
+        if (!pet) {
+            return
+        }
+        const worst = Math.min(
+            pet.maxHp > 0 ? pet.hp / pet.maxHp : 1,
+            pet.hunger / 100, pet.happiness / 100, pet.energy / 100, pet.cleanliness / 100,
+        )
+        // 0.45(极差) ~ 1.0(健康)：线性但夹住下界，太慢会看起来卡住
+        this.speedScale = Math.max(0.45, Math.min(1, 0.45 + worst * 0.55))
+        const anim = this.petAnim
+        if (anim) {
+            for (const clip of anim.clips) {
+                const state = anim.getState(clip.name)
+                if (state) {
+                    state.speed = this.speedScale
+                }
+            }
+        }
+    }
+
+    private get headWorld(): Vec3 {
+        return new Vec3(PET_POS.x + HEAD_OFFSET.x, HEAD_OFFSET.y, PET_POS.z + HEAD_OFFSET.z)
+    }
+
+    // ---------------- 探针 ----------------
+
+    private probeFraming(): void {
+        this.scheduleOnce(() => {
+            const camera = this.camera3d
+            if (!camera) {
+                console.log('[pet-probe] camera missing')
+                return
+            }
+            const foot = camera.worldToScreen(new Vec3(PET_POS.x, 0, PET_POS.z), new Vec3())
+            const top = camera.worldToScreen(new Vec3(PET_POS.x, PET_HEIGHT, PET_POS.z), new Vec3())
+            const screenHeight = screen.windowSize.height
+            console.log(`[pet-probe] cam=${camera.node.position.toString()} fov=${camera.fov} ` +
+                `screen=${screenHeight}px foot=(${foot.x.toFixed(1)},${foot.y.toFixed(1)}) ` +
+                `top=(${top.x.toFixed(1)},${top.y.toFixed(1)}) ` +
+                `height=${Math.abs(top.y - foot.y).toFixed(1)}px ` +
+                `ratio=${(Math.abs(top.y - foot.y) / screenHeight * 100).toFixed(1)}%`)
+        }, 1.2)
+    }
+
     private probeMaterials(): void {
         this.scheduleOnce(() => {
-            // 运行时读取 pet-toon 的着色器源码：确认构建产物里的 effect 是否是最新版本
             const registry = (EffectAsset as unknown as { getAll?: () => unknown }).getAll?.()
             const list: EffectAsset[] = registry instanceof Map
                 ? Array.from(registry.values() as Iterable<EffectAsset>)
                 : (Array.isArray(registry) ? registry as EffectAsset[] : [])
             console.log(`[pet-probe] loaded effects (${list.length}): ` +
                 list.map(entry => entry && entry.name).join(' | '))
-            const effect = this.toonAsset
-            if (!effect) {
-                console.log('[pet-probe] pet-toon effect NOT FOUND at runtime')
-            } else {
-                const shaders = (effect as unknown as { shaders?: Array<{ glsl?: string; glsl3?: string }> }).shaders
-                console.log(`[pet-probe] pet-toon shaders=${shaders ? shaders.length : 0}`)
-                ;(shaders || []).forEach((shader, index) => {
-                    const source = `${shader.glsl || ''}${shader.glsl3 || ''}`
-                    console.log(`[pet-probe] shader#${index} len=${source.length} ` +
-                        `hasBlush=${source.includes('blushCtrlA')} hasProbe=${source.includes('TEMP-PROBE')}`)
-                })
-            }
             const visit = (node: Node): void => {
-                for (const component of node.components) {
-                    const model = component as unknown as {
+                for (const comp of node.components) {
+                    const model = comp as unknown as {
                         mesh?: unknown
-                        material?: {
-                            getProperty?: (name: string, out: Vec4, passIdx?: number) => Vec4
-                            passes?: unknown[]
-                        }
+                        material?: { passes?: unknown[]; effectAsset?: { name?: string } }
                     }
                     if (!model.mesh || !model.material) {
                         continue
                     }
-                    const out = new Vec4()
-                    let mainColor = 'n/a'
-                    try {
-                        model.material.getProperty!('mainColor', out)
-                        mainColor = `${out.x.toFixed(2)},${out.y.toFixed(2)},${out.z.toFixed(2)}/a${out.w.toFixed(2)}`
-                    } catch (error) {
-                        mainColor = 'unreadable'
-                    }
-                    const passes = model.material.passes ? model.material.passes.length : -1
-                    const effectName = (model.material as unknown as { effectAsset?: { name?: string } })
-                        .effectAsset?.name
-                    console.log(`[pet-probe] mat ${node.name} passes=${passes} effect=${effectName} ` +
-                        `mainColor=${mainColor}`)
+                    console.log(`[pet-probe] mat ${node.name} effect=${model.material.effectAsset?.name} ` +
+                        `passes=${model.material.passes ? model.material.passes.length : -1}`)
                 }
                 for (const child of node.children) {
                     visit(child)
@@ -278,16 +508,36 @@ export class PetGameRoot extends Component {
             if (this.petNode) {
                 visit(this.petNode)
             }
-        }, 1.0)
+        }, 1.5)
     }
 
     update(dt: number): void {
         const step = Math.min(dt, 0.05)
         this.time += step
         this.roomTime += step
-        this.idleDrive(step)
         this.roomAmbience(step)
-        this.hud && this.hud.update(step)
+        this.driveBlink(step)
+    }
+
+    /**
+     * 眨眼：随机间隔触发。
+     * 剪辑存在时才跑（模型重建后可能还没带上 Blink），否则会每几秒白播一次。
+     */
+    private driveBlink(dt: number): void {
+        if (!this.blinkReady || !this.petAnim) {
+            return
+        }
+        this.blinkTimer -= dt
+        if (this.blinkTimer > 0) {
+            return
+        }
+        this.blinkTimer = 2.4 + Math.random() * 3.6
+        const anim = this.petAnim
+        const state = anim.getState('Blink')
+        if (state) {
+            state.speed = 1
+        }
+        anim.play('Blink')
     }
 
     onDestroy(): void {
@@ -296,13 +546,14 @@ export class PetGameRoot extends Component {
 
     // ---------------- 场景构建 ----------------
 
-    /** 3D 世界：房间 + 相机机位（宠物在 buildStage 中按状态构建） */
     private buildWorld(): void {
         const kit = this.kit!
         const scene = this.node.scene
         this.world3d = kit.make3dNode(scene, 'World3D', new Vec3(0, 0, 0))
-        // 验收模式不构建房间：角色在纯色背景上自证轮廓、比例与材质
         this.room = this.plain ? null : buildRoom(this.world3d, kit)
+        if (!this.plain) {
+            this.buildLighting(scene)
+        }
 
         const cameraNode = scene.getChildByName('Main3DCamera')
         this.camera3d = cameraNode ? cameraNode.getComponent(Camera) : null
@@ -310,60 +561,104 @@ export class PetGameRoot extends Component {
             const shot = CAMERA_SHOT[this.shot as keyof typeof CAMERA_SHOT] || CAMERA_SHOT.room
             cameraNode.setPosition(shot.pos[0], shot.pos[1], shot.pos[2])
             cameraNode.lookAt(new Vec3(shot.target[0], shot.target[1], shot.target[2]), new Vec3(0, 1, 0))
-            // 室内暖色兜底背景 / 纯色验收背景
             this.camera3d.clearColor = this.plain ? PLAIN_BG : new Color(0x6E, 0x5A, 0x66, 255)
         }
     }
 
-    /** 宠物本体（皮肤/配饰变化时整体重建；影子固定在房间层）。只有 CAT 一套模型。 */
-    private buildStage(): void {
-        const kit = this.kit!
-        const pet = this.pet
-        const colorKey = pet ? pet.color : undefined
-        const accessory = pet ? pet.accessory : 'none'
-        this.petNode = kit.make3dNode(this.world3d!, 'Pet', PET_POS.clone())
-        this.rig = buildPet(this.petNode, this.world3d!, kit, this.speciesKey,
-            resolvePalette(this.speciesKey, colorKey), accessory || 'none')
+    /**
+     * 场景光照 —— **只服务宠物**。
+     *
+     * 背景：房间里所有部件走自研 `pet-toon`，它自带一套写死的三点光（lightDir/fillDir/lightCtrl），
+     * **完全不依赖引擎光源**，所以场景里一盏灯都没有、环境光也是默认的冷蓝天光。
+     * 但宠物是 Blender 导出的 glTF，带着标准 PBR 材质（贴图 + metallic 0），
+     * 它必须靠引擎光源才出体积 —— 没有灯就渲染成一张白纸片（已实测）。
+     *
+     * 因此这里补一盏平行光，方向**对齐 pet-toon 的主光方向**（来自窗户：左后上），
+     * 让宠物与房间的受光方向一致，不会显得是贴上去的。
+     * 因为 pet-toon 无视引擎光源，这一步对房间**零影响**，不存在回归风险。
+     */
+    private buildLighting(scene: Node): void {
+        // 主光（暖，左前上）：**必须从镜头这一侧来**。
+        // 第一版我按 pet-toon 的 lightDir 把灯放在"窗户那侧"（左后上），结果只照亮了猫的背面，
+        // 镜头看到的正面落在环境光里 → 依旧是一张白纸片。
+        // 根本原因是 pet-toon 有**两盏**：主光（背打）+ 前下方暖色反弹光；
+        // PBR 这边没有反弹光，所以主光必须自己承担"照亮可见面"的职责。
+        const key = new Node('PetKeyLight')
+        key.layer = Layers.Enum.DEFAULT
+        scene.addChild(key)
+        key.setPosition(-3.2, 2.5, 2.3)
+        key.lookAt(new Vec3(0, 0.62, 0.35), new Vec3(0, 1, 0))
+        const keyLight = key.addComponent(DirectionalLight)
+        keyLight.color = new Color(255, 231, 198)
+        // ⚠️ 强度必须压得很低。近白毛色（#F3EEE7 ≈ sRGB 0.95）+ 本工程
+        // `PostSettingsInfo._toneMappingType = 0`（无色调映射）→ 线性值直接 clip，
+        // 78000 lux 会把整只猫顶成纯白、体积全丢（已实测）。2 万左右才留得住明暗。
+        keyLight.illuminance = 34000
+
+        // 补光（冷，右前下）：压住暗部、给一点冷暖对比，对应 pet-toon 的 fillDir
+        const fill = new Node('PetFillLight')
+        fill.layer = Layers.Enum.DEFAULT
+        scene.addChild(fill)
+        fill.setPosition(3.0, 0.9, 2.0)
+        fill.lookAt(new Vec3(0, 0.55, 0.35), new Vec3(0, 1, 0))
+        const fillLight = fill.addComponent(DirectionalLight)
+        fillLight.color = new Color(196, 208, 255)
+        fillLight.illuminance = 7000
+
+        // 环境光：**HDR / LDR 两份字段都要写**。
+        // AmbientInfo 里同时存在 `_skyColorHDR/_skyIllumHDR` 与 `_skyColor/_skyIllum`，
+        // 只写 LDR 那份在 HDR 分支下完全不生效（第一版就是这么栽的：改了环境光毫无变化）。
+        // 默认值是冷蓝天空色拉满（0.2,0.5,0.8 / 20000），会把近白毛色洗成惨白、体积全丢。
+        // ⚠️ HDR 字段在部分引擎形态（preview/源码编译）下是**只读 getter**，直接赋值
+        // 会抛 TypeError 并中断整个 buildScene —— 猫因此不出现（已实测）。
+        // 所以必须可写探测：能用则双写，不能用则 LDR 单写继续走。
+        const ambient = director.getScene()!.globals.ambient
+        const a = ambient as unknown as Record<string, unknown>
+        const skyLDR = new Color(200, 205, 215)
+        const groundLDR = new Color(140, 112, 84)
+        ambient.skyColor = skyLDR
+        ambient.groundAlbedo = groundLDR
+        ambient.skyIllum = 1400
+        const hdrWritable = (() => {
+            const desc = Object.getOwnPropertyDescriptor(a, 'skyColorHDR')
+                ?? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(ambient), 'skyColorHDR')
+            return !desc || desc.set !== undefined
+        })()
+        if (hdrWritable) {
+            a.skyColorHDR = skyLDR
+            a.groundAlbedoHDR = groundLDR
+            a.skyIllumHDR = 1400
+        } else {
+            console.warn('[pet-game] HDR ambient 只读（preview 形态），跳过 HDR 双写')
+        }
+        console.log(`[pet-probe] lighting: key=${keyLight.illuminance} fill=${fillLight.illuminance} ` +
+            `ambLDR=${ambient.skyIllum} ambHDR=${String(a.skyIllumHDR)} hdrWritable=${hdrWritable}`)
     }
 
-    private rebuildPetIfNeeded(pet: PetDisplayState): void {
-        const key = `${pet.color || ''}|${pet.accessory || ''}|${pet.growthStage}|${pet.evolutionStage || 0}`
-        if (key === this.petKey || !this.petNode || !this.world3d) {
-            return
-        }
-        this.petKey = key
-        const hadRig = !!this.rig
-        if (this.petNode) {
-            this.petNode.destroy()
-        }
-        if (this.rig) {
-            this.rig.shadow.destroy()
-        }
-        this.buildStage()
-        if (this.rig) {
-            this.applyEmotion()
-            if (hadRig) {
-                PetAnimations.cheer(this.rig)
-            }
-        }
+    /**
+     * 宠物脚下的接触阴影。
+     *
+     * 场景没开实时阴影（房间各部件靠手工软影补），宠物也必须补一个，
+     * 否则它会"浮"在地毯上。用 kit.decal 的柔边贴花，比贴一张 png 更省资产。
+     */
+    private buildPetShadow(): Node {
+        const root = this.kit!.make3dNode(this.world3d!, 'PetShadow', new Vec3(0, 0, 0))
+        this.kit!.decal(root, 'Blob', [0.62, 0.010, 0.46], {
+            color: new Color(0x6B, 0x4A, 0x33, 255),
+            shade: new Color(0x6B, 0x4A, 0x33, 255),
+            alpha: 82,
+            soft: [0.02, 1.0],
+        }, new Vec3(PET_POS.x, 0.075, PET_POS.z))
+        return root
     }
 
-    // ---------------- 2D UI ----------------
-
-    private buildUi(): void {
-        const size = this.rootTransform ? this.rootTransform.contentSize : null
-        const width = size ? size.width : 960
-        const height = size ? size.height : 548
-        this.hud = new PetHud(this.node, width, height, (intent: string) => this.onHudIntent(intent))
-        this.hud.build()
+    private buildOverlay(): void {
         this.effects = new PetEffects(
             (name: string, x: number, y: number) => this.makeUiNode(name, x, y),
             (world: Vec3) => this.project(world),
         )
-        this.buildHotspot()
     }
 
-    /** UI 层节点工厂（特效层使用） */
     private makeUiNode(name: string, x: number, y: number): Node {
         const node = new Node(name)
         node.layer = Layers.Enum.UI_2D
@@ -373,19 +668,6 @@ export class PetGameRoot extends Component {
         return node
     }
 
-    /** 宠物点击热区（UI 层覆盖宠物显示区域，比 3D 射线拾取跨端更稳） */
-    private buildHotspot(): void {
-        const size = this.rootTransform ? this.rootTransform.contentSize : null
-        const height = size ? size.height : 548
-        const hotspot = this.makeUiNode('pet-hotspot', 0, height * 0.06)
-        hotspot.getComponent(UITransform)!.setContentSize(330, 320)
-        hotspot.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true
-            this.onPetTapped()
-        }, this)
-    }
-
-    /** 世界坐标 → UI 坐标（粒子对齐宠物用） */
     private project(world: Vec3): Vec3 {
         if (!this.camera3d || !this.rootTransform) {
             return new Vec3(0, 0, 0)
@@ -403,135 +685,6 @@ export class PetGameRoot extends Component {
             screenPos.y * scaleY - canvasSize.height / 2,
             0,
         )
-    }
-
-    /** 宠物头顶（世界坐标；爱心/星星/气泡的发射点）—— 锚点由造型层给出，换物种自动适配 */
-    private get headWorld(): Vec3 {
-        const m = this.rig ? this.rig.markers.head : new Vec3(0, 1.72, 0.06)
-        return new Vec3(PET_POS.x + m.x, m.y, PET_POS.z + m.z)
-    }
-
-    /** 宠物嘴边（世界坐标；食物/浮字的落点） */
-    private get mouthWorld(): Vec3 {
-        const m = this.rig ? this.rig.markers.mouth : new Vec3(0, 1.05, 0.34)
-        return new Vec3(PET_POS.x + m.x, m.y, PET_POS.z + m.z)
-    }
-
-    // ---------------- 逐帧生命感 ----------------
-
-    private idleDrive(dt: number): void {
-        const rig = this.rig
-        if (!rig) {
-            return
-        }
-        const profile = EMOTION_PROFILE[this.emotion]
-        const locked = this.performance !== null
-        const sleeping = this.performance === 'sleep'
-
-        // 呼吸：演出锁定时让位给 tween；睡觉时改为极缓慢的腹部起伏
-        if (!locked) {
-            PetAnimations.breathe(rig, this.time, 2.05)
-        } else if (sleeping) {
-            const wave = Math.sin(this.time * 1.1)
-            rig.body.setScale(1.02 + wave * 0.012, 0.99 - wave * 0.012, 1.02)
-        }
-
-        if (!locked) {
-            PetAnimations.tailSway(rig, this.time, profile.mood)
-            PetAnimations.earPose(rig, this.time, profile.droop)
-        } else if (sleeping) {
-            PetAnimations.earPose(rig, this.time, 0.92)
-        }
-        PetAnimations.tuftIdle(rig, this.time)
-
-        this.driveBlink(dt, profile.eye)
-        this.driveLook(dt)
-        this.driveIdleAction(dt)
-
-        if (sleeping) {
-            this.zzzTimer -= dt
-            if (this.zzzTimer <= 0) {
-                this.zzzTimer = 1.5
-                this.effects && this.effects.sleepZ(this.headWorld, Math.floor(this.time) % 2)
-            }
-        }
-    }
-
-    /** 眨眼：随机间隔 + 快速闭合/张开；情绪影响基础开合度（困倦半闭眼） */
-    private driveBlink(dt: number, baseEye: number): void {
-        const rig = this.rig!
-        this.blinkTimer -= dt
-        if (this.blinkPhase === 'open') {
-            PetAnimations.blink(rig, baseEye)
-            if (this.blinkTimer <= 0) {
-                this.blinkPhase = 'closing'
-                this.blinkProgress = 0
-            }
-            return
-        }
-        this.blinkProgress += dt
-        if (this.blinkPhase === 'closing') {
-            const t = Math.min(1, this.blinkProgress / 0.07)
-            PetAnimations.blink(rig, baseEye * (1 - t * 0.94))
-            if (t >= 1) {
-                this.blinkPhase = 'opening'
-                this.blinkProgress = 0
-            }
-            return
-        }
-        const t = Math.min(1, this.blinkProgress / 0.1)
-        PetAnimations.blink(rig, baseEye * (0.06 + t * 0.94))
-        if (t >= 1) {
-            this.blinkPhase = 'open'
-            this.blinkProgress = 0
-            this.blinkTimer = 2.0 + Math.random() * 3.2
-        }
-    }
-
-    /** 视线：周期性看向随机方向，平滑追随（瞳孔偏移，制造"在观察"的感觉） */
-    private driveLook(dt: number): void {
-        const rig = this.rig!
-        this.lookTimer -= dt
-        if (this.lookTimer <= 0) {
-            this.lookTimer = 2.4 + Math.random() * 4.2
-            this.lookTarget = {
-                x: (Math.random() * 2 - 1) * 0.9,
-                y: (Math.random() * 2 - 1) * 0.5,
-            }
-        }
-        const k = Math.min(1, dt * 4)
-        this.lookCur.x += (this.lookTarget.x - this.lookCur.x) * k
-        this.lookCur.y += (this.lookTarget.y - this.lookCur.y) * k
-        PetAnimations.look(rig, this.lookCur.x, this.lookCur.y)
-    }
-
-    /** 待机小动作：每 8-16 秒随机来一个（歪头/抖耳/看肚子/小跳），制造"它自己在动" */
-    private driveIdleAction(dt: number): void {
-        if (this.performance !== null) {
-            return
-        }
-        this.idleTimer -= dt
-        if (this.idleTimer > 0) {
-            return
-        }
-        this.idleTimer = 8 + Math.random() * 8
-        const rig = this.rig!
-        const pick = Math.floor(Math.random() * 4)
-        switch (pick) {
-            case 0:
-                PetAnimations.glance(rig, (Math.random() * 2 - 1) * 26, (Math.random() * 2 - 1) * 10)
-                break
-            case 1:
-                PetAnimations.hop(rig)
-                break
-            case 2:
-                PetAnimations.glance(rig, 0, 18)
-                break
-            default:
-                this.effects && this.effects.sparkle(this.headWorld, 2)
-                PetAnimations.glance(rig, 14, -6)
-                break
-        }
     }
 
     /** 房间氛围：光点上升循环 / 灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
@@ -561,64 +714,11 @@ export class PetGameRoot extends Component {
         const beamScale = 1 + Math.sin(this.roomTime * 0.9) * 0.06
         room.sunBeam.setScale(beamScale, 1, beamScale)
         const toy = room.toyBall
-        toy.setPosition(-1.35 + Math.sin(this.roomTime * 0.6) * 0.1, 0.19 + Math.abs(Math.sin(this.roomTime * 1.4)) * 0.03, 1.05)
-    }
-
-    // ---------------- 情绪 ----------------
-
-    /** 由服务端数值推导基础情绪（交互演出时被 performance 覆盖） */
-    private computeEmotion(): PetEmotion {
-        if (this.performance) {
-            return this.performance
-        }
-        const pet = this.pet
-        if (!pet) {
-            return 'idle'
-        }
-        const hunger = pet.hunger / 100
-        const happiness = pet.happiness / 100
-        const energy = pet.energy / 100
-        const clean = pet.cleanliness / 100
-        if (energy < 0.2) {
-            return 'sleepy'
-        }
-        if (hunger < 0.25) {
-            return 'hungry'
-        }
-        if (happiness < 0.28 || clean < 0.2) {
-            return 'sad'
-        }
-        if (happiness > 0.78) {
-            return 'happy'
-        }
-        return 'idle'
-    }
-
-    private applyEmotion(): void {
-        const rig = this.rig
-        if (!rig) {
-            return
-        }
-        const emotion = this.computeEmotion()
-        this.emotion = emotion
-        const profile = EMOTION_PROFILE[emotion]
-        PetAnimations.setMouth(rig, profile.mouth)
-        PetAnimations.setBlush(rig, emotion === 'happy' || emotion === 'pet' || emotion === 'love' ? 1.25 : 1)
-        if (this.performance === null) {
-            PetAnimations.earPose(rig, this.time, profile.droop)
-        }
-    }
-
-    /** 临时情绪演出（love/eat 等），结束后回到派生情绪 */
-    private withPerformance(emotion: PetEmotion, run: () => void): void {
-        this.performance = emotion
-        this.applyEmotion()
-        run()
-    }
-
-    private endPerformance(): void {
-        this.performance = null
-        this.applyEmotion()
+        toy.setPosition(
+            -1.35 + Math.sin(this.roomTime * 0.6) * 0.1,
+            0.19 + Math.abs(Math.sin(this.roomTime * 1.4)) * 0.03,
+            1.05,
+        )
     }
 
     // ---------------- 桥接 ----------------
@@ -628,229 +728,29 @@ export class PetGameRoot extends Component {
             switch (message.type) {
                 case 'init':
                 case 'petState':
-                    this.applyPetState(message.pet)
+                    this.pendingPet = message.pet
+                    this.applyStatsToAnimation()
                     break
                 case 'actionResult':
-                    this.playActionResult(message.action, message.ok, message.message)
+                    if (message.ok) {
+                        this.playClip('Happy', false)
+                        this.effects && this.effects.sparkle(this.headWorld, 3)
+                    } else {
+                        this.effects && this.effects.floatText(this.headWorld, '呜…', new Color(255, 200, 200, 255))
+                    }
                     break
                 case 'battleRounds':
-                    this.playBattle(message.rounds, message.won)
+                    if (this.effects) {
+                        this.effects.stars(this.headWorld, message.won ? 8 : 3)
+                    }
                     break
                 case 'chatBubble':
-                    this.hud && this.hud.showBubble(message.content, 4.2)
+                    // 气泡属界面层（旧 HUD 已删），新 UI 层落地前先用舞台浮字顶一下
+                    this.effects && this.effects.floatText(this.headWorld, message.content, new Color(255, 250, 240, 255), 20)
                     break
                 default:
                     break
             }
         })
-    }
-
-    /** 应用服务端状态：数值 → HUD 平滑动画；外观变化 → 重建宠物；升级 → 星光演出 */
-    private applyPetState(pet: PetDisplayState): void {
-        const previousLevel = this.pet ? this.pet.level : 0
-        const wasSleeping = this.performance === 'sleep'
-        this.pet = pet
-        this.rebuildPetIfNeeded(pet)
-        this.hud && this.hud.setName(`${pet.name}`)
-        this.hud && this.hud.setLevel(pet.level)
-        this.hud && this.hud.setStatus(this.statusText(pet))
-        this.hud && this.hud.setState('hp', pet.maxHp > 0 ? pet.hp / pet.maxHp : 0)
-        this.hud && this.hud.setState('hunger', pet.hunger / 100)
-        this.hud && this.hud.setState('happiness', pet.happiness / 100)
-        this.hud && this.hud.setState('energy', pet.energy / 100)
-        this.hud && this.hud.setState('cleanliness', pet.cleanliness / 100)
-        this.hud && this.hud.setExp(pet.expPercent)
-
-        if (pet.level > previousLevel && previousLevel > 0 && this.rig) {
-            this.withPerformance('love', () => {
-                PetAnimations.levelUp(this.rig!, () => this.endPerformance())
-                this.effects && this.effects.stars(this.headWorld, 8)
-                this.effects && this.effects.ring(this.headWorld)
-                this.hud && this.hud.showBubble(`我升级啦！现在是 Lv.${pet.level}～`, 4)
-            })
-            this.blinkTimer = 3
-        } else if (pet.speech && !wasSleeping) {
-            this.hud && this.hud.showBubble(pet.speech)
-        } else {
-            this.applyEmotion()
-        }
-
-        // 服务端状态离开休息 → 唤醒
-        if (wasSleeping && pet.status !== 'RESTING') {
-            this.wakeUp()
-        }
-    }
-
-    private statusText(pet: PetDisplayState): string {
-        const label: Record<string, string> = {
-            IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
-        }
-        const stage: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' }
-        const activity = pet.activityName ? ` · ${pet.activityName}` : ''
-        return `${label[pet.status] || '悠闲中'} · ${stage[pet.growthStage] || ''}${activity}`
-    }
-
-    /** 交互结果演出：喂食 / 玩耍 / 清洁 / 休息 / 失败（情绪 + 动画 + 粒子 + 浮字） */
-    private playActionResult(action: string, ok: boolean, message: string | undefined): void {
-        const rig = this.rig
-        if (!rig) {
-            return
-        }
-        if (this.performance === 'sleep' && action !== 'rest') {
-            this.wakeUp()
-        }
-        if (!ok) {
-            this.withPerformance('sad', () => {
-                PetAnimations.hurt(rig, () => this.endPerformance())
-                this.hud && this.hud.showBubble('呜…' + (message || '先看看我的状态吧'))
-            })
-            return
-        }
-        switch (action) {
-            case 'feed':
-                this.playFeedSequence(rig, message)
-                break
-            case 'play':
-                this.withPerformance('play', () => {
-                    this.lookTarget = { x: 0.9, y: 0.4 }
-                    PetAnimations.play(rig, () => {
-                        this.endPerformance()
-                        this.effects && this.effects.hearts(this.headWorld, 2)
-                    })
-                    this.effects && this.effects.stars(this.headWorld, 5, new Color(255, 196, 226, 255))
-                    this.hud && this.hud.showBubble(message || '再来一次！再来一次！')
-                })
-                break
-            case 'clean':
-                this.withPerformance('clean', () => {
-                    PetAnimations.clean(rig, () => this.endPerformance())
-                    this.effects && this.effects.bubbles(this.headWorld, 10)
-                    this.hud && this.hud.showBubble(message || '洗得香喷喷～')
-                })
-                break
-            case 'rest':
-                this.withPerformance('sleep', () => {
-                    PetAnimations.sleepEnter(rig)
-                    this.zzzTimer = 1.2
-                    this.hud && this.hud.showBubble(message || '呼…呼…睡一会儿…', 4)
-                })
-                break
-            default:
-                this.withPerformance('love', () => {
-                    PetAnimations.hop(rig, () => this.endPerformance())
-                    this.effects && this.effects.ring(this.headWorld)
-                })
-                break
-        }
-    }
-
-    /** 喂食完整序列：看向食物 → 食物飞入 → 进食咀嚼 → 爱心与数值反馈 */
-    private playFeedSequence(rig: PetRig, message: string | undefined): void {
-        this.withPerformance('eat', () => {
-            this.lookTarget = { x: -0.6, y: -0.9 }
-            PetAnimations.glance(rig, -10, 22)
-            this.scheduleOnce(() => {
-                this.effects && this.effects.food(this.mouthWorld, '🍖', () => {
-                    if (this.performance !== 'eat') {
-                        return
-                    }
-                    PetAnimations.feed(rig, () => {
-                        this.endPerformance()
-                        this.effects && this.effects.hearts(this.headWorld, 3)
-                        this.effects && this.effects.sparkle(this.mouthWorld, 3)
-                    })
-                    this.scheduleOnce(() => {
-                        if (this.effects) {
-                            this.effects.floatText(this.mouthWorld, message || '饱食度 +30', new Color(255, 226, 168, 255))
-                        }
-                    }, 0.5)
-                })
-            }, 0.45)
-        })
-        this.hud && this.hud.showBubble('哇，是好吃哒！', 2.6)
-    }
-
-    private wakeUp(): void {
-        const rig = this.rig
-        if (!rig) {
-            return
-        }
-        this.performance = null
-        PetAnimations.wakeUp(rig, () => this.applyEmotion())
-        this.applyEmotion()
-    }
-
-    /** 宠物被点击/抚摸：看向用户 → 蹭头享受 → 爱心（Cocos 场景内的点击可直接反馈，不等服务端） */
-    private onPetTapped(): void {
-        const rig = this.rig
-        if (!rig) {
-            return
-        }
-        const sleeping = this.performance === 'sleep'
-        if (sleeping) {
-            this.wakeUp()
-            this.hud && this.hud.showBubble('唔…谁呀…？')
-            this.bridge.send({ source: 'pet-game', type: 'petTapped' })
-            return
-        }
-        this.withPerformance('pet', () => {
-            this.lookTarget = { x: 0, y: 0 }
-            PetAnimations.glance(rig, 0, -8)
-            this.scheduleOnce(() => {
-                if (this.performance !== 'pet') {
-                    return
-                }
-                PetAnimations.petting(rig, () => this.endPerformance())
-                this.effects && this.effects.hearts(this.headWorld, 2)
-            }, 0.3)
-        })
-        const speech = ['嘿嘿，好痒好痒～', '最喜欢主人了！', '再摸一会儿嘛～', '咕噜咕噜…'][Math.floor(Math.random() * 4)]
-        this.hud && this.hud.showBubble(speech, 2.6)
-        this.bridge.send({ source: 'pet-game', type: 'petTapped' })
-    }
-
-    /** HUD 意图：回传宿主（数值/幂等由服务端保证），带即时按钮反馈 */
-    private onHudIntent(intent: string): void {
-        this.bridge.send({ source: 'pet-game', type: 'intent', action: intent as PetIntentAction })
-        this.effects && this.effects.sparkle(this.headWorld, 2)
-    }
-
-    // ---------------- 对战演出（服务端回合流水逐条播放，点击可跳过） ----------------
-
-    private playBattle(rounds: BattleRound[], won: boolean): void {
-        const rig = this.rig
-        if (!rig || rounds.length === 0) {
-            return
-        }
-        const step = (index: number): void => {
-            if (index >= rounds.length) {
-                this.hud && this.hud.showBubble(won ? '⚔️ 大获全胜！' : '💧 惜败了，下次再战！', 4)
-                if (won) {
-                    this.withPerformance('love', () => {
-                        PetAnimations.cheer(this.rig!, () => this.endPerformance())
-                        this.effects && this.effects.stars(this.headWorld, 9)
-                    })
-                } else {
-                    this.withPerformance('sad', () => {
-                        PetAnimations.hurt(this.rig!, () => this.endPerformance())
-                    })
-                }
-                return
-            }
-            const round = rounds[index]
-            const text = round.dodged
-                ? `${round.actorName} 出手被闪开！`
-                : `${round.actorName} 造成 ${round.damage} 伤害${round.critical ? ' 暴击！' : ''}`
-            this.effects && this.effects.floatText(this.headWorld, text, new Color(255, 220, 220, 255), 22)
-            if (this.effects) {
-                if (round.critical) {
-                    this.effects.stars(this.mouthWorld, 4, new Color(255, 140, 140, 255))
-                } else {
-                    this.effects.sparkle(this.mouthWorld, 2)
-                }
-            }
-            this.scheduleOnce(() => step(index + 1), 0.85)
-        }
-        step(0)
     }
 }

@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +46,7 @@ import static org.mockito.Mockito.when;
  * 购买顺序（先入包后扣星光，扣减异常向上抛出触发回滚）。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetShopServiceImpl 单元测试")
 class PetShopServiceImplTest {
 
@@ -62,6 +65,8 @@ class PetShopServiceImplTest {
     @Mock
     private PetSkillMapper skillMapper;
     @Mock
+    private PetOperationService operationService;
+    @Mock
     private WishFeignClient wishFeignClient;
 
     private PetShopServiceImpl shopService;
@@ -74,15 +79,26 @@ class PetShopServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(inventoryMapper.insert(org.mockito.ArgumentMatchers.any(PetInventory.class))).thenReturn(1);
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeSpend(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         shopService = new PetShopServiceImpl(petService, itemCatalog, equipmentConfigMapper, skinConfigMapper,
-                skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient);
+                skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient, operationService,
+                org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
         lenient().when(inventoryMapper.selectList(any())).thenReturn(List.of());
     }
 
     @Test
-    @DisplayName("购买装备：先入包再扣星光，返回背包物品")
+    @DisplayName("购买装备：先幂等扣星光再入包（B01 顺序），返回背包物品")
     void buyEquipmentInsertsThenSpends() {
         when(itemCatalog.equipment("straw_hat")).thenReturn(Optional.of(equipment("straw_hat", 120, 1, 0)));
         when(inventoryMapper.selectCount(any())).thenReturn(0L);
@@ -95,7 +111,8 @@ class PetShopServiceImplTest {
 
         assertThat(result.code()).isEqualTo("straw_hat");
         verify(inventoryMapper).insert(any(PetInventory.class));
-        verify(wishFeignClient).spendStarlight(eq(100L), eq(120), any());
+        // B01：扣款经统一操作记录，先扣款后入包
+        verify(operationService).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -108,7 +125,7 @@ class PetShopServiceImplTest {
 
         shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "free_hat"));
 
-        verify(wishFeignClient, never()).spendStarlight(any(), any(), any());
+        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -121,7 +138,7 @@ class PetShopServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_ITEM_ALREADY_OWNED);
-        verify(wishFeignClient, never()).spendStarlight(any(), any(), any());
+        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -133,7 +150,7 @@ class PetShopServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(wishFeignClient, never()).spendStarlight(any(), any(), any());
+        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

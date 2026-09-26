@@ -31,6 +31,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -51,6 +53,7 @@ import static org.mockito.Mockito.when;
  * 用捕获的流水记录断言"全部落库、outcome 合法"，避免伪断言。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetBottleFishingServiceImpl 单元测试")
 class PetBottleFishingServiceImplTest {
 
@@ -64,6 +67,9 @@ class PetBottleFishingServiceImplTest {
     private PetBottleRecordMapper bottleRecordMapper;
     @Mock
     private PetMapper petMapper;
+    @Mock
+    private PetOperationService operationService;
+    private PetBottleSettlementService settlementService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -91,9 +97,25 @@ class PetBottleFishingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        bottleService = new PetBottleFishingServiceImpl(petService, stateService, activityMapper,
-                bottleRecordMapper, petMapper, wishFeignClient, achievementService, eventProducer,
-                contentProvider, new PetProperties(), statsService, dailyQuestService, intimacyService);
+        com.cloudmart.pet.config.PetProperties properties = new com.cloudmart.pet.config.PetProperties();
+        java.time.Clock fixedClock = java.time.Clock.fixed(java.time.Instant.now(), java.time.ZoneOffset.UTC);
+        com.cloudmart.pet.config.PetClock petClock = new com.cloudmart.pet.config.PetClock(fixedClock, properties);
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
+        org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
+        settlementService = new PetBottleSettlementService(activityMapper, bottleRecordMapper, petMapper,
+                wishFeignClient, achievementService, eventProducer, contentProvider, statsService,
+                stateService, dailyQuestService, intimacyService, operationService,
+                org.mockito.Mockito.mock(PetOutboxService.class), properties, petClock);
+        bottleService = new PetBottleFishingServiceImpl(petService, activityMapper,
+                bottleRecordMapper, petMapper, settlementService, properties, petClock);
         // 无装备/技能时战斗属性 = 宠物基础属性（与改造前成功率口径一致）
         lenient().when(statsService.combatStats(any())).thenAnswer(invocation -> {
             Pet pet = invocation.getArgument(0);
@@ -134,6 +156,8 @@ class PetBottleFishingServiceImplTest {
         fishing.setStatus(PetActivityStatus.IN_PROGRESS.name());
         fishing.setStartedAt(LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(31));
         fishing.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(1));
+        // B11：冻结成功率与种子——结算确定（roll 必成功 → 普通/特殊瓶分支），不依赖真实随机
+        fishing.setSnapshot("{\"rate\":1.0,\"seed\":42}");
         return fishing;
     }
 
@@ -141,11 +165,11 @@ class PetBottleFishingServiceImplTest {
     @DisplayName("成功率公式：base70% + 敏捷×0.5% + 等级×1% + 区域加成(每档1%)，封顶 95%")
     void successRateFormula() {
         // level 6 → 区域 index 1（城市河流）；level 10 → index 2 但被 95% 封顶覆盖
-        assertThat(bottleService.estimateSuccessRate(pet(30, 6)))
+        assertThat(settlementService.estimateSuccessRate(pet(30, 6)))
                 .isEqualTo(0.70 + 30 * 0.005 + 6 * 0.01 + 0.01, within(1e-9));
-        assertThat(bottleService.estimateSuccessRate(pet(100, 100)))
+        assertThat(settlementService.estimateSuccessRate(pet(100, 100)))
                 .isEqualTo(0.95, within(1e-9));
-        assertThat(bottleService.estimateSuccessRate(pet(0, 1)))
+        assertThat(settlementService.estimateSuccessRate(pet(0, 1)))
                 .isEqualTo(0.71, within(1e-9));
     }
 
@@ -155,7 +179,7 @@ class PetBottleFishingServiceImplTest {
         // 直接验证分布：大量 roll 全部落在四档内
         java.util.Set<PetBottleRarity> seen = new java.util.HashSet<>();
         for (int i = 0; i < 500; i++) {
-            seen.add(bottleService.rollRarity());
+            seen.add(settlementService.rollRarity(new java.util.Random(1000L + i * 7919L)));
         }
         // 500 次采样，普通/稀有/宠物/彩蛋四档几乎必然全部出现（彩蛋 4% → P(缺)≈(0.96)^500≈1.3e-9）
         org.assertj.core.api.Assertions.assertThat(seen)
@@ -181,12 +205,13 @@ class PetBottleFishingServiceImplTest {
         when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(11L));
         when(activityMapper.update(any(), any())).thenReturn(1);
         // roll 为随机（成功率 ~95%）：CAUGHT 分支才走 Feign，故用 lenient 避免偶发未使用告警
-        lenient().when(wishFeignClient.fishForPet()).thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
+        lenient().when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
                 555L, "PICKED", "PICKED", "你好呀", null, null)));
         // 随机抽中罕见瓶（RARE/PET/EASTER_EGG，~5%）时 specialContent 取自 provider，mock 需兜底非空
         lenient().when(contentProvider.pick(any(PetBottleRarity.class))).thenReturn("来自远海的悄悄话…");
 
-        bottleService.settle(100L);
+        // B11：结算按 (pet, activity) 直接进入处理器（快照冻结种子，结果确定）
+        settlementService.settleActivity(p, inProgressFishing(11L));
 
         ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
         verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
@@ -212,7 +237,7 @@ class PetBottleFishingServiceImplTest {
         Pet p = pet(100, 100);
         when(petService.requireOwnedPet(100L)).thenReturn(p);
         lenient().when(stateService.grantExp(any(Pet.class), any(Integer.class))).thenReturn(0);
-        when(wishFeignClient.fishForPet())
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new BusinessException("WISH_SERVICE_UNAVAILABLE", "降级"));
         when(activityMapper.update(any(), any())).thenReturn(1);
 
@@ -220,7 +245,7 @@ class PetBottleFishingServiceImplTest {
         for (int attempt = 0; attempt < 500 && !reachedFeign; attempt++) {
             final long id = 100L + attempt;
             when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(id));
-            bottleService.settle(100L);
+            settlementService.settleActivity(p, inProgressFishing(id));
             ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
             verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
             reachedFeign = captor.getAllValues().stream()

@@ -242,6 +242,11 @@ export function getHotSearches(limit = 10) {
   return request.get<ApiResponse<string[]>>('/community/search/hot', { params: { limit } })
 }
 
+/** 标签名解析为 tagIds（不存在则创建，幂等；发布帖子的标签链路） */
+export function resolveTagsByName(names: string[]) {
+  return request.post<ApiResponse<Array<{ id: number; name: string }>>>('/community/tags/resolve', { names })
+}
+
 export function getHotTopics() {
   return request.get<ApiResponse<HotTopic[]>>('/community/tags/hot')
 }

@@ -8,7 +8,23 @@
 //     不再用色块拼接制造生硬边界；
 //  4) 新增"柔和贴花"（decalCtrl）：径向 alpha 衰减 + 平涂色，
 //     用于腮红（柔和椭圆渐变）、眼球高光（贴面不凸出）、脚底接触阴影（软边）；
-//  5) 主体高光放宽（specSharp 可低至 6）：弱而宽的高光避免塑料感。
+// 5) 主体高光放宽（specSharp 可低至 6）：弱而宽的高光避免塑料感。
+//
+// —— v6「生动化」改造（造型/房间评审：3D 看上去不生动）——
+// 实测结论：不生动的根因不是造型精度，而是**全场没有光的方向叙事**。场景里没有实时光源、
+// 阴影关闭，房间与宠物共用本 effect，而本 effect 的三点光是**固定常数**，于是所有物体
+// 各自被同一套与空间无关的光照亮一遍 —— 物体之间没有"光的关系"（不投影、不遮挡、窗光不落地），
+// 画面读作一堆贴纸叠在一起。另外主光几乎是**垂直向上**的（lightDir.y = 0.74），
+// 配合半兰伯特曲线，导致地板（ndl 0.87）与正对镜头的墙（ndl 0.76）几乎同样亮 → 两者明度只差 3%。
+// 三处修改：
+//   a) 主光改为**来自窗户方向**（-x, +y, -z）：光有明确来源，地板落在全亮区、正对镜头的墙落入暗部，
+//      空间立刻出现"亮地面 / 中调墙 / 暗角"的明度阶梯；
+//   b) 补光（fillDir）从"冷蓝背光"改为**暖色地板反弹光**（+z 前下方）：主光背打之后，
+//      朝镜头的面靠暖色反弹补回可读性 —— 这也是真实室内光的物理路径（窗光 → 地板 → 反弹）；
+//   c) 暗部色（shadeColor）由冷紫灰改为**暖灰棕**、底部环境遮蔽加强（lightCtrl.y 0.16 → 0.26）：
+//      暖色空间里的冷调暗部会发脏，暖调暗部才像阴影。
+// 连带：`PetRoomBuilder` 的调色板按**相对亮度阶梯**重排（地板 > 地毯 > 墙 > 家具 > 墙暗部），
+// 因为 v5 的墙与地板亮度只差 3%，打光再准也拉不开层次。
 //
 // 零外部资产：纯文本 effect，随工程构建打包；运行时 EffectAsset.get('pet-toon') 取用。
 
@@ -33,25 +49,36 @@ CCEffect %{
       depthStencilState: { depthTest: true, depthWrite: true }
       properties: &props
         mainColor:  { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
-        # 暗部色（JS 侧由主色推导下发；保持暖灰紫，不发黑）
-        shadeColor: { value: [0.70, 0.66, 0.72, 1.0], linear: true, editor: { type: color } }
+        # 基色贴图（外部绑定模型用；纯色程序化部件不采样，见 mapCtrl.x）
+        # `editor.type: texture` 必须显式写：不写的话属性不会被登记成纹理类型，
+        # 运行时 setProperty 绑上去也不生效，采样恒为内置白色占位图（已实测）。
+        mainTexture: { value: white, editor: { type: texture } }
+        # x: 是否用 mainTexture 调制基色（0 = 纯色部件 / 1 = 贴图部件）
+        # 为什么要这个开关：房间的程序化部件（PetBuilderKit 生成）没有真实 UV，
+        # v_uv 被拿去存"到中心的归一化径向距离"（柔和贴花用），采样它会得到垃圾。
+        mapCtrl:    { value: [0.0, 0.0, 0.0, 0.0] }
+        # 暖灰棕暗部（v5 是冷紫灰 (0.70,0.66,0.72) —— 暖色空间里的冷调暗部会"发脏"）
+        shadeColor: { value: [0.62, 0.54, 0.47, 1.0], linear: true, editor: { type: color } }
         # 色区柔化：在曲面上把 mainColor 渐变为 mixColor（肚皮/口鼻的明度区分）
         mixColor:   { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
         # x: y 上界（此处不混合） y: y 下界（此处完全混合） z: 前向权重 w: 混合强度
         mixCtrl:    { value: [0.0, 1.0, 0.0, 0.0] }
-        # 世界空间光照方向（左前上方的柔和暖主光）
-        lightDir:   { value: [-0.42, 0.74, 0.52, 0.0] }
-        # 冷色补光方向（右后下方，填充暗部）
-        fillDir:    { value: [0.58, 0.12, -0.62, 0.0] }
+        # 主光方向：**来自窗户**（左后上方，-z 指向窗）。光有来源 = 空间有方向感。
+        # v5 这条是 (-0.42, 0.74, 0.52)，几乎垂直向上且来自镜头一侧 —— 地板与正对镜头的墙
+        # 因此几乎同样亮（ndl 0.87 vs 0.76），画面陷进一条 3% 宽的明度带，这是"塑料感"的主因。
+        lightDir:   { value: [-0.46, 0.56, -0.69, 0.0] }
+        # 暖色地板反弹光（前下方）：主光背打后，朝镜头的面靠反弹光补回可读性。
+        # 这是真实室内光的物理路径（窗光 → 地板 → 反弹），也是暗部不脏的关键。
+        fillDir:    { value: [0.26, -0.16, 0.95, 0.0] }
         # 背光方向（后上方，让耳朵与头部轮廓从背景中分离）
-        backDir:    { value: [0.24, 0.46, -0.86, 0.0] }
+        backDir:    { value: [0.72, 0.34, -0.61, 0.0] }
         # x: 主光增益 y: 底部环境遮蔽 z: 补光强度 w: 背光强度
-        lightCtrl:  { value: [1.0, 0.16, 0.18, 0.14] }
+        lightCtrl:  { value: [1.02, 0.26, 0.14, 0.16] }
         # x: 明暗阈值 y: 羽化宽度 z: 轮廓光强度 w: 顶部天光强度
-        shadeCtrl:  { value: [0.54, 0.26, 0.12, 0.10] }
-        rimColor:   { value: [1.0, 0.96, 0.90, 1.0], linear: true, editor: { type: color } }
-        # 冷色补光颜色（暗部偏冷，形成冷暖对比）
-        fillColor:  { value: [0.74, 0.82, 0.98, 1.0], linear: true, editor: { type: color } }
+        shadeCtrl:  { value: [0.52, 0.20, 0.14, 0.10] }
+        rimColor:   { value: [1.0, 0.91, 0.76, 1.0], linear: true, editor: { type: color } }
+        # 暖色反弹光颜色（v5 是冷蓝 (0.74,0.82,0.98)）
+        fillColor:  { value: [1.0, 0.87, 0.72, 1.0], linear: true, editor: { type: color } }
         # 绒光颜色（毛绒边缘散射：偏白暖色）
         furColor:   { value: [1.0, 0.98, 0.95, 1.0], linear: true, editor: { type: color } }
         # x: 绒光强度 y: 绒光锐度 z: 高光强度 w: 高光锐度（越小高光越宽）
@@ -82,16 +109,24 @@ CCEffect %{
           blendDstAlpha: one_minus_src_alpha
       properties:
         mainColor:  { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
-        shadeColor: { value: [0.70, 0.66, 0.72, 1.0], linear: true, editor: { type: color } }
+        # 基色贴图（外部绑定模型用；纯色程序化部件不采样，见 mapCtrl.x）
+        # `editor.type: texture` 必须显式写：不写的话属性不会被登记成纹理类型，
+        # 运行时 setProperty 绑上去也不生效，采样恒为内置白色占位图（已实测）。
+        mainTexture: { value: white, editor: { type: texture } }
+        # x: 是否用 mainTexture 调制基色（0 = 纯色部件 / 1 = 贴图部件）
+        # 为什么要这个开关：房间的程序化部件（PetBuilderKit 生成）没有真实 UV，
+        # v_uv 被拿去存"到中心的归一化径向距离"（柔和贴花用），采样它会得到垃圾。
+        mapCtrl:    { value: [0.0, 0.0, 0.0, 0.0] }
+        shadeColor: { value: [0.62, 0.54, 0.47, 1.0], linear: true, editor: { type: color } }
         mixColor:   { value: [1.0, 1.0, 1.0, 1.0],  linear: true, editor: { type: color } }
         mixCtrl:    { value: [0.0, 1.0, 0.0, 0.0] }
-        lightDir:   { value: [-0.42, 0.74, 0.52, 0.0] }
-        fillDir:    { value: [0.58, 0.12, -0.62, 0.0] }
-        backDir:    { value: [0.24, 0.46, -0.86, 0.0] }
-        lightCtrl:  { value: [1.0, 0.16, 0.18, 0.14] }
-        shadeCtrl:  { value: [0.54, 0.26, 0.12, 0.10] }
-        rimColor:   { value: [1.0, 0.96, 0.90, 1.0], linear: true, editor: { type: color } }
-        fillColor:  { value: [0.74, 0.82, 0.98, 1.0], linear: true, editor: { type: color } }
+        lightDir:   { value: [-0.46, 0.56, -0.69, 0.0] }
+        fillDir:    { value: [0.26, -0.16, 0.95, 0.0] }
+        backDir:    { value: [0.72, 0.34, -0.61, 0.0] }
+        lightCtrl:  { value: [1.02, 0.26, 0.14, 0.16] }
+        shadeCtrl:  { value: [0.52, 0.20, 0.14, 0.10] }
+        rimColor:   { value: [1.0, 0.91, 0.76, 1.0], linear: true, editor: { type: color } }
+        fillColor:  { value: [1.0, 0.87, 0.72, 1.0], linear: true, editor: { type: color } }
         furColor:   { value: [1.0, 0.98, 0.95, 1.0], linear: true, editor: { type: color } }
         furCtrl:    { value: [0.14, 2.0, 0.05, 8.0] }
         decalCtrl:  { value: [0.0, 0.0, 0.0, 0.0] }
@@ -150,6 +185,7 @@ CCProgram pet-toon-fs %{
     vec4 shadeColor;
     vec4 mixColor;
     vec4 mixCtrl;
+    vec4 mapCtrl;
     vec4 lightDir;
     vec4 fillDir;
     vec4 backDir;
@@ -165,9 +201,16 @@ CCProgram pet-toon-fs %{
     vec4 blushCtrlB;
   };
 
+  uniform sampler2D mainTexture;
+
   vec4 frag () {
     vec3 n = normalize(v_worldNormal);
     vec3 v = normalize(cc_cameraPos.xyz - v_worldPos);
+
+    // 诊断第 4 档：绕过全部光照直接输出贴图采样 —— 判定"贴图内容 vs 采样坐标"的最终依据
+    if (mapCtrl.w > 0.5) {
+      return CCFragOutput(vec4(texture(mainTexture, v_uv).rgb, 1.0));
+    }
 
     // 柔和贴花：径向 alpha 衰减（贴花几何把归一化径向距离写在 uv.x）
     float radial = 1.0;
@@ -189,6 +232,25 @@ CCProgram pet-toon-fs %{
     float lit = smoothstep(shadeCtrl.x - shadeCtrl.y, shadeCtrl.x + shadeCtrl.y, ndl);
 
     vec3 base = mainColor.rgb;
+    // 贴图部件（外部绑定的 glTF 模型）：基色由贴图调制。
+    // 这样同一个 effect 既画纯色程序化房间，也画贴图模型，两者的光照语言完全一致。
+    // mapCtrl.y 是诊断开关：把 uv 直接画成红绿 —— 用来区分"贴图没绑上"和"uv 是空的"，
+    // 这两种情况在画面上都是"没贴图"，但修法完全不同。
+    if (mapCtrl.x > 0.5) {
+      if (mapCtrl.y > 0.5) {
+        base = vec3(v_uv, 0.5);
+      } else if (mapCtrl.z > 0.5) {
+        // 诊断：定点采样 (0.5,0.5) —— 整只猫应变成贴图中心点的颜色；
+        // 若仍是白 = 采样器绑定问题（材质里的贴图没进 GPU 描述符）
+        base = texture(mainTexture, vec2(0.5, 0.5)).rgb * 2.0;
+      } else if (mapCtrl.w > 0.5) {
+        // 诊断：uniform 直读 —— 应显示 (lightCtrl.x, shadeCtrl.x, shadeColor.r)×0.8
+        // = (0.66, 0.40, 0.58) 紫灰色；若是奶油白 = uniform 没进 GPU
+        base = vec3(lightCtrl.x, shadeCtrl.x, shadeColor.r) * 0.8;
+      } else {
+        base *= texture(mainTexture, v_uv).rgb;
+      }
+    }
     // 色区柔化：由下向上消退、并按**表面朝向**退回主色（肚皮 / 内耳 / 口鼻的柔和色区）
     // 朝向用物体空间法线而不是归一化位置：薄片状形体（耳）用位置会因横向分量过大而被摊薄。
     if (mixCtrl.w > 0.001) {
@@ -197,7 +259,10 @@ CCProgram pet-toon-fs %{
       base = mix(base, mixColor.rgb, clamp(ty * tz * mixCtrl.w, 0.0, 1.0));
     }
 
-    vec3 col = mix(shadeColor.rgb, base, lit) * lightCtrl.x;
+    // 暗部必须**乘上 base**（带贴图的暗部）：主光来自窗侧（背后），朝镜头的面 lit≈0，
+    // 如果暗部是纯 shadeColor，贴图模型的正面细节会被整个抹掉（实测猫前脸变成一块
+    // 无细节的暖灰）。房间部件 base=白，乘法后与原公式完全等价，零回归。
+    vec3 col = mix(shadeColor.rgb * base, base, lit) * lightCtrl.x;
     // 顶部天光提亮（圆润形体的上亮下暗）
     col += base * clamp(n.y, 0.0, 1.0) * shadeCtrl.w;
     // 冷色补光：填充暗部，避免死黑（冷暖对比让体积更耐看）

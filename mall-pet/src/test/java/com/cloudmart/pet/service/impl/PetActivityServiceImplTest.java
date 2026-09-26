@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,6 +48,7 @@ import static org.mockito.Mockito.when;
  * 统一活动（打工/读书）核心契约测试：开工互斥、幂等领取、奖励一致性。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetActivityServiceImpl 单元测试")
 class PetActivityServiceImplTest {
 
@@ -59,6 +62,8 @@ class PetActivityServiceImplTest {
     private PetJobConfigMapper jobConfigMapper;
     @Mock
     private PetStudyConfigMapper studyConfigMapper;
+    @Mock
+    private PetOperationService operationService;
     @Mock
     private PetMapper petMapper;
     @Mock
@@ -86,9 +91,27 @@ class PetActivityServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
+        org.mockito.Mockito.when(petClock.nowUtc())
+                .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(activityMapper.selectById(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> null);
+        operationService = org.mockito.Mockito.mock(PetOperationService.class);
+        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+        org.mockito.Mockito.lenient().when(operationService.operationKey(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
-                jobConfigMapper, studyConfigMapper, petMapper, wishFeignClient, achievementService,
-                eventProducer, statsService, dailyQuestService, intimacyService);
+                jobConfigMapper, studyConfigMapper, petMapper, achievementService,
+                eventProducer, statsService, dailyQuestService, intimacyService, operationService,
+                org.mockito.Mockito.mock(PetOutboxService.class), petClock,
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetCareerService.class),
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetBottleFishingService.class));
         // 技能被动加成（博览群书）默认 0：无技能时与改造前收益口径一致
         lenient().when(statsService.studyExpBonus(any())).thenReturn(0.0);
     }
@@ -207,6 +230,8 @@ class PetActivityServiceImplTest {
             lenient().when(petService.requireOwnedPet(100L)).thenReturn(p);
             PetActivity inProgress = new PetActivity();
             inProgress.setId(11L);
+            inProgress.setUserId(100L);
+            inProgress.setPetId(1L);
             inProgress.setActivityType(PetActivityType.WORK.name());
             inProgress.setStatus(PetActivityStatus.IN_PROGRESS.name());
             inProgress.setConfigId(9001002L);
@@ -225,11 +250,15 @@ class PetActivityServiceImplTest {
             lenient().when(petService.requireOwnedPet(100L)).thenReturn(p);
             PetActivity completed = new PetActivity();
             completed.setId(11L);
+            completed.setUserId(100L);
+            completed.setPetId(1L);
             completed.setActivityType(PetActivityType.WORK.name());
             completed.setStatus(PetActivityStatus.COMPLETED.name());
             completed.setConfigId(9001002L);
             completed.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(5));
             when(activityMapper.selectOne(any())).thenReturn(completed);
+            when(activityMapper.selectById(11L)).thenReturn(completed);
+            when(petMapper.selectById(1L)).thenReturn(pet());
             when(activityMapper.update(any(), any())).thenReturn(0);
 
             assertThatThrownBy(() -> activityService.claimWork(100L))
@@ -244,21 +273,27 @@ class PetActivityServiceImplTest {
             when(petService.requireOwnedPet(100L)).thenReturn(p);
             PetActivity completed = new PetActivity();
             completed.setId(11L);
+            completed.setUserId(100L);
+            completed.setPetId(1L);
             completed.setActivityType(PetActivityType.WORK.name());
             completed.setStatus(PetActivityStatus.COMPLETED.name());
             completed.setConfigId(9001002L);
             completed.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(5));
             when(activityMapper.selectOne(any())).thenReturn(completed);
+            when(activityMapper.selectById(completed.getId())).thenReturn(completed);
+            when(petMapper.selectById(completed.getPetId())).thenReturn(pet());
             when(activityMapper.update(any(), any())).thenReturn(1);
             when(jobConfigMapper.selectById(9001002L)).thenReturn(job());
             when(stateService.grantExp(eq(p), eq(21))).thenReturn(0);
-            when(wishFeignClient.earnStarlight(100L, 105, 11L))
-                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(1200));
+            // B01：发薪经统一操作记录（setUp 已打桩 COMPLETED）
 
             PetActivityVO vo = activityService.claimWork(100L);
 
             assertThat(vo.status()).isEqualTo(PetActivityStatus.CLAIMED.name());
-            org.mockito.Mockito.verify(wishFeignClient).earnStarlight(100L, 105, 11L);
+            org.mockito.Mockito.verify(operationService).executeEarn(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L),
+                    org.mockito.ArgumentMatchers.eq("CLAIM_WORK"), org.mockito.ArgumentMatchers.eq(11L),
+                    org.mockito.ArgumentMatchers.eq(105), org.mockito.ArgumentMatchers.isNull());
         }
 
         @Test

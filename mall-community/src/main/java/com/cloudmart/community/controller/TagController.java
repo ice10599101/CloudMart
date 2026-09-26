@@ -45,6 +45,23 @@ public class TagController {
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
 
+    /**
+     * 按名称解析标签（不存在则创建，幂等）。
+     * 发布帖子时用户输入的是标签名，后端 CreatePostRequest 接收 tagIds，
+     * 三端发布前先经此接口把标签名解析为 tagIds。
+     */
+    @PostMapping("/resolve")
+    @Operation(summary = "解析标签", description = "按名称解析标签，不存在则创建（幂等）；返回顺序与输入去重后一致")
+    public ApiResponse<List<TagVO>> resolveTags(
+            @RequestBody ResolveTagsRequest request) {
+        List<TagVO> tags = tagService.resolveTags(request.names());
+        return ApiResponse.ok(tags);
+    }
+
+    /** 标签名解析请求体 */
+    public record ResolveTagsRequest(List<String> names) {
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "标签详情", description = "根据ID获取标签信息")
     public ApiResponse<TagVO> getTagById(

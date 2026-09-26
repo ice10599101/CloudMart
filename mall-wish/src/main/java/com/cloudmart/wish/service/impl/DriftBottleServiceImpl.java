@@ -159,6 +159,53 @@ public class DriftBottleServiceImpl implements DriftBottleService {
 
     @Override
     @Transactional
+    public DriftBottleVO fishBottleForPet(Long userId, String requestId) {
+        if (requestId == null || requestId.isBlank()) {
+            return fishBottle(userId);
+        }
+        // 幂等重放（B11）：同一请求标识已经成功抢到瓶子，直接返回原结果
+        DriftBottleFishLog existing = fishLogMapper.selectOne(new LambdaQueryWrapper<DriftBottleFishLog>()
+                .eq(DriftBottleFishLog::getRequestId, requestId)
+                .isNotNull(DriftBottleFishLog::getBottleId)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            DriftBottle bottle = bottleMapper.selectById(existing.getBottleId());
+            if (bottle != null) {
+                List<DriftBottle> bottles = List.of(bottle);
+                return toVo(bottle, bottle.getStatus().name(), countComments(bottles),
+                        fetchUserInfo(bottleParticipantIds(bottles)));
+            }
+        }
+        DriftBottleVO grabbed = fishBottle(userId);
+        if (grabbed != null) {
+            // 补记请求标识，保证重试/超时重放命中同一结果；
+            // 并发同标识双打时唯一键冲突 → 本事务回滚（抢瓶一并撤销）→ 重放返回原结果
+            try {
+                fishLogMapper.update(null, new LambdaUpdateWrapper<DriftBottleFishLog>()
+                        .set(DriftBottleFishLog::getRequestId, requestId)
+                        .eq(DriftBottleFishLog::getUserId, userId)
+                        .eq(DriftBottleFishLog::getBottleId, grabbed.bottleId())
+                        .isNull(DriftBottleFishLog::getRequestId));
+            } catch (DuplicateKeyException concurrent) {
+                DriftBottleFishLog winner = fishLogMapper.selectOne(new LambdaQueryWrapper<DriftBottleFishLog>()
+                        .eq(DriftBottleFishLog::getRequestId, requestId)
+                        .isNotNull(DriftBottleFishLog::getBottleId)
+                        .last("LIMIT 1"));
+                if (winner != null && winner.getBottleId() != null) {
+                    DriftBottle bottle = bottleMapper.selectById(winner.getBottleId());
+                    if (bottle != null) {
+                        List<DriftBottle> bottles = List.of(bottle);
+                        return toVo(bottle, bottle.getStatus().name(), countComments(bottles),
+                                fetchUserInfo(bottleParticipantIds(bottles)));
+                    }
+                }
+            }
+        }
+        return grabbed;
+    }
+
+    @Override
+    @Transactional
     public DriftBottleVO fishBottle(Long userId) {
         LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
         if (countFishSince(userId, todayStart) >= DAILY_FISH_LIMIT) {
