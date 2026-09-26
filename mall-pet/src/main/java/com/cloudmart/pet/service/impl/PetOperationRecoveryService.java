@@ -57,10 +57,10 @@ public class PetOperationRecoveryService {
         }
     }
 
-    /** 管理员立即重试单笔（B21）：沿用同一 operationId，幂等 */
+    /** 管理员立即重试单笔（B21）：沿用同一 operationId，跳过自动重试上限强制执行，幂等 */
     public void retrySingle(PetOperation operation) {
         try {
-            recoverOne(operation);
+            recoverOne(operation, true);
         } catch (Exception e) {
             log.error("管理员重试失败, operationId={}", operation.getOperationId(), e);
             scheduleRetry(operation, "管理员重试失败: " + e.getMessage());
@@ -72,7 +72,7 @@ public class PetOperationRecoveryService {
         List<PetOperation> operations = operationStore.listRecoverable(BATCH_SIZE);
         for (PetOperation operation : operations) {
             try {
-                recoverOne(operation);
+                recoverOne(operation, false);
             } catch (Exception e) {
                 log.error("操作恢复失败（下一轮退避重试）, operationId={}, bizType={}",
                         operation.getOperationId(), operation.getBizType(), e);
@@ -81,14 +81,14 @@ public class PetOperationRecoveryService {
         }
     }
 
-    private void recoverOne(PetOperation operation) {
+    private void recoverOne(PetOperation operation, boolean force) {
         PetWalletOperationVO walletResult = operationService.queryWallet(operation.getOperationId());
         if (walletResult != null && "COMPLETED".equals(walletResult.status())) {
             settleWithWalletResult(operation, walletResult);
             return;
         }
-        if (operation.getRetryCount() != null && operation.getRetryCount() >= MAX_AUTO_RETRY) {
-            // 保持 UNKNOWN + 长退避：状态可查询，管理员可经 B21 接口按原单重试
+        if (!force && operation.getRetryCount() != null && operation.getRetryCount() >= MAX_AUTO_RETRY) {
+            // 保持 UNKNOWN + 长退避：状态可查询，管理员可经 B21 接口按原单强制重试
             scheduleRetry(operation, null);
             log.warn("操作超过自动重试上限，等待人工处理, operationId={}, retryCount={}",
                     operation.getOperationId(), operation.getRetryCount());
@@ -134,6 +134,18 @@ public class PetOperationRecoveryService {
                             operation.getBizRefId(), operation.getOperationId()).data()
                     : wishFeignClient.earnStarlightIdempotent(operation.getUserId(), operation.getAmount(),
                             operation.getBizRefId(), operation.getOperationId()).data());
+            if ("SPEND".equals(operation.getDirection())) {
+                // B01：SPEND 重试成功后同样要补投递本地效果（扣款不入包是严重不一致）
+                com.cloudmart.pet.service.PetOperationRecoverable recoverable =
+                        recoverablesByBizType.get(operation.getBizType());
+                boolean applied = recoverable != null && recoverable.completePendingOperation(operation);
+                if (applied) {
+                    operationStore.markRetry(operation, "COMPLETED", PetJsonUtils.toJson(result), null, null);
+                } else {
+                    compensate(operation);
+                }
+                return;
+            }
             operationStore.markRetry(operation, "COMPLETED", PetJsonUtils.toJson(result), null, null);
         } catch (com.cloudmart.common.exception.BusinessException e) {
             // 明确失败（余额不足/内容冲突）：终态 FAILED，不再重试

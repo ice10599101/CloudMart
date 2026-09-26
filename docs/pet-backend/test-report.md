@@ -36,6 +36,21 @@ mvn -pl mall-pet,mall-admin,mall-wish,mall-notification -am package  # PASS
 | T01/T04 同键并发购买 | **FAIL→已修待部署** | 钱包返回 400 MISSING_PARAMETER: refId（购买场景 refId 必填冲突）——幂等防线正确兜底（余额未动、op 转交恢复任务），代码已修 |
 | T16 超安全整数 ID/时间契约 | **FAIL→待重部署** | 远程响应 `remainingSeconds:0`（数字）、时间无 Z 后缀——部署构件为旧 JacksonConfig；本地单测 `JacksonConfigContractTest` 证明新配置输出 `"id":"…"","time":"…Z"` 正确 |
 
+## 2b. 第二轮远程复验（clean rebuild 前，2026-09-26 21:00–21:30）
+
+| 场景 | 结果 | 发现 |
+| --- | --- | --- |
+| T16 JSON 契约（rebuild 后） | **PASS** | `remainingSeconds:"0"` 字符串、时间带 `Z`、`configId:"9001001"`、claimedAt 回显 |
+| T04 同键 5 连发购买 | **PASS** | 第 1 次 200 成交，2-5 次 409 PET_ITEM_ALREADY_OWNED；钱包恰好 1 行扣款 130、余额精确 4870、入包 1 件 |
+| T04b 同键不同内容 | **PASS** | 直连 wish → 409 WISH_OPERATION_CONFLICT |
+| V19 幂等迁移 | **PASS** | 重部署触发 "already exists, skip"（首次版本因与手工补列冲突报 1060，已改幂等写法） |
+| B14/T18/PVP 星光 | **FAIL→定位为部署混合构建** | 屏蔽行存在但拜访/挑战/留言全部放行；PVP currency_reward 仍 0——同批次的 Jackson 3 定制器（20:50）生效而这些更早的修复不生效，排除代码问题，结论：服务器构建为增量混合产物 |
+| T02/T03 卡单恢复 | **部分** | wish `wish_pet_operation.operation_id` 为 VARCHAR(64) 而操作键 76 字符 → 插入 500（发现即修：V40 扩到 80 + 远程已生效）；另发现恢复任务 SPEND 补投递缺漏与管理员强制重试缺失（已修，待部署） |
+
+**并发限制说明**：远程 9023 端口不接受同源并发连接（curl/python 线程 5/20 并发均连接超时），T01 真·并发竞态无法从外部触发；幂等语义已由顺序重放（T04）+ 数据库唯一键（wish_pet_operation / pet_inventory）验证。
+
+**B07 根因备忘**：Spring Boot 4 MVC 走 Jackson 3（tools.jackson），Jackson 2 ObjectMapper 定制不生效；已通过 mall-common `common.jsafe-long.enabled` 开关 + mall-pet `PetJsonMapperCustomizer`（Jackson 3 `JsonMapperBuilderCustomizer`）落地契约。
+
 ## 3. 远程测试发现并已修复的缺陷（代码在本地仓库，需重新部署）
 
 1. **B01 购买 refId 必填冲突**（阻断 T01）：wish 内部端点 `refId` 改为可选；pet 购买传 petId 作审计关联。

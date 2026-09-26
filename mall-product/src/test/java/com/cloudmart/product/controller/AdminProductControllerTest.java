@@ -55,7 +55,7 @@ class AdminProductControllerTest {
     private ProductVO buildProductVO() {
         return new ProductVO(1L, "测试商品", "image.jpg",
                 new BigDecimal("99.00"), new BigDecimal("129.00"),
-                0, 100, "电子产品", "品牌A", 1, FIXED_TIME);
+                0, 100, "电子产品", "品牌A", 1, FIXED_TIME, java.util.List.of());
     }
 
     @Nested

@@ -59,7 +59,7 @@ class ProductControllerTest {
     private ProductVO buildProductVO() {
         return new ProductVO(1L, "测试商品", "image.jpg",
                 new BigDecimal("99.00"), new BigDecimal("129.00"),
-                0, 100, "电子产品", "品牌A", 1, FIXED_TIME);
+                0, 100, "电子产品", "品牌A", 1, FIXED_TIME, java.util.List.of());
     }
 
     @Test
@@ -97,7 +97,7 @@ class ProductControllerTest {
         ProductDTO dto = buildProductDTO();
         ProductVO vo = buildProductVO();
         given(productService.getProductById(1L)).willReturn(dto);
-        given(productConverter.productDtoToVO(dto)).willReturn(vo);
+        given(productConverter.productDetailToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/products/1"))
                 .andExpect(status().isOk())
