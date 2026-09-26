@@ -21,6 +21,7 @@ import java.io.Serializable;
 public class WishStatEventProducer {
 
     private final RocketMQTemplate rocketMQTemplate;
+    private final com.cloudmart.wish.service.impl.WishOutboxService outboxService;
 
     /**
      * 点亮/匿名星光后异步累计 total_helped（累计帮助他人次数）。
@@ -28,14 +29,10 @@ public class WishStatEventProducer {
      * @param userId 点亮者用户 ID
      */
     public void publishHelpedEvent(Long userId) {
-        HelpedEventMessage message = new HelpedEventMessage(userId);
-        try {
-            String destination = RocketMQConfig.WISH_TOPIC + ":" + RocketMQConfig.WISH_TAG_STAT_SYNC;
-            rocketMQTemplate.syncSend(destination, message);
-            log.debug("帮助统计事件已发送, userId={}", userId);
-        } catch (Exception e) {
-            log.error("帮助统计事件发送失败（对账任务兜底）, userId={}", userId, e);
-        }
+        // B13：帮助事实与事件同事务经 outbox 落库（发送失败由中继退避补投，不再静默丢失）；
+        // 消息携带 eventId，消费端按其去重
+        outboxService.publish("WALLET", userId, 0L, "HelpedRecorded",
+                java.util.Map.of("userId", userId));
     }
 
     /**
@@ -43,8 +40,13 @@ public class WishStatEventProducer {
      *
      * @param userId 点亮者用户 ID
      */
-    public record HelpedEventMessage(Long userId) implements Serializable {
+    public record HelpedEventMessage(Long userId, String eventId) implements Serializable {
         @Serial
         private static final long serialVersionUID = 1L;
+
+        /** 兼容旧消费方/在途消息 */
+        public HelpedEventMessage(Long userId) {
+            this(userId, null);
+        }
     }
 }

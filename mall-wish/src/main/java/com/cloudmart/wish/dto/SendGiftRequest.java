@@ -39,6 +39,14 @@ public record SendGiftRequest(
 
         @Schema(description = "送礼留言（可选，最多 100 字符）")
         @Size(max = 100, message = "留言不能超过 100 字符")
-        String message
+        String message,
+
+        @Schema(description = "幂等键（X-Idempotency-Key；缺省按单次请求处理，B04）")
+        String idempotencyKey
 ) {
+
+    /** 兼容旧调用：缺省幂等键（仅单次请求保护，无跨重试重放）。 */
+    public SendGiftRequest(Long giftId, Integer count, String targetType, Long targetId, String message) {
+        this(giftId, count, targetType, targetId, message, null);
+    }
 }

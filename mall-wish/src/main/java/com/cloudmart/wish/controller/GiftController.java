@@ -56,8 +56,10 @@ public class GiftController {
     public ApiResponse<SendGiftResultVO> sendGift(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "幂等键（一次送礼动作一个键，超时重试沿用同键）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @Parameter(description = "送礼请求") @Valid @RequestBody SendGiftRequest request) {
-        return ApiResponse.ok(giftService.sendGift(userId, request));
+        return ApiResponse.ok(giftService.sendGift(userId, request, idempotencyKey));
     }
 
     @GetMapping("/my/summary")

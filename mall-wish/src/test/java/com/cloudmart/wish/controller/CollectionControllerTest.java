@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,8 +56,8 @@ class CollectionControllerTest {
     @Test
     @DisplayName("assetId 为字符串（雪花 ID 超出 JS 安全范围的实际回传形态）→ 正常兑换")
     void exchange_stringAssetId() throws Exception {
-        given(collectionService.exchange(eq(1001L), eq(SNOWFLAKE_ASSET_ID), eq("STARLIGHT")))
-                .willReturn(ownedAsset());
+        given(collectionService.exchange(eq(1001L), eq(SNOWFLAKE_ASSET_ID), eq("STARLIGHT"), isNull()))
+                .willReturn(new com.cloudmart.wish.vo.ExchangeResultVO(1L, SNOWFLAKE_ASSET_ID, 0, 10));
 
         mockMvc.perform(post("/workshop/exchange")
                         .header(USER_ID_HEADER, 1001L)
@@ -70,8 +71,8 @@ class CollectionControllerTest {
     @Test
     @DisplayName("assetId 为数字（安全范围内 ID）→ 正常兑换")
     void exchange_numberAssetId() throws Exception {
-        given(collectionService.exchange(eq(1001L), eq(123L), eq("STARLIGHT")))
-                .willReturn(ownedAsset());
+        given(collectionService.exchange(eq(1001L), eq(123L), eq("STARLIGHT"), isNull()))
+                .willReturn(new com.cloudmart.wish.vo.ExchangeResultVO(1L, 123L, 0, 10));
 
         mockMvc.perform(post("/workshop/exchange")
                         .header(USER_ID_HEADER, 1001L)

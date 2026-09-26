@@ -72,10 +72,17 @@ class GiftServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.transaction.support.TransactionTemplate executorTx =
+                org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+        org.mockito.Mockito.lenient().when(executorTx.execute(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
+                        .doInTransaction(null));
         giftService = new GiftServiceImpl(giftMapper, giftRecordMapper, wishMapper,
                 userStatService, giftRateLimiter, communityFeignClient, liveFeignClient,
                 userFeignClient, transactionTemplate,
-                new com.cloudmart.wish.policy.WishAccessPolicy());
+                new com.cloudmart.wish.policy.WishAccessPolicy(),
+                new com.cloudmart.wish.service.impl.WishOperationExecutor(
+                        org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), executorTx));
         // 事务模板直接执行回调（单元测试不依赖真实事务管理器）
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<Integer>) invocation.getArgument(0))
@@ -120,7 +127,7 @@ private Gift onShelfGift(long id, String name, int price) {
             Wish wish = publicWish(777L, 20002L);
             when(wishMapper.selectById(777L)).thenReturn(wish);
 
-            SendGiftResultVO result = giftService.sendGift(USER_ID, request(1L, 3, "WISH", 777L));
+            SendGiftResultVO result = giftService.sendGift(USER_ID, request(1L, 3, "WISH", 777L), null);
 
             assertThat(result.totalPrice()).isEqualTo(15);
             assertThat(result.receiverId()).isEqualTo(20002L);
@@ -146,7 +153,7 @@ private Gift onShelfGift(long id, String name, int price) {
         void shouldRejectUnknownGift() {
             when(giftMapper.selectById(404L)).thenReturn(null);
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(404L, 1, "WISH", 777L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(404L, 1, "WISH", 777L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("GIFT_NOT_FOUND");
 
@@ -160,7 +167,7 @@ private Gift onShelfGift(long id, String name, int price) {
             gift.setStatus("OFF_SHELF");
             when(giftMapper.selectById(1L)).thenReturn(gift);
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("GIFT_OFF_SHELF");
 
@@ -170,7 +177,7 @@ private Gift onShelfGift(long id, String name, int price) {
         @Test
         @DisplayName("送礼场景非法 - 抛 GIFT_TARGET_TYPE_INVALID")
         void shouldRejectInvalidTargetType() {
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "PRODUCT", 1L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "PRODUCT", 1L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("GIFT_TARGET_TYPE_INVALID");
         }
@@ -181,7 +188,7 @@ private Gift onShelfGift(long id, String name, int price) {
             when(giftMapper.selectById(1L)).thenReturn(onShelfGift(1L, "爱心", 5));
             when(wishMapper.selectById(777L)).thenReturn(null);
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("GIFT_TARGET_NOT_FOUND");
 
@@ -195,7 +202,7 @@ private Gift onShelfGift(long id, String name, int price) {
             when(communityFeignClient.getPostOwner(888L))
                     .thenReturn(ApiResponse.fail("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用"));
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "POST", 888L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "POST", 888L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("COMMUNITY_SERVICE_UNAVAILABLE");
 
@@ -209,7 +216,7 @@ private Gift onShelfGift(long id, String name, int price) {
             when(liveFeignClient.getRoomOwner(9L))
                     .thenReturn(ApiResponse.ok(Map.of("roomId", 9L, "ownerId", 30003L)));
 
-            SendGiftResultVO result = giftService.sendGift(USER_ID, request(1L, 2, "LIVE_ROOM", 9L));
+            SendGiftResultVO result = giftService.sendGift(USER_ID, request(1L, 2, "LIVE_ROOM", 9L), null);
 
             assertThat(result.receiverId()).isEqualTo(30003L);
             assertThat(result.totalPrice()).isEqualTo(398);
@@ -224,7 +231,7 @@ private Gift onShelfGift(long id, String name, int price) {
             when(wishMapper.selectById(777L)).thenReturn(wish);
             when(giftRateLimiter.checkSendDailyLimit(USER_ID)).thenReturn(false);
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("WISH_RATE_LIMITED");
         }
@@ -238,7 +245,7 @@ private Gift onShelfGift(long id, String name, int price) {
             when(userStatService.spendStarlight(anyLong(), anyInt(), any(), any()))
                     .thenThrow(new BusinessException("WISH_STARLIGHT_INSUFFICIENT", "星光余额不足"));
 
-            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L)))
+            assertThatThrownBy(() -> giftService.sendGift(USER_ID, request(1L, 1, "WISH", 777L), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code").isEqualTo("WISH_STARLIGHT_INSUFFICIENT");
         }

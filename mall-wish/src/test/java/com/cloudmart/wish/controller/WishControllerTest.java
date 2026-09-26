@@ -30,6 +30,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -168,7 +169,7 @@ class WishControllerTest {
     void updateWish_success() throws Exception {
         UpdateWishRequest request = new UpdateWishRequest(
                 "新标题", null, null, null, null, null, null, null
-        , null, null);
+        , null, null, 0L);
         WishUpdateResultVO vo = new WishUpdateResultVO(1L, LocalDateTime.now());
         given(wishService.updateWish(eq(1L), eq(1L), any(UpdateWishRequest.class))).willReturn(vo);
 
@@ -229,7 +230,7 @@ class WishControllerTest {
                 com.cloudmart.wish.enums.FruitType.BLOOM,
                 List.of(), 50, LocalDateTime.now()
         );
-        given(fulfillmentService.submitFulfillment(eq(1L), eq(1L), any(SubmitFulfillmentRequest.class)))
+        given(fulfillmentService.submitFulfillment(eq(1L), eq(1L), any(SubmitFulfillmentRequest.class), isNull()))
                 .willReturn(vo);
 
         mockMvc.perform(post("/wishes/1/fulfillment")

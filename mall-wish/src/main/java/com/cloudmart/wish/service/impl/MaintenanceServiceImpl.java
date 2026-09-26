@@ -45,10 +45,18 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     private final WishResourceLogMapper resourceLogMapper;
     private final WishMapper wishMapper;
     private final WishFulfillmentMapper fulfillmentMapper;
+    private final WishOperationExecutor operationExecutor;
+
+    /** 平台报表日界（任务书 4.3：后台报表默认 Asia/Shanghai） */
+    private static final java.time.ZoneId PLATFORM_ZONE = java.time.ZoneId.of("Asia/Shanghai");
 
     @Override
     public MapResult starlightDecay() {
+        // B06：衰减转为钱包标准操作 DECAY:{userId}:{platformDate}——
+        // 逐用户独立短事务，条件 UPDATE 复核不活跃与余额下限，affected=1 才写流水；
+        // 唯一业务键经 wish_operation 兜底：同日重复调度/多实例执行重放原结果，不重复扣。
         final LocalDateTime inactiveBefore = LocalDateTime.now(ZoneId.of("UTC")).minusDays(30);
+        final String platformDate = java.time.LocalDate.now(PLATFORM_ZONE).toString();
         long processed = 0;
         long failed = 0;
         long lastUserId = 0;
@@ -67,24 +75,14 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             for (final WishUserStat stat : batch) {
                 lastUserId = stat.getUserId();
                 try {
-                    final int newBalance = Math.max(STARLIGHT_FLOOR,
-                            (stat.getStarlightBalance() != null ? stat.getStarlightBalance() : 0) - DECAY_AMOUNT);
-                    final int delta = newBalance - stat.getStarlightBalance();
-                    if (delta == 0) {
-                        continue;
+                    Boolean decayed = operationExecutor.execute("JOB", 0L, "mall-job",
+                            "STARLIGHT_DECAY", stat.getUserId() + ":" + platformDate,
+                            java.util.Map.of("userId", stat.getUserId(), "date", platformDate),
+                            Boolean.class,
+                            () -> decayOneUser(stat.getUserId(), inactiveBefore));
+                    if (Boolean.TRUE.equals(decayed)) {
+                        processed++;
                     }
-                    userStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
-                            .set(WishUserStat::getStarlightBalance, newBalance)
-                            .eq(WishUserStat::getUserId, stat.getUserId())
-                            .eq(WishUserStat::getStarlightBalance, stat.getStarlightBalance()));
-                    final WishResourceLog logRow = new WishResourceLog();
-                    logRow.setUserId(stat.getUserId());
-                    logRow.setDelta(delta);
-                    logRow.setType(com.cloudmart.wish.enums.ResourceLogType.SPEND);
-                    logRow.setSource("DECAY");
-                    logRow.setBalanceAfter(newBalance);
-                    resourceLogMapper.insert(logRow);
-                    processed++;
                 } catch (Exception ex) {
                     failed++;
                     log.error("星光衰减失败 userId={}", stat.getUserId(), ex);
@@ -92,14 +90,40 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             }
         }
         log.info("[wish-starlight-decay] 完成 processed={} failed={}", processed, failed);
-        return new MapResult("starlightDecay", processed, failed, "余额-2 最低 " + STARLIGHT_FLOOR);
+        return new MapResult("starlightDecay", processed, failed, "余额-2 最低 " + STARLIGHT_FLOOR + "；唯一键 DECAY:userId:date");
+    }
+
+    /**
+     * 单用户衰减（调用方短事务内）：条件 UPDATE 复核"仍不活跃且余额高于下限"，
+     * affected=1 才写 DECAY 流水；affected=0 表示并发已变化，静默跳过（不产生假流水）。
+     */
+    private Boolean decayOneUser(Long userId, LocalDateTime inactiveBefore) {
+        final int affected = userStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
+                .setSql("starlight_balance = starlight_balance - " + DECAY_AMOUNT)
+                .eq(WishUserStat::getUserId, userId)
+                .gt(WishUserStat::getStarlightBalance, STARLIGHT_FLOOR)
+                .lt(WishUserStat::getLastActiveAt, inactiveBefore));
+        if (affected == 0) {
+            return Boolean.FALSE;
+        }
+        final int balanceAfter = userStatMapper.selectById(userId).getStarlightBalance();
+        final WishResourceLog logRow = new WishResourceLog();
+        logRow.setUserId(userId);
+        logRow.setDelta(-DECAY_AMOUNT);
+        logRow.setType(com.cloudmart.wish.enums.ResourceLogType.SPEND);
+        logRow.setSource("DECAY");
+        logRow.setBalanceAfter(balanceAfter);
+        resourceLogMapper.insert(logRow);
+        return Boolean.TRUE;
     }
 
     @Override
     public MapResult starlightReconcile() {
-        // 以 wish_resource_log 流水求和为最终事实来源（表⑩注释），余额不一致即修正
-        long processed = 0;
-        long fixed = 0;
+        // B06：对账默认只产生差异工单，不直接改余额——
+        // 历史缺流水账户不能盲目归零（初始余额须以受审计的 opening entry 表示）；
+        // 修复须走专属权限 + 原因 + 修复操作的工单流程（N02），不修改既有流水。
+        long checked = 0;
+        long differences = 0;
         long lastUserId = 0;
         while (true) {
             final List<WishUserStat> batch = userStatMapper.selectList(
@@ -122,21 +146,20 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                             m -> ((Number) m.get("user_id")).longValue(),
                             m -> ((Number) m.get("total")).longValue()));
             for (final WishUserStat stat : batch) {
-                processed++;
-                final long expected = sums.getOrDefault(stat.getUserId(), 0L);
-                final int actual = stat.getStarlightBalance() != null ? stat.getStarlightBalance() : 0;
-                if (expected != actual) {
-                    fixed++;
-                    log.warn("[wish-starlight-reconcile] 余额不一致 userId={} stat={} 流水求和={} → 以流水修正",
-                            stat.getUserId(), actual, expected);
-                    userStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
-                            .set(WishUserStat::getStarlightBalance, (int) expected)
-                            .eq(WishUserStat::getUserId, stat.getUserId()));
+                checked++;
+                final long flowSum = sums.getOrDefault(stat.getUserId(), 0L);
+                final int balance = stat.getStarlightBalance() != null ? stat.getStarlightBalance() : 0;
+                if (flowSum != balance) {
+                    differences++;
+                    // 差异工单（日志承载，只列 ID 与金额差；修复走 N02 人工工单）
+                    log.warn("[wish-starlight-reconcile] 差异工单: userId={} 余额={} 流水求和={} 差额={}",
+                            stat.getUserId(), balance, flowSum, balance - flowSum);
                 }
             }
         }
-        log.info("[wish-starlight-reconcile] 完成 processed={} fixed={}", processed, fixed);
-        return new MapResult("starlightReconcile", processed, fixed, "以流水求和为事实来源");
+        log.info("[wish-starlight-reconcile] 完成 checked={} differences={}（CHECK_ONLY：不直接改余额）",
+                checked, differences);
+        return new MapResult("starlightReconcile", checked, differences, "CHECK_ONLY：差异进入工单，不改余额");
     }
 
     @Override

@@ -12,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * mall-wish 内部能力客户端：宠物代主人捞瓶 + 宠物奖励发星光 + 批量用户信息。
+ * mall-wish 内部能力客户端：宠物代主人捞瓶 + 宠物奖励发星光。
+ * 批量用户信息已迁移 {@link UserFeignClient}（mall-user 才是归属服务）。
  *
  * <p>复用边界（实施文档 §0.1 原则 2/3）：不建第二套漂流瓶/钱包；
  * 降级时抛 {@code WISH_SERVICE_UNAVAILABLE}（GlobalExceptionHandler 后缀通配映射 503）。</p>
@@ -53,10 +54,6 @@ public interface WishFeignClient {
     /** 星光余额（商城展示）；失败由 fallback 抛 WISH_SERVICE_UNAVAILABLE */
     @GetMapping("/internal/pet-support/starlight/balance")
     ApiResponse<Integer> starlightBalance(@RequestParam("userId") Long userId);
-
-    /** 批量用户信息（对战对手主人昵称；字段取子集） */
-    @GetMapping("/users/batch")
-    ApiResponse<List<Map<String, Object>>> batchGetUsers(@RequestParam("ids") List<Long> ids);
 
     /** 幂等交易结果（与 mall-wish PetWalletOperationVO 契约对齐；ID 以字符串往返） */
     record PetWalletOperationVO(

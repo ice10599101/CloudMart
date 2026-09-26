@@ -9,6 +9,7 @@ import com.cloudmart.pet.entity.PetBattle;
 import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.enums.PetBattleStatus;
 import com.cloudmart.pet.enums.PetBottleOutcome;
+import com.cloudmart.pet.feign.UserFeignClient;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.repository.PetBattleMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
@@ -40,15 +41,18 @@ public class PetRankingServiceImpl implements PetRankingService {
     private final PetBattleMapper battleMapper;
     private final PetBottleRecordMapper bottleRecordMapper;
     private final WishFeignClient wishFeignClient;
+    private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
 
     public PetRankingServiceImpl(PetMapper petMapper,
                                  PetBattleMapper battleMapper,
                                  PetBottleRecordMapper bottleRecordMapper,
-                                 WishFeignClient wishFeignClient) {
+                                 WishFeignClient wishFeignClient,
+                                 com.cloudmart.pet.feign.UserFeignClient userFeignClient) {
         this.petMapper = petMapper;
         this.battleMapper = battleMapper;
         this.bottleRecordMapper = bottleRecordMapper;
         this.wishFeignClient = wishFeignClient;
+        this.userFeignClient = userFeignClient;
     }
 
     @Override
@@ -200,7 +204,7 @@ public class PetRankingServiceImpl implements PetRankingService {
             return Map.of();
         }
         try {
-            List<Map<String, Object>> users = wishFeignClient.batchGetUsers(userIds).data();
+            List<Map<String, Object>> users = userFeignClient.batchGetUsers(userIds).data();
             if (users == null) {
                 return Map.of();
             }

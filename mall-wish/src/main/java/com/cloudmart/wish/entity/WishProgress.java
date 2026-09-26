@@ -36,6 +36,9 @@ public class WishProgress {
 
     private Integer maxStreak;
 
+    /** 最近打卡日（用户业务日；B09 连续天数判定依据） */
+    private java.time.LocalDate lastCheckinDate;
+
     /**
      * 乐观锁版本号。MyBatis-Plus 更新时自动追加 {@code version = version + 1} 条件。
      * 失配时 {@code affectedRows = 0}，业务层抛出 {@code WISH_VERSION_CONFLICT}。

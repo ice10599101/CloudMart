@@ -51,12 +51,6 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
                 return ApiResponse.ok(null);
             }
 
-            @Override
-            public ApiResponse<List<Map<String, Object>>> batchGetUsers(List<Long> ids) {
-                // 昵称查询是展示型数据：Fail-Open 返回空列表，调用方使用占位昵称
-                return ApiResponse.ok(List.of());
-            }
-
             private BusinessException unavailable(Throwable cause) {
                 return new BusinessException("WISH_SERVICE_UNAVAILABLE",
                         "心愿宇宙服务暂时不可用，请稍后再试", cause);

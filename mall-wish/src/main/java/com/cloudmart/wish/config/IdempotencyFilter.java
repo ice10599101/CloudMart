@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
@@ -22,36 +21,42 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.Base64;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
- * X-Idempotency-Key 幂等冲突校验（规格 39 章幂等契约：同 key 异 request_hash → 409；
- * 同 key 同 hash → 重放首次成功响应）。
+ * X-Idempotency-Key Redis 加速层（B04 重写）。
  *
- * <p>策略：仅拦截写方法（POST/PUT/DELETE）且携带幂等键的请求。哈希取请求体 SHA-256。
- * Redis 失效时 Fail-Open 直接放行——最坏退化为无幂等保护（与既有行为一致），不阻塞业务（39.6）。
- * 处理中窗口 60s，成功响应缓存 24h；失败（非 2xx）不缓存，允许客户端换体或原体重试。</p>
+ * <p>定位：只做快速重放与瞬时并发去重的<b>加速层</b>，不是业务凭证——
+ * 扣费/兑换/送礼等资源操作的最终幂等由 {@code wish_operation}（与领域写同事务的
+ * 持久操作记录）保证，Redis 清空或本层故障不产生重复扣费。</p>
  *
- * <p>实现注意（BUG#43）：请求体哈希需要预读 body，而
- * {@code ContentCachingRequestWrapper} 预读后下游 {@code @RequestBody} 拿到的是
- * 已耗尽的空流（不可重复读），导致所有带幂等键的 JSON 写接口报
- * INVALID_REQUEST_BODY。这里改用可重复读包装器——body 一次性读入内存，
- * {@code getInputStream()/getReader()} 每次返回全新流，下游可正常解析。</p>
+ * <p>相对旧实现的修复（任务书 B04）：</p>
+ * <ul>
+ *   <li>作用域键包含 method+path+规范化 query——不同接口/不同 query 不再串用结果；</li>
+ *   <li>摘要覆盖 method+path+query+body（旧实现仅 body）；</li>
+ *   <li>处理中状态与结果统一 JSON 存储——修复旧"processing|hash"被误判为
+ *       异请求并把哈希当响应体重放的解析缺陷；</li>
+ *   <li>处理中返回 409 {@code WISH_OPERATION_IN_PROGRESS}（语义区分于键复用）；</li>
+ *   <li>过滤器排序在 Spring Security 链之后（先认证、再查幂等）；</li>
+ *   <li>仅 2xx 缓存响应；认证/参数错误不缓存，允许原键重试。</li>
+ * </ul>
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 10)
+@Order(0)
 @RequiredArgsConstructor
 @Slf4j
 public class IdempotencyFilter extends OncePerRequestFilter {
 
     private static final String KEY_PREFIX = "wish:idem:";
-    private static final String PROCESSING_MARK = "processing|";
     private static final Duration PROCESSING_TTL = Duration.ofSeconds(60);
     private static final Duration SUCCESS_TTL = Duration.ofHours(24);
     private static final int MAX_CACHED_BODY = 256 * 1024;
@@ -62,7 +67,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String method = request.getMethod();
-        boolean writeMethod = "POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method);
+        boolean writeMethod = "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)
+                || "DELETE".equals(method);
         return !writeMethod || request.getHeader("X-Idempotency-Key") == null
                 || request.getHeader(SecurityConstants.USER_ID_HEADER) == null;
     }
@@ -76,62 +82,47 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        String redisKey = KEY_PREFIX + userId + ":" + idemKey;
 
         // 预读请求体（可重复读包装器：下游 @RequestBody 从内存流重新解析）
         ReReadableRequestWrapper wrappedRequest = new ReReadableRequestWrapper(request);
-        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
-
         if (wrappedRequest.cachedBody().length > MAX_CACHED_BODY) {
-            // 超上限放弃幂等保护直接放行（body 已在包装器内存中，下游解析不受影响）
-            log.warn("幂等键请求体超上限({}B)，放弃幂等保护直接放行", wrappedRequest.cachedBody().length);
-            chain.doFilter(wrappedRequest, wrappedResponse);
-            wrappedResponse.copyBodyToResponse();
+            // 超上限放弃加速层（持久层仍兜底资源操作），直接放行
+            log.warn("幂等键请求体超上限({}B)，跳过 Redis 加速层", wrappedRequest.cachedBody().length);
+            chain.doFilter(wrappedRequest, response);
             return;
         }
-        String bodyHash = sha256(wrappedRequest.cachedBody());
+        String method = request.getMethod();
+        String path = request.getRequestURI();
+        String canonicalQuery = canonicalQuery(request.getParameterMap());
+        String requestHash = sha256((method + "\n" + path + "\n" + canonicalQuery + "\n")
+                .getBytes(StandardCharsets.UTF_8), wrappedRequest.cachedBody());
+        String redisKey = KEY_PREFIX + userId + ":" + idemKey + ":" + requestHash;
 
-        String stored;
         try {
-            stored = redisTemplate.opsForValue().get(redisKey);
-        } catch (Exception ex) {
-            log.warn("幂等键 Redis 读取失败，Fail-Open 放行: {}", ex.getMessage());
-            chain.doFilter(wrappedRequest, wrappedResponse);
-            wrappedResponse.copyBodyToResponse();
-            return;
-        }
-
-        if (stored != null) {
-            int sep = stored.indexOf('|');
-            String storedHash = sep >= 0 ? stored.substring(0, sep) : "";
-            String payload = sep >= 0 ? stored.substring(sep + 1) : "";
-            if (!storedHash.equals(bodyHash)) {
-                reject(response, "IDEMPOTENCY_KEY_REUSED",
-                        "幂等键已被不同的请求内容使用，请更换 X-Idempotency-Key 后重试");
+            String stored = redisTemplate.opsForValue().get(redisKey);
+            if (stored != null) {
+                replayOrReject(response, stored, requestHash);
                 return;
             }
-            if (!payload.isEmpty()) {
-                replay(response, payload);
-                return;
-            }
-            reject(response, "IDEMPOTENCY_KEY_REUSED",
-                    "相同幂等键的请求正在处理中，请稍后查询结果");
+        } catch (Exception ex) {
+            // Redis 故障：跳过加速层放行（fail-open），持久幂等层兜底
+            log.warn("幂等加速层 Redis 读取失败，放行: {}", ex.getMessage());
+            chain.doFilter(wrappedRequest, response);
             return;
         }
 
-        Boolean acquired;
+        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
         try {
-            acquired = redisTemplate.opsForValue().setIfAbsent(redisKey,
-                    PROCESSING_MARK + bodyHash, PROCESSING_TTL);
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(redisKey,
+                    processingMark(requestHash), PROCESSING_TTL);
+            if (!Boolean.TRUE.equals(acquired)) {
+                reject(response, "WISH_OPERATION_IN_PROGRESS",
+                        "相同幂等键的请求正在处理中，请稍后按原键查询结果");
+                return;
+            }
         } catch (Exception ex) {
-            log.warn("幂等键 Redis 占位失败，Fail-Open 放行: {}", ex.getMessage());
-            chain.doFilter(wrappedRequest, wrappedResponse);
-            wrappedResponse.copyBodyToResponse();
-            return;
-        }
-        if (Boolean.FALSE.equals(acquired)) {
-            // 与上方 GET 之间几乎不可能进入（占位成功者 60s 内完成），按处理中拒绝
-            reject(response, "IDEMPOTENCY_KEY_REUSED", "相同幂等键的请求正在处理中，请稍后查询结果");
+            log.warn("幂等加速层 Redis 占位失败，放行: {}", ex.getMessage());
+            chain.doFilter(wrappedRequest, response);
             return;
         }
 
@@ -141,12 +132,13 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             if (status >= 200 && status < 300) {
                 byte[] body = wrappedResponse.getContentAsByteArray();
                 if (body.length <= MAX_CACHED_BODY) {
-                    redisTemplate.opsForValue().set(redisKey,
-                            bodyHash + "|" + status + "|" + new String(body, StandardCharsets.UTF_8),
-                            SUCCESS_TTL);
+                    redisTemplate.opsForValue().set(redisKey, completedMark(requestHash, status,
+                            new String(body, StandardCharsets.UTF_8)), SUCCESS_TTL);
+                } else {
+                    redisTemplate.delete(redisKey);
                 }
             } else {
-                // 失败不缓存，允许原键重试
+                // 失败不缓存：允许原键重试
                 redisTemplate.delete(redisKey);
             }
         } catch (Exception ex) {
@@ -155,6 +147,103 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         } finally {
             wrappedResponse.copyBodyToResponse();
         }
+    }
+
+    /** 统一 JSON 存储格式：{"h":hash} 处理中；{"h":hash,"s":status,"b":body} 已完成。 */
+    private String processingMark(String hash) {
+        return toJson(Map.of("h", hash));
+    }
+
+    private String completedMark(String hash, int status, String body) {
+        return toJson(Map.of("h", hash, "s", status, "b", body));
+    }
+
+    private void replayOrReject(HttpServletResponse response, String stored, String requestHash)
+            throws IOException {
+        StoredEntry entry = readEntry(stored);
+        if (entry == null || !requestHash.equals(entry.hash())) {
+            reject(response, "IDEMPOTENCY_KEY_REUSED",
+                    "幂等键已被不同的请求内容使用，请更换 X-Idempotency-Key 后重试");
+            return;
+        }
+        if (entry.body() == null) {
+            reject(response, "WISH_OPERATION_IN_PROGRESS",
+                    "相同幂等键的请求正在处理中，请稍后按原键查询结果");
+            return;
+        }
+        response.setStatus(entry.status());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write(entry.body());
+    }
+
+    private StoredEntry readEntry(String json) {
+        try {
+            var node = objectMapper.readTree(json);
+            String hash = node.path("h").asText(null);
+            if (hash == null) {
+                return null;
+            }
+            String body = node.has("b") && !node.get("b").isNull() ? node.get("b").asText() : null;
+            int status = node.path("s").asInt(200);
+            return new StoredEntry(hash, status, body);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private record StoredEntry(String hash, int status, String body) {
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            // 序列化失败不应放行重复占位：退化为仅摘要标记
+            return "{\"h\":\"" + "encode-error" + "\"}";
+        }
+    }
+
+    /** query 规范化：参数名排序、同名参数按值排序，保证同语义请求摘要稳定。 */
+    private String canonicalQuery(Map<String, String[]> params) {
+        if (params == null || params.isEmpty()) {
+            return "";
+        }
+        Map<String, List<String>> sorted = new TreeMap<>();
+        for (var entry : params.entrySet()) {
+            List<String> values = new ArrayList<>(List.of(entry.getValue()));
+            Collections.sort(values);
+            sorted.put(entry.getKey(), values);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (var entry : sorted.entrySet()) {
+            for (String value : entry.getValue()) {
+                if (!sb.isEmpty()) {
+                    sb.append('&');
+                }
+                sb.append(entry.getKey()).append('=').append(value);
+            }
+        }
+        return sb.toString();
+    }
+
+    private String sha256(byte[] prefix, byte[] body) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(prefix);
+            digest.update(body);
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest.digest());
+        } catch (Exception ex) {
+            throw new IllegalStateException("SHA-256 不可用", ex);
+        }
+    }
+
+    private void reject(HttpServletResponse response, String code, String message) throws IOException {
+        response.setStatus(409);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write(objectMapper.writeValueAsString(
+                ApiResponse.fail(code, message)));
     }
 
     /**
@@ -202,33 +291,6 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         @Override
         public BufferedReader getReader() {
             return new BufferedReader(new InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
-        }
-    }
-
-    private void reject(HttpServletResponse response, String code, String message) throws IOException {
-        response.setStatus(409);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(objectMapper.writeValueAsString(
-                ApiResponse.fail(code, message)));
-    }
-
-    private void replay(HttpServletResponse response, String payload) throws IOException {
-        int sep = payload.indexOf('|');
-        int status = sep >= 0 ? Integer.parseInt(payload.substring(0, sep)) : 200;
-        String body = sep >= 0 ? payload.substring(sep + 1) : payload;
-        response.setStatus(status);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(body);
-    }
-
-    private String sha256(byte[] data) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(data);
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-        } catch (Exception ex) {
-            throw new IllegalStateException("SHA-256 不可用", ex);
         }
     }
 }

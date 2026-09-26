@@ -72,7 +72,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             WishCreateResultVO wish = createWish(categoryId, WishVisibility.PUBLIC);
 
             WishFulfillmentSubmitVO result = fulfillmentService.submitFulfillment(
-                    USER_ID, wish.id(), buildFulfillmentRequest());
+                    USER_ID, wish.id(), buildFulfillmentRequest(), null);
 
             // 心愿状态流转：FULFILLED + BLOOM + fulfilled_at 落库
             assertThat(result.status()).isEqualTo(WishStatus.FULFILLED);
@@ -133,7 +133,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             jdbcTemplate.update("UPDATE wish SET status = 'OVERDUE' WHERE id = ?", wish.id());
 
             WishFulfillmentSubmitVO result = fulfillmentService.submitFulfillment(
-                    USER_ID, wish.id(), buildFulfillmentRequest());
+                    USER_ID, wish.id(), buildFulfillmentRequest(), null);
 
             assertThat(result.status()).isEqualTo(WishStatus.FULFILLED);
             assertThat(result.fruitType()).isEqualTo(FruitType.BLOOM);
@@ -145,10 +145,10 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_FULFILL_3");
             stubUserFeign();
             WishCreateResultVO wish = createWish(categoryId, WishVisibility.PUBLIC);
-            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest());
+            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest(), null);
 
             assertThatThrownBy(() -> fulfillmentService.submitFulfillment(
-                    USER_ID, wish.id(), buildFulfillmentRequest()))
+                    USER_ID, wish.id(), buildFulfillmentRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_FULFILLABLE);
@@ -169,13 +169,13 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             WishCreateResultVO privateWish = createWish(categoryId, WishVisibility.PRIVATE);
 
             assertThatThrownBy(() -> fulfillmentService.submitFulfillment(
-                    OTHER_USER_ID, publicWish.id(), buildFulfillmentRequest()))
+                    OTHER_USER_ID, publicWish.id(), buildFulfillmentRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR);
 
             assertThatThrownBy(() -> fulfillmentService.submitFulfillment(
-                    OTHER_USER_ID, privateWish.id(), buildFulfillmentRequest()))
+                    OTHER_USER_ID, privateWish.id(), buildFulfillmentRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
@@ -191,14 +191,14 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             // 路径穿越内容直接拒绝
             assertThatThrownBy(() -> fulfillmentService.submitFulfillment(
                     USER_ID, wish.id(),
-                    new SubmitFulfillmentRequest("看 ../etc/passwd 的故事", null, null)))
+                    new SubmitFulfillmentRequest("看 ../etc/passwd 的故事", null, null), null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
 
             // 故事富文本入库（保留原始标签，前端 DOMPurify 消毒）；感悟纯文本转义入库
             fulfillmentService.submitFulfillment(USER_ID, wish.id(),
-                    new SubmitFulfillmentRequest("<script>alert(1)</script>", null, "<b>感悟</b>"));
+                    new SubmitFulfillmentRequest("<script>alert(1)</script>", null, "<b>感悟</b>"), null);
             String dbStory = jdbcTemplate.queryForObject(
                     "SELECT story FROM wish_fulfillment WHERE wish_id = ?", String.class, wish.id());
             String dbFeeling = jdbcTemplate.queryForObject(
@@ -218,7 +218,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_FULFILL_D1");
             stubUserFeign();
             WishCreateResultVO wish = createWish(categoryId, WishVisibility.PUBLIC);
-            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest());
+            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest(), null);
             // batchGetUsers 返回真实昵称（stubUserFeign 默认空列表 → 占位）
             when(userFeignClient.batchGetUsers(anyList())).thenReturn(ApiResponse.ok(
                     List.of(Map.of("id", USER_ID, "nickname", "小星", "avatar", "a.png"))));
@@ -251,7 +251,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
             Long categoryId = seedCategory("IT_FULFILL_D3");
             stubUserFeign();
             WishCreateResultVO wish = createWish(categoryId, WishVisibility.PRIVATE);
-            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest());
+            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest(), null);
 
             WishFulfillmentVO detail = fulfillmentService.getFulfillmentDetail(wish.id(), USER_ID);
             assertThat(detail.wishId()).isEqualTo(wish.id());
@@ -270,7 +270,7 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
         /** 构造 FULFILLED+BLOOM 心愿（还愿后状态），返回心愿 ID。 */
         private Long createFulfilledWishId(Long categoryId, WishVisibility visibility) {
             WishCreateResultVO wish = createWish(categoryId, visibility);
-            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest());
+            fulfillmentService.submitFulfillment(USER_ID, wish.id(), buildFulfillmentRequest(), null);
             return wish.id();
         }
 

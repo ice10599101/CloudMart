@@ -37,6 +37,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import com.cloudmart.wish.config.WishCryptoProperties;
 import com.cloudmart.wish.util.ContentCipher;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -51,6 +52,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -83,13 +85,34 @@ class WishServiceImplTest {
     private static final Long WISH_ID = 2001L;
     private static final Long CATEGORY_ID = 100L;
 
+    @BeforeAll
+    static void initEntityMeta() {
+        // LambdaQueryWrapper 序列化 SQL 段需 MP 实体元数据（测试断言查询条件用）
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                com.cloudmart.wish.entity.WishGrowthRecord.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                com.cloudmart.wish.entity.Wish.class);
+    }
+
     @BeforeEach
     void setUp() {
+        org.springframework.transaction.support.TransactionTemplate opTx =
+                org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+        org.mockito.Mockito.lenient().when(opTx.execute(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
+                        .doInTransaction(null));
         wishService = new WishServiceImpl(
                 wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper,
                 new ContentCipher(new WishCryptoProperties()), wishGrowthRecordMapper,
                 wishProgressMapper, userStatService, userFeignClient,
-                new com.cloudmart.wish.policy.WishAccessPolicy()
+                new com.cloudmart.wish.policy.WishAccessPolicy(),
+                new com.cloudmart.wish.service.impl.WishOperationExecutor(
+                        org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), opTx),
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class)
         );
     }
 
@@ -247,16 +270,18 @@ class WishServiceImplTest {
             Wish wish = buildWish();
             wish.setUserId(USER_ID);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "更新标题", null, null, null, null, null, null, null
-            , null, null);
+            , null, null, 0L);
 
             var result = wishService.updateWish(USER_ID, WISH_ID, request);
 
             assertThat(result.id()).isEqualTo(WISH_ID);
-            verify(wishMapper).updateById(any(Wish.class));
+            // B08：字段级条件更新（不再整实体 updateById）
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(),
+                    org.mockito.ArgumentMatchers.any());
         }
 
         @Test
@@ -268,7 +293,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "恶意修改", null, null, null, null, null, null, null
-            , null, null);
+            , null, null, 0L);
 
             assertThatThrownBy(() -> wishService.updateWish(OTHER_USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -287,7 +312,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "标题", null, null, null, null, null, null, null
-            , null, null);
+            , null, null, 0L);
 
             assertThatThrownBy(() -> wishService.updateWish(USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -307,7 +332,7 @@ class WishServiceImplTest {
 
             UpdateWishRequest request = new UpdateWishRequest(
                     null, null, null, 9999L, null, null, null, null
-            , null, null);
+            , null, null, 0L);
 
             assertThatThrownBy(() -> wishService.updateWish(USER_ID, WISH_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -326,18 +351,22 @@ class WishServiceImplTest {
             wish.setTreeTheta(null);
             wish.setTreePhi(null);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
 
+            // B08：重新公开必须重新选择位置
             UpdateWishRequest request = new UpdateWishRequest(
                     null, null, null, null, null, WishVisibility.PUBLIC, null, null
-            , null, null);
+            , 39.9, 116.4, 0L);
 
             wishService.updateWish(USER_ID, WISH_ID, request);
 
-            verify(wishMapper).updateById(org.mockito.ArgumentMatchers.<Wish>argThat(w ->
-                    w.getVisibility() == WishVisibility.PUBLIC
-                            && w.getTreeTheta() != null && w.getTreePhi() != null
-            ));
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>> captor =
+                    ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
+            String sqlSet = captor.getValue().getSqlSet();
+            org.assertj.core.api.Assertions.assertThat(sqlSet).contains("visibility");
+            org.assertj.core.api.Assertions.assertThat(sqlSet).contains("tree_theta");
+            org.assertj.core.api.Assertions.assertThat(sqlSet).contains("geohash");
         }
 
         @Test
@@ -350,18 +379,23 @@ class WishServiceImplTest {
             wish.setTreeTheta(originalTheta);
             wish.setTreePhi(originalPhi);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
-            when(wishMapper.updateById(any(Wish.class))).thenReturn(1);
+            when(wishMapper.update(any(), any())).thenReturn(1);
 
             UpdateWishRequest request = new UpdateWishRequest(
                     "新标题", null, null, null, null, null, null, null
-            , null, null);
+            , null, null, 0L);
 
             wishService.updateWish(USER_ID, WISH_ID, request);
 
-            verify(wishMapper).updateById(org.mockito.ArgumentMatchers.<Wish>argThat(w ->
-                    originalTheta.compareTo(w.getTreeTheta()) == 0
-                            && originalPhi.compareTo(w.getTreePhi()) == 0
-            ));
+            // B08：字段级更新不触碰坐标列（一经写入不变更）
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>> captor =
+                    ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+            verify(wishMapper).update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
+            String sqlSet = captor.getValue().getSqlSet();
+            org.assertj.core.api.Assertions.assertThat(sqlSet).contains("title");
+            org.assertj.core.api.Assertions.assertThat(sqlSet).doesNotContain("tree_theta");
+            org.assertj.core.api.Assertions.assertThat(sqlSet).doesNotContain("support_count");
+            org.assertj.core.api.Assertions.assertThat(sqlSet).doesNotContain("audit_status");
         }
     }
 
@@ -376,14 +410,30 @@ class WishServiceImplTest {
         void deleteWish_byAuthor_success() {
             Wish wish = buildWish();
             wish.setUserId(USER_ID);
+            wish.setStatus(WishStatus.ACTIVE);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
-            when(wishMapper.deleteById(WISH_ID)).thenReturn(1);
+            // B10：活跃集合心愿按状态条件删除
+            when(wishMapper.delete(any())).thenReturn(1);
 
             var result = wishService.deleteWish(USER_ID, WISH_ID);
 
             assertThat(result.id()).isEqualTo(WISH_ID);
             assertThat(result.deletedAt()).isNotNull();
             verify(userStatService).decrementOnWishDeleted(USER_ID);
+        }
+
+        @Test
+        @DisplayName("B10：删除已还愿心愿不重复扣 activeWishes")
+        void deleteWish_fulfilled_noStatDecrement() {
+            Wish wish = buildWish();
+            wish.setUserId(USER_ID);
+            wish.setStatus(WishStatus.FULFILLED);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.delete(any())).thenReturn(1);
+
+            wishService.deleteWish(USER_ID, WISH_ID);
+
+            verify(userStatService, never()).decrementOnWishDeleted(USER_ID);
         }
 
         @Test
@@ -451,20 +501,27 @@ class WishServiceImplTest {
         }
 
         @Test
-        @DisplayName("成长时间轴：非作者看不到 DIARY 记录（解密前过滤），作者可见")
-        void listGrowthTimeline_filtersDiaryForNonAuthor() {
+        @DisplayName("成长时间轴：非作者查询在 SQL 层排除 DIARY，作者查询不过滤")
+        void listGrowthTimeline_excludesDiaryAtQueryForNonAuthor() {
             Wish wish = buildWish();
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
 
             WishGrowthRecord textRecord = growthRecord(1L, GrowthRecordType.TEXT, "公开打卡内容");
             WishGrowthRecord diaryRecord = growthRecord(2L, GrowthRecordType.DIARY, "私密日记内容");
             when(wishGrowthRecordMapper.selectList(any()))
-                    .thenReturn(List.of(textRecord, diaryRecord));
+                    .thenReturn(List.of(textRecord), List.of(textRecord, diaryRecord));
 
+            // 非作者：捕获查询条件，断言 DIARY 在 SQL 层被排除（而非内存后过滤破坏分页口径）
             var forOther = wishService.listGrowthTimeline(OTHER_USER_ID, WISH_ID, null, 20);
             assertThat(forOther.records()).hasSize(1);
-            assertThat(forOther.records().get(0).content()).isEqualTo("公开打卡内容");
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<WishGrowthRecord>>
+                    wrapperCaptor = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+            verify(wishGrowthRecordMapper, times(1)).selectList(wrapperCaptor.capture());
+            assertThat(wrapperCaptor.getValue().getExpression().getSqlSegment()).contains("<>");
+            assertThat(wrapperCaptor.getValue().getParamNameValuePairs().values())
+                    .contains(GrowthRecordType.DIARY);
 
+            // 作者：查询不带 DIARY 排除
             var forAuthor = wishService.listGrowthTimeline(USER_ID, WISH_ID, null, 20);
             assertThat(forAuthor.records()).hasSize(2);
         }

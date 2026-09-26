@@ -64,6 +64,101 @@ lint / typecheck：NOT RUN（Java 后端以编译+测试为准）
 6. **发现的新问题（High，与 B 编号无关）**：`mall-pet/feign/WishFeignClient#batchGetUsers` 调用 `mall-wish /users/batch`，mall-wish 无该端点且 mall-user 才是正确归属——宠物对战主人昵称解析必然失败进 fallback。建议 W2 修复（迁移到 mall-user 客户端）。
 7. **发现的新问题（Medium）**：成长时间轴 DIARY 过滤发生在 limit 之后，非作者分页可能出现短页/漏后页（安全优先）；W1 重构分页时一并修。
 
-## 4. 建议下一步
+
+## 4. 第二轮交付（W1 交易基础主体 + 缺陷修复，2026-09-27）
+
+### 顺手修复的开发中发现问题
+
+| 级别 | 问题 | 修复 | 验证 |
+| --- | --- | --- | --- |
+| High | mall-pet 6 处主人昵称解析经 `wishFeignClient.batchGetUsers` 调 mall-wish `/users/batch`（wish 无此端点，一直走降级占位） | 新建 `mall-pet/feign/UserFeignClient`（name=mall-user, GET /users/batch）+ fallback；7 个服务实现与测试装配迁移；wish 客户端删除该方法 | PetVisitServiceImplTest 5/5 PASS；mall-pet 编译 PASS |
+| Medium | 成长时间轴 DIARY 后过滤破坏分页口径（limit 后过滤 → 短页/漏后页） | 过滤下推 SQL：非作者查询 `.ne(type, DIARY)`，hasMore/limit 口径恢复正确；单测改为断言查询条件含 DIARY 排除 | WishServiceImplTest 37/37 PASS |
+
+### B04 写操作持久幂等 — 基础设施 + 首个接入点完成
+
+- 迁移 `V42__wish_operation_and_asset_stock.sql`：`wish_operation`（§6.2 目标结构：actor 作用域 + ascii request_key + SHA-256 request_hash + COMPLETED 结果 JSON，仅成功落库）；`wish_pet_operation` 兼容保留。
+- `WishOperationExecutor`：事务内插唯一键 → 冲突读已提交视图：同键同摘要重放、同键异摘要 409 `IDEMPOTENCY_KEY_REUSED`、无已提交行 409 `WISH_OPERATION_IN_PROGRESS`（可按原键重试）；业务失败整体回滚不留"已成功"凭证；无调用方事务时自建事务。
+- 已接入：**资产兑换**（`ASSET_EXCHANGE`，键=X-Idempotency-Key，摘要=assetId+paymentMethod）。
+- 测试：`WishOperationExecutorTest` 7 用例（重放/冲突/进行中/失败不落凭证/actor 作用域隔离）。
+
+### B05 兑换余额与库存模型 — 完成
+
+- 删除 `credited < cost` 错误二次判断（spendStarlight 返回扣款后余额）；余额不足由钱包统一 402。
+- `wish_virtual_asset` 增加 `stock_mode/stock_remaining/version`；LIMITED 在 DB 执行 `stock_remaining>0` 条件减一，与钱包、归属、操作凭证同事务；Redis 库存降级为可删除展示缓存（不再预扣）。
+- 校验补齐：validFrom（未开售）、validTo、上架状态、支付白名单（仅 STARLIGHT；RMB 通道关闭）、已拥有拒绝。
+- 响应改为 `ExchangeResultVO(id, assetId, balanceAfter, spentAmount)`（API 形态变更，前端 W5 适配）。
+- 测试：`CollectionExchangeTest` 9 用例 —— 100/80→余额20、80/80→余额0、79/80→402 无半成功、库存 0 售罄不扣款（先库存后钱包）、同键重试不二次扣款/扣库存（T09/T08 语义）。
+
+### B06 衰减与对账 — 完成
+
+- 衰减：逐用户短事务 + 条件 UPDATE 复核（不活跃+余额>10），affected=1 才写 DECAY 流水（余额快照为扣减后值）；业务唯一键 `DECAY:{userId}:{platformDate}`（Asia/Shanghai 平台日界）经 wish_operation 兜底——同日重复调度/多实例重放原结果。
+- 对账：CHECK_ONLY——只比对余额与流水求和、输出差异工单（日志承载 ID+差额），**不再直接改余额**；修复须走 N02 专属权限工单。
+- 测试：`MaintenanceStarlightTest` 5 用例（affected=0 无假流水、同日重复只扣一次、差异只读、一致无写，T10/T11 语义）。
+
+### 验证证据（第二轮）
+
+```text
+编译：六模块全量 PASS
+单元测试：mall-wish 227 + mall-gateway 30 + mall-pet 5 全部 PASS（含 W0 全部存量用例）
+集成/并发（真实库）：NOT RUN（同前，受 B23 前置约束）
+```
+
+### B04 余量（下一增量）
+
+1. 送礼（GIFT_SEND）、还愿（WISH_FULFILL）、打卡（WISH_CHECKIN）、活动领取接入 executor（兑换已作为参照实现；这些路径已有部分 DB 唯一键幂等，但尚无统一操作凭证）。
+2. `CFG/IdempotencyFilter` 旧 Redis 过滤器降级重写（作用域键=方法+路径+query+actor、409 进行中、Redis 故障仅跳过加速层）——当前旧过滤器仍在运行，其"跨端点结果串用/processing 解析"缺陷待修。
+3. operation 结果 VO 的 `duplicate` 标记与查询接口 `GET /v2/operations/{operationId}`（§5.3）。
+
+## 6. 第三轮交付（B04 收口 + B13 基础，2026-09-27）
+
+### B04 写操作持久幂等 — 主体收口
+- 旧 `IdempotencyFilter` 重写为纯加速层：作用域键与摘要覆盖 method+path+规范化 query+body（修复跨端点结果串用与仅 body 摘要）；processing 状态改统一 JSON 存储（修复"处理中请求被误判 409 并把哈希当响应体重放"）；处理中返回 `WISH_OPERATION_IN_PROGRESS`（与键复用区分）；过滤器排在 Security 链之后（先认证、再查幂等）；仅 2xx 缓存 24h，失败删键可原键重试；Redis 故障仅跳过加速层。
+- executor 接入铺开：兑换 `ASSET_EXCHANGE`、送礼 `GIFT_SEND`、还愿 `WISH_FULFILL`、打卡 `WISH_CHECKIN`；四个写入口控制器读取 `X-Idempotency-Key`（可空=单次请求保护）。
+
+### B13 事件可靠投递 — 基础设施
+- 迁移 `V43__wish_outbox_inbox.sql`：`wish_outbox`（eventId PK、聚合版本、租约、退避、DEAD）+ `wish_event_inbox`（consumer_name+event_id 主键去重）。
+- `WishOutboxService`：publish 于调用方事务内落 PENDING（业务事实与事件原子提交）；`@Scheduled` 中继按租约条件 UPDATE 抢占（多实例互斥），退避 1s/5s/30s/2min/10min，超 10 次置 DEAD 告警，投递成功置 PUBLISHED。
+- 首个接入：还愿成功与 `WishFulfilled` 事件同事务（payload 仅 ID/状态，无正文）。
+- 余量（下一增量）：消费端 `WishStatSyncConsumer` 接入 inbox 去重（totalHelped 重复累计修复）；`WishVisibilityChanged` 等其余首批事件接线；签到/活动跨服务经验发送迁移 outbox。
+
+### 验证证据（第三轮）
+```text
+编译 + test-compile：PASS
+单元测试：mall-wish 227 + mall-gateway 30 全部 PASS
+集成/并发（真实库）：NOT RUN（B23 前置约束不变）
+```
+
+## 7. 第四轮交付（W2 核心正确性第一批，2026-09-27）
+
+### B13 收口：消费端去重
+- `HelpedEventMessage` 增加 eventId（兼容旧在途消息）；`publishHelpedEvent` 改走 outbox（事实与事件同事务，不再"发送失败仅记日志"）；中继按事件类型映射既有 tag（HelpedRecorded→wish-stat-sync）。
+- `WishEventInboxService.tryConsume`：去重行与 `incrementTotalHelped` 同事务——重复投递只累加一次；副作用回滚时去重行一并回滚，消息可安全重投。
+
+### B14：收藏馆
+- 指定 type=SKIN 等不再无条件查徽章（修复 NPE）；非法类型返回 422。
+- 余量：星火收藏迁移至 wish_collection 统一模型（需数据迁移，W2 后续）。
+
+### B08：心愿编辑字段级 CAS
+- V44：`wish.version`。UpdateWishRequest 必填 version；`update` 条件更新 `WHERE id AND version` 命中才 SET，`version+1`；未命中 409 `WISH_VERSION_CONFLICT`。
+- 只 SET 可编辑字段——互动计数/审核状态/果实类型不在更新列（修复覆盖并发点亮/审核）；缺失字段不更新。
+- 可见性切换联动：PUBLIC→PRIVATE/TREE_HOLE 显式清除 geohash；进入/离开 TREE_HOLE 同步 enableAiReply/auditStrategy/triggerEnvEmo；重新公开必须携带新坐标（否则 422）；PRIVATE→PUBLIC 首次固化树坐标；可见性变更与 `WishVisibilityChanged` 事件同事务。
+
+### B09：打卡连续天数与 mood
+- V44：`wish_progress.last_checkin_date`。连续天数按"last_checkin_date==昨天 → +1，否则 → 1"判定（修复盲 +1）；maxStreak 取最大；mood 此前接收未保存——已落库并校验打卡正文 ≤200。
+- 余量：用户级去重日事实表（totalCheckinDays 去重口径）与时区口径统一（W2 后续）。
+
+### B10：删除统计一次
+- deleteWish 改条件软删：仅删除时心愿在活跃集合（ACTIVE/OVERDUE/FULFILLING）才 `decrementOnWishDeleted`；并发流转（恰好还愿）下条件删除未命中则按非活跃口径重删、不扣统计（已还愿心愿再删不再误减）；删除事实与 `WishDeleted` 事件同事务。
+- 余量：后台删除共用同一命令入口（WishCommandService 归一，W2 后续）；到期扫描按实际成功对象计数。
+
+### 验证证据（第四轮）
+```text
+编译：六模块 PASS
+单元测试：mall-wish 228 + mall-gateway 30 全部 PASS
+新增用例：B10 删除已还愿心愿不扣统计；B08 可见性切换/坐标固化/不触碰计数控（wrapper SQL Set 断言）
+集成/并发（真实库）：NOT RUN
+```
+
+## 5. 建议下一步
 
 按任务书 §12.2 顺序：`wish-privacy-policy`（本轮已完成主体）→ `wish-operation-wallet`（B04–B06，operation/outbox 迁移 V42+）→ `wish-events-tasks`（B13）。

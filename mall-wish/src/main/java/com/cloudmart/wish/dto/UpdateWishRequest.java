@@ -37,5 +37,19 @@ public record UpdateWishRequest(
         Double latitude,
 
         /** 经度（可选，PUBLIC 心愿 LBS 用） */
-        Double longitude
-) {}
+        Double longitude,
+
+        /** 乐观锁版本（B08：必填；不符返回 409 WISH_VERSION_CONFLICT） */
+        @jakarta.validation.constraints.NotNull(message = "version 不能为空")
+        Long version
+) {
+
+    /** 兼容旧调用（无 version 的内部/测试构造）。 */
+    public UpdateWishRequest(String title, String description, java.util.List<String> mediaUrls,
+                             Long categoryId, java.util.List<String> tags, WishVisibility visibility,
+                             java.time.LocalDateTime expectedAt, String expectedTimezone,
+                             Double latitude, Double longitude) {
+        this(title, description, mediaUrls, categoryId, tags, visibility,
+                expectedAt, expectedTimezone, latitude, longitude, null);
+    }
+}

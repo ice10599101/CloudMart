@@ -19,6 +19,7 @@ import com.cloudmart.pet.enums.PetFurnitureCategory;
 import com.cloudmart.pet.enums.PetIntimacySource;
 import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.enums.PetQuestType;
+import com.cloudmart.pet.feign.UserFeignClient;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetFurnitureConfigMapper;
@@ -89,6 +90,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetFurnitureConfigMapper furnitureConfigMapper;
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
+    private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
     private final PetOperationService operationService;
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
@@ -109,6 +111,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetFurnitureConfigMapper furnitureConfigMapper,
                               PetInventoryMapper inventoryMapper,
                               WishFeignClient wishFeignClient,
+                              UserFeignClient userFeignClient,
                               PetEventProducer eventProducer,
                               PetDailyQuestService dailyQuestService,
                               PetIntimacyService intimacyService,
@@ -128,6 +131,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.furnitureConfigMapper = furnitureConfigMapper;
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
+        this.userFeignClient = userFeignClient;
         this.operationService = operationService;
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
@@ -787,7 +791,7 @@ public class PetHomeServiceImpl implements PetHomeService {
             return Map.of();
         }
         try {
-            List<Map<String, Object>> users = wishFeignClient.batchGetUsers(userIds).data();
+            List<Map<String, Object>> users = userFeignClient.batchGetUsers(userIds).data();
             if (users == null) {
                 return Map.of();
             }

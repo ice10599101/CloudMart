@@ -30,7 +30,9 @@ public interface FulfillmentService {
      * @param request 还愿内容（story 必填）
      * @return 提交结果（含新获徽章与实际入账星光）
      */
-    WishFulfillmentSubmitVO submitFulfillment(Long userId, Long wishId, SubmitFulfillmentRequest request);
+        /** 提交还愿（B04：idempotencyKey 为客户端幂等键，可空）。 */
+    WishFulfillmentSubmitVO submitFulfillment(Long userId, Long wishId, SubmitFulfillmentRequest request,
+                                              String idempotencyKey);
 
     /**
      * 还愿详情（公开心愿任何人可看；PRIVATE/TREE_HOLE 非作者 404 防存在性探测）。

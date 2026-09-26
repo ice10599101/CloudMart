@@ -12,6 +12,7 @@ import com.cloudmart.pet.entity.PetRelation;
 import com.cloudmart.pet.enums.PetRelationAction;
 import com.cloudmart.pet.enums.PetRelationStatus;
 import com.cloudmart.pet.enums.PetRelationType;
+import com.cloudmart.pet.feign.UserFeignClient;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetMapper;
@@ -65,6 +66,7 @@ public class PetRelationServiceImpl implements PetRelationService {
     private final PetMapper petMapper;
     private final PetRelationMapper relationMapper;
     private final WishFeignClient wishFeignClient;
+    private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
     private final PetEventProducer eventProducer;
     private final PetAchievementService achievementService;
     private final PetProperties properties;
@@ -74,6 +76,7 @@ public class PetRelationServiceImpl implements PetRelationService {
                                   PetMapper petMapper,
                                   PetRelationMapper relationMapper,
                                   WishFeignClient wishFeignClient,
+                                  UserFeignClient userFeignClient,
                                   PetEventProducer eventProducer,
                                   PetAchievementService achievementService,
                                   PetProperties properties,
@@ -82,6 +85,7 @@ public class PetRelationServiceImpl implements PetRelationService {
         this.petMapper = petMapper;
         this.relationMapper = relationMapper;
         this.wishFeignClient = wishFeignClient;
+        this.userFeignClient = userFeignClient;
         this.eventProducer = eventProducer;
         this.achievementService = achievementService;
         this.properties = properties;
@@ -458,7 +462,7 @@ public class PetRelationServiceImpl implements PetRelationService {
             return Map.of();
         }
         try {
-            List<Map<String, Object>> users = wishFeignClient.batchGetUsers(userIds).data();
+            List<Map<String, Object>> users = userFeignClient.batchGetUsers(userIds).data();
             if (users == null) {
                 return Map.of();
             }

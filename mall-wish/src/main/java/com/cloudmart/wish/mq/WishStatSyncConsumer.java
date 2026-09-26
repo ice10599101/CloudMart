@@ -29,6 +29,8 @@ import org.springframework.stereotype.Component;
 public class WishStatSyncConsumer implements RocketMQListener<WishStatEventProducer.HelpedEventMessage> {
 
     private final UserStatService userStatService;
+    private final com.cloudmart.wish.service.impl.WishEventInboxService inboxService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Override
     public void onMessage(WishStatEventProducer.HelpedEventMessage message) {
@@ -37,7 +39,16 @@ public class WishStatSyncConsumer implements RocketMQListener<WishStatEventProdu
             log.warn("帮助统计事件缺少 userId，跳过: {}", message);
             return;
         }
-        userStatService.incrementTotalHelped(userId);
-        log.debug("帮助统计已累加, userId={}", userId);
+        // B13：eventId 去重行与统计累加同事务——重复投递只累加一次；
+        // 去重行随副作用回滚，消息可安全重投
+        transactionTemplate.execute(status -> {
+            if (!inboxService.tryConsume("wish-stat-sync-helped", message.eventId())) {
+                log.info("帮助统计事件重复投递，跳过 eventId={}", message.eventId());
+                return null;
+            }
+            userStatService.incrementTotalHelped(userId);
+            return null;
+        });
+        log.debug("帮助统计已处理, userId={}, eventId={}", userId, message.eventId());
     }
 }

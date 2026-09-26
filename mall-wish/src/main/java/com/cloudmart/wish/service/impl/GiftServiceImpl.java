@@ -73,6 +73,7 @@ public class GiftServiceImpl implements GiftService {
     private final UserFeignClient userFeignClient;
     private final TransactionTemplate transactionTemplate;
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
+    private final WishOperationExecutor operationExecutor;
 
     @Override
     public List<GiftVO> listOnShelfGifts() {
@@ -86,7 +87,7 @@ public class GiftServiceImpl implements GiftService {
     }
 
     @Override
-    public SendGiftResultVO sendGift(Long userId, SendGiftRequest request) {
+    public SendGiftResultVO sendGift(Long userId, SendGiftRequest request, String idempotencyKey) {
         GiftTargetType targetType = parseTargetType(request.targetType());
 
         // ---- 前置校验（事务外：目录读 + Feign 收礼人解析，无锁持有）----
@@ -119,11 +120,20 @@ public class GiftServiceImpl implements GiftService {
         record.setTargetId(request.targetId());
         record.setMessage(request.message());
 
-        Integer balanceAfter = transactionTemplate.execute(status -> {
-            giftRecordMapper.insert(record);
-            return userStatService.spendStarlight(userId, totalPrice,
-                    ResourceLogSource.GIFT_SEND, record.getId());
-        });
+        // B04：事务体内挂持久幂等——操作凭证与"记录落库+扣款"同事务提交；
+        // 重放时业务 lambda 不执行，从已提交结果恢复 recordId/balanceAfter（不二次扣费）
+        GiftSendOutcome outcome = transactionTemplate.execute(status ->
+                operationExecutor.execute("USER", userId, null, "GIFT_SEND", idempotencyKey,
+                        java.util.Map.of("giftId", request.giftId(), "count", request.count(),
+                                "targetType", targetType.name(), "targetId", request.targetId(),
+                                "receiverId", receiverId, "totalPrice", totalPrice),
+                        GiftSendOutcome.class,
+                        () -> {
+                            giftRecordMapper.insert(record);
+                            int balance = userStatService.spendStarlight(userId, totalPrice,
+                                    ResourceLogSource.GIFT_SEND, record.getId());
+                            return new GiftSendOutcome(record.getId(), balance);
+                        }));
 
         // ---- 事务提交后：直播场景礼物特效广播（Fail-Silent 增强动作）----
         if (targetType == GiftTargetType.LIVE_ROOM) {
@@ -132,8 +142,9 @@ public class GiftServiceImpl implements GiftService {
 
         log.info("送礼成功: userId={}, giftId={}, count={}, total={}, targetType={}, targetId={}, recordId={}",
                 userId, gift.getId(), request.count(), totalPrice, targetType, request.targetId(), record.getId());
-        return new SendGiftResultVO(record.getId(), gift.getId(), gift.getName(), gift.getIconUrl(),
-                request.count(), totalPrice, balanceAfter, receiverId, targetType.name(), request.targetId());
+        return new SendGiftResultVO(outcome.recordId(), gift.getId(), gift.getName(), gift.getIconUrl(),
+                request.count(), totalPrice, outcome.balanceAfter(), receiverId, targetType.name(),
+                request.targetId());
     }
 
     @Override
@@ -203,6 +214,10 @@ public class GiftServiceImpl implements GiftService {
 
     private long asLong(Object value) {
         return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    /** 送礼事务结果（B04 持久幂等重放载体；recordId 在重放时从已提交结果恢复）。 */
+    record GiftSendOutcome(Long recordId, Integer balanceAfter) {
     }
 
     /** 记录列表 → cursor 分页 VO：游标为本页末条 ID，hasMore 按满页推断 */

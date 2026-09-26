@@ -69,6 +69,8 @@ class PetVisitServiceImplTest {
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
+    private com.cloudmart.pet.feign.UserFeignClient userFeignClient;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
@@ -92,7 +94,7 @@ class PetVisitServiceImplTest {
     @BeforeEach
     void setUp() {
         visitService = new PetVisitServiceImpl(petService, stateService, petMapper, activityMapper,
-                achievementService, eventProducer, wishFeignClient, properties, redisTemplate,
+                achievementService, eventProducer, wishFeignClient, userFeignClient, properties, redisTemplate,
                 dailyQuestService, intimacyService, relationService,
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -164,7 +166,7 @@ class PetVisitServiceImplTest {
         when(valueOperations.get(anyString())).thenReturn(null);
         when(valueOperations.setIfAbsent(anyString(), eq("1"), any(Duration.class))).thenReturn(true);
         when(valueOperations.increment(anyString())).thenReturn(1L);
-        when(wishFeignClient.batchGetUsers(any()))
+        when(userFeignClient.batchGetUsers(any()))
                 .thenReturn(ApiResponse.ok(List.of(Map.of("id", 200L, "nickname", "阿黄主人"))));
         when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
 

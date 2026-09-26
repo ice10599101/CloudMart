@@ -84,9 +84,17 @@ class FulfillmentServiceImplTest {
     @BeforeEach
     void setUp() {
         contentSanitizer = new WishContentSanitizer(List.of());
+        org.springframework.transaction.support.TransactionTemplate txTemplate =
+                org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+        org.mockito.Mockito.lenient().when(txTemplate.execute(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
+                        .doInTransaction(null));
         fulfillmentService = new FulfillmentServiceImpl(
                 wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService,
-                new com.cloudmart.wish.policy.WishAccessPolicy()
+                new com.cloudmart.wish.policy.WishAccessPolicy(),
+                new com.cloudmart.wish.service.impl.WishOperationExecutor(
+                        org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), txTemplate),
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class)
         );
     }
 
@@ -106,7 +114,7 @@ class FulfillmentServiceImplTest {
             SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
                     "故事", null, null, true);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR));
@@ -123,7 +131,7 @@ class FulfillmentServiceImplTest {
             SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
                     "故事", null, null, true);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -143,7 +151,7 @@ class FulfillmentServiceImplTest {
 
             org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
             try {
-                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest());
+                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null);
             } finally {
                 org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
             }
@@ -173,7 +181,7 @@ class FulfillmentServiceImplTest {
                     "故事", null, null, true);
             org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
             try {
-                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request);
+                fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null);
                 // 单测无真实事务提交：手动触发已注册同步器的 afterCommit
                 org.springframework.transaction.support.TransactionSynchronizationManager
                         .getSynchronizations().forEach(
@@ -212,7 +220,7 @@ class FulfillmentServiceImplTest {
             when(userStatService.earnStarlight(eq(USER_ID), eq(STARLIGHT_REWARD),
                     eq(ResourceLogSource.FULFILL), eq(FULFILLMENT_ID))).thenReturn(STARLIGHT_REWARD);
 
-            var result = fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest());
+            var result = fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null);
 
             assertThat(result.id()).isEqualTo(FULFILLMENT_ID);
             assertThat(result.wishId()).isEqualTo(WISH_ID);
@@ -243,7 +251,7 @@ class FulfillmentServiceImplTest {
             when(userStatService.incrementOnFulfilled(USER_ID)).thenReturn(Collections.emptyList());
             when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(STARLIGHT_REWARD);
 
-            var result = fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest());
+            var result = fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null);
 
             assertThat(result.status()).isEqualTo(WishStatus.FULFILLED);
         }
@@ -253,7 +261,7 @@ class FulfillmentServiceImplTest {
         void submitFulfillment_wishNotFound_throws() {
             when(wishMapper.selectById(WISH_ID)).thenReturn(null);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest()))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_NOT_FOUND));
@@ -267,7 +275,7 @@ class FulfillmentServiceImplTest {
             Wish wish = buildWish(WishStatus.ACTIVE);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(OTHER_USER_ID, WISH_ID, buildRequest()))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(OTHER_USER_ID, WISH_ID, buildRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_NOT_AUTHOR));
@@ -282,7 +290,7 @@ class FulfillmentServiceImplTest {
             wish.setVisibility(WishVisibility.PRIVATE);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(OTHER_USER_ID, WISH_ID, buildRequest()))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(OTHER_USER_ID, WISH_ID, buildRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_NOT_FOUND));
@@ -294,7 +302,7 @@ class FulfillmentServiceImplTest {
             Wish wish = buildWish(WishStatus.FULFILLED);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest()))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_NOT_FULFILLABLE));
@@ -311,7 +319,7 @@ class FulfillmentServiceImplTest {
             // 模拟并发：查询后状态已被其他请求流转
             when(wishMapper.update(any(), any())).thenReturn(0);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest()))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_NOT_FULFILLABLE));
@@ -328,7 +336,7 @@ class FulfillmentServiceImplTest {
             SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
                     "看 ../etc/passwd", null, null);
 
-            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request))
+            assertThatThrownBy(() -> fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR));
@@ -348,7 +356,7 @@ class FulfillmentServiceImplTest {
             SubmitFulfillmentRequest request = new SubmitFulfillmentRequest(
                     "<script>alert('x')</script>", List.of("oss://key1.png"), "<b>感悟</b>");
 
-            fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request);
+            fulfillmentService.submitFulfillment(USER_ID, WISH_ID, request, null);
 
             verify(wishFulfillmentMapper).insert(org.mockito.ArgumentMatchers.<WishFulfillment>argThat(f ->
                     f.getStory().contains("<script>")

@@ -27,7 +27,14 @@ public interface CollectionService {
      * 星光兑换（幂等：重复兑换抛 WISH_ALREADY_OWNED；限量 Redis DECR
      * 预扣；余额不足 402）。RMB 通道偏差留档，当前拒绝。
      */
-    UserAsset exchange(Long userId, Long assetId, String paymentMethod);
+    /**
+     * 星光兑换资产（B04/B05）：持久幂等 + DB 条件扣库存 + 原子扣款，
+     * 返回扣款后余额；余额不足由钱包统一抛 402。
+     *
+     * @param idempotencyKey 客户端幂等键（X-Idempotency-Key；可空则按单次请求处理）
+     */
+    com.cloudmart.wish.vo.ExchangeResultVO exchange(Long userId, Long assetId,
+                                                    String paymentMethod, String idempotencyKey);
 
     /**
      * 收藏馆（按类型分组：BADGE 来自 wish_user_badge / SKIN/BGM/

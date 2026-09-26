@@ -16,6 +16,7 @@ import com.cloudmart.pet.enums.PetIntimacySource;
 import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.enums.PetRelationAction;
 import com.cloudmart.pet.enums.PetWallStatus;
+import com.cloudmart.pet.feign.UserFeignClient;
 import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetMapper;
@@ -77,6 +78,7 @@ public class PetWallServiceImpl implements PetWallService {
     private final PetDailyQuestService dailyQuestService;
     private final PetEventProducer eventProducer;
     private final WishFeignClient wishFeignClient;
+    private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
     private final PetProperties properties;
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
@@ -93,6 +95,7 @@ public class PetWallServiceImpl implements PetWallService {
                               PetDailyQuestService dailyQuestService,
                               PetEventProducer eventProducer,
                               WishFeignClient wishFeignClient,
+                              com.cloudmart.pet.feign.UserFeignClient userFeignClient,
                               PetProperties properties,
                               StringRedisTemplate redisTemplate,
                               PetQuotaService quotaService,
@@ -108,7 +111,8 @@ public class PetWallServiceImpl implements PetWallService {
         this.dailyQuestService = dailyQuestService;
         this.eventProducer = eventProducer;
         this.wishFeignClient = wishFeignClient;
-        this.properties = properties;
+                this.userFeignClient = userFeignClient;
+this.properties = properties;
         this.redisTemplate = redisTemplate;
         this.quotaService = quotaService;
         this.userBlockService = userBlockService;
@@ -456,7 +460,7 @@ public class PetWallServiceImpl implements PetWallService {
             return Map.of();
         }
         try {
-            List<Map<String, Object>> users = wishFeignClient.batchGetUsers(userIds).data();
+            List<Map<String, Object>> users = userFeignClient.batchGetUsers(userIds).data();
             if (users == null) {
                 return Map.of();
             }

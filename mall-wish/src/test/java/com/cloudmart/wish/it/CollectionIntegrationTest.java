@@ -49,8 +49,8 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
             seedUserStat(USER, 100);
             Long assetId = seedAsset("SKIN", 10, 0);
 
-            UserAsset ua = collectionService.exchange(USER, assetId, "STARLIGHT");
-            assertThat(ua.getStatus()).isEqualTo("OWNED");
+            com.cloudmart.wish.vo.ExchangeResultVO ua = collectionService.exchange(USER, assetId, "STARLIGHT", null);
+            assertThat(ua.id()).isNotNull();
 
             Integer balance = jdbcTemplate.queryForObject(
                     "SELECT starlight_balance FROM wish_user_stat WHERE user_id = ?",
@@ -58,7 +58,7 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
             assertThat(balance).isEqualTo(90);
 
             // 幂等：重复兑换 → 已拥有（409）
-            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT"))
+            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT", null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -69,7 +69,7 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
         void insufficientStarlight() {
             seedUserStat(USER, 5);
             Long assetId = seedAsset("SKIN", 10, 0);
-            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT"))
+            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT", null))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT);
@@ -80,9 +80,9 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
         void stockLimit() {
             seedUserStat(USER, 1000);
             Long assetId = seedAsset("BGM", 1, 1);
-            collectionService.exchange(USER, assetId, "STARLIGHT");
+            collectionService.exchange(USER, assetId, "STARLIGHT", null);
             // 库存耗尽（stock=1，第二次 → 售罄）
-            assertThatThrownBy(() -> collectionService.exchange(901L, assetId, "STARLIGHT"))
+            assertThatThrownBy(() -> collectionService.exchange(901L, assetId, "STARLIGHT", null))
                     .isInstanceOf(BusinessException.class);
         }
     }
@@ -99,8 +99,8 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
             Long skinB = seedAsset("SKIN", 0, 0);
 
             // 0 星光资产仍走星光路径（price=0 → 直接获得）
-            UserAsset ua1 = collectionService.exchange(USER, skinA, "STARLIGHT");
-            UserAsset ua2 = collectionService.exchange(USER, skinB, "STARLIGHT");
+            var ua1 = collectionService.exchange(USER, skinA, "STARLIGHT", null);
+            var ua2 = collectionService.exchange(USER, skinB, "STARLIGHT", null);
 
             collectionService.setActiveAsset(USER, skinA);
             Boolean activeA = jdbcTemplate.queryForObject(
@@ -217,12 +217,12 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
             Boolean dbActive = jdbcTemplate.queryForObject(
                     "SELECT is_active FROM wish_virtual_asset WHERE id = ?", Boolean.class, assetId);
             assertThat(dbActive).isFalse();
-            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT"))
+            assertThatThrownBy(() -> collectionService.exchange(USER, assetId, "STARLIGHT", null))
                     .isInstanceOf(BusinessException.class);
 
             collectionService.toggleAsset(assetId, true);
-            UserAsset ua = collectionService.exchange(USER, assetId, "STARLIGHT");
-            assertThat(ua.getStatus()).isEqualTo("OWNED");
+            com.cloudmart.wish.vo.ExchangeResultVO ua = collectionService.exchange(USER, assetId, "STARLIGHT", null);
+            assertThat(ua.id()).isNotNull();
         }
 
         @Test
@@ -242,7 +242,7 @@ class CollectionIntegrationTest extends WishIntegrationTestBase {
         void deleteAssetOwnedRejected() {
             seedUserStat(USER, 100);
             Long assetId = seedAsset("SKIN", 10, 0);
-            collectionService.exchange(USER, assetId, "STARLIGHT");
+            collectionService.exchange(USER, assetId, "STARLIGHT", null);
 
             assertThatThrownBy(() -> collectionService.deleteAsset(assetId))
                     .isInstanceOf(BusinessException.class)

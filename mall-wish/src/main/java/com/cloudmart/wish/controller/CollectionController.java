@@ -57,15 +57,17 @@ public class CollectionController {
     }
 
     @PostMapping("/workshop/exchange")
-    @Operation(summary = "星光兑换", description = "幂等（重复兑换 409 已拥有）；限量 Redis DECR 预扣；"
-            + "余额不足 402；RMB 通道偏差留档")
+    @Operation(summary = "星光兑换", description = "B04 持久幂等：同键同内容重放原结果，同键异内容 409；"
+            + "B05 DB 条件扣库存（LIMITED）；余额不足 402；RMB 通道关闭")
     @SentinelResource("WISH_WORKSHOP_EXCHANGE")
-    public ApiResponse<UserAsset> exchange(
+    public ApiResponse<com.cloudmart.wish.vo.ExchangeResultVO> exchange(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "幂等键（X-Idempotency-Key；一次用户动作一个键，超时重试沿用同键）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @jakarta.validation.Valid @RequestBody ExchangeAssetRequest request) {
         String paymentMethod = request.paymentMethod() == null ? "STARLIGHT" : request.paymentMethod();
-        return ApiResponse.ok(collectionService.exchange(userId, request.assetId(), paymentMethod));
+        return ApiResponse.ok(collectionService.exchange(userId, request.assetId(), paymentMethod, idempotencyKey));
     }
 
     @PostMapping("/collections/spark/{wishId}")

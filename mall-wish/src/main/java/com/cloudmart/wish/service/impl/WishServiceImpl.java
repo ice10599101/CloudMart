@@ -93,6 +93,8 @@ public class WishServiceImpl implements WishService {
     private final UserStatService userStatService;
     private final UserFeignClient userFeignClient;
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
+    private final WishOperationExecutor operationExecutor;
+    private final WishOutboxService outboxService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -188,57 +190,99 @@ public class WishServiceImpl implements WishService {
     public WishUpdateResultVO updateWish(Long userId, Long wishId, UpdateWishRequest request) {
         Wish wish = getViewableWishOrThrow(wishId, userId);
         assertAuthor(wish, userId);
+        if (request.version() == null) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "缺少 version，请先获取当前版本");
+        }
 
-        // 校验状态：FULFILLED 状态尝试设置 SPARK 果实类型返回 409
-        if (request.title() != null) {
-            wish.setTitle(request.title());
+        // B08：用最终可见性推导关联字段
+        WishVisibility oldVisibility = wish.getVisibility();
+        WishVisibility newVisibility = request.visibility() != null ? request.visibility() : oldVisibility;
+        boolean visibilityChanged = request.visibility() != null && newVisibility != oldVisibility;
+
+        // 重新公开必须重新选择位置（公开转私密清除了 geohash）
+        if (visibilityChanged && newVisibility == WishVisibility.PUBLIC
+                && wish.getGeohash() == null
+                && (request.latitude() == null || request.longitude() == null)) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "重新公开需要重新选择位置");
         }
-        if (request.description() != null) {
-            wish.setDescription(request.description());
-        }
-        if (request.mediaUrls() != null) {
-            wish.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
-        }
-        if (request.categoryId() != null) {
-            // 校验新分类存在性
+        if (request.categoryId() != null && !request.categoryId().equals(wish.getCategoryId())) {
             WishCategory category = wishCategoryMapper.selectById(request.categoryId());
             if (category == null) {
                 throw new BusinessException(WishErrorCodes.WISH_CATEGORY_INVALID, "心愿分类不存在");
             }
-            wish.setCategoryId(request.categoryId());
+        }
+
+        // 字段级条件更新：只 SET 允许编辑的字段，计数/审核状态/果实类型不由普通编辑覆盖
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish> uw =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getVersion, request.version())
+                        .setSql("version = version + 1");
+        if (request.title() != null) {
+            uw.set(Wish::getTitle, request.title());
+        }
+        if (request.description() != null) {
+            uw.set(Wish::getDescription, request.description());
+        }
+        if (request.mediaUrls() != null) {
+            uw.set(Wish::getMediaUrls, WishJsonUtils.stringifyList(request.mediaUrls()));
+        }
+        if (request.categoryId() != null) {
+            uw.set(Wish::getCategoryId, request.categoryId());
         }
         if (request.tags() != null) {
-            wish.setTags(WishJsonUtils.stringifyList(request.tags()));
-        }
-        // LBS（Sprint 3.1）：PUBLIC 心愿更新坐标（geohash 覆写；0,0 视为清除）
-        if (request.latitude() != null && request.longitude() != null
-                && wish.getVisibility() == WishVisibility.PUBLIC) {
-            if (request.latitude() != 0.0 && request.longitude() != 0.0) {
-                wish.setGeohash(GeoHashUtils.encode(request.latitude(), request.longitude(), 7));
-            } else {
-                wish.setGeohash(null);
-            }
-        }
-        if (request.visibility() != null) {
-            // 转公开时固化球面坐标（Sprint 2.1：PRIVATE→PUBLIC 上树；
-            // 坐标为空才赋值——一经写入不变更，PUBLIC→PRIVATE→PUBLIC 位置不跳动）
-            if (request.visibility() == WishVisibility.PUBLIC
-                    && wish.getVisibility() != WishVisibility.PUBLIC
-                    && wish.getTreeTheta() == null) {
-                TreePositionCalculator.TreePosition position = TreePositionCalculator.assign(wish.getId());
-                wish.setTreeTheta(position.theta());
-                wish.setTreePhi(position.phi());
-            }
-            wish.setVisibility(request.visibility());
+            uw.set(Wish::getTags, WishJsonUtils.stringifyList(request.tags()));
         }
         if (request.expectedAt() != null) {
-            wish.setExpectedAt(request.expectedAt());
+            uw.set(Wish::getExpectedAt, request.expectedAt());
+        }
+        // 定位按最终可见性推导：仅 PUBLIC 可有坐标；0,0 视为清除
+        if (newVisibility == WishVisibility.PUBLIC) {
+            if (request.latitude() != null && request.longitude() != null) {
+                if (request.latitude() != 0.0 && request.longitude() != 0.0) {
+                    uw.set(Wish::getGeohash, GeoHashUtils.encode(request.latitude(), request.longitude(), 7));
+                } else {
+                    uw.set(Wish::getGeohash, null);
+                }
+            }
+        } else {
+            // PUBLIC→PRIVATE/TREE_HOLE：显式清除定位（B07 可见性变更事件同步触发）
+            uw.set(Wish::getGeohash, null);
+        }
+        if (visibilityChanged) {
+            uw.set(Wish::getVisibility, newVisibility);
+            // 树洞联动：进入 TREE_HOLE 启用 AI 入口与严格审核；离开则关闭
+            if (newVisibility == WishVisibility.TREE_HOLE) {
+                uw.set(Wish::getEnableAiReply, true);
+                uw.set(Wish::getAuditStrategy, com.cloudmart.wish.enums.AuditStrategy.STRICT);
+                uw.set(Wish::getTriggerEnvEmo, true);
+            } else if (oldVisibility == WishVisibility.TREE_HOLE) {
+                uw.set(Wish::getEnableAiReply, false);
+                uw.set(Wish::getAuditStrategy, com.cloudmart.wish.enums.AuditStrategy.LAZY);
+                uw.set(Wish::getTriggerEnvEmo, false);
+            }
+            // 私密/树洞 → PUBLIC：首次固化球面坐标（一经写入不变更，位置不跳动）
+            if (newVisibility == WishVisibility.PUBLIC && wish.getTreeTheta() == null) {
+                TreePositionCalculator.TreePosition position = TreePositionCalculator.assign(wish.getId());
+                uw.set(Wish::getTreeTheta, position.theta());
+                uw.set(Wish::getTreePhi, position.phi());
+            }
         }
 
-        wishMapper.updateById(wish);
-        log.info("心愿更新成功, wishId={}, userId={}", wishId, userId);
-
-        return new WishUpdateResultVO(wish.getId(), wish.getUpdatedAt());
+        int updated = wishMapper.update(null, uw);
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT,
+                    "心愿已被并发修改，请刷新后重试");
+        }
+        if (visibilityChanged) {
+            // B07：可见性变更事件与领域写同事务落 outbox，供缓存/衍生资源失效
+            outboxService.publish("WISH", wishId, request.version() + 1, "WishVisibilityChanged",
+                    java.util.Map.of("wishId", wishId, "visibility", newVisibility.name()));
+        }
+        Wish fresh = wishMapper.selectById(wishId);
+        log.info("心愿更新成功, wishId={}, userId={}, version={}->{}",
+                wishId, userId, request.version(), request.version() + 1);
+        return new WishUpdateResultVO(wishId, fresh != null ? fresh.getUpdatedAt() : null);
     }
 
     @Override
@@ -247,13 +291,28 @@ public class WishServiceImpl implements WishService {
         Wish wish = getViewableWishOrThrow(wishId, userId);
         assertAuthor(wish, userId);
 
-        // 软删：MyBatis-Plus @TableLogic 自动设置 deleted_at
-        wishMapper.deleteById(wishId);
-
-        // 同事务更新用户统计（activeWishes - 1，totalWishes 不变）
-        userStatService.decrementOnWishDeleted(userId);
-
-        log.info("心愿软删成功, wishId={}, userId={}", wishId, userId);
+        // B10：仅当删除时心愿仍在活跃集合（ACTIVE/OVERDUE/FULFILLING）才扣 activeWishes——
+        // 已还愿心愿曾扣过一次，再删不重复扣；并发流转下条件删除保证只减一次
+        boolean isActiveSet = wish.getStatus() == WishStatus.ACTIVE
+                || wish.getStatus() == WishStatus.OVERDUE
+                || wish.getStatus() == WishStatus.FULFILLING;
+        int affected = wishMapper.delete(new LambdaQueryWrapper<Wish>()
+                .eq(Wish::getId, wishId)
+                .eq(isActiveSet, Wish::getStatus, wish.getStatus()));
+        if (affected == 0) {
+            // 状态被并发流转（如恰好还愿成功）：按非活跃口径重删，不扣统计
+            affected = wishMapper.delete(new LambdaQueryWrapper<Wish>().eq(Wish::getId, wishId));
+        }
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
+        if (isActiveSet && affected == 1) {
+            userStatService.decrementOnWishDeleted(userId);
+        }
+        // B13：删除事实与事件同事务
+        outboxService.publish("WISH", wishId, 0L, "WishDeleted",
+                java.util.Map.of("wishId", wishId, "userId", userId));
+        log.info("心愿软删成功, wishId={}, userId={}, activeSet={}", wishId, userId, isActiveSet);
         return new WishDeleteResultVO(wishId, LocalDateTime.now());
     }
 
@@ -315,19 +374,16 @@ public class WishServiceImpl implements WishService {
         WishProgress progress = wishProgressMapper.selectById(wishId);
         WishProgressVO progressVO = toProgressVO(progress);
 
-        // 最近成长记录；DIARY 永远仅作者可读（B02）：非作者先过滤再解密
+        // 最近成长记录；DIARY 永远仅作者可读（B02）：非作者在 SQL 层排除后再解密
         List<WishGrowthRecord> records = wishGrowthRecordMapper.selectList(
                 new LambdaQueryWrapper<WishGrowthRecord>()
                         .eq(WishGrowthRecord::getWishId, wishId)
                         .eq(WishGrowthRecord::getIsVisible, true)
+                        .ne(!accessPolicy.canReadDiary(wish, userId),
+                                WishGrowthRecord::getType, com.cloudmart.wish.enums.GrowthRecordType.DIARY)
                         .orderByDesc(WishGrowthRecord::getCreatedAt)
                         .last("LIMIT " + GROWTH_RECORDS_DETAIL_LIMIT)
         );
-        if (!accessPolicy.canReadDiary(wish, userId)) {
-            records = records.stream()
-                    .filter(record -> !com.cloudmart.wish.enums.GrowthRecordType.DIARY.equals(record.getType()))
-                    .toList();
-        }
         List<WishGrowthRecordVO> recordVOs = records.stream()
                 .map(this::toGrowthRecordVO)
                 .toList();
@@ -653,18 +709,15 @@ public class WishServiceImpl implements WishService {
         LambdaQueryWrapper<WishGrowthRecord> wrapper = new LambdaQueryWrapper<WishGrowthRecord>()
                 .eq(WishGrowthRecord::getWishId, wishId)
                 .eq(WishGrowthRecord::getIsVisible, true)
+                // DIARY 永远仅作者可读（B02）：非作者在 SQL 层排除，
+                // 保证分页 limit/hasMore 口径不被后过滤破坏
+                .ne(!viewerIsAuthor, WishGrowthRecord::getType, com.cloudmart.wish.enums.GrowthRecordType.DIARY)
                 .orderByDesc(WishGrowthRecord::getId)
                 .last("LIMIT " + (size + 1));
         if (cursorId != null) {
             wrapper.lt(WishGrowthRecord::getId, cursorId);
         }
         List<WishGrowthRecord> records = wishGrowthRecordMapper.selectList(wrapper);
-        // DIARY 永远仅作者可读（B02）：非作者在解密前过滤
-        if (!viewerIsAuthor) {
-            records = records.stream()
-                    .filter(record -> !com.cloudmart.wish.enums.GrowthRecordType.DIARY.equals(record.getType()))
-                    .toList();
-        }
         boolean hasMore = records.size() > size;
         List<WishGrowthRecord> pageItems = hasMore ? records.subList(0, size) : records;
         List<com.cloudmart.wish.vo.WishGrowthRecordVO> vos = pageItems.stream()
@@ -702,7 +755,8 @@ public class WishServiceImpl implements WishService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood) {
+    public CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood,
+                                       String idempotencyKey) {
         Wish wish = wishMapper.selectById(wishId);
         if (wish == null || !wish.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
@@ -710,6 +764,16 @@ public class WishServiceImpl implements WishService {
         if (wish.getStatus() != WishStatus.ACTIVE) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅进行中的心愿可打卡");
         }
+        // B04：打卡写路径挂持久幂等（uk_checkin_daily 仍是底层兜底）；
+        // 同键重试重放首次结果，不二次发星光
+        return operationExecutor.execute("USER", userId, null, "WISH_CHECKIN", idempotencyKey,
+                java.util.Map.of("wishId", wishId, "content", content == null ? "" : content,
+                        "mood", mood == null ? "" : mood),
+                CheckinResultVO.class,
+                () -> doCheckin(userId, wishId, content, mood));
+    }
+
+    private CheckinResultVO doCheckin(Long userId, Long wishId, String content, String mood) {
         // 打卡日按用户时区计算（与每日签到一致）：硬编码 UTC 会导致东八区用户 0:00-7:59 打卡被记为前一天
         LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
         // uk_checkin_daily 幂等
@@ -720,25 +784,34 @@ public class WishServiceImpl implements WishService {
         if (existing > 0) {
             throw new BusinessException(WishErrorCodes.WISH_ALREADY_CHECKIN_TODAY, "今日已打卡");
         }
+        if (content != null && content.length() > 200) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "打卡内容不能超过200字");
+        }
         WishCheckin checkin = new WishCheckin();
         checkin.setWishId(wishId);
         checkin.setUserId(userId);
         checkin.setCheckinDate(today);
         checkin.setContent(content);
+        // B09 修复：mood 此前接收但未保存
+        checkin.setMood(mood);
         checkin.setIsMakeup(false);
         checkin.setStarlightGranted(true);
         wishCheckinMapper.insert(checkin);
 
-        // 更新连续打卡
+        // B09 修复：连续天数按"昨天是否打卡"判定（昨天→+1，否则重置为 1），不再盲目 +1
         WishProgress progress = wishProgressMapper.selectById(wishId);
         int currentStreak = 1;
         int maxStreak = 1;
         if (progress != null) {
-            currentStreak = progress.getCurrentStreak() != null ? progress.getCurrentStreak() + 1 : 1;
+            boolean consecutive = today.minusDays(1).equals(progress.getLastCheckinDate());
+            currentStreak = consecutive
+                    ? (progress.getCurrentStreak() != null ? progress.getCurrentStreak() + 1 : 1)
+                    : 1;
             maxStreak = Math.max(progress.getMaxStreak() != null ? progress.getMaxStreak() : 0, currentStreak);
             wishProgressMapper.update(null, new LambdaUpdateWrapper<WishProgress>()
                     .set(WishProgress::getCurrentStreak, currentStreak)
                     .set(WishProgress::getMaxStreak, maxStreak)
+                    .set(WishProgress::getLastCheckinDate, today)
                     .eq(WishProgress::getWishId, wishId));
         }
         // 星光 +2（CHECKIN 流水）+ 累计打卡天数 +1（文档 6.5，等级 L2 判定依据）

@@ -39,6 +39,15 @@ public class VirtualAsset {
     /** 限量库存（0=无限；Redis DECR 原子预扣） */
     private Integer stock;
 
+    /** 库存模式：UNLIMITED / LIMITED（B05：DB 为事实，Redis 仅展示缓存） */
+    private String stockMode;
+
+    /** 剩余库存（LIMITED 非负；条件扣减 stock_remaining>0） */
+    private Integer stockRemaining;
+
+    /** 乐观锁版本（B05） */
+    private Integer version;
+
     private LocalDateTime validFrom;
 
     private LocalDateTime validTo;

@@ -50,6 +50,9 @@ public class Wish {
 
     private LocalDateTime expectedAt;
 
+    /** 乐观锁版本（B08：编辑条件更新） */
+    private Long version;
+
     private LocalDateTime fulfilledAt;
 
     private String geohash;

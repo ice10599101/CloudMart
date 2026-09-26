@@ -133,8 +133,10 @@ public class WishController {
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
-            @Parameter(description = "还愿请求") @Valid @RequestBody SubmitFulfillmentRequest request) {
-        WishFulfillmentSubmitVO vo = fulfillmentService.submitFulfillment(userId, wishId, request);
+            @Parameter(description = "还愿请求") @Valid @RequestBody SubmitFulfillmentRequest request,
+            @Parameter(description = "幂等键（一次还愿一个键，超时重试沿用同键）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        WishFulfillmentSubmitVO vo = fulfillmentService.submitFulfillment(userId, wishId, request, idempotencyKey);
         return ApiResponse.ok(vo);
     }
 
@@ -186,10 +188,12 @@ public class WishController {
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "心愿 ID", required = true) @PathVariable("id") Long wishId,
-            @RequestBody(required = false) java.util.Map<String, String> body) {
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @Parameter(description = "幂等键（一次打卡一个键，断网重试沿用同键）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         String content = body != null ? body.get("content") : null;
         String mood = body != null ? body.get("mood") : null;
-        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content, mood));
+        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content, mood, idempotencyKey));
     }
 
     @PostMapping("/{id}/growth")

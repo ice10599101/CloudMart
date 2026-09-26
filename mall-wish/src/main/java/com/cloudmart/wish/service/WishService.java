@@ -193,7 +193,11 @@ public interface WishService {
      *
      * @return 打卡结果（含连续天数/星光入账）
      */
-    CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood);
+    /**
+     * 打卡（B04：idempotencyKey 为客户端幂等键，可空——可空时无跨重试重放保护）。
+     */
+    CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood,
+                                String idempotencyKey);
 
     /**
      * 添加成长记录（TEXT/IMAGE/VIDEO/DIARY），可选进度增量

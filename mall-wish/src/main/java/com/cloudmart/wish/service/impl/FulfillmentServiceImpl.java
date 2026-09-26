@@ -63,11 +63,16 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private final WishContentSanitizer contentSanitizer;
     private final LegacyFlowService legacyFlowService;
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
+    private final WishOperationExecutor operationExecutor;
+    private final WishOutboxService outboxService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public WishFulfillmentSubmitVO submitFulfillment(Long userId, Long wishId, SubmitFulfillmentRequest request) {
-        // 作者级前置校验：不可见心愿统一 404 防存在性探测（B02 统一策略）
+    public WishFulfillmentSubmitVO submitFulfillment(Long userId, Long wishId,
+                                                     SubmitFulfillmentRequest request,
+                                                     String idempotencyKey) {
+        // 作者级前置校验：不可见心愿统一 404 防存在性探测（B02 统一策略）；
+        // 权限校验在幂等记录之前，权限错误不消耗幂等键
         Wish wish = wishMapper.selectById(wishId);
         accessPolicy.requireOwner(wish, userId);
 
@@ -77,6 +82,18 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                     "仅进行中或已过期的心愿可还愿，当前状态: " + wish.getStatus());
         }
 
+        // B04：还愿写路径挂持久幂等（uk_fulfillment_wish + 状态条件更新仍是底层兜底）；
+        // 同键重试重放首次结果——不会重复还愿、重复发奖、重复触发社区流转
+        return operationExecutor.execute("USER", userId, null, "WISH_FULFILL", idempotencyKey,
+                java.util.Map.of("wishId", wishId, "story", request.story(),
+                        "shareToCommunity", request.isShareToCommunity()),
+                WishFulfillmentSubmitVO.class,
+                () -> doSubmitFulfillment(userId, wishId, request, wish));
+    }
+
+    /** 还愿领域写（调用方事务内）：还愿事实 + 统计 + 星光 + 可选社区流转，同事务。 */
+    private WishFulfillmentSubmitVO doSubmitFulfillment(Long userId, Long wishId,
+                                                        SubmitFulfillmentRequest request, Wish wish) {
         // 内容净化：路径穿越拦截（富文本故事与心愿描述一致直接入库，前端 DOMPurify 消毒；
         // 感悟为纯文本 XSS 转义），先发后审 audit_status=PENDING 标记待审
         String story = request.story().trim();
@@ -125,6 +142,14 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         // 同事务发放星光（文档 6.1 还愿完成 +50，上限截断记实际入账）
         int credited = userStatService.earnStarlight(
                 userId, FULFILL_STARLIGHT_REWARD, ResourceLogSource.FULFILL, fulfillment.getId());
+
+        // B13：业务事实与事件原子提交——broker 不可用不阻断还愿，outbox 中继补投
+        outboxService.publish("FULFILLMENT", wishId,
+                fulfillment.getId() == null ? 0L : fulfillment.getId(),
+                "WishFulfilled",
+                java.util.Map.of("wishId", wishId, "userId", userId,
+                        "fulfillmentId", fulfillment.getId() == null ? 0L : fulfillment.getId(),
+                        "status", "FULFILLED"));
 
         log.info("还愿提交成功, wishId={}, userId={}, fulfillmentId={}, starlightCredited={}",
                 wishId, userId, fulfillment.getId(), credited);

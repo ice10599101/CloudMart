@@ -94,7 +94,7 @@ class OverdueScanIntegrationTest extends WishIntegrationTestBase {
         WishCreateResultVO wish = createWishWithExpectedAt(
                 categoryId, LocalDateTime.now().minusDays(1));
         fulfillmentService.submitFulfillment(USER_ID, wish.id(),
-                new SubmitFulfillmentRequest("赶在过期前完成了", null, null));
+                new SubmitFulfillmentRequest("赶在过期前完成了", null, null), null);
 
         int transferred = wishService.scanOverdueWishes();
 
@@ -116,7 +116,7 @@ class OverdueScanIntegrationTest extends WishIntegrationTestBase {
 
         WishFulfillmentSubmitVO result = fulfillmentService.submitFulfillment(
                 USER_ID, wish.id(),
-                new SubmitFulfillmentRequest("虽然逾期但实现了", null, null));
+                new SubmitFulfillmentRequest("虽然逾期但实现了", null, null), null);
 
         assertThat(result.status()).isEqualTo(WishStatus.FULFILLED);
         assertThat(result.fruitType()).isEqualTo(FruitType.BLOOM);

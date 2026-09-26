@@ -36,7 +36,8 @@ public interface GiftService {
      * @param request 送礼请求
      * @return 送礼结果（含送礼后余额）
      */
-    SendGiftResultVO sendGift(Long userId, SendGiftRequest request);
+    /** B04：持久幂等送礼——同键同内容重放原结果，同键异内容 409。 */
+    SendGiftResultVO sendGift(Long userId, SendGiftRequest request, String idempotencyKey);
 
     /**
      * 我的礼物资产总览（送/收两方向累计件数与星光；礼物为即时消费，无库存语义）。

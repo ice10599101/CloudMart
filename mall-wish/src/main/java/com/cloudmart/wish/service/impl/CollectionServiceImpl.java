@@ -47,6 +47,7 @@ public class CollectionServiceImpl implements CollectionService {
     private final WishMapper wishMapper;
     private final StringRedisTemplate redisTemplate;
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
+    private final WishOperationExecutor operationExecutor;
 
     // ---------------- 虚拟工坊 ----------------
 
@@ -114,17 +115,35 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Override
     @Transactional
-    public UserAsset exchange(Long userId, Long assetId, String paymentMethod) {
+    public com.cloudmart.wish.vo.ExchangeResultVO exchange(Long userId, Long assetId,
+                                                           String paymentMethod, String idempotencyKey) {
+        // B04：持久幂等——同键同摘要重放已提交结果，同键异摘要 409；
+        // 操作凭证与库存/钱包/归属同事务提交
+        return operationExecutor.execute("USER", userId, null, "ASSET_EXCHANGE", idempotencyKey,
+                java.util.Map.of("assetId", assetId, "paymentMethod", paymentMethod),
+                com.cloudmart.wish.vo.ExchangeResultVO.class,
+                () -> doExchange(userId, assetId, paymentMethod));
+    }
+
+    /** B05 领域写：DB 条件扣库存（先）→ 钱包原子扣款（后）→ 归属落库，同事务。 */
+    private com.cloudmart.wish.vo.ExchangeResultVO doExchange(Long userId, Long assetId,
+                                                              String paymentMethod) {
         VirtualAsset asset = assetMapper.selectById(assetId);
         if (asset == null || !Boolean.TRUE.equals(asset.getIsActive())) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "资产不存在或已下架");
         }
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        if (asset.getValidFrom() != null && now.isBefore(asset.getValidFrom())) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "资产尚未开售");
+        }
         if (asset.getValidTo() != null && now.isAfter(asset.getValidTo())) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "资产已过期下架");
         }
-        if ("RMB".equals(paymentMethod) || (asset.getPayMethod() == AssetPayMethod.RMB)) {
-            // RMB 内购偏差：对接 mall-payment 后开通（进度文件留档）
+        // 支付方式白名单：服务端读取价格，前端不传成交价；RMB 通道本轮关闭
+        if (!"STARLIGHT".equals(paymentMethod)) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "不支持的支付方式");
+        }
+        if (asset.getPayMethod() == AssetPayMethod.RMB) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "RMB 内购暂未开通");
         }
 
@@ -135,37 +154,26 @@ public class CollectionServiceImpl implements CollectionService {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "已拥有该资产");
         }
 
-        // 限量 Redis DECR 原子预扣（验收：100 并发仅前 N 成功）
-        if (asset.getStock() != null && asset.getStock() > 0) {
-            String stockKey = VirtualAssetHelper.stockKey(assetId);
-            try {
-                // 首次初始化：SETNX stock 值
-                redisTemplate.opsForValue().setIfAbsent(stockKey, String.valueOf(asset.getStock()));
-                Long remain = redisTemplate.opsForValue().decrement(stockKey);
-                if (remain != null && remain < 0) {
-                    redisTemplate.opsForValue().increment(stockKey);
-                    throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "限量资产已售罄");
-                }
-            } catch (DataAccessException ex) {
-                log.warn("限量预扣 Redis 异常（Fail-Open 放行，DB stock 兜底）: {}", ex.getMessage());
+        // B05：LIMITED 资产在 DB 执行 stock_remaining>0 条件减一（Redis 仅展示缓存，不再预扣）
+        if ("LIMITED".equals(asset.getStockMode())) {
+            int affected = assetMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VirtualAsset>()
+                            .setSql("stock_remaining = stock_remaining - 1, version = version + 1")
+                            .eq(VirtualAsset::getId, assetId)
+                            .eq(VirtualAsset::getStockMode, "LIMITED")
+                            .gt(VirtualAsset::getStockRemaining, 0));
+            if (affected == 0) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "限量资产已售罄");
             }
         }
 
-        // 扣星光（price 0 = 免费资产，跳过扣减）
+        // B05 修复：spendStarlight 返回"扣款后余额"，以原子扣减成功为准，
+        // 余额不足由钱包统一抛 402；不再做 credited<cost 的错误二次判断
         int cost = asset.getPriceStarlight() != null ? asset.getPriceStarlight() : 0;
-        if (cost > 0 && ("STARLIGHT".equals(paymentMethod) || asset.getPayMethod() == AssetPayMethod.STARLIGHT
-                || asset.getPayMethod() == AssetPayMethod.BOTH)) {
-            int credited = userStatService.spendStarlight(userId, cost,
+        Integer balanceAfter = null;
+        if (cost > 0) {
+            balanceAfter = userStatService.spendStarlight(userId, cost,
                     ResourceLogSource.EXCHANGE, assetId);
-            if (credited < cost) {
-                // 限量回补
-                if (asset.getStock() != null && asset.getStock() > 0) {
-                    try {
-                        redisTemplate.opsForValue().increment(VirtualAssetHelper.stockKey(assetId));
-                    } catch (DataAccessException ignored) { }
-                }
-                throw new BusinessException(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT, "星光不足");
-            }
         }
 
         UserAsset userAsset = new UserAsset();
@@ -177,10 +185,20 @@ public class CollectionServiceImpl implements CollectionService {
         try {
             userAssetMapper.insert(userAsset);
         } catch (DuplicateKeyException ex) {
+            // 并发重复兑换：整体回滚（含库存与钱包），不留半成功
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "已拥有该资产");
         }
-        log.info("资产兑换成功, userId={}, assetId={}, method={}", userId, assetId, paymentMethod);
-        return userAsset;
+
+        // 展示缓存尽力刷新（可删除缓存，不影响正确性）
+        if ("LIMITED".equals(asset.getStockMode())) {
+            try {
+                redisTemplate.opsForValue().decrement(VirtualAssetHelper.stockKey(assetId));
+            } catch (DataAccessException ignored) { }
+        }
+
+        log.info("资产兑换成功, userId={}, assetId={}, cost={}, balanceAfter={}",
+                userId, assetId, cost, balanceAfter);
+        return new com.cloudmart.wish.vo.ExchangeResultVO(userAsset.getId(), assetId, balanceAfter, cost);
     }
 
     // ---------------- 收藏馆 ----------------
@@ -193,6 +211,10 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     public Map<String, List<Map<String, Object>>> collections(Long userId, String type) {
         String wanted = type == null || type.isBlank() ? null : type.trim().toUpperCase();
+        // B14：非法类型 422（不再静默返回空集合）
+        if (wanted != null && !List.of("BADGE", "SKIN", "BGM", "SPECIAL_FRUIT").contains(wanted)) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "不支持的收藏类型: " + type);
+        }
         Map<String, List<Map<String, Object>>> result = new HashMap<>();
         for (String assetType : List.of("BADGE", "SKIN", "BGM", "SPECIAL_FRUIT")) {
             if (wanted == null || wanted.equals(assetType)) {
@@ -200,7 +222,8 @@ public class CollectionServiceImpl implements CollectionService {
             }
         }
 
-        // 徽章（wish_user_badge × wish_badge）
+        // 徽章（wish_user_badge × wish_badge）；B14：仅 BADGE 在结果集中时才查询（修复指定 SKIN 查询 NPE）
+        if (result.containsKey("BADGE")) {
         List<WishUserBadge> badges = userBadgeMapper.selectList(new LambdaQueryWrapper<WishUserBadge>()
                 .eq(WishUserBadge::getUserId, userId));
         for (WishUserBadge ub : badges) {
@@ -211,6 +234,7 @@ public class CollectionServiceImpl implements CollectionService {
                     "icon", badge.getIcon() == null ? "" : badge.getIcon()));
         }
 
+        }
         // 皮肤/BGM/星火收藏品（wish_user_asset × wish_virtual_asset）
         List<UserAsset> assets = userAssetMapper.selectList(new LambdaQueryWrapper<UserAsset>()
                 .eq(UserAsset::getUserId, userId)

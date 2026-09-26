@@ -52,6 +52,10 @@ public final class WishErrorCodes {
     public static final String WISH_VERSION_CONFLICT = "WISH_VERSION_CONFLICT";
     /** 宠物交易操作键已存在但请求内容不同（B01 幂等冲突：同键不同用户/金额/类型/来源） */
     public static final String WISH_OPERATION_CONFLICT = "WISH_OPERATION_CONFLICT";
+    /** B04：同键同作用域但请求内容不同（409，禁止自动重试） */
+    public static final String IDEMPOTENCY_KEY_REUSED = "IDEMPOTENCY_KEY_REUSED";
+    /** B04：操作进行中/结果未知（409，按原键轮询或重试） */
+    public static final String WISH_OPERATION_IN_PROGRESS = "WISH_OPERATION_IN_PROGRESS";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */
     public static final String WISH_CAPSULE_NOT_AVAILABLE = "WISH_CAPSULE_NOT_AVAILABLE";
