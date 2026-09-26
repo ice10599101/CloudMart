@@ -221,6 +221,23 @@ lint / typecheck：NOT RUN（Java 后端以编译+测试为准）
 验证：编译 PASS；单元测试 64（净化器 7/审核治理/还愿故事净化）+ 全量选定回归 PASS
 ```
 
+## 12. 第九轮交付（W3 收口：N01 治理工单，2026-09-27）
+
+### N01 举报、申诉与统一治理工作台
+- **V46 迁移四表**：`wish_moderation_case`（活动 case 生成列唯一键：同一内容仅一个活动工单）、`wish_moderation_decision`（追加写审计：before/after 状态快照、操作者、requestId）、`wish_report`（dedup_key 活动举报键唯一，结案置空释放）、`wish_appeal`（同决定同申诉人唯一，7 日窗口）。
+- **举报（用户）**：POST /v2/reports——仅可举报有权看到的内容（WISH 强校验，防私密探测）；OTHER 必填说明；每日 10 次有效配额（429）；同内容同理由未结举报合并返回原记录；并发同键唯一约束兜底。
+- **我的举报/我的申诉**：GET /v2/my/reports、/v2/my/appeals（cursor 分页；举报人看不到运营内部备注）。
+- **申诉（用户）**：POST /v2/moderation-decisions/{id}/appeals——仅被处理作者（WISH 校验心愿归属）；7 日窗口（422）；同决定同作者一条（唯一键）；证据 ≤3。
+- **治理决定（管理）**：POST /admin/moderation/cases/{id}/decisions——NO_ACTION/HIDE/RESTORE；HIDE/RESTORE 必填原因（422）；**version CAS 防双审核员覆盖**；决定追加写；HIDE/RESTORE 落到心愿状态（is_visible/audit_status）并与 WishVisibilityChanged 事件同事务；关联举报结案释放 dedup 唯一。
+- **申诉复核（管理）**：POST /admin/moderation/appeals/{id}/decisions——复核人不得为原决定处理人（403）；**通过恢复前检查其他生效下架原因**（存在其他活动 case 不自动恢复）。
+- **mall-admin 代理**：ModerationFeignClient（服务令牌）+ AdminModerationController（/wish/moderation/**，权限码 business:wishModeration:list/audit、business:wishAppeal:review）；降级抛 503 不静默失败。
+- 余量：权限菜单/角色种子 SQL（mall-admin 管理页配置）；管理前端页面（W5 契约批次）；高危词临时隐藏规则引擎。
+
+```text
+验证：编译 PASS；ModerationServiceTest 9 用例（合并/配额/OTHER 必填/CAS/复核回避/窗口/不越权恢复）PASS；
+     全量选定回归 263 用例 PASS
+```
+
 ## 5. 建议下一步
 
 按任务书 §12.2 顺序：`wish-privacy-policy`（本轮已完成主体）→ `wish-operation-wallet`（B04–B06，operation/outbox 迁移 V42+）→ `wish-events-tasks`（B13）。
