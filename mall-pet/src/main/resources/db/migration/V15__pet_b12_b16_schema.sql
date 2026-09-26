@@ -93,12 +93,12 @@ ALTER TABLE `pet_room_item`
     ADD COLUMN `archived_at` DATETIME DEFAULT NULL COMMENT '归档时间(重复摆放修复,UTC)' AFTER `created_at`;
 
 INSERT INTO `pet_migration_conflict` (`conflict_type`, `entity_table`, `entity_id`, `user_id`, `detail`)
-SELECT 'ROOM_ITEM_DUP', 'pet_room_item', MIN(i.`id`), NULL,
-       JSON_OBJECT('roomId', i.`room_id`, 'itemCode', i.`item_code`,
+SELECT 'ROOM_ITEM_DUP', 'pet_room_item', MIN(i.`id`), i.`user_id`,
+       JSON_OBJECT('petId', i.`pet_id`, 'itemCode', i.`furniture_code`,
                    'ids', JSON_ARRAYAGG(i.`id`), 'action', 'KEEP_EARLIEST_OTHERS_ARCHIVED')
 FROM `pet_room_item` i
 WHERE i.`archived_at` IS NULL
-GROUP BY i.`room_id`, i.`item_code`
+GROUP BY i.`pet_id`, i.`furniture_code`, i.`user_id`
 HAVING COUNT(*) > 1;
 
 UPDATE `pet_room_item` a
@@ -106,7 +106,7 @@ JOIN (
     SELECT ranked.id
     FROM (
         SELECT id,
-               ROW_NUMBER() OVER (PARTITION BY room_id, item_code ORDER BY id ASC) AS rn
+               ROW_NUMBER() OVER (PARTITION BY pet_id, furniture_code ORDER BY id ASC) AS rn
         FROM `pet_room_item`
         WHERE `archived_at` IS NULL
     ) ranked
