@@ -13,6 +13,8 @@ public class CommonAutoConfiguration {
     private static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "common.jsafe-long.enabled", havingValue = "true", matchIfMissing = true)
     public JsonMapperBuilderCustomizer jsonCustomizer() {
         return builder -> {
             SimpleModule jsSafeLongModule = new SimpleModule("jsSafeLong");

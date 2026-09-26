@@ -1,6 +1,10 @@
 server:
   port: 9023
 
+common:
+  jsafe-long:
+    enabled: false # B07：由 PetJsonMapperCustomizer 接管（Long 全量转字符串）
+
 spring:
   application:
     name: mall-pet
