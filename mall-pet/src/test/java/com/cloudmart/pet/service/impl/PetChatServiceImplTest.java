@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -39,6 +41,7 @@ import static org.mockito.Mockito.when;
  * 宠物聊天三层结构测试：危机词拦截 / 固定行为模板 / AI 降级模板（Fail-Open）。
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("PetChatServiceImpl 单元测试")
 class PetChatServiceImplTest {
 
@@ -78,9 +81,16 @@ class PetChatServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        PetProperties chatProps = new PetProperties();
+        // B18：短事务模板——测试中直接执行回调（无真实事务资源）
+        org.springframework.transaction.support.TransactionTemplate txTemplate =
+                org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+        org.mockito.Mockito.when(txTemplate.execute(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<?>) inv.getArgument(0))
+                        .doInTransaction(org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class)));
         chatService = new PetChatServiceImpl(petService, contextService, aiClient, sessionMapper,
                 messageMapper, memoryMapper, petMapper, achievementService, dailyQuestService,
-                intimacyService, new PetProperties(), redisTemplate);
+                intimacyService, chatProps, redisTemplate, txTemplate);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.increment(anyString())).thenReturn(1L);
     }

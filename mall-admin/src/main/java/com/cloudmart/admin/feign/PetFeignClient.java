@@ -135,4 +135,29 @@ public interface PetFeignClient {
 
     @GetMapping("/pet/dashboard")
     ApiResponse<Object> petDashboard(@RequestParam("days") Integer days);
+
+    // ---- B14/B17/B21 新增管理能力（举报处理 / 成就补算 / 交易操作查询与重试） ----
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/reports")
+    ApiResponse<Object> listPetReports(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+                                       @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                       @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
+
+    @org.springframework.web.bind.annotation.PutMapping("/pet/reports/{id}/handle")
+    ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                      @org.springframework.web.bind.annotation.RequestParam("action") String action,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "adminUserId", required = false) Long adminUserId);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/achievements/recalculate")
+    ApiResponse<Integer> recalculateAchievements(@org.springframework.web.bind.annotation.RequestParam("petId") Long petId);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/operations")
+    ApiResponse<Object> listPetOperations(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+                                          @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+                                          @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
+                                          @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                          @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/operations/{operationId}/retry")
+    ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId);
 }

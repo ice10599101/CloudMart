@@ -37,6 +37,9 @@ public class PetChatMessage {
     /** 是否 AI 生成（false = 模板降级/固定行为，前端可展示"灵光一闪"标识） */
     private Boolean isAiReply;
 
+    /** 客户端请求幂等键（Idempotency-Key；同 (session, request_id) 重试返回既有回复，B18） */
+    private String requestId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

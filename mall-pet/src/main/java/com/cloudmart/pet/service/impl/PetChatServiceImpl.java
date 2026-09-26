@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
+import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.PetChatRequest;
 import com.cloudmart.pet.entity.Pet;
@@ -52,6 +53,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class PetChatServiceImpl implements PetChatService {
 
+    /** AI 成本日额度 key（与消息频控分开，B18） */
+    static final String KEY_AI_DAILY = "pet:ratelimit:ai:%d:%s";
     static final String KEY_CHAT_DAILY = "pet:ratelimit:chat:%d:%s";
 
     /**
@@ -80,6 +83,7 @@ public class PetChatServiceImpl implements PetChatService {
     private final PetAchievementService achievementService;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private final PetMapper petMapper;
     private final PetDailyQuestService dailyQuestService;
@@ -96,7 +100,8 @@ public class PetChatServiceImpl implements PetChatService {
                               PetDailyQuestService dailyQuestService,
                               PetIntimacyService intimacyService,
                               PetProperties properties,
-                              StringRedisTemplate redisTemplate) {
+                              StringRedisTemplate redisTemplate,
+                              org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
         this.petService = petService;
         this.contextService = contextService;
         this.aiClient = aiClient;
@@ -109,36 +114,57 @@ public class PetChatServiceImpl implements PetChatService {
         this.intimacyService = intimacyService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.transactionTemplate = transactionTemplate;
     }
 
+    /**
+     * 聊天编排（B18）：全程<b>不持有数据库事务</b>——AI 外部调用移出事务/行锁范围，
+     * 两个短事务（保存用户消息 / 保存回复与奖励）经 TransactionTemplate 执行；
+     * Idempotency-Key 幂等：同键重试返回既有回复对，不落第二条消息、不发第二次亲密度。
+     * 危机词/固定行为回复不消费 AI 成本额度，但仍受消息频控（Fail-Open）与成长额度限制。
+     */
     @Override
-    @Transactional
     public PetChatMessageVO chat(Long userId, PetChatRequest request) {
         Pet pet = petService.requireOwnedPet(userId);
         String message = request.message().trim();
         if (message.isEmpty()) {
             throw new BusinessException(PetErrorCodes.PET_CHAT_MESSAGE_INVALID, "说点什么吧");
         }
+        String requestId = PetRequestContext.idempotencyKey();
+
+        consumeMessageQuota(userId);
+
+        // 幂等重放：同 (session, request_id) 已有回复对则原样返回
+        if (requestId != null && !requestId.isBlank()) {
+            PetChatSession existingSession = requireSession(userId);
+            PetChatMessage existingReply = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
+                    .eq(PetChatMessage::getSessionId, existingSession.getId())
+                    .eq(PetChatMessage::getRequestId, requestId)
+                    .eq(PetChatMessage::getRole, PetChatRole.PET.name())
+                    .last("LIMIT 1"));
+            if (existingReply != null) {
+                return toVo(existingReply);
+            }
+        }
 
         // 危机词本地拦截：不发送大模型服务，直接安抚 + 热线资源（数据安全，与树洞同策略）
         if (containsCrisisKeyword(message)) {
             String reply = "主人别怕，我一直在你身边。如果心里很难受，可以拨打心理援助热线 12356，"
                     + "会有专业的叔叔阿姨帮助你。我们先一起深呼吸一下好不好？";
-            return persistAndReply(userId, pet, message, reply, false);
+            return persistChatPair(userId, pet, message, reply, false, requestId);
         }
 
-        consumeChatQuota(userId);
-
-        // 上下文先建（固定行为中的游戏状态意图也需要它，原文档 §60）
+        // 上下文先建（只读，无事务；固定行为中的游戏状态意图也需要它，原文档 §60）
         PetContextService.PetContext context = contextService.buildContext(userId, pet);
 
-        // 第一层：固定行为（名字/在干嘛/游戏状态意图，模板直接回复省 token）
+        // 第一层：固定行为（名字/在干嘛/游戏状态意图，模板直接回复省 token，不耗 AI 额度）
         String fixedReply = fixedIntentReply(message, pet, context);
         if (fixedReply != null) {
-            return persistAndReply(userId, pet, message, fixedReply, false);
+            return persistChatPair(userId, pet, message, fixedReply, false, requestId);
         }
 
-        // 第二/三层：宠物状态 + 社区上下文 + 记忆 → AI 生成（失败降级模板）
+        // 第二/三层：AI 生成——在事务外执行（慢 AI 不占数据库连接），失败降级模板
+        consumeAiQuota(userId);
         String reply;
         boolean isAiReply = true;
         try {
@@ -148,9 +174,31 @@ public class PetChatServiceImpl implements PetChatService {
             reply = fallbackReply(pet, context);
             isAiReply = false;
         }
-        extractMemories(pet, message);
-        achievementService.evaluate(pet, PetAchievementService.Event.CHAT);
-        return persistAndReply(userId, pet, message, reply, isAiReply);
+        return persistChatPair(userId, pet, message, reply, isAiReply, requestId);
+    }
+
+    /** 短事务 2：保存回复消息 + 亲密度/任务/成就奖励（聊天成长额度在此生效） */
+    private PetChatMessageVO persistChatPair(Long userId, Pet pet, String userMessage,
+                                             String reply, boolean isAiReply, String requestId) {
+        return transactionTemplate.execute(status -> {
+            PetChatSession session = requireSession(userId);
+            PetChatMessage userMessageRow = saveMessage(session.getId(), userId, PetChatRole.USER.name(),
+                    userMessage, isAiReply, requestId);
+            PetChatMessage petMessage = saveMessage(session.getId(), userId, PetChatRole.PET.name(),
+                    reply, isAiReply, requestId);
+            // 聊天亲密度原子落库（B05 gain 语义）+ 每日任务进度
+            intimacyService.gain(pet, PetIntimacySource.CHAT);
+            dailyQuestService.record(pet, PetQuestType.CHAT, 1);
+            // B17：成就评估在消息保存之后——第 N 次聊天当次达成
+            achievementService.evaluate(pet, PetAchievementService.Event.CHAT);
+            // 记忆抽取为附加行为，失败不影响消息持久化
+            try {
+                extractMemories(pet, userMessageRow.getContent());
+            } catch (Exception e) {
+                log.warn("聊天记忆抽取失败（不阻断）: userId={}", userId, e);
+            }
+            return toVo(petMessage);
+        });
     }
 
     @Override
@@ -176,7 +224,43 @@ public class PetChatServiceImpl implements PetChatService {
         return false;
     }
 
-    /** 聊天日限频（Fail-Closed：Redis 故障按达上限处理，保护 AI 成本） */
+    /** 消息频控（B18：Fail-Open，Redis 故障放行——所有消息路径共用，含固定/危机回复） */
+    private void consumeMessageQuota(Long userId) {
+        try {
+            String key = String.format(KEY_CHAT_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
+            Long used = redisTemplate.opsForValue().increment(key);
+            int limit = properties.getChat().getDailyLimit();
+            if (used != null && used > limit) {
+                throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED,
+                        "今天已经聊了 " + limit + " 句啦，明天再聊吧");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("聊天消息频控 Redis 故障，Fail-Open 放行: userId={}", userId, e);
+        }
+    }
+
+    /** AI 成本额度（B18：Fail-Closed，仅 AI 调用路径——固定/危机回复不消耗） */
+    private void consumeAiQuota(Long userId) {
+        try {
+            String key = String.format(KEY_AI_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
+            Long used = redisTemplate.opsForValue().increment(key);
+            int limit = properties.getChat().getAiDailyLimit();
+            if (used != null && used > limit) {
+                throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED,
+                        "今天 AI 聊天额度已用完（" + limit + " 次），明天再来吧");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            // AI 成本保护 Fail-Closed：Redis 故障按额度耗尽处理（B18 契约）
+            log.warn("AI 成本额度 Redis 故障，Fail-Closed 拒绝: userId={}", userId, e);
+            throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED, "AI 服务繁忙，稍后再试");
+        }
+    }
+
+    /** 兼容旧引用的消息频控入口 */
     private void consumeChatQuota(Long userId) {
         try {
             String key = String.format(KEY_CHAT_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
@@ -334,26 +418,15 @@ public class PetChatServiceImpl implements PetChatService {
         }
     }
 
-    private PetChatMessageVO persistAndReply(Long userId, Pet pet, String userMessage,
-                                             String reply, boolean isAiReply) {
-        PetChatSession session = requireSession(userId);
-        saveMessage(session.getId(), PetChatRole.USER.name(), userMessage, isAiReply);
-        PetChatMessage petMessage = saveMessage(session.getId(), PetChatRole.PET.name(), reply, isAiReply);
-        // 三期埋点：聊天加亲密度（落库在这里，因为聊天本身不写宠物行）+ 每日任务进度
-        intimacyService.gain(pet, PetIntimacySource.CHAT);
-        petMapper.updateById(pet);
-        dailyQuestService.record(pet, PetQuestType.CHAT, 1);
-        // 消息落库后同步宠物记忆可见性（无额外动作；宠物会话由 uk 保证一人一会话）
-        return toVo(petMessage);
-    }
-
-    private PetChatMessage saveMessage(Long sessionId, String role, String content, boolean isAiReply) {
+    private PetChatMessage saveMessage(Long sessionId, Long userId, String role, String content,
+                                       boolean isAiReply, String requestId) {
         PetChatMessage message = new PetChatMessage();
         message.setSessionId(sessionId);
         message.setRole(role);
         message.setContent(content);
         message.setTokenCount(content.length() / 2);
         message.setIsAiReply(isAiReply);
+        message.setRequestId(requestId);
         messageMapper.insert(message);
         return message;
     }

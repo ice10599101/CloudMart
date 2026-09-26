@@ -57,6 +57,16 @@ public class PetOperationRecoveryService {
         }
     }
 
+    /** 管理员立即重试单笔（B21）：沿用同一 operationId，幂等 */
+    public void retrySingle(PetOperation operation) {
+        try {
+            recoverOne(operation);
+        } catch (Exception e) {
+            log.error("管理员重试失败, operationId={}", operation.getOperationId(), e);
+            scheduleRetry(operation, "管理员重试失败: " + e.getMessage());
+        }
+    }
+
     @Scheduled(fixedDelay = 30000, initialDelay = 30000)
     public void recoverPendingOperations() {
         List<PetOperation> operations = operationStore.listRecoverable(BATCH_SIZE);

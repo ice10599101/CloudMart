@@ -121,6 +121,8 @@ public class PetProperties {
     @Setter
     public static class Chat {
         private int dailyLimit = 20;
+        /** AI 生成调用日额度（与消息频控分离；固定/危机回复不消耗，B18） */
+        private int aiDailyLimit = 20;
         private int maxRetries = 2;
         private long retryIntervalMs = 1000;
         private int memoryLimit = 10;

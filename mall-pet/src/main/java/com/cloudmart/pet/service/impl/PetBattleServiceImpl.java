@@ -109,11 +109,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         Pet pet = petService.requireOwnedPet(userId);
         List<PetOpponentVO> opponents = new ArrayList<>(wildOpponents(pet));
 
-        List<Pet> rivals = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                .ne(Pet::getUserId, userId)
-                .eq(Pet::getIsPublic, true)
-                .between(Pet::getLevel, Math.max(1, pet.getLevel() - 5), pet.getLevel() + 5)
-                .last("ORDER BY RAND() LIMIT " + OPPONENT_LIMIT));
+        // B22：随机偏移抽样替代 ORDER BY RAND()（可索引候选池，保持等级段与隐私过滤）
+        List<Pet> rivals = sampleRivals(userId, pet);
         // 等级段对手不足时放宽等级补齐
         if (rivals.size() < OPPONENT_LIMIT) {
             List<Long> pickedIds = rivals.stream().map(Pet::getId).toList();
@@ -434,6 +431,35 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_NOT_FOUND, "对战记录不存在");
         }
         return battle;
+    }
+
+    /** 随机偏移抽样候选对手（B22）：先 count 再 LIMIT offset，避免全表 RAND() 排序 */
+    private List<Pet> sampleRivals(Long userId, Pet pet) {
+        LambdaQueryWrapper<Pet> range = new LambdaQueryWrapper<Pet>()
+                .ne(Pet::getUserId, userId)
+                .eq(Pet::getIsPublic, true)
+                .between(Pet::getLevel, Math.max(1, pet.getLevel() - 5), pet.getLevel() + 5);
+        long total = petMapper.selectCount(range);
+        if (total == 0) {
+            return List.of();
+        }
+        int limit = OPPONENT_LIMIT;
+        long offset = secureRandom.nextLong(Math.min(total, 200));
+        List<Pet> sampled = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                .ne(Pet::getUserId, userId)
+                .eq(Pet::getIsPublic, true)
+                .between(Pet::getLevel, Math.max(1, pet.getLevel() - 5), pet.getLevel() + 5)
+                .orderByAsc(Pet::getId)
+                .last("LIMIT " + limit + " OFFSET " + offset));
+        if (sampled.size() < limit && offset > 0) {
+            sampled = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                    .ne(Pet::getUserId, userId)
+                    .eq(Pet::getIsPublic, true)
+                    .between(Pet::getLevel, Math.max(1, pet.getLevel() - 5), pet.getLevel() + 5)
+                    .orderByAsc(Pet::getId)
+                    .last("LIMIT " + limit));
+        }
+        return sampled;
     }
 
     /** PvE 野生模板名（与 wildOpponents 一一对应，templateId 1-3） */
