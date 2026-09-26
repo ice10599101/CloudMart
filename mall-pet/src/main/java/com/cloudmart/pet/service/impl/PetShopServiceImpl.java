@@ -190,7 +190,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                 "itemCode", code,
                 "price", cost));
         PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                operationId, pet.getUserId(), pet.getId(), BIZ_TYPE, null, cost, snapshot);
+                operationId, pet.getUserId(), pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot);
         if (settlement.isUnknown()) {
             throw operationService.settlementPending();
         }

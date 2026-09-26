@@ -239,6 +239,7 @@ public class PetActivityServiceImpl implements PetActivityService {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_ALREADY_CLAIMED, "奖励已经领取过啦");
         }
         activity.setStatus(PetActivityStatus.CLAIMED.name());
+        activity.setClaimedAt(petClock.nowUtc());
 
         Map<String, Object> snapshot = rewardSnapshot(activity);
         int expReward = intOf(snapshot.get("expReward"));
@@ -271,6 +272,7 @@ public class PetActivityServiceImpl implements PetActivityService {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_ALREADY_CLAIMED, "奖励已经领取过啦");
         }
         activity.setStatus(PetActivityStatus.CLAIMED.name());
+        activity.setClaimedAt(petClock.nowUtc());
 
         Map<String, Object> snapshot = rewardSnapshot(activity);
         int expReward = intOf(snapshot.get("expReward"));

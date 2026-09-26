@@ -225,6 +225,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_ALREADY_CLAIMED, "这次捞瓶结果已经领取过啦");
         }
         activity.setStatus(PetActivityStatus.CLAIMED.name());
+        activity.setClaimedAt(petClock.nowUtc());
         return toActivityVo(activity);
     }
 

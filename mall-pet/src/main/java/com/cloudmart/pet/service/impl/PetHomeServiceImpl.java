@@ -184,7 +184,7 @@ public class PetHomeServiceImpl implements PetHomeService {
             String operationId = operationService.operationKey("FURNITURE_BUY",
                     userId, pet.getId(), config.getCode());
             PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                    operationId, userId, pet.getId(), "FURNITURE_BUY", null, cost,
+                    operationId, userId, pet.getId(), "FURNITURE_BUY", pet.getId(), cost,
                     com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
                             "itemType", "FURNITURE", "itemCode", config.getCode(), "price", cost)));
             if (settlement.isUnknown()) {
@@ -210,7 +210,11 @@ public class PetHomeServiceImpl implements PetHomeService {
                     "墙纸和地板要在家园设置里更换哦");
         }
         requireOwned(pet, config.getCode());
-        companionFeatureService.recordStep(userId, "DECORATE");
+        try {
+            companionFeatureService.recordStep(userId, "DECORATE");
+        } catch (Exception e) {
+            log.warn("摆放引导钩子失败（不阻断）: userId={}", userId, e);
+        }
         PetProperties.Home cfg = properties.getHome();
         if (request.posX() >= cfg.getGridWidth() || request.posY() >= cfg.getGridHeight()) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_POS_INVALID, "这个位置放不下，换个格子试试");

@@ -62,8 +62,8 @@ public class InternalPetSupportController {
     public ApiResponse<PetWalletOperationVO> earnStarlight(
             @Parameter(description = "用户 ID", required = true) @RequestParam("userId") Long userId,
             @Parameter(description = "星光数量（正整数）", required = true) @RequestParam("amount") Integer amount,
-            @Parameter(description = "关联业务 ID（活动/对战记录 ID，审计用）", required = true)
-            @RequestParam("refId") Long refId,
+            @Parameter(description = "关联业务 ID（活动/对战记录 ID，审计用；购买场景可空）")
+            @RequestParam(value = "refId", required = false) Long refId,
             @Parameter(description = "业务操作唯一键（B01 幂等；缺失时兼容旧非幂等路径）")
             @RequestParam(value = "operationId", required = false) String operationId) {
         if (operationId == null || operationId.isBlank()) {
@@ -82,8 +82,8 @@ public class InternalPetSupportController {
     public ApiResponse<PetWalletOperationVO> spendStarlight(
             @Parameter(description = "用户 ID", required = true) @RequestParam("userId") Long userId,
             @Parameter(description = "星光数量（正整数）", required = true) @RequestParam("amount") Integer amount,
-            @Parameter(description = "关联业务 ID（背包/进化记录 ID，审计用）", required = true)
-            @RequestParam("refId") Long refId,
+            @Parameter(description = "关联业务 ID（背包/进化记录 ID，审计用；购买场景可空）")
+            @RequestParam(value = "refId", required = false) Long refId,
             @Parameter(description = "业务操作唯一键（B01 幂等；缺失时兼容旧非幂等路径）")
             @RequestParam(value = "operationId", required = false) String operationId) {
         if (operationId == null || operationId.isBlank()) {

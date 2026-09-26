@@ -289,7 +289,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         battle.setWinnerPetId(result.winnerPetId());
         battle.setRounds(PetJsonUtils.toJson(result.rounds()));
         battle.setExpReward(expReward);
-        battle.setCurrencyReward(result.attackerWon() ? properties.getBattle().getWinCurrency() : 0);
+        battle.setCurrencyReward(properties.getBattle().getWinCurrency());
+        // B08：PVP 星光归胜者（防守方获胜同样得奖，不依赖挑战者字段）；PVE 保持仅挑战方胜出有奖
         battleMapper.insert(battle);
 
         grantRewards(attacker.getId(), null, result.attackerWon(), battle);

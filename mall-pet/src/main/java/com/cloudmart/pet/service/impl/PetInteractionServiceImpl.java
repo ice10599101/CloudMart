@@ -118,8 +118,13 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setStatus(PetStatus.IDLE.name());
         pet.setHungerFrac(0.0);
         recordInstantActivity(pet, PetActivityType.FEED, cfg.getFeedExp());
-        companionFeatureService.recordStep(userId, "FEED");
-        playFeatureService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+        // N01/N06 辅助钩子：失败不拖垮喂食主事务（B22 可降级原则）
+        try {
+            companionFeatureService.recordStep(userId, "FEED");
+            playFeatureService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+        } catch (Exception e) {
+            log.warn("喂食辅助钩子失败（不阻断）: userId={}", userId, e);
+        }
         intimacyService.gain(pet, PetIntimacySource.FEED);
         int levelups = stateService.grantExp(pet, cfg.getFeedExp());
         dailyQuestService.record(pet, PetQuestType.FEED, 1);
@@ -155,7 +160,11 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getPlayHappiness()));
         pet.setStatus(PetStatus.IDLE.name());
         recordInstantActivity(pet, PetActivityType.PLAY, rewardable ? cfg.getPlayExp() : 0);
-        companionFeatureService.recordStep(userId, "PLAY");
+        try {
+            companionFeatureService.recordStep(userId, "PLAY");
+        } catch (Exception e) {
+            log.warn("玩耍引导钩子失败（不阻断）: userId={}", userId, e);
+        }
         if (rewardable) {
             playFeatureService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
             intimacyService.gain(pet, PetIntimacySource.PLAY);

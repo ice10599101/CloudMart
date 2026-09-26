@@ -282,6 +282,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_ALREADY_CLAIMED, "奖励已经领取过啦");
         }
         activity.setStatus(PetActivityStatus.CLAIMED.name());
+        activity.setClaimedAt(petClock.nowUtc());
         int intelligenceBonus = PetActivityServiceImpl.intelligenceBonusPercent(pet.getIntelligence());
         expReward += Math.round(expReward * intelligenceBonus / 100f);
         currencyReward += Math.round(currencyReward * intelligenceBonus / 100f);
