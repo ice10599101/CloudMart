@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: 心愿宇宙 API（W3/W4 交付版）
+  version: "2.0-w3w4"
+  description: |
+    心愿宇宙对外 API 契约（B22）。
+
+    约定：
+    - 所有 ID 一律字符串（雪花 19 位超出 JS 安全整数；客户端禁止 Number/parseInt/一元加号）
+    - 时间统一 RFC3339（UTC）；业务自然日用 YYYY-MM-DD
+    - 金额/星光为最小整数单位
+    - 统一信封：{success, data, error{code,message,details,retryable}, meta{requestId,serverTime,...}}
+    - 写接口要求 X-Idempotency-Key（B04）：同键同内容重放原结果，同键异内容 409
+    - 鉴权：Bearer JWT（RS256）；管理端经 mall-admin 代理 + 服务令牌（不对外暴露）
+servers:
+  - url: /api/wish
+tags:
+  - name: wishes
+  - name: moderation
+  - name: privacy
+paths:
+  /wishes:
+    get:
+      tags: [wishes]
+      summary: 公开心愿列表（B15：稳定分页，置顶混合排序暂停至 V2 游标）
+      parameters:
+        - { name: categoryId, in: query, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: pageSize, in: query, schema: { type: integer, maximum: 50 } }
+      responses:
+        "200": { description: OK }
+  /wishes/{id}:
+    get:
+      tags: [wishes]
+      summary: 心愿详情（B02：DIARY 仅作者；B12：描述已服务端净化）
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [wishes]
+      summary: 编辑心愿（B08：version 必填，字段级 CAS）
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, example: 7 }
+                title: { type: string, maxLength: 120 }
+                description: { type: string, maxLength: 20000 }
+                visibility: { type: string, enum: [PUBLIC, PRIVATE, TREE_HOLE] }
+                latitude: { type: number }
+                longitude: { type: number }
+      responses:
+        "200": { description: OK（data.version 自增） }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+  /wishes/{id}/fulfillment:
+    post:
+      tags: [wishes]
+      summary: 提交还愿（B03：shareToCommunity 默认 false；B04 幂等；B12 故事净化）
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [story]
+              properties:
+                story: { type: string, maxLength: 20000 }
+                mediaUrls: { type: array, maxItems: 9, items: { type: string } }
+                feeling: { type: string, maxLength: 1000 }
+                shareToCommunity: { type: boolean, default: false }
+      responses:
+        "200": { description: OK }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /wishes/{id}/growth-records:
+    get:
+      tags: [wishes]
+      summary: 成长时间轴（B02：非作者 SQL 层排除 DIARY）
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+  /workshop/exchange:
+    post:
+      tags: [wishes]
+      summary: 星光兑换（B04 持久幂等 + B05 DB 条件库存）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetId, paymentMethod]
+              properties:
+                assetId: { type: string }
+                paymentMethod: { type: string, enum: [STARLIGHT] }
+      responses:
+        "200": { description: "data:{id,assetId,balanceAfter,spentAmount}" }
+        "402": { description: WISH_STARLIGHT_INSUFFICIENT }
+        "409": { description: IDEMPOTENCY_KEY_REUSED / WISH_OPERATION_IN_PROGRESS }
+  /v2/reports:
+    post:
+      tags: [moderation]
+      summary: 提交举报（N01）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetType, targetId, reasonCode]
+              properties:
+                targetType: { type: string, enum: [WISH, WISH_COMMENT, GROWTH_RECORD, FULFILLMENT, DRIFT_BOTTLE, BOTTLE_COMMENT] }
+                targetId: { type: string }
+                reasonCode: { type: string, enum: [SPAM, ABUSE, FRAUD, PRIVACY, OTHER] }
+                description: { type: string, maxLength: 500 }
+                evidenceMediaIds: { type: array, maxItems: 3, items: { type: string } }
+      responses:
+        "200": { description: "data: reportId（同内容同理由未结举报合并返回原记录）" }
+        "429": { description: WISH_RATE_LIMITED（每日 10 次） }
+  /v2/moderation-decisions/{id}/appeals:
+    post:
+      tags: [moderation]
+      summary: 对治理决定申诉（N01）
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statement]
+              properties:
+                statement: { type: string, minLength: 1, maxLength: 1000 }
+                evidenceMediaIds: { type: array, maxItems: 3, items: { type: string } }
+      responses:
+        "200": { description: "data: appealId" }
+        "403": { description: 非被处理作者 }
+        "422": { description: 窗口已关闭（7 日）/重复申诉 }
+  /v2/my/privacy:
+    get:
+      tags: [privacy]
+      summary: 隐私中心聚合视图（N05）
+      responses:
+        "200": { description: "data:{aiDataProcessing,dataExport,accountDeletion,defaults}" }
+components:
+  responses:
+    NotFound:
+      description: WISH_NOT_FOUND（私密/树洞/已删除对非作者统一 404，不泄露存在性）
+    VersionConflict:
+      description: WISH_VERSION_CONFLICT（B08：刷新当前版本后重提）
+    ValidationError:
+      description: WISH_VALIDATION_ERROR（字段级 details）
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+security:
+  - bearerAuth: []

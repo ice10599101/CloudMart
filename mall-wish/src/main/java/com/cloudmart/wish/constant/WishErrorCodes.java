@@ -56,6 +56,8 @@ public final class WishErrorCodes {
     public static final String IDEMPOTENCY_KEY_REUSED = "IDEMPOTENCY_KEY_REUSED";
     /** B04：操作进行中/结果未知（409，按原键轮询或重试） */
     public static final String WISH_OPERATION_IN_PROGRESS = "WISH_OPERATION_IN_PROGRESS";
+    /** B21：私密内容解密失败/加密不可用（不把密文当正文） */
+    public static final String WISH_CONTENT_UNAVAILABLE = "WISH_CONTENT_UNAVAILABLE";
     public static final String WISH_NOT_FULFILLABLE = "WISH_NOT_FULFILLABLE";
     /** 时间胶囊未到期待开启（文档 2.7 errors） */
     public static final String WISH_CAPSULE_NOT_AVAILABLE = "WISH_CAPSULE_NOT_AVAILABLE";

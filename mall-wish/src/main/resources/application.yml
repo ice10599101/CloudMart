@@ -64,7 +64,8 @@ spring:
     baseline-version: 1
     locations: classpath:db/migration,classpath:com/cloudmart/wish/db/migration
     clean-disabled: true
-    validate-on-migrate: false
+    # B23：正式环境先 validate 再 migrate（历史 checksum 差异在发布前修正，不靠 repair 掩盖）
+    validate-on-migrate: true
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

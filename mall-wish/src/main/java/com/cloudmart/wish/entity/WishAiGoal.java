@@ -45,6 +45,12 @@ public class WishAiGoal {
     /** 优先级（1-5，1 最高） */
     private Integer priority;
 
+    /** 排序（N04：计划步骤顺序） */
+    private Integer sortOrder;
+
+    /** 乐观锁（N04：编辑/勾选完成 CAS） */
+    private Integer version;
+
     private GoalStatus status;
 
     /** AI 会话 ID（关联 wish_ai_conversation.session_id） */

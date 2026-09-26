@@ -25,6 +25,8 @@ public class DataExport {
     private String downloadUrl;
 
     /** 导出内容 JSON（SUCCESS 后写入；过期任务由查询时惰性清理） */
+    /** 导出内容（仅下载端点经 loadContent 输出；状态视图脱敏，B19） */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String content;
 
     private LocalDateTime expiresAt;

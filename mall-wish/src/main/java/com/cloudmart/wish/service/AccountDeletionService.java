@@ -12,7 +12,14 @@ import com.cloudmart.wish.entity.WishAccountDeletion;
 public interface AccountDeletionService {
 
     /** 发送注销验证码（生成 6 位码，Redis 存哈希 TTL 5min；回显由 echo-code 配置控制） */
-    String sendDeletionCode(Long userId);
+    /**
+     * 发送注销验证码（B20：sent 反映真实下发状态；echoCode 仅开发/测试回显）。
+     */
+    SendCodeResult sendDeletionCode(Long userId);
+
+    /** 发码结果载体 */
+    record SendCodeResult(boolean sent, String echoCode, String message) {
+    }
 
     /** 申请注销（验证码校验；已有 PENDING 任务 409） */
     WishAccountDeletion apply(Long userId, String confirmCode, String reason);

@@ -50,8 +50,12 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
+    /**
+     * B20：发码结果真实回传——通道未接入时 sent=false + 明确提示，不再让控制器
+     * 固定 sent=true 假成功。echo-code 仅限开发/测试回显（生产必须关闭）。
+     */
     @Override
-    public String sendDeletionCode(Long userId) {
+    public SendCodeResult sendDeletionCode(Long userId) {
         // 已执行的注销不再发码
         final WishAccountDeletion existing = getByUser(userId);
         if (existing != null && "EXECUTED".equals(existing.getStatus())) {
@@ -59,9 +63,16 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
         }
         final String code = String.format("%06d", secureRandom.nextInt(1_000_000));
         redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
-        log.info("注销验证码已生成 userId={}（5 分钟有效；生产环境经短信/邮件通道下发）", userId);
-        return echoCode ? code : null;
+        if (echoCode) {
+            log.warn("注销验证码回显模式（仅开发/测试）userId={}", userId);
+            return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(true, code, null);
+        }
+        // 真实短信/邮件通道尚未接入（mall-notification 仅站内信）——如实返回未发送
+        log.warn("注销验证码已生成但无下发通道 userId={}（B20：sent=false，不假成功）", userId);
+        return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(false, null,
+                "验证码下发通道暂未接入，请通过客服人工核验后继续注销流程");
     }
+
 
     @Override
     @Transactional
@@ -107,11 +118,20 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
         if ("EXECUTED".equals(existing.getStatus())) {
             throw new BusinessException(WishErrorCodes.WISH_DELETION_EXECUTED, "已执行注销，不可撤回");
         }
-        existing.setStatus("CANCELED");
-        existing.setCanceledAt(LocalDateTime.now(ZoneId.of("UTC")));
-        deletionMapper.updateById(existing);
+        // B20：取消只能 CAS PENDING 且未过截止时间（与到期执行并发时只有一个成功）
+        int affected = deletionMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<WishAccountDeletion>()
+                        .eq(WishAccountDeletion::getId, existing.getId())
+                        .eq(WishAccountDeletion::getStatus, "PENDING")
+                        .gt(WishAccountDeletion::getExecuteAfter, LocalDateTime.now(ZoneId.of("UTC")))
+                        .set(WishAccountDeletion::getStatus, "CANCELED")
+                        .set(WishAccountDeletion::getCanceledAt, LocalDateTime.now(ZoneId.of("UTC"))));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
+                    "注销申请状态已变更（可能已到期执行），请刷新查看");
+        }
         log.info("用户撤回注销 userId={}", userId);
-        return existing;
+        return getByUser(userId);
     }
 
     @Override
@@ -128,17 +148,37 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
                         .le(WishAccountDeletion::getExecuteAfter, LocalDateTime.now(ZoneId.of("UTC"))));
         int executed = 0;
         for (final WishAccountDeletion task : due) {
+            // B20：PENDING→EXECUTING 认领（多实例/重复调度只有一个执行者）
+            int claimed = deletionMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<WishAccountDeletion>()
+                            .eq(WishAccountDeletion::getId, task.getId())
+                            .eq(WishAccountDeletion::getStatus, "PENDING")
+                            .set(WishAccountDeletion::getStatus, "EXECUTING"));
+            if (claimed == 0) {
+                continue;
+            }
             try {
                 // 心愿逻辑删除（保留审计；含 PRIVATE/TREE_HOLE 全量）
                 wishMapper.delete(new LambdaQueryWrapper<Wish>()
                         .eq(Wish::getUserId, task.getUserId()));
-                task.setStatus("EXECUTED");
-                task.setExecutedAt(LocalDateTime.now(ZoneId.of("UTC")));
-                deletionMapper.updateById(task);
-                executed++;
+                int done = deletionMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<WishAccountDeletion>()
+                                .eq(WishAccountDeletion::getId, task.getId())
+                                .eq(WishAccountDeletion::getStatus, "EXECUTING")
+                                .set(WishAccountDeletion::getStatus, "EXECUTED")
+                                .set(WishAccountDeletion::getExecutedAt, LocalDateTime.now(ZoneId.of("UTC"))));
+                if (done == 1) {
+                    executed++;
+                }
                 log.warn("注销宽限期到期，已执行心愿数据清理 userId={}", task.getUserId());
             } catch (Exception ex) {
-                log.error("注销执行失败 userId={}", task.getUserId(), ex);
+                // 回退 PENDING，下轮扫描重试（清理幂等：软删重复执行无害）
+                deletionMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<WishAccountDeletion>()
+                                .eq(WishAccountDeletion::getId, task.getId())
+                                .eq(WishAccountDeletion::getStatus, "EXECUTING")
+                                .set(WishAccountDeletion::getStatus, "PENDING"));
+                log.error("注销执行失败 userId={}（已回退待重试）", task.getUserId(), ex);
             }
         }
         return executed;

@@ -145,8 +145,7 @@ public class AnnualReportServiceImpl implements AnnualReportService {
                 .map(record -> new AnnualReportVO.Milestone(
                         record.getCreatedAt().toLocalDate(),
                         milestoneTitle(record.getType()),
-                        truncate(contentCipher.decryptGrowth(
-                                GrowthRecordType.DIARY == record.getType(), record.getContent()))))
+                        truncate(contentCipher.decryptGrowth(GrowthRecordType.DIARY == record.getType(), "GROWTH:report", record.getContent()))))
                 .toList();
     }
 

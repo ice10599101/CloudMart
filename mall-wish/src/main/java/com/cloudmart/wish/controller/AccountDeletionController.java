@@ -34,11 +34,14 @@ public class AccountDeletionController {
     public ApiResponse<Map<String, Object>> sendCode(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        final String code = accountDeletionService.sendDeletionCode(userId);
+        // B20：sent 反映真实下发状态——通道未接入时 sent=false + 提示，不假成功
+        final com.cloudmart.wish.service.AccountDeletionService.SendCodeResult result =
+                accountDeletionService.sendDeletionCode(userId);
         return ApiResponse.ok(Map.of(
-                "sent", true,
-                "expiresInSeconds", 300,
-                "devCode", code == null ? "" : code));
+                "sent", result.sent(),
+                "expiresInSeconds", result.sent() ? 300 : 0,
+                "devCode", result.echoCode() == null ? "" : result.echoCode(),
+                "message", result.message() == null ? "" : result.message()));
     }
 
     @PostMapping("/account-deletion")

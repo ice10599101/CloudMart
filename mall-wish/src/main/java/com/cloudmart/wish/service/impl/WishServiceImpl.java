@@ -729,7 +729,8 @@ public class WishServiceImpl implements WishService {
         return new WishGrowthRecordVO(
                 record.getId(),
                 record.getType(),
-                contentCipher.decryptGrowth(GrowthRecordType.DIARY == record.getType(), record.getContent()),
+                contentCipher.decryptGrowth(GrowthRecordType.DIARY == record.getType(),
+                        "GROWTH:" + record.getWishId() + ":" + record.getUserId(), record.getContent()),
                 WishJsonUtils.parseStringList(record.getMediaUrls()),
                 record.getProgressDelta(),
                 record.getCreatedAt()
@@ -831,7 +832,8 @@ public class WishServiceImpl implements WishService {
         record.setUserId(userId);
         record.setType(GrowthRecordType.valueOf(request.type()));
         record.setContent(contentCipher.encryptGrowth(
-                GrowthRecordType.DIARY == record.getType(), request.content().trim()));
+                GrowthRecordType.DIARY == record.getType(),
+                "GROWTH:" + wishId + ":" + userId, request.content().trim()));
         if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
             record.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         }
@@ -943,7 +945,8 @@ public class WishServiceImpl implements WishService {
         }
         if (content != null && !content.isBlank()) {
             record.setContent(contentCipher.encryptGrowth(
-                    GrowthRecordType.DIARY == record.getType(), content.trim()));
+                    GrowthRecordType.DIARY == record.getType(),
+                    "GROWTH:" + wishId + ":" + record.getUserId(), content.trim()));
         }
         if (mediaUrls != null) {
             record.setMediaUrls(com.cloudmart.wish.util.WishJsonUtils.stringifyList(mediaUrls));

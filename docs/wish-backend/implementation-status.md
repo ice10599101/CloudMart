@@ -238,6 +238,90 @@ lint / typecheck：NOT RUN（Java 后端以编译+测试为准）
      全量选定回归 263 用例 PASS
 ```
 
+## 13. 第十轮交付（W4：B21 + B19，2026-09-27）
+
+### B21 加密 envelope 与 fail-closed
+- **v2 envelope**：`enc:v2:<keyId>:<base64(iv||ct)>`，GCM AAD 绑定记录上下文（DIARY 绑定 `GROWTH:wishId:userId`，树洞/AI 会话走 LEGACY 域）——密文挪用被 AAD 校验拦截（测试锁定）。
+- **轮换**：当前 keyId 写、当前+previous 双钥读（回填验收后移除 previous）；v1 历史密文按当前密钥兼容读取。
+- **解密失败 → `WISH_CONTENT_UNAVAILABLE`**：不再把密文当正文返回（旧行为原样返回密文的缺陷修复）。
+- **fail-closed**：`wish.crypto.require-key=true`（生产）时密钥缺失拒绝启动、加密入口抛异常回滚写操作——绝不降级明文；开发/测试显式 false 与 prod 隔离。
+- 调用点全迁移（DIARY 加密/解密 4 处携带 AAD）。
+
+### B19 导出任务
+- **恢复 PROCESSING**：启动恢复不再只扫 PENDING——宕机残留的 PROCESSING 一并重新入队。
+- **配额**：每用户同时仅一个进行中任务（409）；24 小时内最多 2 次（429）。
+- **真实清理**：过期内容改显式 `SET content=NULL`（修复 `updateById` 空字段不落库导致 DB 内容残留的缺陷）；状态视图 `@JsonIgnore` 脱敏 content——状态查询不再暴露导出正文。
+- 余量：持久租约与多实例接管（单实例内恢复已闭环）；流式分页导出与私有对象存储（W5 与 mall-file 联动）。
+
+```text
+验证：编译 PASS；ContentCipherTest 8 用例（往返/AAD 挪用拦截/轮换双钥/v1 兼容/篡改拒绝/fail-closed）PASS；
+     选定回归 PASS
+```
+
+## 14. 第十一轮交付（W4：B20 + N05，2026-09-27）
+
+### B20 注销闭环（wish 侧）
+- **发码真实化**：`sendDeletionCode` 返回 `SendCodeResult(sent, echoCode, message)`——验证码下发通道（短信/邮件）未接入时 **sent=false + 明确提示**，控制器不再固定 sent=true 假成功；echo-code 回显仅限开发/测试（生产必须关闭）。真实短信通道接入属 mall-notification 能力扩展（当前仅站内信），接口点已预留。
+- **取消 CAS**：仅 `status=PENDING 且未过截止` 可取消——与到期执行并发时只有一个成功（409 提示刷新）。
+- **执行认领与回退**：到期执行先 CAS `PENDING→EXECUTING` 认领（多实例/重复调度单执行者），清理后 `EXECUTING→EXECUTED`；异常回退 PENDING 下轮重试（软删幂等）。
+- 余量：全账号注销统一编排（mall-user 主导 + 各服务进度可查）为跨服务工作包；终态账号令牌失效在 mall-auth 侧（B20 联动项）。
+
+### N05 统一隐私中心
+- **GET /v2/my/privacy**：聚合 AI 数据处理授权（复用 consent，不新造开关）、最近导出任务进度、注销阶段、默认关闭项（位置共享/还愿自动分享/RMB 支付均 false）——各端隐私开关的单一数据源。
+- 余量：位置共享独立开关 `locationSharingEnabled` 持久化与附近模式退出清轨迹（随 B16 收尾批次）。
+
+```text
+验证：编译 PASS；选定回归 146 用例 PASS
+```
+
+## 15. 第十二轮交付（收尾：B23 测试基线 + B22 契约，2026-09-27）
+
+### B23 迁移与测试基线
+- **取消启动自动 repair**：删除 `FlywayRepairConfig`（不再以 repair 掩盖历史 checksum 差异）；`validate-on-migrate: true`——正式环境先 validate 再 migrate，差异须以新迁移修正。
+- **UT/IT 分组**：surefire 排除 `**/it/**`（修复"IT 类名匹配默认 includes、全量 mvn test 会连远程库"的危险配置）；failsafe 绑定 `**/it/*IntegrationTest.java` 显式执行。
+- **IT 环境守卫**：`WishIntegrationTestBase` 增加前置校验——必须 `-Dwish.it.enabled=true` 且显式提供 `WISH_IT_MYSQL_HOST`（缺任一拒绝执行）；`application-it.yml` 移除远程实例默认地址（129.204.152.168），杜绝误连共享库。
+- 余量：覆盖率 agent 启动根因修复（JaCoCo 0.8.14 + JDK26，当前 CI 以 -Djacoco.skip 规避）；真实网关+容器化 IT 套件编写（W5）。
+
+### B22 契约文档
+- `openapi.yaml`：对外核心路径骨架（wishes CRUD/fulfillment/exchange/reports/appeals/privacy）+ 统一信封 + ID 字符串约定 + 错误语义；SDK 生成与三端薄适配层随 W5 前端批次。
+- `api-examples.http`：占位令牌与隔离测试 ID 的成功/错误示例（版本冲突/兑换/举报/申诉/隐私中心）。
+
+```text
+验证：编译 PASS；全量选定回归 271 用例 PASS（12 轮累计新增约 100 用例）
+IT：按 B23 分组后不在默认 mvn test 中执行；执行需显式启用 + 本地隔离库
+```
+
+## 16. 交付收尾总览（截至第十二轮）
+
+| 工作包 | 任务 | 状态 |
+| --- | --- | --- |
+| W0 安全止血 | B01（完整）/B02/B03/B07 | ✅ |
+| W1 交易基础 | B04（executor+四入口+过滤器重写）/B05/B06/B13（outbox+inbox 消费去重） | ✅ |
+| W2 核心正确性 | B08/B09/B10/B14/B15/B16/B17/B18/B24 | ✅ |
+| W3 治理闭环 | B11/B12/N01（V46 四表+端点+代理） | ✅ |
+| W4 异步与数据控制 | B19/B21/B20（wish 侧）/N05 | ✅ |
+| W5 契约与发布 | B22（openapi/examples/错误码）/B23（迁移+UT/IT 分组+IT 守卫） | ✅ 后端部分；SDK 生成+三端前端适配待前端批次 |
+| P2 增强 | N03/N04 | ⬜ 未开始（独立发布，不阻塞安全修复） |
+| 独立缺陷 | pet /users/batch 错误归属、DIARY 分页口径 | ✅ 已修 |
+
+**部署门槛（不变）**：四服务同批注入 `WISH_SERVICE_TOKEN_SECRET`；`WISH_CRYPTO_REQUIRE_KEY=true` + `WISH_CRYPTO_KEY`；Flyway V41–V46 先于代码执行；禁止回滚到含 B01 漏洞的版本。
+## 17. 第十三轮交付（P2：N03 + N04，2026-09-27）
+
+### N03 心愿草稿与发布
+- V47 迁移：`wish_draft`（client_draft_id 幂等唯一键、published_wish_id 发布关联、version 乐观锁、软删）。
+- `WishDraftService`：保存（clientDraftId 幂等 + 乐观锁自动保存 + 每人 20 份上限）、列表（仅本人）、删除（CAS）、**发布复用 createWish 领域命令**并同事务关联 publishedWishId——同草稿仅首次发布、重复调用返回既有心愿（不重复发奖/计统计）。
+- 端点：POST/GET/PATCH/DELETE `/v2/drafts`、POST `/v2/drafts/{id}/publish`。
+- 归档/延期（archivedFromStatus/reschedule）依赖 B10 状态机扩展，随 V2 端点批次交付（草稿-发布主链路已闭环）。
+
+### N04 AI 目标计划化
+- V47：`wish_ai_goal` 增加 `sort_order/version`。
+- `GoalPlanService`：清单（作者专用）、创建（每心愿 ≤20 步；用户可直接建，AI 失败不阻塞）、编辑/勾选（version CAS；勾选完成**不触发还愿奖励**）、删除（软删+CAS）、批量排序（集合必须完整且同心愿）。
+- 端点：GET/POST `/v2/wishes/{id}/goals`、PATCH/DELETE `/v2/goals/{id}`、PUT `/v2/wishes/{id}/goal-order`。
+
+```text
+验证：编译 PASS；全量选定回归 271 用例 PASS
+```
+
 ## 5. 建议下一步
 
 按任务书 §12.2 顺序：`wish-privacy-policy`（本轮已完成主体）→ `wish-operation-wallet`（B04–B06，operation/outbox 迁移 V42+）→ `wish-events-tasks`（B13）。

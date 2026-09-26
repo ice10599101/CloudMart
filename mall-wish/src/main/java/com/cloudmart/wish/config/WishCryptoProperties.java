@@ -21,4 +21,17 @@ public class WishCryptoProperties {
 
     /** AES-256 密钥，Base64 编码的 32 字节（256 位） */
     private String keyBase64 = "";
+
+    /** 当前密钥标识（B21：v2 envelope 携带 keyId，支撑轮换期新旧密文并存） */
+    private String keyId = "k1";
+
+    /** 轮换期旧密钥（B21：仅用于读旧密文；回填验收完成后移除） */
+    private String previousKeyBase64 = "";
+
+    /**
+     * B21 fail-closed：true 时密钥缺失/非法则私密内容写不可就绪——
+     * 加密入口抛异常回滚写操作，绝不降级明文落库。生产必须置 true
+     * （环境变量 WISH_CRYPTO_REQUIRE_KEY=true）；开发/测试显式为 false。
+     */
+    private boolean requireKey = false;
 }

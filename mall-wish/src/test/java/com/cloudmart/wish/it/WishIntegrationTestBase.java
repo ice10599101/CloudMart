@@ -79,6 +79,21 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("it")
 public abstract class WishIntegrationTestBase {
 
+    @BeforeAll
+    static void requireExplicitItEnvironment() {
+        // B23：IT 必须显式启用（-Dwish.it.enabled=true）并显式提供本地隔离库地址；
+        // 缺任一拒绝执行——防止单测阶段误连业务库/远程共享库
+        String enabled = System.getProperty("wish.it.enabled", System.getenv("WISH_IT_ENABLED"));
+        if (!"true".equals(enabled)) {
+            throw new IllegalStateException("IT 未显式启用：需 -Dwish.it.enabled=true 且配置本地隔离库"
+                    + "（WISH_IT_MYSQL_HOST 等），禁止默认连远程实例（B23）");
+        }
+        String host = System.getProperty("wish.it.mysql-host", System.getenv("WISH_IT_MYSQL_HOST"));
+        if (host == null || host.isBlank()) {
+            throw new IllegalStateException("缺少 WISH_IT_MYSQL_HOST：IT 必须指向显式声明的本地临时库（B23）");
+        }
+    }
+
     static {
         // Sentinel 客户端默认写 ~/logs/csp，重定向到 target 避免污染用户目录
         // （同时规避沙箱/CI 环境对用户主目录的写限制）

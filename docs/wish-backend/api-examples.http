@@ -1,0 +1,54 @@
+### 心愿宇宙 API 示例（B22；占位令牌与隔离测试 ID，不含真实凭据）
+
+@baseUrl = http://127.0.0.1:8090/api/wish
+@userToken = Bearer <user-jwt>
+@idempotencyKey = 25bc2c4d-1344-5c52-9168-40fbe808a133
+
+### 1. 编辑心愿（B08：version 必填；冲突 409 WISH_VERSION_CONFLICT）
+PATCH {{baseUrl}}/wishes/9007199254740993
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{"version":7,"visibility":"PRIVATE","expectedAt":null}
+
+### 2. 提交还愿（B03：默认不分享社区；B04：携带幂等键）
+POST {{baseUrl}}/wishes/9007199254740993/fulfillment
+Authorization: {{userToken}}
+X-Idempotency-Key: {{idempotencyKey}}
+Content-Type: application/json
+
+{"story":"<p>坚持打卡一百天，顺利上岸</p>","shareToCommunity":false}
+
+### 3. 星光兑换（B04/B05：同键重放原结果；100 买 80 → 余额 20）
+POST {{baseUrl}}/workshop/exchange
+Authorization: {{userToken}}
+X-Idempotency-Key: {{idempotencyKey}}
+Content-Type: application/json
+
+{"assetId":"9007199254740996","paymentMethod":"STARLIGHT"}
+
+### 4. 提交举报（N01：同内容同理由未结举报合并）
+POST {{baseUrl}}/v2/reports
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{"targetType":"WISH","targetId":"9007199254740993","reasonCode":"SPAM","description":"刷屏广告"}
+
+### 5. 对治理决定申诉（N01：仅被处理作者，7 日内）
+POST {{baseUrl}}/v2/moderation-decisions/9007199254740998/appeals
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{"statement":"内容为原创记录，未违规，请复核","evidenceMediaIds":["oss://evidence/1.png"]}
+
+### 6. 隐私中心聚合（N05）
+GET {{baseUrl}}/v2/my/privacy
+Authorization: {{userToken}}
+
+### 7. 典型错误：版本冲突（B08）
+# 响应 409：
+# {"success":false,"data":null,"error":{"code":"WISH_VERSION_CONFLICT",
+#  "message":"心愿已被并发修改，请刷新后重试",
+#  "details":[{"field":"version","code":"STALE_VERSION","message":"当前版本为 8"}],
+#  "retryable":false},
+#  "meta":{"requestId":"req-example-2","serverTime":"2026-09-26T14:00:01.000Z"}}

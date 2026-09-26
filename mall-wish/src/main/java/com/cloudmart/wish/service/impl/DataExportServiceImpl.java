@@ -74,10 +74,13 @@ public class DataExportServiceImpl implements DataExportService {
     public void recoverPendingTasks() {
         exportExecutor.execute(() -> {
             try {
+                // B19：PROCESSING 崩溃残留一并恢复（不只是 PENDING），保证最终可完成
                 final List<DataExport> stuck = exportMapper.selectList(
-                        new LambdaQueryWrapper<DataExport>().eq(DataExport::getStatus, "PENDING"));
+                        new LambdaQueryWrapper<DataExport>()
+                                .in(DataExport::getStatus, "PENDING", "PROCESSING"));
                 for (DataExport task : stuck) {
-                    log.info("恢复遗留导出任务 taskId={} userId={}", task.getId(), task.getUserId());
+                    log.info("恢复遗留导出任务 taskId={} userId={} status={}",
+                            task.getId(), task.getUserId(), task.getStatus());
                     exportExecutor.execute(() -> generate(task.getId(), task.getUserId()));
                 }
             } catch (Exception ex) {
@@ -88,6 +91,19 @@ public class DataExportServiceImpl implements DataExportService {
 
     @Override
     public DataExport createExport(Long userId) {
+        // B19：每用户同时仅一个进行中任务；24 小时内最多 2 次
+        Long active = exportMapper.selectCount(new LambdaQueryWrapper<DataExport>()
+                .eq(DataExport::getUserId, userId)
+                .in(DataExport::getStatus, "PENDING", "PROCESSING"));
+        if (active != null && active > 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "已有进行中的导出任务");
+        }
+        Long recent = exportMapper.selectCount(new LambdaQueryWrapper<DataExport>()
+                .eq(DataExport::getUserId, userId)
+                .ge(DataExport::getCreatedAt, LocalDateTime.now(ZoneId.of("UTC")).minusHours(24)));
+        if (recent != null && recent >= 2) {
+            throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED, "24 小时内导出次数已达上限");
+        }
         final DataExport export = new DataExport();
         export.setUserId(userId);
         export.setStatus("PENDING");
@@ -119,7 +135,8 @@ public class DataExportServiceImpl implements DataExportService {
             List<WishGrowthRecord> exportRecords = growthRecordMapper.selectList(
                     new LambdaQueryWrapper<WishGrowthRecord>().eq(WishGrowthRecord::getUserId, userId));
             exportRecords.forEach(r -> r.setContent(contentCipher.decryptGrowth(
-                    GrowthRecordType.DIARY == r.getType(), r.getContent())));
+                    GrowthRecordType.DIARY == r.getType(),
+                    "GROWTH:" + r.getWishId() + ":" + r.getUserId(), r.getContent())));
             payload.put("growthRecords", exportRecords);
             payload.put("fulfillments", fulfillmentMapper.selectList(
                     new LambdaQueryWrapper<WishFulfillment>().eq(WishFulfillment::getUserId, userId)));
@@ -156,11 +173,7 @@ public class DataExportServiceImpl implements DataExportService {
         }
         if (task.getExpiresAt() != null && task.getExpiresAt().isBefore(LocalDateTime.now(ZoneId.of("UTC")))) {
             // 惰性过期：内容清空并置 FAILED
-            final DataExport expired = new DataExport();
-            expired.setId(taskId);
-            expired.setStatus("FAILED");
-            expired.setContent(null);
-            exportMapper.updateById(expired);
+            clearContent(taskId);
             return null;
         }
         return task.getContent();
@@ -191,14 +204,18 @@ public class DataExportServiceImpl implements DataExportService {
                 .isNotNull(DataExport::getContent)
                 .lt(DataExport::getExpiresAt, LocalDateTime.now(ZoneId.of("UTC"))));
         for (final DataExport task : expired) {
-            final DataExport update = new DataExport();
-            update.setId(task.getId());
-            update.setStatus("FAILED");
-            update.setContent(null);
-            exportMapper.updateById(update);
+            clearContent(task.getId());
         }
         if (!expired.isEmpty()) {
             log.info("已清理过期导出内容 {} 条", expired.size());
         }
+    }
+
+    /** B19：显式 SET content=NULL（updateById 空字段不落库的缺陷），DB 与存储一致清空 */
+    private void clearContent(Long taskId) {
+        exportMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DataExport>()
+                .eq(DataExport::getId, taskId)
+                .set(DataExport::getStatus, "FAILED")
+                .set(DataExport::getContent, null));
     }
 }
