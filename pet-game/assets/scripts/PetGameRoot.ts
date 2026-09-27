@@ -55,9 +55,9 @@ const { ccclass } = _decorator
  * ⚠️ glTF 导入后主资源（gltf-scene）的子资源名等于文件名本身，
  * 所以资源库注册的路径是 `目录/文件名/文件名`（猫版实测确认的规则，水果沿用）。
  */
-const PET_MODEL_PATH = 'models/fruit/strawberry/strawberry'
-/** 模型所在目录（剪辑子资源按 `目录/剪辑名` 取） */
-const PET_MODEL_DIR = 'models/fruit/strawberry'
+const PET_MODEL_PATH = 'models/fruit/strawberry/strawberry/strawberry'
+/** 模型所在目录（剪辑子资源按 `目录/文件名/剪辑名` 取） */
+const PET_MODEL_DIR = 'models/fruit/strawberry/strawberry'
 /** 需要用到的剪辑名。缺哪个就跳过哪个，不能因为少一条剪辑就让整只宠物不出现。 */
 const PET_CLIPS = ['Idle', 'Happy', 'Blink']
 /**

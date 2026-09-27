@@ -200,17 +200,17 @@ for v in berry.data.vertices:
 berry.data.materials.append(make_material('berry', img=make_seed_texture(), rough=0.42))
 smooth(berry)
 
-eye_mat = make_material('eye', solid_texture('eye', 0x241716), rough=0.12)
+eye_mat = make_material('eye', solid_texture('eye', 0x1A1110), rough=0.12)
 hl_mat = make_material('highlight', solid_texture('highlight', 0xFFFFFF), rough=0.08)
 mouth_mat = make_material('mouth', solid_texture('mouth', 0x6E2833), rough=0.5)
-blush_mat = make_material('blush', solid_texture('blush', 0xF78FA7), rough=0.6)
+blush_mat = make_material('blush', solid_texture('blush', 0xEE5F8D), rough=0.6)
 sepal_mat = make_material('sepal', solid_texture('sepal', 0x5CA24E), rough=0.55)
 stem_mat = make_material('stem', solid_texture('stem', 0x6BB05C), rough=0.55)
 
 eye_l = add_sphere_part('EyeL', tuple(EYE_L), (0.080, 0.060, 0.095), eye_mat)
 eye_r = add_sphere_part('EyeR', tuple(EYE_R), (0.080, 0.060, 0.095), eye_mat)
-hl_l = add_sphere_part('HLL', tuple(EYE_L + Vector((-0.022, -0.055, 0.034))), (0.020, 0.013, 0.020), hl_mat)
-hl_r = add_sphere_part('HLR', tuple(EYE_R + Vector((-0.022, -0.055, 0.034))), (0.020, 0.013, 0.020), hl_mat)
+hl_l = add_sphere_part('HLL', tuple(EYE_L + Vector((-0.024, -0.058, 0.038))), (0.026, 0.017, 0.026), hl_mat)
+hl_r = add_sphere_part('HLR', tuple(EYE_R + Vector((-0.024, -0.058, 0.038))), (0.026, 0.017, 0.026), hl_mat)
 # 开口笑：球体削平上沿 → 半穹顶朝外下（QQ 式张嘴笑）。v4 的细管笑弧会被曲面吞掉中段，
 # 半穹顶是实心面片，没有"细管凸出量"的脆弱性
 def build_smile():
@@ -233,12 +233,12 @@ def build_smile():
 
 
 mouth = build_smile()
-# 腮红：18° 收进正脸区，薄片贴身（凸出轮廓 = 残片瑕疵，红线）
+# 腮红：18° 收进正脸区，加大一号保证 toon 提亮下仍可读
 for side, x in (('L', -1), ('R', 1)):
     ang = math.radians(18)
     nrm = Vector((math.sin(ang) * x, -math.cos(ang), 0))
-    pos = nrm * (profile_radius(0.55) - 0.004) + Vector((0, 0, 0.47))
-    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.052, 0.012, 0.034), blush_mat)
+    pos = nrm * (profile_radius(0.55) - 0.006) + Vector((0, 0, 0.47))
+    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.058, 0.014, 0.040), blush_mat)
     blush.rotation_euler = nrm.to_track_quat('Y', 'Z').to_euler()
 
 
@@ -249,20 +249,22 @@ def build_calyx():
     for k in range(5):
         yaw = k * (2 * math.pi / 5)
         base = Vector((0.050 * math.cos(yaw), 0.050 * math.sin(yaw), 0.762))
-        # 局部：+Z 指向叶尖、X 为叶宽；先绕 X 外倾 26°，再绕 Z 均布（XYZ 欧拉 = 先 X 后 Z）
-        rot = Euler((math.radians(-26), 0, yaw - math.pi / 2), 'XYZ').to_matrix()
+        # 局部：+Z 指向叶尖、X 为叶宽；先绕 X 外倾 17°（更直立，俯视不漏叶背），再绕 Z 均布
+        rot = Euler((math.radians(-17), 0, yaw - math.pi / 2), 'XYZ').to_matrix()
         local = [(-0.045, 0, 0.004), (0.045, 0, 0.004),
                  (-0.085, 0, 0.100), (0.085, 0, 0.100), (0, 0, 0.200)]
         i0 = len(verts)
         verts.extend(tuple(base + rot @ Vector(p)) for p in local)
-        faces.extend([(i0, i0 + 1, i0 + 3), (i0, i0 + 3, i0 + 2), (i0 + 2, i0 + 3, i0 + 4)])
+        # 绕向必须让法线朝外：v1 的 (0,1,3) 顺序法线朝内，pet-toon 按背面打光，
+        # 整个萼片渲染成暗红（Cycles 双面渲染看不出来，引擎侧现形）
+        faces.extend([(i0 + 1, i0, i0 + 3), (i0 + 3, i0, i0 + 2), (i0 + 3, i0 + 2, i0 + 4)])
     me = bpy.data.meshes.new('Calyx')
     me.from_pydata(verts, [], faces)
     me.validate()
     calyx = bpy.data.objects.new('Calyx', me)
     bpy.context.collection.objects.link(calyx)
     sol = calyx.modifiers.new('Solidify', 'SOLIDIFY')
-    sol.thickness = 0.012
+    sol.thickness = 0.016
     me.materials.append(sepal_mat)
     smooth(calyx)
 
@@ -277,6 +279,8 @@ def build_calyx():
 
 
 calyx, stem = build_calyx()
+# 冠心补穹：五片外倾留下的中央缺口会露出叶背（引擎里成暗色碎面），加一片绿穹封顶
+calyx_cap = add_sphere_part('CalyxCap', (0, 0, 0.78), (0.150, 0.150, 0.100), sepal_mat)
 
 # ---------------------------------------------------------------- 绑定
 arm_data = bpy.data.armatures.new('FruitRig')
@@ -301,10 +305,10 @@ for side, x in (('L', -1), ('R', 1)):
 bpy.ops.object.mode_set(mode='OBJECT')
 
 mesh_objects = [berry, eye_l, eye_r, hl_l, hl_r, mouth,
-                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], calyx, stem]
+                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], calyx, stem, calyx_cap]
 GROUP_OF = {'Berry': 'Body', 'EyeL': 'EyeL', 'EyeR': 'EyeR', 'HLL': 'EyeL', 'HLR': 'EyeR',
             'Mouth': 'Body', 'BlushL': 'Body', 'BlushR': 'Body',
-            'Calyx': 'Calyx', 'Stem': 'Calyx'}
+            'Calyx': 'Calyx', 'Stem': 'Calyx', 'CalyxCap': 'Calyx'}
 for ob in mesh_objects:
     vg = ob.vertex_groups.new(name=GROUP_OF[ob.name])
     vg.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
