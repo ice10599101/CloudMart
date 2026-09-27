@@ -8,9 +8,11 @@ import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.AdminLoginLogFeignClient;
 import com.cloudmart.auth.feign.AdminUserFeignClient;
 import com.cloudmart.auth.service.AdminAuthService;
+import com.cloudmart.auth.service.AuthSessionService;
 import com.cloudmart.auth.service.RefreshTokenService;
 import com.cloudmart.auth.service.RefreshTokenService.RotationResult;
 import com.cloudmart.auth.service.SubjectType;
+import com.cloudmart.auth.util.JwtProvider.TokenPrincipal;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
@@ -46,6 +48,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private final AdminLoginLogFeignClient loginLogFeignClient;
     private final JwtProvider jwtProvider;
     private final RefreshTokenService refreshTokenService;
+    private final AuthSessionService authSessionService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final long accessTokenExpiration;
@@ -56,6 +59,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                                 AdminLoginLogFeignClient loginLogFeignClient,
                                 JwtProvider jwtProvider,
                                 RefreshTokenService refreshTokenService,
+            AuthSessionService authSessionService,
                                 StringRedisTemplate redisTemplate,
                                 ObjectMapper objectMapper,
                                 @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration) {
@@ -63,6 +67,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         this.loginLogFeignClient = loginLogFeignClient;
         this.jwtProvider = jwtProvider;
         this.refreshTokenService = refreshTokenService;
+        this.authSessionService = authSessionService;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.accessTokenExpiration = accessTokenExpiration;
@@ -102,8 +107,12 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
         AdminUserDTO admin = response.data();
         Set<String> permissions = admin.isSuperAdmin() ? Set.of("*:*:*") : admin.permissions();
-        String accessToken = jwtProvider.generateAccessToken(admin.id(), "admin", permissions,
-                admin.username(), admin.deptId());
+        // SEC-03：签发可撤销会话，令牌携带 sid + 当前认证状态版本
+        AuthSessionService.IssuedSession session =
+                authSessionService.issueSession(SubjectType.ADMIN, admin.id());
+        String accessToken = jwtProvider.generateAdminAccessToken(
+                new TokenPrincipal(SubjectType.ADMIN, admin.id(), session.sid(), session.authVersion()),
+                permissions, admin.username(), admin.deptId());
         String refreshToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, admin.id());
 
         String tokenId = UUID.randomUUID().toString();
@@ -123,8 +132,12 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         Long userId = rotation.subjectId();
 
         AdminUserInfo userInfo = fetchUserInfo(userId);
-        String accessToken = jwtProvider.generateAccessToken(userId, "admin", userInfo.permissions,
-                userInfo.username, userInfo.deptId);
+        // SEC-03：刷新签发新会话并携带最新认证状态版本（权限软失效后自动拿到新权限集）
+        AuthSessionService.IssuedSession session =
+                authSessionService.issueSession(SubjectType.ADMIN, userId);
+        String accessToken = jwtProvider.generateAdminAccessToken(
+                new TokenPrincipal(SubjectType.ADMIN, userId, session.sid(), session.authVersion()),
+                userInfo.permissions, userInfo.username, userInfo.deptId);
 
         refreshOnlineUserTtl(userId);
 
@@ -132,8 +145,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     @Override
-    public void logout(Long userId) {
+    public void logout(Long userId, String sid) {
         removeOnlineUser(userId);
+        authSessionService.revokeSession(sid);
         refreshTokenService.revokeAllTokensForSubject(SubjectType.ADMIN, userId);
     }
 

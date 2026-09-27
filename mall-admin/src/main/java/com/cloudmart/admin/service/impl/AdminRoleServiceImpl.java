@@ -16,6 +16,7 @@ import com.cloudmart.admin.repository.AdminRoleMapper;
 import com.cloudmart.admin.repository.AdminRoleMenuMapper;
 import com.cloudmart.admin.repository.AdminUserRoleMapper;
 import com.cloudmart.admin.service.AdminRoleService;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import com.cloudmart.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,17 +31,20 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     private final AdminRoleDeptMapper adminRoleDeptMapper;
     private final AdminUserRoleMapper adminUserRoleMapper;
     private final AdminConverter adminConverter;
+    private final AuthRevocationFeignClient authRevocationFeignClient;
 
     public AdminRoleServiceImpl(AdminRoleMapper adminRoleMapper,
                                 AdminRoleMenuMapper adminRoleMenuMapper,
                                 AdminRoleDeptMapper adminRoleDeptMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
-                                AdminConverter adminConverter) {
+                                AdminConverter adminConverter,
+                                AuthRevocationFeignClient authRevocationFeignClient) {
         this.adminRoleMapper = adminRoleMapper;
         this.adminRoleMenuMapper = adminRoleMenuMapper;
         this.adminRoleDeptMapper = adminRoleDeptMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
         this.adminConverter = adminConverter;
+        this.authRevocationFeignClient = authRevocationFeignClient;
     }
 
     @Override
@@ -101,6 +105,10 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         adminRoleMenuMapper.delete(new LambdaQueryWrapper<AdminRoleMenu>().eq(AdminRoleMenu::getRoleId, id));
         adminRoleDeptMapper.delete(new LambdaQueryWrapper<AdminRoleDept>().eq(AdminRoleDept::getRoleId, id));
         saveRoleMenus(id, request.menuIds());
+
+        // SEC-03：权限集变更软失效（递增认证状态版本）——存量访问令牌立即失效，
+        // 持有用户刷新后自动携带新权限集；失败向上抛出保证管理员可感知
+        invalidateRoleHolders(id);
     }
 
     @Override
@@ -133,6 +141,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
         adminRoleMenuMapper.delete(new LambdaQueryWrapper<AdminRoleMenu>().eq(AdminRoleMenu::getRoleId, request.roleId()));
         saveRoleMenus(request.roleId(), request.menuIds());
+
+        // SEC-03：菜单授权变更软失效，同 update
+        invalidateRoleHolders(request.roleId());
     }
 
     @Override
@@ -222,5 +233,16 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
     private AdminRoleResponse toResponse(AdminRole role) {
         return adminConverter.toRoleResponse(role);
+    }
+
+    /** 软失效：递增认证状态版本（不撤销刷新家族），持有该角色的管理员下次刷新拿到新权限 */
+    private void invalidateRoleHolders(Long roleId) {
+        List<Long> userIds = adminUserRoleMapper.selectList(
+                        new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getRoleId, roleId))
+                .stream().map(AdminUserRole::getUserId).toList();
+        for (Long userId : userIds) {
+            authRevocationFeignClient.invalidateState(
+                    AuthRevocationFeignClient.adminSoftInvalidate(userId));
+        }
     }
 }

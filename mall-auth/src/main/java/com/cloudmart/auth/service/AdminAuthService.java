@@ -7,5 +7,5 @@ import jakarta.servlet.http.HttpServletRequest;
 public interface AdminAuthService {
     LoginResponse login(LoginRequest request, HttpServletRequest httpRequest);
     LoginResponse refresh(String refreshToken);
-    void logout(Long userId);
+    void logout(Long userId, String sid);
 }

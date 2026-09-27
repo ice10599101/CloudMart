@@ -26,4 +26,17 @@ public interface AuthRevocationFeignClient {
     static Map<String, String> adminSubject(Long adminUserId) {
         return Map.of("subjectType", "ADMIN", "subjectId", String.valueOf(adminUserId));
     }
+
+    @PostMapping("/invalidate-state")
+    ApiResponse<Void> invalidateState(@RequestBody Map<String, Object> request);
+
+    /** 便捷构造：认证状态硬失效（版本递增 + 撤销全部刷新令牌家族） */
+    static Map<String, Object> adminHardInvalidate(Long adminUserId) {
+        return Map.of("subjectType", "ADMIN", "subjectId", adminUserId, "revokeRefreshTokens", true);
+    }
+
+    /** 便捷构造：认证状态软失效（仅版本递增，用于角色/权限变更） */
+    static Map<String, Object> adminSoftInvalidate(Long adminUserId) {
+        return Map.of("subjectType", "ADMIN", "subjectId", adminUserId, "revokeRefreshTokens", false);
+    }
 }

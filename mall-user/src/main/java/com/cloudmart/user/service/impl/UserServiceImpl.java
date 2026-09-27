@@ -7,6 +7,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.converter.UserConverter;
 import com.cloudmart.user.dto.*;
 import com.cloudmart.user.entity.User;
+import com.cloudmart.user.feign.AuthStateFeignClient;
 import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
 import com.cloudmart.user.service.UserService;
@@ -32,6 +33,7 @@ public class UserServiceImpl implements UserService {
     private final UserConverter userConverter;
     private final PasswordEncoder passwordEncoder;
     private final CommunityFeignClient communityFeignClient;
+    private final AuthStateFeignClient authStateFeignClient;
 
     private static final long NICKNAME_COOLDOWN_DAYS = 7;
 
@@ -294,6 +296,10 @@ public class UserServiceImpl implements UserService {
         if (!passwordEncoder.matches(request.oldPassword(), user.getPassword())) {
             throw new BusinessException("OLD_PASSWORD_WRONG", "原密码错误");
         }
+        // SEC-03：改密先失效认证状态（版本递增+撤销刷新令牌家族），失败则中止——
+        // 若先改密后失效且失效失败，旧登录态仍可流通
+        authStateFeignClient.invalidateState(
+                AuthStateFeignClient.hardInvalidate(new AuthStateFeignClient.SubjectBody("USER", userId)));
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userMapper.updateById(user);
     }
@@ -303,6 +309,11 @@ public class UserServiceImpl implements UserService {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+        // SEC-03：禁用先失效认证状态（硬失效），失败则中止；启用无需失效
+        if (status != null && status != 1) {
+            authStateFeignClient.invalidateState(
+                    AuthStateFeignClient.hardInvalidate(new AuthStateFeignClient.SubjectBody("USER", id)));
         }
         user.setStatus(status);
         userMapper.updateById(user);

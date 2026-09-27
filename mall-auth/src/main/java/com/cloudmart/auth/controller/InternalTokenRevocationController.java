@@ -1,5 +1,6 @@
 package com.cloudmart.auth.controller;
 
+import com.cloudmart.auth.service.AuthSessionService;
 import com.cloudmart.auth.service.RefreshTokenService;
 import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.common.api.ApiResponse;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalTokenRevocationController {
 
     private final RefreshTokenService refreshTokenService;
+    private final AuthSessionService authSessionService;
 
     /** 撤销请求体 */
     public record RevokeSubjectRequest(@NotBlank String subjectType, @NotNull Long subjectId) {
@@ -42,6 +44,20 @@ public class InternalTokenRevocationController {
     public ApiResponse<Void> revokeSubject(@RequestBody RevokeSubjectRequest request) {
         SubjectType subjectType = SubjectType.valueOf(request.subjectType());
         refreshTokenService.revokeAllTokensForSubject(subjectType, request.subjectId());
+        return ApiResponse.ok(null);
+    }
+
+    /** 认证状态失效请求体 */
+    public record InvalidateStateRequest(@NotBlank String subjectType, @NotNull Long subjectId,
+                                         boolean revokeRefreshTokens) {
+    }
+
+    @PostMapping("/invalidate-state")
+    @Operation(summary = "使主体认证状态失效", description = "递增认证状态版本使存量访问令牌秒级失效；"
+            + "revokeRefreshTokens=true 时同时撤销全部刷新令牌家族（禁用/改密硬失效）")
+    public ApiResponse<Void> invalidateState(@RequestBody InvalidateStateRequest request) {
+        SubjectType subjectType = SubjectType.valueOf(request.subjectType());
+        authSessionService.invalidate(subjectType, request.subjectId(), request.revokeRefreshTokens());
         return ApiResponse.ok(null);
     }
 }

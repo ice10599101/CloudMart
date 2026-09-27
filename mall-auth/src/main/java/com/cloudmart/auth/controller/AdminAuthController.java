@@ -43,7 +43,8 @@ public class AdminAuthController {
             return ApiResponse.ok(null);
         }
         Long userId = Long.valueOf(jwt.getSubject());
-        adminAuthService.logout(userId);
+        // SEC-03：撤销当前会话（sid 缺失时仅撤销刷新令牌家族）
+        adminAuthService.logout(userId, jwt.getClaimAsString("sid"));
         return ApiResponse.ok(null);
     }
 }

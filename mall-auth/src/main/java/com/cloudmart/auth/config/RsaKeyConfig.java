@@ -22,10 +22,26 @@ import java.util.UUID;
 @Configuration
 public class RsaKeyConfig {
 
+    /**
+     * SEC-03：生产环境（prod profile）必须提供受管 RSA 密钥，缺失即启动失败——
+     * 随机密钥会让双实例/滚动重启时验签互不兼容，且重启即全量登录态失效。
+     * 开发环境允许临时生成（带告警），仅用于本地联调。
+     */
     @Bean
-    public RSAKey rsaKey(RsaKeyProperties properties) {
+    public RSAKey rsaKey(RsaKeyProperties properties, org.springframework.core.env.Environment env) {
+        boolean prod = java.util.Arrays.stream(env.getActiveProfiles())
+                .anyMatch("prod"::equals);
         if (properties.getPrivateKey() != null && properties.getPublicKey() != null) {
+            if (prod && properties.getKeyId() == null || prod && properties.getKeyId().isBlank()) {
+                throw new IllegalStateException(
+                        "SEC03：生产环境必须配置固定 auth.rsa.key-id（JWKS 轮换依赖稳定 kid）");
+            }
             return loadFromProperties(properties);
+        }
+        if (prod) {
+            throw new IllegalStateException(
+                    "SEC03：生产环境必须配置受管 RSA 密钥（auth.rsa.public-key/private-key/key-id），"
+                            + "禁止启动时随机生成——随机密钥将导致多实例验签失败与重启后全量登录态失效");
         }
         return generateNewKey();
     }

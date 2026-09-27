@@ -179,10 +179,11 @@ public class PetPlayFeatureService {
         result.put("throughAt", throughAt);
         result.put("petState", Map.of("level", pet.getLevel(), "hunger", pet.getHunger(),
                 "happiness", pet.getHappiness(), "energy", pet.getEnergy(), "cleanliness", pet.getCleanliness()));
-        result.put("finishedTasks", finished);
-        result.put("claimableTasks", claimable);
-        result.put("visits", visits);
-        result.put("milestones", milestones);
+        // §3.5：数量为 JSON number——计数显式转 int，避免 Long 被 ID 定制器连带字符串化
+        result.put("finishedTasks", finished == null ? 0 : finished.intValue());
+        result.put("claimableTasks", claimable == null ? 0 : claimable.intValue());
+        result.put("visits", visits == null ? 0 : visits.intValue());
+        result.put("milestones", milestones == null ? 0 : milestones.intValue());
         result.put("hasCursor", cursor != null);
         return result;
     }

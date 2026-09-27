@@ -39,6 +39,21 @@ spec:
                 configMapKeyRef:
                   name: cloudmart-config
                   key: nacos-addr
+            - name: CLOUDMART_SECURITY_JWKS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudmart-config
+                  key: jwks-uri
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudmart-config
+                  key: redis-host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloudmart-secrets
+                  key: redis-password
             - name: JAVA_OPTS
               value: "-Xms256m -Xmx512m -XX:+UseZGC -javaagent:/skywalking/agent/skywalking-agent.jar"
             - name: SW_AGENT_NAME

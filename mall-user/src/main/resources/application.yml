@@ -122,4 +122,5 @@ cloudmart:
         issuers: [mall-admin]
         scope: user:admin
     outbound-scopes:
+      mall-auth: admin:auth
       mall-community: community:internal

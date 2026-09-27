@@ -27,6 +27,7 @@ import com.cloudmart.admin.repository.AdminUserPostMapper;
 import com.cloudmart.admin.repository.AdminUserRoleMapper;
 import com.cloudmart.admin.service.AdminUserService;
 import com.cloudmart.admin.service.DataScopeService;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import com.cloudmart.common.context.AdminSecurityContext;
 import com.cloudmart.common.datascope.DataScopeResult;
 import com.cloudmart.common.datascope.DataScopeType;
@@ -59,6 +60,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final DataScopeService dataScopeService;
     private final AdminConverter adminConverter;
+    private final AuthRevocationFeignClient authRevocationFeignClient;
 
     public AdminUserServiceImpl(AdminUserMapper adminUserMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
@@ -68,7 +70,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                                 AdminDeptMapper adminDeptMapper,
                                 PasswordEncoder passwordEncoder,
                                 DataScopeService dataScopeService,
-                                AdminConverter adminConverter) {
+                                AdminConverter adminConverter,
+                                AuthRevocationFeignClient authRevocationFeignClient) {
         this.adminUserMapper = adminUserMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
         this.adminUserPostMapper = adminUserPostMapper;
@@ -78,6 +81,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         this.passwordEncoder = passwordEncoder;
         this.dataScopeService = dataScopeService;
         this.adminConverter = adminConverter;
+        this.authRevocationFeignClient = authRevocationFeignClient;
     }
 
     @Override
@@ -175,6 +179,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        // SEC-03：重置密码先失效认证状态（硬失效），失败则中止
+        authRevocationFeignClient.invalidateState(
+                AuthRevocationFeignClient.adminHardInvalidate(request.userId()));
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         adminUserMapper.updateById(user);
     }
@@ -185,6 +192,11 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUser user = adminUserMapper.selectById(id);
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+        // SEC-03：禁用先失效认证状态（硬失效），失败则中止；启用无需失效
+        if (status != null && status != 1) {
+            authRevocationFeignClient.invalidateState(
+                    AuthRevocationFeignClient.adminHardInvalidate(id));
         }
         user.setStatus(status);
         adminUserMapper.updateById(user);

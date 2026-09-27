@@ -102,7 +102,8 @@ public class PetPlayFeatureController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @org.springframework.web.bind.annotation.RequestBody(required = false) Map<String, Object> body) {
         java.time.LocalDateTime throughAt = body == null || body.get("throughAt") == null ? null
-                : java.time.LocalDateTime.parse(String.valueOf(body.get("throughAt")));
+                : java.time.OffsetDateTime.parse(String.valueOf(body.get("throughAt")))
+                        .atZoneSameInstant(java.time.ZoneOffset.UTC).toLocalDateTime();
         return ApiResponse.ok(playService.confirmOfflineDigest(userId, throughAt));
     }
 
