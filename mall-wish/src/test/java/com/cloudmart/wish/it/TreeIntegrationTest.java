@@ -105,8 +105,12 @@ class TreeIntegrationTest extends WishIntegrationTestBase {
             WishCreateResultVO created = wishService.createWish(USER_ID, new CreateWishRequest(
                     "转公开心愿", "先私密后公开", null, categoryId,
                     null, WishVisibility.PRIVATE, null, false, false, null, null));
+            // B08：读取当前 version 后条件更新
+            Long currentVersion = jdbcTemplate.queryForObject(
+                    "SELECT version FROM wish WHERE id = ?", Long.class, created.id());
             wishService.updateWish(USER_ID, created.id(), new UpdateWishRequest(
-                    null, null, null, null, null, WishVisibility.PUBLIC, null, null, null, null));
+                    null, null, null, null, null, WishVisibility.PUBLIC, null, null,
+                    23.1291, 113.2644, currentVersion));
 
             BigDecimal theta = jdbcTemplate.queryForObject(
                     "SELECT tree_theta FROM wish WHERE id = ?", BigDecimal.class, created.id());

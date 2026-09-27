@@ -64,9 +64,9 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(
-                        token, properties.serviceTokenSecret(), "mall-wish",
+                        token, properties.getServiceTokenSecret(), "mall-wish",
                         requirement.allowedIssuer(), requirement.requiredScope(),
-                        clock.instant(), Duration.ofSeconds(properties.clockSkewSeconds()));
+                        clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
                 UsernamePasswordAuthenticationToken authentication =
                         UsernamePasswordAuthenticationToken.authenticated(
                                 claims.issuer(), null, List.of(new SimpleGrantedAuthority(ROLE_INTERNAL)));

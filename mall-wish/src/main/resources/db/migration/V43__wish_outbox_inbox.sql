@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS `wish_outbox` (
     `created_at`      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间(UTC)',
     `published_at`    DATETIME(3) DEFAULT NULL COMMENT '投递成功时间(UTC)',
     PRIMARY KEY `pk_wish_outbox` (`event_id`),
-    INDEX `idx_wish_outbox_status` (`status`, `next_attempt_at`, `id`),
+    INDEX `idx_wish_outbox_status` (`status`, `next_attempt_at`, `event_id`),
     INDEX `idx_wish_outbox_aggregate` (`aggregate_type`, `aggregate_id`, `aggregate_version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='事务性发件箱(业务事实与事件原子提交)';
 

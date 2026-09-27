@@ -118,8 +118,12 @@ class WishCrudIntegrationTest extends WishIntegrationTestBase {
             stubUserFeign();
             WishCreateResultVO created = wishService.createWish(1001L, buildRequest(categoryId, WishVisibility.PUBLIC));
 
+            // B08：读取当前 version 后条件更新
+            Long currentVersion = jdbcTemplate.queryForObject(
+                    "SELECT version FROM wish WHERE id = ?", Long.class, created.id());
             wishService.updateWish(1001L, created.id(),
-                    new UpdateWishRequest("更新后的标题", null, null, null, null, null, null, null, null, null));
+                    new UpdateWishRequest("更新后的标题", null, null, null, null, null, null, null, null, null,
+                            currentVersion));
 
             String title = jdbcTemplate.queryForObject(
                     "SELECT title FROM wish WHERE id = ?", String.class, created.id());

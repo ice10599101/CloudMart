@@ -138,6 +138,9 @@ class LegacyLeaderboardIntegrationTest extends WishIntegrationTestBase {
             long wishId = seedFulfilledWish(AUTHOR, "项目顺利上线", 15);
             long fulfillmentId = jdbcTemplate.queryForObject(
                     "SELECT id FROM wish_fulfillment WHERE wish_id = ?", Long.class, wishId);
+            // B03：流转执行前复核分享授权——用例须先种子授权（否则被拦截为 HIDDEN 而非 FAILED）
+            jdbcTemplate.update("UPDATE wish_fulfillment SET share_to_community = 1, "
+                    + "share_consent_at = NOW() WHERE id = ?", fulfillmentId);
 
             legacyFlowService.submitContentFlow(wishId, fulfillmentId);
 

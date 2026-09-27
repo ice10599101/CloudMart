@@ -133,9 +133,9 @@ public class NearbyWishServiceImpl implements NearbyWishService {
     }
 
     /**
-     * B16：按半径自适应选择 geohash 精度并枚举覆盖包围盒的全部网格——
-     * 固定 9 邻格在 20/50km 半径下会漏掉跨格心愿。每档精度限定在 ±2 环
-     * （≤25 格），查询条件数量有上界。
+     * B16：按半径自适应选择 geohash 精度，并从中心格做 BFS 邻域扩张，
+     * 枚举"格中心距离 ≤ R + 半对角线"的全部网格——保证覆盖查询圆盘且不外溢
+     * （修复初版把米当度采样的缺陷）。每档精度枚举规模有界（≤ ~5x5 环）。
      */
     static Set<String> cellsWithinRadius(double[] center, int radiusM) {
         int precision;
@@ -147,19 +147,30 @@ public class NearbyWishServiceImpl implements NearbyWishService {
             precision = 3;   // 格约 78km
         }
         double cellSize = precision == 5 ? 4900 : precision == 4 ? 19500 : 78000;
-        int steps = (int) Math.ceil(radiusM / cellSize) + 1;
+        double maxCenterDist = radiusM + Math.sqrt(2) * cellSize / 2;
+
         Set<String> cells = new java.util.LinkedHashSet<>();
-        for (int i = -steps; i <= steps; i++) {
-            for (int j = -steps; j <= steps; j++) {
-                double lat = center[0] + i * cellSize;
-                double lng = center[1] + j * cellSize;
-                if (lat < -90.0 || lat > 90.0) {
-                    continue;
+        java.util.Deque<String> queue = new java.util.ArrayDeque<>();
+        String start = GeoHashUtils.encode(center[0], center[1], precision);
+        cells.add(start);
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            String cell = queue.poll();
+            double[] c = GeoHashUtils.decodeCenter(cell);
+            if (GeoHashUtils.distanceMeters(center[0], center[1], c[0], c[1]) > maxCenterDist) {
+                continue;
+            }
+            for (String neighbor : GeoHashUtils.neighbors(cell)) {
+                if (cells.add(neighbor)) {
+                    queue.add(neighbor);
                 }
-                double lngNorm = lng > 180.0 ? lng - 360.0 : lng < -180.0 ? lng + 360.0 : lng;
-                cells.add(GeoHashUtils.encode(lat, lngNorm, precision));
             }
         }
+        // 裁掉格中心确实超界的（BFS 邻居引入的边缘格）
+        cells.removeIf(cell -> {
+            double[] c = GeoHashUtils.decodeCenter(cell);
+            return GeoHashUtils.distanceMeters(center[0], center[1], c[0], c[1]) > maxCenterDist;
+        });
         return cells;
     }
 
@@ -245,6 +256,10 @@ public class NearbyWishServiceImpl implements NearbyWishService {
             } catch (IllegalArgumentException ex) {
                 throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, ex.getMessage());
             }
+        }
+        if (isBlankCoordinate(lat, lng)) {
+            // 空坐标兜底：默认城市中心（仅两者都未提供）
+            return new double[]{mapProperties.getDefaultLat(), mapProperties.getDefaultLng()};
         }
         // B16：非有限数（NaN/Infinity）一律拒绝
         if (!Double.isFinite(lat) || !Double.isFinite(lng)) {

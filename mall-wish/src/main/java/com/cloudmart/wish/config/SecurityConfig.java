@@ -54,7 +54,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // 顺序：先验用户 JWT，再验服务令牌（二者互斥建立身份）
-            .addFilterBefore(new WishJwtAuthenticationFilter(securityProperties.jwksUri()),
+            .addFilterBefore(new WishJwtAuthenticationFilter(securityProperties.getJwksUri()),
                     UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(new ServiceTokenAuthenticationFilter(securityProperties, wishClock()),
                     UsernamePasswordAuthenticationFilter.class)

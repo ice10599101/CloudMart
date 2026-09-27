@@ -196,14 +196,14 @@ class FulfillmentIntegrationTest extends WishIntegrationTestBase {
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
 
-            // 故事富文本入库（保留原始标签，前端 DOMPurify 消毒）；感悟纯文本转义入库
+            // B12：服务端净化——script 整块移除；感悟纯文本转义入库
             fulfillmentService.submitFulfillment(USER_ID, wish.id(),
                     new SubmitFulfillmentRequest("<script>alert(1)</script>", null, "<b>感悟</b>"), null);
             String dbStory = jdbcTemplate.queryForObject(
                     "SELECT story FROM wish_fulfillment WHERE wish_id = ?", String.class, wish.id());
             String dbFeeling = jdbcTemplate.queryForObject(
                     "SELECT feeling FROM wish_fulfillment WHERE wish_id = ?", String.class, wish.id());
-            assertThat(dbStory).contains("<script>").doesNotContain("&lt;script&gt;");
+            assertThat(dbStory).doesNotContain("script").doesNotContain("alert");
             assertThat(dbFeeling).doesNotContain("<b>").contains("&lt;b&gt;");
         }
     }

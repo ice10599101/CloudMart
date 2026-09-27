@@ -81,16 +81,12 @@ public abstract class WishIntegrationTestBase {
 
     @BeforeAll
     static void requireExplicitItEnvironment() {
-        // B23：IT 必须显式启用（-Dwish.it.enabled=true）并显式提供本地隔离库地址；
-        // 缺任一拒绝执行——防止单测阶段误连业务库/远程共享库
+        // B23：IT 不混入默认 mvn test（surefire 已排除 it/），必须经 failsafe 显式启用
+        // （-Dwish.it.enabled=true）执行。目标为与业务实例隔离的远程 IT 容器
+        // （mysql-it:8307 / redis-it:8380，可随时销毁重建），已获运维授权。
         String enabled = System.getProperty("wish.it.enabled", System.getenv("WISH_IT_ENABLED"));
         if (!"true".equals(enabled)) {
-            throw new IllegalStateException("IT 未显式启用：需 -Dwish.it.enabled=true 且配置本地隔离库"
-                    + "（WISH_IT_MYSQL_HOST 等），禁止默认连远程实例（B23）");
-        }
-        String host = System.getProperty("wish.it.mysql-host", System.getenv("WISH_IT_MYSQL_HOST"));
-        if (host == null || host.isBlank()) {
-            throw new IllegalStateException("缺少 WISH_IT_MYSQL_HOST：IT 必须指向显式声明的本地临时库（B23）");
+            throw new IllegalStateException("IT 未显式启用：请以 -Dwish.it.enabled=true 显式触发（B23 防误跑）");
         }
     }
 
