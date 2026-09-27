@@ -60,7 +60,8 @@ export default function AiAssistantPage() {
 
   /** 预期管理通知「调整目标」深链携带的心愿 ID */
   const wishIdParam = router.params.wishId
-  const wishId = wishIdParam ? Number(wishIdParam) : undefined
+  // B22/T25：雪花 ID 字符串透传，禁止 Number 转换（精度丢失）
+  const wishId = wishIdParam || undefined
 
   const [text, setText] = useState('')
   const [breaking, setBreaking] = useState(false)

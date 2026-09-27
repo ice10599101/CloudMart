@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -91,7 +92,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
     private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
@@ -118,7 +119,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetAchievementService achievementService,
                               PetProperties properties,
                               StringRedisTemplate redisTemplate,
-                              PetOperationService operationService,
+                              PetEconomyService economyService,
                               com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
                               PetQuotaService quotaService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
@@ -132,7 +133,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
         this.userFeignClient = userFeignClient;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
         this.userBlockService = userBlockService;
@@ -185,14 +186,13 @@ public class PetHomeServiceImpl implements PetHomeService {
         }
         int cost = config.getPriceStarlight() != null ? config.getPriceStarlight() : 0;
         if (cost > 0) {
-            String operationId = operationService.operationKey("FURNITURE_BUY",
-                    userId, pet.getId(), config.getCode());
-            PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                    operationId, userId, pet.getId(), "FURNITURE_BUY", pet.getId(), cost,
+            PetOperationService.WalletSettlement settlement = economyService.spend(
+                    userId, pet.getId(), "FURNITURE_BUY", pet.getId(), cost,
                     com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
-                            "itemType", "FURNITURE", "itemCode", config.getCode(), "price", cost)));
+                            "itemType", "FURNITURE", "itemCode", config.getCode(), "price", cost)),
+                    userId, pet.getId(), config.getCode());
             if (settlement.isUnknown()) {
-                throw operationService.settlementPending();
+                throw economyService.settlementPending();
             }
             if (!settlement.isCompleted()) {
                 throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,

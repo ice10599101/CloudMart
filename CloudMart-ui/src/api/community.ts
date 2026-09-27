@@ -367,7 +367,8 @@ export interface BrowseHistoryItem {
 /** 上报浏览足迹（商品/帖子/心愿详情页打开时静默调用；同一对象重复浏览仅刷新时间） */
 export function recordBrowseHistory(data: {
   targetType: 'PRODUCT' | 'POST' | 'WISH'
-  targetId: number
+  /** B22/T25：心愿等雪花 ID 由后端以字符串下发，禁止 Number() 转换（精度丢失）；透传原值 */
+  targetId: number | string
   title?: string
   cover?: string
 }) {

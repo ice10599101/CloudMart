@@ -26,6 +26,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AccountDeletionController {
 
+    private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
+
     private final AccountDeletionService accountDeletionService;
 
     @PostMapping("/account-deletion/code")
@@ -74,10 +76,27 @@ public class AccountDeletionController {
 
     @GetMapping("/account-deletion")
     @Operation(summary = "注销状态回显", description = "无申请记录返回 data=null")
-    public ApiResponse<WishAccountDeletion> status(
+    public ApiResponse<Map<String, Object>> status(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(accountDeletionService.getStatus(userId));
+        final WishAccountDeletion local = accountDeletionService.getStatus(userId);
+        // B20 兼容：聚合 mall-user 统一编排的真实进度（编排存在时以其为准）
+        Map<String, Object> orchestrated = null;
+        try {
+            var resp = userFeignClient.getAccountDeletionStatus(userId);
+            if (resp != null && resp.success() && resp.data() != null
+                    && !"NONE".equals(String.valueOf(resp.data().get("status")))) {
+                orchestrated = resp.data();
+            }
+        } catch (Exception ex) {
+            // mall-user 不可用：降级返回 wish 本地状态
+        }
+        return ApiResponse.ok(Map.of(
+                "local", java.util.Optional.ofNullable(local).map(v -> (Object) Map.of(
+                        "status", v.getStatus() == null ? "NONE" : v.getStatus(),
+                        "executeAfter", v.getExecuteAfter() == null ? "" : v.getExecuteAfter()))
+                        .orElse(Map.of("status", "NONE")),
+                "orchestrated", java.util.Optional.ofNullable(orchestrated).orElse(Map.of("status", "NONE"))));
     }
 
     /** 文档 1.6 旧客户端别名：DELETE /my/account 与 DELETE /my/account-deletion 均为撤回 */

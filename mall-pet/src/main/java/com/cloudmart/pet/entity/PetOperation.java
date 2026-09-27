@@ -53,6 +53,12 @@ public class PetOperation {
     /** PENDING/COMPLETED/FAILED/UNKNOWN/COMPENSATING/COMPENSATED */
     private String status;
 
+    /** 钱包域（P02/TX-04 切换基线）：存量与旧链路一律 LEGACY_WISH；新宠物币账本为 PET */
+    private String walletDomain;
+
+    /** 恢复租约前的原始状态（P02/TX-04：租约接管后保留 PENDING/UNKNOWN 区分，EARN 收敛语义依赖它） */
+    private String recoverFromStatus;
+
     private Integer retryCount;
 
     private LocalDateTime nextRetryAt;

@@ -11,9 +11,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * 社区宠物模块启动类。
  *
- * <p>宠物是社区业务模块而非独立游戏：复用网关用户身份（X-User-Id）、mall-wish
- * 漂流瓶/星光（Feign 内部端点）、mall-notification 通知（pet-events MQ）、
- * mall-community 社区事件（community-events MQ），自身只拥有 mall_pet 库。</p>
+ * <p>宠物是社区业务模块而非独立游戏：复用网关用户身份（Authorization 透传 JWT，
+ * 服务端自行验签）、mall-wish 漂流瓶/星光（Feign 内部端点 + 服务令牌）、
+ * mall-notification 通知（pet-events MQ）、mall-community 社区事件（community-events MQ），
+ * 自身只拥有 mall_pet 库。</p>
  */
 @SpringBootApplication
 @MapperScan("com.cloudmart.pet.repository")

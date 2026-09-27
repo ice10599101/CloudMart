@@ -9,7 +9,7 @@
 
 | 项 | 实现 | 证据 |
 | --- | --- | --- |
-| 网关阻断 | 新增 `WishInternalRouteBlockFilter`（order=HIGHEST+500，先于身份注入与路由）：外部 `/api/wish/admin/**`、`/api/wish/internal/**` 一律 404；路径规范化含百分号解码、矩阵参数剥离、点段拒绝、重复/尾部斜杠折叠、大小写归一 | `mall-gateway/.../filter/WishInternalRouteBlockFilter.java`；`WishInternalRouteBlockFilterTest` 30 用例 |
+| 网关阻断 | 新增 `ServiceInternalRouteBlockFilter`（原 `WishInternalRouteBlockFilter`，SEC-01 泛化，order=HIGHEST+500，先于身份注入与路由）：外部 `/api/wish/admin/**`、`/api/wish/internal/**`、`/api/pet/admin/**`、`/api/pet/internal/**` 一律 404；路径规范化含百分号解码、矩阵参数剥离、点段拒绝、重复/尾部斜杠折叠、大小写归一 | `mall-gateway/.../filter/ServiceInternalRouteBlockFilter.java`；`ServiceInternalRouteBlockFilterTest` 53 用例（含 pet 前缀） |
 | 网关提权回退移除 | `AdminAuthGlobalFilter` 删除未验签 `extractScopeFromJwt` 回退：管理员角色只来自验签成功后注入的 `X-Admin-Role` | `AdminAuthGlobalFilter.java` |
 | 用户身份直验 | 新增 `WishJwtAuthenticationFilter`：Bearer JWT（RS256，mall-auth JWKS，kid 匹配+exp）建立 `ROLE_USER`；`X-User-Id` 不再作为身份源 | `mall-wish/.../config/WishJwtAuthenticationFilter.java`；测试 5 用例 |
 | 服务身份 | 新增 `ServiceTokenAuthenticationFilter`：`X-Service-Token`（HS256 短效令牌）按路径强校验 `iss/aud/scope`（/admin→mall-admin+wish:admin；/internal/jobs、/internal/tree-env→mall-job+wish:jobs；/internal/pet-support→mall-pet+wish:pet）建立 `ROLE_INTERNAL` | `ServiceTokenAuthenticationFilter.java`；测试 6 用例 |
@@ -320,6 +320,102 @@ IT：按 B23 分组后不在默认 mvn test 中执行；执行需显式启用 + 
 
 ```text
 验证：编译 PASS；全量选定回归 271 用例 PASS
+```
+
+## 18. 第十四轮交付（真实验证环境收口，2026-09-27）
+
+### 集成测试全量跑通（远程 IT 容器，运维授权）
+- **196 个集成用例全绿**（23 套件，真实 MySQL 9 + Redis，Flyway V41–V47 全量迁移在 IT 库实际执行）。
+- 过程中修复的真问题：V43 迁移索引引用不存在列 `id`（真实库执行暴露，已修+清理失败记录）；`WishSecurityProperties` record 漏标 @Component（Spring 上下文加载失败，已按仓库惯例改 Lombok 类）；B16 网格枚举把米当度（经度采样飞出范围，改 BFS 邻域扩张数学保证覆盖）；3 个 IT 用例适配 B08/B12/B03 新契约（version/净化断言/分享授权种子）。
+- AiAssistant 3 个假失败系运行中重编译导致类加载冲突，隔离重跑 20/20 通过。
+
+### 开发体验修正（本地 IDE 启动失败根因修复）
+- 根因：服务令牌签发器**启动时**急切校验密钥——本地 IDE 未设 `WISH_SERVICE_TOKEN_SECRET` 时 mall-job/mall-admin/mall-wish 全部拒启。
+- 统一改为**惰性签发 + 服务端 fail-closed**：四服务均可在无密钥环境启动（公开/用户端点照常），密钥缺失时 mall-wish 拒绝所有服务令牌（内部/管理端点 401——绝不放行未验签调用，安全边界不变）；调用方首次调 wish 时报明确错误。生产部署注入密钥后全链路正常。
+- 修复文件：mall-wish `WishSecurityProperties`（PostConstruct 降级 WARN + isServiceTokenValidationAvailable）、`ServiceTokenAuthenticationFilter`（fail-closed 分支）、mall-job `WishServiceTokenProvider`、mall-admin/mall-pet `WishServiceTokenConfig`。
+
+### 权限菜单种子（mall-admin V10）
+- `心愿治理工作台` C 行菜单 + 4 个 F 权限点（business:wishModeration:list/query/audit、business:wishAppeal:review）+ 超管角色绑定，幂等 ON DUPLICATE KEY。
+
+```text
+验证：IT 全量 196/196（含隔离重跑）；单元回归 195 绿；六模块编译 PASS
+IT 执行方式：mvn -pl mall-wish -Dwish.it.enabled=true test failsafe:integration-test
+（远程 IT 容器 mysql-it:8307 / redis-it:8380，与业务实例隔离，带跨运行互斥锁）
+```
+
+## 19. 第十五轮交付（前端 P0 适配第一批判，2026-09-27）
+
+### CloudMart-ui（Web 后台/用户端）
+- **WishDetail.tsx**：删除 `Number(wish.id)`——19 位雪花 ID 经 Number 转换精度丢失（T25/B22 验收项）；浏览足迹 targetId 以字符串透传。
+- **community.ts**：`recordBrowseHistory` 的 targetId 类型放宽为 `number | string`（后端 Jackson 自动 String→Long，契约兼容）。
+- **request.ts**：幂等键拦截器改为"只在调用方未提供时赋值"（B04：修复每次执行覆盖键导致双击/重试语义破坏的缺陷）。
+- `tsc --noEmit` 全量类型检查通过（EXIT=0）。
+
+### 前端剩余（需完整前端批次）
+- cloudmart-app / cloudmart-mobile 同类适配（ID/幂等键/新错误码 402/409 语义）；
+- 治理工作台、隐私中心、举报申诉新页面（后端契约已就绪：openapi.yaml）；
+- SDK 生成（需先补全 OpenAPI 全量端点）。
+
+```text
+验证：CloudMart-ui tsc --noEmit EXIT=0
+```
+
+## 20. 第十六轮交付（四项收尾全部完成，2026-09-27）
+
+### 1. cloudmart-app / cloudmart-mobile 适配
+- 两端 `request.ts` 幂等键改为"只在调用方未提供时赋值"（B04）；
+- mobile `aiAssistant` 页 `Number(wishIdParam)` 删除（T25）；`breakdownGoal`/`CreateAiGoalsPayload` 类型放宽为 `number | string`；
+- `cloudmart-app tsc` 0 错误、`cloudmart-mobile tsc` 0 错误。
+
+### 2. 治理工作台 + 隐私中心页面（antd/umi，随站内风格）
+- **`admin/business/WishModeration.tsx`**：治理队列（Tag 状态色）、无动作结案/隐藏/恢复三按钮 + 必填原因输入（HIDE/RESTORE 客户端预校验 + 服务端强校验）；路由 `/admin/business/wish-moderation`（权限种子 V10 已含）。
+- **`WishPrivacyCenter.tsx`**（/wish/privacy）：AI 授权状态、导出进度、注销阶段（含取消注销按钮）、默认关闭项四区块，数据源为 N05 聚合端点。
+- API 封装：admin/wish.ts 增 getModerationCases/decideModerationCase/resolveAppeal。
+
+### 3. OpenAPI 补全
+- openapi.yaml 增补：PATCH /wishes/{id}（B08 version CAS）、fulfillment shareToCommunity、exchange（balanceAfter）、/v2/reports、/v2/moderation-decisions/{id}/appeals、/v2/my/privacy 全部请求/响应 schema 与错误语义。
+
+### 4. mall-user 注销编排（B20 全链路）
+- **V4 迁移**：`user_account_deletion_task`（状态机 PENDING→EXECUTING→EXECUTED/FAILED/CANCELED，service_progress JSON，uk user_id）。
+- **编排服务**：apply（30 天宽限）/cancel（CAS PENDING+未过期）/`@Scheduled` 到期扫描（CAS 认领 EXECUTING 单执行者；逐服务幂等擦除；全部成功才 EXECUTED，任一失败记 progress 回退 PENDING 重试）。
+- **Feign 调用**：`ErasureFeignClient` 调 wish `/internal/account-erasure`，服务令牌 iss=mall-user scope=wish:erasure 惰性签出。
+- **wish 侧**：`AccountDeletionService.eraseUserData`（幂等软删）+ `InternalAccountErasureController` + 过滤器映射新 scope。
+- **用户入口**：mall-user `/users/account-deletion`（POST/DELETE/GET 状态含各服务进度）。
+- mall-user 编译 PASS（V4 迁移在真实库执行待下次 IT 批次随 mall-user IT 验证）。
+
+## 21. 第十七轮交付（收尾批次完成，2026-09-27）
+
+### 申诉复核 UI 补全
+- mall-wish 补 `GET /admin/moderation/appeals` 队列端点（ModerationService.listAppeals）；mall-admin Feign/控制器/降级工厂同步透传；治理工作台页面新增"申诉复核"表（PENDING 显示通过/驳回按钮，复用 resolveAppeal）。
+
+### wish 旧注销入口兼容（B20）
+- `GET /my/account-deletion` 升级为聚合响应：`local`（wish 本地遗留记录）+ `orchestrated`（mall-user 统一编排真实进度，经 Feign 查询，Fail-Open 降级 NONE）——前端以 orchestrated 为准，旧客户端不破坏。
+
+### N03 归档 / 延期 / 取消归档（原遗留项）
+- V48 迁移：`wish.expected_timezone` + `wish.archived_from_status`。
+- `POST /v2/wishes/{id}/reschedule|archive|unarchive`（WishLifecycleController，作者权限 + version CAS）：延期仅 ACTIVE/OVERDUE 且新日期未来；归档保存前状态并发 WishArchived 事件；取消归档按前状态恢复（已还愿保持 FULFILLED 不再发奖励）且不重复计发布数。
+
+### 前四项（承接上轮，本轮全部落地）
+1. app/mobile 适配（幂等键/ID 字符串，两端 tsc 全绿）✅
+2. 治理工作台 + 隐私中心页面（antd/umi 风格，tsc 全绿）✅
+3. OpenAPI 补全（新增端点 schema 全覆盖）✅
+4. mall-user 注销编排全链路（V4 + 编排 + Feign + wish 擦除端点 + 用户入口）✅
+
+```text
+验证：六模块编译 PASS；单元回归 277 用例 PASS；集成回归 196/196 全绿（含邮件通道）
+```
+
+## 22. 第十八轮交付（邮件验证码通道，2026-09-27）
+
+### 注销验证码改走邮件（用户决策：短信不做）
+- **`MailVerificationSender`**（新组件）：SMTP 直发验证码邮件。配置 `wish.mail.*`（host/port/username/password/from，环境变量 `WISH_MAIL_HOST/PORT/USERNAME/PASSWORD/FROM`）；未配置 → 通道未就绪，发码如实 `sent=false`；465 端口默认 SSL、5s/8s 超时；发送失败清码重试。
+- **`sendDeletionCode` 流程**：生成 6 位码 → 查用户绑定邮箱（经 mall-user Feign）→ 未绑定邮箱如实提示 → SMTP 发送 → 成功 `sent=true`；发送失败删码并 `sent=false`（无半成功）。`echo-code` 开发回显保留（生产关闭）。
+- **依赖**：mall-wish 增 `spring-boot-starter-mail`。
+- 用户侧无感变化：注销确认从"短信"变为"邮件"，`apply` 验证码校验逻辑不变。
+
+```text
+验证：mall-wish 编译/测试编译 PASS；WishCrud IT 9/9 全绿（邮件未配置时上下文正常、sent=false 路径真实覆盖）；
+     全量单测 277 PASS；全量 IT 复跑 196/196 全绿
 ```
 
 ## 5. 建议下一步

@@ -1023,13 +1023,13 @@ export function updatePetRoomSettings(data: { isPublic?: boolean; welcomeMessage
   return request.put<ApiResponse<PetHome>>('/pet/home/settings', data)
 }
 
-/** 访问他人家园（未公开 403；每日次数上限） */
-export function visitPetHome(petId: number) {
+/** 访问他人家园（未公开 403；每日次数上限）；ID 为雪花字符串，禁止 Number 转换 */
+export function visitPetHome(petId: number | string) {
   return request.get<ApiResponse<PetRoomVisit>>(`/pet/home/${petId}`)
 }
 
-/** 给他人房间点赞（uk 幂等） */
-export function likePetHome(petId: number) {
+/** 给他人房间点赞（uk 幂等）；ID 为雪花字符串，禁止 Number 转换 */
+export function likePetHome(petId: number | string) {
   return request.post<ApiResponse<PetRoomLike>>(`/pet/home/${petId}/like`)
 }
 
@@ -1038,8 +1038,8 @@ export function getPetFriends() {
   return request.get<ApiResponse<PetFriendPanel>>('/pet/friends')
 }
 
-/** 申请加好友（对方已申请则直接互相确认） */
-export function requestPetFriend(userId: number) {
+/** 申请加好友（对方已申请则直接互相确认）；ID 为雪花字符串，禁止 Number 转换 */
+export function requestPetFriend(userId: number | string) {
   return request.post<ApiResponse<PetFriendItem>>(`/pet/friends/${userId}`)
 }
 
@@ -1064,12 +1064,12 @@ export function visitPetFriend(userId: number) {
 }
 
 /** 留言墙分页 */
-export function getPetWall(petId: number, page = 1, size = 10) {
+export function getPetWall(petId: number | string, page = 1, size = 10) {
   return request.get<ApiResponse<PetWallPage>>(`/pet/wall/${petId}`, { params: { page, size } })
 }
 
 /** 留言（1-120 字；每日上限 429） */
-export function postPetWallMessage(data: { petId: number; content: string; mood?: string }) {
+export function postPetWallMessage(data: { petId: number | string; content: string; mood?: string }) {
   return request.post<ApiResponse<PetWallMessage>>('/pet/wall/messages', data)
 }
 
@@ -1093,7 +1093,61 @@ export function getPetIntimacy() {
   return request.get<ApiResponse<PetIntimacyInfo>>('/pet/intimacy')
 }
 
-/** 陪伴心跳（前端按间隔上报秒数，服务端按日封顶） */
-export function sendPetCompanionHeartbeat(seconds: number) {
-  return request.post<ApiResponse<PetIntimacyInfo>>('/pet/companion/heartbeat', { seconds })
+/**
+ * 陪伴会话心跳视图（B05/FE-02）：与亲密度 overview 是两个 VO——
+ * 心跳返回会话与今日累计，不含 levelName/toNext 等面板字段；
+ * 亲密度面板必须另调 getPetIntimacy()，禁止把心跳结果 set 进亲密度状态。
+ */
+export interface PetCompanionSessionVO {
+  sessionId: number | string
+  status: 'ACTIVE' | 'EXPIRED' | 'STOPPED'
+  serverNow: string
+  accepted: boolean
+  creditedSeconds: number
+  todayAcceptedSeconds: number
+  todayGrantedPoints: number
+  dailyPointCap: number
+  intimacy: number
+  intimacyLevel: number
+}
+
+// ==================== W03：宠物币钱包（§7.8/§8.2） ====================
+
+/** 宠物币钱包视图（契约 §8.1：ID/余额为字符串，Long→String 序列化保证） */
+export interface PetWalletVO {
+  accountId: string
+  currency: 'PET_COIN'
+  balance: string
+  status: 'ACTIVE' | 'FROZEN'
+  version: string
+  serverNow: string
+}
+
+export interface PetWalletTransactionVO {
+  transactionId: string
+  operationId: string
+  petId: string | null
+  bizType: string
+  direction: 'EARN' | 'SPEND' | 'REFUND' | 'ADJUSTMENT'
+  amount: string
+  status: string
+  currency: string
+  occurredAt: string
+}
+
+/** 本人宠物币余额（懒创建期初 0；FROZEN 仍可读） */
+export function getPetWallet() {
+  return request.get<ApiResponse<PetWalletVO>>('/pet/wallet')
+}
+
+/** 收支明细（游标分页；meta.nextCursor/hasMore 表达分页状态） */
+export function listPetWalletTransactions(
+  params: { cursor?: number | string; size?: number; direction?: string; bizType?: string } = {},
+) {
+  return request.get<ApiResponse<PetWalletTransactionVO[]>>('/pet/wallet/transactions', { params })
+}
+
+/** 陪伴心跳（前端按间隔上报秒数，服务端按日封顶；seq 为会话内单调递增序号，幂等） */
+export function sendPetCompanionHeartbeat(seconds: number, seq?: number) {
+  return request.post<ApiResponse<PetCompanionSessionVO>>('/pet/companion/heartbeat', { seconds, seq })
 }

@@ -73,6 +73,16 @@ public class AdminModerationController {
                 request.decision(), request.reasonCode(), request.reasonText(), request.requestId()));
     }
 
+    @GetMapping("/appeals")
+    @Operation(summary = "申诉复核队列", description = "按状态筛选（PENDING/ACCEPTED/REJECTED）")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<List<com.cloudmart.wish.entity.WishAppeal>> appeals(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false, defaultValue = "20") Integer pageSize) {
+        return ApiResponse.ok(moderationService.listAppeals(status, cursor, pageSize));
+    }
+
     @PostMapping("/appeals/{id}/decisions")
     @Operation(summary = "申诉复核", description = "复核人不得为原决定处理人；通过恢复前检查其他生效下架原因")
     @PreAuthorize("hasRole('INTERNAL')")

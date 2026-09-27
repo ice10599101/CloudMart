@@ -1,0 +1,41 @@
+{
+  "$schema": "cutover-manifest.schema.json",
+  "batchNo": "PET-CUTOVER-2026-10-01-001",
+  "policyVersion": "P1-OPENING-ZERO-UNCLAIMED-TO-PET",
+  "cutoverAt": "2026-10-01T02:00:00Z",
+  "walletMode": {
+    "before": "LEGACY",
+    "during": "PAUSED",
+    "after": "PET"
+  },
+  "preconditions": {
+    "legacyPendingOperations": 0,
+    "preflightChecksPassed": true,
+    "backupCompleted": true,
+    "backupRestoreDrillPassed": true,
+    "flywayVersions": {
+      "mall_pet": ["V21", "V22", "V23"],
+      "mall_wish": ["V48"]
+    }
+  },
+  "counts": {
+    "affectedUsers": 0,
+    "unclaimedActivityRewards": 0,
+    "unclaimedQuestRewards": 0,
+    "unclaimedCooperationRewards": 0,
+    "oldCurrencyName": "STARLIGHT",
+    "newCurrencyName": "PET_COIN",
+    "openingBalance": 0
+  },
+  "checks": {
+    "noBalanceCopyExecuted": true,
+    "allCutoverItemsVerified": true,
+    "reconcileDiffCountAfterCutover": 0
+  },
+  "operator": "<admin-id>",
+  "evidence": {
+    "preflightOutputHash": "",
+    "backupRef": "",
+    "approvalTicket": ""
+  }
+}

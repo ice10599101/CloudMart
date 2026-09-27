@@ -380,7 +380,8 @@ export default function PetPage() {
         try {
           const { data: res } = await petApi.companionHeartbeat(60)
           if (res.success && res.data) {
-            setIntimacy(res.data)
+            // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
+            await loadIntimacy()
           }
         } catch {
           // 心跳失败静默（下一轮重试）
@@ -850,6 +851,12 @@ export default function PetPage() {
           </View>
           <View className={styles.actionRow}>
             <Button className={styles.actionBtn} onClick={openProfile}>🎀 档案</Button>
+            <Button
+              className={styles.actionBtn}
+              onClick={() => Taro.navigateTo({ url: '/pages/petWallet/index' })}
+            >
+              🪙 宠物币
+            </Button>
           </View>
         </View>
 

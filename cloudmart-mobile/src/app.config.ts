@@ -48,6 +48,7 @@ export default defineAppConfig({
     'pages/treeHole/index',
     'pages/worldTree/index',
     'pages/pet/index',
+    'pages/petWallet/index',
     'pages/petStage/index',
     'pages/capsuleList/index',
     'pages/capsuleCreate/index',

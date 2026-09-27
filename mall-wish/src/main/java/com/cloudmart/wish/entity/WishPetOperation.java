@@ -48,6 +48,9 @@ public class WishPetOperation {
     /** 请求摘要（用户+类型+金额+来源+refId），冲突判定依据 */
     private String requestDigest;
 
+    /** 退款原单操作键（P02/TX-04：仅退款流水填写；累计退款校验与审计按原单聚合） */
+    private String refundOfOperationId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

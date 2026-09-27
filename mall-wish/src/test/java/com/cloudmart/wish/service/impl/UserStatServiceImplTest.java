@@ -51,6 +51,8 @@ class UserStatServiceImplTest {
     private WishResourceLogMapper wishResourceLogMapper;
     @Mock
     private BadgeService badgeService;
+    @Mock
+    private com.cloudmart.wish.repository.WishPetOperationMapper wishPetOperationMapper;
 
     private UserStatServiceImpl userStatService;
 
@@ -61,12 +63,15 @@ class UserStatServiceImplTest {
         // LambdaUpdateWrapper.set(SFunction, value) 在构造期立即解析列名，需要 TableInfo 缓存
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), WishUserStat.class);
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""),
+                com.cloudmart.wish.entity.WishPetOperation.class);
     }
 
     @BeforeEach
     void setUp() {
         userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper,
-                org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishPetOperationMapper.class), badgeService);
+                wishPetOperationMapper, badgeService);
         // initUserStat 的存在性检查默认无记录（允许 insert）
         when(wishUserStatMapper.selectById(USER_ID)).thenReturn(null);
     }
@@ -334,5 +339,128 @@ class UserStatServiceImplTest {
         stat.setLastActiveAt(LocalDateTime.now());
         stat.setIsRestricted(false);
         return stat;
+    }
+
+    @Nested
+    @DisplayName("refundStarlightIdempotent - 宠物旧单退款（P02/TX-04）")
+    class RefundTests {
+
+        private com.cloudmart.wish.entity.WishPetOperation originalSpend(int credited) {
+            com.cloudmart.wish.entity.WishPetOperation original = new com.cloudmart.wish.entity.WishPetOperation();
+            original.setOperationId("orig-1");
+            original.setUserId(USER_ID);
+            original.setOperationType(ResourceLogType.SPEND.name());
+            original.setAmount(credited);
+            original.setCreditedAmount(credited);
+            original.setRefId(3001L);
+            return original;
+        }
+
+        @Test
+        @DisplayName("正常退款：等于实扣金额全额入账，不受余额上限截断，PET_REFUND 流水")
+        void refund_success_bypassesCap() {
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
+            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+            when(wishPetOperationMapper.selectList(any())).thenReturn(java.util.List.of());
+            when(wishUserStatMapper.update(any(), any())).thenReturn(1);
+            // 余额已在 4990（接近 5000 上限）：退款仍须全额 20 入账
+            when(wishUserStatMapper.selectOne(any())).thenReturn(buildStat(4990));
+
+            com.cloudmart.wish.vo.PetWalletOperationVO vo = userStatService.refundStarlightIdempotent(
+                    USER_ID, 20, "orig-1", "refund-1");
+
+            assertThat(vo.creditedAmount()).isEqualTo(20);
+            assertThat(vo.balanceAfter()).isEqualTo(5010);
+            ArgumentCaptor<WishResourceLog> captor = ArgumentCaptor.forClass(WishResourceLog.class);
+            verify(wishResourceLogMapper).insert(captor.capture());
+            assertThat(captor.getValue().getDelta()).isEqualTo(20);
+            assertThat(captor.getValue().getSource()).isEqualTo(ResourceLogSource.PET_REFUND.name());
+            ArgumentCaptor<com.cloudmart.wish.entity.WishPetOperation> opCaptor =
+                    ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishPetOperation.class);
+            verify(wishPetOperationMapper).updateById(opCaptor.capture());
+            assertThat(opCaptor.getValue().getRefundOfOperationId()).isEqualTo("orig-1");
+            assertThat(opCaptor.getValue().getCreditedAmount()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("原单不存在：409 冲突，不写流水")
+        void refund_originalMissing_conflict() {
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
+            when(wishPetOperationMapper.selectOne(any())).thenReturn(null);
+
+            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
+                    USER_ID, 20, "orig-missing", "refund-1"))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
+            verify(wishResourceLogMapper, never()).insert(any(WishResourceLog.class));
+        }
+
+        @Test
+        @DisplayName("原单不属于该用户：409 冲突（越权退款拒绝）")
+        void refund_notOwner_conflict() {
+            com.cloudmart.wish.entity.WishPetOperation other = originalSpend(20);
+            other.setUserId(9999L);
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
+            when(wishPetOperationMapper.selectOne(any())).thenReturn(other);
+
+            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
+                    USER_ID, 20, "orig-1", "refund-1"))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
+        }
+
+        @Test
+        @DisplayName("非全额退款（首版不支持部分退）：409 冲突")
+        void refund_partialAmount_conflict() {
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
+            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+
+            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
+                    USER_ID, 10, "orig-1", "refund-1"))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
+        }
+
+        @Test
+        @DisplayName("累计退款超过原单实扣：409 冲突")
+        void refund_cumulativeExceeded_conflict() {
+            com.cloudmart.wish.entity.WishPetOperation prior = new com.cloudmart.wish.entity.WishPetOperation();
+            prior.setCreditedAmount(20);
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
+            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+            when(wishPetOperationMapper.selectList(any())).thenReturn(java.util.List.of(prior));
+
+            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
+                    USER_ID, 20, "orig-1", "refund-2"))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
+        }
+
+        @Test
+        @DisplayName("重复同键退款请求：返回原结果（duplicate）")
+        void refund_duplicateKey_returnsOriginal() {
+            java.util.concurrent.atomic.AtomicReference<String> digestRef =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class)))
+                    .thenAnswer(inv -> {
+                        digestRef.set(((com.cloudmart.wish.entity.WishPetOperation) inv.getArgument(0))
+                                .getRequestDigest());
+                        throw new org.springframework.dao.DuplicateKeyException("dup");
+                    });
+            when(wishPetOperationMapper.selectOne(any())).thenAnswer(inv -> {
+                com.cloudmart.wish.entity.WishPetOperation existing = new com.cloudmart.wish.entity.WishPetOperation();
+                existing.setOperationId("refund-1");
+                existing.setRequestDigest(digestRef.get());
+                existing.setAmount(20);
+                existing.setCreditedAmount(20);
+                return existing;
+            });
+
+            com.cloudmart.wish.vo.PetWalletOperationVO vo = userStatService.refundStarlightIdempotent(
+                    USER_ID, 20, "orig-1", "refund-1");
+
+            assertThat(vo.duplicate()).isTrue();
+            assertThat(vo.creditedAmount()).isEqualTo(20);
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.BuyItemRequest;
@@ -62,7 +63,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
     private final PetInventoryMapper inventoryMapper;
     private final PetSkillMapper skillMapper;
     private final WishFeignClient wishFeignClient;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetClock petClock;
 
     public PetShopServiceImpl(PetService petService,
@@ -73,7 +74,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                               PetInventoryMapper inventoryMapper,
                               PetSkillMapper skillMapper,
                               WishFeignClient wishFeignClient,
-                              PetOperationService operationService,
+                              PetEconomyService economyService,
                               PetClock petClock) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
@@ -83,7 +84,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         this.inventoryMapper = inventoryMapper;
         this.skillMapper = skillMapper;
         this.wishFeignClient = wishFeignClient;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.petClock = petClock;
     }
 
@@ -183,16 +184,15 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         if (cost <= 0) {
             return;
         }
-        String operationId = operationService.operationKey(BIZ_TYPE,
-                pet.getUserId(), pet.getId(), itemType.name(), code);
         String snapshot = PetJsonUtils.toJson(Map.of(
                 "itemType", itemType.name(),
                 "itemCode", code,
                 "price", cost));
-        PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                operationId, pet.getUserId(), pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot);
+        PetOperationService.WalletSettlement settlement = economyService.spend(
+                pet.getUserId(), pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot,
+                pet.getUserId(), pet.getId(), itemType.name(), code);
         if (settlement.isUnknown()) {
-            throw operationService.settlementPending();
+            throw economyService.settlementPending();
         }
         if (!settlement.isCompleted()) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
@@ -304,7 +304,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
     /** 余额查询：展示型数据 Fail-Open（null=前端隐藏余额，不阻断商城浏览） */
     private Integer starlightBalanceQuietly(Long userId) {
         try {
-            return wishFeignClient.starlightBalance(userId).data();
+            return economyService.balanceOf(userId);
         } catch (Exception e) {
             log.warn("星光余额查询降级（Fail-Open）: userId={}", userId, e);
             return null;

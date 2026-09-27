@@ -454,7 +454,7 @@ export const wishApi = {
 
     // ---- AI 心愿助手（Sprint 2.5）----
     /** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 由页面分发） */
-    breakdownGoal: (data: { text: string; wishId?: number }) =>
+    breakdownGoal: (data: { text: string; wishId?: number | string }) =>
         request<AiBreakdownResult>({ url: '/wish/ai/assistant', method: 'POST', data: data as unknown as Record<string, unknown> }),
     /** 勾选步骤批量持久化（status=PENDING） */
     createAiGoals: (data: CreateAiGoalsPayload) =>

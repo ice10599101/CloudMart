@@ -32,4 +32,7 @@ public interface AccountDeletionService {
 
     /** 执行到期的注销（execute_after <= now 的 PENDING；数据清理 + EXECUTED） */
     int executeDue();
+
+    /** B20 编排入口：幂等擦除该用户在心愿宇宙的全部数据（软删保留审计） */
+    boolean eraseUserData(Long userId);
 }

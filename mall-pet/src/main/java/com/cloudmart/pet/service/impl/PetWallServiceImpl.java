@@ -167,7 +167,7 @@ this.properties = properties;
                 ownerNickname,
                 room != null ? room.getWelcomeMessage() : null,
                 room == null || Boolean.TRUE.equals(room.getIsPublic()),
-                safePage, safeSize, total,
+                safePage, safeSize, Math.toIntExact(total),
                 properties.getWall().getDailyPostLimit(), messages);
     }
 

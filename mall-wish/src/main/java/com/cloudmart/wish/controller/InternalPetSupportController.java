@@ -94,6 +94,24 @@ public class InternalPetSupportController {
         return ApiResponse.ok(petSupportService.spendForPetIdempotent(userId, amount, refId, operationId));
     }
 
+    @PostMapping("/starlight/refund")
+    @Operation(summary = "宠物旧单退款（P02/TX-04）", description = "仅限原 SPEND 扣款单的全额原路退回："
+            + "校验原单存在/同用户/实扣金额一致，累计退款不超过实扣；不走余额上限截断，"
+            + "独立 PET_REFUND 流水。重复同 refundOperationId 返回原结果，"
+            + "原单缺失/越权/超退返回 WISH_OPERATION_CONFLICT(409)")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<PetWalletOperationVO> refundStarlight(
+            @Parameter(description = "用户 ID", required = true) @RequestParam("userId") Long userId,
+            @Parameter(description = "退款金额（必须等于原单实扣，正整数）", required = true)
+            @RequestParam("amount") Integer amount,
+            @Parameter(description = "退款原单操作键", required = true)
+            @RequestParam("originalOperationId") String originalOperationId,
+            @Parameter(description = "退款操作唯一键（幂等）", required = true)
+            @RequestParam("refundOperationId") String refundOperationId) {
+        return ApiResponse.ok(petSupportService.refundForPetIdempotent(
+                userId, amount, originalOperationId, refundOperationId));
+    }
+
     @GetMapping("/starlight/operations/{operationId}")
     @Operation(summary = "交易结果查询", description = "按业务操作键查询已完成交易（B01 内部结果查询）；"
             + "data=null 表示结果未知（未执行或处理中），调用方可按原单安全重试")

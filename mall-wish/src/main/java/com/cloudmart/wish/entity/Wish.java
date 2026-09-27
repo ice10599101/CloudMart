@@ -53,6 +53,9 @@ public class Wish {
     /** 乐观锁版本（B08：编辑条件更新） */
     private Long version;
 
+    /** 预计完成时区（IANA，N03 延期落库） */
+    private String expectedTimezone;
+
     private LocalDateTime fulfilledAt;
 
     private String geohash;
@@ -95,6 +98,9 @@ public class Wish {
 
     /** 驳回原因（B11：REJECTED 必填；恢复上架时清空） */
     private String rejectReason;
+
+    /** 归档前状态（N03：unarchive 恢复依据） */
+    private String archivedFromStatus;
 
     private Boolean isVisible;
 

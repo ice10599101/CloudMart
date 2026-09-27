@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -61,7 +62,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final PetDailyQuestConfigMapper configMapper;
     private final PetDailyQuestMapper questMapper;
     private final WishFeignClient wishFeignClient;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetClock petClock;
     private final PetIntimacyService intimacyService;
     private final PetAchievementService achievementService;
@@ -72,7 +73,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetDailyQuestConfigMapper configMapper,
                                     PetDailyQuestMapper questMapper,
                                     WishFeignClient wishFeignClient,
-                                    PetOperationService operationService,
+                                    PetEconomyService economyService,
                                     PetClock petClock,
                                     PetIntimacyService intimacyService,
                                     PetAchievementService achievementService,
@@ -82,7 +83,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.configMapper = configMapper;
         this.questMapper = questMapper;
         this.wishFeignClient = wishFeignClient;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.petClock = petClock;
         this.intimacyService = intimacyService;
         this.achievementService = achievementService;
@@ -127,11 +128,11 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         int levelups = stateService.grantExp(pet, expReward);
         if (currencyReward > 0) {
             // B01：本地奖励已生效；星光结果未知不回滚，恢复任务按原单收敛
-            String operationId = operationService.operationKey("QUEST_CLAIM", quest.getId());
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, userId, pet.getId(), "QUEST_CLAIM", quest.getId(), currencyReward, null);
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    userId, pet.getId(), "QUEST_CLAIM", quest.getId(), currencyReward, null,
+                    quest.getId());
             if (!settlement.isCompleted()) {
-                log.info("任务奖励星光结算中, questId={}, operationId={}", quest.getId(), operationId);
+                log.info("任务奖励星光结算中, questId={}, status={}", quest.getId(), settlement.status());
             }
         }
         if (levelups > 0) {
@@ -212,11 +213,11 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         int levelups = stateService.grantExp(pet, cfg.getChestExp());
         if (cfg.getChestCurrency() > 0) {
-            String operationId = operationService.operationKey("QUEST_CHEST", userId, chest.getId());
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, userId, pet.getId(), "QUEST_CHEST", chest.getId(), cfg.getChestCurrency(), null);
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    userId, pet.getId(), "QUEST_CHEST", chest.getId(), cfg.getChestCurrency(), null,
+                    userId, chest.getId());
             if (!settlement.isCompleted()) {
-                log.info("宝箱奖励星光结算中, chestId={}, operationId={}", chest.getId(), operationId);
+                log.info("宝箱奖励星光结算中, chestId={}, status={}", chest.getId(), settlement.status());
             }
         }
         if (levelups > 0) {

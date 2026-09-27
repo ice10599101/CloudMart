@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.config.PetServiceTokenConfig;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,10 +16,13 @@ import java.util.Map;
  * mall-pet 管理端 Feign 客户端（宠物运营后台）。
  *
  * <p>下游端点在 mall-pet 内由 {@code @PreAuthorize("hasRole('INTERNAL')")} 保护，
- * 仅接受 AdminFeignInterceptor 注入 X-Internal-Call 头的内部调用；
+ * SEC-01 后该角色只能由携带服务令牌（iss=mall-admin、scope=pet:admin）的请求建立；
+ * {@link com.cloudmart.admin.config.PetServiceTokenConfig} 负责签发令牌，
+ * {@code AdminFeignInterceptor} 另透传真实操作者（X-User-Id/X-Admin-Username）供审计。
  * 写接口统一用 {@code Map<String, Object>} 透传（后台表单字段与下游请求体一一对应）。</p>
  */
 @FeignClient(contextId = "petFeignClient", name = "mall-pet", path = "/admin",
+        configuration = PetServiceTokenConfig.class,
         fallbackFactory = PetFeignClientFallbackFactory.class)
 public interface PetFeignClient {
 
@@ -145,8 +149,7 @@ public interface PetFeignClient {
 
     @org.springframework.web.bind.annotation.PutMapping("/pet/reports/{id}/handle")
     ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
-                                      @org.springframework.web.bind.annotation.RequestParam("action") String action,
-                                      @org.springframework.web.bind.annotation.RequestParam(value = "adminUserId", required = false) Long adminUserId);
+                                      @org.springframework.web.bind.annotation.RequestParam("action") String action);
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/achievements/recalculate")
     ApiResponse<Integer> recalculateAchievements(@org.springframework.web.bind.annotation.RequestParam("petId") Long petId);
@@ -160,4 +163,60 @@ public interface PetFeignClient {
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/operations/{operationId}/retry")
     ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId);
+
+    // ---------------- W04 钱包管理（§8.4；下游 /admin/pet/wallet/**） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/accounts")
+    ApiResponse<Object> listWalletAccounts(@org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+                                           @org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                           @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/accounts/{userId}")
+    ApiResponse<Object> walletAccountOf(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/transactions")
+    ApiResponse<Object> listWalletTransactions(@org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+                                               @org.springframework.web.bind.annotation.RequestParam(value = "bizType", required = false) String bizType,
+                                               @org.springframework.web.bind.annotation.RequestParam(value = "direction", required = false) String direction,
+                                               @org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                               @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/accounts/{userId}/freeze")
+    ApiResponse<Void> freezeWalletAccount(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                          @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/accounts/{userId}/unfreeze")
+    ApiResponse<Void> unfreezeWalletAccount(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/adjustments")
+    ApiResponse<Object> createWalletAdjustment(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/adjustments/{id}/approve")
+    ApiResponse<Object> approveWalletAdjustment(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                                @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/adjustments/{id}/reject")
+    ApiResponse<Object> rejectWalletAdjustment(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                               @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/adjustments")
+    ApiResponse<Object> listWalletAdjustments(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+                                              @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+                                              @org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                              @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/adjustments/{id}")
+    ApiResponse<Object> walletAdjustmentOf(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/reconciliations")
+    ApiResponse<Object> listWalletReconciliations(@org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                                  @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/reconciliations/{runId}")
+    ApiResponse<Object> walletReconciliationOf(@org.springframework.web.bind.annotation.PathVariable("runId") Long runId);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/reconciliations/run")
+    ApiResponse<Void> triggerWalletReconcile();
 }

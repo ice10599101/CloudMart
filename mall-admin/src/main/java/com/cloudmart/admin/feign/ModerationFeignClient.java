@@ -29,6 +29,12 @@ public interface ModerationFeignClient {
                                                      @RequestParam("cursor") Long cursor,
                                                      @RequestParam("pageSize") Integer pageSize);
 
+    /** 申诉复核队列 */
+    @GetMapping("/admin/moderation/appeals")
+    ApiResponse<List<Map<String, Object>>> listAppeals(@RequestParam("status") String status,
+                                                       @RequestParam("cursor") Long cursor,
+                                                       @RequestParam("pageSize") Integer pageSize);
+
     /** 作出治理决定 */
     @PostMapping("/admin/moderation/cases/{id}/decisions")
     ApiResponse<Long> decide(@PathVariable("id") Long caseId,

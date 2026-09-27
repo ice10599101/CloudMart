@@ -35,7 +35,7 @@ public class AdminPetOperationController {
     private final PetOperationRecoveryService recoveryService;
 
     @GetMapping
-    @Operation(summary = "操作列表", description = "status 过滤（PENDING/UNKNOWN/FAILED/COMPENSATING/COMPENSATED/COMPLETED）+ 用户/宠物过滤 + 分页")
+    @Operation(summary = "操作列表", description = "status 过滤（PENDING/PROCESSING/UNKNOWN/FAILED/COMPENSATING/COMPENSATED/COMPLETED/MANUAL_REVIEW）+ 用户/宠物过滤 + 分页")
     public ApiResponse<List<PetOperation>> list(
             @Parameter(description = "状态过滤") @RequestParam(value = "status", required = false) String status,
             @Parameter(description = "用户过滤") @RequestParam(value = "userId", required = false) Long userId,

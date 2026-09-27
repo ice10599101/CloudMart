@@ -284,4 +284,5 @@ public class WishController {
     /** 传承发起请求。 */
     public record InheritRequest(String message) {
     }
+
 }

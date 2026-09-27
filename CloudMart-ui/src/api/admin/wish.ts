@@ -1163,3 +1163,27 @@ export function getAdminGiftRecords(params: {
 }) {
   return request.get<ApiResponse<AdminGiftRecordItem[]>>('/admin/wish/gifts/records', { params })
 }
+
+// ========== 治理工作台（N01）==========
+
+export function getModerationCases(params: { status?: string; cursor?: string; pageSize?: number }) {
+  return request.get('/wish/moderation/cases', { params })
+}
+
+export function decideModerationCase(caseId: string, data: {
+  version: number
+  decision: 'NO_ACTION' | 'HIDE' | 'RESTORE'
+  reasonCode?: string
+  reasonText?: string
+  requestId?: string
+}) {
+  return request.post(`/wish/moderation/cases/${caseId}/decisions`, data)
+}
+
+export function resolveAppeal(appealId: string, data: { accept: boolean; resultReason?: string }) {
+  return request.post(`/wish/moderation/appeals/${appealId}/decisions`, data)
+}
+
+export function getModerationAppeals(params: { status?: string; cursor?: string; pageSize?: number }) {
+  return request.get('/wish/moderation/appeals', { params })
+}

@@ -37,10 +37,14 @@ public class PetOperationStore {
                 .eq(PetOperation::getOperationId, operationId));
     }
 
-    /** 恢复任务的扫描入口：PENDING/UNKNOWN 且到达退避时间的操作，批量有序推进 */
+    /**
+     * 恢复任务的扫描入口（P02/TX-04）：PENDING/UNKNOWN、退款中的 COMPENSATING、
+     * 以及租约过期的 PROCESSING（恢复器崩溃残留），到达退避/租约时间的操作批量有序推进。
+     * COMPLETED/FAILED/COMPENSATED/MANUAL_REVIEW 为终态不扫描。
+     */
     public List<PetOperation> listRecoverable(int limit) {
         return operationMapper.selectList(new LambdaQueryWrapper<PetOperation>()
-                .in(PetOperation::getStatus, "PENDING", "UNKNOWN")
+                .in(PetOperation::getStatus, "PENDING", "UNKNOWN", "COMPENSATING", "PROCESSING")
                 .and(w -> w.isNull(PetOperation::getNextRetryAt)
                         .or().le(PetOperation::getNextRetryAt, LocalDateTime.now(ZoneOffset.UTC)))
                 .orderByAsc(PetOperation::getNextRetryAt)
@@ -73,6 +77,10 @@ public class PetOperationStore {
             PetOperation existing = findByOperationId(operationId);
             if (existing == null) {
                 // 唯一键冲突但行不可读：并发事务尚未提交，按"处理中"处理，恢复任务兜底
+                throw new PetOperationPendingException();
+            }
+            if ("PROCESSING".equals(existing.getStatus())) {
+                // 恢复任务持租约处理中（P02/TX-04）：按原单等待收敛，不与恢复器并发双打
                 throw new PetOperationPendingException();
             }
             boolean same = existing.getUserId().equals(userId)
@@ -136,6 +144,44 @@ public class PetOperationStore {
             operation.setStatus(toStatus);
         }
         return updated > 0;
+    }
+
+    /**
+     * 恢复器处理租约（P02/TX-04）：把可恢复状态 CAS 到 PROCESSING，同事务写入租约到期时间
+     * （复用 next_retry_at 列）与原始状态（recover_from_status，租约接管后 EARN 收敛语义依赖它）。
+     * 多实例扫描时仅一个恢复器能占到租约；租约过期后行重新可被扫描接管。
+     * @return false=租约被他人持有，调用方必须放弃本行
+     */
+    public boolean acquireLease(PetOperation operation, LocalDateTime leaseUntil) {
+        String from = operation.getStatus();
+        if ("PROCESSING".equals(from)) {
+            // 租约过期接管：仅当租约到期时间未被他人推进时 CAS 成功，原始状态保留不动
+            int updated = operationMapper.update(null, new LambdaUpdateWrapper<PetOperation>()
+                    .set(PetOperation::getNextRetryAt, leaseUntil)
+                    .eq(PetOperation::getId, operation.getId())
+                    .eq(PetOperation::getStatus, "PROCESSING")
+                    .eq(PetOperation::getNextRetryAt, operation.getNextRetryAt()));
+            return updated > 0;
+        }
+        int updated = operationMapper.update(null, new LambdaUpdateWrapper<PetOperation>()
+                .set(PetOperation::getStatus, "PROCESSING")
+                .set(PetOperation::getNextRetryAt, leaseUntil)
+                .set(PetOperation::getRecoverFromStatus, from)
+                .eq(PetOperation::getId, operation.getId())
+                .eq(PetOperation::getStatus, from));
+        if (updated > 0) {
+            operation.setStatus("PROCESSING");
+            operation.setNextRetryAt(leaseUntil);
+            operation.setRecoverFromStatus(from);
+        }
+        return updated > 0;
+    }
+
+    /** 人工核查（P02/TX-03）：本地业务事实无法自动判定时的受控终态，恢复器不再推进 */
+    public void markManualReview(PetOperation operation, String reason) {
+        operation.setStatus("MANUAL_REVIEW");
+        operation.setLastError(truncate(reason));
+        operationMapper.updateById(operation);
     }
 
     private String truncate(String error) {

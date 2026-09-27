@@ -18,7 +18,7 @@ public record PetWallPageVO(
         @Schema(description = "家园是否开放") Boolean roomPublic,
         @Schema(description = "当前页码（1 起）") Integer page,
         @Schema(description = "每页条数") Integer size,
-        @Schema(description = "留言总数") Long total,
+        @Schema(description = "留言总数") Integer total,
         @Schema(description = "我愿意留言的次数上限（每日）") Integer dailyPostLimit,
         @Schema(description = "留言列表") List<PetWallMessageVO> messages
 ) {

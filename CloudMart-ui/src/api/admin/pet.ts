@@ -101,3 +101,91 @@ export interface PetDashboard {
     topIntimacy: Array<{ name: string; value: number }>
   }
 }
+
+// ==================== W04 钱包管理（§8.4；/admin/pet/wallet/**） ====================
+
+export interface AdminPetWalletAccount {
+  accountId: number | string
+  userId: number | string
+  currency: string
+  balance: number | string
+  status: 'ACTIVE' | 'FROZEN'
+  version: number | string
+  createdAt: string
+}
+
+export interface AdminPetWalletTransaction {
+  transactionId: number | string
+  operationId: string
+  userId: number | string
+  petId: number | string | null
+  bizType: string
+  direction: 'EARN' | 'SPEND' | 'REFUND' | 'ADJUSTMENT'
+  amount: number | string
+  status: string
+  currency: string
+  createdAt: string
+}
+
+export interface AdminPetWalletAdjustment {
+  id: number | string
+  userId: number | string
+  delta: number | string
+  reason: string
+  ticketNo?: string | null
+  requestedBy: number | string
+  approvedBy?: number | string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  version: number | string
+  transactionId?: number | string | null
+  createdAt: string
+  reviewedAt?: string | null
+}
+
+export function listPetWalletAccounts(params: { userId?: number | string; status?: string; page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<AdminPetWalletAccount[]>>('/admin/pet/wallet/accounts', { params })
+}
+
+export function getPetWalletAccount(userId: number | string) {
+  return request.get<ApiResponse<AdminPetWalletAccount>>(`/admin/pet/wallet/accounts/${userId}`)
+}
+
+export function listPetWalletTransactions(params: { userId?: number | string; bizType?: string; direction?: string; page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<AdminPetWalletTransaction[]>>('/admin/pet/wallet/transactions', { params })
+}
+
+export function freezePetWalletAccount(userId: number | string, data: { reason: string; expectedVersion?: number | string }) {
+  return request.post<ApiResponse<void>>(`/admin/pet/wallet/accounts/${userId}/freeze`, data)
+}
+
+export function unfreezePetWalletAccount(userId: number | string, data: { reason: string; expectedVersion?: number | string }) {
+  return request.post<ApiResponse<void>>(`/admin/pet/wallet/accounts/${userId}/unfreeze`, data)
+}
+
+export function createPetWalletAdjustment(data: { userId: number | string; delta: string; reason: string; ticketNo?: string }) {
+  return request.post<ApiResponse<AdminPetWalletAdjustment>>('/admin/pet/wallet/adjustments', data)
+}
+
+export function approvePetWalletAdjustment(id: number | string, data: { reason?: string; expectedVersion?: number | string } = {}) {
+  return request.post<ApiResponse<AdminPetWalletAdjustment>>(`/admin/pet/wallet/adjustments/${id}/approve`, data)
+}
+
+export function rejectPetWalletAdjustment(id: number | string, data: { reason?: string; expectedVersion?: number | string } = {}) {
+  return request.post<ApiResponse<AdminPetWalletAdjustment>>(`/admin/pet/wallet/adjustments/${id}/reject`, data)
+}
+
+export function listPetWalletAdjustments(params: { status?: string; userId?: number | string; page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<AdminPetWalletAdjustment[]>>('/admin/pet/wallet/adjustments', { params })
+}
+
+export function listPetWalletReconciliations(params: { page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<Record<string, unknown>[]>>('/admin/pet/wallet/reconciliations', { params })
+}
+
+export function getPetWalletReconciliation(runId: number | string) {
+  return request.get<ApiResponse<Record<string, unknown>[]>>(`/admin/pet/wallet/reconciliations/${runId}`)
+}
+
+export function runPetWalletReconciliation() {
+  return request.post<ApiResponse<void>>('/admin/pet/wallet/reconciliations/run')
+}

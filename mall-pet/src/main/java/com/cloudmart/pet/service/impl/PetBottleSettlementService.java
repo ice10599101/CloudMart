@@ -2,6 +2,7 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
@@ -69,7 +70,7 @@ public class PetBottleSettlementService {
     private final PetStateService stateService;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetProperties properties;
     private final PetClock petClock;
@@ -85,7 +86,7 @@ public class PetBottleSettlementService {
                                       PetStateService stateService,
                                       PetDailyQuestService dailyQuestService,
                                       PetIntimacyService intimacyService,
-                                      PetOperationService operationService,
+                                      PetEconomyService economyService,
                                       PetOutboxService outboxService,
                                       PetProperties properties,
                                       PetClock petClock) {
@@ -100,7 +101,7 @@ public class PetBottleSettlementService {
         this.stateService = stateService;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.outboxService = outboxService;
         this.properties = properties;
         this.petClock = petClock;
@@ -250,12 +251,11 @@ public class PetBottleSettlementService {
         achievementService.evaluate(pet, PetAchievementService.Event.BOTTLE_SETTLED);
         if (outcome == PetBottleOutcome.CAUGHT) {
             if (rarity == PetBottleRarity.RARE) {
-                String operationId = operationService.operationKey("BOTTLE_REWARD", activity.getId());
-                PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                        operationId, activity.getUserId(), activity.getPetId(),
-                        "BOTTLE_REWARD", activity.getId(), RARE_STARLIGHT, null);
+                PetOperationService.WalletSettlement settlement = economyService.earn(
+                        activity.getUserId(), activity.getPetId(),
+                        "BOTTLE_REWARD", activity.getId(), RARE_STARLIGHT, null, activity.getId());
                 if (!settlement.isCompleted()) {
-                    log.info("稀有瓶星光结算中, activityId={}, operationId={}", activity.getId(), operationId);
+                    log.info("稀有瓶星光结算中, activityId={}, status={}", activity.getId(), settlement.status());
                 }
             }
             String eventId = "BOTTLE_CAUGHT:" + activity.getId();

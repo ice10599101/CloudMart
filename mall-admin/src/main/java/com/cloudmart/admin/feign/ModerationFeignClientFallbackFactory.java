@@ -25,6 +25,11 @@ public class ModerationFeignClientFallbackFactory implements FallbackFactory<Mod
             }
 
             @Override
+            public ApiResponse<List<Map<String, Object>>> listAppeals(String status, Long cursor, Integer pageSize) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Long> decide(Long caseId, Map<String, Object> body, Long actorId) {
                 throw unavailable(cause);
             }

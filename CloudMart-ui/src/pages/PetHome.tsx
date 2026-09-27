@@ -1133,7 +1133,7 @@ function RemindersPanel() {
       return
     }
     try {
-      await markAsRead(Number(item.notificationId))
+      await markAsRead(item.notificationId)
       setItems((prev) => prev.map((r) => (r.notificationId === item.notificationId ? { ...r, isRead: true } : r)))
     } catch {
       // 已读是弱一致操作，失败不影响查看
@@ -2280,7 +2280,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                         run(
                           `visit-${neighbor.petId}`,
                           async () => {
-                            const res = await visitPetHome(Number(neighbor.petId))
+                            const res = await visitPetHome(neighbor.petId)
                             if (res.data.success && res.data.data) {
                               setVisitResult(res.data.data.message)
                             }
@@ -2296,7 +2296,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                       size="small"
                       loading={pending === `like-${neighbor.petId}`}
                       onClick={() =>
-                        run(`like-${neighbor.petId}`, () => likePetHome(Number(neighbor.petId)), '点赞成功')
+                        run(`like-${neighbor.petId}`, () => likePetHome(neighbor.petId), '点赞成功')
                       }
                     >
                       点赞
@@ -2307,7 +2307,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                       onClick={() =>
                         run(
                           `freq-${neighbor.petId}`,
-                          () => requestPetFriend(Number(neighbor.ownerUserId)),
+                          () => requestPetFriend(neighbor.ownerUserId),
                           '好友申请已发出～',
                         )
                       }
@@ -2430,7 +2430,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
   const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
   const [relations, setRelations] = useState<PetRelationPanel | null>(null)
   const [friends, setFriends] = useState<PetFriendPanel | null>(null)
-  const [wallPetId, setWallPetId] = useState<number>(Number(pet.petId))
+  const [wallPetId, setWallPetId] = useState<number | string>(pet.petId)
   const [wall, setWall] = useState<PetWallPage | null>(null)
   const [myPets, setMyPets] = useState<PetSummary[]>([])
   const [pending, setPending] = useState<string | null>(null)
@@ -2464,7 +2464,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
     }
   }, [])
 
-  const loadWall = useCallback(async (targetPetId: number) => {
+  const loadWall = useCallback(async (targetPetId: number | string) => {
     try {
       const { data: res } = await getPetWall(targetPetId, 1, 10)
       if (res.success && res.data) {
@@ -2726,7 +2726,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
               size="small"
               style={{ width: 180 }}
               value={wallPetId}
-              onChange={(value) => setWallPetId(Number(value))}
+              onChange={(value) => setWallPetId(value)}
               options={myPets.map((item) => ({ value: item.petId, label: `${item.name}（我的）` }))}
             />
             {wall && <span> · 共 {wall.total} 条</span>}
@@ -3007,7 +3007,11 @@ export default function PetHomePage() {
         try {
           const { data: res } = await sendPetCompanionHeartbeat(60)
           if (res.success && res.data) {
-            setIntimacy(res.data)
+            // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
+            const { data: overview } = await getPetIntimacy()
+            if (overview.success && overview.data) {
+              setIntimacy(overview.data)
+            }
           }
         } catch {
           // 心跳失败静默（下一轮重试）

@@ -223,6 +223,17 @@ public interface WishService {
      * B02：viewer 为已认证用户 ID（匿名传 null）；DIARY 记录仅作者可见。
      */
     GrowthTimelinePage listGrowthTimeline(Long viewerId, Long wishId, String cursor, Integer pageSize);
+    // ---------------- N03：延期 / 归档 ----------------
+
+    /** 延期（N03）：ACTIVE/OVERDUE 专用；新日期必须未来；version CAS；记录前后日期 */
+    void reschedule(Long userId, Long wishId, java.time.LocalDateTime newExpectedAt, String expectedTimezone, Long version);
+
+    /** 归档（N03）：保存 archivedFromStatus；停止提醒与增长写入由状态本身承载 */
+    void archive(Long userId, Long wishId, String reason, Long version);
+
+    /** 取消归档（N03）：按 archivedFromStatus 恢复 ACTIVE/OVERDUE；不增加累计发布数 */
+    void unarchive(Long userId, Long wishId, Long version);
+
     record ProgressDetail(int currentValue, int targetValue, int percentage, int version) {}
     record AddGrowthRequest(String type, String content, List<String> mediaUrls, Short progressDelta) {}
     record ProgressUpdateRequest(int currentValue, int version) {}

@@ -22,6 +22,12 @@ public class PetProperties {
     /** 业务时区（每日任务/配额/陪伴的日归属，默认北京时间 00:00 重置，§7.3 基线） */
     private String businessZone = "Asia/Shanghai";
 
+    /**
+     * 钱包模式（W02/§6.3，Nacos 持久化）：LEGACY=社区星光（切换前默认）/PAUSED=切换窗口拒绝新收支/PET=独立宠物币。
+     * 切换窗口由发布流程执行；非法值回退 LEGACY（fail-safe，不擅自接新账本）。
+     */
+    private String walletMode = "LEGACY";
+
     private final Decay decay = new Decay();
     private final Level level = new Level();
     private final Interaction interaction = new Interaction();

@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
@@ -65,7 +66,7 @@ class PetShopServiceImplTest {
     @Mock
     private PetSkillMapper skillMapper;
     @Mock
-    private PetOperationService operationService;
+    private PetEconomyService economyService;
     @Mock
     private WishFeignClient wishFeignClient;
 
@@ -80,17 +81,14 @@ class PetShopServiceImplTest {
     @BeforeEach
     void setUp() {
         org.mockito.Mockito.lenient().when(inventoryMapper.insert(org.mockito.ArgumentMatchers.any(PetInventory.class))).thenReturn(1);
-        operationService = org.mockito.Mockito.mock(PetOperationService.class);
-        org.mockito.Mockito.when(operationService.executeSpend(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+        economyService = org.mockito.Mockito.mock(PetEconomyService.class);
+                org.mockito.Mockito.when(economyService.spend(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
-        org.mockito.Mockito.lenient().when(operationService.operationKey(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         shopService = new PetShopServiceImpl(petService, itemCatalog, equipmentConfigMapper, skinConfigMapper,
-                skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient, operationService,
+                skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient, economyService,
                 org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
@@ -112,7 +110,7 @@ class PetShopServiceImplTest {
         assertThat(result.code()).isEqualTo("straw_hat");
         verify(inventoryMapper).insert(any(PetInventory.class));
         // B01：扣款经统一操作记录，先扣款后入包
-        verify(operationService).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -125,7 +123,7 @@ class PetShopServiceImplTest {
 
         shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "free_hat"));
 
-        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -138,7 +136,7 @@ class PetShopServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_ITEM_ALREADY_OWNED);
-        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -150,7 +148,7 @@ class PetShopServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test

@@ -55,4 +55,11 @@ public class PetSupportServiceImpl implements PetSupportService {
     public PetWalletOperationVO findPetOperation(String operationId) {
         return userStatService.findOperation(operationId);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PetWalletOperationVO refundForPetIdempotent(Long userId, int amount, String originalOperationId,
+                                                       String refundOperationId) {
+        return userStatService.refundStarlightIdempotent(userId, amount, originalOperationId, refundOperationId);
+    }
 }

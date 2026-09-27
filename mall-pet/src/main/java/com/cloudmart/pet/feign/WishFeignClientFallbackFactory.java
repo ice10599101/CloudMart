@@ -40,6 +40,12 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
+            public ApiResponse<WishFeignClient.PetWalletOperationVO> refundStarlightIdempotent(
+                    Long userId, Integer amount, String originalOperationId, String refundOperationId) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<WishFeignClient.PetWalletOperationVO> findOperation(String operationId) {
                 // 结果查询降级 = 结果未知（不是"未执行"），调用方保持 UNKNOWN 状态继续退避
                 throw unavailable(cause);

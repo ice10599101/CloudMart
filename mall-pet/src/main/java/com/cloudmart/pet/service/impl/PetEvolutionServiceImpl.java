@@ -2,6 +2,7 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -55,7 +56,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     private final PetActivityMapper activityMapper;
     private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
 
@@ -66,7 +67,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
                                    PetActivityMapper activityMapper,
                                    WishFeignClient wishFeignClient,
                                    PetAchievementService achievementService,
-                                   PetOperationService operationService,
+                                   PetEconomyService economyService,
                                    PetOutboxService outboxService,
                                    PetClock petClock) {
         this.petService = petService;
@@ -76,7 +77,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         this.activityMapper = activityMapper;
         this.wishFeignClient = wishFeignClient;
         this.achievementService = achievementService;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.outboxService = outboxService;
         this.petClock = petClock;
     }
@@ -106,11 +107,11 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         // 1. 幂等扣款（结果未知 → 结算中，按原请求重试幂等；禁止换单号二次扣款）
         int cost = orZero(next.getCostStarlight());
         if (cost > 0) {
-            String operationId = operationService.operationKey(BIZ_TYPE, userId, pet.getId(), next.getStageTo());
-            PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                    operationId, userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, cost));
+            PetOperationService.WalletSettlement settlement = economyService.spend(
+                    userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, cost),
+                    userId, pet.getId(), next.getStageTo());
             if (settlement.isUnknown()) {
-                throw operationService.settlementPending();
+                throw economyService.settlementPending();
             }
             if (!settlement.isCompleted()) {
                 throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
@@ -257,7 +258,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     /** 余额查询：展示型数据 Fail-Open（null=不参与"星光是否足够"判定） */
     private Integer starlightBalanceQuietly(Long userId) {
         try {
-            return wishFeignClient.starlightBalance(userId).data();
+            return economyService.balanceOf(userId);
         } catch (Exception e) {
             log.warn("星光余额查询降级（Fail-Open）: userId={}", userId, e);
             return null;

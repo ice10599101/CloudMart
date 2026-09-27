@@ -750,6 +750,100 @@ public class WishServiceImpl implements WishService {
     }
 
 
+    // ---------------- N03：延期 / 归档 / 取消归档 ----------------
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reschedule(Long userId, Long wishId, LocalDateTime newExpectedAt,
+                           String expectedTimezone, Long version) {
+        Wish wish = getViewableWishOrThrow(wishId, userId);
+        accessPolicy.requireOwner(wish, userId);
+        if (newExpectedAt == null || !newExpectedAt.isAfter(LocalDateTime.now())) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "新日期必须晚于当前时间");
+        }
+        if (!WishStatus.ACTIVE.equals(wish.getStatus()) && !WishStatus.OVERDUE.equals(wish.getStatus())) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅进行中/已过期心愿可延期");
+        }
+        if (version == null || wish.getVersion() == null || !version.equals(wish.getVersion())) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        int affected = wishMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getVersion, version)
+                        .eq(Wish::getStatus, wish.getStatus())
+                        .setSql("version = version + 1")
+                        .set(Wish::getExpectedAt, newExpectedAt)
+                        .set(Wish::getExpectedTimezone, expectedTimezone)
+                        .set(Wish::getStatus, WishStatus.ACTIVE));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        log.info("心愿延期, wishId={}, userId={}, 新日期={}", wishId, userId, newExpectedAt);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void archive(Long userId, Long wishId, String reason, Long version) {
+        Wish wish = getViewableWishOrThrow(wishId, userId);
+        accessPolicy.requireOwner(wish, userId);
+        if (WishStatus.ARCHIVED.equals(wish.getStatus())) {
+            return;
+        }
+        if (version == null || wish.getVersion() == null || !version.equals(wish.getVersion())) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        int affected = wishMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getVersion, version)
+                        .setSql("version = version + 1")
+                        .set(Wish::getArchivedFromStatus, wish.getStatus().name())
+                        .set(Wish::getStatus, WishStatus.ARCHIVED));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        outboxService.publish("WISH", wishId, version + 1, "WishArchived",
+                java.util.Map.of("wishId", wishId, "userId", userId, "from", wish.getStatus().name()));
+        log.info("心愿归档, wishId={}, userId={}, reason={}", wishId, userId, reason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unarchive(Long userId, Long wishId, Long version) {
+        Wish wish = getViewableWishOrThrow(wishId, userId);
+        accessPolicy.requireOwner(wish, userId);
+        if (!WishStatus.ARCHIVED.equals(wish.getStatus())) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "心愿未处于归档状态");
+        }
+        if (version == null || wish.getVersion() == null || !version.equals(wish.getVersion())) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        // 恢复到归档前状态（不重复计发布数）；已还愿的保持 FULFILLED 不再发奖励
+        String restoreTo = wish.getArchivedFromStatus() != null
+                ? wish.getArchivedFromStatus() : WishStatus.ACTIVE.name();
+        WishStatus restoreStatus;
+        try {
+            restoreStatus = WishStatus.valueOf(restoreTo);
+        } catch (IllegalArgumentException ex) {
+            restoreStatus = WishStatus.ACTIVE;
+        }
+        if (restoreStatus != WishStatus.ACTIVE && restoreStatus != WishStatus.OVERDUE) {
+            restoreStatus = WishStatus.ACTIVE;
+        }
+        int affected = wishMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Wish>()
+                        .eq(Wish::getId, wishId)
+                        .eq(Wish::getVersion, version)
+                        .setSql("version = version + 1")
+                        .set(Wish::getStatus, restoreStatus)
+                        .set(Wish::getArchivedFromStatus, null));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "心愿已被并发修改，请刷新");
+        }
+        log.info("心愿取消归档, wishId={}, userId={}, 恢复={}", wishId, userId, restoreStatus);
+    }
+
     // ---------------- Sprint 1.3 打卡与成长记录（补齐） ----------------
 
     @Override

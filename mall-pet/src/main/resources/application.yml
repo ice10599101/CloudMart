@@ -220,3 +220,17 @@ pet:
   proactive:
     daily-limit: 3
     min-interval-seconds: 60
+
+pet:
+  wallet:
+    # W02/§6.3 钱包模式：LEGACY=社区星光（默认）/PAUSED=切换窗口/PET=独立宠物币（切换后）
+    mode: ${PET_WALLET_MODE:LEGACY}
+  security:
+    # SEC-01 身份边界：用户身份由可验证 JWT 建立（网关透传 Authorization，本服务自行验签，
+    # X-User-Id 头以验证 subject 为准）；服务身份由 X-Service-Token（HS256 短期令牌）建立，
+    # /admin/** 强校验 iss=mall-admin、aud=mall-pet、scope=pet:admin。
+    # 共享密钥由部署环境注入，禁止写入仓库；缺失时管理端点全部拒绝（fail-closed）。
+    service-token-secret: ${PET_SERVICE_TOKEN_SECRET:${WISH_SERVICE_TOKEN_SECRET:}}
+    # mall-auth JWKS（RS256 公钥），与网关一致
+    jwks-uri: ${PET_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
+    clock-skew-seconds: 30

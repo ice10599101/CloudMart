@@ -21,9 +21,11 @@ import java.util.Map;
 /**
  * 社区宠物运营后台代理接口。
  *
- * <p>转发至 mall-pet {@code /admin/**} 内部端点（由网关 AdminAuthGlobalFilter 校验管理员身份），
- * 权限点：{@code business:pet:list}（查询/看板）、{@code business:pet:edit}（配置与审核）。
- * 配置类接口统一"带 id 为更新、不带 id 为新增"。</p>
+ * <p>转发至 mall-pet {@code /admin/**} 内部端点（SEC-01 后要求服务令牌 iss=mall-admin、
+ * scope=pet:admin，由 {@link com.cloudmart.admin.config.PetServiceTokenConfig} 签发），
+ * 权限点：{@code business:pet:list}（查询/看板）、{@code business:pet:edit}（配置与审核、
+ * 举报处理、交易重试、成就补算）。配置类接口统一"带 id 为更新、不带 id 为新增"。
+ * 外部路径统一 {@code /api/admin/pet/...}（类映射 /pet，方法不再重复 /pet 前缀）。</p>
  */
 @RestController
 @RequestMapping("/pet")
@@ -304,28 +306,39 @@ public class AdminPetController {
         return petFeignClient.petDashboard(days);
     }
 
-    // ---- B14/B17/B21 新增管理能力代理 ----
+    // ---- B14/B17/B21 新增管理能力代理（SEC-02：补细粒度权限与审计；操作者取认证上下文） ----
+    // 说明：举报处理/重试/补算沿用 business:pet:edit；第 4.1 节细粒度权限码
+    // （moderate/operation:retry/recalculate）随对应菜单迁移任务落地后替换。
 
-    @org.springframework.web.bind.annotation.GetMapping("/pet/reports")
+    @org.springframework.web.bind.annotation.GetMapping("/reports")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "宠物举报列表", description = "status 过滤 + 分页")
     public ApiResponse<Object> petReports(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
                                           @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
                                           @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
         return petFeignClient.listPetReports(status, page, size);
     }
 
-    @org.springframework.web.bind.annotation.PutMapping("/pet/reports/{id}/handle")
+    @org.springframework.web.bind.annotation.PutMapping("/reports/{id}/handle")
+    @OperLog(title = "宠物举报处理", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "处理举报", description = "action=HANDLED/REJECTED；处理人取当前登录管理员（X-User-Id 由 Feign 拦截器从认证上下文透传，不接受客户端自填）")
     public ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
-                                             @org.springframework.web.bind.annotation.RequestParam("action") String action,
-                                             @org.springframework.web.bind.annotation.RequestParam(value = "adminUserId", required = false) Long adminUserId) {
-        return petFeignClient.handlePetReport(id, action, adminUserId);
+                                             @org.springframework.web.bind.annotation.RequestParam("action") String action) {
+        return petFeignClient.handlePetReport(id, action);
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/pet/achievements/recalculate")
+    @org.springframework.web.bind.annotation.PostMapping("/achievements/recalculate")
+    @OperLog(title = "宠物成就补算", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "成就补算", description = "按宠物扫描历史事实补漏成就；幂等，重复执行结果不变")
     public ApiResponse<Integer> recalculatePetAchievements(@org.springframework.web.bind.annotation.RequestParam("petId") Long petId) {
         return petFeignClient.recalculateAchievements(petId);
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/pet/operations")
+    @org.springframework.web.bind.annotation.GetMapping("/operations")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "交易操作列表", description = "status/userId/petId 过滤 + 分页")
     public ApiResponse<Object> petOperations(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
                                              @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
                                              @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
@@ -334,7 +347,10 @@ public class AdminPetController {
         return petFeignClient.listPetOperations(status, userId, petId, page, size);
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/pet/operations/{operationId}/retry")
+    @org.springframework.web.bind.annotation.PostMapping("/operations/{operationId}/retry")
+    @OperLog(title = "宠物交易操作重试", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "原单重试", description = "复用同一 operationId 幂等重试；已终态原样返回，不产生第二次资金变动")
     public ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId) {
         return petFeignClient.retryPetOperation(operationId);
     }

@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
@@ -59,7 +60,7 @@ public class PetEventServiceImpl implements PetEventService {
     private final PetBattleMapper battleMapper;
     private final PetInventoryMapper inventoryMapper;
     private final WishFeignClient wishFeignClient;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetAchievementService achievementService;
     private final PetEventProducer eventProducer;
 
@@ -71,7 +72,7 @@ public class PetEventServiceImpl implements PetEventService {
                                PetBattleMapper battleMapper,
                                PetInventoryMapper inventoryMapper,
                                WishFeignClient wishFeignClient,
-                               PetOperationService operationService,
+                               PetEconomyService economyService,
                                PetAchievementService achievementService,
                                PetEventProducer eventProducer) {
         this.stateService = stateService;
@@ -82,7 +83,7 @@ public class PetEventServiceImpl implements PetEventService {
         this.battleMapper = battleMapper;
         this.inventoryMapper = inventoryMapper;
         this.wishFeignClient = wishFeignClient;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.achievementService = achievementService;
         this.eventProducer = eventProducer;
     }
@@ -145,12 +146,11 @@ public class PetEventServiceImpl implements PetEventService {
         int starlight = orZero(config.getRewardStarlight());
         if (starlight > 0) {
             // 操作键绑定 (pet, event, claimDate)：同一活动多次领取只一次收益
-            String operationId = operationService.operationKey("EVENT_CLAIM",
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null,
                     pet.getId(), config.getCode(), now.toLocalDate());
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null);
             if (!settlement.isCompleted()) {
-                log.info("活动奖励星光结算中, eventCode={}, operationId={}", config.getCode(), operationId);
+                log.info("活动奖励星光结算中, eventCode={}, status={}", config.getCode(), settlement.status());
             }
         }
         grantRewardWithAlternative(pet, config, now);
@@ -215,12 +215,11 @@ public class PetEventServiceImpl implements PetEventService {
             log.info("活动奖励物品已拥有且无替代星光, petId={}, item={}", pet.getId(), itemCode);
             return;
         }
-        String operationId = operationService.operationKey("EVENT_ALT",
+        PetOperationService.WalletSettlement settlement = economyService.earn(
+                pet.getUserId(), pet.getId(), "EVENT_ALT", pet.getId(), alt, null,
                 pet.getId(), config.getCode(), now.toLocalDate());
-        PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                operationId, pet.getUserId(), pet.getId(), "EVENT_ALT", pet.getId(), alt, null);
         if (!settlement.isCompleted()) {
-            log.info("活动替代星光结算中, operationId={}", operationId);
+            log.info("活动替代星光结算中, status={}", settlement.status());
         }
     }
 

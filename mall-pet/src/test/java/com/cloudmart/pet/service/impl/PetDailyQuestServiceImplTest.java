@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetDailyQuest;
@@ -61,7 +62,7 @@ class PetDailyQuestServiceImplTest {
     @Mock
     private PetDailyQuestMapper questMapper;
     @Mock
-    private PetOperationService operationService;
+    private PetEconomyService economyService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -81,17 +82,14 @@ class PetDailyQuestServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        operationService = org.mockito.Mockito.mock(PetOperationService.class);
-        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+        economyService = org.mockito.Mockito.mock(PetEconomyService.class);
+                org.mockito.Mockito.when(economyService.earn(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
-        org.mockito.Mockito.lenient().when(operationService.operationKey(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
-                wishFeignClient, operationService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties);
+                wishFeignClient, economyService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(configMapper.selectList(any())).thenReturn(List.of(config()));
         lenient().when(configMapper.selectOne(any())).thenReturn(config());
@@ -163,7 +161,7 @@ class PetDailyQuestServiceImplTest {
         assertThat(result.status()).isEqualTo("CLAIMED");
         assertThat(result.claimable()).isFalse();
         verify(stateService).grantExp(any(), eq(20));
-        verify(operationService).executeEarn(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         // 领奖本身也加亲密度（长期陪伴数值）
         verify(intimacyService).gain(any(), any());
     }
@@ -201,7 +199,7 @@ class PetDailyQuestServiceImplTest {
         questService.claimChest(100L);
 
         verify(stateService).grantExp(any(), eq(properties.getDailyQuest().getChestExp()));
-        verify(operationService).executeEarn(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq((long) properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test

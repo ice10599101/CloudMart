@@ -341,6 +341,16 @@ public class ModerationService {
                 .last("LIMIT " + Math.min(Math.max(pageSize, 1), 50)));
     }
 
+    /** 申诉复核队列（N01）：按状态筛选，PENDING 优先处理。 */
+    public List<WishAppeal> listAppeals(String status, Long cursor, int pageSize) {
+        return appealMapper.selectList(new LambdaQueryWrapper<WishAppeal>()
+                .eq(status != null && !status.isBlank(), WishAppeal::getStatus,
+                        status == null ? null : status.trim().toUpperCase())
+                .lt(cursor != null, WishAppeal::getId, cursor)
+                .orderByDesc(WishAppeal::getId)
+                .last("LIMIT " + Math.min(Math.max(pageSize, 1), 100)));
+    }
+
     public List<ModerationCase> listCases(String status, Long cursor, int pageSize) {
         return caseMapper.selectList(new LambdaQueryWrapper<ModerationCase>()
                 .eq(status != null && !status.isBlank(), ModerationCase::getStatus,

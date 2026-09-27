@@ -43,7 +43,8 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
             "/admin", new ServiceTokenRequirement("mall-admin", "wish:admin"),
             "/internal/jobs", new ServiceTokenRequirement("mall-job", "wish:jobs"),
             "/internal/tree-env", new ServiceTokenRequirement("mall-job", "wish:jobs"),
-            "/internal/pet-support", new ServiceTokenRequirement("mall-pet", "wish:pet")
+            "/internal/pet-support", new ServiceTokenRequirement("mall-pet", "wish:pet"),
+            "/internal/account-erasure", new ServiceTokenRequirement("mall-user", "wish:erasure")
     );
 
     private final WishSecurityProperties properties;

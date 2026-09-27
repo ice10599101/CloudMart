@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -74,7 +75,7 @@ public class PetActivityServiceImpl implements PetActivityService {
     private final PetStatsService statsService;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
     private final PetCareerService careerService;
@@ -92,7 +93,7 @@ public class PetActivityServiceImpl implements PetActivityService {
                                   PetStatsService statsService,
                                   PetDailyQuestService dailyQuestService,
                                   PetIntimacyService intimacyService,
-                                  PetOperationService operationService,
+                                  PetEconomyService economyService,
                                   PetOutboxService outboxService,
                                   PetClock petClock,
                                   PetCareerService careerService,
@@ -109,7 +110,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         this.statsService = statsService;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.outboxService = outboxService;
         this.petClock = petClock;
         this.careerService = careerService;
@@ -337,15 +338,14 @@ public class PetActivityServiceImpl implements PetActivityService {
             return 0;
         }
         String bizType = "WORK".equals(activity.getActivityType()) ? "CLAIM_WORK" : "CLAIM_STUDY";
-        String operationId = operationService.operationKey(bizType, activity.getId());
-        PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                operationId, activity.getUserId(), activity.getPetId(), bizType, activity.getId(),
-                amount, null);
+        PetOperationService.WalletSettlement settlement = economyService.earn(
+                activity.getUserId(), activity.getPetId(), bizType, activity.getId(),
+                amount, null, activity.getId());
         if (settlement.isCompleted()) {
             return settlement.credited();
         }
-        log.info("活动奖励星光结算中, activityId={}, operationId={}, status={}",
-                activity.getId(), operationId, settlement.status());
+        log.info("活动奖励星光结算中, activityId={}, status={}",
+                activity.getId(), settlement.status());
         return null;
     }
 

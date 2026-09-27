@@ -37,4 +37,8 @@ public interface UserFeignClient {
      */
     @GetMapping("/users/batch")
     ApiResponse<List<Map<String, Object>>> batchGetUsers(@RequestParam("ids") List<Long> ids);
+
+    /** B20：查询 mall-user 注销编排的真实进度（wish 旧入口兼容聚合用） */
+    @GetMapping("/users/account-deletion/status")
+    ApiResponse<Map<String, Object>> getAccountDeletionStatus(@RequestParam("userId") Long userId);
 }

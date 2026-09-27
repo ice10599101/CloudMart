@@ -51,6 +51,17 @@ public interface WishFeignClient {
     @GetMapping("/internal/pet-support/starlight/operations/{operationId}")
     ApiResponse<PetWalletOperationVO> findOperation(@PathVariable("operationId") String operationId);
 
+    /**
+     * 宠物旧单幂等退款（P02/TX-04）：仅限原 SPEND 扣款单的全额原路退回。
+     * wish 侧校验原单存在/同用户/金额一致并按原单累计退款；不走余额上限截断，
+     * 独立 PET_REFUND 流水。原单缺失/越权/超退返回 409 WISH_OPERATION_CONFLICT。
+     */
+    @PostMapping("/internal/pet-support/starlight/refund")
+    ApiResponse<PetWalletOperationVO> refundStarlightIdempotent(@RequestParam("userId") Long userId,
+                                                                @RequestParam("amount") Integer amount,
+                                                                @RequestParam("originalOperationId") String originalOperationId,
+                                                                @RequestParam("refundOperationId") String refundOperationId);
+
     /** 星光余额（商城展示）；失败由 fallback 抛 WISH_SERVICE_UNAVAILABLE */
     @GetMapping("/internal/pet-support/starlight/balance")
     ApiResponse<Integer> starlightBalance(@RequestParam("userId") Long userId);

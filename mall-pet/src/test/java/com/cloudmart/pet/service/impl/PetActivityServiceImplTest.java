@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.StartWorkRequest;
 import com.cloudmart.pet.entity.Pet;
@@ -63,7 +64,7 @@ class PetActivityServiceImplTest {
     @Mock
     private PetStudyConfigMapper studyConfigMapper;
     @Mock
-    private PetOperationService operationService;
+    private PetEconomyService economyService;
     @Mock
     private PetMapper petMapper;
     @Mock
@@ -97,18 +98,15 @@ class PetActivityServiceImplTest {
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         org.mockito.Mockito.lenient().when(activityMapper.selectById(org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(inv -> null);
-        operationService = org.mockito.Mockito.mock(PetOperationService.class);
-        org.mockito.Mockito.when(operationService.executeEarn(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+        economyService = org.mockito.Mockito.mock(PetEconomyService.class);
+                org.mockito.Mockito.when(economyService.earn(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
-        org.mockito.Mockito.lenient().when(operationService.operationKey(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
                 jobConfigMapper, studyConfigMapper, petMapper, achievementService,
-                eventProducer, statsService, dailyQuestService, intimacyService, operationService,
+                eventProducer, statsService, dailyQuestService, intimacyService, economyService,
                 org.mockito.Mockito.mock(PetOutboxService.class), petClock,
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetCareerService.class),
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetBottleFishingService.class),
@@ -291,10 +289,7 @@ class PetActivityServiceImplTest {
             PetActivityVO vo = activityService.claimWork(100L);
 
             assertThat(vo.status()).isEqualTo(PetActivityStatus.CLAIMED.name());
-            org.mockito.Mockito.verify(operationService).executeEarn(org.mockito.ArgumentMatchers.anyString(),
-                    org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L),
-                    org.mockito.ArgumentMatchers.eq("CLAIM_WORK"), org.mockito.ArgumentMatchers.eq(11L),
-                    org.mockito.ArgumentMatchers.eq(105), org.mockito.ArgumentMatchers.isNull());
+            org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("CLAIM_WORK"), org.mockito.ArgumentMatchers.eq(11L), org.mockito.ArgumentMatchers.eq(105L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any(Object[].class));
         }
 
         @Test

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.entity.Pet;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,11 +61,11 @@ public class AdminPetReportController {
     }
 
     @PutMapping("/reports/{id}/handle")
-    @Operation(summary = "处理举报", description = "action=HANDLED/REJECTED；记录处理人与时间（审计）")
+    @Operation(summary = "处理举报", description = "action=HANDLED/REJECTED；处理人取 mall-admin 代理透传的可信操作者头（SEC-02，不接受客户端自填）")
     public ApiResponse<Void> handle(
             @Parameter(description = "举报 ID") @PathVariable("id") Long id,
             @RequestParam("action") String action,
-            @RequestParam(value = "adminUserId", required = false) Long adminUserId) {
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
         String normalized = action != null ? action.toUpperCase() : "";
         if (!"HANDLED".equals(normalized) && !"REJECTED".equals(normalized)) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "处理动作非法");

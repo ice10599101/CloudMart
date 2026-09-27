@@ -177,6 +177,24 @@ public final class PetErrorCodes {
     public static final String PET_OPERATION_NOT_FOUND = "PET_OPERATION_NOT_FOUND";
     /** 重复请求与原操作内容冲突（同键不同业务实例） */
     public static final String PET_OPERATION_CONFLICT = "PET_OPERATION_CONFLICT";
+
+    // --- W01 独立钱包（§8.6 错误码登记） ---
+    /** 宠物币不足（余额不变、不发资产；显示获取入口，不跳社区充值） */
+    public static final String PET_WALLET_INSUFFICIENT = "PET_WALLET_INSUFFICIENT";
+    /** 宠物币账户冻结（限制消费，仍可读账与退款） */
+    public static final String PET_WALLET_FROZEN = "PET_WALLET_FROZEN";
+    /** 请求幂等冲突（同请求键不同内容；禁止自动换键） */
+    public static final String PET_IDEMPOTENCY_CONFLICT = "PET_IDEMPOTENCY_CONFLICT";
+    /** 请求正在处理中（同键重试返回 202 语义，按原请求查询结果） */
+    public static final String PET_REQUEST_IN_PROGRESS = "PET_REQUEST_IN_PROGRESS";
+    /** 请求键缺失或格式非法（写操作必须携带持久化幂等键） */
+    public static final String PET_REQUEST_KEY_INVALID = "PET_REQUEST_KEY_INVALID";
+    /** 退款原单不满足条件（非本人/非扣款/已超累计退款） */
+    public static final String PET_WALLET_REFUND_INVALID = "PET_WALLET_REFUND_INVALID";
+    /** 商品配置版本冲突（expectedVersion 不匹配；拉最新价格重新确认） */
+    public static final String PET_CONFIG_VERSION_CONFLICT = "PET_CONFIG_VERSION_CONFLICT";
+    /** 宠物收支维护中（切换窗口 PAUSED：已有请求保留原键并查询，不产生新收支） */
+    public static final String PET_WALLET_MAINTENANCE = "PET_WALLET_MAINTENANCE";
     /** 每日收益额度已耗尽（可执行无收益互动，不推进奖励） */
     public static final String PET_QUOTA_EXHAUSTED = "PET_QUOTA_EXHAUSTED";
     /** 用户交互互斥位被占用（长期活动/小游戏进行中，禁止并行开始另一项） */

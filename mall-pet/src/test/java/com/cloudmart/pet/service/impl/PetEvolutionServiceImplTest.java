@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
@@ -60,7 +61,7 @@ class PetEvolutionServiceImplTest {
     @Mock
     private PetActivityMapper activityMapper;
     @Mock
-    private PetOperationService operationService;
+    private PetEconomyService economyService;
     @Mock
     private WishFeignClient wishFeignClient;
     @Mock
@@ -79,21 +80,18 @@ class PetEvolutionServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        operationService = org.mockito.Mockito.mock(PetOperationService.class);
-        org.mockito.Mockito.when(operationService.executeSpend(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
+        economyService = org.mockito.Mockito.mock(PetEconomyService.class);
+                org.mockito.Mockito.when(economyService.spend(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
-        org.mockito.Mockito.lenient().when(operationService.operationKey(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn("OP:TEST");
         com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
         org.mockito.Mockito.when(petClock.nowUtc())
                 .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
-                inventoryMapper, activityMapper, wishFeignClient, achievementService, operationService,
+                inventoryMapper, activityMapper, wishFeignClient, achievementService, economyService,
                 org.mockito.Mockito.mock(PetOutboxService.class), petClock);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
@@ -118,7 +116,7 @@ class PetEvolutionServiceImplTest {
         assertThat(saved.getCharm()).isEqualTo(8);
         assertThat(result.currentStage()).isEqualTo(1);
         // B01：扣款经统一操作记录（setUp 已打桩 COMPLETED）
-        verify(operationService).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(600), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(600L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         verify(inventoryMapper).insert(any(PetInventory.class));
         verify(achievementService).evaluate(pet, PetAchievementService.Event.EVOLUTION);
     }
@@ -134,7 +132,7 @@ class PetEvolutionServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(operationService, org.mockito.Mockito.never()).executeSpend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test

@@ -178,6 +178,13 @@ wish:
     jwks-uri: ${WISH_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     # 令牌时钟偏移容忍
     clock-skew-seconds: 30
+  mail:
+    # B20 注销验证码邮件通道（SMTP；未配置则发码如实 sent=false）
+    host: ${WISH_MAIL_HOST:}
+    port: ${WISH_MAIL_PORT:465}
+    username: ${WISH_MAIL_USERNAME:}
+    password: ${WISH_MAIL_PASSWORD:}
+    from: ${WISH_MAIL_FROM:}
   ai:
     # 树洞单用户每日调用上限（文档 30.3：10 次/日）
     tree-hole-daily-limit: 10

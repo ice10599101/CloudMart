@@ -36,4 +36,11 @@ public interface PetSupportService {
      * 按操作键查询已完成的交易结果（B01 结果查询）；不存在返回 null。
      */
     PetWalletOperationVO findPetOperation(String operationId);
+
+    /**
+     * 宠物旧单幂等退款（P02/TX-04）：委托 {@link UserStatService#refundStarlightIdempotent}，
+     * 仅限原 SPEND 扣款单全额原路退回，不参与余额上限截断。
+     */
+    PetWalletOperationVO refundForPetIdempotent(Long userId, int amount, String originalOperationId,
+                                                String refundOperationId);
 }

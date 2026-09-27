@@ -70,6 +70,12 @@ public class UserFeignClientFallbackFactory implements FallbackFactory<UserFeign
                         .toList();
                 return ApiResponse.ok(placeholders);
             }
+
+            @Override
+            public com.cloudmart.common.api.ApiResponse<Map<String, Object>> getAccountDeletionStatus(Long userId) {
+                // Fail-Open：编排进度查询失败返回 NONE（状态聚合降级）
+                return ApiResponse.ok(Map.of("status", "NONE"));
+            }
         };
     }
 

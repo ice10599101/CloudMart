@@ -135,6 +135,19 @@ public interface UserStatService {
     PetWalletOperationVO findOperation(String operationId);
 
     /**
+     * 宠物旧单幂等退款（P02/TX-04）：仅限原 SPEND 扣款单的全额原路退回。
+     *
+     * <p>约束：原单必须存在、同用户、SPEND 方向且实际扣款大于 0；退款金额必须等于
+     * 原单实际扣款（首版不支持部分退款）；按原单累计退款不得超过实扣金额。
+     * 退款不走余额上限截断（可超上限入账），流水来源 PET_REFUND，refundOfOperationId
+     * 关联原单。重复同 refundOperationId 请求返回原结果。</p>
+     *
+     * @return 操作结果（creditedAmount=退款入账额，balanceAfter 为退款后余额）
+     */
+    PetWalletOperationVO refundStarlightIdempotent(Long userId, int amount, String originalOperationId,
+                                                   String refundOperationId);
+
+    /**
      * 查询用户时区（限频 TTL 按用户时区计算当日 23:59:59，文档第 32 章）。
      * 不存在记录返回默认 Asia/Shanghai。
      *

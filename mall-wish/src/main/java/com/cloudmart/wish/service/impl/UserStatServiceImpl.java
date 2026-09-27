@@ -309,6 +309,106 @@ public class UserStatServiceImpl implements UserStatService {
         return toOperationVo(operation, false);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public PetWalletOperationVO refundStarlightIdempotent(Long userId, int amount,
+                                                          String originalOperationId,
+                                                          String refundOperationId) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("退款金额必须为正整数: " + amount);
+        }
+        String digest = refundDigest(userId, amount, originalOperationId);
+
+        WishPetOperation operation = new WishPetOperation();
+        operation.setOperationId(refundOperationId);
+        operation.setUserId(userId);
+        operation.setOperationType(ResourceLogType.EARN.name());
+        operation.setAmount(amount);
+        operation.setCreditedAmount(0);
+        operation.setBalanceAfter(0);
+        operation.setSource(ResourceLogSource.PET_REFUND.name());
+        operation.setRefId(null);
+        operation.setRequestDigest(digest);
+        operation.setRefundOfOperationId(originalOperationId);
+        try {
+            wishPetOperationMapper.insert(operation);
+        } catch (DuplicateKeyException duplicate) {
+            WishPetOperation existing = requireOperation(refundOperationId);
+            if (!existing.getRequestDigest().equals(digest)) {
+                throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
+                        "退款操作键已存在但内容不同");
+            }
+            log.debug("宠物星光退款重复请求命中原结果, refundOperationId={}, userId={}",
+                    refundOperationId, userId);
+            return toOperationVo(existing, true);
+        }
+
+        // 原单校验（TX-04）：仅限本人已实扣的 SPEND 单全额退款
+        // FOR UPDATE 锁原单：并发退款（不同 refundOperationId）在累计校验处串行化，防超退
+        WishPetOperation original = wishPetOperationMapper.selectOne(
+                new LambdaQueryWrapper<WishPetOperation>()
+                        .eq(WishPetOperation::getOperationId, originalOperationId)
+                        .last("FOR UPDATE"));
+        if (original == null) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT, "退款原单不存在");
+        }
+        if (!userId.equals(original.getUserId())) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT, "退款原单不属于该用户");
+        }
+        if (!ResourceLogType.SPEND.name().equals(original.getOperationType())) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT, "退款原单不是扣款操作");
+        }
+        int originalCredited = original.getCreditedAmount() == null ? 0 : original.getCreditedAmount();
+        if (originalCredited <= 0) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT, "原单无实际扣款可退");
+        }
+        if (amount != originalCredited) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
+                    "首版仅支持按原单实扣金额全额退款");
+        }
+        int refunded = wishPetOperationMapper.selectList(new LambdaQueryWrapper<WishPetOperation>()
+                        .eq(WishPetOperation::getRefundOfOperationId, originalOperationId)
+                        .eq(WishPetOperation::getUserId, userId))
+                .stream().mapToInt(op -> op.getCreditedAmount() == null ? 0 : op.getCreditedAmount()).sum();
+        if (refunded + amount > originalCredited) {
+            throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
+                    "累计退款超过原单实扣金额");
+        }
+
+        // 退款不走余额上限截断：原路足额入账（可超上限），独立 PET_REFUND 流水保证对账
+        initUserStat(userId);
+        WishUserStat stat = wishUserStatMapper.selectOne(
+                new LambdaQueryWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .last("FOR UPDATE"));
+        int balanceAfter = stat.getStarlightBalance() + amount;
+        wishUserStatMapper.update(null,
+                new LambdaUpdateWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .setSql("starlight_balance = starlight_balance + " + amount)
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
+        operation.setCreditedAmount(amount);
+        operation.setBalanceAfter(balanceAfter);
+        wishPetOperationMapper.updateById(operation);
+        insertResourceLog(userId, amount, ResourceLogType.EARN, ResourceLogSource.PET_REFUND,
+                original.getRefId(), balanceAfter);
+        log.info("宠物星光退款完成, refundOperationId={}, originalOperationId={}, userId={}, amount={}",
+                refundOperationId, originalOperationId, userId, amount);
+        return toOperationVo(operation, false);
+    }
+
+    /** 退款请求摘要：按原单而非业务 refId 维度，保证同原单退款幂等判定独立于扣款摘要 */
+    private String refundDigest(Long userId, int amount, String originalOperationId) {
+        String canonical = userId + "|REFUND|" + amount + "|" + ResourceLogSource.PET_REFUND.name()
+                + "|" + originalOperationId;
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 摘要算法不可用", e);
+        }
+    }
+
     private WishPetOperation requireOperation(String operationId) {
         WishPetOperation existing = wishPetOperationMapper.selectOne(
                 new LambdaQueryWrapper<WishPetOperation>().eq(WishPetOperation::getOperationId, operationId));

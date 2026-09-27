@@ -827,7 +827,8 @@ export interface AiGoal {
 
 export interface CreateAiGoalsPayload {
   sessionId: string
-  wishId?: number
+  /** B22/T25：雪花 ID 字符串透传 */
+  wishId?: number | string
   goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>
 }
 

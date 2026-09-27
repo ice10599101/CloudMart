@@ -148,7 +148,7 @@ export default function WishDetail() {
     browseReportedRef.current = true
     void recordBrowseHistory({
       targetType: 'WISH',
-      targetId: Number(wish.id),
+      targetId: wish.id,
       title: wish.title,
       cover: wish.mediaUrls?.[0],
     }).catch(() => {})

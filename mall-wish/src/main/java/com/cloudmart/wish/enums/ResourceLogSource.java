@@ -31,5 +31,7 @@ public enum ResourceLogSource {
     /** 宠物打工/对战奖励（社区宠物模块经内部端点发放） */
     PET_REWARD,
     /** 宠物商城消费（装备/皮肤/技能书/进化，社区宠物模块经内部端点扣减） */
-    PET_SHOP
+    PET_SHOP,
+    /** 宠物旧单退款（P02/TX-04：按原扣款单全额原路退回，不参与余额上限截断） */
+    PET_REFUND
 }

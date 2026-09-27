@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
@@ -81,7 +82,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
     private final PetProperties properties;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
 
@@ -97,7 +98,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                                 PetDailyQuestService dailyQuestService,
                                 PetIntimacyService intimacyService,
                                 PetProperties properties,
-                                PetOperationService operationService,
+                                PetEconomyService economyService,
                                 PetOutboxService outboxService,
                                 PetClock petClock) {
         this.petService = petService;
@@ -112,7 +113,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.properties = properties;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.outboxService = outboxService;
         this.petClock = petClock;
     }
@@ -291,10 +292,9 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         // B01：本地奖励已生效；星光结果未知不回滚
         Integer credited = null;
         if (currencyReward > 0) {
-            String operationId = operationService.operationKey("CAREER_CLAIM", activity.getId());
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, userId, activity.getPetId(), "CAREER_CLAIM", activity.getId(),
-                    currencyReward, null);
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    userId, activity.getPetId(), "CAREER_CLAIM", activity.getId(),
+                    currencyReward, null, activity.getId());
             if (settlement.isCompleted()) {
                 credited = settlement.credited();
             }
@@ -348,14 +348,14 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         // B01/B10：幂等扣款先行（重复晋升同键收敛；余额不足/冲突明确失败回滚）
         int cost = orZero(current.getPromoteStarCost());
         if (cost > 0) {
-            String operationId = operationService.operationKey(BIZ_TYPE_PROMOTE, pet.getId(), target.getCode());
             String promoteSnapshot = PetJsonUtils.toJson(Map.of(
                     "careerTo", target.getCode(),
                     "careerFrom", current.getCode()));
-            PetOperationService.WalletSettlement settlement = operationService.executeSpend(
-                    operationId, userId, pet.getId(), BIZ_TYPE_PROMOTE, pet.getId(), cost, promoteSnapshot);
+            PetOperationService.WalletSettlement settlement = economyService.spend(
+                    userId, pet.getId(), BIZ_TYPE_PROMOTE, pet.getId(), cost, promoteSnapshot,
+                    pet.getId(), target.getCode());
             if (settlement.isUnknown()) {
-                throw operationService.settlementPending();
+                throw economyService.settlementPending();
             }
             if (!settlement.isCompleted()) {
                 throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,

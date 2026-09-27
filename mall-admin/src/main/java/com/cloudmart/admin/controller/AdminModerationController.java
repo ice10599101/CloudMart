@@ -61,6 +61,16 @@ public class AdminModerationController {
         return moderationFeignClient.listCases(status, cursor, pageSize);
     }
 
+    @GetMapping("/appeals")
+    @RequiresPermission("business:wishAppeal:review")
+    @Operation(summary = "申诉复核队列", description = "按状态筛选")
+    public ApiResponse<List<Map<String, Object>>> appeals(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false, defaultValue = "20") Integer pageSize) {
+        return moderationFeignClient.listAppeals(status, cursor, pageSize);
+    }
+
     @PostMapping("/cases/{id}/decisions")
     @RequiresPermission("business:wishModeration:audit")
     @Operation(summary = "作出治理决定", description = "HIDE/RESTORE 必填原因；操作者经透传头落审计")

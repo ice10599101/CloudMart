@@ -44,6 +44,8 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
     private final WishAccountDeletionMapper deletionMapper;
     private final WishMapper wishMapper;
     private final StringRedisTemplate redisTemplate;
+    private final MailVerificationSender mailSender;
+    private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
 
     @Value("${wish.account-deletion.echo-code:false}")
     private boolean echoCode;
@@ -62,15 +64,44 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
             throw new BusinessException(WishErrorCodes.WISH_DELETION_EXECUTED, "账号已注销");
         }
         final String code = String.format("%06d", secureRandom.nextInt(1_000_000));
-        redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
+
+        // B20：验证码经邮件通道下发（SMTP 配置 wish.mail.*；echo-code 仅开发/测试回显）
         if (echoCode) {
+            redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
             log.warn("注销验证码回显模式（仅开发/测试）userId={}", userId);
             return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(true, code, null);
         }
-        // 真实短信/邮件通道尚未接入（mall-notification 仅站内信）——如实返回未发送
-        log.warn("注销验证码已生成但无下发通道 userId={}（B20：sent=false，不假成功）", userId);
+
+        // 取用户绑定邮箱
+        String email = null;
+        try {
+            var resp = userFeignClient.getUserById(userId);
+            if (resp != null && resp.success() && resp.data() != null) {
+                Object v = resp.data().get("email");
+                email = v == null ? null : v.toString();
+            }
+        } catch (Exception ex) {
+            log.warn("获取用户邮箱失败 userId={}: {}", userId, ex.getMessage());
+        }
+        if (email == null || email.isBlank()) {
+            return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(false, null,
+                    "账号未绑定邮箱，请联系客服人工核验后继续注销流程");
+        }
+        if (!mailSender.isConfigured()) {
+            return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(false, null,
+                    "验证码邮件通道未配置，请联系客服人工核验后继续注销流程");
+        }
+
+        redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
+        boolean sent = mailSender.sendVerificationCode(email, code, 5);
+        if (sent) {
+            log.info("注销验证码邮件已发送 userId={}", userId);
+            return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(true, null, null);
+        }
+        // 发送失败：清掉验证码避免半成功（用户重试会重新生成）
+        redisTemplate.delete(CODE_KEY_PREFIX + userId);
         return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(false, null,
-                "验证码下发通道暂未接入，请通过客服人工核验后继续注销流程");
+                "验证码邮件发送失败，请稍后重试");
     }
 
 
@@ -182,6 +213,19 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
             }
         }
         return executed;
+    }
+
+    /**
+     * B20 编排入口：幂等擦除该用户心愿数据（软删保留审计）。
+     * 重复调用无害（delete 只影响未删行）；编排方以 EXECUTED 标记最终成功。
+     */
+    @Override
+    @Transactional
+    public boolean eraseUserData(Long userId) {
+        int deleted = wishMapper.delete(new LambdaQueryWrapper<Wish>()
+                .eq(Wish::getUserId, userId));
+        log.warn("B20 编排擦除心愿数据 userId={}, deleted={}", userId, deleted);
+        return true;
     }
 
     private WishAccountDeletion getByUser(Long userId) {

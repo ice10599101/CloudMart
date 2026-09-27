@@ -542,9 +542,16 @@ export const petApi = {
 
   /** 亲密度与陪伴 */
   getIntimacy: () => request<PetIntimacyInfo>({ url: '/pet/intimacy' }),
-  /** 陪伴心跳（上报秒数，服务端按日封顶折算亲密度） */
-  companionHeartbeat: (seconds: number) =>
-    request<PetIntimacyInfo>({ url: '/pet/companion/heartbeat', method: 'POST', data: { seconds } }),
+  // ==================== W03：宠物币钱包（§7.8/§8.2） ====================
+  /** 本人宠物币余额（懒创建期初 0；FROZEN 仍可读） */
+  getWallet: () => request<PetWalletVO>({ url: '/pet/wallet' }),
+  /** 收支明细（游标分页） */
+  listWalletTransactions: (params?: { cursor?: number | string; size?: number; direction?: string; bizType?: string }) =>
+    request<PetWalletTransactionVO[]>({ url: '/pet/wallet/transactions', data: params }),
+
+  /** 陪伴心跳（B05/FE-02：返回会话视图，与亲密度 overview 分离） */
+  companionHeartbeat: (seconds: number, seq?: number) =>
+    request<PetCompanionSessionVO>({ url: '/pet/companion/heartbeat', method: 'POST', data: { seconds, seq } }),
 
   /** 职业面板 */
   getCareer: () => request<PetCareerPanel>({ url: '/pet/career' }),
@@ -662,6 +669,42 @@ export const petApi = {
 }
 
 // ==================== 三期类型（与服务端 VO 对齐） ====================
+
+/** 宠物币钱包视图（契约 §8.1：ID/余额为字符串） */
+export interface PetWalletVO {
+  accountId: number | string
+  currency: 'PET_COIN'
+  balance: number | string
+  status: 'ACTIVE' | 'FROZEN'
+  version: number | string
+  serverNow: string
+}
+
+export interface PetWalletTransactionVO {
+  transactionId: number | string
+  operationId: string
+  petId: number | string | null
+  bizType: string
+  direction: 'EARN' | 'SPEND' | 'REFUND' | 'ADJUSTMENT'
+  amount: number | string
+  status: string
+  currency: string
+  occurredAt: string
+}
+
+/** 陪伴会话心跳视图（B05/FE-02：与亲密度 overview 分离） */
+export interface PetCompanionSessionVO {
+  sessionId: number | string
+  status: 'ACTIVE' | 'EXPIRED' | 'STOPPED'
+  serverNow: string
+  accepted: boolean
+  creditedSeconds: number
+  todayAcceptedSeconds: number
+  todayGrantedPoints: number
+  dailyPointCap: number
+  intimacy: number
+  intimacyLevel: number
+}
 
 /** 亲密度与陪伴 */
 export interface PetIntimacyInfo {

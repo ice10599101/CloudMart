@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetCollectionEntry;
@@ -80,7 +81,7 @@ public class PetPlayFeatureService {
     private final com.cloudmart.pet.repository.PetActivityMapper activityMapper;
     private final com.cloudmart.pet.repository.PetDiaryEntryMapper diaryEntryMapper;
     private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
 
     public PetPlayFeatureService(PetMapper petMapper, PetClock petClock, PetQuotaService quotaService,
                                  PetMinigameRoundMapper minigameMapper,
@@ -94,7 +95,7 @@ public class PetPlayFeatureService {
                                  com.cloudmart.pet.repository.PetActivityMapper activityMapper,
                                  com.cloudmart.pet.repository.PetDiaryEntryMapper diaryEntryMapper,
                                  com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper,
-                                 PetOperationService operationService) {
+                                 PetEconomyService economyService) {
         this.petMapper = petMapper;
         this.petClock = petClock;
         this.quotaService = quotaService;
@@ -109,7 +110,7 @@ public class PetPlayFeatureService {
         this.activityMapper = activityMapper;
         this.diaryEntryMapper = diaryEntryMapper;
         this.inventoryMapper = inventoryMapper;
-        this.operationService = operationService;
+        this.economyService = economyService;
     }
 
     // ---------------- N05 离线摘要 ----------------
@@ -228,9 +229,9 @@ public class PetPlayFeatureService {
                 result.put("reward", Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE, "duplicate", true));
             }
         } else {
-            String operationId = operationService.operationKey("COOP_REWARD_ALT", cooperationId, userId);
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, userId, pet.getId(), "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null);
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    userId, pet.getId(), "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null,
+                    cooperationId, userId);
             if (!settlement.isCompleted()) {
                 throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING, "替代星光结算中，稍后按原操作查询");
             }

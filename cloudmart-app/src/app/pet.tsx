@@ -394,7 +394,11 @@ export default function PetScreen() {
         try {
           const { data: res } = await petApi.companionHeartbeat(60)
           if (res.success && res.data) {
-            setIntimacy(res.data)
+            // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
+            const { data: overview } = await petApi.getIntimacy()
+            if (overview.success && overview.data) {
+              setIntimacy(overview.data)
+            }
           }
         } catch {
           // 心跳失败静默（下一轮重试）
@@ -1304,6 +1308,16 @@ export default function PetScreen() {
               ))}
             </View>
             {careMessage && <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{careMessage}</Text>}
+
+            <TouchableOpacity
+              onPress={() => router.push('/pet-wallet')}
+              style={{
+                alignItems: 'center', paddingVertical: 10, borderRadius: BorderRadius.lg,
+                borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.4)', backgroundColor: 'rgba(250, 204, 21, 0.08)',
+              }}
+            >
+              <Text style={{ color: '#facc15', fontSize: FontSize.sm, fontWeight: '600' }}>🪙 宠物币钱包</Text>
+            </TouchableOpacity>
 
             {careTab === 'shop' && (
               <View style={{ gap: Spacing.sm }}>

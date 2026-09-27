@@ -220,7 +220,7 @@ function renderNotificationText(item: EnrichedNotification): React.ReactNode {
   return <RichText content={item.content} variant="preview" className={styles.notificationText} />
 }
 
-function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNotification; followedMap: Record<number, boolean>; onToggleFollow: (userId: number) => void }) {
+function FollowDetail({ item, followedMap, onToggleFollow }: { item: EnrichedNotification; followedMap: Record<string, boolean>; onToggleFollow: (userId: number | string) => void }) {
   const nickname = extractFollowNickname(item.content)
   const userId = item.bizId ?? item.userId
   const isFollowed = followedMap[userId] ?? false
@@ -285,7 +285,7 @@ export default function Messages() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [followedMap, setFollowedMap] = useState<Record<number, boolean>>({})
+  const [followedMap, setFollowedMap] = useState<Record<string, boolean>>({})
   const { unreadCount, fetchUnreadCount, resetUnread } = useNotificationStore()
 
   const enrichAndSet = useCallback((items: NotificationItem[]) => {
@@ -365,7 +365,7 @@ export default function Messages() {
     navigateToBiz(item)
   }, [fetchUnreadCount])
 
-  const handleToggleFollow = useCallback((userId: number) => {
+  const handleToggleFollow = useCallback((userId: number | string) => {
     setFollowedMap((prev) => {
       const next = !prev[userId]
       return { ...prev, [userId]: next }

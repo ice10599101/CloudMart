@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -73,7 +74,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
-    private final PetOperationService operationService;
+    private final PetEconomyService economyService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -89,7 +90,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetDailyQuestService dailyQuestService,
                                 PetIntimacyService intimacyService,
                                 PetRelationService relationService,
-                                PetOperationService operationService,
+                                PetEconomyService economyService,
                                 com.cloudmart.pet.service.PetUserBlockService userBlockService) {
         this.petService = petService;
         this.stateService = stateService;
@@ -104,7 +105,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.relationService = relationService;
-        this.operationService = operationService;
+        this.economyService = economyService;
         this.userBlockService = userBlockService;
     }
 
@@ -340,13 +341,13 @@ public class PetBattleServiceImpl implements PetBattleService {
 
         if (attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
             // B01：本地奖励已生效；星光经统一操作记录幂等发放，结果未知不回滚本地奖励
-            String operationId = operationService.operationKey("BATTLE_REWARD", battle.getId(), "attacker");
-            PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                    operationId, battle.getAttackerUserId(), battle.getAttackerPetId(),
-                    "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null);
+            PetOperationService.WalletSettlement settlement = economyService.earn(
+                    battle.getAttackerUserId(), battle.getAttackerPetId(),
+                    "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
+                    battle.getId(), "attacker");
             if (!settlement.isCompleted()) {
-                log.info("对战奖励星光结算中, battleId={}, side=attacker, operationId={}",
-                        battle.getId(), operationId);
+                log.info("对战奖励星光结算中, battleId={}, side=attacker, status={}",
+                        battle.getId(), settlement.status());
             }
         }
 
@@ -367,13 +368,13 @@ public class PetBattleServiceImpl implements PetBattleService {
                 // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
                 relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
                 if (!attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-                    String operationId = operationService.operationKey("BATTLE_REWARD", battle.getId(), "defender");
-                    PetOperationService.WalletSettlement settlement = operationService.executeEarn(
-                            operationId, defender.getUserId(), defender.getId(),
-                            "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null);
+                    PetOperationService.WalletSettlement settlement = economyService.earn(
+                            defender.getUserId(), defender.getId(),
+                            "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
+                            battle.getId(), "defender");
                     if (!settlement.isCompleted()) {
-                        log.info("对战奖励星光结算中, battleId={}, side=defender, operationId={}",
-                                battle.getId(), operationId);
+                        log.info("对战奖励星光结算中, battleId={}, side=defender, status={}",
+                                battle.getId(), settlement.status());
                     }
                 }
             }
