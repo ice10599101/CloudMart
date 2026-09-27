@@ -372,7 +372,8 @@ interface AdoptWizardProps {
 /** 领养向导：选种类 → 选性格 → 取名 */
 function AdoptWizard({ onAdopted }: AdoptWizardProps) {
   const { message } = App.useApp()
-  const [species, setSpecies] = useState<string>('CAT')
+  // 默认跟随选项表首项，避免硬编码码值与选项表脱节（V28 水果码迁移曾漏改此处）
+  const [species, setSpecies] = useState<string>(SPECIES_OPTIONS[0].value)
   const [gender, setGender] = useState<string>('MALE')
   const [personality, setPersonality] = useState<string>('LIVELY')
   const [color, setColor] = useState<string>('orange')

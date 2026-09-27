@@ -128,7 +128,8 @@ public class PetServiceImpl implements PetService {
         // 性别：领养可选，未传（旧客户端）默认男
         pet.setGender(request.gender() != null ? request.gender() : PetGender.MALE.name());
         pet.setAppearance(PetJsonUtils.toJson(Map.of(
-                "color", request.color() != null ? request.color() : "orange",
+                // 未传颜色时回落种类默认色（西瓜绿/蓝莓蓝等），与 PetItemCatalog.SPECIES_DEFAULT_COLOR 保持一致
+                "color", request.color() != null ? request.color() : PetItemCatalog.defaultColorFor(request.species()),
                 "accessory", request.accessory() != null ? request.accessory() : "none")));
         pet.setPersonality(request.personality());
         pet.setLevel(1);

@@ -15,9 +15,9 @@ public record CreatePetRequest(
         @Size(max = 12, message = "宠物名最长 12 个字符")
         String name,
 
-        @Schema(description = "种类: CAT/DOG/RABBIT/FOX/PANDA", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "种类: STRAWBERRY/ORANGE/WATERMELON/BLUEBERRY/DRAGONFRUIT", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "请选择宠物种类")
-        @Pattern(regexp = "CAT|DOG|RABBIT|FOX|PANDA", message = "宠物种类非法")
+        @Pattern(regexp = "STRAWBERRY|ORANGE|WATERMELON|BLUEBERRY|DRAGONFRUIT", message = "宠物种类非法")
         String species,
 
         @Schema(description = "性别: MALE/FEMALE（缺省 MALE，兼容旧客户端）")

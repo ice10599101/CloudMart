@@ -1,6 +1,6 @@
 # CloudMart 宠物模块 — 长期笔记
 
-> 详细过程见服务端注入的工作记忆与 `pet-game/tools/` 内脚本注释；当日明细见同目录日期日志。
+> 本项目所有微服务和docker服务全部完整运行在远程服务器，开发过程中需要测试直接连接远程服务器即可，本机不运行任何服务，本机只负责开发和更新代码。
 
 ## 方向变更：猫退役 → 五只水果宠物（2026-09-28）
 - 用户否决奶灰猫，猫模型已全量删除（`assets/resources/models/cat/`、`textures/pet-cat-alive.png`、
@@ -15,6 +15,9 @@
   旧物种限定皮肤删除——开发期无用户数据，不做值迁移；Java 枚举/默认色表/9 处测试夹具同步；
   mall-pet 174 测试全绿；**V28 待服务重启落库**）。UI 侧 PetSpecies 联合类型/领养选项/emoji 表已同步，
   旧动物码在 emoji/果色映射里保留过渡兼容，V28 落库后自动走水果码直查。
+  V28 曾漏网两处（2026-09-28 已修）：`CreatePetRequest` @Pattern 白名单、`AdoptWizard` 硬编码
+  默认种类 'CAT'（已改 `SPECIES_OPTIONS[0].value` 跟随选项表）；createPet color fallback 已对齐
+  defaultColorFor。**枚举收窄迁移必查：后端 @Pattern/@Schema 校验白名单 + 前端硬编码默认值。**
 - **V29 全模块清零**：TRUNCATE 54 张用户/运行时数据表，保留 13 张配置/目录表（10 张 *_config +
   pet_achievement/pet_collection_entry 定义目录 + pet_config_version 版本快照）；comm 三方校验
   零漏网零误清；**新增配置表必须同步 V29 保留名单**。V28/V29 均待服务重启落库。
