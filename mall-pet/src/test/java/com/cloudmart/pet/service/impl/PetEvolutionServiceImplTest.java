@@ -203,7 +203,7 @@ class PetEvolutionServiceImplTest {
         pet.setId(1L);
         pet.setUserId(100L);
         pet.setName("小橘");
-        pet.setSpecies("CAT");
+        pet.setSpecies("STRAWBERRY");
         pet.setLevel(level);
         pet.setEvolutionStage(evolutionStage);
         pet.setMaxHp(100);

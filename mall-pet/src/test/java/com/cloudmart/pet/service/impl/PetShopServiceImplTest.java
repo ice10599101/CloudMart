@@ -172,7 +172,7 @@ class PetShopServiceImplTest {
         PetSkinConfig skin = new PetSkinConfig();
         skin.setCode("golden_dog");
         skin.setName("金渐层柴");
-        skin.setSpecies("DOG");
+        skin.setSpecies("ORANGE");
         skin.setColor("golden");
         skin.setAccessory("bandana");
         skin.setPriceStarlight(260);
@@ -224,7 +224,7 @@ class PetShopServiceImplTest {
         pet.setId(1L);
         pet.setUserId(100L);
         pet.setName("小橘");
-        pet.setSpecies("CAT");
+        pet.setSpecies("STRAWBERRY");
         pet.setLevel(5);
         pet.setMaxHp(100);
         pet.setHp(80);

@@ -108,7 +108,7 @@ class PetInventoryServiceImplTest {
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         PetInventory item = item("SKIN", "mint_cat");
         when(inventoryMapper.selectOne(any())).thenReturn(item);
-        when(itemCatalog.skin("mint_cat")).thenReturn(Optional.of(skin("mint_cat", "CAT", "mint", "bow", 2, 0)));
+        when(itemCatalog.skin("mint_cat")).thenReturn(Optional.of(skin("mint_cat", "STRAWBERRY", "mint", "bow", 2, 0)));
         when(inventoryMapper.update(any(), any())).thenReturn(1);
 
         inventoryService.wearSkin(100L, new WearSkinRequest("mint_cat"));
@@ -125,7 +125,7 @@ class PetInventoryServiceImplTest {
     @DisplayName("穿戴皮肤：种类不匹配 400 PET_SKIN_SPECIES_MISMATCH")
     void wearSkinSpeciesMismatch() {
         when(inventoryMapper.selectOne(any())).thenReturn(item("SKIN", "golden_dog"));
-        when(itemCatalog.skin("golden_dog")).thenReturn(Optional.of(skin("golden_dog", "DOG", "golden", "bandana", 2, 0)));
+        when(itemCatalog.skin("golden_dog")).thenReturn(Optional.of(skin("golden_dog", "ORANGE", "golden", "bandana", 2, 0)));
 
         assertThatThrownBy(() -> inventoryService.wearSkin(100L, new WearSkinRequest("golden_dog")))
                 .isInstanceOf(BusinessException.class)
@@ -160,7 +160,8 @@ class PetInventoryServiceImplTest {
         verify(petMapper, atLeastOnce()).updateById(captor.capture());
         Pet saved = captor.getValue();
         assertThat(saved.getSkinCode()).isNull();
-        assertThat(saved.getAppearance()).contains("orange").contains("none");
+        // 草莓的"种类默认色" = pink（SPECIES_DEFAULT_COLOR 水果化映射）
+        assertThat(saved.getAppearance()).contains("pink").contains("none");
     }
 
     @Test
@@ -223,7 +224,7 @@ class PetInventoryServiceImplTest {
         pet.setId(1L);
         pet.setUserId(100L);
         pet.setName("小橘");
-        pet.setSpecies("CAT");
+        pet.setSpecies("STRAWBERRY");
         pet.setLevel(5);
         pet.setEvolutionStage(0);
         pet.setMaxHp(100);

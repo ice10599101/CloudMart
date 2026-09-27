@@ -79,12 +79,12 @@ const FRUIT_SPECS: Record<string, FruitSpec> = {
     orange: {
         path: 'models/fruit/orange/orange/orange',
         dir: 'models/fruit/orange/orange',
-        scale: 1.65, height: 0.92, head: new Vec3(0, 0.76, 0.58), shadow: [0.60, 0.010, 0.46],
+        scale: 1.65, height: 0.87, head: new Vec3(0, 0.76, 0.58), shadow: [0.60, 0.010, 0.46],
     },
     watermelon: {
         path: 'models/fruit/watermelon/watermelon/watermelon',
         dir: 'models/fruit/watermelon/watermelon',
-        scale: 1.9, height: 0.78, head: new Vec3(0, 0.71, 0.85), shadow: [0.80, 0.010, 0.62],
+        scale: 1.6, height: 0.99, head: new Vec3(0, 0.77, 0.63), shadow: [0.66, 0.010, 0.52],
     },
     blueberry: {
         path: 'models/fruit/blueberry/blueberry/blueberry',

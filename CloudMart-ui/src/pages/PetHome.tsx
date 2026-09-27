@@ -127,11 +127,11 @@ import styles from './PetHome.module.css'
  */
 
 const SPECIES_OPTIONS = [
-  { value: 'CAT', emoji: '🐱', label: '橘猫' },
-  { value: 'DOG', emoji: '🐶', label: '柴犬' },
-  { value: 'RABBIT', emoji: '🐰', label: '兔子' },
-  { value: 'FOX', emoji: '🦊', label: '小狐狸' },
-  { value: 'PANDA', emoji: '🐼', label: '熊猫' },
+  { value: 'STRAWBERRY', emoji: '🍓', label: '草莓' },
+  { value: 'ORANGE', emoji: '🍊', label: '橘子' },
+  { value: 'WATERMELON', emoji: '🍉', label: '西瓜' },
+  { value: 'BLUEBERRY', emoji: '🫐', label: '蓝莓' },
+  { value: 'DRAGONFRUIT', emoji: '🐉', label: '火龙果' },
 ] as const
 
 const PERSONALITY_OPTIONS = [
@@ -144,7 +144,20 @@ const PERSONALITY_OPTIONS = [
 ] as const
 
 const SPECIES_EMOJI: Record<string, string> = {
-  CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼',
+  STRAWBERRY: '🍓', ORANGE: '🍊', WATERMELON: '🍉', BLUEBERRY: '🫐', DRAGONFRUIT: '🐉',
+  // 迁移过渡期兼容：后端 V28 落地前仍可能下发旧动物码
+  CAT: '🍓', DOG: '🍊', RABBIT: '🍉', FOX: '🫐', PANDA: '🐉',
+}
+
+/** 五果主题色（与 Cocos 侧果体主色同源）：身份签/舞台卡强调色随果切换 */
+const FRUIT_ACCENT: Record<string, string> = {
+  STRAWBERRY: '#E85D7A',
+  ORANGE: '#F08A1F',
+  WATERMELON: '#4E9A34',
+  BLUEBERRY: '#5A7CC4',
+  DRAGONFRUIT: '#E93B72',
+  // 迁移过渡期旧码 → 同色
+  CAT: '#E85D7A', DOG: '#F08A1F', RABBIT: '#4E9A34', FOX: '#5A7CC4', PANDA: '#E93B72',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -3098,6 +3111,8 @@ export default function PetHomePage() {
   }, [])
 
   const displayState = useMemo(() => (pet ? toDisplayState(pet) : null), [pet])
+  // 五果强调色：身份签/舞台卡边框随果种切换（迁移过渡期旧码也映射到对应果色）
+  const fruitAccent = FRUIT_ACCENT[pet?.species ?? ''] ?? '#8A7A6E'
 
   if (loading || userLoading) {
     return <div className={styles.pageLoading}><Spin size="large" /></div>
@@ -3112,9 +3127,9 @@ export default function PetHomePage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.stageCard}>
+      <div className={styles.stageCard} style={{ borderColor: `${fruitAccent}59` }}>
         <div className={styles.stageHeader}>
-          <span className={styles.stageTitle}>
+          <span className={styles.stageTitle} style={{ color: fruitAccent }}>
             {SPECIES_EMOJI[pet.species]} {pet.name}
             <span className={pet.gender === 'FEMALE' ? styles.genderFemale : styles.genderMale}>
               {pet.gender === 'FEMALE' ? '♀' : '♂'}

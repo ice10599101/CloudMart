@@ -238,10 +238,13 @@ def finish_texture(name, px):
 
 
 def make_orange_texture():
-    """橙皮：上亮下深的橘色渐变 + 细颗粒噪点（果皮质感）。"""
+    """橙皮：上亮下深的橘色渐变 + 细颗粒噪点（果皮质感）。
+    底色压得比直觉深一档 —— pet-toon 的提亮会把它洗成柠檬黄（v1 实证）。"""
     u, v, t = grad_grid()
-    top = np.array(hex_srgb(0xFFA53E))
-    bot = np.array(hex_srgb(0xF08A1F))
+    # ⚠️ 过补偿：pet-toon 烘死的暖黄主光会把橙色的蓝分量压没（橙→黄），
+    # 贴图必须深到发红才能在引擎里读成"橘"；Cycles 预览会偏深，属预期。
+    top = np.array(hex_srgb(0xF26800))
+    bot = np.array(hex_srgb(0xD55800))
     base = bot + (top - bot) * t[..., None]
     base += (np.clip((t - 0.70) / 0.20, 0, 1) * 0.035)[..., None]
     rng = np.random.default_rng(11)
@@ -299,28 +302,44 @@ def build_orange():
     parts += eye_parts
     parts.append(build_smile(prof, h, 0.400, alpha_deg=10))
     parts += build_blush_pair(prof, h, 0.435, 18, bpy.data.materials['blush'])
-    hat = [add_sphere_part('Stem', (0, 0, h + 0.048), (0.020, 0.020, 0.046),
-                           bpy.data.materials['stem'])]
-    hat.append(build_leaf('LeafL', (-0.040, -0.006, h + 0.085), (-0.62, -0.20, 0.76),
-                          0.088, 0.032, 0.054, bpy.data.materials['scallop']))
-    hat.append(build_leaf('LeafR', (0.040, -0.006, h + 0.085), (0.62, -0.20, 0.76),
-                          0.088, 0.032, 0.054, bpy.data.materials['scallop']))
+    hat = [add_sphere_part('HatCap', (0, 0, h - 0.006), (0.058, 0.058, 0.034),
+                           bpy.data.materials['cap'])]
+    for k in range(5):
+        a = k * (2 * math.pi / 5) + math.pi / 5
+        hat.append(add_sphere_part(f'HatBump{k}',
+                                   (0.040 * math.cos(a), 0.040 * math.sin(a), h - 0.002),
+                                   (0.021, 0.021, 0.018), bpy.data.materials['scallop']))
+    # 短梗贴着穹顶（v1 的细长梗 + 高空双叶 = 芽帽与头分离，用户反馈重做）
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.014, depth=0.036,
+                                        location=(0.002, 0.001, h + 0.030))
+    stem = bpy.context.active_object
+    stem.name = 'Stem'
+    stem.rotation_euler = Euler((math.radians(4), 0, math.radians(8)), 'XYZ')
+    stem.data.materials.append(bpy.data.materials['stem'])
+    smooth(stem)
+    hat.append(stem)
+    # 双叶从梗口摊开，叶根埋进穹顶（贴头、零缝隙）
+    hat.append(build_leaf('LeafL', (-0.030, -0.004, h + 0.048), (-0.55, -0.18, 0.80),
+                          0.078, 0.030, 0.048, bpy.data.materials['scallop']))
+    hat.append(build_leaf('LeafR', (0.030, -0.004, h + 0.048), (0.55, -0.18, 0.80),
+                          0.078, 0.030, 0.048, bpy.data.materials['scallop']))
     return {'parts': parts, 'hat': hat, 'eye_centers': eye_centers, 'body_h': h,
-            'hat_top': h + 0.16, 'max_r': 0.40}
+            'hat_top': h + 0.12, 'max_r': 0.40}
 
 
 def build_watermelon():
-    """西瓜 · 躺平大师：宽扁大圆肚（比谁都宽）+ 短粗瓜蒂和小叶。"""
-    prof = make_profile([(0.00, 0.030), (0.12, 0.360), (0.30, 0.460), (0.50, 0.480),
-                         (0.70, 0.460), (0.88, 0.340), (1.00, 0.040)])
-    h = 0.62
+    """西瓜 · 躺平大师：大圆肚（用户反馈：太扁 → 高度 0.62→0.80、宽高比 1.55→1.1，
+    仍是全家最胖但不再扁）+ 短粗瓜蒂和小叶。"""
+    prof = make_profile([(0.00, 0.030), (0.10, 0.300), (0.26, 0.400), (0.50, 0.440),
+                         (0.74, 0.400), (0.90, 0.280), (1.00, 0.035)])
+    h = 0.80
     parts = [build_body('Watermelon', prof, h,
                         make_material('watermelon', img=make_watermelon_texture(), rough=0.42))]
-    eye_parts, eye_centers = build_eyes(prof, h, 0.372, 0.160, bpy.data.materials['eye'],
+    eye_parts, eye_centers = build_eyes(prof, h, 0.480, 0.160, bpy.data.materials['eye'],
                                         bpy.data.materials['highlight'])
     parts += eye_parts
-    parts.append(build_smile(prof, h, 0.340, alpha_deg=12))
-    parts += build_blush_pair(prof, h, 0.385, 20, bpy.data.materials['blush'],
+    parts.append(build_smile(prof, h, 0.415, alpha_deg=12))
+    parts += build_blush_pair(prof, h, 0.445, 20, bpy.data.materials['blush'],
                               scale=(0.070, 0.015, 0.046))
     hat = []
     bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.026, depth=0.090,
@@ -403,6 +422,14 @@ FRUIT_BUILDERS = {
     'watermelon': build_watermelon,
     'blueberry': build_blueberry,
     'dragonfruit': build_dragonfruit,
+}
+
+# 各果 Happy 个性（剪辑名契约统一为 Happy，内容按果切换）
+HAPPY_KIND = {
+    'orange': 'roll',        # 滚动吃货：原地自转一圈
+    'watermelon': 'jelly',   # 躺平大师：肚皮果冻双弹
+    'blueberry': 'hops',     # 小不点：三连小碎跳
+    'dragonfruit': 'shimmy', # 戏精：扭摆甩鳍
 }
 
 
@@ -495,7 +522,96 @@ def set_range(action, start, end):
         print('[fruit] 设置帧范围失败（忽略）:', exc)
 
 
-def build_actions(arm):
+def happy_keys(kind):
+    """各果 Happy 个性化（40f @24fps；挤压以地面为锚，剪辑名契约不变）：
+    jump   草莓：标准开心跳（打样板，build_strawberry.py 内联同款）
+    roll   橘子：squash 起手 → 原地自转 360°（滚动吃货的转圈庆祝）→ 回弹稳住
+    jelly  西瓜：太重不跳，肚皮果冻双弹 duang duang + 蒂叶拍打
+    hops   蓝莓：三连小碎跳（小不点的雀跃，幅度小节奏快）
+    shimmy 火龙果：左右扭摆甩鳍 + 小跳（中二戏精的王冠甩动）"""
+    rest_b = ((0, 0, 0), (1, 1, 1), (0, 0, 0))
+    rest_c = ((0, 0, 0), None, None)
+    rest_e = (None, (1, 1, 1), None)
+
+    def row(body, calyx=None, eye_l=None, eye_r=None):
+        return {'Body': body, 'Calyx': calyx or rest_c,
+                'EyeL': eye_l or rest_e, 'EyeR': eye_r or rest_e}
+
+    if kind == 'roll':
+        # ⚠️ 轴系：骨骼局部 Y = 沿骨轴（竖直），自转必须绕局部 Y；绕局部 X/Z 是翻跟头
+        return [
+            (0,  row(rest_b)),
+            (4,  row(((0, 0, 0), (1.08, 0.90, 1.08), (0, 0, 0)), ((-5, 0, 0), None, None),
+                     (None, (1, 0.55, 1), None), (None, (1, 0.55, 1), None))),
+            (12, row(((0, -180, 0), (1.04, 1.05, 1.04), (0, 0.05, 0)), ((0, 6, 0), None, None),
+                     (None, (1, 0.35, 1), None), (None, (1, 0.35, 1), None))),
+            (20, row(((0, -360, 0), (1.00, 1.00, 1.00), (0, 0, 0)), rest_c,
+                     (None, (1, 0.35, 1), None), (None, (1, 0.35, 1), None))),
+            (26, row(((0, -374, 0), (1.06, 0.94, 1.06), (0, 0, 0)), ((0, -14, 0), None, None),
+                     (None, (1, 0.80, 1), None), (None, (1, 0.80, 1), None))),
+            (33, row(((0, -366, 0), (0.98, 1.03, 0.98), (0, 0, 0)), ((0, 6, 0), None, None))),
+            (HAPPY_FRAMES, row(((0, -360, 0), (1, 1, 1), (0, 0, 0)))),
+        ]
+    if kind == 'jelly':
+        return [
+            (0,  row(rest_b)),
+            (5,  row(((0, 0, 0), (1.12, 0.84, 1.12), (0, 0.02, 0)), ((-7, 0, 0), None, None),
+                     (None, (1, 0.45, 1), None), (None, (1, 0.45, 1), None))),
+            (12, row(((0, 0, 0), (0.94, 1.10, 0.94), (0, 0.05, 0)), ((6, 0, 0), None, None),
+                     (None, (1, 0.30, 1), None), (None, (1, 0.30, 1), None))),
+            (19, row(((0, 0, 0), (1.10, 0.88, 1.10), (0, 0, 0)), ((-6, 0, 0), None, None),
+                     (None, (1, 0.45, 1), None), (None, (1, 0.45, 1), None))),
+            (26, row(((0, 0, 0), (0.96, 1.07, 0.96), (0, 0.02, 0)), ((4, 0, 0), None, None))),
+            (33, row(((0, 0, 0), (1.02, 0.98, 1.02), (0, 0, 0)), ((-2, 0, 0), None, None))),
+            (HAPPY_FRAMES, row(rest_b)),
+        ]
+    if kind == 'hops':
+        squint = (None, (1, 0.50, 1), None)
+        return [
+            (0,  row(rest_b)),
+            (3,  row(((0, 0, 0), (1.06, 0.92, 1.06), (0, 0, 0)), rest_c, squint, squint)),
+            (7,  row(((0, 0, 0), (0.94, 1.08, 0.94), (0, 0.10, 0)), ((4, 0, 0), None, None), squint, squint)),
+            (11, row(((0, 0, 0), (1.08, 0.90, 1.08), (0, 0, 0)), ((-4, 0, 0), None, None), squint, squint)),
+            (15, row(((0, 0, 0), (0.94, 1.08, 0.94), (0, 0.13, 0)), ((4, 0, 0), None, None), squint, squint)),
+            (19, row(((0, 0, 0), (1.08, 0.90, 1.08), (0, 0, 0)), ((-4, 0, 0), None, None), squint, squint)),
+            (23, row(((0, 0, 0), (0.94, 1.08, 0.94), (0, 0.16, 0)), ((4, 0, 0), None, None), squint, squint)),
+            (27, row(((0, 0, 0), (1.10, 0.87, 1.10), (0, 0, 0)), ((-5, 0, 0), None, None), squint, squint)),
+            (33, row(((0, 0, 0), (0.98, 1.02, 0.98), (0, 0, 0)))),
+            (HAPPY_FRAMES, row(rest_b)),
+        ]
+    if kind == 'shimmy':
+        # 扭摆绕局部 Y（竖直自转小幅往复 = 甩鳍），冠鳍骨同步反向扭转
+        squint = (None, (1, 0.45, 1), None)
+        return [
+            (0,  row(rest_b)),
+            (4,  row(((0, 0, 0), (1.05, 0.94, 1.05), (0, 0, 0)), rest_c, squint, squint)),
+            (8,  row(((0, 8, 0), (1.00, 1.00, 1.00), (0, 0.04, 0)), ((0, 14, 0), None, None), squint, squint)),
+            (12, row(((0, -8, 0), (1.00, 1.00, 1.00), (0, 0.10, 0)), ((0, -14, 0), None, None), squint, squint)),
+            (16, row(((0, 8, 0), (1.00, 1.00, 1.00), (0, 0.16, 0)), ((0, 14, 0), None, None), squint, squint)),
+            (20, row(((0, -8, 0), (1.00, 1.00, 1.00), (0, 0.12, 0)), ((0, -14, 0), None, None), squint, squint)),
+            (24, row(((0, 6, 0), (1.00, 1.00, 1.00), (0, 0.06, 0)), ((0, 10, 0), None, None), squint, squint)),
+            (28, row(((0, -6, 0), (1.00, 1.00, 1.00), (0, 0, 0)), ((0, -10, 0), None, None))),
+            (33, row(((0, 0, 0), (1.06, 0.92, 1.06), (0, 0, 0)))),
+            (HAPPY_FRAMES, row(rest_b)),
+        ]
+    # jump（打样板：下蹲 → 起跳 → 滞空笑眼 → 落地挤压 → 回弹）
+    return [
+        (0,  row(rest_b)),
+        (4,  row(((0, 0, 0), (1.09, 0.87, 1.09), (0, 0, 0)), ((-6, 0, 0), None, None),
+                 (None, (1, 0.85, 1), None), (None, (1, 0.85, 1), None))),
+        (10, row(((0, 0, 0), (0.93, 1.14, 0.93), (0, 0.16, 0)), ((10, 0, 0), None, None),
+                 (None, (1, 0.30, 1), None), (None, (1, 0.30, 1), None))),
+        (16, row(((0, 0, 0), (0.95, 1.10, 0.95), (0, 0.24, 0)), ((4, 0, 0), None, None),
+                 (None, (1, 0.22, 1), None), (None, (1, 0.22, 1), None))),
+        (22, row(((0, 0, 0), (1.10, 0.86, 1.10), (0, 0, 0)), ((-9, 0, 0), None, None),
+                 (None, (1, 0.80, 1), None), (None, (1, 0.80, 1), None))),
+        (27, row(((0, 0, 0), (0.97, 1.06, 0.97), (0, 0, 0)), ((3, 0, 0), None, None))),
+        (34, row(((0, 0, 0), (1.01, 0.99, 1.01), (0, 0, 0)), ((-2, 0, 0), None, None))),
+        (HAPPY_FRAMES, row(rest_b)),
+    ]
+
+
+def build_actions(arm, happy_kind='jump'):
     if arm.animation_data:
         arm.animation_data.action = None
         for track in list(arm.animation_data.nla_tracks):
@@ -519,25 +635,7 @@ def build_actions(arm):
     clear_pose(arm)
     happy = bpy.data.actions.new('Happy')
     arm.animation_data.action = happy
-    KEYS = [
-        (0,  {'Body': ((0, 0, 0), (1, 1, 1), (0, 0, 0)), 'Calyx': ((0, 0, 0), None, None),
-              'EyeL': (None, (1, 1, 1), None), 'EyeR': (None, (1, 1, 1), None)}),
-        (4,  {'Body': ((0, 0, 0), (1.09, 0.87, 1.09), (0, 0, 0)), 'Calyx': ((-6, 0, 0), None, None),
-              'EyeL': (None, (1, 0.85, 1), None), 'EyeR': (None, (1, 0.85, 1), None)}),
-        (10, {'Body': ((0, 0, 0), (0.93, 1.14, 0.93), (0, 0.16, 0)), 'Calyx': ((10, 0, 0), None, None),
-              'EyeL': (None, (1, 0.30, 1), None), 'EyeR': (None, (1, 0.30, 1), None)}),
-        (16, {'Body': ((0, 0, 0), (0.95, 1.10, 0.95), (0, 0.24, 0)), 'Calyx': ((4, 0, 0), None, None),
-              'EyeL': (None, (1, 0.22, 1), None), 'EyeR': (None, (1, 0.22, 1), None)}),
-        (22, {'Body': ((0, 0, 0), (1.10, 0.86, 1.10), (0, 0, 0)), 'Calyx': ((-9, 0, 0), None, None),
-              'EyeL': (None, (1, 0.80, 1), None), 'EyeR': (None, (1, 0.80, 1), None)}),
-        (27, {'Body': ((0, 0, 0), (0.97, 1.06, 0.97), (0, 0, 0)), 'Calyx': ((3, 0, 0), None, None),
-              'EyeL': (None, (1, 1, 1), None), 'EyeR': (None, (1, 1, 1), None)}),
-        (34, {'Body': ((0, 0, 0), (1.01, 0.99, 1.01), (0, 0, 0)), 'Calyx': ((-2, 0, 0), None, None),
-              'EyeL': (None, (1, 1, 1), None), 'EyeR': (None, (1, 1, 1), None)}),
-        (HAPPY_FRAMES, {'Body': ((0, 0, 0), (1, 1, 1), (0, 0, 0)), 'Calyx': ((0, 0, 0), None, None),
-                        'EyeL': (None, (1, 1, 1), None), 'EyeR': (None, (1, 1, 1), None)}),
-    ]
-    for frame, poses in KEYS:
+    for frame, poses in happy_keys(happy_kind):
         for bone, (rot, scale, loc) in poses.items():
             key(arm, bone, frame, rot=rot, scale=scale, loc=loc)
     smooth_curves(happy)
@@ -643,24 +741,32 @@ def render_hero(name, body_h, max_r, outdir):
     scene.cycles.use_denoising = True
     scene.view_settings.view_transform = 'Standard'
 
-    act = bpy.data.actions.get('Idle')
     arm = bpy.data.objects['FruitRig']
-    arm.animation_data.action = act
-    try:
-        slots = list(getattr(act, 'slots', []))
-        if slots:
-            arm.animation_data.action_slot = slots[0]
-    except Exception as exc:
-        print('[fruit] slot 绑定跳过:', exc)
-    scene.frame_set(0)
-    out = os.path.join(outdir, name, 'hero.png')
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    scene.render.resolution_x = 800
-    scene.render.resolution_y = 800
-    scene.cycles.samples = 40
-    scene.render.filepath = out
-    bpy.ops.render.render(write_still=True)
-    print('[fruit] preview ->', out)
+
+    def set_action(name):
+        act = bpy.data.actions.get(name)
+        arm.animation_data.action = act
+        try:
+            slots = list(getattr(act, 'slots', []))
+            if slots:
+                arm.animation_data.action_slot = slots[0]
+        except Exception as exc:
+            print('[fruit] slot 绑定跳过:', exc)
+
+    def render_still(action_name, frame, filename):
+        set_action(action_name)
+        scene.frame_set(frame)
+        out = os.path.join(outdir, name, filename)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        scene.render.resolution_x = 800
+        scene.render.resolution_y = 800
+        scene.cycles.samples = 40
+        scene.render.filepath = out
+        bpy.ops.render.render(write_still=True)
+        print('[fruit] preview ->', out)
+
+    render_still('Idle', 0, 'hero.png')
+    render_still('Happy', 12, 'happy_peak.png')   # 各果个性化动作的峰值帧
 
 
 GROUP_OF_BASE = {'EyeL': 'EyeL', 'EyeR': 'EyeR', 'HLL': 'EyeL', 'HLR': 'EyeR',
@@ -704,7 +810,7 @@ for NAME, builder in FRUIT_BUILDERS.items():
         mod = ob.modifiers.new('Armature', 'ARMATURE')
         mod.object = arm
 
-    build_actions(arm)
+    build_actions(arm, HAPPY_KIND.get(NAME, 'jump'))
     blend_path = os.path.join(OUT_WORK, NAME + '.blend')
     bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 

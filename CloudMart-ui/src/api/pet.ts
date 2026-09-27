@@ -4,7 +4,8 @@ import type { ApiResponse } from '@/types/api'
 // ========== 社区宠物（契约对齐 mall-pet PetController 等，实施文档 §1.16） ==========
 // 数值全部服务端计算：客户端只发意图（POST /feed 等），不携带任何数值字段
 
-export type PetSpecies = 'CAT' | 'DOG' | 'RABBIT' | 'FOX' | 'PANDA'
+/** 宠物种类（2026-09 水果化，契约对齐 mall-pet V28 迁移后的 species 枚举） */
+export type PetSpecies = 'STRAWBERRY' | 'ORANGE' | 'WATERMELON' | 'BLUEBERRY' | 'DRAGONFRUIT'
 
 /** 宠物性别（领养时选择；服务端对未传默认 MALE） */
 export type PetGender = 'MALE' | 'FEMALE'

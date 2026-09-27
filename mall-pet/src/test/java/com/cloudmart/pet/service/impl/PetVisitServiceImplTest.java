@@ -213,7 +213,7 @@ class PetVisitServiceImplTest {
         pet.setId(1L);
         pet.setUserId(100L);
         pet.setName("小橘");
-        pet.setSpecies("CAT");
+        pet.setSpecies("STRAWBERRY");
         pet.setLevel(5);
         pet.setEnergy(100);
         pet.setHappiness(60);
@@ -225,7 +225,7 @@ class PetVisitServiceImplTest {
         neighbor.setId(2L);
         neighbor.setUserId(200L);
         neighbor.setName("旺财");
-        neighbor.setSpecies("DOG");
+        neighbor.setSpecies("ORANGE");
         neighbor.setLevel(5);
         neighbor.setIsPublic(true);
         return neighbor;

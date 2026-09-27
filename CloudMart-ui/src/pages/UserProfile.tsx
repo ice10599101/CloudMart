@@ -939,7 +939,8 @@ export default function UserProfile() {
         {petCard && !petCardHidden && (
           <div style={{ ...cardSectionStyle, display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 40, lineHeight: 1 }}>
-              {{ CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }[petCard.species] || '🐾'}
+              {/* STRAWBERRY:🍓 ORANGE:🍊 WATERMELON:🍉 BLUEBERRY:🫐 DRAGONFRUIT:🐉（迁移过渡期兼容旧动物码） */}
+              {{ STRAWBERRY: '🍓', ORANGE: '🍊', WATERMELON: '🍉', BLUEBERRY: '🫐', DRAGONFRUIT: '🐉', CAT: '🍓', DOG: '🍊', RABBIT: '🍉', FOX: '🫐', PANDA: '🐉' }[petCard.species] || '🐾'}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

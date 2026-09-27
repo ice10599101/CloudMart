@@ -29,11 +29,11 @@ public class PetItemCatalog {
 
     /** 原生外观默认色（卸下皮肤时回落到种类默认色，与前端/Cocos 调色板键一致） */
     private static final Map<String, String> SPECIES_DEFAULT_COLOR = Map.of(
-            "CAT", "orange",
-            "DOG", "brown",
-            "RABBIT", "white",
-            "FOX", "orange",
-            "PANDA", "gray");
+            "STRAWBERRY", "pink",
+            "ORANGE", "orange",
+            "WATERMELON", "green",
+            "BLUEBERRY", "blue",
+            "DRAGONFRUIT", "pink");
 
     private static final String DEFAULT_COLOR = "orange";
     private static final String DEFAULT_ACCESSORY = "none";

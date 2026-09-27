@@ -34,11 +34,11 @@ describe('pet API', () => {
   it('createPet() calls POST /pet/create with adoption payload', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
 
-    await createPet({ name: '小橘', species: 'CAT', personality: 'LIVELY' })
+    await createPet({ name: '小莓', species: 'STRAWBERRY', personality: 'LIVELY' })
 
     expect(request.post).toHaveBeenCalledWith('/pet/create', {
-      name: '小橘',
-      species: 'CAT',
+      name: '小莓',
+      species: 'STRAWBERRY',
       personality: 'LIVELY',
     })
   })
