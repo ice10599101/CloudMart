@@ -8,6 +8,7 @@ import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.AdminLoginLogFeignClient;
 import com.cloudmart.auth.feign.AdminUserFeignClient;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.AuthSessionService;
 import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
@@ -42,6 +43,7 @@ class AdminAuthServiceImplTest {
     private AdminLoginLogFeignClient loginLogFeignClient;
     private JwtProvider jwtProvider;
     private RefreshTokenService refreshTokenService;
+    private AuthSessionService authSessionService;
     private StringRedisTemplate redisTemplate;
     private ObjectMapper objectMapper;
     private AdminAuthServiceImpl adminAuthService;
@@ -65,9 +67,12 @@ class AdminAuthServiceImplTest {
         redisTemplate = mock(StringRedisTemplate.class);
         objectMapper = new ObjectMapper();
 
+        authSessionService = mock(AuthSessionService.class);
+        when(authSessionService.issueSession(any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new AuthSessionService.IssuedSession("session-1", 0L));
         adminAuthService = new AdminAuthServiceImpl(
                 adminUserFeignClient, loginLogFeignClient, jwtProvider,
-                refreshTokenService, redisTemplate, objectMapper, ACCESS_TOKEN_EXPIRATION
+                refreshTokenService, authSessionService, redisTemplate, objectMapper, ACCESS_TOKEN_EXPIRATION
         );
 
         valueOperations = mock(ValueOperations.class);
@@ -101,8 +106,8 @@ class AdminAuthServiceImplTest {
             when(valueOperations.get(SecurityConstants.ADMIN_LOCK_PREFIX + USERNAME)).thenReturn(null);
             when(adminUserFeignClient.validateAdmin(any(ValidateRequest.class)))
                     .thenReturn(ApiResponse.ok(adminDTO));
-            when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
-                    eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
+                any(), any(), any())).thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
@@ -124,15 +129,15 @@ class AdminAuthServiceImplTest {
             when(valueOperations.get(SecurityConstants.ADMIN_LOCK_PREFIX + USERNAME)).thenReturn(null);
             when(adminUserFeignClient.validateAdmin(any(ValidateRequest.class)))
                     .thenReturn(ApiResponse.ok(adminDTO));
-            when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), eq(Set.of("*:*:*")),
-                    eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
+                eq(Set.of("*:*:*")), any(), any())).thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
 
             assertThat(result).isNotNull();
-            verify(jwtProvider).generateAccessToken(eq(ADMIN_ID), eq("admin"),
-                    eq(Set.of("*:*:*")), eq(USERNAME), eq(1L));
+            verify(jwtProvider).generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
+                eq(Set.of("*:*:*")), eq(USERNAME), eq(1L));
         }
 
         @Test
@@ -224,8 +229,8 @@ class AdminAuthServiceImplTest {
             when(valueOperations.get(SecurityConstants.ADMIN_LOCK_PREFIX + USERNAME)).thenReturn(null);
             when(adminUserFeignClient.validateAdmin(any(ValidateRequest.class)))
                     .thenReturn(ApiResponse.ok(adminDTO));
-            when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
-                    eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
+                any(), any(), any())).thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             adminAuthService.login(request, httpRequest);
@@ -247,8 +252,8 @@ class AdminAuthServiceImplTest {
 .thenReturn(rotation(REFRESH_TOKEN, ADMIN_ID));
             when(adminUserFeignClient.getPermissionsByUserId(ADMIN_ID))
                     .thenReturn(ApiResponse.ok(adminDTO));
-            when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
-                    eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
+                any(), any(), any())).thenReturn(ACCESS_TOKEN);
             LoginResponse result = adminAuthService.refresh(REFRESH_TOKEN);
 
             assertThat(result).isNotNull();
@@ -299,7 +304,9 @@ class AdminAuthServiceImplTest {
         @Test
         @DisplayName("should revoke all tokens and remove online user")
         void logout_revokesAllTokens() {
-            adminAuthService.logout(ADMIN_ID);
+            adminAuthService.logout(ADMIN_ID, "session-1");
+
+            verify(authSessionService).revokeSession("session-1");
 
             verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.ADMIN, ADMIN_ID);
         }

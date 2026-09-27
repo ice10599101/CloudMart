@@ -116,6 +116,7 @@ import { markAllAsRead, markAsRead } from '@/api/notification'
 import PetStage, { type PetStageHandle } from '@/components/PetStage'
 import type { BattleRound, PetDisplayState, PetIntentAction } from '@/components/PetStage/bridge'
 import { useAuthStore } from '@/stores/auth'
+import PetPlayPanel from './PetPlayPanel'
 import styles from './PetHome.module.css'
 
 /**
@@ -163,7 +164,7 @@ const STATUS_SPEECH: Record<string, string> = {
 
 type PanelKey =
   | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
-  | 'chat' | 'achievements' | 'rankings' | 'reminders'
+  | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'play'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'home', label: '家园', emoji: '🏠' },
@@ -178,6 +179,7 @@ const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'achievements', label: '成就', emoji: '🏆' },
   { key: 'rankings', label: '排行', emoji: '📊' },
   { key: 'reminders', label: '提醒', emoji: '🔔' },
+  { key: 'play', label: '玩法', emoji: '🎮' },
 ]
 
 /** 领养可选外观（与服务端白名单一致：color/accessory） */
@@ -3208,6 +3210,7 @@ export default function PetHomePage() {
           </>
         )}
         {panel === 'reminders' && <RemindersPanel />}
+        {panel === 'play' && <PetPlayPanel pet={pet} />}
         {panel === 'rankings' && <RankingsPanel />}
         {panel === 'daily' && <DailyPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}

@@ -1,5 +1,8 @@
 package com.cloudmart.payment.service.impl;
 
+import com.cloudmart.common.async.EventEnvelope;
+import com.cloudmart.common.async.outbox.OutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -23,6 +26,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -36,7 +40,8 @@ class PaymentServiceImplTest {
 
     private PaymentMapper paymentMapper;
     private PaymentConverter paymentConverter;
-    private PaymentEventProducer paymentEventProducer;
+    private OutboxService outboxService = mock(OutboxService.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private PaymentServiceImpl paymentService;
 
     @BeforeAll
@@ -53,8 +58,8 @@ class PaymentServiceImplTest {
     void setUp() {
         paymentMapper = mock(PaymentMapper.class);
         paymentConverter = mock(PaymentConverter.class);
-        paymentEventProducer = mock(PaymentEventProducer.class);
-        paymentService = new PaymentServiceImpl(paymentMapper, paymentConverter, paymentEventProducer);
+        paymentService = new PaymentServiceImpl(paymentMapper, paymentConverter,
+                outboxService, objectMapper);
     }
 
     private Payment buildPayment(Long id, Long orderId, String status) {
@@ -147,7 +152,10 @@ class PaymentServiceImplTest {
             assertThat(payment.getStatus()).isEqualTo("SUCCESS");
             assertThat(payment.getPaidAt()).isNotNull();
             verify(paymentMapper).updateById(payment);
-            verify(paymentEventProducer).sendPaymentSuccess(100L, 1L);
+            verify(outboxService).record(argThat(evt ->
+                "PAYMENT_SUCCESS".equals(evt.eventType())
+                        && evt.payload().contains("\"orderId\":100")
+                        && evt.payload().contains("\"paymentId\":1")));
         }
 
         @Test
@@ -164,7 +172,7 @@ class PaymentServiceImplTest {
 
             assertThat(payment.getStatus()).isEqualTo("FAILED");
             verify(paymentMapper).updateById(payment);
-            verify(paymentEventProducer, never()).sendPaymentSuccess(anyLong(), anyLong());
+            verify(outboxService, never()).record(any(EventEnvelope.class));
         }
 
         @Test
@@ -213,7 +221,9 @@ class PaymentServiceImplTest {
 
             assertThat(payment.getStatus()).isEqualTo("REFUNDED");
             verify(paymentMapper).updateById(payment);
-            verify(paymentEventProducer).sendPaymentRefund(100L, 1L);
+            verify(outboxService).record(argThat(evt ->
+                "PAYMENT_REFUND".equals(evt.eventType())
+                        && evt.payload().contains("\"orderId\":100")));
         }
 
         @Test
@@ -270,7 +280,10 @@ class PaymentServiceImplTest {
             assertThat(payment.getStatus()).isEqualTo("SUCCESS");
             assertThat(payment.getPaidAt()).isNotNull();
             verify(paymentMapper).updateById(payment);
-            verify(paymentEventProducer).sendPaymentSuccess(100L, 1L);
+            verify(outboxService).record(argThat(evt ->
+                "PAYMENT_SUCCESS".equals(evt.eventType())
+                        && evt.payload().contains("\"orderId\":100")
+                        && evt.payload().contains("\"paymentId\":1")));
         }
 
         @Test

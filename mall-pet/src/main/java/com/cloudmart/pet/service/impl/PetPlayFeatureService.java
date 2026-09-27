@@ -395,6 +395,8 @@ public class PetPlayFeatureService {
         result.put("rewardEligible", rewardEligible);
         result.put("deadlineAt", round.getDeadlineAt());
         result.put("ruleVersion", round.getRuleVersion());
+        // §7.4：目标序列是展示数据（防滥用靠服务端时窗/去重/额度，不靠序列保密）
+        result.put("sequence", sequence);
         return result;
     }
 

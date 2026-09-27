@@ -15,6 +15,10 @@ import com.cloudmart.order.feign.CartFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient;
 import com.cloudmart.order.feign.InventoryFeignClient;
 import com.cloudmart.order.feign.PaymentFeignClient;
+import com.cloudmart.common.async.compensation.CompensationTaskService;
+import com.cloudmart.common.async.outbox.OutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.order.mq.OrderEventProducer;
 import com.cloudmart.order.mq.OrderStatusChangeMessage;
 import com.cloudmart.order.repository.OrderItemMapper;
@@ -54,6 +58,8 @@ class OrderServiceTest {
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OrderEventProducer orderEventProducer;
+    private OutboxService outboxService = mock(OutboxService.class);
+    private CompensationTaskService compensationTaskService = mock(CompensationTaskService.class);
     private OrderServiceImpl orderService;
 
     @BeforeEach
@@ -74,7 +80,8 @@ class OrderServiceTest {
         orderService = new OrderServiceImpl(
                 orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient,
-                couponFeignClient, redisTemplate, orderEventProducer
+                couponFeignClient, redisTemplate, orderEventProducer,
+                outboxService, compensationTaskService, new ObjectMapper()
         );
     }
 
@@ -110,11 +117,11 @@ class OrderServiceTest {
 
         assertThat(result).isEqualTo(expectedDto);
         verify(orderMapper).updateStatusIfMatch(orderId, "PENDING_PAYMENT", "CANCELLED");
-        verify(orderEventProducer).sendOrderStatusChange(argThat(msg ->
-                msg.orderId().equals(orderId)
-                        && msg.userId().equals(userId)
-                        && "PENDING_PAYMENT".equals(msg.oldStatus())
-                        && "CANCELLED".equals(msg.newStatus())
+        verify(outboxService).record(argThat(evt ->
+                "ORDER_STATUS_CHANGE".equals(evt.eventType())
+                        && evt.aggregateId().equals(String.valueOf(orderId))
+                        && evt.payload().contains("\"oldStatus\":\"PENDING_PAYMENT\"")
+                        && evt.payload().contains("\"newStatus\":\"CANCELLED\"")
         ));
         verify(inventoryFeignClient).releaseStock(any(InventoryReleaseRequest.class));
         verify(redisTemplate).delete("order:timeout:" + orderId);
@@ -186,11 +193,11 @@ class OrderServiceTest {
 
         assertThat(result).isEqualTo(expectedDto);
         verify(orderMapper).updateStatusAndShippedAtIfMatch(orderId, "PAID", "SHIPPED");
-        verify(orderEventProducer).sendOrderStatusChange(argThat(msg ->
-                msg.orderId().equals(orderId)
-                        && msg.userId().equals(userId)
-                        && "PAID".equals(msg.oldStatus())
-                        && "SHIPPED".equals(msg.newStatus())
+        verify(outboxService).record(argThat(evt ->
+                "ORDER_STATUS_CHANGE".equals(evt.eventType())
+                        && evt.aggregateId().equals(String.valueOf(orderId))
+                        && evt.payload().contains("\"oldStatus\":\"PAID\"")
+                        && evt.payload().contains("\"newStatus\":\"SHIPPED\"")
         ));
     }
 
@@ -223,11 +230,11 @@ class OrderServiceTest {
 
         assertThat(result).isEqualTo(expectedDto);
         verify(orderMapper).updateStatusAndCompletedAtIfMatch(orderId, "SHIPPED", "COMPLETED");
-        verify(orderEventProducer).sendOrderStatusChange(argThat(msg ->
-                msg.orderId().equals(orderId)
-                        && msg.userId().equals(userId)
-                        && "SHIPPED".equals(msg.oldStatus())
-                        && "COMPLETED".equals(msg.newStatus())
+        verify(outboxService).record(argThat(evt ->
+                "ORDER_STATUS_CHANGE".equals(evt.eventType())
+                        && evt.aggregateId().equals(String.valueOf(orderId))
+                        && evt.payload().contains("\"oldStatus\":\"SHIPPED\"")
+                        && evt.payload().contains("\"newStatus\":\"COMPLETED\"")
         ));
     }
 
@@ -261,11 +268,11 @@ class OrderServiceTest {
 
         assertThat(result).isEqualTo(expectedDto);
         verify(orderMapper).updateStatusToRefunding(orderId, "PAID", "REFUNDING", refundReason);
-        verify(orderEventProducer).sendOrderStatusChange(argThat(msg ->
-                msg.orderId().equals(orderId)
-                        && msg.userId().equals(userId)
-                        && "PAID".equals(msg.oldStatus())
-                        && "REFUNDING".equals(msg.newStatus())
+        verify(outboxService).record(argThat(evt ->
+                "ORDER_STATUS_CHANGE".equals(evt.eventType())
+                        && evt.aggregateId().equals(String.valueOf(orderId))
+                        && evt.payload().contains("\"oldStatus\":\"PAID\"")
+                        && evt.payload().contains("\"newStatus\":\"REFUNDING\"")
         ));
     }
 
@@ -313,10 +320,11 @@ class OrderServiceTest {
         verify(orderMapper).updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED");
         verify(inventoryFeignClient).releaseStock(any(InventoryReleaseRequest.class));
         verify(couponFeignClient).returnCoupon(any(CouponFeignClient.ReturnCouponRequest.class));
-        verify(orderEventProducer).sendOrderStatusChange(argThat(msg ->
-                msg.orderId().equals(orderId)
-                        && "REFUNDING".equals(msg.oldStatus())
-                        && "REFUNDED".equals(msg.newStatus())
+        verify(outboxService).record(argThat(evt ->
+                "ORDER_STATUS_CHANGE".equals(evt.eventType())
+                        && evt.aggregateId().equals(String.valueOf(orderId))
+                        && evt.payload().contains("\"oldStatus\":\"REFUNDING\"")
+                        && evt.payload().contains("\"newStatus\":\"REFUNDED\"")
         ));
     }
 

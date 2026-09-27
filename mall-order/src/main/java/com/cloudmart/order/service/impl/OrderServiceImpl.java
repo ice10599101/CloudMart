@@ -26,7 +26,11 @@ import com.cloudmart.order.feign.CouponFeignClient.ReturnCouponRequest;
 import com.cloudmart.order.feign.CouponFeignClient.UserCouponDTO;
 import com.cloudmart.order.feign.PaymentFeignClient.CreatePaymentRequest;
 import com.cloudmart.order.feign.PaymentFeignClient.PaymentDTO;
+import com.cloudmart.common.async.EventEnvelope;
+import com.cloudmart.common.async.compensation.CompensationTaskService;
+import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.order.mq.OrderEventProducer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.cloudmart.order.mq.OrderStatusChangeMessage;
 import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;
@@ -66,6 +70,9 @@ public class OrderServiceImpl implements OrderService {
     private final CouponFeignClient couponFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
+    private final OutboxService outboxService;
+    private final CompensationTaskService compensationTaskService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @SentinelResource(value = "createOrder", blockHandler = "createOrderBlockHandler", fallback = "createOrderFallback")
@@ -195,7 +202,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, userId, "PENDING_PAYMENT", "CANCELLED"
         ));
 
@@ -231,7 +238,7 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
         ));
 
@@ -258,7 +265,7 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
         ));
 
@@ -284,7 +291,7 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PENDING_PAYMENT", "CANCELLED"
         ));
 
@@ -394,7 +401,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PAID", "SHIPPED"
         ));
 
@@ -424,7 +431,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, userId, "SHIPPED", "COMPLETED"
         ));
 
@@ -455,7 +462,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, userId, previousStatus, "REFUNDING"
         ));
 
@@ -500,7 +507,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "REFUNDING", "REFUNDED"
         ));
 
@@ -534,7 +541,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "REFUNDING", previousStatus
         ));
 
@@ -602,7 +609,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PENDING_PAYMENT", "CANCELLED"
         ));
 
@@ -652,7 +659,11 @@ public class OrderServiceImpl implements OrderService {
             try {
                 inventoryFeignClient.confirmDeduct(item.getSkuId(), item.getQuantity(), orderId);
             } catch (Exception e) {
-                log.error("确认库存扣减失败, skuId={}, orderId={}: {}", item.getSkuId(), orderId, e.getMessage());
+                // ASYNC-01：失败登记持久化补偿任务（指数退避重试），替代仅记日志
+                log.error("确认库存扣减失败, 已登记补偿任务, skuId={}, orderId={}: {}", item.getSkuId(), orderId, e.getMessage());
+                compensationTaskService.createIfAbsent(
+                        "stock-confirm:" + orderId + ":" + item.getSkuId(), "stock-confirm",
+                        String.valueOf(orderId), compensationPayload(orderId, item.getSkuId(), item.getQuantity()));
             }
         }
     }
@@ -663,7 +674,11 @@ public class OrderServiceImpl implements OrderService {
                 InventoryReleaseRequest releaseReq = new InventoryReleaseRequest(item.skuId(), item.quantity(), 0L);
                 inventoryFeignClient.releaseStock(releaseReq);
             } catch (Exception ex) {
-                log.error("补偿释放库存失败, skuId={}: {}", item.skuId(), ex.getMessage());
+                // ASYNC-01：失败登记持久化补偿任务（orderId 未知，以 0 占位并由库存侧按需核对）
+                log.error("补偿释放库存失败, 已登记补偿任务, skuId={}: {}", item.skuId(), ex.getMessage());
+                compensationTaskService.createIfAbsent(
+                        "stock-release-create:" + item.skuId() + ":" + UUID.randomUUID().toString().substring(0, 8),
+                        "stock-release", "0", compensationPayload(0L, item.skuId(), item.quantity()));
             }
         }
     }
@@ -677,7 +692,11 @@ public class OrderServiceImpl implements OrderService {
                 InventoryReleaseRequest releaseReq = new InventoryReleaseRequest(item.getSkuId(), item.getQuantity(), orderId);
                 inventoryFeignClient.releaseStock(releaseReq);
             } catch (Exception e) {
-                log.error("释放库存失败, skuId={}, orderId={}: {}", item.getSkuId(), orderId, e.getMessage());
+                // ASYNC-01：失败登记持久化补偿任务
+                log.error("释放库存失败, 已登记补偿任务, skuId={}, orderId={}: {}", item.getSkuId(), orderId, e.getMessage());
+                compensationTaskService.createIfAbsent(
+                        "stock-release:" + orderId + ":" + item.getSkuId(), "stock-release",
+                        String.valueOf(orderId), compensationPayload(orderId, item.getSkuId(), item.getQuantity()));
             }
         }
     }
@@ -721,8 +740,40 @@ public class OrderServiceImpl implements OrderService {
             ReturnCouponRequest returnReq = new ReturnCouponRequest(couponId, orderId);
             couponFeignClient.returnCoupon(returnReq);
         } catch (Exception e) {
-            log.error("退回优惠券失败, couponId={}, orderId={}: {}", couponId, orderId, e.getMessage());
+            // ASYNC-01：失败登记持久化补偿任务
+            log.error("退回优惠券失败, 已登记补偿任务, couponId={}, orderId={}: {}", couponId, orderId, e.getMessage());
+            compensationTaskService.createIfAbsent(
+                    "coupon-return:" + orderId + ":" + couponId, "coupon-return",
+                    String.valueOf(orderId),
+                    compensationJson(java.util.Map.of("orderId", orderId, "couponId", couponId)));
         }
+    }
+
+    /** ASYNC-01：库存补偿任务载荷 */
+    private String compensationPayload(Long orderId, Long skuId, Integer quantity) {
+        return compensationJson(java.util.Map.of("orderId", orderId, "skuId", skuId, "quantity", quantity));
+    }
+
+    private String compensationJson(java.util.Map<String, ?> data) {
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (Exception e) {
+            throw new IllegalStateException("compensation payload serialize failed", e);
+        }
+    }
+
+    /**
+     * ASYNC-01：订单状态事件经 Outbox 可靠投递（与业务状态变更同事务登记），
+     * 替代直发 MQ 且吞异常的旧路径。
+     */
+    private void publishOutboxEvent(OrderStatusChangeMessage message) {
+        outboxService.record(EventEnvelope.of("ORDER_STATUS_CHANGE", 1,
+                String.valueOf(message.orderId()), 0, null,
+                compensationJson(java.util.Map.of(
+                        "orderId", message.orderId(),
+                        "userId", message.userId(),
+                        "oldStatus", message.oldStatus(),
+                        "newStatus", message.newStatus()))));
     }
 
     @Override
@@ -746,7 +797,7 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        orderEventProducer.sendOrderStatusChange(new OrderStatusChangeMessage(
+        publishOutboxEvent(new OrderStatusChangeMessage(
                 order.getId(), order.getUserId(), "PENDING_PAYMENT", "CANCELLED"
         ));
 

@@ -1,5 +1,6 @@
 package com.cloudmart.admin.service.impl;
 
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -43,6 +44,7 @@ class AdminRoleServiceImplTest {
     private AdminRoleDeptMapper adminRoleDeptMapper;
     private AdminUserRoleMapper adminUserRoleMapper;
     private AdminConverter adminConverter;
+    private AuthRevocationFeignClient authRevocationFeignClient;
     private AdminRoleServiceImpl adminRoleService;
 
     @BeforeAll
@@ -62,7 +64,8 @@ class AdminRoleServiceImplTest {
         adminRoleDeptMapper = mock(AdminRoleDeptMapper.class);
         adminUserRoleMapper = mock(AdminUserRoleMapper.class);
         adminConverter = mock(AdminConverter.class);
-        adminRoleService = new AdminRoleServiceImpl(adminRoleMapper, adminRoleMenuMapper, adminRoleDeptMapper, adminUserRoleMapper, adminConverter);
+        authRevocationFeignClient = mock(AuthRevocationFeignClient.class);
+        adminRoleService = new AdminRoleServiceImpl(adminRoleMapper, adminRoleMenuMapper, adminRoleDeptMapper, adminUserRoleMapper, adminConverter, authRevocationFeignClient);
     }
 
     private AdminRole buildRole(Long id, String roleKey) {

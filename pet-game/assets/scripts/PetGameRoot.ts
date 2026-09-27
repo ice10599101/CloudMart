@@ -29,7 +29,7 @@ import { buildRoom, RoomRefs } from './PetRoomBuilder'
 const { ccclass } = _decorator
 
 /**
- * 家园场景主组件（视觉重构 v7）。
+ * 家园场景主组件（视觉重构 v9 · 水果宠物打样）。
  *
  * 结构：
  *  - 3D 世界：房间（PetRoomBuilder，统一走 pet-toon）+ 宠物（外部绑定模型，见下）
@@ -38,14 +38,12 @@ const { ccclass } = _decorator
  *  - 2D 覆盖层：特效粒子 + 世界坐标投影
  *  - 通信桥（契约冻结，见 PetGameBridge）
  *
- * 宠物：**不再是程序化造型**。旧的 PetCatBuilder / PetModelBuilder / PetAnimations 已整体删除，
- * 改为加载 Blender 绑好骨的 GLB（`assets/resources/models/cat/pet-cat-rigged.glb`）：
- *  - 3 个网格（身体 + 两片眼皮）/ 15 根变形骨（含 4 节尾骨与 2 根眼皮骨）
- *  - 三条动画剪辑：Idle 4.00s（呼吸+头漂移+耳抽动+尾巴摆动）、
- *    Happy 1.67s（低头侧蹭+耳后压+尾巴翘摆）、Blink 0.25s（毛色眼皮扫下闭合）
- *  - 绑骨细节见 `tools/asset-pipeline/rig_cat_v2.py` 的注释（骨热在这种碎片化网格上必然失败，
- *    权重是自己算的：点到骨段距离场 × 解剖高度门控 × 空间邻接平滑；
- *    眼球位置来自 probe_eye_pick.py 的射线拾取视觉核对）
+ * 宠物：五果阵容 = 西瓜 / 火龙果 / 橘子 / 草莓 / 蓝莓（用户定稿 2026-09-28）。
+ * 打样第一只是**草莓**（tools/fruit-pipeline/build_strawberry.py 一条龙产出）：
+ *  - 水滴闭合曲面 + 贴图种籽 + 五瓣萼片 + 3D 眼球/嘴/腮红/围巾
+ *  - 4 骨轻绑定（Body/Calyx/EyeL/EyeR），三条剪辑：Idle 4.00s（呼吸+微倾+萼片漂摆）、
+ *    Happy 1.67s（下蹲→起跳→滞空笑眼→落地挤压→回弹）、Blink 0.25s
+ *  - 挤压/拉伸以地面为锚（Body 骨头埋在脚下），是水果动感的核心
  *
  * 职责边界（不变）：只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
  * 用户操作只回传 intent。契约一个字段都没改。
@@ -54,40 +52,21 @@ const { ccclass } = _decorator
 /**
  * 宠物模型资源路径（相对 assets/resources/）。
  *
- * ⚠️ 注意这里**多了一层重名目录**，不是笔误：glTF 导入后主资源（gltf-scene）的子资源名
- * 等于文件名本身，所以资源库注册的路径是 `目录/文件名/文件名`。
- * 从构建产物 `assets/resources/config.json` 的 paths 表实测确认：
- *     "9": ["models/cat/pet-cat-rigged/pet-cat-rigged", 7, 1]
- * 写成 `models/cat/pet-cat-rigged` 会直接报
- * `Bundle resources doesn't contain models/cat/pet-cat-rigged`（已实测踩到）。
+ * ⚠️ glTF 导入后主资源（gltf-scene）的子资源名等于文件名本身，
+ * 所以资源库注册的路径是 `目录/文件名/文件名`（猫版实测确认的规则，水果沿用）。
  */
-const PET_MODEL_PATH = 'models/cat/pet-cat-rigged/pet-cat-rigged'
+const PET_MODEL_PATH = 'models/fruit/strawberry/strawberry'
 /** 模型所在目录（剪辑子资源按 `目录/剪辑名` 取） */
-const PET_MODEL_DIR = 'models/cat/pet-cat-rigged'
-/**
- * 生动脸贴图（独立资产，运行时覆盖到 pet-toon 的 mainTexture）。
- *
- * 为什么不直接烘进 GLB 内嵌槽位：上一版 bake_alive.py 用 prVw 私有区块补长 PNG
- * 后拼接 GLB，数据层自检虽过，但把"脸"和"模型容器"绑死 —— 每次改脸都要重拼 GLB
- * 并赌一次导入器兼容性（prVw 对 Cocos 导入器始终未在真机验证过）。
- * 独立贴图走普通资产链路（meta 由构建时 asset-db 自动生成，eye_sprite 即先例），
- * GLB 保持原样、零导入风险；加载失败时回退 GLB 内嵌 albedo，不会白猫也不会缺猫。
- * 子资源路径 `.../texture` 的依据：构建产物 config.json 中
- * `"3": ["textures/eye_sprite/texture", 2, 1]`（image 导入器的 texture 子资源）。
- */
-const PET_ALIVE_TEX = 'textures/pet-cat-alive/texture'
-/**
- * 需要用到的剪辑名。缺哪个就跳过哪个 —— 模型会继续迭代（比如 Blink 是后补的），
- * 不能因为少一条剪辑就让整只猫不出现。
- */
+const PET_MODEL_DIR = 'models/fruit/strawberry'
+/** 需要用到的剪辑名。缺哪个就跳过哪个，不能因为少一条剪辑就让整只宠物不出现。 */
 const PET_CLIPS = ['Idle', 'Happy', 'Blink']
 /**
- * 模型缩放：源模型（QQ 宠物风格猫 qqcat-prod.glb，11,525 面）在 Blender 里高 0.8028。
- * 1.9 倍 → 身高约 1.53，与房间机位标定匹配（用 ?probe=1 复核）。
+ * 模型缩放：草莓在 Blender 里全高 0.95（体 0.82 + 萼片），
+ * 1.5 倍 → 全高约 1.43，略矮于旧猫（1.53），坐得更"墩"，与房间机位标定匹配（?probe=1 复核）。
  */
-const PET_MODEL_SCALE = 1.9
-/** 宠物身高（世界单位），供构图探针使用；= 模型源高 0.8028 × 缩放 */
-const PET_HEIGHT = 0.8028 * PET_MODEL_SCALE
+const PET_MODEL_SCALE = 1.5
+/** 宠物身高（世界单位），供构图探针使用 */
+const PET_HEIGHT = 0.95 * PET_MODEL_SCALE
 /** 宠物站位（地毯中央；与房间里的软影、玩具球对齐） */
 const PET_POS = new Vec3(0, 0, 0.35)
 
@@ -95,7 +74,7 @@ const PET_POS = new Vec3(0, 0, 0.35)
  * 相机机位。
  *
  * 主视角：轻微俯视的 3/4 视角，脚底落在地板上、头顶留出呼吸空间；
- * 比 v5 后退约 12% 把柜子/盆栽/猫窝/玩具收进画面 —— 一个"住着人"的空间需要生活痕迹。
+ * 比 v5 后退约 12% 把柜子/盆栽/窝/玩具收进画面 —— 一个"住着人"的空间需要生活痕迹。
  * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
  */
 const CAMERA_SHOT = {
@@ -111,11 +90,10 @@ const PLAIN_BG = new Color(0xCF, 0xC9, 0xD6, 255)
 /**
  * 头部世界坐标（特效锚点）。
  *
- * 由模型坐标系反推：QQ 猫双眼中点 Blender 坐标约 (-0.025, -0.26, 0.52)
- * （probe_eye_qq 边界拟合），导出为 glTF（Y 向上）后变成 (-0.025, 0.52, 0.26)，
- * 乘缩放 1.9：→ (-0.05, 0.99, 0.49)。
+ * 由模型坐标系反推：双眼中心 Blender 坐标 (0, -0.30, 0.54)，导出为 glTF（Y 向上）
+ * 后变 (0, 0.54, 0.30)，乘缩放 1.5 → (0, 0.81, 0.45)。
  */
-const HEAD_OFFSET = new Vec3(-0.05, 0.99, 0.49)
+const HEAD_OFFSET = new Vec3(0, 0.81, 0.45)
 
 @ccclass('PetGameRoot')
 export class PetGameRoot extends Component {
@@ -136,7 +114,7 @@ export class PetGameRoot extends Component {
     private petAnim: SkeletalAnimation | Animation | null = null
     /** 最近一次下发的状态：模型加载是异步的，到位后要用它补播正确的动画 */
     private pendingPet: PetDisplayState | null = null
-    /** 0.35~1.0：数值低时把待机动作放慢（喘、没精神），是全片唯一的"状态→动画"映射 */
+    /** 0.35~1.0：数值低时把待机动作放慢（蔫、没精神），是全片唯一的"状态→动画"映射 */
     private speedScale = 1
     private blinkTimer = 3.5
     private blinkReady = false
@@ -147,8 +125,6 @@ export class PetGameRoot extends Component {
     /** ?rawmat=1：跳过 pet-toon 材质替换（诊断蒙皮/材质问题用，保留 glTF 原材质） */
     private rawMat = false
     private toonAsset: EffectAsset | null = null
-    /** 生动脸贴图（材质前置，加载失败时为 null → 回退 GLB 内嵌 albedo） */
-    private aliveTexture: Texture2D | null = null
 
     private time = 0
     private roomTime = 0
@@ -177,17 +153,7 @@ export class PetGameRoot extends Component {
             } else {
                 console.warn('[pet-game] pet-toon 加载失败，材质回退为内置材质', error)
             }
-            // 生动脸贴图同为材质前置：configurePetMaterials 是同步换材质，
-            // 贴图必须在此之前就绪，否则首帧先用 GLB 内嵌 albedo、覆盖不生效。
-            resources.load(PET_ALIVE_TEX, Texture2D, (texError, tex) => {
-                if (texError || !tex) {
-                    console.warn('[pet-game] 生动脸贴图加载失败，回退 GLB 内嵌 albedo', texError)
-                } else {
-                    this.aliveTexture = tex
-                    console.log(`[pet-probe] alive texture ready: ${tex.name}`)
-                }
-                this.buildScene(params)
-            })
+            this.buildScene(params)
         })
     }
 
@@ -220,7 +186,7 @@ export class PetGameRoot extends Component {
      *
      * 注意这是**异步**的：`ready` 会先发给宿主，模型可能稍后才到位。
      * 因此服务端下发的状态先存进 `pendingPet`，模型就绪后立刻补播正确动画 ——
-     * 否则会出现"猫加载出来了但站着不动"或"低状态还蹦得很欢"。
+     * 否则会出现"模型加载出来了但站着不动"或"低状态还蹦得很欢"。
      */
     private loadPet(): void {
         resources.load(PET_MODEL_PATH, Prefab, (error, prefab) => {
@@ -244,8 +210,7 @@ export class PetGameRoot extends Component {
 
             // 逐条加载剪辑。
             // ⚠️ 不能用 `resources.load([多条路径], ...)` —— 它是**全有或全无**：
-            // 只要有一条路径不存在（比如 Blink 还没做出来），整批都失败并报
-            // `Bundle resources doesn't contain .../Blink`，结果整只猫静止不动。已实测踩到。
+            // 只要有一条路径不存在，整批都失败，结果整只宠物静止不动。猫版已实测踩到。
             const clipPaths = PET_CLIPS.map(name => `${PET_MODEL_DIR}/${name}`)
             const loaded: AnimationClip[] = []
             let remaining = clipPaths.length
@@ -272,8 +237,8 @@ export class PetGameRoot extends Component {
     /**
      * 把剪辑挂到宠物根节点上并起播。
      *
-     * 组件必须挂在 `Pet`（prefab 根）而不是 `CatRig`：剪辑里的轨道路径是
-     * `CatRig/Root/Hips/...`，从根解析才匹配；挂到 CatRig 上会整体少一层，全部绑不上。
+     * 组件必须挂在 `Pet`（prefab 根）而不是 `FruitRig`：剪辑里的轨道路径是
+     * `FruitRig/Body/...`，从根解析才匹配；挂到 FruitRig 上会整体少一层，全部绑不上。
      */
     private attachClips(node: Node, list: AnimationClip[]): void {
         if (!list.length) {
@@ -312,14 +277,10 @@ export class PetGameRoot extends Component {
                 extra = ` effect=${model.material.effectAsset.name}`
                 const get = model.material.getProperty
                 if (get) {
-                    // 贴图到底有没有绑上、albedo 是不是被顶到 1 —— 白纸片的两种可能成因
                     const tex = get.call(model.material, 'mainTexture')
                     const albedo = get.call(model.material, 'albedo')
-                    const mScale = get.call(model.material, 'albedoScale')
                     extra += ` tex=${tex ? (tex as { name?: string }).name : 'null'}`
                     extra += ` albedo=${albedo ? JSON.stringify(albedo) : 'null'}`
-                    extra += ` aScale=${mScale ? JSON.stringify(mScale) : 'null'}`
-                    extra += ` passes=${(model.material as unknown as { passes?: unknown[] }).passes?.length}`
                 }
             }
             if (model.skinningRoot) {
@@ -334,18 +295,17 @@ export class PetGameRoot extends Component {
     }
 
     /**
-     * 把宠物换成**和房间同一套** pet-toon 材质。
+     * 把宠物换成**和房间同一套** pet-toon 材质（颜色各自保留）。
      *
-     * 为什么不沿用 glTF 导入的 `builtin-standard`：
-     * 实测它在场景里渲染成惨白一片、毫无体积，且主光从 78000 降到 20000、环境光 HDR/LDR
-     * 双写清零，画面**几乎没有变化** —— 说明引擎的 PBR 光照在这个 headless 管线下
-     * 没有按预期参与计算（层、可见性、材质技术、贴图绑定都逐一验证过，全部正常：
-     * `albedoTex=...@221a5`、`normalTex=...@3effa` 都绑上了）。
-     * 与其继续调一个我不掌控的管线，不如让宠物和房间共用同一个自研着色器 ——
-     * 光照语言一致、视觉完全统一，而且我完全可控。
+     * 为什么不沿用 glTF 导入的 `builtin-standard`：实测它在场景里渲染成惨白一片、毫无体积
+     * （引擎 PBR 光照在这个 headless 管线下没有按预期参与计算，猫版已逐一排查过）。
+     * 让宠物和房间共用同一个自研着色器 —— 光照语言一致、视觉完全统一，而且完全可控。
      *
-     * 蒙皮：pet-toon 的顶点着色器走 `CCVertInput(In)`（legacy/input-standard），
-     * 该函数在 `CC_USE_SKINNING` 定义时会套用关节蒙皮，引擎按模型的蒙皮信息自动注入该宏。
+     * 每块网格保留自己的 GLB 内嵌 albedo（草莓体表=种籽贴图，萼片/眼/围巾=纯色小贴图），
+     * 只换着色器不换颜色。暗部色/轮廓色按草莓的玫瑰红重新调过。
+     *
+     * 蒙皮：pet-toon 的顶点着色器走 `CCVertInput(In)`，引擎按模型的蒙皮信息自动注入
+     * `CC_USE_SKINNING`，无需手工处理。
      */
     private configurePetMaterials(node: Node): void {
         const visit = (n: Node): void => {
@@ -358,53 +318,39 @@ export class PetGameRoot extends Component {
                 if (!src) {
                     continue
                 }
-                // albedo 取舍：优先用"生动脸"独立贴图（琥珀眼/粉鼻/腮红烘焙版）；
-                // 它没加载成功时退回 GLB 内嵌 albedo（奶油无脸版），保证永不白板。
                 const embedded = src.getProperty('mainTexture') as Texture2D | null
-                const albedo = this.aliveTexture ?? embedded
                 const toon = new Material()
                 try {
                     toon.initialize({ effectAsset: this.toonAsset!, technique: 0 })
                     toon.setProperty('mainColor', new Color(255, 255, 255, 255))
-                    if (albedo) {
-                        toon.setProperty('mainTexture', albedo)
+                    if (embedded) {
+                        toon.setProperty('mainTexture', embedded)
                     }
-                    // 暗部**深暖灰**（176,158,140）+ 阈值对准可见区间：
-                    // 半兰伯特下正面法线的 ndl∈[0.5,1.0]，阈值低时暗部全落在
-                    // 看不见的背面 —— 可见面被压缩在 20% 动态范围里，调什么都平（已实测）。
-                    // x=0.72/y=0.12：右脸 ndl≈0.52 → lit≈0 → 左亮右暗的大转折。
-                    toon.setProperty('shadeColor', new Color(166, 148, 130, 255))
+                    // 暗部**深玫瑰灰**：草莓饱和度高，暗部偏冷会发灰、偏暖会发橙，
+                    // 用带玫瑰倾向的暖灰保住"红而不焦"（猫版的暖灰 166,148,130 在这里会脏）
+                    toon.setProperty('shadeColor', new Color(190, 118, 130, 255))
                     toon.setProperty('shadeCtrl', new Vec4(0.72, 0.12, 0.16, 0.12))
                     toon.setProperty('outlineCtrl', new Vec4(0.0035, 0, 0, 0))
-                    toon.setProperty('outlineColor', new Color(120, 102, 94, 255))
-                    // 高光略强略聚（软陶质感，避免"哑光死面"）
+                    toon.setProperty('outlineColor', new Color(128, 72, 84, 255))
+                    // 高光略强略聚（软陶/果蜡质感）
                     toon.setProperty('furCtrl', new Vec4(0.16, 2.0, 0.06, 10.0))
-                    // 主光方向：**左侧强侧光**（-0.85）—— 官方参考图的立体感来自
-                    // "左亮右暗"的大转折；z 分量压低让正面不再均匀受光
+                    // 主光方向：与房间一致（左前上主光 + 右前下冷补光），猫版验证过的参数
                     toon.setProperty('lightDir', new Vec4(-0.85, 0.30, 0.32, 0.0))
                     toon.setProperty('fillDir', new Vec4(0.42, -0.18, 0.86, 0.0))
-                    // 补光/轮廓光/底部 AO 加强 + 主光增益 0.88（配合更深的暗部）
                     toon.setProperty('lightCtrl', new Vec4(0.88, 0.28, 0.14, 0.14))
-                    // ⚠️ mapCtrl 必须放在**所有 setProperty 之后**：实测该引擎的材质
-                    // uniform 在首次绑定后才同步"最后一次写入"的值，先设置的属性
-                    // 会停留在旧值上（表现为参数怎么调渲染都不变，已实测多轮）。
-                    // x=1：贴图部件启用基色采样；y/z/w 是诊断档（uv 直出/定点采样/uniform 直读）
+                    // ⚠️ mapCtrl 必须放在**所有 setProperty 之后**：材质 uniform 在首次绑定后
+                    // 才同步"最后一次写入"的值（猫版已实测多轮）
                     toon.setProperty('mapCtrl', new Vec4(1, 0, 0, 1))
                     // ⚠️ 必须走 setMaterial 显式替换：模型是异步加载的，首帧可能已经渲过，
-                    // `.material = toon` 赋值不会触发蒙皮网格的渲染侧重绑，
-                    // 实测整组 uniform 落不进渲染（猫渲染成 pet-toon 默认值的白素模）。
+                    // `.material = toon` 赋值不会触发蒙皮网格的渲染侧重绑
                     renderer.setMaterial!(toon, 0)
                 } catch (error) {
                     console.warn('[pet-game] 宠物 pet-toon 材质初始化失败，保留原材质', error)
                     continue
                 }
                 const texBack = toon.getProperty('mainTexture') as Texture2D | null
-                const ctrlBack = toon.getProperty('mapCtrl') as Vec4 | null
-                const lightBack = toon.getProperty('lightCtrl') as Vec4 | null
-                console.log(`[pet-probe] pet material ${n.name}: pet-toon albedoTex=` +
-                    `${texBack ? (texBack as unknown as { uuid?: string }).uuid : 'null'} ` +
-                    `mapCtrl=${ctrlBack ? `${ctrlBack.x},${ctrlBack.y},${ctrlBack.z},${ctrlBack.w}` : 'null'} ` +
-                    `lightCtrl=${lightBack ? `${lightBack.x},${lightBack.y}` : 'null'}`)
+                console.log(`[pet-probe] pet material ${n.name}: pet-toon ` +
+                    `tex=${texBack ? (texBack as unknown as { uuid?: string }).uuid : 'null'}`)
             }
             for (const child of n.children) {
                 visit(child)
@@ -434,7 +380,7 @@ export class PetGameRoot extends Component {
         }
     }
 
-    /** 用服务端数值决定待机强度：越虚弱，动作越慢（v1 唯一可用的状态→动画映射） */
+    /** 用服务端数值决定待机强度：越虚弱，动作越慢（唯一的"状态→动画"映射） */
     private applyStatsToAnimation(): void {
         const pet = this.pendingPet
         if (!pet) {
@@ -521,7 +467,7 @@ export class PetGameRoot extends Component {
 
     /**
      * 眨眼：随机间隔触发。
-     * 剪辑存在时才跑（模型重建后可能还没带上 Blink），否则会每几秒白播一次。
+     * 剪辑存在时才跑（模型可能没带上 Blink），否则会每几秒白播一次。
      */
     private driveBlink(dt: number): void {
         if (!this.blinkReady || !this.petAnim) {
@@ -568,21 +514,12 @@ export class PetGameRoot extends Component {
     /**
      * 场景光照 —— **只服务宠物**。
      *
-     * 背景：房间里所有部件走自研 `pet-toon`，它自带一套写死的三点光（lightDir/fillDir/lightCtrl），
-     * **完全不依赖引擎光源**，所以场景里一盏灯都没有、环境光也是默认的冷蓝天光。
-     * 但宠物是 Blender 导出的 glTF，带着标准 PBR 材质（贴图 + metallic 0），
-     * 它必须靠引擎光源才出体积 —— 没有灯就渲染成一张白纸片（已实测）。
-     *
-     * 因此这里补一盏平行光，方向**对齐 pet-toon 的主光方向**（来自窗户：左后上），
-     * 让宠物与房间的受光方向一致，不会显得是贴上去的。
-     * 因为 pet-toon 无视引擎光源，这一步对房间**零影响**，不存在回归风险。
+     * 房间所有部件走自研 `pet-toon`（自带写死的三点光，不依赖引擎光源）；
+     * 宠物 glTF 材质必须靠引擎光源才出体积。补一盏平行光对齐 pet-toon 主光方向，
+     * 因为 pet-toon 无视引擎光源，这一步对房间**零影响**。
      */
     private buildLighting(scene: Node): void {
-        // 主光（暖，左前上）：**必须从镜头这一侧来**。
-        // 第一版我按 pet-toon 的 lightDir 把灯放在"窗户那侧"（左后上），结果只照亮了猫的背面，
-        // 镜头看到的正面落在环境光里 → 依旧是一张白纸片。
-        // 根本原因是 pet-toon 有**两盏**：主光（背打）+ 前下方暖色反弹光；
-        // PBR 这边没有反弹光，所以主光必须自己承担"照亮可见面"的职责。
+        // 主光（暖，左前上）：**必须从镜头这一侧来**（猫版实证：放窗户那侧只照亮背面）
         const key = new Node('PetKeyLight')
         key.layer = Layers.Enum.DEFAULT
         scene.addChild(key)
@@ -590,12 +527,10 @@ export class PetGameRoot extends Component {
         key.lookAt(new Vec3(0, 0.62, 0.35), new Vec3(0, 1, 0))
         const keyLight = key.addComponent(DirectionalLight)
         keyLight.color = new Color(255, 231, 198)
-        // ⚠️ 强度必须压得很低。近白毛色（#F3EEE7 ≈ sRGB 0.95）+ 本工程
-        // `PostSettingsInfo._toneMappingType = 0`（无色调映射）→ 线性值直接 clip，
-        // 78000 lux 会把整只猫顶成纯白、体积全丢（已实测）。2 万左右才留得住明暗。
+        // ⚠️ 强度必须压得低：无色调映射管线线性值直接 clip，过亮会把体积全顶丢
         keyLight.illuminance = 34000
 
-        // 补光（冷，右前下）：压住暗部、给一点冷暖对比，对应 pet-toon 的 fillDir
+        // 补光（冷，右前下）：压住暗部、给一点冷暖对比
         const fill = new Node('PetFillLight')
         fill.layer = Layers.Enum.DEFAULT
         scene.addChild(fill)
@@ -605,13 +540,8 @@ export class PetGameRoot extends Component {
         fillLight.color = new Color(196, 208, 255)
         fillLight.illuminance = 7000
 
-        // 环境光：**HDR / LDR 两份字段都要写**。
-        // AmbientInfo 里同时存在 `_skyColorHDR/_skyIllumHDR` 与 `_skyColor/_skyIllum`，
-        // 只写 LDR 那份在 HDR 分支下完全不生效（第一版就是这么栽的：改了环境光毫无变化）。
-        // 默认值是冷蓝天空色拉满（0.2,0.5,0.8 / 20000），会把近白毛色洗成惨白、体积全丢。
-        // ⚠️ HDR 字段在部分引擎形态（preview/源码编译）下是**只读 getter**，直接赋值
-        // 会抛 TypeError 并中断整个 buildScene —— 猫因此不出现（已实测）。
-        // 所以必须可写探测：能用则双写，不能用则 LDR 单写继续走。
+        // 环境光：HDR / LDR 两份字段都要写（猫版实证：只写 LDR 在 HDR 分支下不生效；
+        // HDR 字段在部分引擎形态下是只读 getter，直接赋值会抛 TypeError 中断 buildScene）
         const ambient = director.getScene()!.globals.ambient
         const a = ambient as unknown as Record<string, unknown>
         const skyLDR = new Color(200, 205, 215)
@@ -637,13 +567,12 @@ export class PetGameRoot extends Component {
 
     /**
      * 宠物脚下的接触阴影。
-     *
      * 场景没开实时阴影（房间各部件靠手工软影补），宠物也必须补一个，
-     * 否则它会"浮"在地毯上。用 kit.decal 的柔边贴花，比贴一张 png 更省资产。
+     * 否则它会"浮"在地毯上。用 kit.decal 的柔边贴花。草莓 footprint 略小于猫。
      */
     private buildPetShadow(): Node {
         const root = this.kit!.make3dNode(this.world3d!, 'PetShadow', new Vec3(0, 0, 0))
-        this.kit!.decal(root, 'Blob', [0.62, 0.010, 0.46], {
+        this.kit!.decal(root, 'Blob', [0.58, 0.010, 0.45], {
             color: new Color(0x6B, 0x4A, 0x33, 255),
             shade: new Color(0x6B, 0x4A, 0x33, 255),
             alpha: 82,

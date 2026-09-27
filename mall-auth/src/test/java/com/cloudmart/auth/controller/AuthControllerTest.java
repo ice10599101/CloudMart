@@ -132,9 +132,14 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /logout - 登出成功返回信封格式")
     void logout_ShouldReturnSuccessEnvelope() throws Exception {
-        willDoNothing().given(authService).logout(1L);
+        // SEC-03：登出需携带访问令牌以取 sid 撤销会话
+        org.springframework.security.oauth2.jwt.Jwt jwt = org.mockito.Mockito.mock(org.springframework.security.oauth2.jwt.Jwt.class);
+        org.mockito.Mockito.when(jwt.getSubject()).thenReturn("1");
+        org.mockito.Mockito.when(jwt.getClaimAsString("sid")).thenReturn("session-1");
+        willDoNothing().given(authService).logout(1L, "session-1");
 
-        mockMvc.perform(post("/logout"))
+        mockMvc.perform(post("/logout")
+                        .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -223,7 +228,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /admin/logout - 管理员登出成功返回信封格式")
     void adminLogout_ShouldReturnSuccessEnvelope() throws Exception {
-        willDoNothing().given(adminAuthService).logout(1L);
+        willDoNothing().given(adminAuthService).logout(1L, "session-1");
 
         mockMvc.perform(post("/admin/logout"))
                 .andExpect(status().isOk())

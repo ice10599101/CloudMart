@@ -8,7 +8,9 @@ import com.cloudmart.payment.dto.CreatePaymentRequest;
 import com.cloudmart.payment.dto.PaymentCallbackRequest;
 import com.cloudmart.payment.dto.PaymentDTO;
 import com.cloudmart.payment.entity.Payment;
-import com.cloudmart.payment.mq.PaymentEventProducer;
+import com.cloudmart.common.async.EventEnvelope;
+import com.cloudmart.common.async.outbox.OutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.cloudmart.payment.repository.PaymentMapper;
 import com.cloudmart.payment.service.PaymentService;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
@@ -28,7 +30,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentMapper paymentMapper;
     private final PaymentConverter paymentConverter;
-    private final PaymentEventProducer paymentEventProducer;
+    private final OutboxService outboxService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Page<PaymentDTO> listPayments(String status, int page, int size) {
@@ -86,11 +89,10 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setPaidAt(LocalDateTime.now());
             paymentMapper.updateById(payment);
 
-            try {
-                paymentEventProducer.sendPaymentSuccess(payment.getOrderId(), payment.getId());
-            } catch (Exception e) {
-                log.error("通知订单支付成功失败, orderId={}: {}", payment.getOrderId(), e.getMessage());
-            }
+            // ASYNC-01：与支付状态同事务登记 Outbox 事件，由后台可靠投递（替代直发+吞异常）
+            outboxService.record(EventEnvelope.of("PAYMENT_SUCCESS", 1,
+                    String.valueOf(payment.getOrderId()), 0, null,
+                    paymentPayload(payment.getOrderId(), payment.getId())));
         } else if ("FAILED".equalsIgnoreCase(request.status())) {
             if ("PENDING".equals(payment.getStatus())) {
                 payment.setStatus("FAILED");
@@ -118,11 +120,10 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus("REFUNDED");
         paymentMapper.updateById(payment);
 
-        try {
-            paymentEventProducer.sendPaymentRefund(payment.getOrderId(), payment.getId());
-        } catch (Exception e) {
-            log.error("通知订单取消失败, orderId={}: {}", payment.getOrderId(), e.getMessage());
-        }
+        // ASYNC-01：退款事件同事务登记 Outbox，可靠投递
+        outboxService.record(EventEnvelope.of("PAYMENT_REFUND", 1,
+                String.valueOf(payment.getOrderId()), 0, null,
+                paymentPayload(payment.getOrderId(), payment.getId())));
 
         return paymentConverter.toDTO(payment);
     }
@@ -156,11 +157,10 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPaidAt(LocalDateTime.now());
         paymentMapper.updateById(payment);
 
-        try {
-            paymentEventProducer.sendPaymentSuccess(payment.getOrderId(), payment.getId());
-        } catch (Exception e) {
-            log.error("模拟支付成功通知订单失败, orderId={}: {}", payment.getOrderId(), e.getMessage());
-        }
+        // ASYNC-01：模拟支付同样经 Outbox 可靠投递（PAY-01 将按环境禁用模拟入口）
+        outboxService.record(EventEnvelope.of("PAYMENT_SUCCESS", 1,
+                String.valueOf(payment.getOrderId()), 0, null,
+                paymentPayload(payment.getOrderId(), payment.getId())));
 
         return paymentConverter.toDTO(payment);
     }
@@ -189,5 +189,14 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentDTO handleCallbackFallback(PaymentCallbackRequest request, Throwable throwable) {
         log.warn("handleCallback fallback triggered: {}", throwable.getMessage());
         return null;
+    }
+
+    /** ASYNC-01：支付事件载荷（与旧消息形状兼容，消费方按信封 eventId 幂等） */
+    private String paymentPayload(Long orderId, Long paymentId) {
+        try {
+            return objectMapper.writeValueAsString(java.util.Map.of("orderId", orderId, "paymentId", paymentId));
+        } catch (Exception e) {
+            throw new IllegalStateException("payment payload serialize failed", e);
+        }
     }
 }

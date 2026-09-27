@@ -703,6 +703,7 @@ export interface MinigameRoundVO {
   rewardEligible: boolean
   deadlineAt: string
   ruleVersion: string
+  sequence: Array<'LEFT' | 'CENTER' | 'RIGHT'>
 }
 
 /** 宠物币钱包视图（契约 §8.1：ID/余额为字符串） */

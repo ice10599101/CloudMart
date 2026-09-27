@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -39,6 +40,7 @@ class AdminUserServiceImplTest {
     private AdminDeptMapper adminDeptMapper;
     private PasswordEncoder passwordEncoder;
     private DataScopeService dataScopeService;
+    private AuthRevocationFeignClient authRevocationFeignClient;
     private AdminConverter adminConverter;
     private AdminUserServiceImpl adminUserService;
 
@@ -65,11 +67,12 @@ class AdminUserServiceImplTest {
         passwordEncoder = mock(PasswordEncoder.class);
         dataScopeService = mock(DataScopeService.class);
         adminConverter = mock(AdminConverter.class);
+        authRevocationFeignClient = mock(AuthRevocationFeignClient.class);
 
         adminUserService = new AdminUserServiceImpl(
                 adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
                 adminRoleMapper, adminPostMapper, adminDeptMapper,
-                passwordEncoder, dataScopeService, adminConverter);
+                passwordEncoder, dataScopeService, adminConverter, authRevocationFeignClient);
     }
 
     private AdminUser buildUser(Long id, String username) {

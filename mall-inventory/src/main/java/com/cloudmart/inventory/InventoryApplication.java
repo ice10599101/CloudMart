@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
-@MapperScan("com.cloudmart.inventory.repository")
+@MapperScan({"com.cloudmart.inventory.repository", "com.cloudmart.common.async.mapper"})
 @Import(GlobalExceptionHandler.class)
 public class InventoryApplication {
     public static void main(String[] args) {

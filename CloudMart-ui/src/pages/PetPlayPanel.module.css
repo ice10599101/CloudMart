@@ -1,0 +1,141 @@
+/**
+ * 玩法面板样式（N 系列面板，与 PetHome.module.css 同视觉语言）。
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fafafa;
+}
+
+.sectionTitle {
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meta {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 小游戏 */
+.windowStrip {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.window {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  background: #fff;
+}
+
+.windowCurrent {
+  border-color: #faad14;
+  background: #fffbe6;
+  color: #d48806;
+  font-weight: 600;
+}
+
+.windowDone {
+  border-color: #b7eb8f;
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.windowMissed {
+  border-color: #ffa39e;
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.slotButtons {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.countdown {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 图鉴 */
+.collectionGrid {
+  display: grid;
+  gridTemplateColumns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.collectionCell {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.collectionLocked {
+  opacity: 0.55;
+  background: #fafafa;
+}
+
+.entryName {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.entryHint {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+
+/* 合作 */
+.coopCard {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.rewardChip {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  background: #f6ffed;
+  color: #389e0d;
+  border: 1px solid #b7eb8f;
+}

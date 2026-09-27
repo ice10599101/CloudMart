@@ -1310,13 +1310,23 @@ export default function PetScreen() {
             {careMessage && <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{careMessage}</Text>}
 
             <TouchableOpacity
-              onPress={() => router.push('/pet-wallet')}
+              onPress={() => router.push('/pet-play')}
               style={{
                 alignItems: 'center', paddingVertical: 10, borderRadius: BorderRadius.lg,
                 borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.4)', backgroundColor: 'rgba(250, 204, 21, 0.08)',
               }}
             >
               <Text style={{ color: '#facc15', fontSize: FontSize.sm, fontWeight: '600' }}>🪙 宠物币钱包</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/pet-play')}
+              style={{
+                alignItems: 'center', paddingVertical: 10, borderRadius: BorderRadius.lg,
+                borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(0, 212, 255, 0.08)',
+              }}
+            >
+              <Text style={{ color: colors.primary, fontSize: FontSize.sm, fontWeight: '600' }}>🎮 玩法中心</Text>
             </TouchableOpacity>
 
             {careTab === 'shop' && (

@@ -44,6 +44,19 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- ASYNC-01：交易 Outbox/Inbox/补偿任务持久化（MyBatis-Plus，由接入模块提供运行时） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-annotation</artifactId>
+            <version>${mybatis-plus.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-core</artifactId>
+            <version>${mybatis-plus.version}</version>
+            <optional>true</optional>
+        </dependency>
         <!-- SEC-01 统一身份边界：JWT 验签（nimbus）与安全上下文（spring-security） -->
         <dependency>
             <groupId>com.nimbusds</groupId>

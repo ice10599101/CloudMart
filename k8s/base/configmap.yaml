@@ -26,3 +26,8 @@ stringData:
   # （openssl rand -base64 48）。所有业务服务经 envFrom 引用本 Secret。
   CLOUDMART_SERVICE_TOKEN_SECRET: "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_48"
   WISH_SERVICE_TOKEN_SECRET: "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_48"
+  # SEC-03：受管 RSA 密钥（PEM/Base64，须固定 key-id；缺失时 prod 拒绝启动）。
+  # 生成：openssl genrsa -out private.pem 2048 && openssl rsa -in private.pem -pubout -out public.pem
+  jwt-private-key: "CHANGE_ME_BASE64_PKCS8_PRIVATE_KEY"
+  jwt-public-key: "CHANGE_ME_BASE64_X509_PUBLIC_KEY"
+  jwt-key-id: "CHANGE_ME_STABLE_KID"

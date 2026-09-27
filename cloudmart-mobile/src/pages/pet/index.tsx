@@ -857,6 +857,12 @@ export default function PetPage() {
             >
               🪙 宠物币
             </Button>
+            <Button
+              className={styles.actionBtn}
+              onClick={() => Taro.navigateTo({ url: '/pages/petPlay/index' })}
+            >
+              🎮 玩法
+            </Button>
           </View>
         </View>
 

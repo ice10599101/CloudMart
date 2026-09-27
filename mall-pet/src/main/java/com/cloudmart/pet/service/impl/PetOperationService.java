@@ -161,6 +161,39 @@ public class PetOperationService {
         return e.getCode() != null && DEFINITE_REJECTION_CODES.contains(e.getCode());
     }
 
+    /**
+     * TX-02 补强：Feign 非 2xx 响应（未走 fallback 的原始 FeignException）按 HTTP 状态与
+     * 响应信封 error.code 分类——402/409 属明确拒绝；其余（5xx/连接/超时）结果未知。
+     * @return 明确拒绝时返回要抛出的 BusinessException；null 表示非 Feign 或结果未知
+     */
+    static BusinessException definiteFromFeign(Throwable e) {
+        if (!(e instanceof feign.FeignException feignException)) {
+            return null;
+        }
+        int status = feignException.status();
+        if (status != 402 && status != 409) {
+            return null;
+        }
+        // 优先解析响应信封的 error.code（wish 返回标准信封）；解析失败按 HTTP 状态兜底
+        String code = status == 402 ? "WISH_STARLIGHT_INSUFFICIENT" : "WISH_OPERATION_CONFLICT";
+        try {
+            String body = feignException.contentUTF8();
+            if (body != null && !body.isBlank()) {
+                com.fasterxml.jackson.databind.JsonNode error = PET_MAPPER.readTree(body).path("error");
+                String envelopeCode = error.path("code").asText("");
+                if (!envelopeCode.isEmpty()) {
+                    code = envelopeCode;
+                }
+            }
+        } catch (Exception ignored) {
+            // 信封解析失败，按 HTTP 状态兜底
+        }
+        return new BusinessException(code, feignException.getMessage());
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper PET_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private WalletSettlement execute(String operationId, Long userId, Long petId, String bizType,
                                      Long bizRefId, String direction, int amount, String rewardSnapshot) {
         if (amount <= 0) {
@@ -242,6 +275,13 @@ public class PetOperationService {
             operationStore.markTerminal(operation, "FAILED", e.getMessage(), null);
             throw e;
         } catch (Exception e) {
+            // TX-02 补强：Feign 402/409 是明确业务拒绝（重试同结果）——记 FAILED 并抛出
+            BusinessException definite = definiteFromFeign(e);
+            if (definite != null) {
+                log.info("星光交易明确拒绝(HTTP), operationId={}, code={}", operationId, definite.getCode());
+                operationStore.markTerminal(operation, "FAILED", definite.getCode() + ": " + definite.getMessage(), null);
+                throw definite;
+            }
             // 结果未知：超时/服务不可用/网络中断——标 UNKNOWN 交恢复任务按原单收敛
             log.warn("星光交易结果未知, operationId={}, type={}", operationId, direction, e);
             metrics.increment("pet_settlement_unknown", "direction", direction);

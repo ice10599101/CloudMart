@@ -49,6 +49,7 @@ export default defineAppConfig({
     'pages/worldTree/index',
     'pages/pet/index',
     'pages/petWallet/index',
+    'pages/petPlay/index',
     'pages/petStage/index',
     'pages/capsuleList/index',
     'pages/capsuleCreate/index',

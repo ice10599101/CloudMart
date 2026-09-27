@@ -132,9 +132,13 @@ class AdminAuthControllerTest {
         @Test
         @DisplayName("管理员登出成功返回信封格式")
         void logout_ShouldReturnSuccessEnvelope() throws Exception {
-            willDoNothing().given(adminAuthService).logout(1L);
+            org.springframework.security.oauth2.jwt.Jwt jwt = org.mockito.Mockito.mock(org.springframework.security.oauth2.jwt.Jwt.class);
+            org.mockito.Mockito.when(jwt.getSubject()).thenReturn("1");
+            org.mockito.Mockito.when(jwt.getClaimAsString("sid")).thenReturn("session-1");
+            willDoNothing().given(adminAuthService).logout(1L, "session-1");
 
-            mockMvc.perform(post("/admin/logout"))
+            mockMvc.perform(post("/admin/logout")
+                            .header("Authorization", "Bearer test-token"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }

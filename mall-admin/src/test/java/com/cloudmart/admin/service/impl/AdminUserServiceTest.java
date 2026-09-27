@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.mockito.ArgumentCaptor;
@@ -53,6 +54,7 @@ class AdminUserServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private DataScopeService dataScopeService;
+    private AuthRevocationFeignClient authRevocationFeignClient;
     @Mock
     private AdminConverter adminConverter;
 
@@ -63,8 +65,8 @@ class AdminUserServiceTest {
         adminUserService = new AdminUserServiceImpl(
                 adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
                 adminRoleMapper, adminPostMapper, adminDeptMapper,
-                passwordEncoder, dataScopeService, adminConverter
-        );
+                passwordEncoder, dataScopeService, adminConverter,
+                authRevocationFeignClient);
     }
 
     @Test

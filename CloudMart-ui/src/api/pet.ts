@@ -1142,6 +1142,8 @@ export interface MinigameRoundVO {
   rewardEligible: boolean
   deadlineAt: string
   ruleVersion: string
+  /** 目标序列（展示数据；LEFT/CENTER/RIGHT × 10 窗） */
+  sequence: Array<'LEFT' | 'CENTER' | 'RIGHT'>
 }
 
 /** 开始接球局（显式 petId；每日 5 局有收益，超限训练局） */

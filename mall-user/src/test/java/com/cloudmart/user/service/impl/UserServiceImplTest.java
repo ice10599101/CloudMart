@@ -8,6 +8,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.converter.UserConverter;
 import com.cloudmart.user.dto.*;
 import com.cloudmart.user.entity.User;
+import com.cloudmart.user.feign.AuthStateFeignClient;
 import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
 import com.cloudmart.user.vo.UserVO;
@@ -38,6 +39,7 @@ class UserServiceImplTest {
     private UserConverter userConverter;
     private PasswordEncoder passwordEncoder;
     private CommunityFeignClient communityFeignClient;
+    private AuthStateFeignClient authStateFeignClient;
     private UserServiceImpl userService;
 
     @BeforeAll
@@ -56,7 +58,9 @@ class UserServiceImplTest {
         userConverter = mock(UserConverter.class);
         passwordEncoder = mock(PasswordEncoder.class);
         communityFeignClient = mock(CommunityFeignClient.class);
-        userService = new UserServiceImpl(userMapper, userConverter, passwordEncoder, communityFeignClient);
+        authStateFeignClient = mock(AuthStateFeignClient.class);
+        userService = new UserServiceImpl(userMapper, userConverter, passwordEncoder, communityFeignClient,
+                authStateFeignClient);
     }
 
     private User buildActiveUser() {

@@ -15,6 +15,10 @@ import com.cloudmart.order.feign.CartFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient;
 import com.cloudmart.order.feign.InventoryFeignClient;
 import com.cloudmart.order.feign.PaymentFeignClient;
+import com.cloudmart.common.async.compensation.CompensationTaskService;
+import com.cloudmart.common.async.outbox.OutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.order.mq.OrderEventProducer;
 import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;
@@ -54,6 +58,8 @@ class OrderServiceImplTest {
     private CouponFeignClient couponFeignClient;
     private StringRedisTemplate redisTemplate;
     private OrderEventProducer orderEventProducer;
+    private OutboxService outboxService;
+    private CompensationTaskService compensationTaskService;
     private OrderServiceImpl orderService;
 
     @BeforeAll
@@ -84,9 +90,12 @@ class OrderServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
         when(valueOps.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
 
+        outboxService = mock(OutboxService.class);
+        compensationTaskService = mock(CompensationTaskService.class);
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient, couponFeignClient,
-                redisTemplate, orderEventProducer);
+                redisTemplate, orderEventProducer, outboxService, compensationTaskService,
+                new ObjectMapper());
     }
 
     private Order buildOrder(Long id, Long userId, String status) {
@@ -186,7 +195,7 @@ class OrderServiceImplTest {
             OrderDTO result = orderService.cancelOrder(100L, 1L);
 
             assertThat(result.status()).isEqualTo("CANCELLED");
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
             verify(redisTemplate).delete(anyString());
         }
 
@@ -247,7 +256,7 @@ class OrderServiceImplTest {
             OrderDTO result = orderService.shipOrder(1L);
 
             assertThat(result.status()).isEqualTo("SHIPPED");
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
         }
 
         @Test
@@ -296,7 +305,7 @@ class OrderServiceImplTest {
             OrderDTO result = orderService.confirmReceipt(100L, 1L);
 
             assertThat(result.status()).isEqualTo("COMPLETED");
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
         }
 
         @Test
@@ -346,7 +355,7 @@ class OrderServiceImplTest {
             OrderDTO result = orderService.requestRefund(100L, 1L, "defective");
 
             assertThat(result.status()).isEqualTo("REFUNDING");
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
         }
 
         @Test
@@ -465,7 +474,7 @@ class OrderServiceImplTest {
             orderService.notifyPaymentSuccess(1L);
 
             verify(orderMapper).updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID");
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
             verify(redisTemplate).delete(anyString());
         }
 
@@ -520,7 +529,7 @@ class OrderServiceImplTest {
 
             assertThat(result.status()).isEqualTo("REFUNDED");
             verify(paymentFeignClient).refund(1L);
-            verify(orderEventProducer).sendOrderStatusChange(any());
+            verify(outboxService).record(any(EventEnvelope.class));
         }
 
         @Test

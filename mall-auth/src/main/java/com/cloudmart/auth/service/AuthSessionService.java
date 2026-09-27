@@ -1,5 +1,6 @@
 package com.cloudmart.auth.service;
 
+import com.cloudmart.common.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -68,7 +69,7 @@ public class AuthSessionService {
                     Duration.ofSeconds(accessTokenExpiration));
         } catch (Exception e) {
             // fail-closed：写不进会话账本就不发令牌，否则令牌无法被撤销
-            throw new com.cloudmart.common.exception.BusinessException(
+            throw new BusinessException(
                     "SESSION_UNAVAILABLE", "会话服务暂不可用，请稍后重试");
         }
         return new IssuedSession(sid, version);
@@ -81,7 +82,7 @@ public class AuthSessionService {
             return value == null ? 0L : Long.parseLong(value);
         } catch (Exception e) {
             // 版本查询失败按 0 处理会导致"高版本仍有效"，必须 fail-closed
-            throw new com.cloudmart.common.exception.BusinessException(
+            throw new BusinessException(
                     "SESSION_UNAVAILABLE", "会话服务暂不可用，请稍后重试");
         }
     }
@@ -94,7 +95,7 @@ public class AuthSessionService {
         try {
             redisTemplate.delete(SESSION_KEY_PREFIX + sid);
         } catch (Exception e) {
-            throw new com.cloudmart.common.exception.BusinessException(
+            throw new BusinessException(
                     "SESSION_UNAVAILABLE", "会话服务暂不可用，请稍后重试");
         }
     }
@@ -114,7 +115,7 @@ public class AuthSessionService {
                         Duration.ofSeconds(refreshTokenExpiration));
             }
         } catch (Exception e) {
-            throw new com.cloudmart.common.exception.BusinessException(
+            throw new BusinessException(
                     "SESSION_UNAVAILABLE", "会话服务暂不可用，请稍后重试");
         }
         if (revokeRefreshTokens) {

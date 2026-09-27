@@ -189,6 +189,50 @@ class PetOperationServiceTest {
     }
 
     @Test
+    @DisplayName("TX-02 补强：Feign 402（真传输层）也归明确拒绝 → FAILED")
+    void execute_feign402_marksFailed() {
+        PetOperation operation = pendingOperation();
+        operation.setDirection("SPEND");
+        when(operationStore.claim(anyString(), anyLong(), any(), anyString(), any(), anyString(), anyInt(), any()))
+                .thenReturn(operation);
+        when(wishFeignClient.spendStarlightIdempotent(anyLong(), anyInt(), any(), anyString()))
+                .thenThrow(feign.FeignException.errorStatus("spend",
+                        feign.Response.builder()
+                                .status(402)
+                                .reason("Payment Required")
+                                .request(feign.Request.create(feign.Request.HttpMethod.POST, "/spend", java.util.Map.of(), null, java.nio.charset.StandardCharsets.UTF_8, null))
+                                .headers(java.util.Map.of())
+                                                                .build()));
+
+        assertThatThrownBy(() -> service.executeSpend("SHOP_BUY:1", 1001L, 5L, "SHOP_BUY", 5L, 10, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo("WISH_STARLIGHT_INSUFFICIENT");
+        verify(operationStore).markTerminal(eq(operation), eq("FAILED"), anyString(), any());
+        verify(operationStore, never()).markTerminal(eq(operation), eq("UNKNOWN"), any(), any());
+    }
+
+    @Test
+    @DisplayName("TX-02 补强：Feign 5xx 仍按结果未知 → UNKNOWN")
+    void execute_feign503_marksUnknown() {
+        PetOperation operation = pendingOperation();
+        when(operationStore.claim(anyString(), anyLong(), any(), anyString(), any(), anyString(), anyInt(), any()))
+                .thenReturn(operation);
+        when(wishFeignClient.earnStarlightIdempotent(anyLong(), anyInt(), any(), anyString()))
+                .thenThrow(feign.FeignException.errorStatus("earn",
+                        feign.Response.builder()
+                                .status(503)
+                                .reason("Service Unavailable")
+                                .request(feign.Request.create(feign.Request.HttpMethod.POST, "/earn", java.util.Map.of(), null, java.nio.charset.StandardCharsets.UTF_8, null))
+                                .headers(java.util.Map.of())
+                                                                .build()));
+
+        var settlement = service.executeEarn("QUEST_CLAIM:1001", 1001L, 5L, "QUEST_CLAIM", 9L, 10, null);
+        assertThat(settlement.isUnknown()).isTrue();
+        verify(operationStore).markTerminal(eq(operation), eq("UNKNOWN"), anyString(), any());
+    }
+
+    @Test
     @DisplayName("信封成功但交易状态非 COMPLETED：按未知处理，不冒充成功")
     void execute_nonCompletedStatus_marksUnknown() {
         PetOperation operation = pendingOperation();

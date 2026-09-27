@@ -197,7 +197,13 @@ public class PetOperationRecoveryService {
                 scheduleRetry(operation, "远程不可用: " + e.getCode() + ": " + e.getMessage());
             }
         } catch (Exception e) {
-            scheduleRetry(operation, e.getClass().getSimpleName() + ": " + e.getMessage());
+            // TX-02 补强：Feign 402/409 属明确拒绝 → FAILED（远程真机实测 402 曾被误判 UNKNOWN）
+            com.cloudmart.common.exception.BusinessException definite = PetOperationService.definiteFromFeign(e);
+            if (definite != null) {
+                operationStore.markRetry(operation, "FAILED", null, definite.getCode() + ": " + definite.getMessage(), null);
+            } else {
+                scheduleRetry(operation, e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
         }
     }
 

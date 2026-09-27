@@ -5,3 +5,4 @@ com.cloudmart.common.config.ServletFilterAutoConfiguration
 com.cloudmart.common.config.IdempotentAutoConfiguration
 com.cloudmart.common.feign.FeignRequestIdAutoConfiguration
 com.cloudmart.common.lock.LockAutoConfiguration
+com.cloudmart.common.async.AsyncAutoConfiguration

@@ -7,6 +7,7 @@ import com.cloudmart.auth.dto.UserDTO;
 import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.UserFeignClient;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.AuthSessionService;
 import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
@@ -28,6 +29,7 @@ class AuthServiceImplTest {
     private UserFeignClient userFeignClient;
     private JwtProvider jwtProvider;
     private RefreshTokenService refreshTokenService;
+    private AuthSessionService authSessionService;
     private AuthServiceImpl authService;
 
     private static final Long USER_ID = 1L;
@@ -41,7 +43,11 @@ class AuthServiceImplTest {
         userFeignClient = mock(UserFeignClient.class);
         jwtProvider = mock(JwtProvider.class);
         refreshTokenService = mock(RefreshTokenService.class);
-        authService = new AuthServiceImpl(userFeignClient, jwtProvider, refreshTokenService, 900L);
+        authSessionService = mock(AuthSessionService.class);
+        when(authSessionService.issueSession(any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new AuthSessionService.IssuedSession("session-1", 0L));
+        authService = new AuthServiceImpl(userFeignClient, jwtProvider, refreshTokenService,
+                authSessionService, 900L);
     }
 
     @Nested
@@ -57,7 +63,8 @@ class AuthServiceImplTest {
 
             when(userFeignClient.validateUser(any(ValidateRequest.class)))
                     .thenReturn(ApiResponse.ok(userDTO));
-            when(jwtProvider.generateAccessToken(USER_ID, "user")).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
+                .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = authService.login(request);
@@ -109,7 +116,8 @@ class AuthServiceImplTest {
 
             when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
 .thenReturn(rotation(REFRESH_TOKEN, USER_ID));
-            when(jwtProvider.generateAccessToken(USER_ID, "user")).thenReturn(ACCESS_TOKEN);
+            when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
+                .thenReturn(ACCESS_TOKEN);
             LoginResponse result = authService.refresh(request);
 
             assertThat(result).isNotNull();
@@ -154,7 +162,9 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should revoke all tokens for user")
         void logout_revokesAllTokens() {
-            authService.logout(USER_ID);
+            authService.logout(USER_ID, "session-1");
+
+            verify(authSessionService).revokeSession("session-1");
 
             verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.USER, USER_ID);
         }

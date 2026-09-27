@@ -1,6 +1,7 @@
 package com.cloudmart.order;
 
 import com.cloudmart.common.handler.GlobalExceptionHandler;
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@MapperScan({"com.cloudmart.order.repository", "com.cloudmart.common.async.mapper"})
 @EnableDiscoveryClient
 @EnableFeignClients
 @EnableScheduling

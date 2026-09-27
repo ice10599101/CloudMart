@@ -1,0 +1,64 @@
+-- ASYNC-01：交易异步可靠性基础设施（Outbox / Inbox / 补偿任务）
+-- 与业务写同库，保证业务提交与事件登记的原子性。
+
+CREATE TABLE outbox_event (
+    id                BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT COMMENT '主键',
+    event_id          VARCHAR(64)      NOT NULL COMMENT '全局唯一事件ID（UUID）',
+    event_type        VARCHAR(128)     NOT NULL COMMENT '事件类型（如 PAYMENT_SUCCESS）',
+    schema_version    INT              NOT NULL DEFAULT 1 COMMENT '载荷结构版本',
+    aggregate_id      VARCHAR(64)      NOT NULL COMMENT '聚合根ID（如订单号）',
+    aggregate_version BIGINT           NOT NULL DEFAULT 0 COMMENT '聚合版本（乱序去重）',
+    request_id        VARCHAR(64)      NULL COMMENT '发起请求追踪ID',
+    payload           TEXT             NOT NULL COMMENT '事件载荷JSON',
+    status            VARCHAR(16)      NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING/SENDING/SENT/FAILED/DEAD_LETTER',
+    attempts          INT              NOT NULL DEFAULT 0 COMMENT '已尝试次数',
+    next_retry_at     DATETIME(3)      NULL COMMENT '下次重试时间（退避）',
+    last_error        VARCHAR(1024)    NULL COMMENT '最后错误（脱敏）',
+    locked_by         VARCHAR(64)      NULL COMMENT '投递者实例ID（租约）',
+    locked_at         DATETIME(3)      NULL COMMENT '投递锁时间',
+    sent_at           DATETIME(3)      NULL COMMENT '投递成功时间',
+    created_at        DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    updated_at        DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_outbox_event_id (event_id),
+    KEY idx_outbox_status_retry (status, next_retry_at),
+    KEY idx_outbox_aggregate (aggregate_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '交易事件Outbox（ASYNC-01）';
+
+CREATE TABLE inbox_record (
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    consumer     VARCHAR(64)     NOT NULL COMMENT '消费者标识',
+    event_id     VARCHAR(64)     NOT NULL COMMENT '全局唯一事件ID',
+    event_type   VARCHAR(128)    NOT NULL COMMENT '事件类型',
+    aggregate_id VARCHAR(64)     NOT NULL COMMENT '聚合根ID',
+    status       VARCHAR(16)     NOT NULL DEFAULT 'PROCESSING' COMMENT '状态：PROCESSING/PROCESSED/FAILED',
+    attempts     INT             NOT NULL DEFAULT 0 COMMENT '处理尝试次数',
+    last_error   VARCHAR(1024)   NULL COMMENT '最后错误（脱敏）',
+    locked_at    DATETIME(3)     NULL COMMENT '处理锁时间（租约）',
+    processed_at DATETIME(3)     NULL COMMENT '处理完成时间',
+    created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    updated_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_inbox_consumer_event (consumer, event_id),
+    KEY idx_inbox_status (status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '事件消费Inbox（ASYNC-01）';
+
+CREATE TABLE compensation_task (
+    id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    task_id       VARCHAR(128)    NOT NULL COMMENT '业务幂等键（如 stock-confirm:{orderId}:{skuId}）',
+    action        VARCHAR(64)     NOT NULL COMMENT '补偿动作标识',
+    aggregate_id  VARCHAR(64)     NOT NULL COMMENT '聚合根ID（如订单号）',
+    payload       TEXT            NULL COMMENT '任务载荷JSON',
+    status        VARCHAR(16)     NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING/PROCESSING/SUCCEEDED/FAILED/DEAD_LETTER',
+    attempts      INT             NOT NULL DEFAULT 0 COMMENT '已尝试次数',
+    next_retry_at DATETIME(3)     NULL COMMENT '下次重试时间（退避）',
+    last_error    VARCHAR(1024)   NULL COMMENT '最后错误（脱敏）',
+    locked_by     VARCHAR(64)     NULL COMMENT '执行者实例ID（租约）',
+    locked_at     DATETIME(3)     NULL COMMENT '执行锁时间',
+    created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    updated_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compensation_task_id (task_id),
+    KEY idx_compensation_status_retry (status, next_retry_at),
+    KEY idx_compensation_aggregate (aggregate_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '跨服务补偿任务（ASYNC-01）';

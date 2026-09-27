@@ -123,6 +123,9 @@ management:
 # X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
 # 裸 X-Internal-Call 头不再构成任何信任凭证。
 cloudmart:
+  # ASYNC-01：交易异步可靠性（Outbox/Inbox/补偿任务）
+  async:
+    enabled: true
   security:
     service-id: mall-inventory
     service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}

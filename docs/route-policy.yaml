@@ -158,7 +158,9 @@ mall-risk:
 # mall-admin / mall-job / mall-gen / mall-file
 # -----------------------------------------------------------------------------
 mall-auth:
-  - { method: POST,   path: /internal/tokens/revoke-subject, subjectType: SERVICE, serviceCaller: mall-admin, permission: admin:auth, note: "SEC-02：踢人/禁用时按主体撤销令牌家族" }
+  - { method: POST,   path: /internal/tokens/revoke-subject, subjectType: SERVICE, serviceCaller: "mall-admin,mall-user", permission: admin:auth, note: "SEC-02：踢人/禁用时按主体撤销令牌家族" }
+  - { method: POST,   path: /internal/tokens/invalidate-state, subjectType: SERVICE, serviceCaller: "mall-admin,mall-user", permission: admin:auth, note: "SEC-03：禁用/改密硬失效；改权限软失效" }
+  - { method: POST,   path: /logout,                subjectType: USER, ownerCheck: true, note: "SEC-03：撤销当前会话+全部刷新家族" }
 
 mall-admin:
   - { method: POST,   path: /auth/validate,             subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
