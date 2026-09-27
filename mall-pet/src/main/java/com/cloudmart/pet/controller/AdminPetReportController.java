@@ -43,6 +43,7 @@ public class AdminPetReportController {
     private final PetReportMapper reportMapper;
     private final PetMapper petMapper;
     private final PetAchievementService achievementService;
+    private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
 
     @GetMapping("/reports")
     @Operation(summary = "举报列表", description = "status 过滤 + 分页")
@@ -80,6 +81,13 @@ public class AdminPetReportController {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "举报不存在或已处理");
         }
         return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/album/{assetId}/approve")
+    @Operation(summary = "相册资源审核通过", description = "BE-11：仅审核链路可设 APPROVED（用户上传进入时为 PENDING）")
+    public ApiResponse<com.cloudmart.pet.entity.PetAlbumAsset> approveAlbum(
+            @Parameter(description = "相册资源 ID") @PathVariable("assetId") Long assetId) {
+        return ApiResponse.ok(companionFeatureService.approveAlbumAsset(assetId));
     }
 
     /** 成就补算（B17）：从历史事实重评全部事件；已达成记录唯一键幂等，不重复发奖 */

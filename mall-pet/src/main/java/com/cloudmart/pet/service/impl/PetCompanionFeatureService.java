@@ -55,6 +55,7 @@ public class PetCompanionFeatureService {
     private final PetInventoryMapper inventoryMapper;
     private final com.cloudmart.pet.config.PetProperties properties;
     private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
+    private final com.cloudmart.pet.service.PetUserGuardService guardService;
 
     public PetCompanionFeatureService(PetMapper petMapper,
                                       PetOnboardingProgressMapper onboardingMapper,
@@ -64,7 +65,8 @@ public class PetCompanionFeatureService {
                                       PetOperationService operationService,
                                       PetInventoryMapper inventoryMapper,
                                       com.cloudmart.pet.config.PetProperties properties,
-                                      com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper) {
+                                      com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
+                                      com.cloudmart.pet.service.PetUserGuardService guardService) {
         this.petMapper = petMapper;
         this.onboardingMapper = onboardingMapper;
         this.diaryMapper = diaryMapper;
@@ -74,6 +76,7 @@ public class PetCompanionFeatureService {
         this.inventoryMapper = inventoryMapper;
         this.properties = properties;
         this.notifyPrefMapper = notifyPrefMapper;
+        this.guardService = guardService;
     }
 
     /** B19：查询/更新宠物通知偏好（免打扰 + 日常问候开关）；重要业务通知不受偏好影响 */
@@ -263,13 +266,27 @@ public class PetCompanionFeatureService {
         return result;
     }
 
-    /** 上传相册资源（N02）：归属=本人宠物；JPEG/PNG/WebP、≤5MB 由文件服务校验后引用 */
+    /**
+     * 上传相册资源（N02/BE-11）：归属=本人宠物；文件引用必须落在本文件服务命名空间内
+     * （禁止任意外部地址/路径穿越）；日记绑定校验归属；用户上传一律 PENDING（APPROVED
+     * 仅审核流程可设）；100 张配额在用户守卫行锁内核验（并发不越界，T27）。
+     * 文件本身的大小/类型在 mall-file 上传时校验（JPEG/PNG/WebP、≤5MB）。
+     */
     @Transactional
     public PetAlbumAsset uploadAlbumAsset(Long userId, Long petId, String fileId, Long diaryEntryId) {
         Pet pet = petMapper.selectById(petId);
         if (pet == null || !pet.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的相册");
         }
+        validateFileReference(fileId);
+        if (diaryEntryId != null) {
+            com.cloudmart.pet.entity.PetDiaryEntry diary = diaryMapper.selectById(diaryEntryId);
+            if (diary == null || !diary.getUserId().equals(userId) || !diary.getPetId().equals(petId)) {
+                throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "日记归属与相册不符");
+            }
+        }
+        // 用户守卫行锁：并发上传的配额核验串行化（BE-11/T27：第 100/101 张不越界）
+        guardService.lockGuard(userId);
         Long count = albumMapper.selectCount(new LambdaQueryWrapper<PetAlbumAsset>()
                 .eq(PetAlbumAsset::getUserId, userId));
         if (count != null && count >= 100) {
@@ -280,12 +297,46 @@ public class PetCompanionFeatureService {
         asset.setPetId(petId);
         asset.setDiaryEntryId(diaryEntryId);
         asset.setFileId(fileId);
-        asset.setAuditStatus("APPROVED");
+        // BE-11：用户上传进入审核队列；APPROVED 仅审核流程可设置
+        asset.setAuditStatus("PENDING");
         try {
             albumMapper.insert(asset);
         } catch (DuplicateKeyException e) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该资源已存在");
         }
+        return asset;
+    }
+
+    /**
+     * 文件引用命名空间校验（BE-11）：仅接受本文件服务返回的引用形态
+     * {@code [https://host]/files/{category}/{date}/{name}}——拒绝任意外部地址、
+     * 路径穿越、查询串与控制字符，防止盗用他人文件或拼永久外链。
+     */
+    private static final java.util.regex.Pattern FILE_REFERENCE_PATTERN =
+            java.util.regex.Pattern.compile("^(https?://[^/\s]+)?/files/[A-Za-z0-9._/-]+$");
+
+    private void validateFileReference(String fileId) {
+        if (fileId == null || fileId.isBlank() || fileId.length() > 500) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件引用非法");
+        }
+        if (fileId.contains("..") || fileId.contains("\\") || fileId.contains("?") || fileId.contains("#")) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件引用非法");
+        }
+        if (!FILE_REFERENCE_PATTERN.matcher(fileId).matches()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "仅支持本站文件服务的资源引用");
+        }
+    }
+
+    /** 审核通过（仅审核链路可调用；用户上传进入时为 PENDING） */
+    @Transactional
+    public PetAlbumAsset approveAlbumAsset(Long assetId) {
+        PetAlbumAsset asset = albumMapper.selectById(assetId);
+        if (asset == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "相册资源不存在");
+        }
+        asset.setAuditStatus("APPROVED");
+        albumMapper.updateById(asset);
         return asset;
     }
 

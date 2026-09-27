@@ -41,11 +41,14 @@ import java.time.Clock;
 public class SecurityConfig {
 
     private final PetSecurityProperties securityProperties;
+    private final Clock clock;
     private final RequestIdFilter requestIdFilter;
 
     public SecurityConfig(PetSecurityProperties securityProperties,
-                          RequestIdFilter requestIdFilter) {
+                          RequestIdFilter requestIdFilter,
+                          Clock clock) {
         this.securityProperties = securityProperties;
+        this.clock = clock;
         this.requestIdFilter = requestIdFilter;
     }
 
@@ -57,7 +60,7 @@ public class SecurityConfig {
             // 顺序：先验用户 JWT，再验服务令牌（二者互斥建立身份）
             .addFilterBefore(new PetJwtAuthenticationFilter(securityProperties.getJwksUri()),
                     UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(new PetServiceTokenAuthenticationFilter(securityProperties, petClock()),
+            .addFilterBefore(new PetServiceTokenAuthenticationFilter(securityProperties, clock),
                     UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // 公开浏览：他人主页宠物卡片（隐私开关由宠物主人控制，关闭时仅返回 404 语义提示）
@@ -71,12 +74,6 @@ public class SecurityConfig {
             .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, authException) ->
                 JsonAuthenticationEntryPoint.writeUnauthorized(request, response)));
         return http.build();
-    }
-
-    /** 供服务令牌时效校验注入的 UTC 时钟。 */
-    @Bean
-    public Clock petClock() {
-        return Clock.systemUTC();
     }
 
     @Bean
