@@ -2,6 +2,8 @@ package com.cloudmart.inventory.config;
 
 import com.cloudmart.common.filter.RequestIdFilter;
 import com.cloudmart.common.security.JsonAuthenticationEntryPoint;
+import com.cloudmart.common.security.ServiceTokenAuthenticationFilter;
+import com.cloudmart.common.security.UserJwtAuthenticationFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,12 +20,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final InternalCallAuthenticationFilter internalCallAuthenticationFilter;
+    private final UserJwtAuthenticationFilter userJwtAuthenticationFilter;
+    private final ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter;
     private final RequestIdFilter requestIdFilter;
 
-    public SecurityConfig(InternalCallAuthenticationFilter internalCallAuthenticationFilter,
+    public SecurityConfig(UserJwtAuthenticationFilter userJwtAuthenticationFilter,
+            ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter,
                           RequestIdFilter requestIdFilter) {
-        this.internalCallAuthenticationFilter = internalCallAuthenticationFilter;
+        this.userJwtAuthenticationFilter = userJwtAuthenticationFilter;
+        this.serviceTokenAuthenticationFilter = serviceTokenAuthenticationFilter;
         this.requestIdFilter = requestIdFilter;
     }
 
@@ -32,7 +37,8 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(internalCallAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()

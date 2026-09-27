@@ -37,8 +37,31 @@ import java.util.Set;
 @Component
 public class ServiceInternalRouteBlockFilter implements GlobalFilter, Ordered {
 
-    /** 各服务经网关不可直达的管理端/内部端点前缀（小写、带 /api 前缀） */
+    /**
+     * 各服务经网关不可直达的管理端/内部端点前缀（小写、带 /api 前缀）。
+     * SEC-01：覆盖全部业务服务——管理端唯一合法链路是 mall-admin 经 Nacos 内部
+     * Feign 直连（携带服务令牌），业务服务间调用同为 Nacos 直连，均不经网关。
+     * 新增服务的 admin/internal 端点必须同步加入本清单。
+     */
     static final Set<String> BLOCKED_PREFIXES = Set.of(
+            "/api/user/admin", "/api/user/internal",
+            "/api/product/admin", "/api/product/internal",
+            "/api/order/admin", "/api/order/internal",
+            "/api/payment/admin", "/api/payment/internal",
+            "/api/inventory/admin", "/api/inventory/internal",
+            "/api/cart/admin", "/api/cart/internal",
+            "/api/coupon/admin", "/api/coupon/internal",
+            "/api/seckill/admin", "/api/seckill/internal",
+            "/api/marketing/admin", "/api/marketing/internal",
+            "/api/wms/admin", "/api/wms/internal",
+            "/api/community/admin", "/api/community/internal",
+            "/api/notification/admin", "/api/notification/internal",
+            "/api/live/admin", "/api/live/internal",
+            "/api/ai/admin", "/api/ai/internal",
+            "/api/risk/admin", "/api/risk/internal",
+            "/api/file/admin", "/api/file/internal",
+            "/api/job/admin", "/api/job/internal",
+            "/api/gen/admin", "/api/gen/internal",
             "/api/wish/admin", "/api/wish/internal",
             "/api/pet/admin", "/api/pet/internal");
 

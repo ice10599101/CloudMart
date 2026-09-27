@@ -183,7 +183,7 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /** 管理员令牌携带的声明与网关注入头同源：perms 为逗号分隔的权限码 */
-    private AdminSecurityContext buildAdminContext(JWTClaimsSet claims, String subject) {
+    private AdminSecurityContext buildAdminContext(JWTClaimsSet claims, String subject) throws ParseException {
         String perms = claims.getStringClaim("perms");
         Set<String> permissions = perms == null || perms.isBlank()
                 ? Set.of()

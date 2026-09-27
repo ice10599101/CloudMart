@@ -52,10 +52,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/",
             "/api/user/users/register",
             "/api/user/users/validate",
-            "/api/payment/payments/callback",
-            "/api/file/uploads/",
-            "/api/gen/preview",
-            "/api/gen/download"
+            "/api/payment/payments/callback"
     );
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -145,10 +142,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 String deptId = claims.getStringClaim("deptId");
 
                 final ServerWebExchange finalExchange = sanitizedExchange;
+                // SEC-01：不再注入 X-Internal-Call——服务间身份由 X-Service-Token 短期签名令牌
+                // 建立，用户/管理员令牌永远不能换取内部调用身份。此处仅注入身份数据头
+                // （X-User-Id/X-Admin-*），下游以本地 JWT 验签结果为身份源。
                 sanitizedExchange = finalExchange.mutate()
                         .request(builder -> builder
                                 .header(SecurityConstants.USER_ID_HEADER, userId)
-                                .header(SecurityConstants.INTERNAL_CALL_HEADER, "true")
                                 .headers(headers -> {
                                     if (scope != null) {
                                         headers.add(SecurityConstants.ADMIN_ROLE_HEADER, scope);
@@ -169,17 +168,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             }
         }
 
-        if (isPublicPath(path, exchange.getRequest().getMethod())) {
-            log.info("[PUBLIC PATH] {} matched public path, adding INTERNAL_CALL_HEADER", path);
-            ServerHttpRequest request = sanitizedExchange.getRequest();
-            if (request.getHeaders().getFirst(SecurityConstants.INTERNAL_CALL_HEADER) == null) {
-                sanitizedExchange = sanitizedExchange.mutate()
-                        .request(builder -> builder
-                                .header(SecurityConstants.INTERNAL_CALL_HEADER, "true"))
-                        .build();
-            }
-        }
-
+        // SEC-01：公开路径不再注入 X-Internal-Call。公开端点在下游以 permitAll 匿名放行，
+        // 不依赖也不接受任何“内部调用”标记。
         return chain.filter(sanitizedExchange);
     }
 
