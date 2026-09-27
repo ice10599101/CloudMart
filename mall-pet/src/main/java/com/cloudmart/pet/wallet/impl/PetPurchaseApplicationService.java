@@ -44,7 +44,8 @@ public class PetPurchaseApplicationService {
 
     private final PetRequestDedupService dedupService;
     private final PetWalletService walletService;
-    private final PetPurchaseCatalog catalog;
+    /** 目录实现随 W-02 商城接入提供；ObjectProvider 允许无实现时服务正常启动（购买入口不可用） */
+    private final org.springframework.beans.factory.ObjectProvider<PetPurchaseCatalog> catalogProvider;
     private final ObjectProvider<PetAssetDeliverer> deliverers;
     private final PetPurchaseOrderMapper orderMapper;
     private final PetAssetGrantMapper assetGrantMapper;
@@ -52,14 +53,14 @@ public class PetPurchaseApplicationService {
 
     public PetPurchaseApplicationService(PetRequestDedupService dedupService,
                                          PetWalletService walletService,
-                                         PetPurchaseCatalog catalog,
+                                         ObjectProvider<PetPurchaseCatalog> catalogProvider,
                                          ObjectProvider<PetAssetDeliverer> deliverers,
                                          PetPurchaseOrderMapper orderMapper,
                                          PetAssetGrantMapper assetGrantMapper,
                                          TransactionTemplate transactionTemplate) {
         this.dedupService = dedupService;
         this.walletService = walletService;
-        this.catalog = catalog;
+        this.catalogProvider = catalogProvider;
         this.deliverers = deliverers;
         this.orderMapper = orderMapper;
         this.assetGrantMapper = assetGrantMapper;
@@ -133,6 +134,10 @@ public class PetPurchaseApplicationService {
     /** 业务事务（T08：扣币后任何一步失败整体回滚） */
     private PurchaseResult doPurchase(Long userId, Long petId, String itemType, String itemCode,
                                       String expectedConfigVersion, String requestKey) {
+        PetPurchaseCatalog catalog = catalogProvider.getIfAvailable();
+        if (catalog == null) {
+            throw new BusinessException("PET_TEMPORARILY_UNAVAILABLE", "商城目录未接入，购买暂不可用");
+        }
         PetPurchaseCatalog.CatalogEntry entry = catalog.load(userId, petId, itemType, itemCode, expectedConfigVersion);
         if (catalog.isUniquePerUser(itemType) && catalog.isOwnedByUser(userId, itemType, itemCode)) {
             throw new PetPurchaseCatalog.AlreadyOwnedException(itemType + ":" + itemCode);

@@ -92,12 +92,15 @@ public class PetRankingServiceImpl implements PetRankingService {
     private List<PetRankingVO> groupedRanking(RankingType type, Long userId) {
         List<Map<String, Object>> rows;
         if (type == RankingType.BATTLE_WIN) {
+            // PERF-01：排序列是 winner_pet_id（原 pet_id 列不存在，真库 Error 1054）；
+            // 公开过滤前置于候选筛选——先在 SQL 内限定公开宠物，防止 TopN 截断后再过滤导致缺项
             rows = battleMapper.selectMaps(new QueryWrapper<PetBattle>()
                     .select("winner_pet_id as petId", "COUNT(*) as cnt")
                     .eq("status", PetBattleStatus.FINISHED.name())
                     .isNotNull("winner_pet_id")
+                    .inSql("winner_pet_id", "SELECT id FROM pet WHERE is_public = 1")
                     .groupBy("winner_pet_id")
-                    .orderByDesc("cnt").orderByAsc("pet_id")
+                    .orderByDesc("cnt").orderByAsc("winner_pet_id")
                     .last("LIMIT " + TOP_N));
         } else {
             rows = bottleRecordMapper.selectMaps(new QueryWrapper<PetBottleRecord>()

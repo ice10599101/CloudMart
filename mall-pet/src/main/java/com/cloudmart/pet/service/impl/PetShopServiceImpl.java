@@ -64,6 +64,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
     private final PetSkillMapper skillMapper;
     private final WishFeignClient wishFeignClient;
     private final PetEconomyService economyService;
+    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetClock petClock;
 
     public PetShopServiceImpl(PetService petService,
@@ -75,6 +76,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                               PetSkillMapper skillMapper,
                               WishFeignClient wishFeignClient,
                               PetEconomyService economyService,
+                    com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                               PetClock petClock) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
@@ -85,6 +87,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         this.skillMapper = skillMapper;
         this.wishFeignClient = wishFeignClient;
         this.economyService = economyService;
+        this.playFeatureService = playFeatureService;
         this.petClock = petClock;
     }
 
@@ -212,6 +215,9 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         item.setAcquiredAt(petClock.nowUtc());
         try {
             inventoryMapper.insert(item);
+            // B02/BE-12：购买事实接入图鉴投影（uk 幂等，重复获得仅解锁一次）
+            playFeatureService.unlockCollection(pet.getUserId(), pet.getId(),
+                    type.name(), code, "SHOP_BUY:" + pet.getId() + ":" + type.name() + ":" + code);
         } catch (DuplicateKeyException e) {
             // 并发重复购买：uk_pet_inventory_item 兜底
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "已经拥有这个物品啦");
@@ -344,6 +350,9 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         item.setAcquiredAt(LocalDateTime.now(java.time.ZoneOffset.UTC));
         try {
             inventoryMapper.insert(item);
+            // B02/BE-12：购买事实接入图鉴投影（uk 幂等，重复获得仅解锁一次）
+            playFeatureService.unlockCollection(operation.getUserId(), operation.getPetId(),
+                    itemType, itemCode, "SHOP_BUY:" + operation.getPetId() + ":" + itemType + ":" + itemCode);
             return true;
         } catch (DuplicateKeyException e) {
             return true;

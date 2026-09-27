@@ -68,6 +68,9 @@ class PetEvolutionServiceImplTest {
     private PetAchievementService achievementService;
     @Mock
     private PetEventProducer eventProducer;
+    @org.mockito.Mock
+    private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+
 
     private PetEvolutionServiceImpl evolutionService;
 
@@ -92,7 +95,7 @@ class PetEvolutionServiceImplTest {
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
                 inventoryMapper, activityMapper, wishFeignClient, achievementService, economyService,
-                org.mockito.Mockito.mock(PetOutboxService.class), petClock);
+                playFeatureService, org.mockito.Mockito.mock(PetOutboxService.class), petClock);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
         lenient().when(wishFeignClient.starlightBalance(100L)).thenReturn(ApiResponse.ok(5000));

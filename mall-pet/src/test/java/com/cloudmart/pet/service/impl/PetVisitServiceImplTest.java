@@ -202,7 +202,7 @@ class PetVisitServiceImplTest {
 
         ArgumentCaptor<PetEventProducer.PetEventMessage> messageCaptor =
                 ArgumentCaptor.forClass(PetEventProducer.PetEventMessage.class);
-        verify(eventProducer).publish(eq(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_VISIT),
+        verify(eventProducer).publishViaOutbox(eq(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_VISIT),
                 messageCaptor.capture());
         assertThat(messageCaptor.getValue().userId()).isEqualTo(String.valueOf(200L));
         assertThat(messageCaptor.getValue().reminderType()).isEqualTo("PET_VISIT");

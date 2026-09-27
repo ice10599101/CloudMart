@@ -27,7 +27,7 @@ public class PetWalletQueryServiceImpl implements PetWalletQueryService {
     private final PetWalletService walletService;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.SUPPORTS)
     public PetWalletAccount getWallet(Long userId) {
         PetWalletAccount account = accountMapper.selectOne(new LambdaQueryWrapper<PetWalletAccount>()
                 .eq(PetWalletAccount::getUserId, userId)

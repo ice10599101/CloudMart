@@ -190,7 +190,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         }
         String previousCode = pet.getCareerCode();
         switchCareer(pet, config.getCode(), "LEFT");
-        eventProducer.publish(RocketMQConfig.PET_TAG_CAREER, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_CAREER, new PetEventProducer.PetEventMessage(
                 "CAREER_JOINED:" + pet.getId() + ":" + config.getCode() + ":" + petClock.nowUtc().toLocalDate(),
                 String.valueOf(userId), "PET_CAREER_PROMOTED",
                 "我入职啦！",
@@ -363,7 +363,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
             }
         }
         switchCareer(pet, target.getCode(), "PROMOTED");
-        eventProducer.publish(RocketMQConfig.PET_TAG_CAREER, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_CAREER, new PetEventProducer.PetEventMessage(
                 "CAREER_PROMOTED:" + pet.getId() + ":" + target.getCode(),
                 String.valueOf(userId), "PET_CAREER_PROMOTED",
                 "我晋升啦！",

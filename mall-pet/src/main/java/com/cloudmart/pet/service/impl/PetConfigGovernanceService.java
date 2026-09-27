@@ -117,18 +117,24 @@ public class PetConfigGovernanceService {
                         .orderByDesc(PetConfigVersion::getVersion)
                         .last("LIMIT 1"))
                 .stream().findFirst().map(PetConfigVersion::getVersion).orElse(0);
-        PetConfigVersion version = new PetConfigVersion();
-        version.setConfigType(configType);
-        version.setConfigId(configId);
-        version.setVersion(maxVersion + 1);
-        version.setSnapshot(snapshot);
-        version.setOperation("PUBLISH");
-        version.setOperator(operator);
-        try {
-            versionMapper.insert(version);
-        } catch (DuplicateKeyException e) {
-            log.debug("配置版本重复（幂等跳过）: type={}, id={}", configType, configId);
+        // ADM-02：max+1 并发竞态下 DuplicateKey 不再静默跳过（会丢快照）——有限次重试递增版本
+        for (int attempt = 0; attempt < 5; attempt++) {
+            PetConfigVersion version = new PetConfigVersion();
+            version.setConfigType(configType);
+            version.setConfigId(configId);
+            version.setVersion(maxVersion + 1 + attempt);
+            version.setSnapshot(snapshot);
+            version.setOperation("PUBLISH");
+            version.setOperator(operator);
+            try {
+                versionMapper.insert(version);
+                return;
+            } catch (DuplicateKeyException e) {
+                log.debug("配置版本并发冲突，重试: type={}, id={}, version={}",
+                        configType, configId, version.getVersion());
+            }
         }
+        throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "配置版本并发冲突，请重试");
     }
 
     /** B21 回退：将指定版本的快照字段写回目标行（列白名单取自快照键），并记录 ROLLBACK 版本 */
@@ -147,12 +153,17 @@ public class PetConfigGovernanceService {
         if (snapshot == null || !snapshot.containsKey("id")) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "快照缺少 id，无法回退");
         }
-        // 用 JdbcTemplate 按快照逐列恢复（列名取自快照自身键，值走参数绑定防注入）
+        // 用 JdbcTemplate 按快照逐列恢复（值走参数绑定防注入；列名按安全字符白名单校验，
+        // 防 JSON 快照被篡改后注入——ADM-02 加固）
         List<String> setClauses = new java.util.ArrayList<>();
         List<Object> params = new java.util.ArrayList<>();
         for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
             if ("id".equals(entry.getKey()) || "created_at".equals(entry.getKey())) {
                 continue;
+            }
+            if (!entry.getKey().matches("^[a-z0-9_]+$")) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                        "快照含非法列名: " + entry.getKey());
             }
             setClauses.add(entry.getKey() + " = ?");
             params.add(entry.getValue());
@@ -160,8 +171,10 @@ public class PetConfigGovernanceService {
         if (setClauses.isEmpty()) {
             return;
         }
+        // ADM-02 实锤修复：SET 占位符 N 个 + WHERE 占位符 1 个，params 必须追加 configId
+        params.add(configId);
         jdbcTemplate.update("UPDATE `" + table + "` SET " + String.join(", ", setClauses)
-                + " WHERE id = ?", params.stream().toArray());
+                + " WHERE id = ?", params.toArray());
         // 回退动作本身也留版本审计
         PetConfigVersion version = new PetConfigVersion();
         version.setConfigType(configType);

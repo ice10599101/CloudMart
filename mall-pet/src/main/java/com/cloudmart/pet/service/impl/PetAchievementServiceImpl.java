@@ -257,7 +257,7 @@ public class PetAchievementServiceImpl implements PetAchievementService {
             return;
         }
         stateService.grantExp(pet, achievement.getExpReward());
-        eventProducer.publish(RocketMQConfig.PET_TAG_ACHIEVEMENT, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_ACHIEVEMENT, new PetEventProducer.PetEventMessage(
                 "ACHIEVEMENT:" + pet.getId() + ":" + achievement.getId(),
                 String.valueOf(pet.getUserId()), "PET_ACHIEVEMENT",
                 "成就达成：" + achievement.getName(),

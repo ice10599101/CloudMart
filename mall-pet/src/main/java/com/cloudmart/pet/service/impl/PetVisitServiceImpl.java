@@ -179,7 +179,7 @@ public class PetVisitServiceImpl implements PetVisitService {
 
         String nickname = resolveNicknames(List.of(neighbor.getUserId()))
                 .getOrDefault(neighbor.getUserId(), NICKNAME_PLACEHOLDER);
-        eventProducer.publish(RocketMQConfig.PET_TAG_VISIT, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_VISIT, new PetEventProducer.PetEventMessage(
                 "VISIT:" + pet.getId() + ":" + neighbor.getId() + ":"
                         + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
                 String.valueOf(neighbor.getUserId()), "PET_VISIT",

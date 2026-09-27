@@ -3,6 +3,7 @@ package com.cloudmart.pet.mq;
 import com.cloudmart.pet.config.RocketMQConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,9 +21,33 @@ import org.springframework.stereotype.Component;
 public class PetEventProducer {
 
     private final RocketMQTemplate rocketMQTemplate;
+    private final com.cloudmart.pet.service.impl.PetOutboxService outboxService;
 
-    public PetEventProducer(RocketMQTemplate rocketMQTemplate) {
+    public PetEventProducer(RocketMQTemplate rocketMQTemplate,
+                            @Lazy com.cloudmart.pet.service.impl.PetOutboxService outboxService) {
         this.rocketMQTemplate = rocketMQTemplate;
+        this.outboxService = outboxService;
+    }
+
+    /**
+     * 事务内 Outbox 登记（OPS-01）：与 {@link #publish} 同参语义，但事件先落
+     * pet_outbox_event（调用方事务提交后才真正发送），消除"业务回滚但消息已发出"。
+     * 同 eventId 重复登记由 outbox 唯一键幂等跳过。
+     */
+    public void publishViaOutbox(String tag, PetEventMessage message) {
+        outboxService.record(message.eventId(), tag, parseOrNull(message.userId()),
+                parseOrNull(message.bizId()), message);
+    }
+
+    private static Long parseOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

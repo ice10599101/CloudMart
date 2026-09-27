@@ -244,7 +244,7 @@ public class PetRelationServiceImpl implements PetRelationService {
         Pet from = petMapper.selectById(relation.getFromPetId());
         PetRelationType type = PetRelationType.valueOf(relation.getRelType());
         if (from != null) {
-            eventProducer.publish(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
                     "RELATION_ACCEPTED:" + relation.getId(),
                     String.valueOf(relation.getFromUserId()), "PET_RELATION_ACCEPTED",
                     "关系确认啦！",
@@ -447,7 +447,7 @@ public class PetRelationServiceImpl implements PetRelationService {
 
     private void notifyRequest(Pet from, Pet target, PetRelationType type, String message) {
         String extra = message != null && !message.isBlank() ? "（" + message + "）" : "";
-        eventProducer.publish(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_RELATION, new PetEventProducer.PetEventMessage(
                 "RELATION_REQUEST:" + from.getId() + ":" + target.getId() + ":" + type.name() + ":"
                         + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
                 String.valueOf(target.getUserId()), "PET_RELATION_REQUEST",

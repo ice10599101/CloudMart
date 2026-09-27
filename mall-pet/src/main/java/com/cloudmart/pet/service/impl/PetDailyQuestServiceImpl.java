@@ -251,7 +251,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                         .setSql("completed_at = CASE WHEN completed_at IS NULL AND progress >= target_value "
                                 + "THEN UTC_TIMESTAMP() ELSE completed_at END")
                         .eq(PetDailyQuest::getPetId, pet.getId())
-                        .eq(PetDailyQuest::getQuestDate, LocalDate.now(ZoneId.of("UTC")))
+                        .eq(PetDailyQuest::getQuestDate, petClock.businessDate())
                         .eq(PetDailyQuest::getQuestCode, code)
                         .eq(PetDailyQuest::getStatus, PetQuestStatus.IN_PROGRESS.name()));
             }
@@ -265,7 +265,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
 
     /** 生成/加载当日任务行（含宝箱行），返回当日全部行 */
     private List<PetDailyQuest> ensureToday(Pet pet) {
-        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+        LocalDate today = petClock.businessDate();
         List<PetDailyQuest> existing = questMapper.selectList(todayWrapper(pet));
         List<String> existingCodes = existing.stream().map(PetDailyQuest::getQuestCode).toList();
         List<PetDailyQuestConfig> configs = frozenConfigsForToday(pet, today);
@@ -311,7 +311,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private LambdaQueryWrapper<PetDailyQuest> todayWrapper(Pet pet) {
         return new LambdaQueryWrapper<PetDailyQuest>()
                 .eq(PetDailyQuest::getPetId, pet.getId())
-                .eq(PetDailyQuest::getQuestDate, LocalDate.now(ZoneId.of("UTC")))
+                .eq(PetDailyQuest::getQuestDate, petClock.businessDate())
                 .orderByAsc(PetDailyQuest::getId);
     }
 
@@ -357,7 +357,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private PetDailyQuest requireQuest(Pet pet, String questCode) {
         PetDailyQuest quest = questMapper.selectOne(new LambdaQueryWrapper<PetDailyQuest>()
                 .eq(PetDailyQuest::getPetId, pet.getId())
-                .eq(PetDailyQuest::getQuestDate, LocalDate.now(ZoneId.of("UTC")))
+                .eq(PetDailyQuest::getQuestDate, petClock.businessDate())
                 .eq(PetDailyQuest::getQuestCode, questCode)
                 .last("LIMIT 1"));
         if (quest == null) {
@@ -415,7 +415,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (chest != null && !chestClaimed) {
             chest.setProgress(claimed);
         }
-        return new PetDailyQuestVO(LocalDate.now(ZoneId.of("UTC")), items, completed, claimed, items.size(),
+        return new PetDailyQuestVO(petClock.businessDate(), items, completed, claimed, items.size(),
                 allClaimed && !chestClaimed, chestClaimed,
                 chestCfg.getChestExp(), chestCfg.getChestCurrency());
     }

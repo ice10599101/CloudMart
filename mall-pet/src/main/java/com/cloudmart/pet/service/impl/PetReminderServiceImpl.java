@@ -297,7 +297,7 @@ public class PetReminderServiceImpl implements PetReminderService {
         if (!tryConsumeDailyQuota(userId)) {
             return;
         }
-        eventProducer.publish(RocketMQConfig.PET_TAG_PROACTIVE, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_PROACTIVE, new PetEventProducer.PetEventMessage(
                 "PROACTIVE:" + userId + ":" + reminderType + ":" + bizId,
                 String.valueOf(userId), reminderType, title, content, String.valueOf(bizId), reminderType));
     }

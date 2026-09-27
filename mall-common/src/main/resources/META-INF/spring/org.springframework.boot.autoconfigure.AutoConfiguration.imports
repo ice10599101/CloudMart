@@ -1,4 +1,5 @@
 com.cloudmart.common.config.CommonAutoConfiguration
+com.cloudmart.common.config.SecurityAuthAutoConfiguration
 com.cloudmart.common.config.Knife4jAutoConfiguration
 com.cloudmart.common.config.ServletFilterAutoConfiguration
 com.cloudmart.common.config.IdempotentAutoConfiguration

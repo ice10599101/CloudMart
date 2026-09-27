@@ -135,7 +135,7 @@ public class PetEventServiceImpl implements PetEventService {
             int levelups = stateService.grantExp(pet, expReward);
             if (levelups > 0) {
                 achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
-                eventProducer.publish(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
+                eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
                         "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
                         String.valueOf(userId), "PET_LEVEL_UP",
                         "宠物升级啦！",

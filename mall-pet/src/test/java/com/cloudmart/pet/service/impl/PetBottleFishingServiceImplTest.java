@@ -85,6 +85,9 @@ class PetBottleFishingServiceImplTest {
     private PetDailyQuestService dailyQuestService;
     @Mock
     private PetIntimacyService intimacyService;
+    @org.mockito.Mock
+    private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+
 
     private PetBottleFishingServiceImpl bottleService;
 
@@ -110,7 +113,7 @@ class PetBottleFishingServiceImplTest {
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         settlementService = new PetBottleSettlementService(activityMapper, bottleRecordMapper, petMapper,
                 wishFeignClient, achievementService, eventProducer, contentProvider, statsService,
-                stateService, dailyQuestService, intimacyService, economyService,
+                stateService, dailyQuestService, intimacyService, economyService, playFeatureService,
                 org.mockito.Mockito.mock(PetOutboxService.class), properties, petClock);
         bottleService = new PetBottleFishingServiceImpl(petService, activityMapper,
                 bottleRecordMapper, petMapper, settlementService, properties, petClock);

@@ -100,19 +100,19 @@ public class PetActivityScheduler {
         Pet pet = petMapper.selectById(activity.getPetId());
         String petName = pet != null ? pet.getName() : "宠物";
         if (type == PetActivityType.WORK) {
-            eventProducer.publish(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
                     "WORK_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的打工结束啦！",
                     petName + "：" + "主人，我打工回来啦，快来领取奖励！", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
         } else if (type == PetActivityType.CAREER_WORK) {
-            eventProducer.publish(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
                     "CAREER_WORK_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的工作结束啦！",
                     petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
         } else {
-            eventProducer.publish(RocketMQConfig.PET_TAG_STUDY_COMPLETED, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_STUDY_COMPLETED, new PetEventProducer.PetEventMessage(
                     "STUDY_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_STUDY_COMPLETED",
                     "我已经读完啦！",

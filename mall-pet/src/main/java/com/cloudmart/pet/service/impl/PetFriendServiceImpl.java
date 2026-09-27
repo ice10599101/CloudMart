@@ -201,7 +201,7 @@ public class PetFriendServiceImpl implements PetFriendService {
             }
             existing = row;
         }
-        eventProducer.publish(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
                 "FRIEND_REQUEST:" + userId + ":" + friendUserId + ":"
                         + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
                 String.valueOf(friendUserId), "PET_FRIEND_REQUEST",
@@ -243,7 +243,7 @@ public class PetFriendServiceImpl implements PetFriendService {
                 .eq(Pet::getIsActive, true)
                 .last("LIMIT 1"));
         achievementService.evaluate(pet, PetAchievementService.Event.FRIEND);
-        eventProducer.publish(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_FRIEND, new PetEventProducer.PetEventMessage(
                 "FRIEND_ACCEPTED:" + userId + ":" + friendUserId,
                 String.valueOf(friendUserId), "PET_FRIEND_REQUEST",
                 "好友确认啦！",

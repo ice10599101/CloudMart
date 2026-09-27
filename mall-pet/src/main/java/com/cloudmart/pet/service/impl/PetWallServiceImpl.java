@@ -207,7 +207,7 @@ this.properties = properties;
         dailyQuestService.record(me, PetQuestType.WALL_MESSAGE, 1);
         achievementService.evaluate(me, PetAchievementService.Event.WALL);
         relationService.gainBetween(me, owner, PetRelationAction.WALL);
-        eventProducer.publish(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
                 "WALL_MESSAGE:" + message.getId(),
                 String.valueOf(owner.getUserId()), "PET_WALL_MESSAGE",
                 "留言墙有新留言！",
@@ -248,7 +248,7 @@ this.properties = properties;
         dailyQuestService.record(me, PetQuestType.WALL_MESSAGE, 1);
         if (author != null) {
             relationService.gainBetween(me, author, PetRelationAction.WALL);
-            eventProducer.publish(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WALL, new PetEventProducer.PetEventMessage(
                     "WALL_REPLY:" + reply.getId(),
                     String.valueOf(author.getUserId()), "PET_WALL_MESSAGE",
                     "主人回复了你的留言！",

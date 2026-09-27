@@ -69,6 +69,9 @@ class PetShopServiceImplTest {
     private PetEconomyService economyService;
     @Mock
     private WishFeignClient wishFeignClient;
+    @org.mockito.Mock
+    private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+
 
     private PetShopServiceImpl shopService;
 
@@ -89,7 +92,7 @@ class PetShopServiceImplTest {
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
         shopService = new PetShopServiceImpl(petService, itemCatalog, equipmentConfigMapper, skinConfigMapper,
                 skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient, economyService,
-                org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class));
+                playFeatureService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
         lenient().when(inventoryMapper.selectList(any())).thenReturn(List.of());

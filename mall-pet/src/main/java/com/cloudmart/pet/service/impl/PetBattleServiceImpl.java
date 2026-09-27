@@ -169,7 +169,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         battle.setStatus(PetBattleStatus.PENDING.name());
         battleMapper.insert(battle);
 
-        eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
                 "BATTLE_CHALLENGE:" + battle.getId(),
                 String.valueOf(defender.getUserId()), "PET_BATTLE_CHALLENGE",
                 "有人向我发起挑战啦！",
@@ -233,7 +233,7 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_ALREADY_HANDLED, "这场挑战已经被处理过啦");
         }
         battle.setStatus(PetBattleStatus.DECLINED.name());
-        eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
                 "BATTLE_DECLINED:" + battle.getId(),
                 String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
                 "挑战被拒绝啦",
@@ -381,7 +381,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         }
         // PvE 结算即通知挑战方；PvP 结果由 accept 时分别通知双方（B08：各一次，eventId 去重）
         if (PetBattleMode.PVE.name().equals(battle.getMode()) || battle.getDefenderUserId() == null) {
-            eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
                     "BATTLE_FINISHED:" + battle.getId() + ":attacker",
                     String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
                     resultAttackerWon(attackerWon),
@@ -389,7 +389,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                     String.valueOf(battle.getId()), "PET_BATTLE_FINISHED"));
         } else if (battle.getDefenderUserId() != null && defenderPetId != null && defenderPetId > 0) {
             boolean defenderWon = !attackerWon;
-            eventProducer.publish(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
                     "BATTLE_FINISHED:" + battle.getId() + ":defender",
                     String.valueOf(battle.getDefenderUserId()), "PET_BATTLE_FINISHED",
                     resultAttackerWon(defenderWon),
@@ -409,7 +409,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     }
 
     private void notifyLevelUp(Long userId, Pet pet) {
-        eventProducer.publish(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
+        eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
                 "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
                 String.valueOf(userId), "PET_LEVEL_UP",
                 "宠物升级啦！",

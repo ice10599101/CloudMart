@@ -95,6 +95,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetEconomyService economyService;
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
@@ -123,6 +124,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetEconomyService economyService,
                               com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
                               PetQuotaService quotaService,
+                              com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                               com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
                               com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService) {
@@ -138,6 +140,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.economyService = economyService;
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
+        this.playFeatureService = playFeatureService;
         this.visitApplicationService = visitApplicationService;
         this.userBlockService = userBlockService;
         this.companionFeatureService = companionFeatureService;
@@ -184,6 +187,9 @@ public class PetHomeServiceImpl implements PetHomeService {
         item.setAcquiredAt(LocalDateTime.now(ZoneId.of("UTC")));
         try {
             inventoryMapper.insert(item);
+            // B02/BE-12：家具获得事实接入图鉴投影
+            playFeatureService.unlockCollection(userId, pet.getId(),
+                    "FURNITURE", config.getCode(), "FURNITURE_BUY:" + userId + ":" + config.getCode());
         } catch (DuplicateKeyException e) {
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "家里已经有这件家具啦");
         }
@@ -504,7 +510,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                     .setSql("visit_count = visit_count + 1")
                     .eq(PetRoom::getId, room.getId()));
             dailyQuestService.record(pet, PetQuestType.VISIT, 1);
-            eventProducer.publish(RocketMQConfig.PET_TAG_HOME_VISIT, new PetEventProducer.PetEventMessage(
+            eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_HOME_VISIT, new PetEventProducer.PetEventMessage(
                     "HOME_VISIT:" + pet.getId() + ":" + target.getId() + ":"
                             + java.time.LocalDate.now(java.time.ZoneOffset.UTC),
                     String.valueOf(target.getUserId()), "PET_HOME_VISIT",

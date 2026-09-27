@@ -57,6 +57,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
     private final PetEconomyService economyService;
+    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
 
@@ -68,6 +69,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
                                    WishFeignClient wishFeignClient,
                                    PetAchievementService achievementService,
                                    PetEconomyService economyService,
+                                   com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                                    PetOutboxService outboxService,
                                    PetClock petClock) {
         this.petService = petService;
@@ -78,6 +80,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         this.wishFeignClient = wishFeignClient;
         this.achievementService = achievementService;
         this.economyService = economyService;
+        this.playFeatureService = playFeatureService;
         this.outboxService = outboxService;
         this.petClock = petClock;
     }
@@ -121,6 +124,10 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
 
         // 2. 应用进化（属性一次性提升 + 阶段推进 + 可选皮肤解锁）
         applyEvolution(pet, next);
+        // B02/BE-12：进化事实接入图鉴投影（阶段条目）
+        playFeatureService.unlockCollection(userId, pet.getId(),
+                "SPECIES", pet.getSpecies() + ":S" + next.getStageTo(),
+                "EVOLVE:" + pet.getId() + ":" + next.getStageTo());
         recordEvolutionActivity(pet);
 
         achievementService.evaluate(pet, PetAchievementService.Event.EVOLUTION);

@@ -104,7 +104,7 @@ class WalletApplicationServiceTest {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
         PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalog, emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("EQUIPMENT", "sword", 100, "v1", "剑", "r-key"));
         when(catalog.isUniquePerUser("EQUIPMENT")).thenReturn(true);
@@ -123,7 +123,7 @@ class WalletApplicationServiceTest {
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
         when(dedupMapper.update(any(), any())).thenReturn(1);
         PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalog, emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("FOOD", "cake", 20, "v1", "蛋糕", "r-key"));
         when(catalog.isUniquePerUser("FOOD")).thenReturn(false);
@@ -161,7 +161,7 @@ class WalletApplicationServiceTest {
             return row;
         });
         PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalog, emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
 
         var result = service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000002", "v1");
 
@@ -256,6 +256,13 @@ class WalletApplicationServiceTest {
     }
 
     // ---------------- 辅助 ----------------
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<PetPurchaseCatalog> catalogProvider(PetPurchaseCatalog catalog) {
+        ObjectProvider<PetPurchaseCatalog> provider = mock(ObjectProvider.class);
+        org.mockito.Mockito.lenient().when(provider.getIfAvailable()).thenReturn(catalog);
+        return provider;
+    }
 
     private static <T> ObjectProvider<T> emptyProvider() {
         ObjectProvider<T> provider = mock(ObjectProvider.class);
