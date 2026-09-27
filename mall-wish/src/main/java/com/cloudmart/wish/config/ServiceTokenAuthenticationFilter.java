@@ -60,7 +60,10 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
         ServiceTokenRequirement requirement = resolveRequirement(request.getRequestURI());
         String token = request.getHeader(ServiceTokenCodec.HEADER_NAME);
 
-        if (requirement != null && token != null && !token.isBlank()
+        // 密钥不可用时进入 fail-closed：拒绝所有服务令牌（绝不放行未验签调用）
+        boolean validationAvailable = properties.isServiceTokenValidationAvailable();
+
+        if (requirement != null && token != null && !token.isBlank() && validationAvailable
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(

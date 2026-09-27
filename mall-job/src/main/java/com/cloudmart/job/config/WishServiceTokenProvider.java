@@ -20,16 +20,21 @@ import java.time.Duration;
 @Component
 public class WishServiceTokenProvider {
 
-    private final ServiceTokenSigner signer;
+    private final String secret;
+    private volatile ServiceTokenSigner cachedSigner;
 
     public WishServiceTokenProvider(
             @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
-        this.signer = new ServiceTokenSigner(secret, "mall-job", "wish:jobs", Duration.ofSeconds(60),
-                Clock.systemUTC());
+        // 惰性签发：本地 IDE 未注入密钥时服务仍可启动，首次调用 mall-wish 才报明确错误
+        this.secret = secret;
     }
 
     /** 签出一个发往 mall-wish 的新令牌（60 秒有效期 + 30 秒接收方时钟容忍）。 */
     public String token() {
-        return signer.sign("mall-wish");
+        if (cachedSigner == null) {
+            cachedSigner = new ServiceTokenSigner(secret, "mall-job", "wish:jobs",
+                    Duration.ofSeconds(60), Clock.systemUTC());
+        }
+        return cachedSigner.sign("mall-wish");
     }
 }
