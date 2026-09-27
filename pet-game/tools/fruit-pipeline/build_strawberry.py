@@ -78,7 +78,8 @@ def load_texture(path):
     return img
 
 
-# 水滴轮廓：t ∈ [0,1]（0=底 1=顶）→ 半径。Catmull-Rom 插值保证 C1 连续（v1 的余弦分段有折痕）。
+# 水滴轮廓（用户澄清：轮廓保持原样，要改的是"圆点籽"→"水滴形籽"）。
+# Catmull-Rom 插值保证 C1 连续（v1 的余弦分段有折痕）。
 PROFILE = [(0.00, 0.020), (0.045, 0.170), (0.12, 0.345), (0.26, 0.425),
            (0.42, 0.415), (0.62, 0.345), (0.80, 0.240), (0.92, 0.130), (1.00, 0.005)]
 _TS = [p[0] for p in PROFILE]
@@ -132,21 +133,22 @@ def make_material(name, img, rough=0.5):
     return mat
 
 
-# ---------------------------------------------------------------- 体表贴图（底色渐变 + 种籽，sRGB 域直出）
-def make_seed_texture():
+# ---------------------------------------------------------------- 体表贴图（渐变 + 水滴形籽点）
+def make_body_texture():
+    """上亮下深渐变 + 水滴状籽点（用户反馈：圆点改水滴形，尖头朝上更像真草莓籽）。
+    水滴 = 下半圆腹 + 向上收尖的锥尾；UV 横向按环半径补偿伸缩（同 v3 圆点逻辑）。"""
     W = H = 1024
     yy, xx = np.mgrid[0:H, 0:W]
     u = (xx + 0.5) / W
     v = (yy + 0.5) / H                     # v=0 底部
-    # UV 来自原生球面：环参数 φ = π·v → 体表参数 t = (cos(π·v)+1)/2
-    t = (np.cos(np.pi * v) + 1.0) / 2.0
+    t = (np.cos(np.pi * v) + 1.0) / 2.0    # UV 来自原生球面：φ = π·v
     top = np.array(hex_srgb(0xF0566F))     # 肩部亮草莓红
     bot = np.array(hex_srgb(0xE23E5C))     # 底部深草莓红
     base = bot + (top - bot) * t[..., None]
     base += (np.clip((t - 0.70) / 0.20, 0, 1) * 0.04)[..., None]       # 肩部提亮
-    base *= (1.0 - np.clip((0.10 - t) / 0.10, 0, 1) * 0.12)[..., None] # 接地压暗
+    base *= (1.0 - np.clip((0.10 - t) / 0.10, 0, 1) * 0.10)[..., None] # 接地压暗
 
-    seed_col = np.array(hex_srgb(0xF9E9BC))  # 奶油种籽
+    seed_col = np.array(hex_srgb(0xF9E9BC))  # 奶油籽
     golden = math.pi * (3 - math.sqrt(5))
     rng = np.random.default_rng(7)
     alpha_total = np.zeros((H, W), dtype=np.float32)
@@ -159,9 +161,13 @@ def make_seed_texture():
         dv = min(0.018 / BODY_H * 2 / (math.pi * max(math.sin(math.pi * vv), 0.30)), 0.05)
         dx = u - uu
         dx = dx - np.round(dx)             # u 向环绕
-        dy = v - vv
-        m = (dx / max(du, 1e-6)) ** 2 + (dy / max(dv, 1e-6)) ** 2
-        a = np.clip(1.0 - m, 0, 1) * 0.95
+        dn = (v - vv) / dv                 # 水滴纵向：0=圆心，正方向朝上（朝帽子）
+        half_w = np.where(dn <= 0,
+                          np.sqrt(np.clip(1.0 - dn ** 2, 0.0, 1.0)),
+                          np.clip(1.0 - dn / 2.2, 0.0, 1.0) ** 0.85) * du
+        half_w = np.where(dn > 2.2, 0.0, half_w)
+        edge = np.maximum(half_w * 0.30, 1e-9)
+        a = np.clip((half_w - np.abs(dx)) / edge, 0.0, 1.0) * 0.95
         alpha_total = np.minimum(alpha_total + a, 1.0)
     px = base * (1 - alpha_total[..., None]) + seed_col * alpha_total[..., None]
 
@@ -197,90 +203,92 @@ for v in berry.data.vertices:
     d = Vector((x, y, 0)) / horiz if horiz > 1e-5 else Vector((0, 0, 0))
     r = profile_radius(t)
     v.co = (d.x * r, d.y * r, t * BODY_H)
-berry.data.materials.append(make_material('berry', img=make_seed_texture(), rough=0.42))
+berry.data.materials.append(make_material('berry', img=make_body_texture(), rough=0.42))
 smooth(berry)
 
 eye_mat = make_material('eye', solid_texture('eye', 0x1A1110), rough=0.12)
 hl_mat = make_material('highlight', solid_texture('highlight', 0xFFFFFF), rough=0.08)
 mouth_mat = make_material('mouth', solid_texture('mouth', 0x6E2833), rough=0.5)
 blush_mat = make_material('blush', solid_texture('blush', 0xEE5F8D), rough=0.6)
-sepal_mat = make_material('sepal', solid_texture('sepal', 0x5CA24E), rough=0.55)
-stem_mat = make_material('stem', solid_texture('stem', 0x6BB05C), rough=0.55)
+cap_mat = make_material('cap', solid_texture('cap', 0x6FB14E), rough=0.55)
+scallop_mat = make_material('scallop', solid_texture('scallop', 0x82C25C), rough=0.55)
+stem_mat = make_material('stem', solid_texture('stem', 0x5CA24E), rough=0.55)
 
 eye_l = add_sphere_part('EyeL', tuple(EYE_L), (0.080, 0.060, 0.095), eye_mat)
 eye_r = add_sphere_part('EyeR', tuple(EYE_R), (0.080, 0.060, 0.095), eye_mat)
 hl_l = add_sphere_part('HLL', tuple(EYE_L + Vector((-0.024, -0.058, 0.038))), (0.026, 0.017, 0.026), hl_mat)
 hl_r = add_sphere_part('HLR', tuple(EYE_R + Vector((-0.024, -0.058, 0.038))), (0.026, 0.017, 0.026), hl_mat)
-# 开口笑：球体削平上沿 → 半穹顶朝外下（QQ 式张嘴笑）。v4 的细管笑弧会被曲面吞掉中段，
-# 半穹顶是实心面片，没有"细管凸出量"的脆弱性
+# ω 猫嘴：路径点逐点贴着体表生成（每点按自身高度取轮廓半径 + 外凸量），倒角成圆管。
+# v5 教训：固定深度的圆弧会被"肚子的鼓形"吞掉下沉段 —— 贴面生成，曲面再鼓也吞不掉。
+def surface_point(alpha_deg, z, proud=0.008):
+    a = math.radians(alpha_deg)
+    r = profile_radius(min(max(z / BODY_H, 0.0), 1.0)) + proud
+    return Vector((math.sin(a) * r, -math.cos(a) * r, z))
+
+
 def build_smile():
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=16, radius=1.0, location=(0, 0, 0))
-    ob = bpy.context.active_object
-    ob.name = 'Mouth'
-    me = ob.data
-    bm = bmesh.new()
-    bm.from_mesh(me)
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > 0.002], context='VERTS')
-    bm.to_mesh(me)
-    bm.free()
-    mouth_r = profile_radius(0.518)        # z=0.425 处的体表半径
-    for v in me.vertices:
-        v.co = Vector((v.co.x * 0.058, v.co.y * 0.034, v.co.z * 0.042)) \
-            + Vector((0, -(mouth_r - 0.010), 0.425))
-    me.materials.append(mouth_mat)
+    pts = []
+    n = 8
+    for i in range(n + 1):                     # 左弧：-11° 滑到 0°，中段下沉
+        k = i / n
+        pts.append(surface_point(-11 + 11 * k, 0.436 - math.sin(k * math.pi) * 0.016))
+    for i in range(1, n + 1):                  # 右弧：0° 滑到 +11°
+        k = i / n
+        pts.append(surface_point(11 * k, 0.436 - math.sin(k * math.pi) * 0.016))
+    cu = bpy.data.curves.new('MouthPath', 'CURVE')
+    cu.dimensions = '3D'
+    sp = cu.splines.new('POLY')
+    sp.points.add(len(pts) - 1)
+    for i, p in enumerate(pts):
+        sp.points[i].co = (*p, 1.0)
+    cu.bevel_depth = 0.010
+    cu.bevel_resolution = 4
+    cu.use_fill_caps = True
+    cu.materials.append(mouth_mat)
+    ob = bpy.data.objects.new('Mouth', cu)
+    bpy.context.collection.objects.link(ob)
+    bpy.ops.object.select_all(action='DESELECT')
+    ob.select_set(True)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.convert(target='MESH')      # glTF 不导出曲线，转网格
     smooth(ob)
     return ob
 
 
 mouth = build_smile()
-# 腮红：18° 收进正脸区，加大一号保证 toon 提亮下仍可读
+# 腮红：18° 正脸区。半径必须按腮红**自己的高度**取（v5 用了 0.55 高度的半径，
+# 而腮红位于 0.591 的更鼓处 → 整个悬在脸前 0.03，看不见）
 for side, x in (('L', -1), ('R', 1)):
     ang = math.radians(18)
     nrm = Vector((math.sin(ang) * x, -math.cos(ang), 0))
-    pos = nrm * (profile_radius(0.55) - 0.006) + Vector((0, 0, 0.47))
-    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.058, 0.014, 0.040), blush_mat)
+    pos = nrm * (profile_radius(0.485 / BODY_H) - 0.004) + Vector((0, 0, 0.485))
+    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.062, 0.014, 0.042), blush_mat)
     blush.rotation_euler = nrm.to_track_quat('Y', 'Z').to_euler()
 
 
-def build_calyx():
-    """五瓣萼片合成一块网格：加宽缩短（v1 太细太长像插草），压住头顶收拢段。"""
-    verts = []
-    faces = []
-    for k in range(5):
-        yaw = k * (2 * math.pi / 5)
-        base = Vector((0.050 * math.cos(yaw), 0.050 * math.sin(yaw), 0.762))
-        # 局部：+Z 指向叶尖、X 为叶宽；先绕 X 外倾 17°（更直立，俯视不漏叶背），再绕 Z 均布
-        rot = Euler((math.radians(-17), 0, yaw - math.pi / 2), 'XYZ').to_matrix()
-        local = [(-0.045, 0, 0.004), (0.045, 0, 0.004),
-                 (-0.085, 0, 0.100), (0.085, 0, 0.100), (0, 0, 0.200)]
-        i0 = len(verts)
-        verts.extend(tuple(base + rot @ Vector(p)) for p in local)
-        # 绕向必须让法线朝外：v1 的 (0,1,3) 顺序法线朝内，pet-toon 按背面打光，
-        # 整个萼片渲染成暗红（Cycles 双面渲染看不出来，引擎侧现形）
-        faces.extend([(i0 + 1, i0, i0 + 3), (i0 + 3, i0, i0 + 2), (i0 + 3, i0 + 2, i0 + 4)])
-    me = bpy.data.meshes.new('Calyx')
-    me.from_pydata(verts, [], faces)
-    me.validate()
-    calyx = bpy.data.objects.new('Calyx', me)
-    bpy.context.collection.objects.link(calyx)
-    sol = calyx.modifiers.new('Solidify', 'SOLIDIFY')
-    sol.thickness = 0.016
-    me.materials.append(sepal_mat)
-    smooth(calyx)
-
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.026, depth=0.14,
-                                        location=(0.008, 0.004, 0.865))
+def build_hat():
+    """草莓帽 v2（用户反馈：尖叶子不好看）—— 软萌贝雷风：
+    圆穹帽体 + 六颗蓬蓬球花边 + 短圆梗顶个小圆珠，全程零尖角。
+    全部是独立球体/圆柱，无 from_pydata，天然没有法线绕向问题。"""
+    parts = [add_sphere_part('HatCap', (0, 0, 0.795), (0.155, 0.155, 0.105), cap_mat)]
+    for k in range(6):
+        a = k * (2 * math.pi / 6) + math.pi / 6
+        parts.append(add_sphere_part(f'HatScallop{k}',
+                                     (0.125 * math.cos(a), 0.125 * math.sin(a), 0.795),
+                                     (0.058, 0.058, 0.045), scallop_mat))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.020, depth=0.075,
+                                        location=(0.004, 0.002, 0.925))
     stem = bpy.context.active_object
     stem.name = 'Stem'
-    stem.rotation_euler = Euler((math.radians(6), 0, math.radians(14)), 'XYZ')
+    stem.rotation_euler = Euler((math.radians(5), 0, math.radians(10)), 'XYZ')
     stem.data.materials.append(stem_mat)
     smooth(stem)
-    return calyx, stem
+    parts.append(stem)
+    parts.append(add_sphere_part('HatStemNub', (0.008, 0.004, 0.966), (0.026, 0.026, 0.026), stem_mat))
+    return parts
 
 
-calyx, stem = build_calyx()
-# 冠心补穹：五片外倾留下的中央缺口会露出叶背（引擎里成暗色碎面），加一片绿穹封顶
-calyx_cap = add_sphere_part('CalyxCap', (0, 0, 0.78), (0.150, 0.150, 0.100), sepal_mat)
+hat_parts = build_hat()
 
 # ---------------------------------------------------------------- 绑定
 arm_data = bpy.data.armatures.new('FruitRig')
@@ -305,10 +313,11 @@ for side, x in (('L', -1), ('R', 1)):
 bpy.ops.object.mode_set(mode='OBJECT')
 
 mesh_objects = [berry, eye_l, eye_r, hl_l, hl_r, mouth,
-                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], calyx, stem, calyx_cap]
+                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], *hat_parts]
 GROUP_OF = {'Berry': 'Body', 'EyeL': 'EyeL', 'EyeR': 'EyeR', 'HLL': 'EyeL', 'HLR': 'EyeR',
             'Mouth': 'Body', 'BlushL': 'Body', 'BlushR': 'Body',
-            'Calyx': 'Calyx', 'Stem': 'Calyx', 'CalyxCap': 'Calyx'}
+            'HatCap': 'Calyx', 'Stem': 'Calyx', 'HatStemNub': 'Calyx',
+            **{f'HatScallop{k}': 'Calyx' for k in range(6)}}
 for ob in mesh_objects:
     vg = ob.vertex_groups.new(name=GROUP_OF[ob.name])
     vg.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')

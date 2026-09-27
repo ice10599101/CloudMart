@@ -38,11 +38,10 @@ const { ccclass } = _decorator
  *  - 2D 覆盖层：特效粒子 + 世界坐标投影
  *  - 通信桥（契约冻结，见 PetGameBridge）
  *
- * 宠物：五果阵容 = 西瓜 / 火龙果 / 橘子 / 草莓 / 蓝莓（用户定稿 2026-09-28）。
- * 打样第一只是**草莓**（tools/fruit-pipeline/build_strawberry.py 一条龙产出）：
- *  - 水滴闭合曲面 + 贴图种籽 + 五瓣萼片 + 3D 眼球/嘴/腮红/围巾
- *  - 4 骨轻绑定（Body/Calyx/EyeL/EyeR），三条剪辑：Idle 4.00s（呼吸+微倾+萼片漂摆）、
- *    Happy 1.67s（下蹲→起跳→滞空笑眼→落地挤压→回弹）、Blink 0.25s
+ * 宠物：五果阵容全部进场 = 草莓 / 橘子 / 西瓜 / 蓝莓 / 火龙果（tools/fruit-pipeline 批量产出）。
+ *  - 每只都是闭合旋转曲面 + 贴图花纹 + 3D 大眼 + ω 贴面猫嘴 + 腮红 + 软萌帽/鳍叶
+ *  - 统一 4 骨轻绑定（Body/Calyx/EyeL/EyeR），三条剪辑：Idle 4s / Happy 1.67s / Blink 0.25s
+ *  - 果种按 FRUIT_SPECS 加载：URL ?species= 强制预览 → 宿主 species 槽位映射 → 默认草莓
  *  - 挤压/拉伸以地面为锚（Body 骨头埋在脚下），是水果动感的核心
  *
  * 职责边界（不变）：只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
@@ -55,20 +54,76 @@ const { ccclass } = _decorator
  * ⚠️ glTF 导入后主资源（gltf-scene）的子资源名等于文件名本身，
  * 所以资源库注册的路径是 `目录/文件名/文件名`（猫版实测确认的规则，水果沿用）。
  */
-const PET_MODEL_PATH = 'models/fruit/strawberry/strawberry/strawberry'
-/** 模型所在目录（剪辑子资源按 `目录/文件名/剪辑名` 取） */
-const PET_MODEL_DIR = 'models/fruit/strawberry/strawberry'
-/** 需要用到的剪辑名。缺哪个就跳过哪个，不能因为少一条剪辑就让整只宠物不出现。 */
+/** 需要用到的剪辑名（五果统一）。缺哪个就跳过哪个，不能因为少一条剪辑就让宠物不出现。 */
 const PET_CLIPS = ['Idle', 'Happy', 'Blink']
-/**
- * 模型缩放：草莓在 Blender 里全高 0.95（体 0.82 + 萼片），
- * 1.5 倍 → 全高约 1.43，略矮于旧猫（1.53），坐得更"墩"，与房间机位标定匹配（?probe=1 复核）。
- */
-const PET_MODEL_SCALE = 1.5
-/** 宠物身高（世界单位），供构图探针使用 */
-const PET_HEIGHT = 0.95 * PET_MODEL_SCALE
 /** 宠物站位（地毯中央；与房间里的软影、玩具球对齐） */
 const PET_POS = new Vec3(0, 0, 0.35)
+
+/** 水果规格：GLB 路径（`目录/文件名/文件名` 三段式）/ 缩放 / 身高 / 头部特效锚点 / 接触阴影尺寸 */
+interface FruitSpec {
+    path: string
+    dir: string
+    scale: number
+    height: number
+    head: Vec3
+    shadow: [number, number, number]
+}
+
+/** 五果规格表（建模值 × 缩放，与 tools/fruit-pipeline 各 build 脚本一一对应） */
+const FRUIT_SPECS: Record<string, FruitSpec> = {
+    strawberry: {
+        path: 'models/fruit/strawberry/strawberry/strawberry',
+        dir: 'models/fruit/strawberry/strawberry',
+        scale: 1.5, height: 1.0, head: new Vec3(0, 0.81, 0.45), shadow: [0.58, 0.010, 0.45],
+    },
+    orange: {
+        path: 'models/fruit/orange/orange/orange',
+        dir: 'models/fruit/orange/orange',
+        scale: 1.65, height: 0.92, head: new Vec3(0, 0.76, 0.58), shadow: [0.60, 0.010, 0.46],
+    },
+    watermelon: {
+        path: 'models/fruit/watermelon/watermelon/watermelon',
+        dir: 'models/fruit/watermelon/watermelon',
+        scale: 1.9, height: 0.78, head: new Vec3(0, 0.71, 0.85), shadow: [0.80, 0.010, 0.62],
+    },
+    blueberry: {
+        path: 'models/fruit/blueberry/blueberry/blueberry',
+        dir: 'models/fruit/blueberry/blueberry',
+        scale: 1.5, height: 0.70, head: new Vec3(0, 0.56, 0.47), shadow: [0.44, 0.010, 0.34],
+    },
+    dragonfruit: {
+        path: 'models/fruit/dragonfruit/dragonfruit/dragonfruit',
+        dir: 'models/fruit/dragonfruit/dragonfruit',
+        scale: 1.6, height: 0.95, head: new Vec3(0, 0.79, 0.53), shadow: [0.50, 0.010, 0.40],
+    },
+}
+const DEFAULT_FRUIT = 'strawberry'
+/**
+ * 物种槽位映射：mall-pet 的 species 枚举（CAT/DOG/RABBIT/FOX/PANDA）迁移成水果码之前，
+ * 按固定顺序把 5 个动物槽位映射到 5 只水果（每个 DB 宠物各得一只果）；
+ * 枚举迁移落地后枚举值本身就是水果码，同表直查。URL `?species=orange` 可强制指定预览。
+ */
+const SPECIES_SLOT: Record<string, string> = {
+    CAT: 'strawberry', DOG: 'orange', RABBIT: 'watermelon', FOX: 'blueberry', PANDA: 'dragonfruit',
+    STRAWBERRY: 'strawberry', ORANGE: 'orange', WATERMELON: 'watermelon',
+    BLUEBERRY: 'blueberry', DRAGONFRUIT: 'dragonfruit',
+}
+
+function resolveFruitKey(urlSpecies: string | null, petSpecies: string | null): string {
+    if (urlSpecies) {
+        const key = urlSpecies.toLowerCase()
+        if (FRUIT_SPECS[key]) {
+            return key
+        }
+    }
+    if (petSpecies) {
+        const slot = SPECIES_SLOT[petSpecies.toUpperCase()]
+        if (slot) {
+            return slot
+        }
+    }
+    return DEFAULT_FRUIT
+}
 
 /**
  * 相机机位。
@@ -86,14 +141,6 @@ const CAMERA_SHOT = {
 
 /** 纯色背景（?plain=1 验收模式：去掉房间，只留角色自证轮廓与材质） */
 const PLAIN_BG = new Color(0xCF, 0xC9, 0xD6, 255)
-
-/**
- * 头部世界坐标（特效锚点）。
- *
- * 由模型坐标系反推：双眼中心 Blender 坐标 (0, -0.30, 0.54)，导出为 glTF（Y 向上）
- * 后变 (0, 0.54, 0.30)，乘缩放 1.5 → (0, 0.81, 0.45)。
- */
-const HEAD_OFFSET = new Vec3(0, 0.81, 0.45)
 
 @ccclass('PetGameRoot')
 export class PetGameRoot extends Component {
@@ -126,6 +173,10 @@ export class PetGameRoot extends Component {
     private rawMat = false
     private toonAsset: EffectAsset | null = null
 
+    /** 当前水果规格（loadPet 时按 URL 参数 / 宿主物种解析） */
+    private fruit: FruitSpec = FRUIT_SPECS[DEFAULT_FRUIT]
+    private urlSpecies: string | null = null
+
     private time = 0
     private roomTime = 0
     private readonly orbSeeds: number[] = []
@@ -140,6 +191,7 @@ export class PetGameRoot extends Component {
         this.rootTransform = this.node.getComponent(UITransform)
         this.kit = new PetBuilderKit(this.ccRuntime)
         this.rawMat = params.get('rawmat') === '1'
+        this.urlSpecies = params.get('species')
 
         // 自定义材质（pet-toon）必须先加载：EffectAsset.get 只能查到已加载的资产，
         // 若在加载完成前构建，所有部件会静默退化成引擎内置材质。
@@ -189,14 +241,17 @@ export class PetGameRoot extends Component {
      * 否则会出现"模型加载出来了但站着不动"或"低状态还蹦得很欢"。
      */
     private loadPet(): void {
-        resources.load(PET_MODEL_PATH, Prefab, (error, prefab) => {
+        // 果种解析：URL ?species=（预览强制）→ 宿主下发的 species 槽位 → 默认草莓
+        this.fruit = FRUIT_SPECS[resolveFruitKey(this.urlSpecies, this.pendingPet?.species ?? null)]
+        const spec = this.fruit
+        resources.load(spec.path, Prefab, (error, prefab) => {
             if (error || !prefab) {
                 console.warn('[pet-game] 宠物模型加载失败，场景保持无角色状态', error)
                 return
             }
             const node = instantiate(prefab)
             node.name = 'Pet'
-            node.setScale(PET_MODEL_SCALE, PET_MODEL_SCALE, PET_MODEL_SCALE)
+            node.setScale(spec.scale, spec.scale, spec.scale)
             node.setPosition(PET_POS)
             this.world3d!.addChild(node)
             this.petNode = node
@@ -211,7 +266,7 @@ export class PetGameRoot extends Component {
             // 逐条加载剪辑。
             // ⚠️ 不能用 `resources.load([多条路径], ...)` —— 它是**全有或全无**：
             // 只要有一条路径不存在，整批都失败，结果整只宠物静止不动。猫版已实测踩到。
-            const clipPaths = PET_CLIPS.map(name => `${PET_MODEL_DIR}/${name}`)
+            const clipPaths = PET_CLIPS.map(name => `${spec.dir}/${name}`)
             const loaded: AnimationClip[] = []
             let remaining = clipPaths.length
             const settle = (): void => {
@@ -404,7 +459,8 @@ export class PetGameRoot extends Component {
     }
 
     private get headWorld(): Vec3 {
-        return new Vec3(PET_POS.x + HEAD_OFFSET.x, HEAD_OFFSET.y, PET_POS.z + HEAD_OFFSET.z)
+        const head = this.fruit.head
+        return new Vec3(PET_POS.x + head.x, head.y, PET_POS.z + head.z)
     }
 
     // ---------------- 探针 ----------------
@@ -417,7 +473,7 @@ export class PetGameRoot extends Component {
                 return
             }
             const foot = camera.worldToScreen(new Vec3(PET_POS.x, 0, PET_POS.z), new Vec3())
-            const top = camera.worldToScreen(new Vec3(PET_POS.x, PET_HEIGHT, PET_POS.z), new Vec3())
+            const top = camera.worldToScreen(new Vec3(PET_POS.x, this.fruit.height, PET_POS.z), new Vec3())
             const screenHeight = screen.windowSize.height
             console.log(`[pet-probe] cam=${camera.node.position.toString()} fov=${camera.fov} ` +
                 `screen=${screenHeight}px foot=(${foot.x.toFixed(1)},${foot.y.toFixed(1)}) ` +
@@ -572,7 +628,7 @@ export class PetGameRoot extends Component {
      */
     private buildPetShadow(): Node {
         const root = this.kit!.make3dNode(this.world3d!, 'PetShadow', new Vec3(0, 0, 0))
-        this.kit!.decal(root, 'Blob', [0.58, 0.010, 0.45], {
+        this.kit!.decal(root, 'Blob', this.fruit.shadow, {
             color: new Color(0x6B, 0x4A, 0x33, 255),
             shade: new Color(0x6B, 0x4A, 0x33, 255),
             alpha: 82,
