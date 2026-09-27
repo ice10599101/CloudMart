@@ -80,6 +80,8 @@ class PetVisitServiceImplTest {
     private PetIntimacyService intimacyService;
     @Mock
     private PetRelationService relationService;
+    @org.mockito.Mock
+    private com.cloudmart.pet.service.PetVisitApplicationService visitApplicationServiceMock;
 
     private final PetProperties properties = new PetProperties();
     private PetVisitServiceImpl visitService;
@@ -93,11 +95,17 @@ class PetVisitServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        visitApplicationServiceMock = org.mockito.Mockito.mock(com.cloudmart.pet.service.PetVisitApplicationService.class);
+        org.mockito.Mockito.lenient().when(visitApplicationServiceMock.recordVisit(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant(true, true));
         visitService = new PetVisitServiceImpl(petService, stateService, petMapper, activityMapper,
-                achievementService, eventProducer, wishFeignClient, userFeignClient, properties, redisTemplate,
+                achievementService, eventProducer, wishFeignClient, userFeignClient, properties,
                 dailyQuestService, intimacyService, relationService,
-                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class));
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class),
+                visitApplicationServiceMock);
     }
 
     @Test
@@ -131,12 +139,15 @@ class PetVisitServiceImplTest {
     }
 
     @Test
-    @DisplayName("同一邻居冷却中：409 PET_VISIT_COOLDOWN")
+    @DisplayName("同主人同业务日已拜访（事实唯一键冲突）：409 PET_VISIT_COOLDOWN")
     void neighborCooldownRejected() {
         when(petService.requireOwnedPet(100L)).thenReturn(pet());
         when(petMapper.selectById(2L)).thenReturn(neighbor());
-        when(valueOperations.get(anyString())).thenReturn(null);
-        when(valueOperations.setIfAbsent(anyString(), eq("1"), any(Duration.class))).thenReturn(false);
+        when(visitApplicationServiceMock.recordVisit(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant(false, false));
 
         assertThatThrownBy(() -> visitService.visit(100L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -145,16 +156,25 @@ class PetVisitServiceImplTest {
     }
 
     @Test
-    @DisplayName("每日次数用尽：429 PET_INTERACTION_RATE_LIMITED")
-    void dailyLimitRejected() {
-        when(petService.requireOwnedPet(100L)).thenReturn(pet());
+    @DisplayName("收益额度用尽：拜访仍成立（无收益），不推进经验/亲密度/任务/关系")
+    void overQuotaVisitSucceedsWithoutRewards() {
+        Pet pet = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
         when(petMapper.selectById(2L)).thenReturn(neighbor());
-        when(valueOperations.get(anyString())).thenReturn(String.valueOf(properties.getVisit().getDailyLimit()));
+        when(visitApplicationServiceMock.recordVisit(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant(true, false));
+        when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
 
-        assertThatThrownBy(() -> visitService.visit(100L, 2L))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_INTERACTION_RATE_LIMITED);
+        PetVisitResultVO result = visitService.visit(100L, 2L);
+
+        assertThat(result.neighborName()).isEqualTo("旺财");
+        verify(stateService, org.mockito.Mockito.never()).grantExp(any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(intimacyService, org.mockito.Mockito.never()).gain(any(), org.mockito.ArgumentMatchers.any());
+        verify(dailyQuestService, org.mockito.Mockito.never()).record(any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(relationService, org.mockito.Mockito.never()).gainBetween(any(), any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

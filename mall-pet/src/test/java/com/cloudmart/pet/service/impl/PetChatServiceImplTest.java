@@ -197,9 +197,10 @@ class PetChatServiceImplTest {
     }
 
     @Test
-    @DisplayName("记忆抽取：'我叫XX' 落 owner_nickname 结构化记忆")
+    @DisplayName("记忆抽取：'我叫XX' 落 owner_nickname 结构化记忆（AUTO 来源）")
     void memoryExtraction() {
         Pet p = pet();
+        p.setMemoryExtractEnabled(true);
         when(petService.requireOwnedPet(100L)).thenReturn(p);
         when(sessionMapper.selectOne(any())).thenReturn(session());
         when(messageMapper.selectList(any())).thenReturn(java.util.List.of());
@@ -216,5 +217,26 @@ class PetChatServiceImplTest {
         org.mockito.Mockito.verify(memoryMapper).insert(captor.capture());
         assertThat(captor.getValue().getMemoryKey()).isEqualTo("owner_nickname");
         assertThat(captor.getValue().getMemoryValue()).isEqualTo("小冰");
+        assertThat(captor.getValue().getSource()).isEqualTo("AUTO");
+        assertThat(captor.getValue().getEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("BE-04：关闭'允许自动记忆'后，聊天完全不抽取")
+    void memoryExtraction_disabled() {
+        Pet p = pet();
+        p.setMemoryExtractEnabled(false);
+        when(petService.requireOwnedPet(100L)).thenReturn(p);
+        when(sessionMapper.selectOne(any())).thenReturn(session());
+        when(messageMapper.selectList(any())).thenReturn(java.util.List.of());
+        when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class))).thenReturn(1);
+        when(aiClient.generateReply(anyString(), anyString())).thenReturn("好哒");
+        when(contextService.buildContext(any(), any())).thenReturn(new PetContextService.PetContext(
+                "小橘", 3, "LIVELY", 80, 90, 70, 80, "空闲中", 0, 0, 0, 0, false, java.util.List.of()));
+
+        chatService.chat(100L, new PetChatRequest("我叫小冰，请多关照"));
+
+        org.mockito.Mockito.verify(memoryMapper, org.mockito.Mockito.never())
+                .insert(any(com.cloudmart.pet.entity.PetMemory.class));
     }
 }

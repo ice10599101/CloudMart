@@ -52,9 +52,6 @@ import java.util.Map;
 @Slf4j
 public class PetVisitServiceImpl implements PetVisitService {
 
-    static final String KEY_VISIT_DAILY = "pet:ratelimit:visit:%d:%s";
-    static final String KEY_VISIT_NEIGHBOR = "pet:visit:neighbor:%d:%d";
-
     private static final int NEIGHBOR_LIMIT = 8;
     private static final String NICKNAME_PLACEHOLDER = "邻居";
 
@@ -67,11 +64,11 @@ public class PetVisitServiceImpl implements PetVisitService {
     private final WishFeignClient wishFeignClient;
     private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
     private final PetProperties properties;
-    private final StringRedisTemplate redisTemplate;
     private final PetDailyQuestService dailyQuestService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
+    private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
 
     public PetVisitServiceImpl(PetService petService,
                                PetStateService stateService,
@@ -82,11 +79,11 @@ public class PetVisitServiceImpl implements PetVisitService {
                                WishFeignClient wishFeignClient,
                                UserFeignClient userFeignClient,
                                PetProperties properties,
-                               StringRedisTemplate redisTemplate,
                                PetDailyQuestService dailyQuestService,
                                PetIntimacyService intimacyService,
                                PetRelationService relationService,
-            com.cloudmart.pet.service.PetUserBlockService userBlockService) {
+            com.cloudmart.pet.service.PetUserBlockService userBlockService,
+            com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -96,11 +93,11 @@ public class PetVisitServiceImpl implements PetVisitService {
         this.wishFeignClient = wishFeignClient;
         this.userFeignClient = userFeignClient;
         this.properties = properties;
-        this.redisTemplate = redisTemplate;
         this.userBlockService = userBlockService;
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.relationService = relationService;
+        this.visitApplicationService = visitApplicationService;
     }
 
     @Override
@@ -126,7 +123,7 @@ public class PetVisitServiceImpl implements PetVisitService {
                     neighbor.getEvolutionStage() != null ? neighbor.getEvolutionStage() : 0,
                     neighbor.getSkinCode(), neighbor.getUserId(),
                     nicknames.getOrDefault(neighbor.getUserId(), NICKNAME_PLACEHOLDER),
-                    visitedToday(userId, neighbor.getId()), null));
+                    visitApplicationService.visitedToday(userId, neighbor.getUserId()), null));
         }
         return result;
     }
@@ -154,22 +151,31 @@ public class PetVisitServiceImpl implements PetVisitService {
             throw new BusinessException(PetErrorCodes.PET_VISIT_ENERGY_INSUFFICIENT,
                     "宠物没力气出门了，先休息一下吧");
         }
-        requireDailyQuota(userId);
-        requireNeighborAvailable(userId, neighborPetId);
+        // B01/BE-06：统一拜访事实（数据库唯一键冷却）+ 数据库额度裁决收益；Redis 不再参与资格判定
+        com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant grant =
+                visitApplicationService.recordVisit(userId, neighbor.getUserId(), pet.getId(),
+                        neighbor.getId(), com.cloudmart.pet.service.PetVisitApplicationService.VisitSource.NEIGHBOR);
+        if (!grant.factCreated()) {
+            throw new BusinessException(PetErrorCodes.PET_VISIT_COOLDOWN,
+                    "今天已经去过这家啦，换一家走走吧");
+        }
 
         pet.setEnergy(Math.max(0, pet.getEnergy() - cfg.getEnergyCost()));
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getHappinessGain()));
         pet.setStatus(PetStatus.IDLE.name());
         recordVisitActivity(pet, neighbor);
-        // 三期埋点：亲密度（与经验同一次写入）+ 每日任务 + 关系亲密度
-        intimacyService.gain(pet, PetIntimacySource.VISIT);
-        int levelups = stateService.grantExp(pet, cfg.getExpGain());
-        dailyQuestService.record(pet, PetQuestType.VISIT, 1);
-        relationService.gainBetween(pet, neighbor, PetRelationAction.VISIT);
-        if (levelups > 0) {
-            achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+        // 收益门控：有收益才推进亲密度/经验/任务/关系/成就（无收益拜访仅消耗精力）
+        if (grant.rewardGranted()) {
+            // 三期埋点：亲密度（与经验同一次写入）+ 每日任务 + 关系亲密度
+            intimacyService.gain(pet, PetIntimacySource.VISIT);
+            int levelups = stateService.grantExp(pet, cfg.getExpGain());
+            dailyQuestService.record(pet, PetQuestType.VISIT, 1);
+            relationService.gainBetween(pet, neighbor, PetRelationAction.VISIT);
+            if (levelups > 0) {
+                achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+            }
+            achievementService.evaluate(pet, PetAchievementService.Event.VISIT);
         }
-        achievementService.evaluate(pet, PetAchievementService.Event.VISIT);
 
         String nickname = resolveNicknames(List.of(neighbor.getUserId()))
                 .getOrDefault(neighbor.getUserId(), NICKNAME_PLACEHOLDER);
@@ -185,55 +191,6 @@ public class PetVisitServiceImpl implements PetVisitService {
                 + " 玩啦，心情 +" + cfg.getHappinessGain() + "，经验 +" + cfg.getExpGain() + "～";
         return new PetVisitResultVO(neighbor.getName(), nickname,
                 cfg.getHappinessGain(), cfg.getExpGain(), message, petService.getMyPet(userId));
-    }
-
-    /** 每日次数上限（先读后写，读路径 Fail-Open：限流故障时放行） */
-    private void requireDailyQuota(Long userId) {
-        try {
-            String key = String.format(KEY_VISIT_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
-            String used = redisTemplate.opsForValue().get(key);
-            int limit = properties.getVisit().getDailyLimit();
-            if (used != null && Integer.parseInt(used) >= limit) {
-                throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
-                        "今天已经串门 " + limit + " 次啦，明天再去吧");
-            }
-            Long after = redisTemplate.opsForValue().increment(key);
-            if (after != null && after == 1L) {
-                redisTemplate.expire(key, Duration.ofHours(24));
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("串门日限频 Redis 故障，Fail-Open 放行: userId={}", userId, e);
-        }
-    }
-
-    /** 同一邻居每日一次（SETNX + TTL） */
-    private void requireNeighborAvailable(Long userId, Long neighborPetId) {
-        try {
-            String key = String.format(KEY_VISIT_NEIGHBOR, userId, neighborPetId);
-            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, "1",
-                    Duration.ofHours(properties.getVisit().getNeighborCooldownHours()));
-            if (Boolean.FALSE.equals(acquired)) {
-                throw new BusinessException(PetErrorCodes.PET_VISIT_COOLDOWN,
-                        "今天已经去过这家啦，换一家走走吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("串门邻居冷却 Redis 故障，Fail-Open 放行: userId={}, neighborPetId={}",
-                    userId, neighborPetId, e);
-        }
-    }
-
-    private boolean visitedToday(Long userId, Long neighborPetId) {
-        try {
-            return Boolean.TRUE.equals(redisTemplate.hasKey(
-                    String.format(KEY_VISIT_NEIGHBOR, userId, neighborPetId)));
-        } catch (Exception e) {
-            log.warn("串门状态查询降级（Fail-Open）: userId={}, neighborPetId={}", userId, neighborPetId, e);
-            return false;
-        }
     }
 
     private void recordVisitActivity(Pet pet, Pet neighbor) {

@@ -95,6 +95,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetEconomyService economyService;
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
     private final PetEventProducer eventProducer;
@@ -122,6 +123,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetEconomyService economyService,
                               com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
                               PetQuotaService quotaService,
+                              com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
                               com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService) {
         this.petService = petService;
@@ -136,6 +138,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.economyService = economyService;
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
+        this.visitApplicationService = visitApplicationService;
         this.userBlockService = userBlockService;
         this.companionFeatureService = companionFeatureService;
         this.eventProducer = eventProducer;
@@ -472,15 +475,17 @@ public class PetHomeServiceImpl implements PetHomeService {
             throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED, "无法拜访该用户");
         }
         PetProperties.Home cfg = properties.getHome();
-        // B14：统一拜访结算器——所有入口共享数据库日额度（普通+好友 10 次，其中好友 5 次）
-        boolean quotaOk = quotaService.tryConsume(userId, PetQuotaService.QuotaType.VISIT_REWARD, 0,
-                properties.getHome().getDailyVisitLimit());
-        boolean friendQuotaOk = !friend || quotaService.tryConsume(userId,
-                PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0, properties.getFriend().getDailyVisitLimit());
-        boolean rewardable = quotaOk && friendQuotaOk;
-        boolean firstToday = rewardable && setIfAbsent(
-                String.format(KEY_VISIT_ROOM_TODAY, userId, target.getId(), LocalDate.now(ZoneId.of("UTC"))),
-                Duration.ofHours(24));
+        // B01/BE-06：统一拜访事实（三入口共享，数据库唯一键）+ 数据库额度裁决收益
+        com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant grant =
+                visitApplicationService.recordVisit(userId, target.getUserId(), pet.getId(), target.getId(),
+                        friend ? com.cloudmart.pet.service.PetVisitApplicationService.VisitSource.FRIEND
+                               : com.cloudmart.pet.service.PetVisitApplicationService.VisitSource.ROOM);
+        if (!grant.factCreated()) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VISIT_COOLDOWN,
+                    "今天已经去过这家啦，换一家走走吧");
+        }
+        boolean firstToday = grant.rewardGranted();
         int rewardHappiness = 0;
         int rewardExp = 0;
         int hostRewardExp = 0;

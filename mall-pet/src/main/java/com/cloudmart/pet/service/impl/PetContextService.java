@@ -53,10 +53,16 @@ public class PetContextService {
                 .eq(PetActivity::getActivityType, PetActivityType.BOTTLE_FISHING.name())
                 .eq(PetActivity::getStatus, PetActivityStatus.COMPLETED.name())) > 0;
         String activitySummary = describeActivity(userId);
-        List<PetMemory> memories = memoryMapper.selectList(new LambdaQueryWrapper<PetMemory>()
-                .eq(PetMemory::getPetId, pet.getId())
-                .orderByDesc(PetMemory::getImportance)
-                .last("LIMIT " + properties.getChat().getMemoryLimit()));
+        // BE-04（P0）：记忆注入前检查"允许使用记忆"开关，且仅注入 enabled=true 的有效行；
+        // 用户删除/关闭后记忆绝不进入模型上下文
+        boolean memoryUseAllowed = Boolean.TRUE.equals(pet.getMemoryUseEnabled());
+        List<PetMemory> memories = memoryUseAllowed
+                ? memoryMapper.selectList(new LambdaQueryWrapper<PetMemory>()
+                        .eq(PetMemory::getPetId, pet.getId())
+                        .eq(PetMemory::getEnabled, true)
+                        .orderByDesc(PetMemory::getImportance)
+                        .last("LIMIT " + properties.getChat().getMemoryLimit()))
+                : List.of();
 
         return new PetContext(
                 pet.getName(), pet.getLevel(), pet.getPersonality(),

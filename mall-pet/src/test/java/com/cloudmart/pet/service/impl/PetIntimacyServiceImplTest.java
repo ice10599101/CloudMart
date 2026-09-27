@@ -72,8 +72,12 @@ class PetIntimacyServiceImplTest {
         java.time.Clock fixed = java.time.Clock.fixed(now.atOffset(java.time.ZoneOffset.UTC).toInstant(),
                 java.time.ZoneOffset.UTC);
         petClock = new PetClock(fixed, properties);
+        com.cloudmart.pet.service.PetUserGuardService guardService =
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserGuardService.class);
+        org.mockito.Mockito.lenient().when(guardService.lockGuard(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.cloudmart.pet.entity.PetUserGuard());
         intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
-                properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock);
+                properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock, guardService);
         lenient().when(sessionMapper.insert(any(PetCompanionSession.class))).thenReturn(1);
         lenient().when(dailyMapper.insert(any(PetCompanionDaily.class))).thenReturn(1);
         lenient().when(petMapper.update(any(), any())).thenReturn(1);
@@ -179,6 +183,8 @@ class PetIntimacyServiceImplTest {
     void stopSettlesValidWindow() {
         stubPet(pet());
         stubActiveSession(activeSession(3L, now.minusSeconds(30)));
+        // 收益结算按会话绑定宠物（BE-03）
+        org.mockito.Mockito.lenient().when(petMapper.selectById(1L)).thenReturn(pet());
         when(dailyMapper.selectOne(any())).thenReturn(daily(570, 0));
 
         PetCompanionSessionVO vo = intimacyService.stopSession(100L);

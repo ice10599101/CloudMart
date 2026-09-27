@@ -53,6 +53,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     private final PetOutboxService outboxService;
     private final com.cloudmart.pet.service.PetAchievementService achievementService;
     private final PetClock petClock;
+    private final com.cloudmart.pet.service.PetUserGuardService guardService;
 
     public PetIntimacyServiceImpl(PetMapper petMapper,
                                   PetCompanionSessionMapper sessionMapper,
@@ -61,7 +62,8 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
                                   PetEventProducer eventProducer,
                                   PetOutboxService outboxService,
                                   com.cloudmart.pet.service.PetAchievementService achievementService,
-                                  PetClock petClock) {
+                                  PetClock petClock,
+                                  com.cloudmart.pet.service.PetUserGuardService guardService) {
         this.petMapper = petMapper;
         this.sessionMapper = sessionMapper;
         this.dailyMapper = dailyMapper;
@@ -70,6 +72,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
         this.outboxService = outboxService;
         this.achievementService = achievementService;
         this.petClock = petClock;
+        this.guardService = guardService;
     }
 
     @Override
@@ -110,9 +113,18 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     @Override
     @Transactional
     public PetCompanionSessionVO heartbeat(Long userId, Integer seconds, Long seq) {
+        // B01/BE-03：用户行锁串行化同用户多端心跳，杜绝同窗口重复累计
+        guardService.lockGuard(userId);
         Pet pet = requireActivePet(userId);
         PetCompanionSession session = activeSession(userId);
         LocalDateTime now = petClock.nowUtc();
+
+        // 会话归属宠物与当前主宠不一致（中途切宠）：旧会话立即停止且不结算跨宠收益，为新宠建立基准
+        if (session != null && !expired(session, now) && !session.getPetId().equals(pet.getId())) {
+            endSession(session, "STOPPED");
+            PetCompanionSession fresh = startSession(userId, pet, now);
+            return toVo(fresh, now, false, 0, pet);
+        }
 
         if (session == null || expired(session, now)) {
             if (session != null && expired(session, now)) {
@@ -153,18 +165,23 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     @Override
     @Transactional
     public PetCompanionSessionVO stopSession(Long userId) {
+        // B01/BE-03：用户行锁；收益结算按会话绑定宠物（不重新解析主宠，§3.3-6）
+        guardService.lockGuard(userId);
         Pet pet = requireActivePet(userId);
         PetCompanionSession session = activeSession(userId);
         LocalDateTime now = petClock.nowUtc();
         if (session == null) {
             return toVo(null, now, false, 0, pet);
         }
-        // 正常停止：只结算有效窗口内尚未计入的时间（不超过会话失效间隔）
+        // 正常停止：只结算有效窗口内尚未计入的时间（不超过会话失效间隔），归属会话绑定宠物
         long elapsedSeconds = Duration.between(session.getLastHeartbeatAt(), now).getSeconds();
         long timeout = properties.getIntimacy().getCompanionSessionTimeoutSeconds();
         int credited = 0;
         if (elapsedSeconds > 0 && elapsedSeconds <= timeout) {
-            credited = creditCompanionSeconds(userId, pet, session.getLastHeartbeatAt(), now);
+            com.cloudmart.pet.entity.Pet sessionPet = petMapper.selectById(session.getPetId());
+            if (sessionPet != null) {
+                credited = creditCompanionSeconds(userId, sessionPet, session.getLastHeartbeatAt(), now);
+            }
         }
         endSession(session, "STOPPED");
         return toVo(null, now, true, credited, pet);

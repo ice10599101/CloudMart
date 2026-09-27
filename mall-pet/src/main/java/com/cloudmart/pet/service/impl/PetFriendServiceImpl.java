@@ -291,7 +291,6 @@ public class PetFriendServiceImpl implements PetFriendService {
         if (relation == null || !PetFriendStatus.ACTIVE.name().equals(relation.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_FRIEND_NOT_FOUND, "还不是好友，先去加个好友吧");
         }
-        requireVisitQuota(userId);
         PetRoomVisitVO room = homeService.visitFriendRoom(userId, friendUserId);
         friendMapper.update(null, new LambdaUpdateWrapper<PetFriend>()
                 .setSql("visit_count = visit_count + 1")
@@ -304,13 +303,17 @@ public class PetFriendServiceImpl implements PetFriendService {
                 .eq(Pet::getUserId, friendUserId)
                 .eq(Pet::getIsActive, true)
                 .last("LIMIT 1"));
+        // B01/BE-06：好友层收益（关系/任务）仅在有收益的首次互访时推进（重复拜访不推进）
+        boolean rewarded = !room.visitedToday();
         boolean relationIntimacy = false;
-        if (friendPet != null) {
+        if (friendPet != null && rewarded) {
             relationService.gainBetween(myPet, friendPet, PetRelationAction.VISIT);
             relationIntimacy = true;
         }
-        dailyQuestService.record(myPet, PetQuestType.FRIEND_VISIT, 1);
-        dailyQuestService.record(myPet, PetQuestType.VISIT, 1);
+        if (rewarded) {
+            dailyQuestService.record(myPet, PetQuestType.FRIEND_VISIT, 1);
+            dailyQuestService.record(myPet, PetQuestType.VISIT, 1);
+        }
         String nickname = resolveNicknames(List.of(friendUserId))
                 .getOrDefault(friendUserId, NICKNAME_PLACEHOLDER);
         PetFriend after = findRow(userId, friendUserId);

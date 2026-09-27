@@ -136,7 +136,7 @@ public class PetChatServiceImpl implements PetChatService {
 
         // 幂等重放：同 (session, request_id) 已有回复对则原样返回
         if (requestId != null && !requestId.isBlank()) {
-            PetChatSession existingSession = requireSession(userId);
+            PetChatSession existingSession = requireSession(userId, pet.getId());
             PetChatMessage existingReply = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
                     .eq(PetChatMessage::getSessionId, existingSession.getId())
                     .eq(PetChatMessage::getRequestId, requestId)
@@ -168,7 +168,7 @@ public class PetChatServiceImpl implements PetChatService {
         String reply;
         boolean isAiReply = true;
         try {
-            reply = aiClient.generateReply(buildSystemPrompt(pet, context), buildUserMessage(userId, message));
+            reply = aiClient.generateReply(buildSystemPrompt(pet, context), buildUserMessage(userId, pet, message));
         } catch (BusinessException e) {
             log.warn("宠物AI降级为模板回复: userId={}, code={}", userId, e.getCode());
             reply = fallbackReply(pet, context);
@@ -181,7 +181,8 @@ public class PetChatServiceImpl implements PetChatService {
     private PetChatMessageVO persistChatPair(Long userId, Pet pet, String userMessage,
                                              String reply, boolean isAiReply, String requestId) {
         return transactionTemplate.execute(status -> {
-            PetChatSession session = requireSession(userId);
+            // 会话归属以 chat 开始时冻结的主宠为准（BE-05：AI 调用后切宠不影响写回归属）
+            PetChatSession session = requireSession(userId, pet.getId());
             PetChatMessage userMessageRow = saveMessage(session.getId(), userId, PetChatRole.USER.name(),
                     userMessage, isAiReply, requestId);
             PetChatMessage petMessage = saveMessage(session.getId(), userId, PetChatRole.PET.name(),
@@ -203,7 +204,7 @@ public class PetChatServiceImpl implements PetChatService {
 
     @Override
     public List<PetChatMessageVO> history(Long userId, Long cursor, Integer pageSize) {
-        PetChatSession session = requireSession(userId);
+        PetChatSession session = requireSession(userId, petService.requireOwnedPet(userId).getId());
         int size = Math.min(50, Math.max(1, pageSize != null ? pageSize : 20));
         LambdaQueryWrapper<PetChatMessage> wrapper = new LambdaQueryWrapper<PetChatMessage>()
                 .eq(PetChatMessage::getSessionId, session.getId())
@@ -337,9 +338,9 @@ public class PetChatServiceImpl implements PetChatService {
                 + "实时状态（JSON）：" + PetJsonUtils.toJson(context);
     }
 
-    /** 用户消息 + 最近对话历史（控制窗口大小，成本可控） */
-    private String buildUserMessage(Long userId, String message) {
-        PetChatSession session = requireSession(userId);
+    /** 用户消息 + 最近对话历史（控制窗口大小，成本可控；会话归属 chat 开始时冻结的主宠） */
+    private String buildUserMessage(Long userId, Pet pet, String message) {
+        PetChatSession session = requireSession(userId, pet.getId());
         List<PetChatMessage> recent = messageMapper.selectList(new LambdaQueryWrapper<PetChatMessage>()
                 .eq(PetChatMessage::getSessionId, session.getId())
                 .orderByDesc(PetChatMessage::getId)
@@ -383,8 +384,14 @@ public class PetChatServiceImpl implements PetChatService {
         };
     }
 
-    /** 规则式记忆抽取：结构化落库（uk 幂等；第一版不做 AI 抽取） */
+    /**
+     * 规则式记忆抽取（B02/BE-04）：先检查"允许自动记忆"开关——关闭即完全不抽取；
+     * 自动提取只写/只更新 source=AUTO 且 enabled=true 的行，永不覆盖 USER 记忆或已删除（tombstone）行。
+     */
     private void extractMemories(Pet pet, String message) {
+        if (!Boolean.TRUE.equals(pet.getMemoryExtractEnabled())) {
+            return;
+        }
         for (Map.Entry<String, Pattern[]> entry : MEMORY_RULES.entrySet()) {
             for (Pattern pattern : entry.getValue()) {
                 Matcher matcher = pattern.matcher(message);
@@ -401,15 +408,21 @@ public class PetChatServiceImpl implements PetChatService {
                     memory.setMemoryValue(value);
                     memory.setImportance(3);
                     memory.setConfidence(BigDecimal.valueOf(0.9));
+                    memory.setSource("AUTO");
+                    memory.setEnabled(true);
                     try {
                         memoryMapper.insert(memory);
                     } catch (DuplicateKeyException e) {
-                        // 已有同键记忆：仅当新值更长（信息更多）时更新，防抖动
+                        // 同键记忆冲突：仅当既有行为 AUTO 来源且有效时，新值更长（信息更多）才更新——
+                        // 永不覆盖人工编辑（USER）或已删除（enabled=false）的记忆
                         PetMemory existing = memoryMapper.selectOne(new LambdaQueryWrapper<PetMemory>()
                                 .eq(PetMemory::getPetId, pet.getId())
                                 .eq(PetMemory::getMemoryKey, entry.getKey()));
-                        if (existing != null && value.length() > existing.getMemoryValue().length()) {
+                        if (existing != null && "AUTO".equals(existing.getSource())
+                                && Boolean.TRUE.equals(existing.getEnabled())
+                                && value.length() > existing.getMemoryValue().length()) {
                             existing.setMemoryValue(value);
+                            existing.setSource("AUTO");
                             memoryMapper.updateById(existing);
                         }
                     }
@@ -431,21 +444,26 @@ public class PetChatServiceImpl implements PetChatService {
         return message;
     }
 
-    private PetChatSession requireSession(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+    /**
+     * 会话解析（B02/BE-05）：按 (userId, petId) 唯一——多宠聊天历史分离，切宠不串线。
+     * petId 由 chat 开始时冻结的主宠传入（AI 调用完成后写回同一会话，中途切宠不影响归属）。
+     */
+    private PetChatSession requireSession(Long userId, Long petId) {
         PetChatSession session = sessionMapper.selectOne(new LambdaQueryWrapper<PetChatSession>()
-                .eq(PetChatSession::getUserId, userId));
+                .eq(PetChatSession::getUserId, userId)
+                .eq(PetChatSession::getPetId, petId));
         if (session != null) {
             return session;
         }
         PetChatSession created = new PetChatSession();
         created.setUserId(userId);
-        created.setPetId(pet.getId());
+        created.setPetId(petId);
         try {
             sessionMapper.insert(created);
         } catch (DuplicateKeyException e) {
             created = sessionMapper.selectOne(new LambdaQueryWrapper<PetChatSession>()
-                    .eq(PetChatSession::getUserId, userId));
+                    .eq(PetChatSession::getUserId, userId)
+                    .eq(PetChatSession::getPetId, petId));
         }
         return created;
     }

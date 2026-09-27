@@ -334,7 +334,7 @@ IT：按 B23 分组后不在默认 mvn test 中执行；执行需显式启用 + 
 - 统一改为**惰性签发 + 服务端 fail-closed**：四服务均可在无密钥环境启动（公开/用户端点照常），密钥缺失时 mall-wish 拒绝所有服务令牌（内部/管理端点 401——绝不放行未验签调用，安全边界不变）；调用方首次调 wish 时报明确错误。生产部署注入密钥后全链路正常。
 - 修复文件：mall-wish `WishSecurityProperties`（PostConstruct 降级 WARN + isServiceTokenValidationAvailable）、`ServiceTokenAuthenticationFilter`（fail-closed 分支）、mall-job `WishServiceTokenProvider`、mall-admin/mall-pet `WishServiceTokenConfig`。
 
-### 权限菜单种子（mall-admin V10）
+### 权限菜单种子（mall-admin V12；V10/V11 已被并行的 pet 菜单/钱包迁移占用，曾用 V10/V11 引发 Flyway 重号冲突，已改号）
 - `心愿治理工作台` C 行菜单 + 4 个 F 权限点（business:wishModeration:list/query/audit、business:wishAppeal:review）+ 超管角色绑定，幂等 ON DUPLICATE KEY。
 
 ```text
