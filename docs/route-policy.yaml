@@ -157,6 +157,9 @@ mall-risk:
 # -----------------------------------------------------------------------------
 # mall-admin / mall-job / mall-gen / mall-file
 # -----------------------------------------------------------------------------
+mall-auth:
+  - { method: POST,   path: /internal/tokens/revoke-subject, subjectType: SERVICE, serviceCaller: mall-admin, permission: admin:auth, note: "SEC-02：踢人/禁用时按主体撤销令牌家族" }
+
 mall-admin:
   - { method: POST,   path: /auth/validate,             subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
   - { method: GET,    path: /auth/permissions/{userId}, subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
@@ -177,4 +180,4 @@ mall-file:
 # mall-auth（发卡方自身）
 # -----------------------------------------------------------------------------
 mall-auth:
-  - { method: "*",    path: /**,                 subjectType: ANON, note: "登录/刷新/JWKS；SEC-02/03：刷新令牌身份域隔离与会话撤销" }
+  - { method: "*",    path: /**,                 subjectType: ANON, note: "登录/刷新/JWKS（/internal/** 除外）；SEC-02/03：刷新令牌身份域隔离与会话撤销" }

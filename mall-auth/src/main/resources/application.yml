@@ -99,6 +99,10 @@ cloudmart:
     jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     clock-skew-seconds: 30
     service-token-ttl-seconds: 60
+    service-token-paths:
+      - prefix: /internal
+        issuers: [mall-admin]
+        scope: admin:auth
     outbound-scopes:
       mall-admin: admin:auth
     user-jwt-verification-enabled: false

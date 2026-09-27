@@ -1,6 +1,7 @@
 package com.cloudmart.admin.service.impl;
 
 import com.cloudmart.admin.dto.AdminOnlineUserResponse;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import com.cloudmart.admin.service.AdminOnlineUserService;
 import com.cloudmart.common.constant.SecurityConstants;
 import tools.jackson.core.type.TypeReference;
@@ -23,10 +24,13 @@ public class AdminOnlineUserServiceImpl implements AdminOnlineUserService {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final AuthRevocationFeignClient authRevocationFeignClient;
 
-    public AdminOnlineUserServiceImpl(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+    public AdminOnlineUserServiceImpl(StringRedisTemplate redisTemplate, ObjectMapper objectMapper,
+                                      AuthRevocationFeignClient authRevocationFeignClient) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.authRevocationFeignClient = authRevocationFeignClient;
     }
 
     @Override
@@ -71,17 +75,12 @@ public class AdminOnlineUserServiceImpl implements AdminOnlineUserService {
                 Map<String, String> info = objectMapper.readValue(value, new TypeReference<>() {});
                 String userId = info.get("userId");
                 if (userId != null) {
-                    String userTokenKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + userId;
-                    var tokenIds = redisTemplate.opsForSet().members(userTokenKey);
-                    if (tokenIds != null) {
-                        for (String tid : tokenIds) {
-                            redisTemplate.delete(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tid);
-                        }
-                    }
-                    redisTemplate.delete(userTokenKey);
+                    // SEC-02：刷新令牌家族的键结构是 mall-auth 私有实现，撤销必须经
+                    // 其内部接口执行（admin:auth 服务令牌）；失败向上抛出，绝不静默。
+                    authRevocationFeignClient.revokeSubject(AuthRevocationFeignClient.adminSubject(Long.valueOf(userId)));
                 }
             } catch (Exception e) {
-                log.warn("Failed to revoke tokens for force logout: {}", e.getMessage());
+                throw new IllegalStateException("强制下线时撤销刷新令牌失败: " + e.getMessage(), e);
             }
             redisTemplate.delete(key);
         }

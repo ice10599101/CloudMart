@@ -9,6 +9,8 @@ import com.cloudmart.auth.feign.AdminLoginLogFeignClient;
 import com.cloudmart.auth.feign.AdminUserFeignClient;
 import com.cloudmart.auth.service.AdminAuthService;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.RefreshTokenService.RotationResult;
+import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
@@ -102,7 +104,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         Set<String> permissions = admin.isSuperAdmin() ? Set.of("*:*:*") : admin.permissions();
         String accessToken = jwtProvider.generateAccessToken(admin.id(), "admin", permissions,
                 admin.username(), admin.deptId());
-        String refreshToken = refreshTokenService.createRefreshToken(admin.id());
+        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, admin.id());
 
         String tokenId = UUID.randomUUID().toString();
         storeOnlineUser(tokenId, admin.id(), admin.username(), ip, browser);
@@ -114,31 +116,25 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     @Override
     public LoginResponse refresh(String refreshTokenValue) {
-        Long userId;
-        try {
-            userId = refreshTokenService.rotateRefreshToken(refreshTokenValue);
-        } catch (IllegalStateException e) {
-            throw new BusinessException("TOKEN_REUSE_DETECTED", "检测到 Refresh Token 被盗用，已撤销所有令牌");
-        }
-
-        if (userId == null) {
-            throw new BusinessException("INVALID_REFRESH_TOKEN", "无效或已过期的 Refresh Token");
-        }
+        // SEC-02：仅接受管理员域（a:）令牌；普通用户令牌在此被拒且不消费；
+        // 轮换在原家族内原子推进，不再整发新家族（杜绝无限续期）。
+        RotationResult rotation =
+                refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, refreshTokenValue);
+        Long userId = rotation.subjectId();
 
         AdminUserInfo userInfo = fetchUserInfo(userId);
         String accessToken = jwtProvider.generateAccessToken(userId, "admin", userInfo.permissions,
                 userInfo.username, userInfo.deptId);
-        String refreshToken = refreshTokenService.createRefreshToken(userId);
 
         refreshOnlineUserTtl(userId);
 
-        return new LoginResponse(accessToken, refreshToken, "Bearer", accessTokenExpiration, null);
+        return new LoginResponse(accessToken, rotation.tokenValue(), "Bearer", accessTokenExpiration, null);
     }
 
     @Override
     public void logout(Long userId) {
         removeOnlineUser(userId);
-        refreshTokenService.revokeAllTokensForUser(userId);
+        refreshTokenService.revokeAllTokensForSubject(SubjectType.ADMIN, userId);
     }
 
     private void storeOnlineUser(String tokenId, Long userId, String username, String ip, String browser) {

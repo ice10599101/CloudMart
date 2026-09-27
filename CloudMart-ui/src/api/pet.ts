@@ -1135,6 +1135,76 @@ export interface PetWalletTransactionVO {
   occurredAt: string
 }
 
+// ==================== N 系列：小游戏/托管/摘要/合作/图鉴（§8.3） ====================
+
+export interface MinigameRoundVO {
+  roundId: number | string
+  rewardEligible: boolean
+  deadlineAt: string
+  ruleVersion: string
+}
+
+/** 开始接球局（显式 petId；每日 5 局有收益，超限训练局） */
+export function startMinigameRound(petId: number | string) {
+  return request.post<ApiResponse<MinigameRoundVO>>(`/pet/pets/${petId}/minigames`)
+}
+
+export function submitMinigameOps(roundId: number | string, ops: Array<{ seq: number; windowIndex: number; slot: string }>) {
+  return request.post<ApiResponse<{ accepted: number; status: string }>>(`/pet/minigames/${roundId}/ops`, { ops })
+}
+
+export function settleMinigame(roundId: number | string) {
+  return request.post<ApiResponse<{ status: string; successCount: number; rewardEligible: boolean; validCompletion: boolean; reward: Record<string, number> }>>(`/pet/minigames/${roundId}/settle`)
+}
+
+export function startCustody() {
+  return request.post<ApiResponse<{ active: boolean; endsAt: string }>>('/pet/custody/start')
+}
+
+export function getCustodyStatus() {
+  return request.get<ApiResponse<{ active: boolean; endsAt?: string; careFeedUsed?: number; careCleanUsed?: number; weekUsed?: boolean; nextAvailableAt?: string }>>('/pet/custody')
+}
+
+export function endCustody() {
+  return request.post<ApiResponse<void>>('/pet/custody/end')
+}
+
+export function getOfflineDigest() {
+  return request.get<ApiResponse<{ from: string; throughAt: string; offlineHours: number; finishedTasks: number; claimableTasks: number; visits: number; milestones: number; hasCursor: boolean }>>('/pet/offline-digest')
+}
+
+export function confirmOfflineDigest(throughAt?: string) {
+  return request.post<ApiResponse<{ confirmedAt: string }>>('/pet/offline-digest/confirm', throughAt ? { throughAt } : {})
+}
+
+export function createCooperation(inviteeUserId: number | string) {
+  return request.post<ApiResponse<{ cooperationId: number | string; inviteExpiresAt: string }>>('/pet/cooperation', { inviteeUserId })
+}
+
+export function acceptCooperation(cooperationId: number | string) {
+  return request.post<ApiResponse<{ status: string }>>(`/pet/cooperation/${cooperationId}/accept`)
+}
+
+export function leaveCooperation(cooperationId: number | string) {
+  return request.post<ApiResponse<void>>(`/pet/cooperation/${cooperationId}/leave`)
+}
+
+export function claimCooperationReward(cooperationId: number | string) {
+  return request.post<ApiResponse<{ reward: { type: string; itemCode?: string; amount?: number }; duplicate?: boolean }>>(`/pet/cooperation/${cooperationId}/claim`)
+}
+
+export function listCooperations() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/cooperation')
+}
+
+export function getCollection(category?: string, page = 1, size = 20) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/collection', { params: { category, page, size } })
+}
+
+export function getCollectionStats() {
+  return request.get<ApiResponse<Record<string, number>>>('/pet/collection/stats')
+}
+
 /** 本人宠物币余额（懒创建期初 0；FROZEN 仍可读） */
 export function getPetWallet() {
   return request.get<ApiResponse<PetWalletVO>>('/pet/wallet')

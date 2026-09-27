@@ -15,6 +15,8 @@ interface RequestConfig {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   data?: Record<string, unknown>
+  /** GET 查询参数（Taro.request data 在 GET 下自动拼 query） */
+  params?: Record<string, unknown>
   header?: Record<string, string>
 }
 
@@ -93,7 +95,7 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
     const res = await Taro.request({
       url: `${API_BASE}${config.url}`,
       method: config.method || 'GET',
-      data: config.data,
+      data: config.method === 'GET' ? (config.params ?? config.data) : config.data,
       header,
       timeout: 15000,
     })

@@ -543,6 +543,34 @@ export const petApi = {
   /** 亲密度与陪伴 */
   getIntimacy: () => request<PetIntimacyInfo>({ url: '/pet/intimacy' }),
   // ==================== W03：宠物币钱包（§7.8/§8.2） ====================
+  // ==================== N 系列：小游戏/托管/摘要/合作/图鉴（§8.3） ====================
+  startMinigameRound: (petId: number | string) =>
+    request<MinigameRoundVO>({ url: `/pet/pets/${petId}/minigames`, method: 'POST' }),
+  submitMinigameOps: (roundId: number | string, ops: Array<{ seq: number; windowIndex: number; slot: string }>) =>
+    request<{ accepted: number; status: string }>({ url: `/pet/minigames/${roundId}/ops`, method: 'POST', data: { ops } }),
+  settleMinigame: (roundId: number | string) =>
+    request<{ status: string; successCount: number; rewardEligible: boolean; validCompletion: boolean; reward: Record<string, number> }>({ url: `/pet/minigames/${roundId}/settle`, method: 'POST' }),
+  startCustody: () => request<{ active: boolean; endsAt: string }>({ url: '/pet/custody/start', method: 'POST' }),
+  getCustodyStatus: () =>
+    request<{ active: boolean; endsAt?: string; careFeedUsed?: number; careCleanUsed?: number; weekUsed?: boolean }>({ url: '/pet/custody' }),
+  endCustody: () => request<void>({ url: '/pet/custody/end', method: 'POST' }),
+  getOfflineDigest: () =>
+    request<{ from: string; throughAt: string; offlineHours: number; finishedTasks: number; claimableTasks: number; visits: number; milestones: number; hasCursor: boolean }>({ url: '/pet/offline-digest' }),
+  confirmOfflineDigest: (throughAt?: string) =>
+    request<{ confirmedAt: string }>({ url: '/pet/offline-digest/confirm', method: 'POST', data: throughAt ? { throughAt } : {} }),
+  createCooperation: (inviteeUserId: number | string) =>
+    request<{ cooperationId: number | string; inviteExpiresAt: string }>({ url: '/pet/cooperation', method: 'POST', data: { inviteeUserId } }),
+  acceptCooperation: (cooperationId: number | string) =>
+    request<{ status: string }>({ url: `/pet/cooperation/${cooperationId}/accept`, method: 'POST' }),
+  leaveCooperation: (cooperationId: number | string) =>
+    request<void>({ url: `/pet/cooperation/${cooperationId}/leave`, method: 'POST' }),
+  claimCooperationReward: (cooperationId: number | string) =>
+    request<{ reward: { type: string; itemCode?: string; amount?: number }; duplicate?: boolean }>({ url: `/pet/cooperation/${cooperationId}/claim`, method: 'POST' }),
+  listCooperations: () => request<Array<Record<string, unknown>>>({ url: '/pet/cooperation' }),
+  getCollection: (category?: string, page = 1, size = 20) =>
+    request<Array<Record<string, unknown>>>({ url: '/pet/collection', params: { category, page, size } }),
+  getCollectionStats: () => request<Record<string, number>>({ url: '/pet/collection/stats' }),
+
   /** 本人宠物币余额（懒创建期初 0；FROZEN 仍可读） */
   getWallet: () => request<PetWalletVO>({ url: '/pet/wallet' }),
   /** 收支明细（游标分页） */
@@ -669,6 +697,13 @@ export const petApi = {
 }
 
 // ==================== 三期类型（与服务端 VO 对齐） ====================
+
+export interface MinigameRoundVO {
+  roundId: number | string
+  rewardEligible: boolean
+  deadlineAt: string
+  ruleVersion: string
+}
 
 /** 宠物币钱包视图（契约 §8.1：ID/余额为字符串） */
 export interface PetWalletVO {

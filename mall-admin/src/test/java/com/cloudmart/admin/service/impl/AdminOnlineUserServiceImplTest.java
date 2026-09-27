@@ -1,6 +1,7 @@
 package com.cloudmart.admin.service.impl;
 
 import com.cloudmart.admin.dto.AdminOnlineUserResponse;
+import com.cloudmart.admin.feign.AuthRevocationFeignClient;
 import com.cloudmart.common.constant.SecurityConstants;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -30,6 +31,7 @@ class AdminOnlineUserServiceImplTest {
 
     private StringRedisTemplate redisTemplate;
     private ObjectMapper objectMapper;
+    private AuthRevocationFeignClient authRevocationFeignClient;
     private AdminOnlineUserServiceImpl adminOnlineUserService;
 
     @SuppressWarnings("unchecked")
@@ -37,7 +39,8 @@ class AdminOnlineUserServiceImplTest {
     void setUp() {
         redisTemplate = mock(StringRedisTemplate.class);
         objectMapper = mock(ObjectMapper.class);
-        adminOnlineUserService = new AdminOnlineUserServiceImpl(redisTemplate, objectMapper);
+        authRevocationFeignClient = mock(AuthRevocationFeignClient.class);
+        adminOnlineUserService = new AdminOnlineUserServiceImpl(redisTemplate, objectMapper, authRevocationFeignClient);
     }
 
     @Nested
@@ -120,16 +123,10 @@ class AdminOnlineUserServiceImplTest {
             Map<String, String> infoMap = Map.of("userId", "42", "username", "admin");
             when(objectMapper.readValue(eq(json), any(TypeReference.class))).thenReturn(infoMap);
 
-            String userTokenKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + "42";
-            SetOperations<String, String> setOps = mock(SetOperations.class);
-            when(redisTemplate.opsForSet()).thenReturn(setOps);
-            when(setOps.members(userTokenKey)).thenReturn(Set.of("rt-1", "rt-2"));
-
             adminOnlineUserService.forceLogout(tokenId);
 
-            verify(redisTemplate).delete(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + "rt-1");
-            verify(redisTemplate).delete(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + "rt-2");
-            verify(redisTemplate).delete(userTokenKey);
+            // SEC-02：刷新令牌家族撤销经 mall-auth 内部接口执行
+            verify(authRevocationFeignClient).revokeSubject(AuthRevocationFeignClient.adminSubject(42L));
             verify(redisTemplate).delete(key);
         }
 

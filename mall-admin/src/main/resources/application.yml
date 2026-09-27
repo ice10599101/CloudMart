@@ -108,6 +108,7 @@ cloudmart:
         issuers: [mall-auth]
         scope: admin:auth
     outbound-scopes:
+      mall-auth: admin:auth
       mall-product: product:admin
       mall-user: user:admin
       mall-order: order:admin

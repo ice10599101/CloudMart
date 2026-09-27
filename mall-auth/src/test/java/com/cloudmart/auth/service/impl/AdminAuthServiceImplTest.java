@@ -8,6 +8,7 @@ import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.AdminLoginLogFeignClient;
 import com.cloudmart.auth.feign.AdminUserFeignClient;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
@@ -102,7 +103,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
                     eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
 
@@ -125,7 +126,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), eq(Set.of("*:*:*")),
                     eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
 
@@ -225,7 +226,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
                     eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
 
             adminAuthService.login(request, httpRequest);
 
@@ -242,24 +243,24 @@ class AdminAuthServiceImplTest {
         void refresh_validToken_returnsNewTokens() {
             AdminUserDTO adminDTO = createAdminDTO(false);
 
-            when(refreshTokenService.rotateRefreshToken(REFRESH_TOKEN)).thenReturn(ADMIN_ID);
+            when(refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, REFRESH_TOKEN))
+.thenReturn(rotation(REFRESH_TOKEN, ADMIN_ID));
             when(adminUserFeignClient.getPermissionsByUserId(ADMIN_ID))
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAccessToken(eq(ADMIN_ID), eq("admin"), any(Set.class),
                     eq(USERNAME), eq(1L))).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(ADMIN_ID)).thenReturn("new-refresh");
-
             LoginResponse result = adminAuthService.refresh(REFRESH_TOKEN);
 
             assertThat(result).isNotNull();
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
-            assertThat(result.refreshToken()).isEqualTo("new-refresh");
+            assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
         }
 
         @Test
         @DisplayName("should throw INVALID_REFRESH_TOKEN when token is null")
         void refresh_nullToken_throwsInvalidRefreshToken() {
-            when(refreshTokenService.rotateRefreshToken("invalid-token")).thenReturn(null);
+            when(refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, "invalid-token"))
+                    .thenThrow(new BusinessException("INVALID_REFRESH_TOKEN", "invalid"));
 
             assertThatThrownBy(() -> adminAuthService.refresh("invalid-token"))
                     .isInstanceOf(BusinessException.class)
@@ -269,8 +270,8 @@ class AdminAuthServiceImplTest {
         @Test
         @DisplayName("should throw TOKEN_REUSE_DETECTED when token reuse is detected")
         void refresh_reusedToken_throwsTokenReuseDetected() {
-            when(refreshTokenService.rotateRefreshToken(REFRESH_TOKEN))
-                    .thenThrow(new IllegalStateException("Reuse detected"));
+            when(refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, REFRESH_TOKEN))
+                    .thenThrow(new BusinessException("TOKEN_REUSE_DETECTED", "reuse"));
 
             assertThatThrownBy(() -> adminAuthService.refresh(REFRESH_TOKEN))
                     .isInstanceOf(BusinessException.class)
@@ -280,7 +281,8 @@ class AdminAuthServiceImplTest {
         @Test
         @DisplayName("should throw PERMISSION_FETCH_FAILED when user info fetch fails")
         void refresh_userInfoFetchFails_throwsPermissionFetchFailed() {
-            when(refreshTokenService.rotateRefreshToken(REFRESH_TOKEN)).thenReturn(ADMIN_ID);
+            when(refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, REFRESH_TOKEN))
+.thenReturn(rotation(REFRESH_TOKEN, ADMIN_ID));
             when(adminUserFeignClient.getPermissionsByUserId(ADMIN_ID))
                     .thenThrow(new RuntimeException("Service unavailable"));
 
@@ -299,7 +301,12 @@ class AdminAuthServiceImplTest {
         void logout_revokesAllTokens() {
             adminAuthService.logout(ADMIN_ID);
 
-            verify(refreshTokenService).revokeAllTokensForUser(ADMIN_ID);
+            verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.ADMIN, ADMIN_ID);
         }
+    }
+
+    /** SEC-02：构造成功轮换返回值 */
+    private RefreshTokenService.RotationResult rotation(String tokenValue, Long subjectId) {
+        return new RefreshTokenService.RotationResult(SubjectType.ADMIN, subjectId, tokenValue, 600L);
     }
 }

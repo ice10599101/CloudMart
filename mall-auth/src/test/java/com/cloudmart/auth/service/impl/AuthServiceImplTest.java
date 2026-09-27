@@ -7,6 +7,7 @@ import com.cloudmart.auth.dto.UserDTO;
 import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.UserFeignClient;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -57,7 +58,7 @@ class AuthServiceImplTest {
             when(userFeignClient.validateUser(any(ValidateRequest.class)))
                     .thenReturn(ApiResponse.ok(userDTO));
             when(jwtProvider.generateAccessToken(USER_ID, "user")).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(USER_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID)).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = authService.login(request);
 
@@ -65,7 +66,7 @@ class AuthServiceImplTest {
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
-            verify(refreshTokenService).createRefreshToken(USER_ID);
+            verify(refreshTokenService).createRefreshToken(SubjectType.USER, USER_ID);
         }
 
         @Test
@@ -106,15 +107,14 @@ class AuthServiceImplTest {
         void refreshToken_success_returnsNewTokens() {
             RefreshRequest request = new RefreshRequest(REFRESH_TOKEN);
 
-            when(refreshTokenService.rotateRefreshToken(REFRESH_TOKEN)).thenReturn(USER_ID);
+            when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
+.thenReturn(rotation(REFRESH_TOKEN, USER_ID));
             when(jwtProvider.generateAccessToken(USER_ID, "user")).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(USER_ID)).thenReturn("new-refresh-token");
-
             LoginResponse result = authService.refresh(request);
 
             assertThat(result).isNotNull();
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
-            assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+            assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
         }
 
@@ -123,12 +123,13 @@ class AuthServiceImplTest {
         void refreshToken_expiredToken_throwsException() {
             RefreshRequest request = new RefreshRequest("expired-token");
 
-            when(refreshTokenService.rotateRefreshToken("expired-token")).thenReturn(null);
+            when(refreshTokenService.rotateRefreshToken(SubjectType.USER, "expired-token"))
+                    .thenThrow(new BusinessException("REFRESH_TOKEN_EXPIRED", "expired"));
 
             assertThatThrownBy(() -> authService.refresh(request))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code")
-                    .isEqualTo("INVALID_REFRESH_TOKEN");
+                    .isEqualTo("REFRESH_TOKEN_EXPIRED");
         }
 
         @Test
@@ -136,8 +137,8 @@ class AuthServiceImplTest {
         void refreshToken_reusedToken_throwsException() {
             RefreshRequest request = new RefreshRequest(REFRESH_TOKEN);
 
-            when(refreshTokenService.rotateRefreshToken(REFRESH_TOKEN))
-                    .thenThrow(new IllegalStateException("Refresh token reuse detected for user: " + USER_ID));
+            when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
+                    .thenThrow(new BusinessException("TOKEN_REUSE_DETECTED", "reuse"));
 
             assertThatThrownBy(() -> authService.refresh(request))
                     .isInstanceOf(BusinessException.class)
@@ -155,7 +156,12 @@ class AuthServiceImplTest {
         void logout_revokesAllTokens() {
             authService.logout(USER_ID);
 
-            verify(refreshTokenService).revokeAllTokensForUser(USER_ID);
+            verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.USER, USER_ID);
         }
+    }
+
+    /** SEC-02：构造成功轮换返回值 */
+    private RefreshTokenService.RotationResult rotation(String tokenValue, Long subjectId) {
+        return new RefreshTokenService.RotationResult(SubjectType.USER, subjectId, tokenValue, 600L);
     }
 }

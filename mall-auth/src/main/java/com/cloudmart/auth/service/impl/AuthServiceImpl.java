@@ -8,6 +8,8 @@ import com.cloudmart.auth.dto.ValidateRequest;
 import com.cloudmart.auth.feign.UserFeignClient;
 import com.cloudmart.auth.service.AuthService;
 import com.cloudmart.auth.service.RefreshTokenService;
+import com.cloudmart.auth.service.RefreshTokenService.RotationResult;
+import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -43,32 +45,25 @@ public class AuthServiceImpl implements AuthService {
 
         UserDTO user = response.data();
         String accessToken = jwtProvider.generateAccessToken(user.id(), "user");
-        String refreshToken = refreshTokenService.createRefreshToken(user.id());
+        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.USER, user.id());
 
         return new LoginResponse(accessToken, refreshToken, "Bearer", accessTokenExpiration, null);
     }
 
     @Override
     public LoginResponse refresh(RefreshRequest request) {
-        Long userId;
-        try {
-            userId = refreshTokenService.rotateRefreshToken(request.refreshToken());
-        } catch (IllegalStateException e) {
-            throw new BusinessException("TOKEN_REUSE_DETECTED", "检测到 Refresh Token 被盗用，已撤销所有令牌");
-        }
+        // SEC-02：仅接受用户域（u:）令牌；原子轮换在家族内推进，不再整发新家族
+        //（杜绝持续轮换无限续期）；重放/跨域错误由 RefreshTokenService 抛出稳定错误码。
+        RotationResult rotation =
+                refreshTokenService.rotateRefreshToken(SubjectType.USER, request.refreshToken());
 
-        if (userId == null) {
-            throw new BusinessException("INVALID_REFRESH_TOKEN", "无效或已过期的 Refresh Token");
-        }
+        String accessToken = jwtProvider.generateAccessToken(rotation.subjectId(), "user");
 
-        String accessToken = jwtProvider.generateAccessToken(userId, "user");
-        String refreshToken = refreshTokenService.createRefreshToken(userId);
-
-        return new LoginResponse(accessToken, refreshToken, "Bearer", accessTokenExpiration, null);
+        return new LoginResponse(accessToken, rotation.tokenValue(), "Bearer", accessTokenExpiration, null);
     }
 
     @Override
     public void logout(Long userId) {
-        refreshTokenService.revokeAllTokensForUser(userId);
+        refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, userId);
     }
 }

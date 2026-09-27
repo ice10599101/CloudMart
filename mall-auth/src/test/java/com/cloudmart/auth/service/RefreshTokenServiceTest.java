@@ -1,22 +1,24 @@
 package com.cloudmart.auth.service;
 
-import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.common.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.data.redis.core.script.RedisScript;
 
-import java.time.Duration;
-import java.util.Map;
-import java.util.Set;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -24,169 +26,204 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * SEC-02 刷新令牌服务测试：身份域隔离、轮换结果映射、重放撤销、
+ * fail-closed 与撤销语义。
+ */
 class RefreshTokenServiceTest {
 
-    private StringRedisTemplate redisTemplate;
-    private ObjectMapper objectMapper;
-    private RefreshTokenService refreshTokenService;
-
     private static final Long USER_ID = 42L;
+    private static final Long ADMIN_ID = 7L;
     private static final long REFRESH_TOKEN_EXPIRATION = 604800L;
+    private static final Instant NOW = Instant.parse("2026-09-26T10:00:00Z");
 
+    private StringRedisTemplate redisTemplate;
     @SuppressWarnings("unchecked")
-    private ValueOperations<String, String> valueOperations;
-
+    private final HashOperations<String, Object, Object> hashOperations = mock(HashOperations.class);
     @SuppressWarnings("unchecked")
-    private SetOperations<String, String> setOperations;
+    private final SetOperations<String, String> setOperations = mock(SetOperations.class);
+    private RefreshTokenService refreshTokenService;
 
     @BeforeEach
     void setUp() {
         redisTemplate = mock(StringRedisTemplate.class);
-        objectMapper = new ObjectMapper();
-        refreshTokenService = new RefreshTokenService(redisTemplate, objectMapper, REFRESH_TOKEN_EXPIRATION);
-
-        valueOperations = mock(ValueOperations.class);
-        setOperations = mock(SetOperations.class);
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        refreshTokenService = new RefreshTokenService(redisTemplate, REFRESH_TOKEN_EXPIRATION,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Nested
-    @DisplayName("createRefreshToken")
-    class CreateRefreshTokenTests {
+    @DisplayName("创建")
+    class CreateTests {
 
         @Test
-        @DisplayName("should create token and store in Redis with correct TTL")
-        void createRefreshToken_storesInRedis() {
-            when(redisTemplate.getExpire(anyString())).thenReturn(0L);
+        @DisplayName("用户域令牌带 u: 前缀且写入家族账本与主体索引")
+        void createUserToken_prefixedAndPersisted() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
 
-            String tokenId = refreshTokenService.createRefreshToken(USER_ID);
-
-            assertThat(tokenId).isNotBlank();
-            verify(valueOperations).set(
-                    eq(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId),
-                    anyString(),
-                    eq(Duration.ofSeconds(REFRESH_TOKEN_EXPIRATION))
-            );
+            assertThat(token).startsWith("u:");
+            verify(hashOperations).putAll(eq(RefreshTokenService.FAMILY_KEY_PREFIX + familyIdOf(token)),
+                    any(java.util.Map.class));
+            verify(setOperations).add(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42",
+                    familyIdOf(token));
         }
 
         @Test
-        @DisplayName("should add token ID to user set in Redis")
-        void createRefreshToken_addsToUserSet() {
-            when(redisTemplate.getExpire(anyString())).thenReturn(0L);
+        @DisplayName("管理员域令牌带 a: 前缀")
+        void createAdminToken_prefixed() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID);
 
-            String tokenId = refreshTokenService.createRefreshToken(USER_ID);
-
-            String userKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + USER_ID;
-            verify(redisTemplate.opsForSet()).add(eq(userKey), eq(tokenId));
+            assertThat(token).startsWith("a:");
         }
 
         @Test
-        @DisplayName("should store userId and used=false in token value")
-        void createRefreshToken_storesCorrectValue() throws Exception {
-            when(redisTemplate.getExpire(anyString())).thenReturn(0L);
+        @DisplayName("Redis 故障时 fail-closed：拒绝签发")
+        void create_redisFailure_failClosed() {
+            org.mockito.Mockito.doThrow(new IllegalStateException("redis down"))
+                    .when(hashOperations).putAll(anyString(), any(java.util.Map.class));
 
-            String tokenId = refreshTokenService.createRefreshToken(USER_ID);
-
-            String expectedKey = SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId;
-            verify(valueOperations).set(eq(expectedKey), anyString(), any(Duration.class));
+            assertThatThrownBy(() -> refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
         }
     }
 
     @Nested
-    @DisplayName("rotateRefreshToken")
-    class RotateRefreshTokenTests {
+    @DisplayName("轮换")
+    class RotateTests {
 
         @Test
-        @DisplayName("should return userId when token is valid and unused")
-        void rotateRefreshToken_validUnusedToken_returnsUserId() throws Exception {
-            String tokenId = "test-token-id";
-            String key = SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId;
-            String value = objectMapper.writeValueAsString(Map.of("userId", USER_ID.toString(), "used", "false"));
+        @DisplayName("跨域提交（用户入口拿管理员令牌）拒绝且不触碰 Redis")
+        void crossDomain_rejected_withoutConsuming() {
+            String adminToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID);
 
-            when(valueOperations.get(key)).thenReturn(value);
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, adminToken))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "TOKEN_DOMAIN_MISMATCH");
 
-            Long result = refreshTokenService.rotateRefreshToken(tokenId);
-
-            assertThat(result).isEqualTo(USER_ID);
+            verify(redisTemplate, never()).execute(any(RedisScript.class), anyList(), any(Object[].class));
         }
 
         @Test
-        @DisplayName("should mark token as used after rotation")
-        void rotateRefreshToken_marksTokenAsUsed() throws Exception {
-            String tokenId = "test-token-id";
-            String key = SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId;
-            String value = objectMapper.writeValueAsString(Map.of("userId", USER_ID.toString(), "used", "false"));
-
-            when(valueOperations.get(key)).thenReturn(value);
-
-            refreshTokenService.rotateRefreshToken(tokenId);
-
-            verify(valueOperations).set(eq(key), anyString(), eq(Duration.ofSeconds(REFRESH_TOKEN_EXPIRATION)));
+        @DisplayName("格式非法的令牌拒绝")
+        void malformedToken_rejected() {
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, "not-a-token"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "INVALID_REFRESH_TOKEN");
         }
 
         @Test
-        @DisplayName("should return null when token does not exist")
-        void rotateRefreshToken_nonExistentToken_returnsNull() {
-            String tokenId = "non-existent-token";
-            String key = SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId;
+        @DisplayName("轮换成功返回同家族新令牌与主体/TTL")
+        void rotateOk_returnsFamilyToken() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
+                    .thenReturn(List.of("OK", "600", String.valueOf(USER_ID)));
 
-            when(valueOperations.get(key)).thenReturn(null);
+            RefreshTokenService.RotationResult result =
+                    refreshTokenService.rotateRefreshToken(SubjectType.USER, token);
 
-            Long result = refreshTokenService.rotateRefreshToken(tokenId);
-
-            assertThat(result).isNull();
+            assertThat(result.subjectId()).isEqualTo(USER_ID);
+            assertThat(result.subjectType()).isEqualTo(SubjectType.USER);
+            assertThat(result.tokenValue()).startsWith("u:").isNotEqualTo(token);
+            assertThat(result.tokenValue()).contains(familyIdOf(token));
+            assertThat(result.ttlSeconds()).isEqualTo(600L);
         }
 
         @Test
-        @DisplayName("should revoke all tokens and throw when token reuse is detected")
-        void rotateRefreshToken_reusedToken_revokesAllAndThrows() throws Exception {
-            String tokenId = "reused-token-id";
-            String key = SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId;
-            String value = objectMapper.writeValueAsString(Map.of("userId", USER_ID.toString(), "used", "true"));
+        @DisplayName("重放（脚本 REUSED）抛 TOKEN_REUSE_DETECTED")
+        void reuseDetected_throws() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
+                    .thenReturn(List.of("REUSED"));
 
-            when(valueOperations.get(key)).thenReturn(value);
-            String userKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + USER_ID;
-            when(redisTemplate.opsForSet().members(userKey)).thenReturn(Set.of(tokenId));
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, token))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "TOKEN_REUSE_DETECTED");
+        }
 
-            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(tokenId))
-                    .isInstanceOf(IllegalStateException.class);
+        @Test
+        @DisplayName("已撤销家族（脚本 REVOKED）拒绝")
+        void revokedFamily_rejected() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
+                    .thenReturn(List.of("REVOKED"));
 
-            verify(redisTemplate).delete(key);
-            verify(redisTemplate).delete(userKey);
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, token))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "TOKEN_REUSE_DETECTED");
+        }
+
+        @Test
+        @DisplayName("家族过期（脚本 EXPIRED）抛过期错误码")
+        void expiredFamily_rejected() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
+                    .thenReturn(List.of("EXPIRED"));
+
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, token))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_EXPIRED");
+        }
+
+        @Test
+        @DisplayName("Redis 故障时 fail-closed：不签发新令牌")
+        void rotate_redisFailure_failClosed() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
+                    .thenThrow(new IllegalStateException("redis down"));
+
+            assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, token))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
         }
     }
 
     @Nested
-    @DisplayName("revokeAllTokensForUser")
-    class RevokeAllTokensForUserTests {
+    @DisplayName("撤销")
+    class RevokeTests {
 
         @Test
-        @DisplayName("should delete all token keys and user set")
-        void revokeAllTokensForUser_deletesAllTokens() {
-            String tokenId1 = "token-1";
-            String tokenId2 = "token-2";
-            String userKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + USER_ID;
+        @DisplayName("按主体撤销：索引内全部家族标记 revoked 且索引删除")
+        void revokeAll_marksFamiliesRevoked() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            when(setOperations.members(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42"))
+                    .thenReturn(java.util.Set.of(familyIdOf(token)));
 
-            when(redisTemplate.opsForSet().members(userKey)).thenReturn(Set.of(tokenId1, tokenId2));
+            refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, USER_ID);
 
-            refreshTokenService.revokeAllTokensForUser(USER_ID);
-
-            verify(redisTemplate).delete(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId1);
-            verify(redisTemplate).delete(SecurityConstants.REFRESH_TOKEN_KEY_PREFIX + tokenId2);
-            verify(redisTemplate).delete(userKey);
+            verify(hashOperations).put(RefreshTokenService.FAMILY_KEY_PREFIX + familyIdOf(token),
+                    "revoked", "1");
+            verify(redisTemplate).delete(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42");
         }
 
         @Test
-        @DisplayName("should handle null token set gracefully")
-        void revokeAllTokensForUser_nullTokenSet_doesNotThrow() {
-            String userKey = SecurityConstants.REFRESH_TOKEN_USER_KEY_PREFIX + USER_ID;
+        @DisplayName("撤销失败显式报错（不静默）")
+        void revokeFailure_explicitError() {
+            when(setOperations.members(anyString())).thenThrow(new IllegalStateException("redis down"));
 
-            when(setOperations.members(userKey)).thenReturn(null);
-
-            refreshTokenService.revokeAllTokensForUser(USER_ID);
-
-            verify(redisTemplate).delete(userKey);
+            assertThatThrownBy(() -> refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
         }
+    }
+
+    @Nested
+    @DisplayName("身份域标记")
+    class SubjectTypeTests {
+
+        @Test
+        @DisplayName("u:/a: 前缀正确解析身份域；非法前缀返回 null")
+        void parseDomainMarkers() {
+            assertThat(SubjectType.fromToken("u:abc:def")).isEqualTo(SubjectType.USER);
+            assertThat(SubjectType.fromToken("a:abc:def")).isEqualTo(SubjectType.ADMIN);
+            assertThat(SubjectType.fromToken("x:abc:def")).isNull();
+            assertThat(SubjectType.fromToken(null)).isNull();
+        }
+    }
+
+    private static String familyIdOf(String tokenValue) {
+        String[] parts = tokenValue.split(":", 3);
+        return parts.length >= 2 ? parts[1] : "";
     }
 }

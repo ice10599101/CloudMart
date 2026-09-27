@@ -330,11 +330,15 @@ public class PetPlayFeatureService {
 
     // ---------------- N04 接球小游戏 ----------------
 
-    /** 开始一局：原子预占收益额度（每日 5 局 + 玩耍额度）与精力；超限转训练局 */
+    /** 开始一局（§7.4）：显式 petId 归属校验（不回退主宠）；guard 锁内检查 active 局与额度 */
     @Transactional
-    public Map<String, Object> startRound(Long userId) {
+    public Map<String, Object> startRound(Long userId, Long petId) {
         requireFeature(properties.getFeatureSwitches().isMinigame());
-        Pet pet = requireActivePet(userId);
+        Pet pet = petMapper.selectById(petId);
+        if (pet == null || !pet.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能为自己的宠物开局");
+        }
+        guardService.lockGuard(userId);
         Long active = minigameMapper.selectCount(new LambdaQueryWrapper<PetMinigameRound>()
                 .eq(PetMinigameRound::getUserId, userId)
                 .eq(PetMinigameRound::getStatus, "ACTIVE"));
@@ -632,11 +636,33 @@ public class PetPlayFeatureService {
 
     // ---------------- N06 好友合作周任务 ----------------
 
-    /** 创建邀请：预校验剩余业务日 ≥3（含当天） */
+    /**
+     * 创建邀请（§7.6）：明确指定受邀好友——非本人、有效好友、双方未拉黑；
+     * 本周剩余业务日 ≥3；周名额由 uk_cooperation_inviter 兜底。
+     */
     @Transactional
-    public Map<String, Object> createCooperation(Long userId) {
+    public Map<String, Object> createCooperation(Long userId, Long inviteeUserId) {
         requireFeature(properties.getFeatureSwitches().isCooperation());
         Pet pet = requireActivePet(userId);
+        if (inviteeUserId == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "请选择要邀请的好友");
+        }
+        if (inviteeUserId.equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "不能邀请自己");
+        }
+        if (userBlockService.isBlockedEitherWay(userId, inviteeUserId)) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法邀请该用户");
+        }
+        Long friendRows = friendMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetFriend>()
+                .and(w -> w.eq(com.cloudmart.pet.entity.PetFriend::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetFriend::getFriendUserId, inviteeUserId)
+                        .or()
+                        .eq(com.cloudmart.pet.entity.PetFriend::getUserId, inviteeUserId)
+                        .eq(com.cloudmart.pet.entity.PetFriend::getFriendUserId, userId))
+                .eq(com.cloudmart.pet.entity.PetFriend::getStatus, "ACTIVE"));
+        if (friendRows == null || friendRows == 0) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "只能邀请好友");
+        }
         LocalDate today = petClock.businessDate();
         LocalDate weekStart = today.with(DayOfWeek.MONDAY);
         if (today.plusDays(2).with(DayOfWeek.MONDAY).equals(weekStart) && today.getDayOfWeek() != DayOfWeek.MONDAY) {
@@ -671,14 +697,11 @@ public class PetPlayFeatureService {
      * 受邀人周名额由 uk_cooperation_invitee(invitee_user_id, week_start) 兜底。
      */
     @Transactional
-    public Map<String, Object> acceptCooperation(Long userId, Long cooperationId, Long inviterUserId) {
+    public Map<String, Object> acceptCooperation(Long userId, Long cooperationId) {
         PetCooperation cooperation = cooperationMapper.selectById(cooperationId);
         if (cooperation == null || !"INVITED".equals(cooperation.getStatus())
                 || cooperation.getInviteExpiresAt().isBefore(petClock.nowUtc())) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "邀请不存在或已过期");
-        }
-        if (inviterUserId == null || !inviterUserId.equals(cooperation.getInviterUserId())) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "邀请不存在");
         }
         if (userId.equals(cooperation.getInviterUserId())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "不能接受自己发起的邀请");
