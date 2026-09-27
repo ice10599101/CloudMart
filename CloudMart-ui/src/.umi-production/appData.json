@@ -70,7 +70,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 3
       },
       "enableBy": "register",
       "type": "preset",
@@ -83,7 +83,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 20
+        "register": 44
       },
       "enableBy": "register",
       "type": "preset",
@@ -97,10 +97,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            0
+            1
           ]
         },
-        "register": 3
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -114,10 +114,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            5
+            7
           ]
         },
-        "register": 3
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -131,10 +131,10 @@
       "time": {
         "hooks": {
           "modifyRoutes": [
-            1
+            0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -161,10 +161,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            141
+            192
           ]
         },
-        "register": 23
+        "register": 32
       },
       "enableBy": "register",
       "type": "plugin",
@@ -244,7 +244,7 @@
             0
           ]
         },
-        "register": 13
+        "register": 18
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1110,10 +1110,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            1
+            0
           ]
         },
-        "register": 1
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1126,7 +1126,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1139,7 +1139,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 64
+        "register": 84
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1152,7 +1152,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 44
+        "register": 101
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1165,7 +1165,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 15
+        "register": 27
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1182,7 +1182,7 @@
             1
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1208,7 +1208,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 4
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1221,7 +1221,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 27
+        "register": 44
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
@@ -1233,7 +1233,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 4
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1246,7 +1246,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1258,7 +1258,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1288,7 +1288,7 @@
             1
           ]
         },
-        "register": 2
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
@@ -1300,7 +1300,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1313,7 +1313,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1339,7 +1339,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1352,7 +1352,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1365,7 +1365,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 8
+        "register": 17
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1378,7 +1378,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 6
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1403,7 +1403,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 10
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1416,7 +1416,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 8
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1429,7 +1429,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 6
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1442,7 +1442,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 7
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1468,7 +1468,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 7
+        "register": 16
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1480,7 +1480,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 18
+        "register": 30
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1493,7 +1493,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/test/test.js",
@@ -1505,7 +1505,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 3
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent.js",
@@ -1517,7 +1517,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 561
+        "register": 1212
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1530,7 +1530,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1543,7 +1543,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
@@ -1559,7 +1559,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1572,7 +1572,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 7
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1584,7 +1584,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1610,7 +1610,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1634,7 +1634,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 5
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/hmrGuardian/hmrGuardian.js",
@@ -1646,7 +1646,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 24
+        "register": 35
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1658,7 +1658,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 4
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1671,7 +1671,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 10
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1684,7 +1684,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 33
+        "register": 60
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1697,7 +1697,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 47
+        "register": 113
       },
       "type": "plugin",
       "path": "D:/Ide/IdeaProjects/CloudMart/CloudMart-ui/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1722,7 +1722,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1748,7 +1748,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1774,7 +1774,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 5
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1800,7 +1800,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1813,7 +1813,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1826,7 +1826,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1852,7 +1852,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1865,7 +1865,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1878,7 +1878,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1891,7 +1891,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1904,7 +1904,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1930,7 +1930,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1956,7 +1956,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1969,7 +1969,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1982,7 +1982,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",

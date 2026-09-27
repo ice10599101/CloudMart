@@ -76,7 +76,6 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                 Map<String, Object> response = productRestClient.get()
                         .uri("/products/search?keyword={keyword}&page=0&size={size}",
                                 extractSimpleKeywords(query), topK - vectorResults.size())
-                        .header("X-Internal-Call", "mall-ai")
                         .retrieve()
                         .body(Map.class);
 

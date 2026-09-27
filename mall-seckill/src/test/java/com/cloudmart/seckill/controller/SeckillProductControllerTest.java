@@ -3,7 +3,6 @@ package com.cloudmart.seckill.controller;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.seckill.converter.SeckillConverter;
-import com.cloudmart.seckill.dto.AddSeckillProductRequest;
 import com.cloudmart.seckill.dto.SeckillProductDTO;
 import com.cloudmart.seckill.service.SeckillProductService;
 import com.cloudmart.seckill.vo.SeckillProductVO;
@@ -39,25 +38,6 @@ class SeckillProductControllerTest {
                 .build();
     }
 
-    @Test
-    @DisplayName("添加秒杀商品 - 成功返回信封格式")
-    void addProduct_ShouldReturn200WithEnvelope() throws Exception {
-        SeckillProductDTO dto = new SeckillProductDTO(1L, 1L, 100L, null, null, null, new BigDecimal("99.00"), new BigDecimal("199.00"), 100, 80, 1, "ACTIVE", LocalDateTime.now());
-
-        given(productService.addProduct(Mockito.eq(1L), Mockito.any(AddSeckillProductRequest.class))).willReturn(dto);
-
-        SeckillProductVO vo = new SeckillProductVO(1L, 200L, "商品A", "img.jpg",
-                new BigDecimal("99.00"), new BigDecimal("199.00"), 80, 100, 1);
-        given(seckillConverter.productDtoToVO(dto)).willReturn(vo);
-
-        mockMvc.perform(post("/products/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"skuId\":100,\"seckillPrice\":99.00,\"originalPrice\":199.00,\"totalStock\":100,\"perUserLimit\":1}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.seckillPrice").value(99.00));
-    }
 
     @Test
     @DisplayName("查询活动下的秒杀商品 - 成功返回信封格式")
@@ -108,14 +88,4 @@ class SeckillProductControllerTest {
                 .andExpect(jsonPath("$.error.message").value("秒杀商品不存在"));
     }
 
-    @Test
-    @DisplayName("添加秒杀商品 - 缺少必填字段返回校验错误")
-    void addProduct_WhenMissingRequiredFields_ShouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("/products/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
-    }
 }

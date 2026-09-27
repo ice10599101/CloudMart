@@ -7,6 +7,7 @@ import com.cloudmart.seckill.dto.SeckillExecuteRequest;
 import com.cloudmart.seckill.dto.SeckillResultDTO;
 import com.cloudmart.seckill.service.SeckillExecuteService;
 import com.cloudmart.seckill.vo.SeckillResultVO;
+import org.springframework.security.access.prepost.PreAuthorize;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +27,8 @@ public class SeckillController {
     }
 
     @PostMapping("/execute")
-    @Operation(summary = "执行秒杀", description = "用户执行秒杀抢购")
+    @PreAuthorize("hasAnyRole('USER','INTERNAL')")
+    @Operation(summary = "执行秒杀", description = "用户执行秒杀抢购（用户 JWT 或 mall-live 服务令牌）")
     public ApiResponse<SeckillResultVO> executeSeckill(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Valid @RequestBody SeckillExecuteRequest request) {

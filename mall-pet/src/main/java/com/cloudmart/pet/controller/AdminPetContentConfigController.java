@@ -46,6 +46,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminPetContentConfigController {
 
+    private final com.cloudmart.pet.service.impl.PetConfigGovernanceService governance;
     private final PetEquipmentConfigMapper equipmentConfigMapper;
     private final PetSkinConfigMapper skinConfigMapper;
     private final PetSkillConfigMapper skillConfigMapper;
@@ -66,6 +67,7 @@ public class AdminPetContentConfigController {
     @Operation(summary = "新增/更新装备", description = "带 id 为更新；价格/加成为服务端权威")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetEquipmentConfig> upsertEquipment(@Valid @RequestBody EquipmentUpsertRequest request) {
+        governance.validateDto("equipment", request);
         PetEquipmentConfig config = new PetEquipmentConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -90,6 +92,9 @@ public class AdminPetContentConfigController {
             config.setId(null);
             equipmentConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("equipment", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -102,6 +107,8 @@ public class AdminPetContentConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         equipmentConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("equipment", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -119,6 +126,7 @@ public class AdminPetContentConfigController {
     @Operation(summary = "新增/更新皮肤", description = "species 为空表示通用皮肤")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetSkinConfig> upsertSkin(@Valid @RequestBody SkinUpsertRequest request) {
+        governance.validateDto("skin", request);
         PetSkinConfig config = new PetSkinConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -140,6 +148,9 @@ public class AdminPetContentConfigController {
             config.setId(null);
             skinConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("skin", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -152,6 +163,8 @@ public class AdminPetContentConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         skinConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("skin", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -169,6 +182,7 @@ public class AdminPetContentConfigController {
     @Operation(summary = "新增/更新技能", description = "effect 必须是服务端已实现的枚举值，否则不生效")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetSkillConfig> upsertSkill(@Valid @RequestBody SkillUpsertRequest request) {
+        governance.validateDto("skill", request);
         PetSkillConfig config = new PetSkillConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -188,6 +202,9 @@ public class AdminPetContentConfigController {
             config.setId(null);
             skillConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("skill", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -200,6 +217,8 @@ public class AdminPetContentConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         skillConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("skill", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -217,6 +236,7 @@ public class AdminPetContentConfigController {
     @Operation(summary = "新增/更新进化", description = "stageFrom → stageTo 必须逐阶衔接，否则该阶段无法进化")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetEvolutionConfig> upsertEvolution(@Valid @RequestBody EvolutionUpsertRequest request) {
+        governance.validateDto("evolution", request);
         PetEvolutionConfig config = new PetEvolutionConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -241,6 +261,9 @@ public class AdminPetContentConfigController {
             config.setId(null);
             evolutionConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("evolution", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -253,6 +276,8 @@ public class AdminPetContentConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         evolutionConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("evolution", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -270,6 +295,7 @@ public class AdminPetContentConfigController {
     @Operation(summary = "新增/更新活动", description = "进度统计口径 eventType 必须是已实现枚举值")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetEventConfig> upsertEvent(@Valid @RequestBody EventUpsertRequest request) {
+        governance.validateDto("event", request);
         PetEventConfig config = new PetEventConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -290,6 +316,9 @@ public class AdminPetContentConfigController {
             config.setId(null);
             eventConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("event", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -302,6 +331,8 @@ public class AdminPetContentConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         eventConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("event", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 

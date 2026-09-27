@@ -46,7 +46,7 @@ class InventoryControllerTest {
         given(inventoryService.getInventory(200L)).willReturn(dto);
         given(inventoryConverter.dtoToVO(dto)).willReturn(vo);
 
-        mockMvc.perform(get("/200"))
+        mockMvc.perform(get("/internal/inventory/skus/200"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1))
@@ -61,7 +61,7 @@ class InventoryControllerTest {
         given(inventoryService.getInventory(999L))
                 .willThrow(new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存不存在"));
 
-        mockMvc.perform(get("/999"))
+        mockMvc.perform(get("/internal/inventory/skus/999"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("INVENTORY_SERVICE_UNAVAILABLE"));
@@ -72,7 +72,7 @@ class InventoryControllerTest {
     void deductStock_ShouldReturnEnvelope() throws Exception {
         given(inventoryService.deductStock(Mockito.any(DeductRequest.class))).willReturn(true);
 
-        mockMvc.perform(post("/deduct")
+        mockMvc.perform(post("/internal/inventory/deduct")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"skuId\":200,\"quantity\":5,\"orderId\":1000}"))
                 .andExpect(status().isOk())
@@ -83,7 +83,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("预扣库存 - 缺少必填字段返回校验错误")
     void deductStock_WhenMissingRequiredField_ShouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("/deduct")
+        mockMvc.perform(post("/internal/inventory/deduct")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -94,7 +94,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("释放库存 - 成功返回信封")
     void releaseStock_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(post("/release")
+        mockMvc.perform(post("/internal/inventory/release")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"skuId\":200,\"quantity\":5,\"orderId\":1000}"))
                 .andExpect(status().isOk())
@@ -106,7 +106,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("确认扣减 - 成功返回信封")
     void confirmDeduct_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(post("/confirm")
+        mockMvc.perform(post("/internal/inventory/confirm")
                         .param("skuId", "200")
                         .param("quantity", "5")
                         .param("orderId", "1000"))
@@ -119,7 +119,7 @@ class InventoryControllerTest {
     @Test
     @DisplayName("初始化库存 - 成功返回信封")
     void initStock_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(post("/init")
+        mockMvc.perform(post("/internal/inventory/init")
                         .param("skuId", "200")
                         .param("productId", "100")
                         .param("stock", "500"))

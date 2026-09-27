@@ -73,7 +73,8 @@ export default function PetStagePage() {
 
   const postToGame = useCallback((message: HostToGame) => {
     if (isWeapp) return
-    frameRef.current?.contentWindow?.postMessage(message, '*')
+    // FE-05/T34：同源 iframe，目标 origin 收紧为页面自身 origin（不再发 '*'）
+    frameRef.current?.contentWindow?.postMessage(message, window.location.origin)
   }, [isWeapp])
 
   const syncStage = useCallback((next: PetInfo) => {
@@ -97,6 +98,9 @@ export default function PetStagePage() {
   useEffect(() => {
     if (isWeapp) return
     const handler = async (event: MessageEvent) => {
+      // FE-05/T34：仅接受本站 origin 且来自本 iframe 的消息
+      if (event.origin !== window.location.origin) return
+      if (!frameRef.current || event.source !== frameRef.current.contentWindow) return
       const message = event.data as { source?: string; type?: string; action?: string }
       if (!message || message.source !== 'pet-game') return
       if (message.type === 'ready') {

@@ -3,11 +3,9 @@ package com.cloudmart.product.controller;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.product.converter.ProductConverter;
-import com.cloudmart.product.dto.CreateProductRequest;
 import com.cloudmart.product.dto.ProductDTO;
 import com.cloudmart.product.dto.ProductSearchRequest;
 import com.cloudmart.product.dto.ProductSearchResponse;
-import com.cloudmart.product.dto.UpdateProductRequest;
 import com.cloudmart.product.service.ProductService;
 import com.cloudmart.product.vo.ProductSearchResultVO;
 import com.cloudmart.product.vo.ProductSearchResultVO.BrandBucket;
@@ -21,9 +19,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 商品公开查询接口（SEC-01）：仅保留用户端浏览/搜索能力。
+ * 商品创建/更新/删除等管理动作统一走 {@link AdminProductController}
+ * （mall-admin 经服务令牌调用），本控制器不再暴露任何写入口。
+ */
 @RestController
 @RequestMapping("/products")
-@Tag(name = "商品管理", description = "商品CRUD与搜索接口")
+@Tag(name = "商品查询", description = "商品详情与搜索接口")
 public class ProductController {
 
     private final ProductService productService;
@@ -32,14 +35,6 @@ public class ProductController {
     public ProductController(ProductService productService, ProductConverter productConverter) {
         this.productService = productService;
         this.productConverter = productConverter;
-    }
-
-    @PostMapping
-    @Operation(summary = "创建商品", description = "创建商品及其SKU列表")
-    public ApiResponse<ProductVO> createProduct(
-            @Parameter(description = "创建商品请求") @Valid @RequestBody CreateProductRequest request) {
-        ProductDTO dto = productService.createProduct(request);
-        return ApiResponse.ok(productConverter.productDtoToVO(dto));
     }
 
     @GetMapping("/{id}")
@@ -55,23 +50,6 @@ public class ProductController {
     public ApiResponse<List<com.cloudmart.product.vo.SkuBatchItemVO>> getSkusBatch(
             @Parameter(description = "SKU ID 列表", required = true) @RequestParam("ids") List<Long> ids) {
         return ApiResponse.ok(productService.getSkuBatchInfo(ids));
-    }
-
-    @PutMapping("/{id}")
-    @Operation(summary = "更新商品", description = "更新商品基本信息")
-    public ApiResponse<ProductVO> updateProduct(
-            @Parameter(description = "商品ID", required = true) @PathVariable("id") Long id,
-            @Parameter(description = "更新商品请求") @Valid @RequestBody UpdateProductRequest request) {
-        ProductDTO dto = productService.updateProduct(id, request);
-        return ApiResponse.ok(productConverter.productDtoToVO(dto));
-    }
-
-    @DeleteMapping("/{id}")
-    @Operation(summary = "删除商品", description = "软删除商品")
-    public ApiResponse<Void> deleteProduct(
-            @Parameter(description = "商品ID", required = true) @PathVariable("id") Long id) {
-        productService.deleteProduct(id);
-        return ApiResponse.ok(null);
     }
 
     @GetMapping("/search")

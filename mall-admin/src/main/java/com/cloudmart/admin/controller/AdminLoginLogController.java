@@ -9,11 +9,9 @@ import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.api.ApiResponse.Meta;
-import com.cloudmart.common.constant.SecurityConstants;
-import com.cloudmart.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,13 +48,9 @@ public class AdminLoginLogController {
     }
 
     @PostMapping("/record")
-    @Operation(summary = "记录登录日志", description = "内部接口：供 mall-auth 通过 Feign 调用记录登录日志")
-    public ApiResponse<Void> recordLogin(@Valid @RequestBody LoginLogRecordRequest request,
-                                         HttpServletRequest httpRequest) {
-        String internalCall = httpRequest.getHeader(SecurityConstants.INTERNAL_CALL_HEADER);
-        if (!"true".equals(internalCall)) {
-            throw new BusinessException("FORBIDDEN", "内部接口禁止外部访问");
-        }
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "记录登录日志", description = "内部接口：供 mall-auth 经服务令牌调用记录登录日志")
+    public ApiResponse<Void> recordLogin(@Valid @RequestBody LoginLogRecordRequest request) {
         adminLoginLogService.recordLogin(
                 request.username(), request.ipaddr(), request.loginLocation(),
                 request.browser(), request.os(), request.status(), request.msg());

@@ -17,12 +17,12 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
         log.error("商品服务调用失败: {}", cause.getMessage());
         return new ProductFeignClient() {
             @Override
-            public ApiResponse<Map<String, Object>> getProduct(Long id, String internalCall) {
+            public ApiResponse<Map<String, Object>> getProduct(Long id) {
                 throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 
             @Override
-            public ApiResponse<Map<String, Object>> getReviews(Long productId, int page, int size, String internalCall) {
+            public ApiResponse<Map<String, Object>> getReviews(Long productId, int page, int size) {
                 throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
         };

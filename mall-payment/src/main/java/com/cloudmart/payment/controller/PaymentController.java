@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -41,6 +42,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{paymentId}/refund")
+    @PreAuthorize("hasRole('INTERNAL')") // SEC-01：退款执行仅限 mall-order 服务令牌
     @Operation(summary = "退款", description = "对已支付订单发起退款")
     public ApiResponse<PaymentVO> refund(
             @Parameter(description = "支付记录ID") @PathVariable("paymentId") Long paymentId) {
@@ -57,6 +59,7 @@ public class PaymentController {
     }
 
     @PutMapping("/{paymentId}/simulate-success")
+    @PreAuthorize("hasRole('INTERNAL')") // SEC-01：模拟支付仅限服务令牌（PAY-01 将进一步按环境禁用）
     @Operation(summary = "模拟支付成功", description = "开发环境模拟支付成功，仅用于测试")
     public ApiResponse<PaymentVO> simulatePaymentSuccess(
             @Parameter(description = "支付记录ID") @PathVariable("paymentId") Long paymentId) {

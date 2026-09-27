@@ -94,7 +94,6 @@ public class AiSearchServiceImpl implements AiSearchService {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.get()
                     .uri("/products/search?keyword={keyword}&page=0&size=10", keywords)
-                    .header("X-Internal-Call", "mall-ai")
                     .retrieve()
                     .body(Map.class);
 

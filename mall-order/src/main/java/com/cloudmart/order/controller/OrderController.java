@@ -84,29 +84,9 @@ public class OrderController {
         return ApiResponse.ok(orderService.getPaymentByOrderId(userId, orderId));
     }
 
-    @PostMapping("/{orderId}/payment-success")
-    @Operation(summary = "支付成功通知", description = "支付服务回调通知订单支付成功")
-    public ApiResponse<Void> notifyPaymentSuccess(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        orderService.notifyPaymentSuccess(orderId);
-        return ApiResponse.ok(null);
-    }
-
-    @PostMapping("/{orderId}/cancel-notify")
-    @Operation(summary = "订单取消通知", description = "支付服务回调通知订单取消（退款）")
-    public ApiResponse<Void> notifyOrderCancel(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        orderService.notifyOrderCancel(orderId);
-        return ApiResponse.ok(null);
-    }
-
-    @PutMapping("/{orderId}/ship")
-    @Operation(summary = "订单发货", description = "将已支付订单标记为已发货（管理员/卖家操作）")
-    public ApiResponse<OrderVO> shipOrder(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        OrderDTO dto = orderService.shipOrder(orderId);
-        return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
-    }
+    // SEC-01：payment-success/cancel-notify 属支付服务回调，已迁移至
+    // InternalOrderController（/internal/**，mall-payment 服务令牌可达）；
+    // ship 属履约动作，统一走 AdminOrderController（mall-admin 服务令牌可达）。
 
     @PutMapping("/{orderId}/confirm")
     @Operation(summary = "确认收货", description = "买家确认收货，订单完成，库存扣减从预占转为确认")

@@ -63,7 +63,6 @@ class VectorSearchServiceImplTest {
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(headersSpec).when(uriSpec).uri(anyString(), any(Object[].class));
-        doReturn(headersSpec).when(headersSpec).header(anyString(), any(String[].class));
         doReturn(responseSpec).when(headersSpec).retrieve();
         doReturn(responseBody).when(responseSpec).body(any(Class.class));
 

@@ -35,6 +35,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminPetConfigController {
 
+    private final com.cloudmart.pet.service.impl.PetConfigGovernanceService governance;
     private final PetJobConfigMapper jobConfigMapper;
     private final PetStudyConfigMapper studyConfigMapper;
 
@@ -50,6 +51,7 @@ public class AdminPetConfigController {
     @Operation(summary = "新增/更新岗位", description = "带 id 为更新；参数服务端权威")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetJobConfig> upsertJob(@Valid @RequestBody JobUpsertRequest request) {
+        governance.validateDto("job", request);
         PetJobConfig config = new PetJobConfig();
         config.setId(request.id());
         config.setName(request.name());
@@ -68,6 +70,9 @@ public class AdminPetConfigController {
             config.setId(null);
             jobConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("job", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -80,6 +85,8 @@ public class AdminPetConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         jobConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("job", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -95,6 +102,7 @@ public class AdminPetConfigController {
     @Operation(summary = "新增/更新课程", description = "带 id 为更新")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetStudyConfig> upsertStudy(@Valid @RequestBody StudyUpsertRequest request) {
+        governance.validateDto("study", request);
         PetStudyConfig config = new PetStudyConfig();
         config.setId(request.id());
         config.setName(request.name());
@@ -113,6 +121,9 @@ public class AdminPetConfigController {
             config.setId(null);
             studyConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("study", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 

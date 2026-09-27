@@ -20,7 +20,6 @@ public interface SeckillFeignClient {
 
     @GetMapping("/activities/{activityId}")
     ApiResponse<Map<String, Object>> getSeckillActivity(
-            @PathVariable("activityId") Long activityId,
-            @RequestHeader("X-Internal-Call") String internalCall
+            @PathVariable("activityId") Long activityId
     );
 }

@@ -6,9 +6,8 @@ import com.cloudmart.admin.dto.AdminValidateResponse;
 import com.cloudmart.admin.entity.AdminUser;
 import com.cloudmart.admin.service.AdminAuthService;
 import com.cloudmart.common.api.ApiResponse;
-import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.common.exception.BusinessException;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
@@ -32,16 +31,10 @@ public class AdminAuthController {
     }
 
     @PostMapping("/validate")
-    @Operation(summary = "验证管理员凭据", description = "内部接口，网关调用验证用户名密码")
-    public ApiResponse<AdminValidateResponse> validateAdmin(@RequestBody AdminValidateRequest request,
-                                                             HttpServletRequest httpRequest) {
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "验证管理员凭据", description = "内部接口，mall-auth 经服务令牌调用验证用户名密码")
+    public ApiResponse<AdminValidateResponse> validateAdmin(@RequestBody AdminValidateRequest request) {
         log.info("validateAdmin called: account={}, password={}", request.account(), request.password() != null ? "***" : "NULL");
-
-        String internalCall = httpRequest.getHeader(SecurityConstants.INTERNAL_CALL_HEADER);
-        if (!"true".equals(internalCall)) {
-            log.warn("validateAdmin: missing or invalid X-Internal-Call header");
-            throw new BusinessException("FORBIDDEN", "内部接口禁止外部访问");
-        }
 
         if (request.account() == null || request.password() == null) {
             log.warn("validateAdmin: account or password is null - account={}", request.account());
@@ -65,14 +58,9 @@ public class AdminAuthController {
     }
 
     @GetMapping("/permissions/{userId}")
-    @Operation(summary = "获取用户权限", description = "内部接口，网关调用获取用户权限列表")
-    public ApiResponse<AdminPermissionsResponse> getPermissions(@PathVariable Long userId,
-                                                                 HttpServletRequest httpRequest) {
-        String internalCall = httpRequest.getHeader(SecurityConstants.INTERNAL_CALL_HEADER);
-        if (!"true".equals(internalCall)) {
-            throw new BusinessException("FORBIDDEN", "内部接口禁止外部访问");
-        }
-
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "获取用户权限", description = "内部接口，mall-auth 经服务令牌调用获取用户权限列表")
+    public ApiResponse<AdminPermissionsResponse> getPermissions(@PathVariable Long userId) {
         AdminUser adminUser = adminAuthService.getUserById(userId);
         Set<String> permissions = adminAuthService.resolvePermissions(userId);
         boolean isSuperAdmin = adminAuthService.checkSuperAdmin(userId);

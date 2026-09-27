@@ -1,6 +1,7 @@
 package com.cloudmart.pet.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.pet.config.NotificationServiceTokenConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -12,6 +13,7 @@ import java.util.List;
  * mall-notification 内部客户端：宠物口吻提醒列表/未读数（复用现有通知表）。
  */
 @FeignClient(name = "mall-notification", contextId = "petNotificationFeignClient",
+        configuration = NotificationServiceTokenConfig.class,
         fallbackFactory = NotificationFeignClientFallbackFactory.class)
 public interface NotificationFeignClient {
 

@@ -21,6 +21,8 @@ import java.util.Map;
 @RequestMapping("/products/es")
 @Tag(name = "商品搜索索引管理", description = "ES索引重建、同步与索引结构管理")
 @ConditionalOnBean(ProductSyncService.class)
+// SEC-01：索引重建属运维动作，仅服务身份（mall-admin/mall-ai 的服务令牌）可调用
+@PreAuthorize("hasRole('INTERNAL')")
 public class ProductReindexController {
 
     private final ProductSyncService productSyncService;

@@ -95,10 +95,14 @@ public class PetPlayFeatureController {
     }
 
     @PostMapping("/pet/offline-digest/confirm")
-    @Operation(summary = "确认离线摘要（N05）", description = "只推进查看游标，幂等；不删除真实事件")
+    @Operation(summary = "确认离线摘要（N05/BE-10）", description = "只推进到摘要展示的上界 throughAt（可选 body），"
+            + "游标不倒退；阅读期间新事件下轮仍可见")
     public ApiResponse<Map<String, Object>> confirmOfflineDigest(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.confirmOfflineDigest(userId));
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) Map<String, Object> body) {
+        java.time.LocalDateTime throughAt = body == null || body.get("throughAt") == null ? null
+                : java.time.LocalDateTime.parse(String.valueOf(body.get("throughAt")));
+        return ApiResponse.ok(playService.confirmOfflineDigest(userId, throughAt));
     }
 
     @PostMapping("/pet/cooperation/{cooperationId}/claim")

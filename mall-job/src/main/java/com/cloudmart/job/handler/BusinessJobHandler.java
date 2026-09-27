@@ -1,5 +1,7 @@
 package com.cloudmart.job.handler;
 
+import com.cloudmart.common.security.ServiceTokenCodec;
+import com.cloudmart.common.security.ServiceTokenProvider;
 import com.cloudmart.job.config.WishServiceTokenProvider;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import org.slf4j.Logger;
@@ -21,12 +23,15 @@ public class BusinessJobHandler {
 
     private final RestClient restClient;
     private final WishServiceTokenProvider wishServiceTokenProvider;
+    private final ServiceTokenProvider serviceTokenProvider;
 
     public BusinessJobHandler(@LoadBalanced RestClient.Builder restClientBuilder,
-                              WishServiceTokenProvider wishServiceTokenProvider) {
+                              WishServiceTokenProvider wishServiceTokenProvider,
+                              ServiceTokenProvider serviceTokenProvider) {
         // 服务名 URI（http://mall-wish 等）经 LoadBalancer→Nacos 解析为实际地址
         this.restClient = restClientBuilder.build();
         this.wishServiceTokenProvider = wishServiceTokenProvider;
+        this.serviceTokenProvider = serviceTokenProvider;
     }
 
     /**
@@ -39,7 +44,8 @@ public class BusinessJobHandler {
         try {
             restClient.post()
                     .uri("http://mall-marketing/marketing/group/expiration")
-                    .header("X-Internal-Call", "mall-job")
+                    .header(ServiceTokenCodec.HEADER_NAME,
+                            serviceTokenProvider.sign("mall-marketing", "marketing:jobs"))
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 拼团超时处理完成");
@@ -59,7 +65,8 @@ public class BusinessJobHandler {
         try {
             restClient.post()
                     .uri("http://mall-order/orders/timeout-cancel")
-                    .header("X-Internal-Call", "mall-job")
+                    .header(ServiceTokenCodec.HEADER_NAME,
+                            serviceTokenProvider.sign("mall-order", "order:jobs"))
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 订单超时取消完成");
@@ -78,7 +85,8 @@ public class BusinessJobHandler {
         try {
             restClient.post()
                     .uri("http://mall-coupon/coupons/expire-batch")
-                    .header("X-Internal-Call", "mall-job")
+                    .header(ServiceTokenCodec.HEADER_NAME,
+                            serviceTokenProvider.sign("mall-coupon", "coupon:jobs"))
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 优惠券过期处理完成");
@@ -93,8 +101,8 @@ public class BusinessJobHandler {
      * （心愿宇宙文档 2.2 气象情绪联动：mood &lt; -0.6 下雨 / 好转或
      * BLESS 突增触发彩虹）。由 XXL-JOB 调度中心每 5 分钟触发一次。
      *
-     * <p>注意：mall-wish 的内部调用认证仅识别 {@code X-Internal-Call: true}
-     * （InternalCallAuthenticationFilter），与其他服务的 "mall-job" 值不同。</p>
+     * <p>注意：mall-wish 的内部调用认证为 X-Service-Token 签名令牌（scope=wish:jobs），
+     * 由 WishServiceTokenProvider 签出。</p>
      */
     @XxlJob("treeMoodScanHandler")
     public void treeMoodScanHandler() {

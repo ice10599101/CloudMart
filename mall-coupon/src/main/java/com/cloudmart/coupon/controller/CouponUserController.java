@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -72,6 +73,7 @@ public class CouponUserController {
     }
 
     @PostMapping("/use")
+    @PreAuthorize("hasRole('INTERNAL')") // SEC-01：核销仅限 mall-order 服务令牌
     @Operation(summary = "使用优惠券", description = "核销用户优惠券，关联订单ID（内部调用）")
     public ApiResponse<Void> useCoupon(@Valid @RequestBody UseCouponRequest request) {
         couponService.useCoupon(request.userCouponId(), request.orderId());
@@ -79,6 +81,7 @@ public class CouponUserController {
     }
 
     @PostMapping("/return")
+    @PreAuthorize("hasRole('INTERNAL')") // SEC-01：退券仅限 mall-order 服务令牌
     @Operation(summary = "退还优惠券", description = "退还已使用的优惠券，取消订单时调用（内部调用）")
     public ApiResponse<Void> returnCoupon(@Valid @RequestBody ReturnCouponRequest request) {
         couponService.returnCoupon(request.userCouponId(), request.orderId());

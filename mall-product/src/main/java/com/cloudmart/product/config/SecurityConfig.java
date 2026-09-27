@@ -41,10 +41,13 @@ public class SecurityConfig {
             .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/products/search", "/categories").permitAll()
+                // SEC-01：公开浏览仅限 GET —— 旧配置对 /categories 无方法限定 permitAll，
+                // 曾导致匿名即可触达分类写入口（该写入口已移除，此处收紧防回归）
+                .requestMatchers(HttpMethod.GET, "/products/search", "/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/{id}").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/skus/batch").permitAll()
                 .requestMatchers(HttpMethod.GET, "/reviews/product/**", "/reviews/stats/**").permitAll()
+                // ES 重建/同步：mall-admin（product:admin）与 mall-ai（product:read）经服务令牌调用
                 .requestMatchers("/products/es/reindex", "/products/es/sync/**", "/products/es/index", "/products/es/index/**").authenticated()
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()

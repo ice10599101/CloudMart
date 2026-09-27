@@ -163,7 +163,10 @@ export class PetGameBridge {
             }
             return;
         }
-        // Web iframe（同源，'*' 仅为本工程静态资源；如需收紧可改为宿主 origin）
-        window.parent.postMessage(message, '*');
+        // Web iframe（FE-05/T34：仅在真实 iframe 内发送，目标 origin 收紧为 document.origin——
+        // 同源加载宿主与游戏，document.origin 即宿主 origin；顶层窗口直接打开时不发送）
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage(message, document.origin);
+        }
     }
 }

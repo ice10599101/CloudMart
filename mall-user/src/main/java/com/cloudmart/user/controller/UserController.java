@@ -109,15 +109,6 @@ public class UserController {
         return ApiResponse.ok(userService.listUsers(page, size, null, null, null));
     }
 
-    @PutMapping("/{id}/status")
-    @Operation(summary = "切换用户状态")
-    public ApiResponse<Void> toggleUserStatus(
-            @Parameter(description = "用户ID") @PathVariable Long id,
-            @Parameter(description = "状态") @RequestParam Integer status) {
-        userService.toggleUserStatus(id, status);
-        return ApiResponse.ok(null);
-    }
-
     @GetMapping("/count")
     @Operation(summary = "获取用户总数")
     public ApiResponse<Long> getMemberCount() {

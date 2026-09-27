@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "mall-inventory", contextId = "inventoryClient", fallbackFactory = InventoryFeignClientFallbackFactory.class)
+/**
+ * 库存 Feign 客户端（SEC-01）：目标迁移至 mall-inventory 的 /internal/inventory/**
+ * （inventory:trade 服务令牌可达），旧根路径已随身份边界改造收敛。
+ */
+@FeignClient(name = "mall-inventory", contextId = "inventoryClient", path = "/internal/inventory", fallbackFactory = InventoryFeignClientFallbackFactory.class)
 public interface InventoryFeignClient {
 
     @PostMapping("/deduct")
@@ -27,7 +31,7 @@ public interface InventoryFeignClient {
             @RequestParam("quantity") @NotNull @Min(1) Integer quantity,
             @RequestParam(value = "orderId", required = false) Long orderId);
 
-    @GetMapping("/{skuId}")
+    @GetMapping("/skus/{skuId}")
     ApiResponse<InventoryDTO> getInventory(@PathVariable("skuId") Long skuId);
 
     record InventoryDTO(

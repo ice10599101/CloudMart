@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 内部隐私可见性接口（供 mall-user 他人资料接口脱敏调用）。
  *
  * <p>路由前缀 /internal/privacy，仅内部服务可达（mall-user 经 Feign 转发，
- * hasRole('INTERNAL') 由 X-Internal-Call 头经 InternalCallAuthenticationFilter 授予）。
+ * hasRole('INTERNAL') 由 mall-user 的 X-Service-Token 签名令牌（community:internal）授予）。
  * 查看者身份通过 X-User-Id 头透传。</p>
  */
 @Slf4j

@@ -50,6 +50,14 @@ public class SecurityAuthAutoConfiguration {
         return new ServiceTokenFeignInterceptor(properties, clock);
     }
 
+    /** RestClient 等非 Feign 调用方的手工签名组件 */
+    @Bean
+    @ConditionalOnMissingBean
+    public com.cloudmart.common.security.ServiceTokenProvider serviceTokenProvider(
+            CloudmartSecurityProperties properties, Clock clock) {
+        return new com.cloudmart.common.security.ServiceTokenProvider(properties, clock);
+    }
+
     @Bean
     @ConditionalOnProperty(name = "cloudmart.security.service-id")
     public UserJwtAuthenticationFilter userJwtAuthenticationFilter(

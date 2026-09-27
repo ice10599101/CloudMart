@@ -1,0 +1,180 @@
+# =============================================================================
+# CloudMart 路由权限清单（SEC-01 / route-policy）
+# =============================================================================
+# 作用：
+#   1. 声明全部"写路由"（以及关键读路由）的授权要求，作为代码审查与 CI 扫描基准
+#      （CI 扫描 Controller 与本清单差集：ENG-01 落地）。
+#   2. 身份模型：三种不可互换主体
+#      - USER       普通用户（mall-auth 签发 scope=user 的 RS256 JWT，业务服务本地验签）
+#      - ADMIN      管理员（mall-auth 签发 scope=admin 的 JWT；后台操作统一走 /api/admin/**）
+#      - SERVICE    服务间调用（X-Service-Token 短期 HS256 令牌，路径级 iss/scope 强校验）
+#   3. 裸 X-Internal-Call 头不再构成任何信任凭证（SEC-01 已废除）。
+#
+# 字段说明：
+#   method       HTTP 方法（* 表示全部方法）
+#   path         服务内路径（StripPrefix 后；完整外部路径为 /api/{service}{path}）
+#   subjectType  允许的主体（USER / ADMIN / SERVICE / ANON，逗号分隔为任一即可）
+#   permission   需要的能力域或权限码（SERVICE 令牌 scope；ADMIN 权限码；— 表示无）
+#   serviceCaller 允许的签发方（仅 SERVICE 时有效）
+#   ownerCheck   是否要求 Service 层校验资源归属（order.userId / file.owner / conversation 成员等）
+#
+# 网关层约束（与 ServiceInternalRouteBlockFilter 一致）：
+#   - 全部业务的 /admin/** 与 /internal/** 禁止从网关外部直达（404），
+#     管理端唯一合法链路：CloudMart-ui → /api/admin/**（mall-admin）→ Nacos 内部 Feign（服务令牌）。
+#   - /api/gen/**、/api/job/** 不再提供匿名入口（旧 /api/gen/preview|download 公开放行已移除）。
+# =============================================================================
+
+meta:
+  version: 1
+  updated: "2026-09-27"
+  scope: "全部 P0 写路由 + 关键内部端点；GET 公开浏览清单见各模块 SecurityConfig"
+
+# -----------------------------------------------------------------------------
+# mall-gateway 公开路径（ANY_METHOD，剥离 Authorization）
+# -----------------------------------------------------------------------------
+gateway-public:
+  - { method: "*",   path: /api/auth/**,                        subjectType: ANON, note: "登录/刷新/注销（含管理员登录）" }
+  - { method: POST,  path: /api/user/users/register,            subjectType: ANON }
+  - { method: POST,  path: /api/user/users/validate,            subjectType: ANON }
+  - { method: "*",   path: /api/payment/payments/callback,      subjectType: ANON, note: "PAY-01：改造为渠道验签回调" }
+  - { method: GET,   path: /files/**,                           subjectType: ANON, note: "mall-file 静态资源（公开 URL）" }
+
+# -----------------------------------------------------------------------------
+# mall-product
+# -----------------------------------------------------------------------------
+mall-product:
+  - { method: GET,    path: /products/search,        subjectType: ANON }
+  - { method: GET,    path: /products/{id},          subjectType: ANON }
+  - { method: GET,    path: /products/skus/batch,    subjectType: ANON }
+  - { method: GET,    path: /products,               subjectType: "USER,SERVICE", serviceCaller: "mall-ai,mall-cart,mall-seckill", permission: product:read }
+  - { method: GET,    path: /products/{productId}/reviews, subjectType: "USER,SERVICE", serviceCaller: mall-ai, permission: product:read }
+  - { method: POST,   path: /products/es/reindex,    subjectType: SERVICE, serviceCaller: "mall-admin,mall-ai", permission: product:admin }
+  - { method: POST,   path: /products/es/sync/**,    subjectType: SERVICE, serviceCaller: "mall-admin,mall-ai", permission: product:admin }
+  - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: mall-admin, permission: product:admin, note: "AdminProduct/AdminCategory/AdminReview/AdminBrand" }
+  - { method: POST,   path: /reviews,                subjectType: USER, ownerCheck: true, note: "CAT-03：校验 orderItem 归属与已购" }
+
+# -----------------------------------------------------------------------------
+# mall-user
+# -----------------------------------------------------------------------------
+mall-user:
+  - { method: PUT,    path: /admin/users/{id}/status, subjectType: SERVICE, serviceCaller: mall-admin, permission: user:admin }
+  - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: "mall-admin,mall-notification", permission: user:admin, note: "/admin/users 读路径允许 mall-notification" }
+  - { method: GET,    path: /users/batch,            subjectType: ANON }
+  - { method: GET,    path: /users/search,           subjectType: ANON }
+
+# -----------------------------------------------------------------------------
+# mall-order
+# -----------------------------------------------------------------------------
+mall-order:
+  - { method: POST,   path: /orders,                        subjectType: USER, ownerCheck: true, note: "TRADE-01/02：报价+幂等" }
+  - { method: PUT,    path: /orders/{orderId}/cancel,       subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: /orders/{orderId}/pay,          subjectType: USER, ownerCheck: true }
+  - { method: PUT,    path: /orders/{orderId}/confirm,      subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: /orders/{orderId}/refund,       subjectType: USER, ownerCheck: true, note: "TRADE-03：转售后单" }
+  - { method: POST,   path: /orders/timeout-cancel,         subjectType: SERVICE, serviceCaller: mall-job, permission: order:jobs }
+  - { method: POST,   path: /internal/orders/payment-success/{orderId}, subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal, note: "TRADE-04：状态 CAS" }
+  - { method: POST,   path: /internal/orders/cancel-notify/{orderId},   subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal }
+  - { method: "*",    path: /admin/**,                      subjectType: SERVICE, serviceCaller: mall-admin, permission: order:admin }
+
+# -----------------------------------------------------------------------------
+# mall-payment
+# -----------------------------------------------------------------------------
+mall-payment:
+  - { method: POST,   path: /payments,                  subjectType: "USER,SERVICE", serviceCaller: mall-order, permission: payment:trade, note: "PAY-01：忽略客户端 amount，校验订单归属" }
+  - { method: GET,    path: /payments/order/{orderId},  subjectType: "USER,SERVICE", serviceCaller: mall-order, permission: payment:trade, ownerCheck: true }
+  - { method: POST,   path: /payments/{paymentId}/refund, subjectType: SERVICE, serviceCaller: mall-order, permission: payment:trade, note: "TRADE-03：退款执行" }
+  - { method: POST,   path: /payments/callback,         subjectType: ANON, note: "PAY-02：渠道签名验证后入账" }
+  - { method: "*",    path: /admin/**,                  subjectType: SERVICE, serviceCaller: mall-admin, permission: payment:admin }
+
+# -----------------------------------------------------------------------------
+# mall-inventory
+# -----------------------------------------------------------------------------
+mall-inventory:
+  - { method: POST,   path: /internal/inventory/deduct,   subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade, note: "STOCK-01：预占台账" }
+  - { method: POST,   path: /internal/inventory/release,  subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
+  - { method: POST,   path: /internal/inventory/confirm,  subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
+  - { method: POST,   path: /internal/inventory/init,     subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
+  - { method: GET,    path: /internal/inventory/skus/{skuId}, subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
+  - { method: "*",    path: /admin/**,                    subjectType: SERVICE, serviceCaller: mall-admin, permission: inventory:admin }
+
+# -----------------------------------------------------------------------------
+# mall-cart
+# -----------------------------------------------------------------------------
+mall-cart:
+  - { method: DELETE, path: /checked,            subjectType: "USER,SERVICE", serviceCaller: mall-order, permission: cart:trade, note: "TRADE-02：改为精确清理本次购买行" }
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: cart:admin }
+
+# -----------------------------------------------------------------------------
+# mall-coupon
+# -----------------------------------------------------------------------------
+mall-coupon:
+  - { method: POST,   path: /user-coupons/claim,    subjectType: USER, note: "COUPON-01：领取限额原子化" }
+  - { method: POST,   path: /user-coupons/use,      subjectType: SERVICE, serviceCaller: mall-order, permission: coupon:trade }
+  - { method: POST,   path: /user-coupons/return,   subjectType: SERVICE, serviceCaller: mall-order, permission: coupon:trade }
+  - { method: POST,   path: /coupons/expire-batch,  subjectType: SERVICE, serviceCaller: mall-job, permission: coupon:jobs, note: "旧匿名写入口已封闭" }
+  - { method: "*",    path: /admin/**,              subjectType: SERVICE, serviceCaller: mall-admin, permission: coupon:admin }
+
+# -----------------------------------------------------------------------------
+# mall-seckill / mall-marketing
+# -----------------------------------------------------------------------------
+mall-seckill:
+  - { method: POST,   path: /execute,              subjectType: "USER,SERVICE", serviceCaller: mall-live, permission: seckill:execute, note: "PROMO-01" }
+  - { method: "*",    path: /admin/**,             subjectType: SERVICE, serviceCaller: mall-admin, permission: seckill:admin }
+
+mall-marketing:
+  - { method: POST,   path: /marketing/group/expiration, subjectType: SERVICE, serviceCaller: mall-job, permission: marketing:jobs }
+  - { method: "*",    path: /admin/**,                   subjectType: SERVICE, serviceCaller: mall-admin, permission: marketing:admin }
+
+# -----------------------------------------------------------------------------
+# mall-wms / mall-community / mall-notification / mall-live / mall-ai / mall-risk
+# -----------------------------------------------------------------------------
+mall-wms:
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: wms:admin, note: "WMS-01：补订单归属校验" }
+
+mall-community:
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: mall-user, permission: community:internal }
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: community:admin }
+
+mall-notification:
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-job,mall-pet", permission: notification:internal }
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: notification:admin }
+
+mall-live:
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-job,mall-wish", permission: live:internal }
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: live:admin, note: "LIVE-01：WS 写入口握手鉴权" }
+
+mall-ai:
+  - { method: POST,   path: /chat,               subjectType: "USER,SERVICE", serviceCaller: mall-admin, permission: ai:admin, ownerCheck: true }
+  - { method: GET,    path: /search,             subjectType: "USER,SERVICE", serviceCaller: mall-admin, permission: ai:admin }
+  - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: ai:admin }
+
+mall-risk:
+  - { method: "*",    path: /blacklist/**,       subjectType: SERVICE, serviceCaller: mall-admin, permission: risk:admin }
+  - { method: "*",    path: /records/**,         subjectType: SERVICE, serviceCaller: mall-admin, permission: risk:admin }
+  - { method: "*",    path: /rules/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: risk:admin }
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-auth,mall-order,mall-payment,mall-seckill,mall-user,mall-job", permission: risk:internal, note: "RISK-01：业务接入" }
+
+# -----------------------------------------------------------------------------
+# mall-admin / mall-job / mall-gen / mall-file
+# -----------------------------------------------------------------------------
+mall-admin:
+  - { method: POST,   path: /auth/validate,             subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
+  - { method: GET,    path: /auth/permissions/{userId}, subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
+  - { method: POST,   path: /logs/login/record,         subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
+  - { method: "*",    path: /**,                        subjectType: ADMIN, note: "网关 AdminAuthGlobalFilter 强制 X-Admin-Role；拦截器 @RequiresAdmin/@RequiresPermission" }
+
+mall-job:
+  - { method: "*",    path: /**,                 subjectType: ADMIN, note: "管理员 JWT 直连；@RequiresPermission 已由统一拦截器执行（JOB-01）" }
+
+mall-gen:
+  - { method: "*",    path: /**,                 subjectType: ADMIN, note: "开发工具：管理员 JWT；生产建议仅内网入口" }
+
+mall-file:
+  - { method: POST,   path: /upload,             subjectType: "USER,ADMIN", note: "FILE-01：内容校验/配额/归属" }
+  - { method: DELETE, path: /delete,             subjectType: "USER,ADMIN", ownerCheck: true, note: "SEC-01 已要求认证；FILE-01 落实归属" }
+
+# -----------------------------------------------------------------------------
+# mall-auth（发卡方自身）
+# -----------------------------------------------------------------------------
+mall-auth:
+  - { method: "*",    path: /**,                 subjectType: ANON, note: "登录/刷新/JWKS；SEC-02/03：刷新令牌身份域隔离与会话撤销" }

@@ -22,7 +22,7 @@ public class SeckillFeignClientFallbackFactory implements FallbackFactory<Seckil
             }
 
             @Override
-            public ApiResponse<Map<String, Object>> getSeckillActivity(Long activityId, String internalCall) {
+            public ApiResponse<Map<String, Object>> getSeckillActivity(Long activityId) {
                 throw new BusinessException("SECKILL_SERVICE_UNAVAILABLE", "秒杀服务不可用，请稍后重试");
             }
         };

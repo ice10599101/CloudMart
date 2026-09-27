@@ -77,7 +77,7 @@ public class ReviewSummaryServiceImpl implements ReviewSummaryService {
 
     private String fetchReviewsText(Long productId) {
         try {
-            ApiResponse<Map<String, Object>> response = productFeignClient.getReviews(productId, 0, 50, "mall-ai");
+            ApiResponse<Map<String, Object>> response = productFeignClient.getReviews(productId, 0, 50);
             if (response != null && response.success() && response.data() != null) {
                 Map<String, Object> data = response.data();
                 @SuppressWarnings("unchecked")
@@ -100,7 +100,7 @@ public class ReviewSummaryServiceImpl implements ReviewSummaryService {
 
     private int countTotalReviews(Long productId) {
         try {
-            ApiResponse<Map<String, Object>> response = productFeignClient.getReviews(productId, 0, 1, "mall-ai");
+            ApiResponse<Map<String, Object>> response = productFeignClient.getReviews(productId, 0, 1);
             if (response != null && response.success() && response.data() != null) {
                 Map<String, Object> data = response.data();
                 Object total = data.get("total");

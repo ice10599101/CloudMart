@@ -86,3 +86,29 @@ logging:
     org.springframework.cloud.loadbalancer: DEBUG
     com.alibaba.nacos.client: DEBUG
     com.alibaba.csp.sentinel: WARN
+
+# SEC-01 统一身份边界：用户/管理员 JWT 本地验签（RS256/JWKS），服务间调用以
+# X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
+# 裸 X-Internal-Call 头不再构成任何信任凭证。
+cloudmart:
+  security:
+    service-id: mall-ai
+    service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}
+    jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
+    clock-skew-seconds: 30
+    service-token-ttl-seconds: 60
+    service-token-paths:
+      - prefix: /admin
+        issuers: [mall-admin]
+        scope: ai:admin
+      - prefix: /chat
+        issuers: [mall-admin]
+        scope: ai:admin
+      - prefix: /search
+        issuers: [mall-admin]
+        scope: ai:admin
+      - prefix: /internal
+        issuers: [mall-job]
+        scope: ai:internal
+    outbound-scopes:
+      mall-product: product:read

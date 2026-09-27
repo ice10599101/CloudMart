@@ -11,8 +11,8 @@ public class AdminFeignInterceptor implements RequestInterceptor {
 
     @Override
     public void apply(RequestTemplate template) {
-        template.header(SecurityConstants.INTERNAL_CALL_HEADER, "true");
-
+        // SEC-01：服务间身份由 ServiceTokenFeignInterceptor（自动装配）签发的
+        // X-Service-Token 建立；此处仅透传操作者上下文作为数据字段（审计用）。
         AdminSecurityContext ctx = AdminSecurityContext.get();
         if (ctx == null) {
             return;

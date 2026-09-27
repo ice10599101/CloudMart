@@ -2,21 +2,28 @@ package com.cloudmart.seckill.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.seckill.converter.SeckillConverter;
-import com.cloudmart.seckill.dto.CreateActivityRequest;
 import com.cloudmart.seckill.dto.SeckillActivityDTO;
 import com.cloudmart.seckill.service.SeckillActivityService;
 import com.cloudmart.seckill.vo.SeckillActivityVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 秒杀活动公开查询接口（SEC-01）：仅保留匿名可浏览的活动列表/详情。
+ * 活动的创建与状态变更统一走 {@link AdminSeckillActivityController}
+ * （mall-admin 经服务令牌调用）；原公开写入口已随 SEC-01 移除。
+ */
 @RestController
 @RequestMapping("/activities")
-@Tag(name = "秒杀活动管理", description = "秒杀活动的创建和管理")
+@Tag(name = "秒杀活动查询", description = "秒杀活动浏览接口")
 public class SeckillActivityController {
 
     private final SeckillActivityService activityService;
@@ -25,13 +32,6 @@ public class SeckillActivityController {
     public SeckillActivityController(SeckillActivityService activityService, SeckillConverter seckillConverter) {
         this.activityService = activityService;
         this.seckillConverter = seckillConverter;
-    }
-
-    @PostMapping
-    @Operation(summary = "创建秒杀活动", description = "管理员创建秒杀活动")
-    public ApiResponse<SeckillActivityVO> createActivity(@Valid @RequestBody CreateActivityRequest request) {
-        SeckillActivityDTO dto = activityService.createActivity(request);
-        return ApiResponse.ok(seckillConverter.activityDtoToVO(dto));
     }
 
     @GetMapping
@@ -47,15 +47,6 @@ public class SeckillActivityController {
     public ApiResponse<SeckillActivityVO> getActivity(
             @Parameter(description = "活动ID") @PathVariable("activityId") Long activityId) {
         SeckillActivityDTO dto = activityService.getActivity(activityId);
-        return ApiResponse.ok(seckillConverter.activityDtoToVO(dto));
-    }
-
-    @PutMapping("/{activityId}/status")
-    @Operation(summary = "更新活动状态", description = "手动更新秒杀活动状态")
-    public ApiResponse<SeckillActivityVO> updateActivityStatus(
-            @Parameter(description = "活动ID") @PathVariable("activityId") Long activityId,
-            @Parameter(description = "目标状态") @RequestParam String status) {
-        SeckillActivityDTO dto = activityService.updateActivityStatus(activityId, status);
         return ApiResponse.ok(seckillConverter.activityDtoToVO(dto));
     }
 }

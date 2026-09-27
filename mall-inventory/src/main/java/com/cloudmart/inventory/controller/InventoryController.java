@@ -13,21 +13,34 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 库存内部接口（SEC-01）：库存扣减/释放/确认/初始化属交易关键写动作，
+ * 全部收敛到 /internal/**——仅持有 inventory:trade（mall-order）或
+ * inventory:admin（mall-admin，经 /admin 前缀代理）能力域服务令牌的调用方可达，
+ * 替代旧的根路径 {@code /deduct|/release|/confirm|/init|/{skuId}}（任何登录用户
+ * 都曾可触达）。
+ */
 @RestController
-@Tag(name = "库存管理", description = "库存查询、预扣、释放、确认接口")
+@RequestMapping("/internal/inventory")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('INTERNAL')")
+@Tag(name = "内部-库存操作", description = "库存查询、预扣、释放、确认接口（服务令牌可达）")
 public class InventoryController {
 
     private final InventoryService inventoryService;
     private final InventoryConverter inventoryConverter;
 
-    public InventoryController(InventoryService inventoryService, InventoryConverter inventoryConverter) {
-        this.inventoryService = inventoryService;
-        this.inventoryConverter = inventoryConverter;
-    }
-
-    @GetMapping("/{skuId}")
+    @GetMapping("/skus/{skuId}")
     @Operation(summary = "查询库存", description = "根据SKU ID查询库存信息")
     public ApiResponse<InventoryVO> getInventory(
             @Parameter(description = "SKU ID") @PathVariable("skuId") Long skuId) {

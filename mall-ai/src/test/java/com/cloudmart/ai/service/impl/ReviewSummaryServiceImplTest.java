@@ -80,7 +80,7 @@ class ReviewSummaryServiceImplTest {
         @DisplayName("should return default summary when no reviews exist")
         void summarizeReviews_noReviews_returnsDefaultSummary() {
             ApiResponse<Map<String, Object>> emptyResponse = buildReviewsResponse(Collections.emptyList(), 0);
-            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt(), anyString()))
+            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt()))
                     .thenReturn(emptyResponse);
 
             ReviewSummaryService.ReviewSummaryResult result = reviewSummaryService.summarizeReviews(PRODUCT_ID);
@@ -96,7 +96,7 @@ class ReviewSummaryServiceImplTest {
         @Test
         @DisplayName("should return default summary when feign client returns null")
         void summarizeReviews_nullResponse_returnsDefaultSummary() {
-            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt(), anyString()))
+            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt()))
                     .thenReturn(null);
 
             ReviewSummaryService.ReviewSummaryResult result = reviewSummaryService.summarizeReviews(PRODUCT_ID);
@@ -108,7 +108,7 @@ class ReviewSummaryServiceImplTest {
         @Test
         @DisplayName("should return default summary when feign client throws exception")
         void summarizeReviews_feignException_returnsDefaultSummary() {
-            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt(), anyString()))
+            when(productFeignClient.getReviews(anyLong(), anyInt(), anyInt()))
                     .thenThrow(new RuntimeException("Service unavailable"));
 
             ReviewSummaryService.ReviewSummaryResult result = reviewSummaryService.summarizeReviews(PRODUCT_ID);
@@ -131,8 +131,8 @@ class ReviewSummaryServiceImplTest {
             Map<String, Object> countData = Map.of("records", Collections.emptyList(), "total", 2);
             ApiResponse<Map<String, Object>> countResponse = ApiResponse.ok(countData);
 
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50, "mall-ai")).thenReturn(reviewsResponse);
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1, "mall-ai")).thenReturn(countResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50)).thenReturn(reviewsResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1)).thenReturn(countResponse);
 
             String llmOutput = """
                     主要优点：
@@ -168,8 +168,8 @@ class ReviewSummaryServiceImplTest {
             Map<String, Object> countData = Map.of("records", Collections.emptyList(), "total", 5);
             ApiResponse<Map<String, Object>> countResponse = ApiResponse.ok(countData);
 
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50, "mall-ai")).thenReturn(reviewsResponse);
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1, "mall-ai")).thenReturn(countResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50)).thenReturn(reviewsResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1)).thenReturn(countResponse);
             setupChatClientFailure();
 
             ReviewSummaryService.ReviewSummaryResult result = reviewSummaryService.summarizeReviews(PRODUCT_ID);
@@ -188,8 +188,8 @@ class ReviewSummaryServiceImplTest {
             Map<String, Object> countData = Map.of("records", Collections.emptyList(), "total", 1);
             ApiResponse<Map<String, Object>> countResponse = ApiResponse.ok(countData);
 
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50, "mall-ai")).thenReturn(reviewsResponse);
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1, "mall-ai")).thenReturn(countResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50)).thenReturn(reviewsResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1)).thenReturn(countResponse);
             setupChatClientMock(null);
 
             ReviewSummaryService.ReviewSummaryResult result = reviewSummaryService.summarizeReviews(PRODUCT_ID);
@@ -203,8 +203,8 @@ class ReviewSummaryServiceImplTest {
             Map<String, Object> review = Map.of("content", "好评", "rating", 5);
             ApiResponse<Map<String, Object>> reviewsResponse = buildReviewsResponse(List.of(review), 1);
 
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50, "mall-ai")).thenReturn(reviewsResponse);
-            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1, "mall-ai"))
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 50)).thenReturn(reviewsResponse);
+            when(productFeignClient.getReviews(PRODUCT_ID, 0, 1))
                     .thenThrow(new RuntimeException("Count failed"));
             setupChatClientMock("这是一个好商品");
 

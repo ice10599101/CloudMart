@@ -55,6 +55,6 @@ public class LiveSeckillController {
             throw new BusinessException("NO_SECKILL_ACTIVITY", "该直播间暂无秒杀活动");
         }
 
-        return seckillFeignClient.getSeckillActivity(room.seckillActivityId(), "mall-live");
+        return seckillFeignClient.getSeckillActivity(room.seckillActivityId());
     }
 }

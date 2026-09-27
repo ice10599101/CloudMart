@@ -6,15 +6,22 @@ import com.cloudmart.product.dto.CategoryDTO;
 import com.cloudmart.product.service.ProductService;
 import com.cloudmart.product.vo.CategoryVO;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 分类公开查询接口（SEC-01）：仅保留匿名可浏览的分类列表。
+ * 分类的创建/更新/删除统一走 {@link AdminCategoryController}
+ * （mall-admin 经服务令牌调用）；原公开写入口已随 SEC-01 移除
+ * （此前 /categories 的 permitAll 未限定方法，匿名即可创建分类）。
+ */
 @RestController
 @RequestMapping("/categories")
-@Tag(name = "分类管理", description = "商品分类查询与创建接口")
+@Tag(name = "分类查询", description = "商品分类查询接口")
 public class CategoryController {
 
     private final ProductService productService;
@@ -30,32 +37,5 @@ public class CategoryController {
     public ApiResponse<List<CategoryVO>> listCategories() {
         List<CategoryDTO> dtos = productService.listCategories();
         return ApiResponse.ok(productConverter.categoryDtoListToVOList(dtos));
-    }
-
-    @PostMapping
-    @Operation(summary = "创建分类", description = "创建新的商品分类")
-    public ApiResponse<CategoryVO> createCategory(
-            @Parameter(description = "分类名称", required = true) @RequestParam String name,
-            @Parameter(description = "父分类ID") @RequestParam(required = false) Long parentId) {
-        CategoryDTO dto = productService.createCategory(name, parentId);
-        return ApiResponse.ok(productConverter.categoryDtoToVO(dto));
-    }
-
-    @PutMapping("/{id}")
-    @Operation(summary = "更新分类", description = "更新商品分类信息")
-    public ApiResponse<CategoryVO> updateCategory(
-            @Parameter(description = "分类ID", required = true) @PathVariable Long id,
-            @Parameter(description = "分类名称", required = true) @RequestParam String name,
-            @Parameter(description = "父分类ID") @RequestParam(required = false) Long parentId) {
-        CategoryDTO dto = productService.updateCategory(id, name, parentId, null, null);
-        return ApiResponse.ok(productConverter.categoryDtoToVO(dto));
-    }
-
-    @DeleteMapping("/{id}")
-    @Operation(summary = "删除分类", description = "删除商品分类")
-    public ApiResponse<Void> deleteCategory(
-            @Parameter(description = "分类ID", required = true) @PathVariable Long id) {
-        productService.deleteCategory(id);
-        return ApiResponse.ok(null);
     }
 }

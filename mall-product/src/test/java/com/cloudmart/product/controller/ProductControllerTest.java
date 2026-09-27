@@ -3,10 +3,8 @@ package com.cloudmart.product.controller;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.product.converter.ProductConverter;
-import com.cloudmart.product.dto.CreateProductRequest;
 import com.cloudmart.product.dto.ProductDTO;
 import com.cloudmart.product.dto.ProductSearchResponse;
-import com.cloudmart.product.dto.UpdateProductRequest;
 import com.cloudmart.product.service.ProductService;
 import com.cloudmart.product.vo.ProductVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -23,17 +20,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 商品公开查询接口测试（SEC-01）：商品创建/更新/删除写入口已随身份边界改造
+ * 移除（管理动作统一走 AdminProductController），此处仅覆盖保留的只读端点。
+ */
 class ProductControllerTest {
 
     private MockMvc mockMvc;
@@ -63,35 +59,6 @@ class ProductControllerTest {
     }
 
     @Test
-    @DisplayName("POST /products - 创建商品返回信封格式")
-    void createProduct_ShouldReturnSuccessEnvelope() throws Exception {
-        ProductDTO dto = buildProductDTO();
-        ProductVO vo = buildProductVO();
-        given(productService.createProduct(any(CreateProductRequest.class))).willReturn(dto);
-        given(productConverter.productDtoToVO(dto)).willReturn(vo);
-
-        mockMvc.perform(post("/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateProductRequest("测试商品", "商品描述", 10L, "品牌A", "image.jpg", null))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.name").value("测试商品"));
-    }
-
-    @Test
-    @DisplayName("POST /products - 名称校验失败返回VALIDATION_ERROR")
-    void createProduct_WhenInvalidInput_ShouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"desc\",\"categoryId\":1}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
-    }
-
-    @Test
     @DisplayName("GET /products/{id} - 查询商品返回信封格式")
     void getProductById_ShouldReturnSuccessEnvelope() throws Exception {
         ProductDTO dto = buildProductDTO();
@@ -113,60 +80,6 @@ class ProductControllerTest {
                 .given(productService).getProductById(999L);
 
         mockMvc.perform(get("/products/999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("PUT /products/{id} - 更新商品返回信封格式")
-    void updateProduct_ShouldReturnSuccessEnvelope() throws Exception {
-        ProductDTO dto = buildProductDTO();
-        ProductVO vo = buildProductVO();
-        given(productService.updateProduct(eq(1L), any(UpdateProductRequest.class))).willReturn(dto);
-        given(productConverter.productDtoToVO(dto)).willReturn(vo);
-
-        mockMvc.perform(put("/products/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new UpdateProductRequest("更新商品", "新描述", 10L, "品牌A", "new-image.jpg", 1, null))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1));
-    }
-
-    @Test
-    @DisplayName("PUT /products/{id} - 商品不存在返回错误信封")
-    void updateProduct_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        willThrow(new BusinessException("USER_NOT_FOUND", "商品不存在"))
-                .given(productService).updateProduct(eq(999L), any(UpdateProductRequest.class));
-
-        mockMvc.perform(put("/products/999")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new UpdateProductRequest("更新商品", null, null, null, null, null, null))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("DELETE /products/{id} - 删除商品返回信封格式")
-    void deleteProduct_ShouldReturnSuccessEnvelope() throws Exception {
-        willDoNothing().given(productService).deleteProduct(1L);
-
-        mockMvc.perform(delete("/products/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
-
-    @Test
-    @DisplayName("DELETE /products/{id} - 商品不存在返回错误信封")
-    void deleteProduct_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        willThrow(new BusinessException("USER_NOT_FOUND", "商品不存在"))
-                .given(productService).deleteProduct(999L);
-
-        mockMvc.perform(delete("/products/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));

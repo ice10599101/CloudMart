@@ -2,6 +2,8 @@ package com.cloudmart.ai.service.impl;
 
 import com.cloudmart.ai.dto.ProductSearchResult;
 import com.cloudmart.ai.service.ProductVectorSyncService;
+import com.cloudmart.common.security.ServiceTokenCodec;
+import com.cloudmart.common.security.ServiceTokenProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -26,12 +28,15 @@ public class ProductVectorSyncServiceImpl implements ProductVectorSyncService {
 
     private final VectorStore vectorStore;
     private final RestClient productRestClient;
+    private final ServiceTokenProvider serviceTokenProvider;
 
     public ProductVectorSyncServiceImpl(
             VectorStore vectorStore,
-            @Value("${ai.search.product-service-url:http://mall-product}") String productServiceUrl
+            @Value("${ai.search.product-service-url:http://mall-product}") String productServiceUrl,
+            ServiceTokenProvider serviceTokenProvider
     ) {
         this.vectorStore = vectorStore;
+        this.serviceTokenProvider = serviceTokenProvider;
         this.productRestClient = RestClient.builder()
                 .baseUrl(productServiceUrl)
                 .build();
@@ -74,7 +79,6 @@ public class ProductVectorSyncServiceImpl implements ProductVectorSyncService {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = productRestClient.get()
                     .uri("/products/{id}", productId)
-                    .header("X-Internal-Call", "mall-ai")
                     .retrieve()
                     .body(Map.class);
 
@@ -105,9 +109,11 @@ public class ProductVectorSyncServiceImpl implements ProductVectorSyncService {
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> fetchProducts(int page, int size) {
         try {
+            // SEC-01：商品列表分页需要认证身份，携带 product:read 服务令牌
             Map<String, Object> response = productRestClient.get()
                     .uri("/products?page={page}&size={size}", page, size)
-                    .header("X-Internal-Call", "mall-ai")
+                    .header(ServiceTokenCodec.HEADER_NAME,
+                            serviceTokenProvider.sign("mall-product", "product:read"))
                     .retrieve()
                     .body(Map.class);
 

@@ -96,22 +96,8 @@ class OrderControllerTest {
         }
     }
 
-    @Nested
-    @DisplayName("PUT /orders/{orderId}/ship")
-    class ShipOrderTests {
-
-        @Test
-        @DisplayName("ship order -> returns 200")
-        void shipOrder_ShouldReturn200() throws Exception {
-            OrderDTO dto = buildOrderDTO("SHIPPED");
-            when(orderService.shipOrder(1L)).thenReturn(dto);
-            when(orderConverter.orderDtoToVO(dto)).thenReturn(buildOrderVO("SHIPPED"));
-
-            mockMvc.perform(put("/orders/1/ship"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.status").value("SHIPPED"));
-        }
-    }
+    // SEC-01：PUT /orders/{orderId}/ship 遗留端点已移除，发货统一走
+    // PUT /admin/orders/{id}/ship（见 AdminOrderControllerTest#shipOrder）。
 
     @Nested
     @DisplayName("PUT /orders/{orderId}/confirm")
@@ -167,18 +153,6 @@ class OrderControllerTest {
         }
     }
 
-    @Nested
-    @DisplayName("POST /orders/{orderId}/payment-success")
-    class NotifyPaymentSuccessTests {
-
-        @Test
-        @DisplayName("notify payment success -> returns 200")
-        void notifyPaymentSuccess_ShouldReturn200() throws Exception {
-            mockMvc.perform(post("/orders/1/payment-success"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
-
-            verify(orderService).notifyPaymentSuccess(1L);
-        }
-    }
+    // SEC-01：POST /orders/{orderId}/payment-success 回调端点已迁移至
+    // /internal/orders/payment-success/{orderId}，用例见 InternalOrderControllerTest。
 }

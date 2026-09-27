@@ -43,6 +43,47 @@ public class PetConfigGovernanceService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * ADM-03：强类型 DTO 统一校验入口——反射转 Map 后走组合校验，
+     * 保证"真实发布路径"与预校验接口共用同一验证器（§4.2）。
+     */
+    public void validateDto(String configType, Object dto) {
+        if (dto == null) {
+            return;
+        }
+        Map<String, Object> data = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
+                .convertValue(dto, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                });
+        validate(configType, data);
+    }
+
+    /** ADM-03：写后快照 + 版本登记（调用方事务内）；操作人取 mall-admin 透传的可信头 */
+    public void snapshotAndRecord(String configType, Long configId, String operator) {
+        record(configType, configId, snapshotRow(configType, configId), operator);
+    }
+
+    /** 当前管理操作者：mall-admin Feign 代理透传 X-Admin-Username / X-User-Id（SEC-02 契约） */
+    public static String currentOperator() {
+        try {
+            org.springframework.web.context.request.RequestAttributes attrs =
+                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes servletAttrs) {
+                jakarta.servlet.http.HttpServletRequest request = servletAttrs.getRequest();
+                String username = request.getHeader("X-Admin-Username");
+                if (username != null && !username.isBlank()) {
+                    return username;
+                }
+                String userId = request.getHeader("X-User-Id");
+                if (userId != null && !userId.isBlank()) {
+                    return "admin-" + userId;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("操作者上下文不可用（非 Web 线程）", e);
+        }
+        return "internal";
+    }
+
     /** 数值上下限组合校验（B21：阻止必然无法完成的任务/零成本无限奖励等） */
     public void validate(String configType, Map<String, Object> data) {
         if (data == null || data.isEmpty()) {

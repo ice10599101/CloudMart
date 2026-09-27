@@ -114,19 +114,7 @@ class AdminLoginLogControllerTest {
                     anyString(), any(), anyString());
         }
 
-        @Test
-        @DisplayName("缺少内部调用头返回403")
-        void recordLogin_withoutInternalHeader_returnsForbidden() throws Exception {
-            LoginLogRecordRequest request = new LoginLogRecordRequest(
-                    "admin", "127.0.0.1", "内网", "Chrome", "Windows", 0, "登录成功");
-
-            mockMvc.perform(post("/logs/login/record")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-        }
+        // SEC-01：record 内部身份改由服务令牌建立（@PreAuthorize），拒绝路径由安全链覆盖。
     }
 
     @Nested

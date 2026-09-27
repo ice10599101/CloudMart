@@ -103,3 +103,30 @@ management:
     metrics:
       export:
         enabled: true
+
+# SEC-01 统一身份边界：用户/管理员 JWT 本地验签（RS256/JWKS），服务间调用以
+# X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
+# 裸 X-Internal-Call 头不再构成任何信任凭证。
+cloudmart:
+  security:
+    service-id: mall-risk
+    service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}
+    jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
+    clock-skew-seconds: 30
+    service-token-ttl-seconds: 60
+    service-token-paths:
+      - prefix: /admin
+        issuers: [mall-admin]
+        scope: risk:admin
+      - prefix: /blacklist
+        issuers: [mall-admin]
+        scope: risk:admin
+      - prefix: /records
+        issuers: [mall-admin]
+        scope: risk:admin
+      - prefix: /rules
+        issuers: [mall-admin]
+        scope: risk:admin
+      - prefix: /internal
+        issuers: [mall-auth, mall-order, mall-payment, mall-seckill, mall-user, mall-job]
+        scope: risk:internal

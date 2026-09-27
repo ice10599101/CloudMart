@@ -1,5 +1,7 @@
 package com.cloudmart.ai.service.impl;
 
+import com.cloudmart.common.security.CloudmartSecurityProperties;
+import com.cloudmart.common.security.ServiceTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -11,6 +13,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -44,7 +48,8 @@ class ProductVectorSyncServiceImplTest {
 
         doReturn(uriSpec).when(restClient).get();
         doReturn(headersSpec).when(uriSpec).uri(anyString(), any(Object[].class));
-        doReturn(headersSpec).when(headersSpec).header(anyString(), any(String[].class));
+        // syncProduct 不再携带请求头，fetchProducts 携带服务令牌——用 lenient 避免 UnnecessaryStubbing
+        lenient().doReturn(headersSpec).when(headersSpec).header(anyString(), any(String[].class));
         doReturn(responseSpec).when(headersSpec).retrieve();
         doReturn(responseBody).when(responseSpec).body(any(Class.class));
 
@@ -61,7 +66,11 @@ class ProductVectorSyncServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        syncService = new ProductVectorSyncServiceImpl(vectorStore, "http://mall-product");
+        CloudmartSecurityProperties securityProperties = new CloudmartSecurityProperties();
+        securityProperties.setServiceId("mall-ai");
+        securityProperties.setServiceTokenSecret("unit-test-service-token-secret-0123456789abcdef");
+        syncService = new ProductVectorSyncServiceImpl(vectorStore, "http://mall-product",
+                new ServiceTokenProvider(securityProperties, Clock.systemUTC()));
     }
 
     @Nested
@@ -180,7 +189,7 @@ class ProductVectorSyncServiceImplTest {
 
             doReturn(uriSpec).when(restClient).get();
             doReturn(headersSpec).when(uriSpec).uri(anyString(), any(Object[].class));
-            doReturn(headersSpec).when(headersSpec).header(anyString(), any(String[].class));
+            lenient().doReturn(headersSpec).when(headersSpec).header(anyString(), any(String[].class));
             doReturn(responseSpec).when(headersSpec).retrieve();
             doReturn(page0Response, page1Response).when(responseSpec).body(any(Class.class));
 

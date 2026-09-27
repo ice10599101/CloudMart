@@ -71,11 +71,38 @@ export type GameToHost =
   | { source: 'pet-game'; type: 'intent'; action: PetIntentAction }
   | { source: 'pet-game'; type: 'petTapped' }
 
-/** 游戏 → 宿主 消息类型守卫（外部 postMessage 一律先过这里） */
+/** 游戏 → 宿主 的动作枚举白名单（FE-05：未知动作一律丢弃） */
+const PET_INTENT_ACTIONS: ReadonlySet<string> = new Set([
+  'openRoom', 'openDaily', 'openSocial', 'openCareer',
+  'feed', 'play', 'clean', 'rest',
+  'openWork', 'openStudy', 'openBottle', 'openBattle',
+  'openChat', 'openAchievements', 'openProfile', 'openRankings', 'openCare',
+])
+
+/**
+ * 游戏 → 宿主 消息类型守卫（FE-05/T34）：
+ * - source 字段校验 + type 枚举白名单 + intent.action 白名单；
+ * - 字段长度受限（title/content 类字段即使被伪造也不进入宿主业务）；
+ * - 注意：仅凭 data 不足以信任来源——宿主侧必须同时校验 event.origin 与
+ *   event.source === iframe.contentWindow（见 CocosStage 的 onMessage）。
+ */
 export function isGameToHost(data: unknown): data is GameToHost {
-  return (
-    typeof data === 'object' && data !== null && (data as { source?: string }).source === 'pet-game'
-  )
+  if (typeof data !== 'object' || data === null) {
+    return false
+  }
+  const msg = data as { source?: unknown; type?: unknown; action?: unknown }
+  if (msg.source !== 'pet-game') {
+    return false
+  }
+  switch (msg.type) {
+    case 'ready':
+    case 'petTapped':
+      return true
+    case 'intent':
+      return typeof msg.action === 'string' && PET_INTENT_ACTIONS.has(msg.action)
+    default:
+      return false
+  }
 }
 
 export const PET_GAME_FRAME_PATH = '/pet-game/index.html'

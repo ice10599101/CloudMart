@@ -97,7 +97,7 @@ class LiveSeckillControllerTest {
                 "LIVE", FIXED_TIME, null, FIXED_TIME);
 
         given(liveRoomService.getRoom(1L)).willReturn(dto);
-        given(seckillFeignClient.getSeckillActivity(300L, "mall-live"))
+        given(seckillFeignClient.getSeckillActivity(300L))
                 .willReturn(ApiResponse.ok(Map.of("activityId", 300L, "status", "ACTIVE")));
 
         mockMvc.perform(get("/seckill/rooms/1/activity"))

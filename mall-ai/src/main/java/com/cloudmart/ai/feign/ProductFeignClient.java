@@ -17,16 +17,11 @@ import java.util.Map;
 public interface ProductFeignClient {
 
     @GetMapping("/products/{id}")
-    ApiResponse<Map<String, Object>> getProduct(
-            @PathVariable("id") Long id,
-            @RequestHeader("X-Internal-Call") String internalCall
-    );
+    ApiResponse<Map<String, Object>> getProduct(@PathVariable("id") Long id);
 
     @GetMapping("/products/{productId}/reviews")
     ApiResponse<Map<String, Object>> getReviews(
             @PathVariable("productId") Long productId,
             @RequestParam("page") int page,
-            @RequestParam("size") int size,
-            @RequestHeader("X-Internal-Call") String internalCall
-    );
+            @RequestParam("size") int size);
 }

@@ -40,6 +40,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminPetPhase3ConfigController {
 
+    private final com.cloudmart.pet.service.impl.PetConfigGovernanceService governance;
     private final PetCareerConfigMapper careerConfigMapper;
     private final PetFurnitureConfigMapper furnitureConfigMapper;
     private final PetDailyQuestConfigMapper dailyQuestConfigMapper;
@@ -59,6 +60,7 @@ public class AdminPetPhase3ConfigController {
     @Operation(summary = "新增/更新职业", description = "promoteToCode 需指向同路线下一阶；带 id 为更新")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetCareerConfig> upsertCareer(@Valid @RequestBody CareerUpsertRequest request) {
+        governance.validateDto("career", request);
         PetCareerConfig config = new PetCareerConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -85,6 +87,9 @@ public class AdminPetPhase3ConfigController {
             config.setId(null);
             careerConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("career", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -97,6 +102,8 @@ public class AdminPetPhase3ConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         careerConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("career", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -115,6 +122,7 @@ public class AdminPetPhase3ConfigController {
     @Operation(summary = "新增/更新家具", description = "category 必须是已实现枚举（WALL/FLOOR/...）；comfort 决定舒适度")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetFurnitureConfig> upsertFurniture(@Valid @RequestBody FurnitureUpsertRequest request) {
+        governance.validateDto("furniture", request);
         PetFurnitureConfig config = new PetFurnitureConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -134,6 +142,9 @@ public class AdminPetPhase3ConfigController {
             config.setId(null);
             furnitureConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("furniture", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -146,6 +157,8 @@ public class AdminPetPhase3ConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         furnitureConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("furniture", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 
@@ -163,6 +176,7 @@ public class AdminPetPhase3ConfigController {
     @Operation(summary = "新增/更新每日任务", description = "questType 必须选已埋点口径，否则任务永远无法完成")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetDailyQuestConfig> upsertDailyQuest(@Valid @RequestBody DailyQuestUpsertRequest request) {
+        governance.validateDto("daily_quest", request);
         PetDailyQuestConfig config = new PetDailyQuestConfig();
         config.setId(request.id());
         config.setCode(request.code());
@@ -182,6 +196,9 @@ public class AdminPetPhase3ConfigController {
             config.setId(null);
             dailyQuestConfigMapper.insert(config);
         }
+        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
+        governance.snapshotAndRecord("daily_quest", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(config);
     }
 
@@ -194,6 +211,8 @@ public class AdminPetPhase3ConfigController {
         patch.setId(id);
         patch.setEnabled(enabled);
         dailyQuestConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("daily_quest", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 

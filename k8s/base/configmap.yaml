@@ -9,6 +9,8 @@ data:
   redis-host: "redis.default.svc.cluster.local"
   rocketmq-name-server: "rocketmq-namesrv.default.svc.cluster.local:9876"
   elasticsearch-hosts: "http://elasticsearch.default.svc.cluster.local:9200"
+  # SEC-01：mall-auth JWKS 地址（集群内服务名直连，验签用户/管理员 JWT）
+  jwks-uri: "http://mall-auth.cloudmart.svc.cluster.local:9001/oauth2/jwks"
 ---
 apiVersion: v1
 kind: Secret
@@ -20,3 +22,7 @@ stringData:
   mysql-password: "CHANGE_ME"
   redis-password: ""
   jwt-public-key: "CHANGE_ME"
+  # SEC-01：全站共享的服务令牌密钥（HS256，≥32 字节），必须替换为强随机值
+  # （openssl rand -base64 48）。所有业务服务经 envFrom 引用本 Secret。
+  CLOUDMART_SERVICE_TOKEN_SECRET: "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_48"
+  WISH_SERVICE_TOKEN_SECRET: "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_48"

@@ -39,6 +39,11 @@ spec:
                 configMapKeyRef:
                   name: cloudmart-config
                   key: nacos-addr
+            - name: CLOUDMART_SECURITY_JWKS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudmart-config
+                  key: jwks-uri
             - name: JAVA_OPTS
               value: "-Xms256m -Xmx512m -XX:+UseZGC -javaagent:/skywalking/agent/skywalking-agent.jar"
             - name: SW_AGENT_NAME

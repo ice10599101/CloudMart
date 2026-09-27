@@ -76,18 +76,10 @@ class AdminAuthControllerTest {
             verify(adminAuthService).resolvePermissions(1L);
         }
 
-        @Test
-        @DisplayName("缺少内部调用头返回403")
-        void validate_withoutInternalHeader_returnsForbidden() throws Exception {
-            AdminValidateRequest request = new AdminValidateRequest("admin", "pass123");
+        // SEC-01：内部调用头校验已替换为 @PreAuthorize("hasRole('INTERNAL')")——
+        // 身份由 ServiceTokenAuthenticationFilter 校验 X-Service-Token 后建立；
+        // 拒绝路径由安全链（集成层）覆盖，MockMvc standalone 不启用方法安全。
 
-            mockMvc.perform(post("/auth/validate")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-        }
 
         @Test
         @DisplayName("用户名密码为空返回业务异常")
@@ -132,13 +124,6 @@ class AdminAuthControllerTest {
             verify(adminAuthService).resolvePermissions(1L);
         }
 
-        @Test
-        @DisplayName("缺少内部调用头返回403")
-        void getPermissions_withoutInternalHeader_returnsForbidden() throws Exception {
-            mockMvc.perform(get("/auth/permissions/1"))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-        }
+        // SEC-01：同 validate——内部身份改由服务令牌建立，方法级授权在安全链生效。
     }
 }

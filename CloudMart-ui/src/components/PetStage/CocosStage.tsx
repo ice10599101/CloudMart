@@ -96,6 +96,15 @@ const CocosStage = forwardRef<{ post: (message: HostToGame) => void }, CocosStag
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      // FE-05/T34：严格来源校验——origin 必须是本站（iframe 同源加载），
+      // 且 event.source 必须正是本 iframe 的 contentWindow；二者任一不符即丢弃，
+      // 防止任意窗口/嵌套 iframe 伪造游戏消息触发宿主业务动作。
+      if (event.origin !== window.location.origin) {
+        return
+      }
+      if (!frameRef.current || event.source !== frameRef.current.contentWindow) {
+        return
+      }
       if (!isGameToHost(event.data)) {
         return
       }

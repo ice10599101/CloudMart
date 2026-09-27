@@ -8,11 +8,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
- * Feign 请求拦截器：透传内部调用头与当前用户身份。
+ * Feign 请求拦截器：透传当前用户身份（数据字段）。
  *
- * <p>当 mall-user 通过 Feign 调用 mall-community 时，注入
- * {@code X-Internal-Call: true} 与当前查看者 ID，使下游可识别调用方身份
- * 并复用 {@code InternalCallAuthenticationFilter} 完成内部鉴权。</p>
+ * <p>当 mall-user 通过 Feign 调用 mall-community 时，注入当前查看者 ID，
+ * 供下游（如他人资料脱敏）识别查看者。服务间身份由自动装配的
+ * ServiceTokenFeignInterceptor 签发 X-Service-Token 建立，
+ * 裸 X-Internal-Call 头已随 SEC-01 废除。</p>
  */
 @Component
 public class FeignRequestInterceptor implements RequestInterceptor {

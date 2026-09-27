@@ -371,16 +371,9 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.records[0].id").value(1));
     }
 
-    @Test
-    @DisplayName("PUT /users/{id}/status - 切换用户状态返回信封格式")
-    void toggleUserStatus_ShouldReturnSuccessEnvelope() throws Exception {
-        willDoNothing().given(userService).toggleUserStatus(1L, 0);
-
-        mockMvc.perform(put("/users/1/status")
-                        .param("status", "0"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
+    // SEC-01：PUT /users/{id}/status 遗留写入口已移除（切换用户状态统一走
+    // PUT /admin/users/{id}/status，见 AdminUserControllerTest#toggleUserStatus），
+    // 对应用例随端点一并删除，服务层行为仍由 UserServiceImplTest 覆盖。
 
     @Test
     @DisplayName("GET /users/count - 获取用户总数返回信封格式")
