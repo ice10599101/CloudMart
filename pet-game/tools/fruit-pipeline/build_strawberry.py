@@ -17,6 +17,7 @@ import struct
 import sys
 import zlib
 
+import bmesh
 import bpy
 import numpy as np
 from mathutils import Euler, Vector
@@ -139,8 +140,8 @@ def make_seed_texture():
     v = (yy + 0.5) / H                     # v=0 底部
     # UV 来自原生球面：环参数 φ = π·v → 体表参数 t = (cos(π·v)+1)/2
     t = (np.cos(np.pi * v) + 1.0) / 2.0
-    top = np.array(hex_srgb(0xF2667F))     # 肩部亮玫瑰
-    bot = np.array(hex_srgb(0xE84B6D))     # 底部深玫瑰
+    top = np.array(hex_srgb(0xF0566F))     # 肩部亮草莓红
+    bot = np.array(hex_srgb(0xE23E5C))     # 底部深草莓红
     base = bot + (top - bot) * t[..., None]
     base += (np.clip((t - 0.70) / 0.20, 0, 1) * 0.04)[..., None]       # 肩部提亮
     base *= (1.0 - np.clip((0.10 - t) / 0.10, 0, 1) * 0.12)[..., None] # 接地压暗
@@ -201,27 +202,43 @@ smooth(berry)
 
 eye_mat = make_material('eye', solid_texture('eye', 0x241716), rough=0.12)
 hl_mat = make_material('highlight', solid_texture('highlight', 0xFFFFFF), rough=0.08)
-mouth_mat = make_material('mouth', solid_texture('mouth', 0x7E2F3B), rough=0.5)
-tongue_mat = make_material('tongue', solid_texture('tongue', 0xF08CA0), rough=0.45)
+mouth_mat = make_material('mouth', solid_texture('mouth', 0x6E2833), rough=0.5)
 blush_mat = make_material('blush', solid_texture('blush', 0xF78FA7), rough=0.6)
 sepal_mat = make_material('sepal', solid_texture('sepal', 0x5CA24E), rough=0.55)
 stem_mat = make_material('stem', solid_texture('stem', 0x6BB05C), rough=0.55)
-scarf_mat = make_material('scarf', solid_texture('scarf', 0xC4959A), rough=0.75)
 
 eye_l = add_sphere_part('EyeL', tuple(EYE_L), (0.080, 0.060, 0.095), eye_mat)
 eye_r = add_sphere_part('EyeR', tuple(EYE_R), (0.080, 0.060, 0.095), eye_mat)
 hl_l = add_sphere_part('HLL', tuple(EYE_L + Vector((-0.022, -0.055, 0.034))), (0.020, 0.013, 0.020), hl_mat)
 hl_r = add_sphere_part('HLR', tuple(EYE_R + Vector((-0.022, -0.055, 0.034))), (0.020, 0.013, 0.020), hl_mat)
-# 嘴/舌：按轮廓半径外推（v1 教训：全埋进体内 = 只剩舌头露半个）
-mouth_r = profile_radius(0.488)
-mouth = add_sphere_part('Mouth', (0.0, -(mouth_r - 0.018), 0.400), (0.056, 0.055, 0.050), mouth_mat)
-tongue = add_sphere_part('Tongue', (0.0, -(mouth_r - 0.002), 0.385), (0.032, 0.030, 0.026), tongue_mat)
-# 腮红：椭圆薄片贴在体表，薄片法线对准体表法线（to_track_quat，不手算欧拉角）
+# 开口笑：球体削平上沿 → 半穹顶朝外下（QQ 式张嘴笑）。v4 的细管笑弧会被曲面吞掉中段，
+# 半穹顶是实心面片，没有"细管凸出量"的脆弱性
+def build_smile():
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=16, radius=1.0, location=(0, 0, 0))
+    ob = bpy.context.active_object
+    ob.name = 'Mouth'
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > 0.002], context='VERTS')
+    bm.to_mesh(me)
+    bm.free()
+    mouth_r = profile_radius(0.518)        # z=0.425 处的体表半径
+    for v in me.vertices:
+        v.co = Vector((v.co.x * 0.058, v.co.y * 0.034, v.co.z * 0.042)) \
+            + Vector((0, -(mouth_r - 0.010), 0.425))
+    me.materials.append(mouth_mat)
+    smooth(ob)
+    return ob
+
+
+mouth = build_smile()
+# 腮红：18° 收进正脸区，薄片贴身（凸出轮廓 = 残片瑕疵，红线）
 for side, x in (('L', -1), ('R', 1)):
-    ang = math.radians(42)
+    ang = math.radians(18)
     nrm = Vector((math.sin(ang) * x, -math.cos(ang), 0))
-    pos = nrm * (profile_radius(0.55) - 0.006) + Vector((0, 0, 0.45))
-    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.058, 0.016, 0.040), blush_mat)
+    pos = nrm * (profile_radius(0.55) - 0.004) + Vector((0, 0, 0.47))
+    blush = add_sphere_part(f'Blush{side}', tuple(pos), (0.052, 0.012, 0.034), blush_mat)
     blush.rotation_euler = nrm.to_track_quat('Y', 'Z').to_euler()
 
 
@@ -261,18 +278,6 @@ def build_calyx():
 
 calyx, stem = build_calyx()
 
-# 围巾：贴住"脖颈"（按该高度轮廓半径反推主半径），v1 悬浮成光环的教训
-scarf_z = 0.56
-scarf_major = profile_radius(0.683) + 0.028
-bpy.ops.mesh.primitive_torus_add(major_radius=scarf_major, minor_radius=0.062,
-                                 major_segments=48, minor_segments=18, location=(0, 0, scarf_z))
-scarf = bpy.context.active_object
-scarf.name = 'Scarf'
-for v in scarf.data.vertices:      # 竖向压扁烘进顶点
-    v.co.z = (v.co.z - scarf_z) * 0.85 + scarf_z
-scarf.data.materials.append(scarf_mat)
-smooth(scarf)
-
 # ---------------------------------------------------------------- 绑定
 arm_data = bpy.data.armatures.new('FruitRig')
 arm = bpy.data.objects.new('FruitRig', arm_data)
@@ -295,11 +300,11 @@ for side, x in (('L', -1), ('R', 1)):
     b.parent = body_bone
 bpy.ops.object.mode_set(mode='OBJECT')
 
-mesh_objects = [berry, eye_l, eye_r, hl_l, hl_r, mouth, tongue,
-                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], calyx, stem, scarf]
+mesh_objects = [berry, eye_l, eye_r, hl_l, hl_r, mouth,
+                bpy.data.objects['BlushL'], bpy.data.objects['BlushR'], calyx, stem]
 GROUP_OF = {'Berry': 'Body', 'EyeL': 'EyeL', 'EyeR': 'EyeR', 'HLL': 'EyeL', 'HLR': 'EyeR',
-            'Mouth': 'Body', 'Tongue': 'Body', 'BlushL': 'Body', 'BlushR': 'Body',
-            'Calyx': 'Calyx', 'Stem': 'Calyx', 'Scarf': 'Body'}
+            'Mouth': 'Body', 'BlushL': 'Body', 'BlushR': 'Body',
+            'Calyx': 'Calyx', 'Stem': 'Calyx'}
 for ob in mesh_objects:
     vg = ob.vertex_groups.new(name=GROUP_OF[ob.name])
     vg.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
