@@ -1,6 +1,7 @@
 package com.cloudmart.community.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.community.dto.CreatePostRequest;
 import com.cloudmart.community.dto.UpdatePostRequest;
@@ -99,6 +100,10 @@ public class PostServiceImpl implements PostService {
         }
 
         int status = request.status() != null ? request.status() : 1;
+        // COM-01：作者只能创建草稿（0）或发布（1），不能自造其他状态
+        if (status != 0 && status != 1) {
+            throw new BusinessException("POST_STATUS_INVALID", "帖子状态仅支持草稿或发布");
+        }
 
         Post post = new Post();
         post.setUserId(userId);
@@ -185,6 +190,15 @@ public class PostServiceImpl implements PostService {
             }
         }
         if (request.status() != null) {
+            // COM-01：作者更新只允许草稿（0）/发布（1）之间的迁移，不能任意设置 status；
+            // 平台处置状态（如隐藏）的帖子不得由作者改回发布，只能撤回为草稿
+            if (request.status() != 0 && request.status() != 1) {
+                throw new BusinessException("POST_STATUS_INVALID", "帖子状态仅支持草稿或发布");
+            }
+            if (request.status() == 1 && post.getStatus() != null
+                    && post.getStatus() != 0 && post.getStatus() != 1) {
+                throw new BusinessException("POST_FORBIDDEN", "该帖子已被平台处置，不能重新发布");
+            }
             if (request.status() == 1 && post.getStatus() == 0) {
                 if (post.getContent() != null) {
                     ContentReviewService.ReviewResult reviewResult = contentReviewService.reviewContent(post.getContent());
@@ -277,12 +291,34 @@ public class PostServiceImpl implements PostService {
             throw new BusinessException("POST_NOT_FOUND", "帖子不存在");
         }
 
-        post.setViewCount(post.getViewCount() != null ? post.getViewCount() + 1 : 1);
-        postMapper.updateById(post);
+        // COM-01：公开可见 = 已发布且审核通过；草稿/待审/驳回仅作者本人可读，
+        // 其他访问者（含匿名）一律按不存在处理——不泄露内容与存在性
+        boolean publiclyVisible = isPubliclyVisible(post);
+        if (!publiclyVisible && !Objects.equals(post.getUserId(), currentUserId)) {
+            throw new BusinessException("POST_NOT_FOUND", "帖子不存在");
+        }
+
+        if (publiclyVisible) {
+            // COM-01：浏览量原子自增——读改写整行 updateById 会覆盖并发的作者编辑与计数
+            postMapper.update(null, new LambdaUpdateWrapper<Post>()
+                    .eq(Post::getId, postId)
+                    .setSql("view_count = COALESCE(view_count, 0) + 1"));
+            post.setViewCount(post.getViewCount() != null ? post.getViewCount() + 1 : 1);
+        }
 
         PostVO result = buildPostVO(post, currentUserId);
-        communityCacheService.putPostDetail(postId, result);
+        if (publiclyVisible && currentUserId == null) {
+            // COM-01：只缓存匿名视角（isLiked/isCollected 恒为 false）的公共正文——
+            // PostVO 携带当前用户互动状态，按登录用户写缓存会在接回读缓存时串号
+            communityCacheService.putPostDetail(postId, result);
+        }
         return result;
+    }
+
+    /** 公开可见：已发布（status=1）且审核通过（reviewStatus=1） */
+    private boolean isPubliclyVisible(Post post) {
+        return post.getStatus() != null && post.getStatus() == 1
+                && post.getReviewStatus() != null && post.getReviewStatus() == 1;
     }
 
     @Override
@@ -551,6 +587,9 @@ public class PostServiceImpl implements PostService {
         }
         post.setStatus(status);
         postMapper.updateById(post);
+        // COM-01：平台处置（隐藏/下架/恢复）同步清退详情与列表缓存
+        communityCacheService.evictPostDetail(postId);
+        communityCacheService.evictFeedPosts();
     }
 
     @Override
@@ -562,6 +601,9 @@ public class PostServiceImpl implements PostService {
         }
         post.setIsTop(isTop);
         postMapper.updateById(post);
+        // COM-01：置顶影响列表排序，同步清退详情与列表缓存
+        communityCacheService.evictPostDetail(postId);
+        communityCacheService.evictFeedPosts();
     }
 
     @Override
@@ -584,6 +626,9 @@ public class PostServiceImpl implements PostService {
         post.setReviewStatus(1);
         post.setReviewReason(null);
         postMapper.updateById(post);
+        // COM-01：审核通过后帖子进入公开可见，同步清退详情与列表缓存
+        communityCacheService.evictPostDetail(postId);
+        communityCacheService.evictFeedPosts();
     }
 
     @Override
@@ -596,6 +641,9 @@ public class PostServiceImpl implements PostService {
         post.setReviewStatus(2);
         post.setReviewReason(reason);
         postMapper.updateById(post);
+        // COM-01：驳回即退出公开可见，同步清退详情与列表/搜索缓存
+        communityCacheService.evictPostDetail(postId);
+        communityCacheService.evictFeedPosts();
     }
 
     @Override

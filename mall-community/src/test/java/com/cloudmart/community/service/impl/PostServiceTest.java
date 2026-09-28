@@ -397,4 +397,159 @@ class PostServiceTest {
             assertThat(result.getTotal()).isEqualTo(0L);
         }
     }
+
+    @Nested
+    @DisplayName("COM-01：内容可见性")
+    class ContentVisibilityTests {
+
+        private Post buildDraftPost() {
+            Post post = buildPublishedPost();
+            post.setStatus(0);
+            post.setReviewStatus(0);
+            return post;
+        }
+
+        private Post buildPendingReviewPost() {
+            Post post = buildPublishedPost();
+            post.setStatus(1);
+            post.setReviewStatus(0);
+            return post;
+        }
+
+        @Test
+        @DisplayName("草稿仅作者本人可读，不写缓存、不计浏览量")
+        void getPostDetail_draft_byAuthorReadable() {
+            Post post = buildDraftPost();
+            when(postMapper.selectById(POST_ID)).thenReturn(post);
+            mockBuildPostVODependencies(USER_ID);
+            when(likeService.isLiked(anyLong(), any(), anyLong())).thenReturn(false);
+            when(postCollectionMapper.selectCount(any())).thenReturn(0L);
+
+            PostVO vo = postService.getPostDetail(POST_ID, USER_ID);
+
+            assertThat(vo.status()).isEqualTo(0);
+            verify(postMapper, never()).update(any(), any());
+            verify(communityCacheService, never()).putPostDetail(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("草稿对其他用户按不存在处理（404，不泄露存在性）")
+        void getPostDetail_draft_byOtherUser_notFound() {
+            when(postMapper.selectById(POST_ID)).thenReturn(buildDraftPost());
+
+            assertThatThrownBy(() -> postService.getPostDetail(POST_ID, OTHER_USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("草稿/待审对匿名访问按不存在处理")
+        void getPostDetail_draft_anonymous_notFound() {
+            when(postMapper.selectById(POST_ID)).thenReturn(buildDraftPost());
+
+            assertThatThrownBy(() -> postService.getPostDetail(POST_ID, null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_NOT_FOUND");
+
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPendingReviewPost());
+
+            assertThatThrownBy(() -> postService.getPostDetail(POST_ID, null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("待审帖对非作者不可读")
+        void getPostDetail_pendingReview_byOtherUser_notFound() {
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPendingReviewPost());
+
+            assertThatThrownBy(() -> postService.getPostDetail(POST_ID, OTHER_USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("公开帖匿名访问：浏览量原子自增（不整行覆盖），仅匿名视角写缓存")
+        void getPostDetail_published_anonymous_atomicViewCountAndCache() {
+            Post post = buildPublishedPost();
+            when(postMapper.selectById(POST_ID)).thenReturn(post);
+            mockBuildPostVODependencies(USER_ID);
+
+            PostVO vo = postService.getPostDetail(POST_ID, null);
+
+            assertThat(vo.viewCount()).isEqualTo(11);
+            // 原子自增：update(null, wrapper)，不再读改写 updateById
+            verify(postMapper).update(org.mockito.ArgumentMatchers.isNull(),
+                    org.mockito.ArgumentMatchers.any());
+            verify(postMapper, never()).updateById(any(Post.class));
+            verify(communityCacheService).putPostDetail(eq(POST_ID), any());
+        }
+
+        @Test
+        @DisplayName("公开帖登录访问：不写详情缓存（PostVO 含个人互动状态）")
+        void getPostDetail_published_loggedIn_noCacheWrite() {
+            Post post = buildPublishedPost();
+            when(postMapper.selectById(POST_ID)).thenReturn(post);
+            mockBuildPostVODependencies(OTHER_USER_ID);
+            when(likeService.isLiked(anyLong(), any(), anyLong())).thenReturn(false);
+            when(postCollectionMapper.selectCount(any())).thenReturn(0L);
+
+            postService.getPostDetail(POST_ID, OTHER_USER_ID);
+
+            verify(communityCacheService, never()).putPostDetail(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("作者更新不能自造状态（仅 0/1）")
+        void updatePost_invalidStatus_rejected() {
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPublishedPost());
+            com.cloudmart.community.dto.UpdatePostRequest request =
+                    new com.cloudmart.community.dto.UpdatePostRequest(
+                            null, null, null, null, null, null, null, null, 2);
+
+            assertThatThrownBy(() -> postService.updatePost(USER_ID, POST_ID, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_STATUS_INVALID");
+        }
+
+        @Test
+        @DisplayName("平台处置（隐藏）后的帖子不得由作者改回发布")
+        void updatePost_hiddenPost_cannotRepublish() {
+            Post hidden = buildPublishedPost();
+            hidden.setStatus(2);
+            when(postMapper.selectById(POST_ID)).thenReturn(hidden);
+            com.cloudmart.community.dto.UpdatePostRequest request =
+                    new com.cloudmart.community.dto.UpdatePostRequest(
+                            null, null, null, null, null, null, null, null, 1);
+
+            assertThatThrownBy(() -> postService.updatePost(USER_ID, POST_ID, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_FORBIDDEN");
+        }
+
+        @Test
+        @DisplayName("审核驳回/平台处置同步清退详情与列表缓存")
+        void reviewTransitions_evictCaches() {
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPublishedPost());
+
+            postService.rejectPost(POST_ID, "内容违规");
+            verify(communityCacheService).evictPostDetail(POST_ID);
+            verify(communityCacheService).evictFeedPosts();
+
+            postService.adminUpdatePostStatus(POST_ID, 2);
+            verify(communityCacheService, org.mockito.Mockito.times(2)).evictPostDetail(POST_ID);
+            verify(communityCacheService, org.mockito.Mockito.times(2)).evictFeedPosts();
+        }
+
+        @Test
+        @DisplayName("创建帖子状态非法（自造状态）拒绝")
+        void createPost_invalidStatus_rejected() {
+            CreatePostRequest request = new CreatePostRequest(
+                    "T", "C", null, null, "IMAGE", null, null, null, 5);
+
+            assertThatThrownBy(() -> postService.createPost(USER_ID, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_STATUS_INVALID");
+        }
+    }
 }
