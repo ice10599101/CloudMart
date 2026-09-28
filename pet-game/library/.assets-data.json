@@ -1,0 +1,2313 @@
+{
+  "688938b9-7849-4b90-bf82-ae7247d39f9a": {
+    "url": "db://assets/effects",
+    "value": {},
+    "versionCode": 1
+  },
+  "06b0d216-8342-41d2-b84e-f648d8640224": {
+    "url": "db://assets/resources",
+    "value": {},
+    "versionCode": 1
+  },
+  "49f15086-01a1-4999-bb84-ff3fc341fbbe": {
+    "url": "db://assets/scenes",
+    "value": {},
+    "versionCode": 1
+  },
+  "947f2b79-b4ee-47f9-92d0-f5f25ece9759": {
+    "url": "db://assets/scripts",
+    "value": {},
+    "versionCode": 1
+  },
+  "947c2e53-bb93-43e5-932e-6207ae6daf46": {
+    "url": "db://assets/resources/effects",
+    "value": {},
+    "versionCode": 1
+  },
+  "753c53ad-d458-4765-bc3b-f122271b6312": {
+    "url": "db://assets/resources/models",
+    "value": {},
+    "versionCode": 1
+  },
+  "e1d1cab4-4760-464b-8495-9d3b2eb80712": {
+    "url": "db://assets/resources/textures",
+    "value": {},
+    "versionCode": 1
+  },
+  "93aaf713-706e-4325-ad3b-8ee803a8258c": {
+    "url": "db://assets/resources/models/cat",
+    "value": {},
+    "versionCode": 1
+  },
+  "3b7c41e8-52af-4d19-9c66-0e2d8a71f4c3": {
+    "url": "db://assets/resources/effects/pet-toon.effect",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "36d45442-d7a9-46d4-b79d-f624e2a9f06e": {
+    "url": "db://assets/scripts/PetBuilderKit.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "92b701ca-ea3d-407a-bea8-6cff1babb950": {
+    "url": "db://assets/scripts/PetEffects.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "743bd67a-5b61-46fb-a87c-2a54826671bf": {
+    "url": "db://assets/scripts/PetGameBridge.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "de28b229-6641-4583-a481-86f5040a13f7": {
+    "url": "db://assets/scripts/PetGameRoot.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "f65e0420-f76a-45dc-9604-ee04374aab89": {
+    "url": "db://assets/scripts/PetGameTheme.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "0f82c2ce-690e-45f3-9f36-e74c6bac959b": {
+    "url": "db://assets/scripts/PetMeshFactory.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "ade82860-da78-4dc1-ac7a-487155509569": {
+    "url": "db://assets/scripts/PetRoomBuilder.ts",
+    "value": {},
+    "versionCode": 1
+  },
+  "7acc2b2c-4772-4e38-8bcb-29682fc42a0a": {
+    "url": "db://assets/scenes/PetHome.scene",
+    "value": {
+      "depends": [],
+      "dependScripts": [
+        "de28b229-6641-4583-a481-86f5040a13f7"
+      ]
+    },
+    "versionCode": 2
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076": {
+    "url": "db://assets/resources/textures/eye_sprite.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076@6c48a": {
+    "url": "db://assets/resources/textures/eye_sprite.png@6c48a",
+    "value": {
+      "depends": [
+        "52e4e89a-437e-452e-af12-00af6807b076"
+      ]
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065@6c48a": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png@6c48a",
+    "value": {
+      "depends": [
+        "02825ce1-9af0-4607-9525-45c264c38065"
+      ]
+    },
+    "versionCode": 1
+  },
+  "52e4e89a-437e-452e-af12-00af6807b076@f9941": {
+    "url": "db://assets/resources/textures/eye_sprite.png@f9941",
+    "value": {
+      "depends": [
+        "52e4e89a-437e-452e-af12-00af6807b076@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "02825ce1-9af0-4607-9525-45c264c38065@f9941": {
+    "url": "db://assets/resources/textures/pet-cat-alive.png@f9941",
+    "value": {
+      "depends": [
+        "02825ce1-9af0-4607-9525-45c264c38065@6c48a"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@92111": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@92111",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@99380": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@99380",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9d153a98-66ac-4116-a265-38af606b169f@221a5",
+        "9d153a98-66ac-4116-a265-38af606b169f@0089c",
+        "9d153a98-66ac-4116-a265-38af606b169f@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@319ee": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@319ee",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c5f6f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c5f6f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@7035a": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@7035a",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@3b384": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@d85fa": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c2696": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@f1e7a": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@f1e7a",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@7e97f": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@7e97f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@df027": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@df027",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@3effa": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@3effa",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@92111"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@221a5": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@221a5",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@7e97f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@0089c": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@0089c",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@df027"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d153a98-66ac-4116-a265-38af606b169f@c5ab7": {
+    "url": "db://assets/resources/models/cat/pet-cat-rigged.glb@c5ab7",
+    "value": {
+      "depends": [
+        "9d153a98-66ac-4116-a265-38af606b169f@99380",
+        "9d153a98-66ac-4116-a265-38af606b169f@319ee",
+        "9d153a98-66ac-4116-a265-38af606b169f@f1e7a",
+        "9d153a98-66ac-4116-a265-38af606b169f@c5f6f",
+        "9d153a98-66ac-4116-a265-38af606b169f@7035a",
+        "9d153a98-66ac-4116-a265-38af606b169f@3b384",
+        "9d153a98-66ac-4116-a265-38af606b169f@d85fa",
+        "9d153a98-66ac-4116-a265-38af606b169f@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9d1e8083-90b9-4e7b-a9bc-de7e834d475d": {
+    "url": "db://assets/resources/models/fruit",
+    "value": {},
+    "versionCode": 1
+  },
+  "b54ca0a2-c4f3-4a08-9fb7-8e395326ce94": {
+    "url": "db://assets/resources/models/fruit/strawberry",
+    "value": {},
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@30572": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@30572",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@50743": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@50743",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@8c108"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@51783": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@51783",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@90530": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@90530",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@0a13e": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@0a13e",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@c031d": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@c031d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@f217d": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@f217d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@7913f": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@7913f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@76aef": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@76aef",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@fd26c": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@fd26c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@e3b11": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@e3b11",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@49b7c": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@49b7c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@3b384": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@d85fa": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@c2696": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@cb324": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@cb324",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@099d8": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@099d8",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@bf235": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@bf235",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@df224": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@df224",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@220af": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@220af",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@7aa52": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@7aa52",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@8c108": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@8c108",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@3effa": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@3effa",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@099d8"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@221a5": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@221a5",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@bf235"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@0089c": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@0089c",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@df224"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@9b633": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@9b633",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@2455f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@9b782": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@9b782",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@ead68"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@99ea5": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@99ea5",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@220af"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@b1553": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@b1553",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@3f40f": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@3f40f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@17df9": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@17df9",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@1c6cb": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@1c6cb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@670ae": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@670ae",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@0b4f3": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@0b4f3",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@006bd"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@59e9d": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@59e9d",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@5c66b": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@5c66b",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@b1553",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0a13e",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@cb324",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@3f40f",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@e3b11",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@c031d",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@1c6cb",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@7913f",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@30572",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@16ff4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@51783",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@3906f",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@27eb0",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@2eea7",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@d7505",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@ecfd1",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@4eeed",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@b7dfa",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@59e9d",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@faf2b",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@670ae",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@76aef",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@fd26c",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0b4f3",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@a4749",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@49b7c",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@3b384",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@d85fa",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@53004": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@53004",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@9b633"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@55863": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@55863",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@27eb0": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@27eb0",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@b7017": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@b7017",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@5b67c": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@5b67c",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@1a357": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@1a357",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@102eb": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@102eb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@0b869": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@0b869",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@d94e2": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@d94e2",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@2eea7": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@2eea7",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@d7505": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@d7505",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@ecfd1": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@ecfd1",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@4eeed": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@4eeed",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@b7dfa": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@b7dfa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@faf2b": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@faf2b",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@a4749": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@a4749",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@2455f": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@2455f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@ead68": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@ead68",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@006bd": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@006bd",
+    "value": {
+      "depends": [
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@7aa52"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@16ff4": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@16ff4",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@9b633"
+      ]
+    },
+    "versionCode": 1
+  },
+  "82fce39b-8b5c-41d7-9b87-1527848e8025@3906f": {
+    "url": "db://assets/resources/models/fruit/strawberry/strawberry.glb@3906f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "82fce39b-8b5c-41d7-9b87-1527848e8025@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "edd964b8-3dd4-49dc-9a2b-1e6c2d4b86e8": {
+    "url": "db://assets/resources/models/fruit/blueberry",
+    "value": {},
+    "versionCode": 1
+  },
+  "8859dd5d-ba74-43b0-8d1c-b25435674771": {
+    "url": "db://assets/resources/models/fruit/dragonfruit",
+    "value": {},
+    "versionCode": 1
+  },
+  "f36fde3f-3ff1-4366-8b5a-99eaa470751d": {
+    "url": "db://assets/resources/models/fruit/orange",
+    "value": {},
+    "versionCode": 1
+  },
+  "3b1e3c0d-a1ee-4e8c-aa7e-2d677c005068": {
+    "url": "db://assets/resources/models/fruit/watermelon",
+    "value": {},
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 3
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@30572": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@30572",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@30572": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@30572",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@30572": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@30572",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@30572": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@30572",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@50743": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@50743",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@8c108"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@50743": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@50743",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@7aa52"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@50743": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@50743",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@220af"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@50743": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@50743",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@8c108"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@51783": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@51783",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@51783": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@51783",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@51783": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@51783",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@51783": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@51783",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@66994": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@66994",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@e3b11": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@e3b11",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@e3b11": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@e3b11",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@0a13e": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@0a13e",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@e3b11": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@e3b11",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@c031d": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@c031d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@c031d": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@c031d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@e3b11": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@e3b11",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@c031d": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@c031d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@7913f": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@7913f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@7913f": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@7913f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@c031d": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@c031d",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@4eeed": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@4eeed",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@76aef": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@76aef",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@76aef": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@76aef",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@7913f": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@7913f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@b7dfa": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@b7dfa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@fd26c": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@fd26c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@fd26c": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@fd26c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@76aef": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@76aef",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@faf2b": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@faf2b",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@a4749": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@a4749",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@27eb0": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@27eb0",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@27eb0": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@27eb0",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0a13e": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@0a13e",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@49b7c": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@49b7c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@2eea7": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@2eea7",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@7913f": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@7913f",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@2eea7": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@2eea7",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@a4749": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@a4749",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@0a13e": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@0a13e",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@d7505": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@d7505",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@76aef": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@76aef",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@3b384": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0a13e": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@0a13e",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@ecfd1": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@ecfd1",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@27eb0": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@27eb0",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@d85fa": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3b384": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@4eeed": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@4eeed",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@d85fa": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@c2696": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@2eea7": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@2eea7",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@cb324": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@cb324",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@c2696": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@b7dfa": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@b7dfa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@d7505": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@d7505",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@bf235": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@bf235",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@cb324": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@cb324",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@fd26c": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@fd26c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@bf235": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@bf235",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@ecfd1": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@ecfd1",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@df224": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@df224",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@a4749": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@a4749",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@df224": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@df224",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@fd26c": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@fd26c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@220af": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@220af",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@3b384": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@220af": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@220af",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@a4749": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@a4749",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@ead68": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@ead68",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@d85fa": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3b384": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@3b384",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ead68": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@ead68",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@c2696": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@7aa52": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@7aa52",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@cb324": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@cb324",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@d85fa": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@d85fa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@7aa52": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@7aa52",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@d6575": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@d6575",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@8c108": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@8c108",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@c2696": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@c2696",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 4
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ad458": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@ad458",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@cb324": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@cb324",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@bf235": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@bf235",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@ccc9f": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@ccc9f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@bf235": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@bf235",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@8c108": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@8c108",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@df224": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@df224",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@3effa": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@3effa",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@bf235"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@ead68": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@ead68",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@221a5": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@221a5",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@df224"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3effa": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@3effa",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@bf235"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@ead68": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@ead68",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@0089c": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@0089c",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@220af"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@221a5": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@221a5",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@df224"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@8d864": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@8d864",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@9b633": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@9b633",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@ead68"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0089c": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@0089c",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ead68"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@2455f": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@2455f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@9b782": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@9b782",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@7aa52"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@9b633": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@9b633",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@2455f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@df224": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@df224",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@99ea5": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@99ea5",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@ccc9f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@9b782": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@9b782",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@220af"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@8c108": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@8c108",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@3f40f": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@3f40f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@99ea5": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@99ea5",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ad458"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@8c108": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@8c108",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@1c6cb": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@1c6cb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3f40f": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@3f40f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@670ae": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@670ae",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@1c6cb": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@1c6cb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@220af": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@220af",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@220af": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@220af",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@3906f": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@3906f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@9b633"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@670ae": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@670ae",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@0b4f3": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@0b4f3",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3906f": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@3906f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@7aa52": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@7aa52",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@7aa52": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@7aa52",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@59e9d": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@59e9d",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0b4f3": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@0b4f3",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@910f6": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@910f6",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@3effa": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@3effa",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@d6575"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@07910": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@07910",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "9433fc4d-363a-4195-910c-3e760bdd5096@c1587": {
+    "url": "db://assets/resources/models/fruit/watermelon/watermelon.glb@c1587",
+    "value": {
+      "depends": [
+        "9433fc4d-363a-4195-910c-3e760bdd5096@3f40f",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@e3b11",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@cb324",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@c031d",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@1c6cb",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@7913f",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@76aef",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@670ae",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@30572",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@fd26c",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@3906f",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@51783",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@0b4f3",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@a4749",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@59e9d",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@49b7c",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@910f6",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@0a13e",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@3b384",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@d85fa",
+        "9433fc4d-363a-4195-910c-3e760bdd5096@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@221a5": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@221a5",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@bf235"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3effa": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@3effa",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@bf235"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@59e9d": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@59e9d",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@006bd"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@221a5": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@221a5",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@ead68"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@0089c": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@0089c",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@df224"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@09d3f": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@09d3f",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3f40f",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@e3b11",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@cb324",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@c031d",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@1c6cb",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@7913f",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@76aef",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3906f",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@27eb0",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@2eea7",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@d7505",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ecfd1",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@4eeed",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@16ff4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@51783",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@670ae",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@30572",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@fd26c",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@b7dfa",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@faf2b",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0b4f3",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@a4749",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@07910",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@0a13e",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@59e9d",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@49b7c",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@3b384",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@d85fa",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0089c": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@0089c",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@8d864"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@9b633": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@9b633",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@ead68"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@9b633": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@9b633",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@df224"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@9b782": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@9b782",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@2455f"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@9b782": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@9b782",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@8c108"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@99ea5": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@99ea5",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@220af"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@99ea5": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@99ea5",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@7aa52"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@006bd": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@006bd",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@7aa52"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3f40f": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@3f40f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@0a1a5": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@0a1a5",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@3effa"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3906f": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@3906f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@3f40f": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@3f40f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@221a5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@1c6cb": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@1c6cb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@9b633"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@1c6cb": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@1c6cb",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@0089c"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@59e9d": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@59e9d",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@3906f": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@3906f",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@9b633"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@670ae": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@670ae",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@16ff4": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@16ff4",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@9b782"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0b4f3": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@0b4f3",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@59e9d": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@59e9d",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@50743"
+      ]
+    },
+    "versionCode": 1
+  },
+  "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@2a56a": {
+    "url": "db://assets/resources/models/fruit/dragonfruit/dragonfruit.glb@2a56a",
+    "value": {
+      "depends": [
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3f40f",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@e3b11",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@cb324",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@c031d",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3906f",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@4eeed",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@b7dfa",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@faf2b",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@66994",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0a13e",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@1c6cb",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@7913f",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@76aef",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@59e9d",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@51783",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@27eb0",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@2eea7",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@d7505",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@ecfd1",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@670ae",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@30572",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@fd26c",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@0b4f3",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@a4749",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@3b384",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@d85fa",
+        "8cc8876a-8fb2-4a5a-9a8c-80d033b5a33b@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@670ae": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@670ae",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@99ea5"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@0b4f3": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@0b4f3",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@006bd"
+      ]
+    },
+    "versionCode": 1
+  },
+  "3ed36440-ce7e-449d-89df-c1991a3bfb43@9b7b1": {
+    "url": "db://assets/resources/models/fruit/blueberry/blueberry.glb@9b7b1",
+    "value": {
+      "depends": [
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@0a1a5",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@0a13e",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@cb324",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@3f40f",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@e3b11",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@c031d",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@1c6cb",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@7913f",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@76aef",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@3906f",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@27eb0",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@2eea7",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@d7505",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@ecfd1",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@4eeed",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@16ff4",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@51783",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@59e9d",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@b7dfa",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@670ae",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@30572",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@fd26c",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@0b4f3",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@a4749",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@3b384",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@d85fa",
+        "3ed36440-ce7e-449d-89df-c1991a3bfb43@c2696"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@d7505": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@d7505",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@ecfd1": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@ecfd1",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@4eeed": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@4eeed",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@b7dfa": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@b7dfa",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@faf2b": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@faf2b",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@49b7c": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@49b7c",
+    "value": {
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@2455f": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@2455f",
+    "value": {
+      "imageExtName": ".png",
+      "depends": []
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@006bd": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@006bd",
+    "value": {
+      "depends": [
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@8c108"
+      ]
+    },
+    "versionCode": 1
+  },
+  "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@16ff4": {
+    "url": "db://assets/resources/models/fruit/orange/orange.glb@16ff4",
+    "value": {
+      "depends": [
+        "c8f66d17-351a-48da-a12c-0212d28575c4",
+        "5c2bcd6e-682b-40f1-8d86-eaa298d1ec26@9b633"
+      ]
+    },
+    "versionCode": 1
+  }
+}
