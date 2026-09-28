@@ -142,6 +142,28 @@ public class OssFileServiceImpl implements FileService {
         }
     }
 
+    @Override
+    public byte[] readByStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        Path resolved = storageRoot.resolve(storageKey).normalize();
+        if (!resolved.startsWith(storageRoot)) {
+            log.warn("拒绝路径穿越读取请求: {}", storageKey);
+            return null;
+        }
+        try {
+            Path target = resolved;
+            if (!Files.exists(target)) {
+                return null;
+            }
+            return Files.readAllBytes(target);
+        } catch (IOException e) {
+            log.error("本地文件读取失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
     /** 将对外 URL 解析为相对存储根的本地路径；非本地 URL 或路径穿越返回 null */
     private String toLocalRelativePath(String url) {
         String prefix = URL_PREFIX + "/";

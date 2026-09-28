@@ -45,6 +45,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error", "/actuator/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/files/**").permitAll()
+                // FILE-01：签名授权下载——鉴权由 HMAC token 在控制器内完成（请求无 Authorization 头）
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                        "/assets/*/download", "/file/assets/*/download").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**",
                         "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()

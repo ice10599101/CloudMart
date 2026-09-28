@@ -33,7 +33,8 @@ class FileControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new FileController(fileService, uploadQuotaService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new FileController(fileService, uploadQuotaService,
+                org.mockito.Mockito.mock(com.cloudmart.file.service.FileAssetService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
