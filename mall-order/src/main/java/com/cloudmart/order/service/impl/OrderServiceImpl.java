@@ -954,6 +954,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId) {
+        return orderMapper.findCompletedOrderIdsWithSku(userId, skuId);
+    }
+
+    @Override
     public com.cloudmart.order.dto.OrderInternalInfoDTO getInternalOrderInfo(Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {

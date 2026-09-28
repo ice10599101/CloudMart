@@ -2,6 +2,7 @@ package com.cloudmart.product.service.impl;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.dto.CreateReviewRequest;
 import com.cloudmart.product.dto.ReviewDTO;
@@ -46,12 +47,15 @@ class ReviewServiceTest {
 
     @Mock
     private ObjectMapper objectMapper;
+    private com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient =
+            org.mockito.Mockito.mock(com.cloudmart.product.feign.OrderPurchaseFeignClient.class);
 
     private ReviewServiceImpl reviewService;
 
     @BeforeEach
     void setUp() {
-        reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper);
+        reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper,
+                orderPurchaseFeignClient);
     }
 
     @Test
@@ -82,6 +86,9 @@ class ReviewServiceTest {
         sku.setId(4001L);
         sku.setAttributes("颜色:红色;尺码:XL");
         when(skuMapper.selectById(4001L)).thenReturn(sku);
+        // REVIEW-01：资格放行（userId=1001L 对 skuId=4001L 有已完成订单 2001L）
+        when(orderPurchaseFeignClient.purchaseEligibility(1001L, 4001L))
+                .thenReturn(ApiResponse.ok(List.of(2001L)));
 
         ReviewDTO result = reviewService.createReview(userId, request);
 
@@ -112,6 +119,9 @@ class ReviewServiceTest {
         when(productMapper.selectById(3001L)).thenReturn(product);
 
         when(reviewMapper.selectCount(any())).thenReturn(1L);
+        // REVIEW-01：先过资格校验
+        when(orderPurchaseFeignClient.purchaseEligibility(1001L, 4001L))
+                .thenReturn(ApiResponse.ok(List.of(2001L)));
 
         assertThatThrownBy(() -> reviewService.createReview(userId, request))
                 .isInstanceOf(BusinessException.class)

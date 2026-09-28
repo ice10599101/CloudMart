@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 订单内部回调接口（SEC-01）：供 mall-payment 经服务令牌回调，替代旧的
  * {@code /orders/{orderId}/payment-success|cancel-notify} 用户前缀路径——
@@ -56,5 +58,14 @@ public class InternalOrderController {
     public ApiResponse<com.cloudmart.order.dto.OrderInternalInfoDTO> getInternalInfo(
             @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
         return ApiResponse.ok(orderService.getInternalOrderInfo(orderId));
+    }
+
+    /** REVIEW-01：评价资格判定——该用户已完成订单中包含指定 SKU 的订单列表 */
+    @GetMapping("/purchase-eligibility")
+    @Operation(summary = "购买资格查询", description = "userId+skuId；返回已完成且包含该 SKU 的订单 ID")
+    public ApiResponse<List<Long>> purchaseEligibility(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @Parameter(description = "SKU ID", required = true) @org.springframework.web.bind.annotation.RequestParam("skuId") Long skuId) {
+        return ApiResponse.ok(orderService.findCompletedOrderIdsWithSku(userId, skuId));
     }
 }

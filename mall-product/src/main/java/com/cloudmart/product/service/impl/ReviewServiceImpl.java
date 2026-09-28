@@ -2,6 +2,7 @@ package com.cloudmart.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.dto.CreateReviewRequest;
 import com.cloudmart.product.dto.ReviewDTO;
@@ -32,15 +33,18 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductMapper productMapper;
     private final ProductSkuMapper skuMapper;
     private final ObjectMapper objectMapper;
+    private final com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient;
 
     public ReviewServiceImpl(ProductReviewMapper reviewMapper,
                              ProductMapper productMapper,
                              ProductSkuMapper skuMapper,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient) {
         this.reviewMapper = reviewMapper;
         this.productMapper = productMapper;
         this.skuMapper = skuMapper;
         this.objectMapper = objectMapper;
+        this.orderPurchaseFeignClient = orderPurchaseFeignClient;
     }
 
     @Override
@@ -49,6 +53,17 @@ public class ReviewServiceImpl implements ReviewService {
         Product product = productMapper.selectById(request.productId());
         if (product == null) {
             throw new BusinessException("PRODUCT_NOT_FOUND", "商品不存在");
+        }
+
+        // REVIEW-01：购买资格权威校验——传入 orderId 必须属于该用户、已完成且包含该 SKU。
+        // 未购/他人订单/订单未完成/SKU 与订单不符一律拒绝；订单服务不可用 fail-closed
+        ApiResponse<List<Long>> eligibility =
+                orderPurchaseFeignClient.purchaseEligibility(userId, request.skuId());
+        if (eligibility == null || !eligibility.success() || eligibility.data() == null) {
+            throw new BusinessException("REVIEW_NOT_ELIGIBLE", "未找到可评价的已购订单");
+        }
+        if (!eligibility.data().contains(request.orderId())) {
+            throw new BusinessException("REVIEW_NOT_ELIGIBLE", "仅可评价已完成订单中购买的商品");
         }
 
         LambdaQueryWrapper<ProductReview> existsWrapper = new LambdaQueryWrapper<ProductReview>()
@@ -76,7 +91,13 @@ public class ReviewServiceImpl implements ReviewService {
             }
         }
 
-        reviewMapper.insert(review);
+        try {
+            reviewMapper.insert(review);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // REVIEW-01：并发重复评价由 uk_user_order_product 唯一键兜底（同订单同商品唯一，
+            // 同单不同 SKU 可分别评），预检竞态窗口的重复插入转译为业务冲突
+            throw new BusinessException("REVIEW_ALREADY_EXISTS", "您已评价过该商品");
+        }
 
         ProductSku sku = skuMapper.selectById(request.skuId());
         String skuAttributes = sku != null ? sku.getAttributes() : null;

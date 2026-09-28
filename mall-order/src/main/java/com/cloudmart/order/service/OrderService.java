@@ -41,6 +41,9 @@ public interface OrderService {
      */
     com.cloudmart.order.dto.OrderInternalInfoDTO getInternalOrderInfo(Long orderId);
 
+    /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
+    List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
+
     PaymentDTO payForOrder(Long userId, Long orderId);
 
     PaymentDTO getPaymentByOrderId(Long userId, Long orderId);

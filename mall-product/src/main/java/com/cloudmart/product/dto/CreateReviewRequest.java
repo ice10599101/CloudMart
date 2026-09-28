@@ -14,5 +14,5 @@ public record CreateReviewRequest(
     @NotNull Long skuId,
     @NotNull @Min(1) @Max(5) Integer rating,
     @NotBlank @Size(max = 1000) String content,
-    List<String> images
+    @Size(max = 9, message = "图片最多 9 张") List<String> images
 ) {}

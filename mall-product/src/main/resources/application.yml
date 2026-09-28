@@ -122,6 +122,9 @@ cloudmart:
     jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     clock-skew-seconds: 30
     service-token-ttl-seconds: 60
+    outbound-scopes:
+      # REVIEW-01：评价资格内部查询（/internal/orders/purchase-eligibility）
+      mall-order: order:internal
     service-token-paths:
       - prefix: /products/es
         issuers: [mall-admin, mall-ai]

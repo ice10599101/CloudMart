@@ -3,6 +3,7 @@ package com.cloudmart.product.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.dto.CreateReviewRequest;
 import com.cloudmart.product.dto.ReviewDTO;
@@ -41,6 +42,8 @@ class ReviewServiceImplTest {
     private ProductMapper productMapper;
     private ProductSkuMapper skuMapper;
     private ObjectMapper objectMapper;
+    private com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient =
+            org.mockito.Mockito.mock(com.cloudmart.product.feign.OrderPurchaseFeignClient.class);
     private ReviewServiceImpl reviewService;
 
     @BeforeAll
@@ -61,7 +64,8 @@ class ReviewServiceImplTest {
         productMapper = mock(ProductMapper.class);
         skuMapper = mock(ProductSkuMapper.class);
         objectMapper = new ObjectMapper();
-        reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper);
+        reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper,
+                orderPurchaseFeignClient);
     }
 
     private Product buildProduct(Long id) {
@@ -92,6 +96,8 @@ class ReviewServiceImplTest {
             when(productMapper.selectById(1L)).thenReturn(product);
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(skuMapper.selectById(10L)).thenReturn(sku);
+            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
+                    .thenReturn(ApiResponse.ok(List.of(100L)));
 
             CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 5, "Great product!", List.of("img1.jpg"));
             ReviewDTO result = reviewService.createReview(200L, request);
@@ -126,6 +132,9 @@ class ReviewServiceImplTest {
             Product product = buildProduct(1L);
             when(productMapper.selectById(1L)).thenReturn(product);
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+            // REVIEW-01：先过资格校验（userId=200L 对 skuId=10L 有已完成订单 100L）
+            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
+                    .thenReturn(ApiResponse.ok(List.of(100L)));
 
             CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 5, "Good", null);
 
@@ -143,6 +152,8 @@ class ReviewServiceImplTest {
             when(productMapper.selectById(1L)).thenReturn(product);
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(skuMapper.selectById(10L)).thenReturn(sku);
+            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
+                    .thenReturn(ApiResponse.ok(List.of(100L)));
 
             CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 4, "OK", null);
             ReviewDTO result = reviewService.createReview(200L, request);

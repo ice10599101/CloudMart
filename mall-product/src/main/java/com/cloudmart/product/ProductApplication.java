@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
+@org.springframework.cloud.openfeign.EnableFeignClients
 @MapperScan("com.cloudmart.product.repository")
 @Import(GlobalExceptionHandler.class)
 public class ProductApplication {
