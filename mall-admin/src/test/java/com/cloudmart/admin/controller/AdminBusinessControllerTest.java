@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -222,9 +223,12 @@ class AdminBusinessControllerTest {
 
     @Test
     void shipOrder_orderShippedSuccessfully() throws Exception {
-        given(orderFeignClient.shipOrder(1L)).willReturn(ApiResponse.ok("order"));
+        given(orderFeignClient.shipOrder(eq(1L), org.mockito.ArgumentMatchers.any()))
+                .willReturn(ApiResponse.ok("order"));
 
-        mockMvc.perform(put("/business/orders/1/ship").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(put("/business/orders/1/ship")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"SF\",\"trackingNo\":\"SF123\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

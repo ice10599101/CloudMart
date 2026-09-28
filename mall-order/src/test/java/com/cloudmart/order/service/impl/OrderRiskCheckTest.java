@@ -78,6 +78,7 @@ class OrderRiskCheckTest {
                 mock(com.cloudmart.order.feign.CouponFeignClient.class),
                 mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 riskFeignClient,
+                mock(com.cloudmart.order.feign.WmsShippingFeignClient.class),
                 redisTemplate,
                 mock(com.cloudmart.order.mq.OrderEventProducer.class),
                 mock(com.cloudmart.common.async.outbox.OutboxService.class),

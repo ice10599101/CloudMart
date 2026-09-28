@@ -47,12 +47,21 @@ public class AdminOrderController {
         return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
     }
 
+    public record ShipRequest(
+            @jakarta.validation.constraints.NotBlank(message = "承运商不能为空") String carrier,
+            @jakarta.validation.constraints.NotBlank(message = "运单号不能为空") String trackingNo,
+            Long warehouseId) {
+    }
+
     @PutMapping("/{orderId}/ship")
     @PreAuthorize("hasRole('INTERNAL')")
-    @Operation(summary = "订单发货", description = "管理后台将已支付订单标记为已发货")
+    @Operation(summary = "订单发货", description = "WMS-01 闭环：先在 WMS 建立真实包裹（运单号必填）并出库，"
+            + "订单经 ORDER_SHIPPED 事件/CAS 推进 SHIPPED")
     public ApiResponse<OrderVO> shipOrder(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        OrderDTO dto = orderService.shipOrder(orderId);
+            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ShipRequest request) {
+        OrderDTO dto = orderService.shipOrder(orderId, request.carrier(),
+                request.trackingNo(), request.warehouseId());
         return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
     }
 

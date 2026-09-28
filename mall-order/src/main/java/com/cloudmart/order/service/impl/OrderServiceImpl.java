@@ -70,6 +70,7 @@ public class OrderServiceImpl implements OrderService {
     private final CouponFeignClient couponFeignClient;
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
+    private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -414,7 +415,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO shipOrder(Long orderId) {
+    public OrderDTO shipOrder(Long orderId, String carrier, String trackingNo, Long warehouseId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
@@ -422,7 +423,26 @@ public class OrderServiceImpl implements OrderService {
         if (!"PAID".equals(order.getStatus())) {
             throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许发货");
         }
+        // WMS-01 闭环：无运单不得发货——先在 WMS 建立真实包裹并出库
+        if (carrier == null || carrier.isBlank() || trackingNo == null || trackingNo.isBlank()) {
+            throw new BusinessException("TRACKING_NO_REQUIRED", "承运商与运单号不能为空");
+        }
+        com.cloudmart.common.api.ApiResponse<Map<String, Object>> packageResp =
+                wmsShippingFeignClient.createShipping(new java.util.LinkedHashMap<>(java.util.Map.of(
+                        "orderId", orderId,
+                        "carrier", carrier,
+                        "trackingNo", trackingNo,
+                        "receiverName", order.getReceiverName() == null ? "" : order.getReceiverName(),
+                        "receiverPhone", order.getReceiverPhone() == null ? "" : order.getReceiverPhone(),
+                        "receiverAddress", order.getReceiverAddress() == null ? "" : order.getReceiverAddress())));
+        if (packageResp == null || !packageResp.success() || packageResp.data() == null
+                || packageResp.data().get("id") == null) {
+            throw new BusinessException("WMS_CREATE_FAILED", "包裹创建失败，发货未完成");
+        }
+        Long shipmentId = ((Number) packageResp.data().get("id")).longValue();
+        wmsShippingFeignClient.updateStatus(shipmentId, "SHIPPED");
 
+        // CAS 推进订单（与 ORDER_SHIPPED 事件消费者幂等，先到先赢）
         int updated = orderMapper.updateStatusAndShippedAtIfMatch(orderId, "PAID", "SHIPPED");
         if (updated == 0) {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
@@ -431,6 +451,8 @@ public class OrderServiceImpl implements OrderService {
         publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PAID", "SHIPPED"
         ));
+
+        redisTemplate.delete(ORDER_TIMEOUT_KEY_PREFIX + orderId);
 
         Order shippedOrder = orderMapper.selectById(orderId);
         List<OrderItem> items = orderItemMapper.selectList(

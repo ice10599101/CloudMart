@@ -54,6 +54,7 @@ class OrderServiceTest {
     private OrderItemMapper orderItemMapper;
     private OrderConverter orderConverter;
     private InventoryFeignClient inventoryFeignClient;
+    private com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private CartFeignClient cartFeignClient;
@@ -73,6 +74,7 @@ class OrderServiceTest {
         orderConverter = mock(OrderConverter.class);
         inventoryFeignClient = mock(InventoryFeignClient.class);
         productFeignClient = mock(com.cloudmart.order.feign.ProductFeignClient.class);
+        wmsShippingFeignClient = mock(com.cloudmart.order.feign.WmsShippingFeignClient.class);
         riskFeignClient = mock(com.cloudmart.order.feign.RiskFeignClient.class);
         cartFeignClient = mock(CartFeignClient.class);
         paymentFeignClient = mock(PaymentFeignClient.class);
@@ -89,6 +91,7 @@ class OrderServiceTest {
                 couponFeignClient,
                 productFeignClient,
                 riskFeignClient,
+                wmsShippingFeignClient,
                 redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -200,11 +203,17 @@ class OrderServiceTest {
         when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
         when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of(itemDto));
         when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(expectedDto);
+        // WMS-01 闭环：建包裹 + 出库 stub
+        when(wmsShippingFeignClient.createShipping(any())).thenReturn(
+                ApiResponse.ok(java.util.Map.of("id", 55L, "orderId", orderId)));
+        when(wmsShippingFeignClient.updateStatus(55L, "SHIPPED")).thenReturn(
+                ApiResponse.ok(java.util.Map.of("id", 55L, "status", "SHIPPED")));
 
-        OrderDTO result = orderService.shipOrder(orderId);
+        OrderDTO result = orderService.shipOrder(orderId, "顺丰", "SF1234567890", 10L);
 
         assertThat(result).isEqualTo(expectedDto);
         verify(orderMapper).updateStatusAndShippedAtIfMatch(orderId, "PAID", "SHIPPED");
+        verify(wmsShippingFeignClient).createShipping(any());
         verify(outboxService).record(argThat(evt ->
                 "ORDER_STATUS_CHANGE".equals(evt.eventType())
                         && evt.aggregateId().equals(String.valueOf(orderId))

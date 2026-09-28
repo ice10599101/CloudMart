@@ -27,7 +27,7 @@ public class OrderFeignClientFallbackFactory implements FallbackFactory<OrderFei
             }
 
             @Override
-            public ApiResponse<Object> shipOrder(Long orderId) {
+            public ApiResponse<Object> shipOrder(Long orderId, java.util.Map<String, Object> request) {
                 throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，请稍后重试");
             }
 

@@ -51,7 +51,14 @@ public interface OrderService {
 
     PaymentDTO getPaymentByOrderId(Long userId, Long orderId);
 
-    OrderDTO shipOrder(Long orderId);
+    /**
+     * WMS-01 闭环：管理端发货——先在 WMS 建立真实包裹（运单号必填）并出库
+     * （WMS 发布 ORDER_SHIPPED 事件），再 CAS 推进订单 PAID → SHIPPED
+     * （与事件消费者幂等，先到先赢）。
+     *
+     * @throws BusinessException ORDER_NOT_FOUND / ORDER_STATUS_ERROR / WMS_SERVICE_UNAVAILABLE
+     */
+    OrderDTO shipOrder(Long orderId, String carrier, String trackingNo, Long warehouseId);
 
     OrderDTO confirmReceipt(Long userId, Long orderId);
 

@@ -259,8 +259,11 @@ public class AdminBusinessController {
     @OperLog(title = "订单管理", businessType = 2)
     @RequiresPermission("business:order:ship")
     @Operation(summary = "订单发货", description = "将已支付订单标记为已发货")
-    public ApiResponse<Object> shipOrder(@PathVariable Long orderId) {
-        return orderFeignClient.shipOrder(orderId);
+    public ApiResponse<Object> shipOrder(@PathVariable Long orderId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false)
+            Map<String, Object> request) {
+        // WMS-01 闭环：透传承运商/运单号到订单服务（由其建立真实包裹并出库）
+        return orderFeignClient.shipOrder(orderId, request == null ? java.util.Map.of() : request);
     }
 
     @PutMapping("/orders/{orderId}/cancel")

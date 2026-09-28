@@ -156,6 +156,8 @@ cloudmart:
       mall-product: product:read
       # RISK-01：下单前置风控检查
       mall-risk: risk:check
+      # WMS-01：管理端发货建立真实包裹
+      mall-wms: wms:admin
       mall-inventory: inventory:trade
       mall-coupon: coupon:trade
       mall-cart: cart:trade

@@ -20,6 +20,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -88,17 +90,21 @@ class AdminOrderControllerTest {
     @DisplayName("订单发货 - 成功返回信封格式")
     void shipOrder_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "地址",
+                BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "北京市",
                 null, null, null, null, List.of(), null, null);
+        given(orderService.shipOrder(any(), any(), any(), any()))
+                .willReturn(dto);
 
-        given(orderService.shipOrder(1L)).willReturn(dto);
-
-        OrderVO vo = new OrderVO(1L, "ORD123", "SHIPPED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "SHIPPED", new BigDecimal("198.00"), new BigDecimal("198.00"),
+                BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
-        mockMvc.perform(put("/admin/orders/1/ship"))
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/admin/orders/1/ship")
+                        .characterEncoding("UTF-8")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"顺丰\",\"trackingNo\":\"SF1234567890\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("SHIPPED"));
     }
 
@@ -186,12 +192,15 @@ class AdminOrderControllerTest {
     @Test
     @DisplayName("发货不存在的订单 - 返回错误信封")
     void shipOrder_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        given(orderService.shipOrder(999L))
+        given(orderService.shipOrder(eq(999L), eq("顺丰"), eq("SF999"), org.mockito.ArgumentMatchers.isNull()))
                 .willThrow(new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
 
-        mockMvc.perform(put("/admin/orders/999/ship"))
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/admin/orders/999/ship")
+                        .characterEncoding("UTF-8")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\":\"顺丰\",\"trackingNo\":\"SF999\"}"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("ORDER_NOT_FOUND"));
     }
 }

@@ -59,6 +59,7 @@ class OrderServiceImplTest {
     private StringRedisTemplate redisTemplate;
     private OrderEventProducer orderEventProducer;
     private OutboxService outboxService;
+    private com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private CompensationTaskService compensationTaskService;
     private OrderServiceImpl orderService;
 
@@ -92,10 +93,12 @@ class OrderServiceImplTest {
 
         outboxService = mock(OutboxService.class);
         compensationTaskService = mock(CompensationTaskService.class);
+        wmsShippingFeignClient = mock(com.cloudmart.order.feign.WmsShippingFeignClient.class);
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient, couponFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.RiskFeignClient.class),
+                wmsShippingFeignClient,
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -248,6 +251,12 @@ class OrderServiceImplTest {
             when(orderMapper.selectById(1L)).thenReturn(order);
             when(orderMapper.updateStatusAndShippedAtIfMatch(1L, "PAID", "SHIPPED")).thenReturn(1);
 
+            // WMS-01 闭环：建包裹 + 出库
+            when(wmsShippingFeignClient.createShipping(any())).thenReturn(
+                    ApiResponse.ok(java.util.Map.of("id", 55L, "orderId", 1L)));
+            when(wmsShippingFeignClient.updateStatus(55L, "SHIPPED")).thenReturn(
+                    ApiResponse.ok(java.util.Map.of("id", 55L, "status", "SHIPPED")));
+
             Order shippedOrder = buildOrder(1L, 100L, "SHIPPED");
             OrderItem item = buildOrderItem(1L, 1L);
             when(orderMapper.selectById(1L)).thenReturn(order).thenReturn(shippedOrder);
@@ -258,10 +267,12 @@ class OrderServiceImplTest {
             when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
             when(orderConverter.toDTO(shippedOrder, List.of(itemDTO))).thenReturn(expected);
 
-            OrderDTO result = orderService.shipOrder(1L);
+            OrderDTO result = orderService.shipOrder(1L, "顺丰", "SF1234567890", 10L);
 
             assertThat(result.status()).isEqualTo("SHIPPED");
             verify(outboxService).record(any(EventEnvelope.class));
+            verify(wmsShippingFeignClient).createShipping(any());
+            verify(wmsShippingFeignClient).updateStatus(55L, "SHIPPED");
         }
 
         @Test
@@ -270,7 +281,7 @@ class OrderServiceImplTest {
             Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
             when(orderMapper.selectById(1L)).thenReturn(order);
 
-            assertThatThrownBy(() -> orderService.shipOrder(1L))
+            assertThatThrownBy(() -> orderService.shipOrder(1L, "顺丰", "SF123", 10L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_STATUS_ERROR"));
         }
@@ -280,7 +291,7 @@ class OrderServiceImplTest {
         void shipOrder_NotFound_ShouldThrowBusinessException() {
             when(orderMapper.selectById(999L)).thenReturn(null);
 
-            assertThatThrownBy(() -> orderService.shipOrder(999L))
+            assertThatThrownBy(() -> orderService.shipOrder(999L, "顺丰", "SF123", 10L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_NOT_FOUND"));
         }

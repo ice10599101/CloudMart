@@ -305,7 +305,7 @@ export default function Orders() {
         width={480}
       >
         <ProFormText
-          name="shippingCompany"
+          name="carrier"
           label="物流公司"
           placeholder="请输入物流公司"
           rules={[{ required: true, message: '请输入物流公司' }]}

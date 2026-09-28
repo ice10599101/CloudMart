@@ -3,6 +3,8 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.dto.feign.OrderTodayStatsResponse;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+
+import java.util.Map;
 import org.springframework.web.bind.annotation.*;
 
 @FeignClient(contextId = "orderFeignClient", name = "mall-order", path = "/admin/orders", fallbackFactory = OrderFeignClientFallbackFactory.class)
@@ -20,7 +22,8 @@ public interface OrderFeignClient {
     ApiResponse<Object> getOrderById(@PathVariable("orderId") Long orderId);
 
     @PutMapping("/{orderId}/ship")
-    ApiResponse<Object> shipOrder(@PathVariable("orderId") Long orderId);
+    ApiResponse<Object> shipOrder(@PathVariable("orderId") Long orderId,
+                                  @RequestBody Map<String, Object> request);
 
     @PutMapping("/{orderId}/cancel")
     ApiResponse<Object> cancelOrder(@PathVariable("orderId") Long orderId);
