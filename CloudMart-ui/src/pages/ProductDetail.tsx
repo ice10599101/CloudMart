@@ -134,7 +134,7 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    getProductById(Number(id))
+    getProductById(id)
       .then((res) => {
         const prod = res.data.data
         setProduct(prod)

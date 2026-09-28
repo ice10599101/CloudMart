@@ -181,7 +181,7 @@ export default function ProductDetailPage() {
       return
     }
     try {
-      await cartApi.addItem({ skuId: selectedSku ? selectedSku.id : (skus[0]?.id ?? Number(id)), quantity })
+      await cartApi.addItem({ skuId: selectedSku ? selectedSku.id : (skus[0]?.id ?? id), quantity })
       Taro.showToast({ title: '已加入购物车', icon: 'success' })
     } catch {
       Taro.showToast({ title: '添加失败', icon: 'none' })

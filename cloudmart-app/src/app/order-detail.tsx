@@ -35,7 +35,7 @@ export default function OrderDetailPage() {
     if (!id) return
     setLoading(true)
     try {
-      const res = await orderApi.getDetail(Number(id))
+      const res = await orderApi.getDetail(id)
       const data = res.data as { data?: Order }
       if (data?.data) {
         setOrder(data.data)

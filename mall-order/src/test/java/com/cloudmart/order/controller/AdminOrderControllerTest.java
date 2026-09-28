@@ -52,8 +52,7 @@ class AdminOrderControllerTest {
 
         given(orderService.listAllOrders(null, null, null, 1, 10)).willReturn(response);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVOList(List.of(dto))).willReturn(List.of(vo));
 
         mockMvc.perform(get("/admin/orders"))
@@ -75,8 +74,7 @@ class AdminOrderControllerTest {
 
         given(orderService.getAdminOrderById(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/admin/orders/1"))
@@ -95,8 +93,7 @@ class AdminOrderControllerTest {
 
         given(orderService.shipOrder(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "SHIPPED", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "SHIPPED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/ship"))
@@ -114,8 +111,7 @@ class AdminOrderControllerTest {
 
         given(orderService.adminCancelOrder(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "CANCELLED", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "CANCELLED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/cancel"))
@@ -133,8 +129,7 @@ class AdminOrderControllerTest {
 
         given(orderService.approveRefund(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "REFUNDED", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "REFUNDED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/approve-refund"))
@@ -152,8 +147,7 @@ class AdminOrderControllerTest {
 
         given(orderService.rejectRefund(1L, "商品已拆封")).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "REFUND_REJECTED", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "REFUND_REJECTED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/reject-refund")

@@ -13,9 +13,13 @@ public record OrderVO(
     @Schema(description = "状态") String status,
     @Schema(description = "总金额") BigDecimal totalAmount,
     @Schema(description = "实付金额") BigDecimal payAmount,
-    @Schema(description = "运费") BigDecimal freightAmount,
     @Schema(description = "优惠金额") BigDecimal discountAmount,
+    @Schema(description = "用户优惠券ID") Long couponId,
+    @Schema(description = "收件人姓名") String receiverName,
+    @Schema(description = "收件人电话") String receiverPhone,
+    @Schema(description = "收件人地址") String receiverAddress,
     @Schema(description = "订单项列表") List<OrderItemVO> items,
     @Schema(description = "创建时间") LocalDateTime createdAt,
-    @Schema(description = "支付时间") LocalDateTime paidAt
+    @Schema(description = "发货时间") LocalDateTime shippedAt,
+    @Schema(description = "完成时间") LocalDateTime completedAt
 ) {}

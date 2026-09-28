@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 public record OrderItemVO(
     @Schema(description = "订单项ID") Long id,
     @Schema(description = "商品ID") Long productId,
+    @Schema(description = "SKU ID") Long skuId,
     @Schema(description = "商品名称") String productName,
     @Schema(description = "商品图片") String productImage,
     @Schema(description = "SKU属性") String skuAttributes,

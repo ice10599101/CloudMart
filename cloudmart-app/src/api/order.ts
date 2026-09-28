@@ -13,7 +13,7 @@ function buildQuery(params?: Record<string, unknown>): string {
 export const orderApi = {
   getList: (params?: { status?: number; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
-  getDetail: (id: number) => request<Order>({ url: `/order/orders/${id}` }),
+  getDetail: (id: number | string) => request<Order>({ url: `/order/orders/${id}` }),
   create: (data: Record<string, unknown>) => request<Order>({ url: '/order/orders', method: 'POST', data }),
   /** TRADE-01：服务端报价——金额/商品信息以服务端为准 */
   createQuote: (data: { items: Array<{ skuId: number | string; quantity: number }>; couponId?: number | string }) =>

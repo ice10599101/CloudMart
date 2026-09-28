@@ -28,8 +28,6 @@ public interface OrderConverter {
 
     List<OrderItemVO> toItemVOList(List<OrderItem> orderItems);
 
-    @Mapping(target = "freightAmount", ignore = true)
-    @Mapping(target = "paidAt", ignore = true)
     @Mapping(source = "items", target = "items")
     OrderVO orderDtoToVO(OrderDTO dto);
 
@@ -41,7 +39,7 @@ public interface OrderConverter {
         return dtos.stream().map(dto -> {
             OrderItemVO base = orderItemDtoToVO(dto);
             if (base.subtotal() == null && base.price() != null && base.quantity() != null) {
-                return new OrderItemVO(base.id(), base.productId(), base.productName(),
+                return new OrderItemVO(base.id(), base.productId(), base.skuId(), base.productName(),
                         base.productImage(), base.skuAttributes(), base.price(),
                         base.quantity(), base.price().multiply(java.math.BigDecimal.valueOf(base.quantity())));
             }
