@@ -156,6 +156,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
         adminRoleDeptMapper.delete(new LambdaQueryWrapper<AdminRoleDept>().eq(AdminRoleDept::getRoleId, request.roleId()));
         saveRoleDepts(request.roleId(), request.deptIds());
+
+        // SEC-03：部门授权范围变更按策略软失效，持有者刷新后按新范围生效
+        invalidateRoleHolders(request.roleId());
     }
 
     @Override
@@ -185,6 +188,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         if (request.dataScope() == 2 && request.deptIds() != null) {
             saveRoleDepts(roleId, request.deptIds());
         }
+
+        // SEC-03：数据范围变更软失效——旧令牌按旧范围查询的授权立即失效
+        invalidateRoleHolders(roleId);
     }
 
     @Override
@@ -196,6 +202,12 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         }
         role.setStatus(status);
         adminRoleMapper.updateById(role);
+
+        // SEC-03：停用角色 → 持有者软失效（旧令牌立即失效，刷新后不再获得该角色权限）；
+        // 启用无需失效
+        if (status != null && status == 1) {
+            invalidateRoleHolders(id);
+        }
     }
 
     private void checkRoleKeyUnique(String roleKey, Long excludeId) {

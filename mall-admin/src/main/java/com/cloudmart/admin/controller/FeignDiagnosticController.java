@@ -4,6 +4,7 @@ import com.cloudmart.admin.feign.ProductFeignClient;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,7 +14,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * SEC-03：Feign/服务发现诊断端点——泄露注册中心服务列表、实例地址与异常堆栈，
+ * 只允许在非生产 profile 注册（生产环境 404）。
+ */
 @RestController
+@Profile("!prod")
 @RequestMapping("/diagnostic")
 public class FeignDiagnosticController {
 

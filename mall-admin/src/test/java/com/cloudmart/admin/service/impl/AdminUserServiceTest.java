@@ -54,6 +54,7 @@ class AdminUserServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private DataScopeService dataScopeService;
+    @Mock
     private AuthRevocationFeignClient authRevocationFeignClient;
     @Mock
     private AdminConverter adminConverter;
@@ -219,5 +220,106 @@ class AdminUserServiceTest {
         assertThat(capturedRoles).allMatch(r ->
                 roleIds.contains(r.getRoleId()) && userId.equals(r.getUserId())
         );
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("SEC-03：禁用用户走硬失效（版本递增+撤销全部刷新家族）")
+    void update_disabling_hardInvalidates() {
+        Long userId = 1L;
+        AdminUser user = new AdminUser();
+        user.setId(userId);
+        user.setUsername("user1");
+        user.setStatus(0);
+
+        AdminUserUpdateRequest request = new AdminUserUpdateRequest(
+                "user1", null, null, 0, null, 1L, List.of(), List.of(), 1, null);
+
+        when(adminUserMapper.selectById(userId)).thenReturn(user);
+        when(adminUserMapper.updateById(user)).thenReturn(1);
+
+        adminUserService.update(userId, request);
+
+        ArgumentCaptor<java.util.Map<String, Object>> captor =
+                ArgumentCaptor.forClass(java.util.Map.class);
+        verify(authRevocationFeignClient).invalidateState(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue())
+                .containsEntry("subjectType", "ADMIN")
+                .containsEntry("revokeRefreshTokens", true);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("SEC-03：内置超管不允许删除")
+    void delete_builtInSuperAdmin_rejected() {
+        Long userId = 1L;
+        AdminUser user = new AdminUser();
+        user.setId(userId);
+        user.setUsername("admin");
+
+        com.cloudmart.admin.entity.AdminRole superRole = new com.cloudmart.admin.entity.AdminRole();
+        superRole.setId(9L);
+        superRole.setRoleKey("admin");
+        AdminUserRole superUserRole = new AdminUserRole();
+        superUserRole.setUserId(userId);
+        superUserRole.setRoleId(9L);
+
+        when(adminUserMapper.selectById(userId)).thenReturn(user);
+        when(adminRoleMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(superRole);
+        when(adminUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(superUserRole));
+
+        assertThatThrownBy(() -> adminUserService.delete(userId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
+        verify(adminUserMapper, times(0)).deleteById(userId);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("SEC-03：非超管操作者不能授予内置超管角色")
+    void assignRoles_grantSuperRole_byNonSuperOperator_forbidden() {
+        Long userId = 2L;
+        AdminUser user = new AdminUser();
+        user.setId(userId);
+        user.setUsername("ops");
+
+        com.cloudmart.admin.entity.AdminRole superRole = new com.cloudmart.admin.entity.AdminRole();
+        superRole.setId(9L);
+        superRole.setRoleKey("admin");
+
+        com.cloudmart.common.context.AdminSecurityContext.set(
+                new com.cloudmart.common.context.AdminSecurityContext(
+                        100L, "operator", "admin", java.util.Set.of("system:user:list"), null));
+
+        try {
+            when(adminUserMapper.selectById(userId)).thenReturn(user);
+            when(adminRoleMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(superRole);
+            when(dataScopeService.resolveDataScope(100L)).thenReturn(
+                    new com.cloudmart.common.datascope.DataScopeResult(
+                            com.cloudmart.common.datascope.DataScopeType.ALL, null));
+
+            assertThatThrownBy(() -> adminUserService.assignRoles(userId, List.of(9L)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
+        } finally {
+            com.cloudmart.common.context.AdminSecurityContext.clear();
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("SEC-03：assignRoles 软失效目标（仅版本递增）")
+    void assignRoles_softInvalidatesTarget() {
+        Long userId = 3L;
+        AdminUser user = new AdminUser();
+        user.setId(userId);
+        user.setUsername("viewer");
+
+        when(adminUserMapper.selectById(userId)).thenReturn(user);
+        when(adminRoleMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        adminUserService.assignRoles(userId, List.of(10L));
+
+        ArgumentCaptor<java.util.Map<String, Object>> captor =
+                ArgumentCaptor.forClass(java.util.Map.class);
+        verify(authRevocationFeignClient).invalidateState(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue())
+                .containsEntry("revokeRefreshTokens", false);
     }
 }

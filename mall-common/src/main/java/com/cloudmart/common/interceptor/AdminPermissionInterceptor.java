@@ -48,6 +48,16 @@ public class AdminPermissionInterceptor implements HandlerInterceptor {
 
         AdminSecurityContext context = AdminSecurityContext.get();
         if (context == null) {
+            // 区分未认证与已认证但非管理员：匿名 → 401；USER/SERVICE 令牌 → 403
+            org.springframework.security.core.Authentication authentication =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean isAuthenticated = authentication != null && authentication.isAuthenticated()
+                    && !(authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken);
+            if (isAuthenticated) {
+                log.warn("Admin access denied for authenticated non-admin principal={} for {} {}",
+                        authentication.getName(), request.getMethod(), request.getRequestURI());
+                throw new BusinessException("FORBIDDEN", "需要管理员权限");
+            }
             log.warn("Permission check failed: no AdminSecurityContext for {} {}",
                     request.getMethod(), request.getRequestURI());
             throw new BusinessException("UNAUTHORIZED", "未登录或登录已过期");

@@ -49,8 +49,6 @@ import java.util.Objects;
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
 
-    private static final String DEFAULT_IMPORT_PASSWORD = "123456";
-
     private final AdminUserMapper adminUserMapper;
     private final AdminUserRoleMapper adminUserRoleMapper;
     private final AdminUserPostMapper adminUserPostMapper;
@@ -109,6 +107,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        // SEC-03：读操作同样受数据范围约束，越界按不存在处理（不泄露记录存在性）
+        assertWithinDataScope(user);
         return toResponse(user);
     }
 
@@ -141,9 +141,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        assertWithinDataScope(user);
 
         checkUsernameUnique(user.getUsername(), id);
 
+        boolean disabling = request.status() != null && request.status() == 1
+                && (user.getStatus() == null || user.getStatus() != 1);
         user.setNickname(request.nickname());
         user.setEmail(request.email());
         user.setPhone(request.phone());
@@ -158,6 +161,16 @@ public class AdminUserServiceImpl implements AdminUserService {
         adminUserPostMapper.delete(new LambdaQueryWrapper<AdminUserPost>().eq(AdminUserPost::getUserId, id));
         saveUserRoles(id, request.roleIds());
         saveUserPosts(id, request.postIds());
+
+        // SEC-03：角色/状态变更统一触发认证失效——禁用硬失效（令牌立即不可用），
+        // 其余变更软失效（刷新后拿新权限集）；失败向上抛出保证管理员可感知
+        if (disabling) {
+            authRevocationFeignClient.invalidateState(
+                    AuthRevocationFeignClient.adminHardInvalidate(id));
+        } else {
+            authRevocationFeignClient.invalidateState(
+                    AuthRevocationFeignClient.adminSoftInvalidate(id));
+        }
     }
 
     @Override
@@ -167,6 +180,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        assertWithinDataScope(user);
+        assertNotBuiltInSuperAdmin(user, "删除");
+
+        // SEC-03：删除账号先硬失效其全部令牌（失败则中止，避免已删账号令牌仍流通）
+        authRevocationFeignClient.invalidateState(
+                AuthRevocationFeignClient.adminHardInvalidate(id));
         adminUserMapper.deleteById(id);
         adminUserRoleMapper.delete(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, id));
         adminUserPostMapper.delete(new LambdaQueryWrapper<AdminUserPost>().eq(AdminUserPost::getUserId, id));
@@ -209,8 +228,24 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        assertWithinDataScope(user);
+
+        // SEC-03：授予/保留内置超管角色仅限超管操作者；非超管不得改动超管的角色集
+        AdminRole superRole = findBuiltInSuperAdminRole();
+        if (superRole != null) {
+            boolean grantsSuperRole = roleIds != null && roleIds.contains(superRole.getId());
+            boolean hadSuperRole = hasBuiltInSuperAdminRole(userId);
+            if ((grantsSuperRole || hadSuperRole) && !isSuperAdminOperator()) {
+                throw new BusinessException("FORBIDDEN", "内置超级管理员角色仅超级管理员可分配或变更");
+            }
+        }
+
         adminUserRoleMapper.delete(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
         saveUserRoles(userId, roleIds);
+
+        // SEC-03：角色集变更软失效，目标旧令牌立即失效
+        authRevocationFeignClient.invalidateState(
+                AuthRevocationFeignClient.adminSoftInvalidate(userId));
     }
 
     @Override
@@ -227,6 +262,9 @@ public class AdminUserServiceImpl implements AdminUserService {
                     .eq(request.status() != null, AdminUser::getStatus, request.status())
                     .eq(request.deptId() != null, AdminUser::getDeptId, request.deptId())
                     .orderByDesc(AdminUser::getCreatedAt);
+
+            // SEC-03：导出与分页同一数据范围约束，防止绕过分页直接全量导出
+            applyDataScope(wrapper);
 
             List<AdminUser> users = adminUserMapper.selectList(wrapper);
             List<AdminUserExcelDTO> excelData = users.stream().map(this::toExcelDTO).toList();
@@ -259,6 +297,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         int successCount = 0;
         int failureCount = 0;
         List<String> failureMessages = new ArrayList<>();
+        List<String> initialCredentials = new ArrayList<>();
 
         for (int i = 0; i < excelData.size(); i++) {
             int rowNum = i + 2;
@@ -280,8 +319,12 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.setDeptId(dto.getDeptId());
                 user.setStatus(dto.getStatus() != null ? dto.getStatus() : 0);
                 user.setRemark(dto.getRemark());
-                user.setPassword(passwordEncoder.encode(DEFAULT_IMPORT_PASSWORD));
+                // SEC-03：每人独立随机初始密码（一次性展示给操作者分发），
+                // 不再使用统一固定初始密码
+                String initialPassword = generateInitialPassword();
+                user.setPassword(passwordEncoder.encode(initialPassword));
                 adminUserMapper.insert(user);
+                initialCredentials.add(dto.getUsername() + "=" + initialPassword);
                 successCount++;
             } catch (BusinessException e) {
                 failureMessages.add("第" + rowNum + "行: " + e.getMessage());
@@ -289,15 +332,12 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
         }
 
-        return new AdminUserImportResult(successCount, failureCount, failureMessages);
+        return new AdminUserImportResult(successCount, failureCount, failureMessages, initialCredentials);
     }
 
     private void applyDataScope(LambdaQueryWrapper<AdminUser> wrapper) {
         AdminSecurityContext ctx = AdminSecurityContext.get();
-        if (ctx == null) {
-            return;
-        }
-        if (ctx.isSuperAdmin()) {
+        if (ctx == null || ctx.isSuperAdmin()) {
             return;
         }
 
@@ -327,6 +367,67 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
             case SELF -> wrapper.eq(AdminUser::getId, ctx.userId());
         }
+    }
+
+    /**
+     * SEC-03：单条读/写/删除的数据范围校验（getById/update/delete 不走 wrapper 查询，
+     * 需要与 {@link #applyDataScope} 同一语义）；越界按资源不存在处理。
+     */
+    private void assertWithinDataScope(AdminUser target) {
+        AdminSecurityContext ctx = AdminSecurityContext.get();
+        if (ctx == null || ctx.isSuperAdmin()) {
+            return;
+        }
+        DataScopeResult dataScope = dataScopeService.resolveDataScope(ctx.userId());
+        // 范围无法解析（管理员无任何角色配置）时按最严格策略：仅本人记录可见
+        boolean within = dataScope == null
+                ? target.getId().equals(ctx.userId())
+                : switch (dataScope.type()) {
+            case ALL -> true;
+            case CUSTOM, DEPT_AND_CHILD -> target.getDeptId() != null
+                    && dataScope.deptIds() != null && dataScope.deptIds().contains(target.getDeptId());
+            case DEPT -> target.getDeptId() != null && target.getDeptId().equals(ctx.deptId());
+            case SELF -> target.getId().equals(ctx.userId());
+        };
+        if (!within) {
+            throw new BusinessException("USER_NOT_FOUND", "用户不存在");
+        }
+    }
+
+    /** 目标持有内置超管角色（roleKey=admin）时不允许删除/停用 */
+    private void assertNotBuiltInSuperAdmin(AdminUser target, String action) {
+        if (hasBuiltInSuperAdminRole(target.getId())) {
+            throw new BusinessException("FORBIDDEN", "内置超级管理员不允许" + action);
+        }
+    }
+
+    private boolean isSuperAdminOperator() {
+        AdminSecurityContext ctx = AdminSecurityContext.get();
+        return ctx != null && ctx.isSuperAdmin();
+    }
+
+    private boolean hasBuiltInSuperAdminRole(Long userId) {
+        List<AdminUserRole> userRoles = adminUserRoleMapper.selectList(
+                new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
+        AdminRole superRole = findBuiltInSuperAdminRole();
+        return superRole != null && userRoles.stream().anyMatch(ur -> superRole.getId().equals(ur.getRoleId()));
+    }
+
+    /** 内置超级管理员角色：roleKey = admin */
+    private AdminRole findBuiltInSuperAdminRole() {
+        return adminRoleMapper.selectOne(
+                new LambdaQueryWrapper<AdminRole>().eq(AdminRole::getRoleKey, "admin"));
+    }
+
+    /** 12 位随机初始密码：大小写字母 + 数字，SecureRandom 生成 */
+    private String generateInitialPassword() {
+        final String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder password = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) {
+            password.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        }
+        return password.toString();
     }
 
     private void checkUsernameUnique(String username, Long excludeId) {

@@ -112,6 +112,25 @@ class AdminPermissionInterceptorTest {
     }
 
     @Test
+    @DisplayName("SEC-03：已认证但非管理员的 principal（无上下文）→ FORBIDDEN 而非 401")
+    void adminMethodWithAuthenticatedNonAdmin_forbidden() throws Exception {
+        // USER 令牌由 UserJwtAuthenticationFilter 建立 ROLE_USER，不产生 AdminSecurityContext
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken authentication =
+                org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
+                        "42", null, java.util.List.of());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        try {
+            assertThatThrownBy(() -> interceptor.preHandle(request(), new MockHttpServletResponse(),
+                    handler(SampleController.class, "adminOnly")))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
     @DisplayName("带 @RequiresAdmin 的方法：管理员上下文放行")
     void adminMethodWithAdminContext_allowed() throws Exception {
         loginAdmin(7L, Set.of());
