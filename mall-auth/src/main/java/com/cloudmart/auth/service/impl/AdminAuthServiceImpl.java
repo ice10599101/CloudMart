@@ -113,7 +113,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         String accessToken = jwtProvider.generateAdminAccessToken(
                 new TokenPrincipal(SubjectType.ADMIN, admin.id(), session.sid(), session.authVersion()),
                 permissions, admin.username(), admin.deptId());
-        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, admin.id());
+        // SEC-02：管理员刷新家族绑定会话，"退出当前设备"只撤销本设备
+        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, admin.id(), session.sid());
 
         String tokenId = UUID.randomUUID().toString();
         storeOnlineUser(tokenId, admin.id(), admin.username(), ip, browser);
@@ -139,6 +140,12 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                 new TokenPrincipal(SubjectType.ADMIN, userId, session.sid(), session.authVersion()),
                 userInfo.permissions, userInfo.username, userInfo.deptId);
 
+        // SEC-02：家族重绑新会话并撤销旧会话（同家族同一时刻只有一个活动 sid）
+        String previousSid = refreshTokenService.bindFamilySession(rotation.tokenValue(), session.sid());
+        if (previousSid != null) {
+            authSessionService.revokeSession(previousSid);
+        }
+
         refreshOnlineUserTtl(userId);
 
         return new LoginResponse(accessToken, rotation.tokenValue(), "Bearer", accessTokenExpiration, null);
@@ -147,8 +154,21 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Override
     public void logout(Long userId, String sid) {
         removeOnlineUser(userId);
+        // SEC-02：撤销当前会话 + 绑定该会话的管理员刷新家族（其他设备不受影响）；
+        // sid 缺失时保守撤销全部刷新家族，绝不伪造成已撤销的无操作。
         authSessionService.revokeSession(sid);
-        refreshTokenService.revokeAllTokensForSubject(SubjectType.ADMIN, userId);
+        if (sid == null || sid.isBlank()) {
+            refreshTokenService.revokeAllTokensForSubject(SubjectType.ADMIN, userId);
+            return;
+        }
+        refreshTokenService.revokeFamilyBySession(SubjectType.ADMIN, userId, sid);
+    }
+
+    @Override
+    public void logoutAll(Long userId) {
+        // SEC-02：版本递增使全部管理员访问令牌秒级失效，撤销全部刷新家族阻断续期
+        removeOnlineUser(userId);
+        authSessionService.invalidate(SubjectType.ADMIN, userId, true);
     }
 
     private void storeOnlineUser(String tokenId, Long userId, String username, String ip, String browser) {

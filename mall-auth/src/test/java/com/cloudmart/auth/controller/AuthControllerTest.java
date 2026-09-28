@@ -130,18 +130,79 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /logout - 登出成功返回信封格式")
+    @DisplayName("POST /logout - 用户域令牌登出成功，撤销会话与其家族")
     void logout_ShouldReturnSuccessEnvelope() throws Exception {
-        // SEC-03：登出需携带访问令牌以取 sid 撤销会话
-        org.springframework.security.oauth2.jwt.Jwt jwt = org.mockito.Mockito.mock(org.springframework.security.oauth2.jwt.Jwt.class);
-        org.mockito.Mockito.when(jwt.getSubject()).thenReturn("1");
-        org.mockito.Mockito.when(jwt.getClaimAsString("sid")).thenReturn("session-1");
+        // SEC-02：登出需携带已验签的用户域访问令牌以取 sid 撤销会话
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authToken =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                        userJwt("1", "session-1"));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authToken);
         willDoNothing().given(authService).logout(1L, "session-1");
 
-        mockMvc.perform(post("/logout")
-                        .header("Authorization", "Bearer test-token"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        try {
+            mockMvc.perform(post("/logout")
+                            .header("Authorization", "Bearer test-token"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("POST /logout - 管理员域令牌登出用户端点被拒（身份域不匹配）")
+    void logout_WithAdminScopeToken_Forbidden() throws Exception {
+        org.springframework.security.oauth2.jwt.Jwt adminJwt = org.springframework.security.oauth2.jwt.Jwt
+                .withTokenValue("test-token")
+                .header("alg", "RS256").subject("1")
+                .claim("scope", "admin").claim("sid", "session-1").build();
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authToken =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(adminJwt);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authToken);
+
+        try {
+            mockMvc.perform(post("/logout"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("POST /logout - 无令牌匿名登出被拒（不伪成功）")
+    void logout_WithoutToken_Unauthorized() throws Exception {
+        mockMvc.perform(post("/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("POST /logout-all - 退出全部设备成功")
+    void logoutAll_ShouldRevokeAllDevices() throws Exception {
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authToken =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                        userJwt("1", "session-1"));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authToken);
+        willDoNothing().given(authService).logoutAll(1L);
+
+        try {
+            mockMvc.perform(post("/logout-all"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    /** 构造用户域（scope=user）JWT 用于 @AuthenticationPrincipal 注入 */
+    private org.springframework.security.oauth2.jwt.Jwt userJwt(String subject, String sid) {
+        return org.springframework.security.oauth2.jwt.Jwt.withTokenValue("test-token")
+                .header("alg", "RS256")
+                .subject(subject)
+                .claim("scope", "user")
+                .claim("sid", sid)
+                .build();
     }
 
     @Test
@@ -226,12 +287,44 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /admin/logout - 管理员登出成功返回信封格式")
+    @DisplayName("POST /admin/logout - 管理员域令牌登出成功")
     void adminLogout_ShouldReturnSuccessEnvelope() throws Exception {
+        org.springframework.security.oauth2.jwt.Jwt adminJwt = org.springframework.security.oauth2.jwt.Jwt
+                .withTokenValue("admin-token")
+                .header("alg", "RS256").subject("1")
+                .claim("scope", "admin").claim("sid", "session-1").build();
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authToken =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(adminJwt);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authToken);
         willDoNothing().given(adminAuthService).logout(1L, "session-1");
 
-        mockMvc.perform(post("/admin/logout"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        try {
+            mockMvc.perform(post("/admin/logout"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("POST /admin/logout-all - 管理员退出全部设备成功")
+    void adminLogoutAll_ShouldRevokeAllDevices() throws Exception {
+        org.springframework.security.oauth2.jwt.Jwt adminJwt = org.springframework.security.oauth2.jwt.Jwt
+                .withTokenValue("admin-token")
+                .header("alg", "RS256").subject("1")
+                .claim("scope", "admin").claim("sid", "session-1").build();
+        org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authToken =
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(adminJwt);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authToken);
+        willDoNothing().given(adminAuthService).logoutAll(1L);
+
+        try {
+            mockMvc.perform(post("/admin/logout-all"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

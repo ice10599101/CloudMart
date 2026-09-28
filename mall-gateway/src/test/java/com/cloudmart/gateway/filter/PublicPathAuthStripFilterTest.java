@@ -42,6 +42,15 @@ class PublicPathAuthStripFilterTest {
     }
 
     @Test
+    @DisplayName("SEC-02：/api/auth/logout 保留 Authorization（登出需要令牌撤销会话）")
+    void logoutPath_keepsAuthorization() {
+        run(MockServerHttpRequest.post("/api/auth/logout")
+                .header("Authorization", "Bearer token")
+                .build());
+        assertThat(exchange.getRequest().getHeaders().getFirst("Authorization")).isEqualTo("Bearer token");
+    }
+
+    @Test
     @DisplayName("注册等身份无关路径：剥离 Authorization，不注入内部调用标记")
     void registerPath_stripsAuthorization() {
         run(MockServerHttpRequest.post("/api/user/users/register")

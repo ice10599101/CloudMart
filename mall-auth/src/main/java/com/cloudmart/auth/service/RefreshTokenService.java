@@ -98,11 +98,12 @@ public class RefreshTokenService {
     }
 
     /**
-     * 登录时创建新令牌家族并签发首个刷新令牌。
+     * 登录时创建新令牌家族并签发首个刷新令牌；家族绑定当前会话 sid，
+     * "退出当前设备"据此只撤销本会话及其刷新家族，不影响其他设备。
      *
      * @throws BusinessException REFRESH_TOKEN_UNAVAILABLE 当 Redis 不可用时（fail-closed）
      */
-    public String createRefreshToken(SubjectType subjectType, Long subjectId) {
+    public String createRefreshToken(SubjectType subjectType, Long subjectId, String sid) {
         String familyId = UUID.randomUUID().toString();
         String tokenId = UUID.randomUUID().toString();
         String tokenValue = subjectType.prefix() + familyId + ":" + tokenId;
@@ -117,7 +118,8 @@ public class RefreshTokenService {
                     "currentToken", tokenValue,
                     "generation", "1",
                     "absoluteExpire", Long.toString(absoluteExpire),
-                    "revoked", "0"));
+                    "revoked", "0",
+                    "sid", sid == null ? "" : sid));
             redisTemplate.expire(familyKey, Duration.ofSeconds(refreshTokenExpiration));
 
             // 主体 → 家族索引：logout/踢人/禁用时按主体撤销全部家族
@@ -130,6 +132,34 @@ public class RefreshTokenService {
             throw new BusinessException("REFRESH_TOKEN_UNAVAILABLE", "刷新令牌服务暂不可用，请稍后重试");
         }
         return tokenValue;
+    }
+
+    /**
+     * 轮换后把家族重新绑定到新会话，并返回旧会话 sid 供调用方撤销。
+     *
+     * <p>尽力而为（不抛异常）：轮换已在 Lua 中原子提交，此时让刷新请求失败会让
+     * 客户端带着已消费的令牌重试 → 命中重放检测 → 整个家族被误撤销。绑定失败的
+     * 代价是"退出当前设备"可能漏掉该家族（旧会话仍有 TTL 兜底，下一次轮换会重绑），
+     * 由 ERROR 日志暴露，不做静默吞掉。</p>
+     *
+     * @return 旧会话 sid；家族未绑定或 Redis 异常时返回 null
+     */
+    public String bindFamilySession(String tokenValue, String newSid) {
+        String[] parts = tokenValue.split(":", 3);
+        if (parts.length != 3) {
+            return null;
+        }
+        String familyKey = FAMILY_KEY_PREFIX + parts[1];
+        try {
+            Object previousSid = redisTemplate.opsForHash().get(familyKey, "sid");
+            redisTemplate.opsForHash().put(familyKey, "sid", newSid == null ? "" : newSid);
+            return previousSid == null || String.valueOf(previousSid).isBlank()
+                    ? null : String.valueOf(previousSid);
+        } catch (Exception e) {
+            log.error("[SEC02] 家族会话重绑失败 familyId={}（退出当前设备可能漏撤销该家族）: {}",
+                    parts[1], e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -192,7 +222,7 @@ public class RefreshTokenService {
         };
     }
 
-    /** 撤销某主体（指定身份域）名下的全部刷新令牌家族：logout / 踢人 / 禁用即失效 */
+    /** 撤销某主体（指定身份域）名下的全部刷新令牌家族：踢人 / 禁用 / 退出全部设备即失效 */
     public void revokeAllTokensForSubject(SubjectType subjectType, Long subjectId) {
         try {
             String indexKey = SUBJECT_INDEX_PREFIX + subjectType.segment() + ":" + subjectId;
@@ -208,6 +238,42 @@ public class RefreshTokenService {
         } catch (Exception e) {
             // 撤销失败必须显式失败：调用方（logout/踢人）需要知道令牌仍在流通
             log.error("[SEC02] 撤销主体令牌失败 subject={}:{}: {}", subjectType, subjectId, e.getMessage());
+            throw new BusinessException("REFRESH_TOKEN_UNAVAILABLE", "令牌撤销失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 撤销绑定在指定会话（sid）上的刷新令牌家族（SEC-02"退出当前设备"）：
+     * 其他设备（不同 sid）的家族不受影响。
+     *
+     * @return 实际撤销的家族数（0 表示该会话没有可撤销家族，如已撤销过）
+     * @throws BusinessException REFRESH_TOKEN_UNAVAILABLE Redis 不可用时（fail-closed）
+     */
+    public int revokeFamilyBySession(SubjectType subjectType, Long subjectId, String sid) {
+        if (sid == null || sid.isBlank()) {
+            return 0;
+        }
+        try {
+            String indexKey = SUBJECT_INDEX_PREFIX + subjectType.segment() + ":" + subjectId;
+            Set<String> familyIds = redisTemplate.opsForSet().members(indexKey);
+            int revoked = 0;
+            if (familyIds != null) {
+                for (String familyId : familyIds) {
+                    String familyKey = FAMILY_KEY_PREFIX + familyId;
+                    Object boundSid = redisTemplate.opsForHash().get(familyKey, "sid");
+                    if (boundSid == null || !sid.equals(String.valueOf(boundSid))) {
+                        continue;
+                    }
+                    redisTemplate.opsForHash().put(familyKey, "revoked", "1");
+                    redisTemplate.expire(familyKey, REVOKED_FAMILY_TTL);
+                    redisTemplate.opsForSet().remove(indexKey, familyId);
+                    revoked++;
+                }
+            }
+            return revoked;
+        } catch (Exception e) {
+            log.error("[SEC02] 按会话撤销刷新家族失败 subject={}:{} sid={}: {}",
+                    subjectType, subjectId, sid, e.getMessage());
             throw new BusinessException("REFRESH_TOKEN_UNAVAILABLE", "令牌撤销失败，请稍后重试");
         }
     }

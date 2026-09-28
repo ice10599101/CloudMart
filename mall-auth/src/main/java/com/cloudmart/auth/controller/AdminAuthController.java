@@ -5,6 +5,7 @@ import com.cloudmart.auth.dto.LoginResponse;
 import com.cloudmart.auth.dto.RefreshRequest;
 import com.cloudmart.auth.service.AdminAuthService;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -39,12 +40,26 @@ public class AdminAuthController {
 
     @PostMapping("/logout")
     public ApiResponse<Void> logout(@AuthenticationPrincipal Jwt jwt) {
-        if (jwt == null) {
-            return ApiResponse.ok(null);
-        }
-        Long userId = Long.valueOf(jwt.getSubject());
-        // SEC-03：撤销当前会话（sid 缺失时仅撤销刷新令牌家族）
-        adminAuthService.logout(userId, jwt.getClaimAsString("sid"));
+        // SEC-02：登出必须由已验签的管理员域令牌驱动；匿名登出一律拒绝而非伪成功
+        requireAdminDomain(jwt);
+        adminAuthService.logout(Long.valueOf(jwt.getSubject()), jwt.getClaimAsString("sid"));
         return ApiResponse.ok(null);
+    }
+
+    /** SEC-02：退出全部设备——认证状态版本递增 + 撤销全部管理员刷新家族 */
+    @PostMapping("/logout-all")
+    public ApiResponse<Void> logoutAll(@AuthenticationPrincipal Jwt jwt) {
+        requireAdminDomain(jwt);
+        adminAuthService.logoutAll(Long.valueOf(jwt.getSubject()));
+        return ApiResponse.ok(null);
+    }
+
+    private void requireAdminDomain(Jwt jwt) {
+        if (jwt == null) {
+            throw new BusinessException("UNAUTHORIZED", "未登录或登录已过期");
+        }
+        if (!"admin".equals(jwt.getClaimAsString("scope"))) {
+            throw new BusinessException("FORBIDDEN", "身份域不匹配");
+        }
     }
 }

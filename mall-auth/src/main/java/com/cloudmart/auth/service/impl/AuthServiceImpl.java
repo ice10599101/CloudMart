@@ -54,7 +54,8 @@ public class AuthServiceImpl implements AuthService {
                 authSessionService.issueSession(SubjectType.USER, user.id());
         String accessToken = jwtProvider.generateUserAccessToken(
                 new TokenPrincipal(SubjectType.USER, user.id(), session.sid(), session.authVersion()));
-        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.USER, user.id());
+        // SEC-02：刷新家族绑定会话，"退出当前设备"只撤销本设备
+        String refreshToken = refreshTokenService.createRefreshToken(SubjectType.USER, user.id(), session.sid());
 
         return new LoginResponse(accessToken, refreshToken, "Bearer", accessTokenExpiration, null);
     }
@@ -72,13 +73,31 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtProvider.generateUserAccessToken(
                 new TokenPrincipal(SubjectType.USER, rotation.subjectId(), session.sid(), session.authVersion()));
 
+        // SEC-02：家族重绑到新会话并撤销旧会话——同一刷新家族同一时刻只有一个活动 sid，
+        // 旧访问令牌随旧会话删除而立即失效（不无限新增活动会话）
+        String previousSid = refreshTokenService.bindFamilySession(rotation.tokenValue(), session.sid());
+        if (previousSid != null) {
+            authSessionService.revokeSession(previousSid);
+        }
+
         return new LoginResponse(accessToken, rotation.tokenValue(), "Bearer", accessTokenExpiration, null);
     }
 
     @Override
     public void logout(Long userId, String sid) {
-        // SEC-03：撤销当前会话（访问令牌立即失效）+ 全部刷新令牌家族
+        // SEC-02：撤销当前会话 + 绑定该会话的刷新家族；其他设备不受影响。
+        // sid 缺失（异常令牌）时保守撤销全部刷新家族——绝不伪造成已撤销的无操作。
         authSessionService.revokeSession(sid);
-        refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, userId);
+        if (sid == null || sid.isBlank()) {
+            refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, userId);
+            return;
+        }
+        refreshTokenService.revokeFamilyBySession(SubjectType.USER, userId, sid);
+    }
+
+    @Override
+    public void logoutAll(Long userId) {
+        // SEC-02：版本递增使全部访问令牌秒级失效，撤销全部刷新家族阻断续期
+        authSessionService.invalidate(SubjectType.USER, userId, true);
     }
 }

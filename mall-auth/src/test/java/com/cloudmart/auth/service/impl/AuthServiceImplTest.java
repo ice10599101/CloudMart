@@ -65,7 +65,8 @@ class AuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(userDTO));
             when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
                 .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1"))
+                    .thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = authService.login(request);
 
@@ -73,7 +74,7 @@ class AuthServiceImplTest {
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
-            verify(refreshTokenService).createRefreshToken(SubjectType.USER, USER_ID);
+            verify(refreshTokenService).createRefreshToken(SubjectType.USER, USER_ID, "session-1");
         }
 
         @Test
@@ -116,6 +117,7 @@ class AuthServiceImplTest {
 
             when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
 .thenReturn(rotation(REFRESH_TOKEN, USER_ID));
+            when(refreshTokenService.bindFamilySession(REFRESH_TOKEN, "session-1")).thenReturn("old-sid");
             when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
                 .thenReturn(ACCESS_TOKEN);
             LoginResponse result = authService.refresh(request);
@@ -124,6 +126,39 @@ class AuthServiceImplTest {
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
+        }
+
+        @Test
+        @DisplayName("刷新后家族重绑新会话并撤销旧会话（不无限新增活动 sid）")
+        void refreshToken_rebindsFamilyAndRevokesPreviousSession() {
+            RefreshRequest request = new RefreshRequest(REFRESH_TOKEN);
+
+            when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
+.thenReturn(rotation(REFRESH_TOKEN, USER_ID));
+            when(refreshTokenService.bindFamilySession(REFRESH_TOKEN, "session-1")).thenReturn("session-0");
+            when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
+                .thenReturn(ACCESS_TOKEN);
+
+            authService.refresh(request);
+
+            verify(refreshTokenService).bindFamilySession(REFRESH_TOKEN, "session-1");
+            verify(authSessionService).revokeSession("session-0");
+        }
+
+        @Test
+        @DisplayName("绑定无旧会话时不执行撤销")
+        void refreshToken_noPreviousSession_noRevoke() {
+            RefreshRequest request = new RefreshRequest(REFRESH_TOKEN);
+
+            when(refreshTokenService.rotateRefreshToken(SubjectType.USER, REFRESH_TOKEN))
+.thenReturn(rotation(REFRESH_TOKEN, USER_ID));
+            when(refreshTokenService.bindFamilySession(REFRESH_TOKEN, "session-1")).thenReturn(null);
+            when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
+                .thenReturn(ACCESS_TOKEN);
+
+            authService.refresh(request);
+
+            verify(authSessionService, org.mockito.Mockito.never()).revokeSession(org.mockito.ArgumentMatchers.anyString());
         }
 
         @Test
@@ -160,13 +195,38 @@ class AuthServiceImplTest {
     class LogoutTests {
 
         @Test
-        @DisplayName("should revoke all tokens for user")
-        void logout_revokesAllTokens() {
+        @DisplayName("退出当前设备：撤销会话与该会话绑定的家族，不动其他设备")
+        void logout_revokesSessionAndBoundFamilyOnly() {
             authService.logout(USER_ID, "session-1");
 
             verify(authSessionService).revokeSession("session-1");
+            verify(refreshTokenService).revokeFamilyBySession(SubjectType.USER, USER_ID, "session-1");
+            verify(refreshTokenService, org.mockito.Mockito.never())
+                    .revokeAllTokensForSubject(org.mockito.Mockito.any(), org.mockito.ArgumentMatchers.anyLong());
+        }
+
+        @Test
+        @DisplayName("sid 缺失时保守撤销全部刷新家族（绝不伪登出）")
+        void logout_blankSid_fallsBackToRevokeAll() {
+            authService.logout(USER_ID, " ");
 
             verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.USER, USER_ID);
+            verify(refreshTokenService, org.mockito.Mockito.never())
+                    .revokeFamilyBySession(org.mockito.Mockito.any(), org.mockito.ArgumentMatchers.anyLong(),
+                            org.mockito.ArgumentMatchers.anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("logoutAll")
+    class LogoutAllTests {
+
+        @Test
+        @DisplayName("退出全部设备：认证状态版本递增（硬失效）+ 撤销全部刷新家族")
+        void logoutAll_hardInvalidatesSubject() {
+            authService.logoutAll(USER_ID);
+
+            verify(authSessionService).invalidate(SubjectType.USER, USER_ID, true);
         }
     }
 

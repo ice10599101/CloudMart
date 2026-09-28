@@ -5,6 +5,7 @@ import com.cloudmart.auth.dto.LoginResponse;
 import com.cloudmart.auth.dto.RefreshRequest;
 import com.cloudmart.auth.service.AuthService;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,12 +40,28 @@ public class AuthController {
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
-        if (jwt == null) {
-            return ApiResponse.ok(null);
-        }
-        Long userId = Long.valueOf(jwt.getSubject());
-        // SEC-03：撤销当前会话（sid 缺失时仅撤销刷新令牌家族）
-        authService.logout(userId, jwt.getClaimAsString("sid"));
+        // SEC-02：登出必须由已验签的用户域令牌驱动（资源服务器保证 jwt 非空）；
+        // 匿名/无令牌登出是"带合法 token 的无操作"的镜像——一律拒绝而非伪成功
+        requireUserDomain(jwt);
+        authService.logout(Long.valueOf(jwt.getSubject()), jwt.getClaimAsString("sid"));
         return ApiResponse.ok(null);
+    }
+
+    /** SEC-02：退出全部设备——认证状态版本递增 + 撤销全部刷新令牌家族 */
+    @PostMapping("/logout-all")
+    public ApiResponse<Void> logoutAll(
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        requireUserDomain(jwt);
+        authService.logoutAll(Long.valueOf(jwt.getSubject()));
+        return ApiResponse.ok(null);
+    }
+
+    private void requireUserDomain(Jwt jwt) {
+        if (jwt == null) {
+            throw new BusinessException("UNAUTHORIZED", "未登录或登录已过期");
+        }
+        if (!"user".equals(jwt.getClaimAsString("scope"))) {
+            throw new BusinessException("FORBIDDEN", "身份域不匹配");
+        }
     }
 }

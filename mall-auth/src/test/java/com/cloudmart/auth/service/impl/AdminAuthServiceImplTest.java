@@ -108,7 +108,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
                 any(), any(), any())).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID, "session-1")).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
 
@@ -131,7 +131,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
                 eq(Set.of("*:*:*")), any(), any())).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID, "session-1")).thenReturn(REFRESH_TOKEN);
 
             LoginResponse result = adminAuthService.login(request, httpRequest);
 
@@ -231,7 +231,7 @@ class AdminAuthServiceImplTest {
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
                 any(), any(), any())).thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID)).thenReturn(REFRESH_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID, "session-1")).thenReturn(REFRESH_TOKEN);
 
             adminAuthService.login(request, httpRequest);
 
@@ -250,6 +250,7 @@ class AdminAuthServiceImplTest {
 
             when(refreshTokenService.rotateRefreshToken(SubjectType.ADMIN, REFRESH_TOKEN))
 .thenReturn(rotation(REFRESH_TOKEN, ADMIN_ID));
+            when(refreshTokenService.bindFamilySession(REFRESH_TOKEN, "session-1")).thenReturn("session-0");
             when(adminUserFeignClient.getPermissionsByUserId(ADMIN_ID))
                     .thenReturn(ApiResponse.ok(adminDTO));
             when(jwtProvider.generateAdminAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class),
@@ -259,6 +260,7 @@ class AdminAuthServiceImplTest {
             assertThat(result).isNotNull();
             assertThat(result.accessToken()).isEqualTo(ACCESS_TOKEN);
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
+            verify(authSessionService).revokeSession("session-0");
         }
 
         @Test
@@ -302,13 +304,27 @@ class AdminAuthServiceImplTest {
     class LogoutTests {
 
         @Test
-        @DisplayName("should revoke all tokens and remove online user")
-        void logout_revokesAllTokens() {
+        @DisplayName("退出当前设备：撤销会话与绑定家族，不动其他设备")
+        void logout_revokesSessionAndBoundFamilyOnly() {
             adminAuthService.logout(ADMIN_ID, "session-1");
 
             verify(authSessionService).revokeSession("session-1");
+            verify(refreshTokenService).revokeFamilyBySession(SubjectType.ADMIN, ADMIN_ID, "session-1");
+            verify(refreshTokenService, never())
+                    .revokeAllTokensForSubject(any(), anyLong());
+        }
+    }
 
-            verify(refreshTokenService).revokeAllTokensForSubject(SubjectType.ADMIN, ADMIN_ID);
+    @Nested
+    @DisplayName("logoutAll")
+    class LogoutAllTests {
+
+        @Test
+        @DisplayName("退出全部设备：版本递增硬失效 + 撤销全部刷新家族")
+        void logoutAll_hardInvalidatesSubject() {
+            adminAuthService.logoutAll(ADMIN_ID);
+
+            verify(authSessionService).invalidate(SubjectType.ADMIN, ADMIN_ID, true);
         }
     }
 

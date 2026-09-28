@@ -60,7 +60,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("用户域令牌带 u: 前缀且写入家族账本与主体索引")
         void createUserToken_prefixedAndPersisted() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
 
             assertThat(token).startsWith("u:");
             verify(hashOperations).putAll(eq(RefreshTokenService.FAMILY_KEY_PREFIX + familyIdOf(token)),
@@ -72,7 +72,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("管理员域令牌带 a: 前缀")
         void createAdminToken_prefixed() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID, "session-a");
 
             assertThat(token).startsWith("a:");
         }
@@ -83,7 +83,7 @@ class RefreshTokenServiceTest {
             org.mockito.Mockito.doThrow(new IllegalStateException("redis down"))
                     .when(hashOperations).putAll(anyString(), any(java.util.Map.class));
 
-            assertThatThrownBy(() -> refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID))
+            assertThatThrownBy(() -> refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
         }
@@ -96,7 +96,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("跨域提交（用户入口拿管理员令牌）拒绝且不触碰 Redis")
         void crossDomain_rejected_withoutConsuming() {
-            String adminToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID);
+            String adminToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, ADMIN_ID, "session-a");
 
             assertThatThrownBy(() -> refreshTokenService.rotateRefreshToken(SubjectType.USER, adminToken))
                     .isInstanceOf(BusinessException.class)
@@ -116,7 +116,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("轮换成功返回同家族新令牌与主体/TTL")
         void rotateOk_returnsFamilyToken() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                     .thenReturn(List.of("OK", "600", String.valueOf(USER_ID)));
 
@@ -133,7 +133,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("重放（脚本 REUSED）抛 TOKEN_REUSE_DETECTED")
         void reuseDetected_throws() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                     .thenReturn(List.of("REUSED"));
 
@@ -145,7 +145,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("已撤销家族（脚本 REVOKED）拒绝")
         void revokedFamily_rejected() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                     .thenReturn(List.of("REVOKED"));
 
@@ -157,7 +157,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("家族过期（脚本 EXPIRED）抛过期错误码")
         void expiredFamily_rejected() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                     .thenReturn(List.of("EXPIRED"));
 
@@ -169,7 +169,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("Redis 故障时 fail-closed：不签发新令牌")
         void rotate_redisFailure_failClosed() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class)))
                     .thenThrow(new IllegalStateException("redis down"));
 
@@ -186,7 +186,7 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("按主体撤销：索引内全部家族标记 revoked 且索引删除")
         void revokeAll_marksFamiliesRevoked() {
-            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID);
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
             when(setOperations.members(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42"))
                     .thenReturn(java.util.Set.of(familyIdOf(token)));
 
@@ -203,6 +203,103 @@ class RefreshTokenServiceTest {
             when(setOperations.members(anyString())).thenThrow(new IllegalStateException("redis down"));
 
             assertThatThrownBy(() -> refreshTokenService.revokeAllTokensForSubject(SubjectType.USER, USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
+        }
+    }
+
+    @Nested
+    @DisplayName("家族会话绑定（SEC-02 当前设备撤销的基础）")
+    class BindSessionTests {
+
+        @Test
+        @DisplayName("创建家族时绑定 sid")
+        void create_bindsSid() {
+            String token = refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1");
+
+            org.mockito.ArgumentCaptor<java.util.Map<String, String>> captor =
+                    org.mockito.ArgumentCaptor.forClass(java.util.Map.class);
+            verify(hashOperations).putAll(eq(RefreshTokenService.FAMILY_KEY_PREFIX + familyIdOf(token)),
+                    captor.capture());
+            org.assertj.core.api.Assertions.assertThat(captor.getValue())
+                    .containsEntry("sid", "session-1");
+        }
+
+        @Test
+        @DisplayName("轮换后重绑新 sid 并返回旧 sid 供撤销")
+        void bindFamilySession_returnsPreviousSid() {
+            when(hashOperations.get(anyString(), eq("sid"))).thenReturn("session-1");
+
+            String previousSid = refreshTokenService.bindFamilySession("u:family-1:token-9", "session-2");
+
+            assertThat(previousSid).isEqualTo("session-1");
+            verify(hashOperations).put(RefreshTokenService.FAMILY_KEY_PREFIX + "family-1", "sid", "session-2");
+        }
+
+        @Test
+        @DisplayName("家族未绑定过 sid 时返回 null")
+        void bindFamilySession_noPreviousSid_returnsNull() {
+            when(hashOperations.get(anyString(), eq("sid"))).thenReturn("");
+
+            assertThat(refreshTokenService.bindFamilySession("u:family-1:token-9", "session-2")).isNull();
+        }
+
+        @Test
+        @DisplayName("绑定失败不抛异常（轮换已提交，重试会误触发重放撤销）")
+        void bindFamilySession_redisFailure_bestEffort() {
+            when(hashOperations.get(anyString(), eq("sid"))).thenThrow(new IllegalStateException("redis down"));
+
+            assertThat(refreshTokenService.bindFamilySession("u:family-1:token-9", "session-2")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("按会话撤销家族（SEC-02 退出当前设备）")
+    class RevokeBySessionTests {
+
+        @Test
+        @DisplayName("只撤销绑定当前 sid 的家族，其他设备家族保留")
+        void revokeBySession_onlyMatchesBoundFamily() {
+            when(setOperations.members(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42"))
+                    .thenReturn(java.util.Set.of("family-1", "family-2"));
+            when(hashOperations.get(RefreshTokenService.FAMILY_KEY_PREFIX + "family-1", "sid"))
+                    .thenReturn("session-1");
+            when(hashOperations.get(RefreshTokenService.FAMILY_KEY_PREFIX + "family-2", "sid"))
+                    .thenReturn("session-2");
+
+            int revoked = refreshTokenService.revokeFamilyBySession(SubjectType.USER, USER_ID, "session-1");
+
+            assertThat(revoked).isEqualTo(1);
+            verify(hashOperations).put(RefreshTokenService.FAMILY_KEY_PREFIX + "family-1", "revoked", "1");
+            verify(setOperations).remove(RefreshTokenService.SUBJECT_INDEX_PREFIX + "user:42", "family-1");
+            verify(hashOperations, never()).put(RefreshTokenService.FAMILY_KEY_PREFIX + "family-2", "revoked", "1");
+        }
+
+        @Test
+        @DisplayName("无匹配家族返回 0（幂等）")
+        void revokeBySession_noMatch_returnsZero() {
+            when(setOperations.members(anyString())).thenReturn(java.util.Set.of("family-1"));
+            when(hashOperations.get(anyString(), eq("sid"))).thenReturn("session-other");
+
+            assertThat(refreshTokenService.revokeFamilyBySession(SubjectType.USER, USER_ID, "session-1"))
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("sid 为空直接返回 0，不触碰 Redis")
+        void revokeBySession_blankSid_noRedisAccess() {
+            assertThat(refreshTokenService.revokeFamilyBySession(SubjectType.USER, USER_ID, " "))
+                    .isZero();
+            verify(redisTemplate, never()).opsForSet();
+        }
+
+        @Test
+        @DisplayName("Redis 故障 fail-closed：撤销失败显式报错")
+        void revokeBySession_redisFailure_failClosed() {
+            when(setOperations.members(anyString())).thenThrow(new IllegalStateException("redis down"));
+
+            assertThatThrownBy(() ->
+                    refreshTokenService.revokeFamilyBySession(SubjectType.USER, USER_ID, "session-1"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("code", "REFRESH_TOKEN_UNAVAILABLE");
         }
