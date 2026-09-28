@@ -11,21 +11,33 @@ jobs:
     name: 后端编译与单测（22 个范围内模块）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '26'
           cache: maven
       - name: 编译（范围模块，-am 依赖链）
-        run: mvn -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am -DskipTests compile
+        run: mvn -B -ntp -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am -DskipTests compile
       - name: 单元测试（范围模块）
-        run: mvn -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' test
+        run: mvn -B -ntp -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' test
+      - name: 失败摘要（转 annotation 便于远程诊断）
+        if: failure()
+        run: |
+          for f in $(find . -name "*.txt" -path "*surefire-reports*"); do
+            grep -E "Tests run: [0-9]+, Failures: [1-9]|Errors: [1-9]" "$f" | while read -r line; do
+              echo "::error::[$f] $line"
+            done
+            grep -A6 "<<< FAILURE!\|<<< ERROR!" "$f" | head -24 | while read -r line; do
+              echo "::error::[detail] $line"
+            done
+          done
 
   frontend:
     name: 三端类型检查与 Web 单测
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - dir: CloudMart-ui
@@ -35,15 +47,20 @@ jobs:
           - dir: cloudmart-mobile
             cmds: npx tsc --noEmit
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '26'
           cache: npm
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+      - name: 环境信息
+        run: node --version && npm --version
       - name: 安装依赖（锁文件严格模式）
         working-directory: ${{ matrix.dir }}
         run: npm ci
       - name: 校验
         working-directory: ${{ matrix.dir }}
         run: ${{ matrix.cmds }}
+      - name: 失败摘要
+        if: failure()
+        run: echo "::error::dir=${{ matrix.dir }} node=$(node --version) npm=$(npm --version) 上一步失败，见上方日志"
