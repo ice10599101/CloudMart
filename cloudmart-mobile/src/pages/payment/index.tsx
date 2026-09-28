@@ -70,6 +70,7 @@ export default function PaymentPage() {
   const [countdown, setCountdown] = useState(0)
   const [paying, setPaying] = useState(false)
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollCancelledRef = useRef(false)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadOrder = useCallback(async () => {
@@ -129,35 +130,38 @@ export default function PaymentPage() {
   // Poll payment status
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current)
-
-    pollTimerRef.current = setInterval(async () => {
-      try {
-        const res = await orderApi.getPayment(id)
-        const info = res.data?.data as PaymentInfo
-        setPaymentInfo(info)
-
-        if (info?.status === 'SUCCESS') {
-          setPaymentStatus('SUCCESS')
-          if (pollTimerRef.current) {
-            clearInterval(pollTimerRef.current)
-            pollTimerRef.current = null
+    pollTimerRef.current = null
+    // FE-03：串行轮询（await 查单→延迟→再查，不重叠）；查询失败退避续查不误报；
+    // cancelled ref 取消（类型安全，卸载/终态退出）
+    pollCancelledRef.current = false
+    const loop = async () => {
+      for (let attempt = 0; attempt < 100 && !pollCancelledRef.current; attempt++) {
+        try {
+          const res = await orderApi.getPayment(id)
+          if (pollCancelledRef.current) return
+          const info = res.data?.data as PaymentInfo
+          setPaymentInfo(info)
+          if (info?.status === 'SUCCESS') {
+            setPaymentStatus('SUCCESS')
+            return
           }
-        } else if (info?.status === 'FAILED') {
-          setPaymentStatus('FAILED')
-          if (pollTimerRef.current) {
-            clearInterval(pollTimerRef.current)
-            pollTimerRef.current = null
+          if (info?.status === 'FAILED') {
+            setPaymentStatus('FAILED')
+            return
           }
+        } catch {
+          // 退避：弱网恢复后继续查单
         }
-      } catch {
-        // ignore poll errors
+        await new Promise((r) => setTimeout(r, 3000))
       }
-    }, 3000)
+    }
+    void loop()
   }, [id])
 
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
+      pollCancelledRef.current = true
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current)
         pollTimerRef.current = null

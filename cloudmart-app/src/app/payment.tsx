@@ -68,32 +68,43 @@ export default function PaymentPage() {
   }, [countdown > 0])
 
   const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current)
-      pollTimerRef.current = null
+    const timer = pollTimerRef.current as unknown as { unsubscribe?: () => void } | null
+    if (timer?.unsubscribe) {
+      timer.unsubscribe()
     }
+    pollTimerRef.current = null
   }, [])
 
+  // FE-03：串行轮询（await 查单→延迟→再查，不重叠）；查询失败退避续查不误报
+  // FAILED（原弱网一次失败即宣判失败）；限次防无限轮询
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current)
-    pollTimerRef.current = setInterval(async () => {
-      try {
-        const res = await orderApi.getPayment(Number(id))
-        const paymentData = res.data as { data?: { status: string } }
-        const status = paymentData?.data?.status
-        if (status === 'SUCCESS') {
-          setPaymentStatus('SUCCESS')
-          stopPolling()
-        } else if (status === 'FAILED') {
-          setPaymentStatus('FAILED')
-          stopPolling()
+    let cancelled = false
+    const loop = async () => {
+      for (let attempt = 0; attempt < 100 && !cancelled; attempt++) {
+        try {
+          const res = await orderApi.getPayment(Number(id))
+          if (cancelled) return
+          const paymentData = res.data as { data?: { status: string } }
+          const status = paymentData?.data?.status
+          if (status === 'SUCCESS') {
+            setPaymentStatus('SUCCESS')
+            return
+          }
+          if (status === 'FAILED') {
+            setPaymentStatus('FAILED')
+            return
+          }
+        } catch {
+          // 退避：弱网恢复后继续查单，成功状态只能来自查单结果
         }
-      } catch {
-        setPaymentStatus('FAILED')
-        stopPolling()
+        await new Promise((r) => setTimeout(r, 3000))
       }
-    }, 3000)
-  }, [id])
+      if (!cancelled) stopPolling()
+    }
+    void loop()
+    pollTimerRef.current = { unsubscribe: () => { cancelled = true } } as unknown as ReturnType<typeof setInterval>
+  }, [id, stopPolling])
 
   useEffect(() => {
     return () => stopPolling()
