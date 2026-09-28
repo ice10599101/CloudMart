@@ -3,7 +3,7 @@ package com.cloudmart.payment.mq;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxDelivery;
 import com.cloudmart.payment.config.RocketMQConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;

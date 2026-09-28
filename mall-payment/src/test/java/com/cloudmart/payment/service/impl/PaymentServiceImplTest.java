@@ -2,7 +2,7 @@ package com.cloudmart.payment.service.impl;
 
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;

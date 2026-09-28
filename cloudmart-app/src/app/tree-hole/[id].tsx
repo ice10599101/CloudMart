@@ -107,6 +107,10 @@ export default function TreeHoleScreen() {
     Alert.alert('树洞', title)
   }
 
+  // 恒指向最新 doSend：既断开 同意→doSend→弹协议→同意 的声明环，
+  // 也避免 useCallback 记忆旧 doSend 造成 sending/user 陈旧闭包
+  const doSendRef = useRef<((text: string) => Promise<void>) | undefined>(undefined)
+
   /** 同意 AI 数据处理协议后自动发送待发消息 */
   const handleConsentAgree = useCallback(async () => {
     try {
@@ -120,7 +124,7 @@ export default function TreeHoleScreen() {
         pendingMessageRef.current = null
         if (pending) {
           setInput('')
-          await doSend(pending)
+          await doSendRef.current?.(pending)
         }
       } else {
         toastByCode(res.data.error?.code, res.data.error?.message)
@@ -219,6 +223,10 @@ export default function TreeHoleScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sending, user, wishId],
   )
+
+  useEffect(() => {
+    doSendRef.current = doSend
+  }, [doSend])
 
   const handleSend = () => doSend(input.trim())
 

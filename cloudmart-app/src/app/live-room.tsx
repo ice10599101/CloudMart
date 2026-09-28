@@ -146,6 +146,8 @@ export default function LiveRoomScreen() {
   }, [roomId, loadRoom, enterRoom, leaveRoom])
 
   /** WS 弹幕连接（对齐 Web 端 LiveRoom：/ws/live/danmaku，退避重连最多 5 次） */
+  // onclose 重连经 ref 中转自递归（React Compiler：useCallback 不能在体内引用自身）
+  const connectSocketRef = useRef<() => void>(() => {})
   const connectSocket = useCallback(() => {
     if (!isLoggedIn || !roomId) return
     // token 由 storage 异步读取
@@ -199,7 +201,7 @@ export default function LiveRoomScreen() {
           if (reconnectAttemptsRef.current < 5) {
             const delay = 1000 * Math.pow(2, reconnectAttemptsRef.current)
             reconnectAttemptsRef.current += 1
-            reconnectRef.current = setTimeout(() => connectSocket(), delay)
+            reconnectRef.current = setTimeout(() => connectSocketRef.current(), delay)
           }
         }
 
@@ -209,6 +211,7 @@ export default function LiveRoomScreen() {
 
   // 直播中才连弹幕 WS（hooks 在早退 return 之前，修复原 Hooks 规则违例）
   useEffect(() => {
+    connectSocketRef.current = connectSocket
     if (room?.status === 1) connectSocket()
   }, [room?.status, connectSocket])
 

@@ -42,9 +42,15 @@ export default function CheckInPage() {
   ]
   const fadeAnim = useRef(new Animated.Value(1)).current
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const loadCalendar = async (year: number, month: number) => {
+    try {
+      const res = await growthApi.getCheckInCalendar(year, month)
+      const days = res.data?.data || []
+      setCheckedDays(days.map((d) => Number(d)).filter((d) => !Number.isNaN(d)))
+    } catch {
+      setCheckedDays([])
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -68,6 +74,10 @@ export default function CheckInPage() {
   }
 
   useEffect(() => {
+    loadData()
+  }, [])
+
+  useEffect(() => {
     void (async () => {
       const stored = await storage.getItem('avatar_frame')
       setAvatarFrameState(stored || 'none')
@@ -83,16 +93,6 @@ export default function CheckInPage() {
     setAvatarFrameState(key)
     void storage.setItem('avatar_frame', key)
     void growthApi.setAvatarFrame(key).catch(() => {})
-  }
-
-  const loadCalendar = async (year: number, month: number) => {
-    try {
-      const res = await growthApi.getCheckInCalendar(year, month)
-      const days = res.data?.data || []
-      setCheckedDays(days.map((d) => Number(d)).filter((d) => !Number.isNaN(d)))
-    } catch {
-      setCheckedDays([])
-    }
   }
 
   const handleCheckIn = async () => {

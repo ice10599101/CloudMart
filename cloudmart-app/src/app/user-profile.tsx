@@ -62,13 +62,6 @@ export default function UserProfileScreen() {
 
   useEffect(() => { loadProfile() }, [loadProfile])
 
-  useEffect(() => {
-    if (activeTab === 'posts') loadPosts()
-    else if (activeTab === 'wishes') loadWishes()
-    else if (activeTab === 'comments') loadUserComments()
-    else loadCollections()
-  }, [activeTab])
-
   const loadPosts = async () => {
     if (!userId) return
     setLoading(true)
@@ -110,6 +103,13 @@ export default function UserProfileScreen() {
       setUserComments([])
     }
   }
+
+  useEffect(() => {
+    if (activeTab === 'posts') loadPosts()
+    else if (activeTab === 'wishes') loadWishes()
+    else if (activeTab === 'comments') loadUserComments()
+    else loadCollections()
+  }, [activeTab])
 
   const handleFollow = async () => {
     try {

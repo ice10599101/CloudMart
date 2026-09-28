@@ -67,6 +67,13 @@ export default function PaymentPage() {
     return () => clearInterval(timer)
   }, [countdown > 0])
 
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+  }, [])
+
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current)
     pollTimerRef.current = setInterval(async () => {
@@ -87,13 +94,6 @@ export default function PaymentPage() {
       }
     }, 3000)
   }, [id])
-
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current)
-      pollTimerRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     return () => stopPolling()

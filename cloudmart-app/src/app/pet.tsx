@@ -539,6 +539,37 @@ export default function PetScreen() {
     if (pet) loadPanelData(panel)
   }, [panel, pet, loadPanelData])
 
+  const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
+    if (!pet) return
+    try {
+      const { data: res } =
+        action === 'feed' ? await petApi.feed()
+          : action === 'play' ? await petApi.play()
+            : action === 'clean' ? await petApi.clean()
+              : await petApi.rest()
+      if (res.success && res.data) {
+        setPet(res.data)
+        if (gameReady) {
+          syncStage(res.data)
+          postToGame({ source: 'pet-host', type: 'actionResult', action, ok: true })
+        }
+      }
+    } catch {
+      if (gameReady) {
+        postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: '现在不行哦' })
+      }
+    }
+  }
+
+  const openProfile = useCallback(() => {
+    if (!pet) return
+    setProfileName(pet.name)
+    const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
+    setProfileColor(appearance?.color ?? PET_COLORS[0])
+    setProfileAccessory(appearance?.accessory ?? 'none')
+    setProfileOpen(true)
+  }, [pet])
+
   // 微信 web-view 宿主页 navigateTo 落地：intent 参数触发对应动作
   useEffect(() => {
     const intent = params.intent
@@ -586,28 +617,6 @@ export default function PetScreen() {
     return () => clearTimeout(timer)
   }, [battleOverlay, roundIndex])
 
-  const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
-    if (!pet) return
-    try {
-      const { data: res } =
-        action === 'feed' ? await petApi.feed()
-          : action === 'play' ? await petApi.play()
-            : action === 'clean' ? await petApi.clean()
-              : await petApi.rest()
-      if (res.success && res.data) {
-        setPet(res.data)
-        if (gameReady) {
-          syncStage(res.data)
-          postToGame({ source: 'pet-host', type: 'actionResult', action, ok: true })
-        }
-      }
-    } catch {
-      if (gameReady) {
-        postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: '现在不行哦' })
-      }
-    }
-  }
-
   const adopt = async () => {
     if (!adoptName.trim()) return
     try {
@@ -628,15 +637,6 @@ export default function PetScreen() {
       // 拦截器已提示
     }
   }
-
-  const openProfile = useCallback(() => {
-    if (!pet) return
-    setProfileName(pet.name)
-    const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
-    setProfileColor(appearance?.color ?? PET_COLORS[0])
-    setProfileAccessory(appearance?.accessory ?? 'none')
-    setProfileOpen(true)
-  }, [pet])
 
   const saveProfile = async () => {
     if (!pet) return

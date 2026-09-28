@@ -2,6 +2,11 @@ server:
   port: 8090
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:8379}
+      password: ${REDIS_PASSWORD:}
   application:
     name: mall-gateway
   config:
@@ -274,13 +279,6 @@ logging:
 
 # SEC-03：会话/版本权威校验。响应式 Redis 查询不阻塞事件循环；
 # Redis 故障时 fail-closed（拒绝认证并告警），绝不放行未校验会话。
-spring:
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:8379}
-      password: ${REDIS_PASSWORD:}
-
 gateway:
   jwt:
     jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}

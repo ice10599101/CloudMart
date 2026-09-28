@@ -30,7 +30,7 @@ import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.compensation.CompensationTaskService;
 import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.order.mq.OrderEventProducer;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.cloudmart.order.mq.OrderStatusChangeMessage;
 import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;

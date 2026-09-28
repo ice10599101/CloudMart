@@ -36,6 +36,7 @@ public class AuthSessionService {
     private final long refreshTokenExpiration;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuthSessionService(StringRedisTemplate redisTemplate,
                               RefreshTokenService refreshTokenService,
                               @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration,

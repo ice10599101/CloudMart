@@ -106,6 +106,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/wish/tree-env"
     );
 
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtAuthenticationFilter(
             @Value("${gateway.jwt.jwks-uri:http://127.0.0.1:9001/oauth2/jwks}") String jwksUri,
             @Value("${gateway.jwt.expected-issuer:cloudmart-auth}") String expectedIssuer,

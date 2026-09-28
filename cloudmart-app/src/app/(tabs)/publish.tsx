@@ -60,16 +60,6 @@ export default function PublishPage() {
     return () => backHandler.remove()
   }, [hasContent])
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
-    }
-    if (params.edit && !isEditing) {
-      loadPostForEdit(parseInt(params.edit))
-    }
-  }, [params.edit, isLoggedIn])
-
   const loadPostForEdit = async (id: number) => {
     try {
       const res = await communityApi.getPost(id)
@@ -97,6 +87,16 @@ export default function PublishPage() {
       Alert.alert('错误', '加载帖子失败')
     }
   }
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+    if (params.edit && !isEditing) {
+      loadPostForEdit(parseInt(params.edit))
+    }
+  }, [params.edit, isLoggedIn])
 
   const uploadMediaFiles = async (): Promise<{ mediaUrls: string[]; coverImage: string; mediaType: string }> => {
     const uploadedUrls: string[] = []

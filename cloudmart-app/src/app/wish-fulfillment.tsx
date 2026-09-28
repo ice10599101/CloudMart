@@ -204,6 +204,17 @@ export default function WishFulfillmentScreen() {
     fetchWish()
   }, [isLoggedIn, wishId])
 
+  const uploadItem = async (key: string, base64: string) => {
+    try {
+      const res = await fileApi.upload({ file: base64, type: 'image/jpeg' })
+      const url = res.data?.data?.url
+      if (!url) throw new Error('upload failed')
+      setUploads((prev) => prev.map((u) => (u.key === key ? { ...u, url, status: 'success' } : u)))
+    } catch {
+      setUploads((prev) => prev.map((u) => (u.key === key ? { ...u, status: 'error' } : u)))
+    }
+  }
+
   const pickImage = useCallback(async () => {
     if (uploads.length >= MAX_MEDIA) {
       Alert.alert('提示', `最多上传 ${MAX_MEDIA} 张图片`)
@@ -237,17 +248,6 @@ export default function WishFulfillmentScreen() {
     setUploads((prev) => [...prev, ...items])
     items.forEach((item) => uploadItem(item.key, item.base64))
   }, [uploads.length])
-
-  const uploadItem = async (key: string, base64: string) => {
-    try {
-      const res = await fileApi.upload({ file: base64, type: 'image/jpeg' })
-      const url = res.data?.data?.url
-      if (!url) throw new Error('upload failed')
-      setUploads((prev) => prev.map((u) => (u.key === key ? { ...u, url, status: 'success' } : u)))
-    } catch {
-      setUploads((prev) => prev.map((u) => (u.key === key ? { ...u, status: 'error' } : u)))
-    }
-  }
 
   const retryUpload = (item: UploadItem) => {
     setUploads((prev) => prev.map((u) => (u.key === item.key ? { ...u, status: 'uploading' } : u)))

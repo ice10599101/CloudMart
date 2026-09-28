@@ -3,7 +3,7 @@ package com.cloudmart.common.config;
 import com.cloudmart.common.interceptor.AdminPermissionInterceptor;
 import com.cloudmart.common.security.CloudmartSecurityProperties;
 import com.cloudmart.common.security.ServiceTokenAuthenticationFilter;
-import com.cloudmart.common.security.ServiceTokenFeignInterceptor;
+import com.cloudmart.common.security.ServiceTokenProvider;
 import com.cloudmart.common.security.UserJwtAuthenticationFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -22,7 +22,7 @@ import java.time.Clock;
  * <ul>
  *   <li>{@link UserJwtAuthenticationFilter}：用户/管理员 JWT 本地验签；</li>
  *   <li>{@link ServiceTokenAuthenticationFilter}：入站服务令牌校验；</li>
- *   <li>{@link ServiceTokenFeignInterceptor}：出站 Feign 服务令牌签名；</li>
+ *   <li>{@link ServiceTokenProvider}：RestClient 等非 Feign 调用方的手工签名；</li>
  *   <li>{@link AdminPermissionInterceptor} 注册：使 @RequiresPermission /
  *       @RequiresAdmin 注解在 mall-job/mall-gen 等模块真正生效。</li>
  * </ul>
@@ -30,6 +30,12 @@ import java.time.Clock;
  * <p>装配条件由 {@code cloudmart.security.*} 驱动：配置了 {@code service-id}
  * 才装配入站过滤器；mall-admin 自有管理员上下文与拦截器注册（且无需入站
  * JWT 验签），因此不配置 service-id，仅使用出站签名拦截器。</p>
+ *
+ * <p>注意：本类不得出现任何引用 openfeign 类型的 Bean 方法——没有 feign 依赖的
+ * 模块（如 mall-product/mall-file/mall-gen）在 Spring 反射推断
+ * {@code @ConditionalOnMissingBean} 返回类型时会触发
+ * {@code NoClassDefFoundError: feign/RequestInterceptor}。Feign 相关 Bean 全部
+ * 收敛在 {@link FeignBeanConfiguration}（类级 @ConditionalOnClass 守护）。</p>
  */
 @AutoConfiguration
 @ConditionalOnClass(HandlerInterceptor.class)
@@ -42,20 +48,12 @@ public class SecurityAuthAutoConfiguration {
         return Clock.systemUTC();
     }
 
-    /** 出站签名拦截器：mall-admin 等仅出站场景也可用（未配置目标时不签名） */
-    @Bean
-    @ConditionalOnMissingBean(ServiceTokenFeignInterceptor.class)
-    public ServiceTokenFeignInterceptor serviceTokenFeignInterceptor(
-            CloudmartSecurityProperties properties, Clock clock) {
-        return new ServiceTokenFeignInterceptor(properties, clock);
-    }
-
-    /** RestClient 等非 Feign 调用方的手工签名组件 */
+    /** RestClient 等非 Feign 调用方的手工签名组件（不依赖 openfeign 类型） */
     @Bean
     @ConditionalOnMissingBean
-    public com.cloudmart.common.security.ServiceTokenProvider serviceTokenProvider(
+    public ServiceTokenProvider serviceTokenProvider(
             CloudmartSecurityProperties properties, Clock clock) {
-        return new com.cloudmart.common.security.ServiceTokenProvider(properties, clock);
+        return new ServiceTokenProvider(properties, clock);
     }
 
     @Bean
@@ -96,5 +94,20 @@ public class SecurityAuthAutoConfiguration {
                 registry.addInterceptor(interceptor).addPathPatterns("/**");
             }
         };
+    }
+
+    /**
+     * Feign 相关 Bean 单独守护（ASYNC/SEC-01 出站签名）：仅有 openfeign 依赖的
+     * 模块才处理本配置类，避免无 feign 模块类加载失败。
+     */
+    @ConditionalOnClass(name = "feign.RequestInterceptor")
+    static class FeignBeanConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public com.cloudmart.common.security.ServiceTokenFeignInterceptor serviceTokenFeignInterceptor(
+                CloudmartSecurityProperties properties, Clock clock) {
+            return new com.cloudmart.common.security.ServiceTokenFeignInterceptor(properties, clock);
+        }
     }
 }

@@ -17,7 +17,7 @@ import com.cloudmart.order.feign.InventoryFeignClient;
 import com.cloudmart.order.feign.PaymentFeignClient;
 import com.cloudmart.common.async.compensation.CompensationTaskService;
 import com.cloudmart.common.async.outbox.OutboxService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.order.mq.OrderEventProducer;
 import com.cloudmart.order.repository.OrderItemMapper;

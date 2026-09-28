@@ -149,105 +149,101 @@ export default function AiAssistantScreen() {
     Alert.alert('提示', title)
   }
 
-  const handleBreakdown = useCallback(
-    async (rawText?: string) => {
-      const value = (rawText ?? text).trim()
-      if (!value) {
-        Alert.alert('提示', '先描述一下你想实现什么吧')
-        return
-      }
-      if (breaking) return
-      if (!user) {
-        router.replace('/login')
-        return
-      }
+  async function handleBreakdown(rawText?: string) {
+    const value = (rawText ?? text).trim()
+    if (!value) {
+      Alert.alert('提示', '先描述一下你想实现什么吧')
+      return
+    }
+    if (breaking) return
+    if (!user) {
+      router.replace('/login')
+      return
+    }
 
-      // 同意状态前置检查，未同意弹协议；查询失败由后端 403 兜底
-      try {
-        const statusRes = await wishApi.getConsentStatus()
-        if (statusRes.data.success && !statusRes.data.data.granted) {
-          pendingTextRef.current = value
-          Alert.alert(
-            'AI 数据处理协议',
-            '在使用 AI 心愿助手前，请了解并同意：\n· 你输入的目标描述将在脱敏处理后发送给 AI 服务（通义千问）生成拆解步骤\n· 系统会自动移除手机号、邮箱、身份证号等个人信息\n· 对话记录仅你自己可见，可随时联系客服删除\n· 你可以随时撤回本同意',
-            [
-              { text: '暂不使用', style: 'cancel' },
-              {
-                text: '同意并继续',
-                onPress: async () => {
+    // 同意状态前置检查，未同意弹协议；查询失败由后端 403 兜底
+    try {
+      const statusRes = await wishApi.getConsentStatus()
+      if (statusRes.data.success && !statusRes.data.data.granted) {
+        pendingTextRef.current = value
+        Alert.alert(
+          'AI 数据处理协议',
+          '在使用 AI 心愿助手前，请了解并同意：\n· 你输入的目标描述将在脱敏处理后发送给 AI 服务（通义千问）生成拆解步骤\n· 系统会自动移除手机号、邮箱、身份证号等个人信息\n· 对话记录仅你自己可见，可随时联系客服删除\n· 你可以随时撤回本同意',
+          [
+            { text: '暂不使用', style: 'cancel' },
+            {
+              text: '同意并继续',
+              onPress: async () => {
+                try {
+                  const grantRes = await wishApi.grantConsent({
+                    consentType: 'AI_DATA_PROCESSING',
+                    version: AI_CONSENT_VERSION,
+                    action: 'GRANT',
+                  })
+                  if (grantRes.data.success) {
+                    const pending = pendingTextRef.current
+                    pendingTextRef.current = null
+                    if (pending) await handleBreakdown(pending)
+                  }
+                } catch {
+                  toastByCode('')
+                }
+              },
+            },
+          ],
+        )
+        return
+      }
+    } catch {
+      // 继续发送
+    }
+
+    setBreaking(true)
+    try {
+      const res = await wishApi.breakdownGoal({ text: value, wishId })
+      if (res.data.success && res.data.data) {
+        setBreakdown(res.data.data)
+        setSelectedGoalTitles(new Set(res.data.data.goals.map((g) => g.title)))
+      } else {
+        toastByCode(res.data.error?.code ?? '', res.data.error?.message)
+      }
+    } catch (error) {
+      const business = extractBusinessError(error)
+      const code = business?.code ?? ''
+      if (code === 'WISH_CONSENT_REQUIRED') {
+        pendingTextRef.current = value
+        Alert.alert(
+          'AI 数据处理协议',
+          '需要先同意 AI 数据处理协议才能使用拆解功能',
+          [
+            { text: '暂不使用', style: 'cancel' },
+            {
+              text: '同意并继续',
+              onPress: () => {
+                // 同意后重试拆解
+                void (async () => {
                   try {
-                    const grantRes = await wishApi.grantConsent({
+                    await wishApi.grantConsent({
                       consentType: 'AI_DATA_PROCESSING',
                       version: AI_CONSENT_VERSION,
                       action: 'GRANT',
                     })
-                    if (grantRes.data.success) {
-                      const pending = pendingTextRef.current
-                      pendingTextRef.current = null
-                      if (pending) await handleBreakdown(pending)
-                    }
+                    await handleBreakdown(value)
                   } catch {
                     toastByCode('')
                   }
-                },
+                })()
               },
-            ],
-          )
-          return
-        }
-      } catch {
-        // 继续发送
+            },
+          ],
+        )
+        return
       }
-
-      setBreaking(true)
-      try {
-        const res = await wishApi.breakdownGoal({ text: value, wishId })
-        if (res.data.success && res.data.data) {
-          setBreakdown(res.data.data)
-          setSelectedGoalTitles(new Set(res.data.data.goals.map((g) => g.title)))
-        } else {
-          toastByCode(res.data.error?.code ?? '', res.data.error?.message)
-        }
-      } catch (error) {
-        const business = extractBusinessError(error)
-        const code = business?.code ?? ''
-        if (code === 'WISH_CONSENT_REQUIRED') {
-          pendingTextRef.current = value
-          Alert.alert(
-            'AI 数据处理协议',
-            '需要先同意 AI 数据处理协议才能使用拆解功能',
-            [
-              { text: '暂不使用', style: 'cancel' },
-              {
-                text: '同意并继续',
-                onPress: () => {
-                  // 同意后重试拆解
-                  void (async () => {
-                    try {
-                      await wishApi.grantConsent({
-                        consentType: 'AI_DATA_PROCESSING',
-                        version: AI_CONSENT_VERSION,
-                        action: 'GRANT',
-                      })
-                      await handleBreakdown(value)
-                    } catch {
-                      toastByCode('')
-                    }
-                  })()
-                },
-              },
-            ],
-          )
-          return
-        }
-        toastByCode(code, business?.message)
-      } finally {
-        setBreaking(false)
-      }
-    },
-     
-    [text, breaking, user, wishId],
-  )
+      toastByCode(code, business?.message)
+    } finally {
+      setBreaking(false)
+    }
+  }
 
   const toggleGoalSelect = (title: string) => {
     setSelectedGoalTitles((prev) => {

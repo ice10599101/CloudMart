@@ -1,6 +1,5 @@
 package com.cloudmart.gateway.security;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -19,15 +18,14 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class SessionValidator {
 
     private final ReactiveStringRedisTemplate reactiveRedisTemplate;
 
-    @Value("${gateway.session.key-prefix:auth:session_valid:}")
-    private String keyPrefix;
+    private final String keyPrefix;
 
-    public SessionValidator(ReactiveStringRedisTemplate reactiveRedisTemplate, String keyPrefix) {
+    public SessionValidator(ReactiveStringRedisTemplate reactiveRedisTemplate,
+                            @Value("${gateway.session.key-prefix:auth:session_valid:}") String keyPrefix) {
         this.reactiveRedisTemplate = reactiveRedisTemplate;
         this.keyPrefix = keyPrefix;
     }

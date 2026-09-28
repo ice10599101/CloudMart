@@ -63,12 +63,27 @@ export default function PostDetailScreen() {
   const [commentHasMore, setCommentHasMore] = useState(false)
   const { user } = useAuthStore()
 
-  useEffect(() => {
-    if (postId) {
-      loadPost()
-      loadComments()
+  /** 相关推荐：首个话题下的帖子，不足时回退推荐流（对齐 Web 端逻辑） */
+  const loadRelatedPosts = async (detail: PostData) => {
+    const firstTagId = detail.tags?.[0]?.id
+    try {
+      if (firstTagId) {
+        const res = await communityApi.getTagPosts(firstTagId, { page: 1, pageSize: 8 })
+        const list = (res.data as { data?: { list?: PostData[] } })?.data?.list ?? (res.data?.data as unknown as PostData[]) ?? []
+        setRelatedPosts(list.filter((p) => p.id !== detail.id).slice(0, 4))
+        if (list.filter((p) => p.id !== detail.id).length >= 4) return
+      }
+      const res = await communityApi.getFeed({ page: 1, pageSize: 8 })
+      const list = (res.data as { data?: { list?: PostData[] } })?.data?.list ?? []
+      setRelatedPosts((prev) => {
+        const seen = new Set([detail.id, ...prev.map((p) => p.id)])
+        const extra = list.filter((p) => !seen.has(p.id)).slice(0, 4 - prev.length)
+        return [...prev, ...extra]
+      })
+    } catch {
+      // 相关推荐失败静默
     }
-  }, [postId])
+  }
 
   const loadPost = async () => {
     try {
@@ -98,28 +113,6 @@ export default function PostDetailScreen() {
     }
   }
 
-  /** 相关推荐：首个话题下的帖子，不足时回退推荐流（对齐 Web 端逻辑） */
-  const loadRelatedPosts = async (detail: PostData) => {
-    const firstTagId = detail.tags?.[0]?.id
-    try {
-      if (firstTagId) {
-        const res = await communityApi.getTagPosts(firstTagId, { page: 1, pageSize: 8 })
-        const list = (res.data as { data?: { list?: PostData[] } })?.data?.list ?? (res.data?.data as unknown as PostData[]) ?? []
-        setRelatedPosts(list.filter((p) => p.id !== detail.id).slice(0, 4))
-        if (list.filter((p) => p.id !== detail.id).length >= 4) return
-      }
-      const res = await communityApi.getFeed({ page: 1, pageSize: 8 })
-      const list = (res.data as { data?: { list?: PostData[] } })?.data?.list ?? []
-      setRelatedPosts((prev) => {
-        const seen = new Set([detail.id, ...prev.map((p) => p.id)])
-        const extra = list.filter((p) => !seen.has(p.id)).slice(0, 4 - prev.length)
-        return [...prev, ...extra]
-      })
-    } catch {
-      // 相关推荐失败静默
-    }
-  }
-
   const loadComments = async (pageNum = 1, append = false) => {
     try {
       const res = await communityApi.getComments(postId, { page: pageNum, pageSize: 20 })
@@ -131,6 +124,13 @@ export default function PostDetailScreen() {
       // API unavailable
     }
   }
+
+  useEffect(() => {
+    if (postId) {
+      loadPost()
+      loadComments()
+    }
+  }, [postId])
 
   const handleLike = async () => {
     if (!post) return

@@ -79,6 +79,7 @@ public class RefreshTokenService {
     private final Clock clock;
     private final DefaultRedisScript<List> rotateScript;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public RefreshTokenService(StringRedisTemplate redisTemplate,
                                @Value("${auth.jwt.refresh-token-expiration:604800}") long refreshTokenExpiration) {
         this(redisTemplate, refreshTokenExpiration, Clock.systemUTC());

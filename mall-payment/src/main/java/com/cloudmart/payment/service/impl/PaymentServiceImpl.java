@@ -10,7 +10,7 @@ import com.cloudmart.payment.dto.PaymentDTO;
 import com.cloudmart.payment.entity.Payment;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.cloudmart.payment.repository.PaymentMapper;
 import com.cloudmart.payment.service.PaymentService;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
