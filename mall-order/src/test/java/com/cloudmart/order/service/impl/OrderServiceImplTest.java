@@ -298,6 +298,37 @@ class OrderServiceImplTest {
     }
 
     @Nested
+    @DisplayName("autoConfirmReceipts（WMS-01 余量）")
+    class AutoConfirmReceiptsTests {
+
+        @Test
+        @DisplayName("发货超期的订单批量 CAS 确认收货并发布事件")
+        void autoConfirm_confirmsExpiredShippedOrders() {
+            Order shipped = buildOrder(1L, 100L, "SHIPPED");
+            when(orderMapper.findAutoConfirmableOrderIds(7, 500)).thenReturn(List.of(1L));
+            when(orderMapper.selectById(1L)).thenReturn(shipped);
+            when(orderMapper.updateStatusAndCompletedAtIfMatch(1L, "SHIPPED", "COMPLETED")).thenReturn(1);
+
+            int confirmed = orderService.autoConfirmReceipts(7);
+
+            assertThat(confirmed).isEqualTo(1);
+            org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> captor =
+                    org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
+            verify(outboxService, org.mockito.Mockito.atLeastOnce()).record(captor.capture());
+            assertThat(captor.getAllValues())
+                    .extracting(com.cloudmart.common.async.EventEnvelope::eventType)
+                    .contains("ORDER_STATUS_CHANGE");
+        }
+
+        @Test
+        @DisplayName("非法天数（≤0）拒绝")
+        void autoConfirm_invalidDays_rejected() {
+            assertThatThrownBy(() -> orderService.autoConfirmReceipts(0))
+                    .isInstanceOf(BusinessException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("confirmReceipt")
     class ConfirmReceiptTests {
 

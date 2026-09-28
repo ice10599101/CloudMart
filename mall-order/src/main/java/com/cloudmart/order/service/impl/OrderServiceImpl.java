@@ -1008,6 +1008,33 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public int autoConfirmReceipts(int days) {
+        // WMS-01 余量：自动收货——CAS SHIPPED→COMPLETED 逐单推进（与用户手动确认
+        // 及退款并发安全，先到先赢），每单发布状态事件；批量上限防长事务
+        if (days <= 0) {
+            throw new BusinessException("INVALID_ARGUMENT", "自动收货天数必须大于 0");
+        }
+        List<Long> ids = orderMapper.findAutoConfirmableOrderIds(days, 500);
+        int confirmed = 0;
+        for (Long orderId : ids) {
+            Order order = orderMapper.selectById(orderId);
+            if (order == null) {
+                continue;
+            }
+            int updated = orderMapper.updateStatusAndCompletedAtIfMatch(orderId, "SHIPPED", "COMPLETED");
+            if (updated > 0) {
+                publishOutboxEvent(new OrderStatusChangeMessage(
+                        orderId, order.getUserId(), "SHIPPED", "COMPLETED"));
+                confirmed++;
+            }
+        }
+        if (confirmed > 0) {
+            log.info("[WMS01] 自动收货完成，本轮确认 {} 单（天数阈值 {} 天）", confirmed, days);
+        }
+        return confirmed;
+    }
+
+    @Override
     public List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId) {
         return orderMapper.findCompletedOrderIdsWithSku(userId, skuId);
     }

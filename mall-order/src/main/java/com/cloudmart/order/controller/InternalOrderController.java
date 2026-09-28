@@ -60,6 +60,15 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.getInternalOrderInfo(orderId));
     }
 
+    /** WMS-01 余量：自动收货——发货超 N 天未确认的订单批量确认（mall-job 触发） */
+    @org.springframework.web.bind.annotation.PostMapping("/auto-confirm-receipts")
+    @Operation(summary = "自动收货", description = "days：发货后天数阈值；返回本轮确认的订单数")
+    public ApiResponse<Integer> autoConfirmReceipts(
+            @org.springframework.web.bind.annotation.RequestParam(value = "days", defaultValue = "7")
+            @Parameter(description = "发货后天数阈值") int days) {
+        return ApiResponse.ok(orderService.autoConfirmReceipts(days));
+    }
+
     /** USER-01：注销阻塞核验——用户是否存在未结订单（PENDING_PAYMENT/PAID/SHIPPED） */
     @GetMapping("/has-open-orders")
     @Operation(summary = "未结订单核验", description = "注销编排前置：有未结订单返回 true（阻塞注销）")

@@ -26,6 +26,7 @@ public class JobInvoker {
         this.businessJobHandler = businessJobHandler;
         this.handlerRegistry = java.util.Map.ofEntries(
                 java.util.Map.entry("groupExpirationHandler", (Runnable) businessJobHandler::groupExpirationHandler),
+                java.util.Map.entry("orderAutoConfirmHandler", (Runnable) businessJobHandler::orderAutoConfirmHandler),
                 java.util.Map.entry("orderTimeoutCancelHandler", (Runnable) businessJobHandler::orderTimeoutCancelHandler),
                 java.util.Map.entry("couponExpirationHandler", (Runnable) businessJobHandler::couponExpirationHandler),
                 java.util.Map.entry("treeMoodScanHandler", (Runnable) businessJobHandler::treeMoodScanHandler),

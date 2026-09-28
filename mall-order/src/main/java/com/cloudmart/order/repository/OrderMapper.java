@@ -23,6 +23,13 @@ public interface OrderMapper extends BaseMapper<Order> {
     List<Long> findCompletedOrderIdsWithSku(@Param("userId") Long userId,
                                             @Param("skuId") Long skuId);
 
+    /** WMS-01 余量：自动收货——SHIPPED 且发货超 N 天的订单 ID（分批处理用） */
+    @Select("SELECT id FROM orders WHERE status = 'SHIPPED' "
+            + "AND shipped_at <= DATE_SUB(NOW(), INTERVAL #{days} DAY) "
+            + "ORDER BY id LIMIT #{limit}")
+    List<Long> findAutoConfirmableOrderIds(@Param("days") int days,
+                                           @Param("limit") int limit);
+
     @Update("UPDATE orders SET status = #{targetStatus}, updated_at = NOW() " +
             "WHERE id = #{orderId} AND status = #{expectedStatus}")
     int updateStatusIfMatch(@Param("orderId") Long orderId,

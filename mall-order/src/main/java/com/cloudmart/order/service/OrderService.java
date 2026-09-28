@@ -44,6 +44,9 @@ public interface OrderService {
     /** USER-01：用户是否存在未结订单（PENDING_PAYMENT/PAID/SHIPPED，注销阻塞判定） */
     boolean hasOpenOrders(Long userId);
 
+    /** WMS-01 余量：自动收货——发货超 N 天未确认的订单批量确认（mall-job 触发）。 */
+    int autoConfirmReceipts(int days);
+
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
 

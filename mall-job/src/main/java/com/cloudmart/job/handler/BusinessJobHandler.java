@@ -35,6 +35,27 @@ public class BusinessJobHandler {
     }
 
     /**
+     * WMS-01 余量：自动收货——发货超 N 天（服务端可配置，默认 7 天）未确认的
+     * 订单由本任务批量确认收货。由 XXL-JOB/进程内调度每小时触发。
+     */
+    @XxlJob("orderAutoConfirmHandler")
+    public void orderAutoConfirmHandler() {
+        log.info("开始执行订单自动收货...");
+        try {
+            restClient.post()
+                    .uri("http://mall-order/internal/orders/auto-confirm-receipts?days=7")
+                    .header(ServiceTokenCodec.HEADER_NAME,
+                            serviceTokenProvider.sign("mall-order", "order:internal"))
+                    .retrieve()
+                    .body(Map.class);
+            log.info("订单自动收货完成");
+        } catch (Exception e) {
+            log.error("订单自动收货失败: {}", e.getMessage());
+            throw new RuntimeException("订单自动收货失败", e);
+        }
+    }
+
+    /**
      * 拼团超时处理：扫描超时未成团的拼团组并触发退款。
      * 由 XXL-JOB 调度中心每 5 分钟触发一次。
      */
