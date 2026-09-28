@@ -15,6 +15,14 @@ export const orderApi = {
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
   getDetail: (id: number) => request<Order>({ url: `/order/orders/${id}` }),
   create: (data: Record<string, unknown>) => request<Order>({ url: '/order/orders', method: 'POST', data }),
+  /** TRADE-01：服务端报价——金额/商品信息以服务端为准 */
+  createQuote: (data: { items: Array<{ skuId: number | string; quantity: number }>; couponId?: number | string }) =>
+    request<{ quoteId: string; version: number; expiresAt: string; totalAmount: number | string; payAmount: number | string }>({
+      url: '/order/quotes', method: 'POST', data,
+    }),
+  /** TRADE-01：报价下单——无价格字段，金额取报价快照 */
+  createFromQuote: (data: { quoteId: number | string; receiverName: string; receiverPhone: string; receiverAddress: string }) =>
+    request<Order>({ url: '/order/orders/v2', method: 'POST', data }),
   getPayment: (id: number) => request<unknown>({ url: `/order/orders/${id}/payment` }),
   pay: (id: number, data: { paymentMethod: string }) =>
     request<void>({ url: `/order/orders/${id}/pay`, method: 'POST', data }),

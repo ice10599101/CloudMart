@@ -13,8 +13,8 @@ import { history, useSearchParams } from 'umi'
 import { useCartStore } from '@/stores/cart'
 import { listAddresses, getDefaultAddress } from '@/api/user'
 import { listUserCoupons } from '@/api/coupon'
-import { createOrder } from '@/api/order'
-import type { CartItem, ShippingAddress, UserCoupon, CreateOrderRequest } from '@/types'
+import { createQuote, createOrderFromQuote } from '@/api/order'
+import type { CartItem, ShippingAddress, UserCoupon } from '@/types'
 
 const cssVars = {
   '--color-bg-primary': 'var(--color-bg-base)',
@@ -385,23 +385,19 @@ export default function Checkout() {
 
     setSubmitting(true)
     try {
-      const payload: CreateOrderRequest = {
-        requestId: crypto.randomUUID(),
-        items: checkedItems.map((item) => ({
-          productId: item.productId,
-          skuId: item.skuId,
-          quantity: item.quantity,
-          productName: item.productName,
-          skuImage: item.skuImage,
-          skuAttributes: item.skuAttributes,
-          price: item.price,
-        })),
+      // TRADE-01：先服务端报价（金额/商品信息以服务端为准），再用报价下单——
+      // 客户端不再提交任何价格字段
+      const quoteRes = await createQuote({
+        items: checkedItems.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
+        couponId: selectedCouponId ?? undefined,
+      })
+      const quote = quoteRes.data.data
+      const orderRes = await createOrderFromQuote({
+        quoteId: quote.quoteId,
         receiverName: selectedAddress.receiverName,
         receiverPhone: selectedAddress.receiverPhone,
         receiverAddress: `${selectedAddress.province}${selectedAddress.city}${selectedAddress.district}${selectedAddress.detailAddress}`,
-        couponId: selectedCouponId ?? undefined,
-      }
-      const orderRes = await createOrder(payload)
+      })
       message.success('订单创建成功')
       history.push(`/payment/${orderRes.data.data.id}`)
     } catch {

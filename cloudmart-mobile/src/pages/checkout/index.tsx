@@ -146,22 +146,17 @@ export default function CheckoutPage() {
 
     setSubmitting(true)
     try {
-      // 契约对齐后端 CreateOrderRequest：requestId 幂等 + 每项 price + 收货人三要素
-      const res = await orderApi.create({
-        requestId: `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-        items: items.map((item) => ({
-          productId: item.productId,
-          skuId: item.skuId,
-          quantity: item.quantity,
-          productName: item.productName,
-          skuImage: item.productImage,
-          skuAttributes: item.skuName,
-          price: item.price,
-        })),
+      // TRADE-01：先服务端报价（金额以服务端为准），再用报价下单——客户端不提交价格
+      const quoteRes = await orderApi.createQuote({
+        items: items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
+        couponId: selectedCoupon?.id,
+      })
+      const quoteId = (quoteRes.data?.data as { quoteId?: string } | undefined)?.quoteId
+      const res = await orderApi.createFromQuote({
+        quoteId: quoteId as string,
         receiverName: address.name,
         receiverPhone: address.phone,
         receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,
-        couponId: selectedCoupon?.id,
       })
       const orderId = res.data?.data?.id
       Taro.showToast({ title: '下单成功', icon: 'success' })

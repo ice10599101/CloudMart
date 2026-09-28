@@ -10,16 +10,6 @@ import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Address, CartItem, Product, UserCoupon } from '@/types'
 
-interface OrderItemInput {
-  productId?: number
-  skuId: number
-  quantity: number
-  productName?: string
-  skuImage?: string
-  skuAttributes?: string
-  price: number
-}
-
 /** 券抵扣金额（契约对齐后端 Discount：AMOUNT_OFF 直减；PERCENT_OFF=金额×(1-折扣率)） */
 function calcCouponDiscount(coupon: UserCoupon, subtotal: number): number {
   if (subtotal < coupon.thresholdAmount) return 0
@@ -173,23 +163,17 @@ export default function CheckoutPage() {
         onPress: async () => {
           setSubmitting(true)
           try {
-            // 契约对齐后端 CreateOrderRequest：requestId 幂等 + 每项 price + 收货人三要素
-            const orderItems: OrderItemInput[] = items.map((item) => ({
-              productId: item.productId,
-              skuId: item.skuId,
-              quantity: item.quantity,
-              productName: item.name,
-              skuImage: item.image,
-              skuAttributes: item.skuName,
-              price: item.price,
-            }))
-            const res = await orderApi.create({
-              requestId: `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-              items: orderItems,
+            // TRADE-01：先服务端报价（金额以服务端为准），再用报价下单——客户端不提交价格
+            const quoteRes = await orderApi.createQuote({
+              items: items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
+              couponId: selectedCoupon?.id,
+            })
+            const quoteId = (quoteRes.data?.data as { quoteId?: string })?.quoteId
+            const res = await orderApi.createFromQuote({
+              quoteId: quoteId as string,
               receiverName: address.name,
               receiverPhone: address.phone,
               receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,
-              couponId: selectedCoupon?.id,
             })
             const orderId = (res.data?.data as { id?: number })?.id ?? res.data?.data
             if (orderId) {

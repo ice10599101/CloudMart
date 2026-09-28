@@ -6,6 +6,34 @@ export function createOrder(data: CreateOrderRequest) {
   return request.post<ApiResponse<Order>>('/order/orders', data)
 }
 
+/** TRADE-01：服务端报价——金额/商品信息以服务端为准 */
+export interface QuoteRequest {
+  items: Array<{ skuId: number | string; quantity: number }>
+  couponId?: number | string
+}
+
+export interface QuoteResult {
+  quoteId: string
+  version: number
+  expiresAt: string
+  totalAmount: number | string
+  payAmount: number | string
+}
+
+export function createQuote(data: QuoteRequest) {
+  return request.post<ApiResponse<QuoteResult>>('/order/quotes', data)
+}
+
+/** TRADE-01：报价下单——无价格字段，金额取报价快照 */
+export function createOrderFromQuote(data: {
+  quoteId: number | string
+  receiverName: string
+  receiverPhone: string
+  receiverAddress: string
+}) {
+  return request.post<ApiResponse<Order>>('/order/orders/v2', data)
+}
+
 export function fetchOrders(params: OrderQueryParams) {
   return request.get<ApiResponse<Order[]>>('/order/orders', { params })
 }
