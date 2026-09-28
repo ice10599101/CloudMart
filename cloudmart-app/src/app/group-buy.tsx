@@ -9,7 +9,6 @@ import {
   Alert,
 } from 'react-native'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -243,8 +242,7 @@ export default function GroupBuyPage() {
           if (joiningId === activity.id) return
           setJoiningId(activity.id)
           try {
-            const res = await marketingApi.joinGroup({ activityId: activity.id })
-            const groupOrder = (res.data as { data?: { id?: number } })?.data
+            await marketingApi.joinGroup({ activityId: activity.id })
             Alert.alert('参与成功', '拼团订单已创建，成团后自动发货', [
               { text: '查看我的拼团', onPress: () => { setMainTab('mine'); void loadMyGroups() } },
               { text: '留在当前页' },

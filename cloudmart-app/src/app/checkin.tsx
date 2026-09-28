@@ -1,7 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, Animated } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Animated, Alert } from 'react-native'
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { growthApi } from '@/api/growth'
+import { useAuthStore } from '@/store/auth'
+import { useDecorationStore } from '@/store/decoration'
+import { storage } from '@/utils/storage'
+import type { ExpLog, LevelConfig } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface LevelInfo {
@@ -13,6 +17,16 @@ interface LevelInfo {
 
 const WEEK_DAYS = ['一', '二', '三', '四', '五', '六', '日']
 
+// 头像框方案（对齐 Web 端 AVATAR_FRAMES，Lv2+ 解锁）
+const AVATAR_FRAMES = [
+  { key: 'none', label: '默认', color: 'transparent' },
+  { key: 'gold', label: '金环', color: '#ffd700' },
+  { key: 'purple', label: '紫晕', color: '#9370db' },
+  { key: 'green', label: '翠光', color: '#2ed573' },
+  { key: 'pink', label: '樱粉', color: '#ff7eb3' },
+  { key: 'rainbow', label: '彩虹', color: '#00d4ff' },
+]
+
 export default function CheckInPage() {
   const theme = useTheme()
   const [isCheckedIn, setIsCheckedIn] = useState(false)
@@ -23,6 +37,11 @@ export default function CheckInPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
   const [checkingIn, setCheckingIn] = useState(false)
   const [expAnim, setExpAnim] = useState('')
+  const [levelConfigs, setLevelConfigs] = useState<LevelConfig[]>([])
+  const [expLogs, setExpLogs] = useState<ExpLog[]>([])
+  const [expOpen, setExpOpen] = useState(false)
+  const [avatarFrame, setAvatarFrameState] = useState('none')
+  const { user } = useAuthStore()
   const fadeAnim = useRef(new Animated.Value(1)).current
 
   const loadCalendar = async (year: number, month: number) => {
@@ -46,6 +65,12 @@ export default function CheckInPage() {
       const ld = levelRes.data?.data
       if (ld) setLevelInfo({ level: ld.level, exp: ld.exp, nextLevelExp: ld.nextLevelExp, title: ld.title })
       setContinuousDays(continuousRes.data?.data || 0)
+
+      // 等级体系 + 经验变动（对齐 Web 端 UserCenter 面板数据源）
+      growthApi.getLevelConfigs().then((res) => setLevelConfigs(res.data?.data ?? [])).catch(() => {})
+      growthApi.getExpLogs({ page: 1, pageSize: 20 })
+        .then((res) => setExpLogs(res.data?.data?.list ?? []))
+        .catch(() => {})
     } catch {
       // API unavailable
     }
@@ -55,6 +80,33 @@ export default function CheckInPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    void (async () => {
+      const stored = await storage.getItem('avatar_frame')
+      setAvatarFrameState(stored || 'none')
+    })()
+  }, [])
+
+  /** 头像框切换（Lv2+ 权益；本地持久化 + 全站装饰缓存同步 + 后端同步，对齐 Web 端） */
+  const applyAvatarFrame = async (key: string) => {
+    if ((levelInfo?.level ?? 0) < 2) {
+      Alert.alert('提示', 'Lv2 解锁自定义头像框')
+      return
+    }
+    if (key === avatarFrame) return
+    setAvatarFrameState(key)
+    void storage.setItem('avatar_frame', key)
+    if (user) {
+      useDecorationStore.getState().setAvatarFrame(Number(user.id), key)
+    }
+    try {
+      await growthApi.setAvatarFrame(key)
+    } catch {
+      // 后端同步失败：本地已生效，下次进入装饰接口会以服务端为准
+      Alert.alert('提示', '云端同步失败，已本地生效')
+    }
+  }
 
   const handleCheckIn = async () => {
     if (isCheckedIn || checkingIn) return
@@ -118,6 +170,121 @@ export default function CheckInPage() {
             </View>
           </View>
         )}
+
+        {/* Avatar Frames（Lv2+ 权益） */}
+        <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>头像框</Text>
+            <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>
+              {(levelInfo?.level ?? 0) >= 2 ? 'Lv2 权益已解锁' : 'Lv2 解锁自定义'}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+            {AVATAR_FRAMES.map((frame) => {
+              const isLocked = (levelInfo?.level ?? 0) < 2
+              const isSelected = avatarFrame === frame.key
+              return (
+                <TouchableOpacity
+                  key={frame.key}
+                  onPress={() => applyAvatarFrame(frame.key)}
+                  style={{ alignItems: 'center', width: 56, opacity: isLocked ? 0.45 : 1 }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      borderWidth: frame.color === 'transparent' ? 2 : 3,
+                      borderColor: frame.color === 'transparent' ? theme.border : frame.color,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: isSelected ? `${theme.primary}22` : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontSize: FontSize.md }}>{isSelected ? '✓' : isLocked ? '🔒' : ''}</Text>
+                  </View>
+                  <Text style={{ fontSize: FontSize.xs, color: isSelected ? theme.primary : theme.textSecondary, marginTop: 4 }}>
+                    {frame.label}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+
+        {/* 成长足迹（等级阶梯 + 经验记录） */}
+        <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.lg }}>
+          <TouchableOpacity
+            onPress={() => setExpOpen(!expOpen)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>成长足迹</Text>
+            <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary }}>{expOpen ? '收起 ▴' : '展开 ▾'}</Text>
+          </TouchableOpacity>
+
+          {expOpen && (
+            <>
+              {levelConfigs.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: Spacing.md }}>
+                  {levelConfigs.map((cfg) => {
+                    const isCurrent = levelInfo?.level === cfg.level
+                    return (
+                      <View
+                        key={cfg.level}
+                        style={{
+                          marginRight: Spacing.sm,
+                          paddingHorizontal: Spacing.md,
+                          paddingVertical: Spacing.sm,
+                          borderRadius: BorderRadius.md,
+                          borderWidth: 1,
+                          borderColor: isCurrent ? '#FFD700' : theme.border,
+                          backgroundColor: isCurrent ? 'rgba(255,215,0,0.12)' : 'transparent',
+                        }}
+                      >
+                        <Text style={{ fontSize: FontSize.sm, fontWeight: isCurrent ? '700' : '500', color: isCurrent ? '#FFD700' : theme.text }}>
+                          Lv{cfg.level} {cfg.title}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: theme.textTertiary, marginTop: 2 }}>{cfg.minExp} EXP 起</Text>
+                      </View>
+                    )
+                  })}
+                </ScrollView>
+              )}
+
+              {expLogs.length === 0 ? (
+                <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary, marginTop: Spacing.md }}>
+                  还没有经验记录，去签到赚经验吧
+                </Text>
+              ) : (
+                <View style={{ marginTop: Spacing.sm }}>
+                  {expLogs.map((log) => (
+                    <View
+                      key={log.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: Spacing.sm,
+                        borderBottomWidth: 1,
+                        borderBottomColor: theme.border,
+                      }}
+                    >
+                      <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                        <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.text }}>{log.description}</Text>
+                        <Text style={{ fontSize: 10, color: theme.textTertiary, marginTop: 2 }}>
+                          {(log.createdAt || '').slice(5, 10)}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: log.exp >= 0 ? '#32CD32' : '#ff6b6b' }}>
+                        {log.exp >= 0 ? `+${log.exp}` : log.exp} EXP
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </View>
 
         {/* Check In Button */}
         <View style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.xxl, alignItems: 'center' }}>

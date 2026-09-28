@@ -1,5 +1,5 @@
 import RichHtml from '@/components/RichHtml'
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Share, useWindowDimensions } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, useWindowDimensions } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -384,18 +384,6 @@ export default function WishDetailScreen() {
   }
 
   const isAuthor = user?.id === wish.authorId
-
-  /** 系统分享面板（Sprint 1.5 体验要求：APP 走系统分享） */
-  const handleWishShare = async () => {
-    if (!wish) return
-    try {
-      await Share.share({ message: `✦ 心愿宇宙 ✦
-「${wish.title}」
-许愿人：${wish.authorNickname}` })
-    } catch {
-      // 用户取消
-    }
-  }
 
   //心愿内容 + 互动按钮组，作为评论 FlatList 的头部插槽
   const detailHeader = (

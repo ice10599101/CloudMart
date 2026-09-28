@@ -1,6 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Modal, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native'
 import { useEffect, useState } from 'react'
-import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { giftApi } from '@/api/gift'
 import { wishApi } from '@/api/wish'
@@ -31,7 +30,6 @@ interface GiftSectionProps {
 }
 
 export default function GiftSection({ targetType, targetId, refreshTick = 0 }: GiftSectionProps) {
-  const theme = useTheme()
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [records, setRecords] = useState<GiftRecordItem[]>([])

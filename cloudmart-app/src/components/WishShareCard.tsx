@@ -176,14 +176,14 @@ export default function WishShareCard({ visible, onClose, title, author, dateTex
           activeOpacity={0.85}
           onPress={handleSystemShare}
           style={{
-            marginTop: Spacing.lg,
+            marginTop: Spacing.md,
             paddingVertical: Spacing.md,
             borderRadius: 28,
             alignItems: 'center',
             backgroundColor: 'rgba(233, 69, 96, 0.25)',
           }}
         >
-          <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>复制分享文案</Text>
+          <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.primary }}>系统分享</Text>
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.85} onPress={onClose} style={{ alignItems: 'center', paddingVertical: Spacing.sm }}>
           <Text style={{ fontSize: FontSize.sm, color: WishColors.textTertiary }}>关闭</Text>

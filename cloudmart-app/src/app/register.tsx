@@ -1,4 +1,3 @@
-import * as Clipboard from 'expo-clipboard'
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native'
 import { useEffect, useState } from 'react'
 import { router } from 'expo-router'

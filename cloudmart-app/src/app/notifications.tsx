@@ -3,7 +3,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
@@ -19,6 +18,29 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { ExpectedActionType, Notification } from '@/types'
 
 const PAGE_SIZE = 20
+
+// 通知类型图标：数字为平台旧通知遗留 type，字符串为现役 NotificationDTO.type
+const TYPE_ICON_MAP: Record<number, string> = {
+  1: '👍',
+  2: '💬',
+  3: '👤',
+  4: '🔔',
+}
+const STRING_TYPE_ICONS: Record<string, string> = {
+  LIKE: '👍',
+  COMMENT: '💬',
+  FOLLOW: '👤',
+  WISH_FULFILL: '🎉',
+  CHECKIN_REMINDER: '📅',
+  ENCOUNTER_LETTER: '🫙',
+  COMPANION_REMINDER: '🔔',
+  EXPECTED_MANAGEMENT: '🔔',
+}
+
+function resolveTypeIcon(type: number | string): string {
+  if (typeof type === 'number') return TYPE_ICON_MAP[type] ?? '🔔'
+  return STRING_TYPE_ICONS[type] ?? '🔔'
+}
 
 const TAB_LIST = [
   { label: '全部', type: 0 },
@@ -65,13 +87,6 @@ function NotificationItem({
   followState?: boolean
   onFollowBack?: (actorId: number) => void
 }) {
-  const TYPE_ICON_MAP: Record<number, string> = {
-    1: '👍',
-    2: '💬',
-    3: '👤',
-    4: '🔔',
-  }
-
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -85,9 +100,24 @@ function NotificationItem({
         borderBottomColor: theme.border,
       }}
     >
-      {/* Avatar or type icon（带头像框装饰） */}
+      {/* Avatar or type icon（带头像框装饰；无发送者头像时展示类型图标） */}
       <View style={{ marginRight: Spacing.sm }}>
-        <DecoratedAvatar src={item.sender?.avatar} userId={item.sender?.id ?? item.actorId} size={44} fallbackText={item.sender?.nickname?.[0]} />
+        {item.sender?.avatar ? (
+          <DecoratedAvatar src={item.sender?.avatar} userId={item.sender?.id ?? item.actorId} size={44} fallbackText={item.sender?.nickname?.[0]} />
+        ) : (
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: item.isRead ? theme.border : `${theme.primary}22`,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>{resolveTypeIcon(item.type)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Content */}

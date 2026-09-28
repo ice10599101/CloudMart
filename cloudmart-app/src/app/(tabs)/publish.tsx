@@ -5,7 +5,9 @@ import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
+import { productApi } from '@/api/product'
 import { fileApi } from '@/api/file'
+import type { Product } from '@/types'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -29,8 +31,13 @@ export default function PublishPage() {
   const [tags, setTags] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
-  const [linkProduct] = useState(false)
-  const [linkedProductId] = useState<number | null>(null)
+  const [linkProduct, setLinkProduct] = useState(false)
+  const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
+  const [linkedProduct, setLinkedProduct] = useState<Product | null>(null)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productOptions, setProductOptions] = useState<Product[]>([])
+  const [searchingProducts, setSearchingProducts] = useState(false)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -63,6 +70,14 @@ export default function PublishPage() {
       setTitle(post.title || '')
       setContent(post.content || '')
       setTags(post.tags?.map((t: any) => t.name || t).join(' ') || '')
+      // 编辑态回显关联好物
+      if (post.productId) {
+        setLinkProduct(true)
+        setLinkedProductId(post.productId)
+        productApi.getDetail(post.productId)
+          .then((detailRes) => setLinkedProduct(detailRes.data?.data ?? null))
+          .catch(() => {})
+      }
       if (post.coverImage) {
         setMediaList([{ uid: 'existing-0', type: 'image', url: post.coverImage, uploaded: true }])
       }
@@ -218,6 +233,7 @@ export default function PublishPage() {
               mediaUrls,
               mediaType,
               status: 0,
+              productId: linkProduct && linkedProductId ? linkedProductId : undefined,
             }
 
             const targetId = editingId || draftId
@@ -293,6 +309,33 @@ export default function PublishPage() {
         uploaded: false,
       },
     ])
+  }
+
+  /** 搜索可关联的好物 */
+  const handleSearchProducts = async () => {
+    if (!productKeyword.trim() || searchingProducts) return
+    setSearchingProducts(true)
+    try {
+      const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
+      setProductOptions((res.data as { data?: { products?: Product[] } })?.data?.products ?? [])
+    } catch {
+      Alert.alert('提示', '商品搜索失败')
+    } finally {
+      setSearchingProducts(false)
+    }
+  }
+
+  const handleSelectProduct = (item: Product) => {
+    setLinkProduct(true)
+    setLinkedProductId(item.id)
+    setLinkedProduct(item)
+    setProductSearchOpen(false)
+  }
+
+  const handleRemoveLinkedProduct = () => {
+    setLinkProduct(false)
+    setLinkedProductId(null)
+    setLinkedProduct(null)
   }
 
   const handleInsertImageToEditor = async () => {
@@ -494,6 +537,114 @@ export default function PublishPage() {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+
+        {/* Linked Product（关联好物） */}
+        <View style={{ marginBottom: Spacing.lg }}>
+          {linkProduct && linkedProductId ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.bgContainer,
+                borderRadius: BorderRadius.lg,
+                padding: Spacing.md,
+                borderWidth: 1,
+                borderColor: theme.primary + '55',
+              }}
+            >
+              {linkedProduct?.mainImage ? (
+                <Image source={{ uri: linkedProduct.mainImage }} style={{ width: 44, height: 44, borderRadius: BorderRadius.md, marginRight: Spacing.md }} />
+              ) : (
+                <Text style={{ fontSize: 22, marginRight: Spacing.md }}>🛍️</Text>
+              )}
+              <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.text, fontWeight: '600' }}>
+                  {linkedProduct?.name || `商品 #${linkedProductId}`}
+                </Text>
+                {linkedProduct ? (
+                  <Text style={{ fontSize: FontSize.sm, color: '#FFD700', fontWeight: '700', marginTop: 2 }}>¥{linkedProduct.price}</Text>
+                ) : (
+                  <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>加载中...</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={handleRemoveLinkedProduct} accessibilityLabel="移除关联好物">
+                <Text style={{ fontSize: 18, color: theme.textTertiary, paddingHorizontal: Spacing.sm }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setProductSearchOpen(!productSearchOpen)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.bgContainer,
+                borderRadius: BorderRadius.lg,
+                padding: Spacing.md,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderStyle: 'dashed',
+              }}
+            >
+              <Text style={{ fontSize: 16, marginRight: Spacing.sm }}>🔗</Text>
+              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>关联好物（可选）</Text>
+            </TouchableOpacity>
+          )}
+
+          {productSearchOpen && !(linkProduct && linkedProductId) && (
+            <View style={{ marginTop: Spacing.md, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <TextInput
+                  placeholder="搜索要关联的好物"
+                  placeholderTextColor={theme.textTertiary}
+                  value={productKeyword}
+                  onChangeText={setProductKeyword}
+                  onSubmitEditing={() => void handleSearchProducts()}
+                  returnKeyType="search"
+                  style={{ flex: 1, backgroundColor: theme.bgInput, color: theme.text, borderRadius: BorderRadius.md, padding: Spacing.md, fontSize: FontSize.sm }}
+                />
+                <TouchableOpacity
+                  onPress={() => void handleSearchProducts()}
+                  disabled={searchingProducts}
+                  style={{ backgroundColor: theme.primary, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, opacity: searchingProducts ? 0.6 : 1 }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>搜索</Text>
+                </TouchableOpacity>
+              </View>
+
+              {searchingProducts ? (
+                <ActivityIndicator color={theme.primary} style={{ marginTop: Spacing.lg }} />
+              ) : productOptions.length > 0 ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  {productOptions.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => handleSelectProduct(item)}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.border }}
+                    >
+                      {item.mainImage ? (
+                        <Image source={{ uri: item.mainImage }} style={{ width: 40, height: 40, borderRadius: BorderRadius.sm, marginRight: Spacing.sm }} />
+                      ) : (
+                        <Text style={{ fontSize: 18, marginRight: Spacing.sm }}>🛍️</Text>
+                      )}
+                      <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                        <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.text }}>{item.name}</Text>
+                        <Text style={{ fontSize: FontSize.xs, color: '#FFD700', marginTop: 2 }}>¥{item.price}</Text>
+                      </View>
+                      <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>选择</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                productKeyword.trim() ? (
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary, marginTop: Spacing.md, textAlign: 'center' }}>
+                    没有找到相关商品
+                  </Text>
+                ) : null
+              )}
+            </View>
+          )}
         </View>
 
         {/* Tags */}

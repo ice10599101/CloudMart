@@ -41,6 +41,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryMapper inventoryMapper;
     private final InventoryLogMapper inventoryLogMapper;
+    private final com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper;
     private final InventoryConverter inventoryConverter;
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> deductInventoryScript;
@@ -49,6 +50,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     public InventoryServiceImpl(InventoryMapper inventoryMapper,
                                 InventoryLogMapper inventoryLogMapper,
+                                com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper,
                                 InventoryConverter inventoryConverter,
                                 StringRedisTemplate redisTemplate,
                                 DefaultRedisScript<Long> deductInventoryScript,
@@ -56,6 +58,7 @@ public class InventoryServiceImpl implements InventoryService {
                                 TransactionTemplate transactionTemplate) {
         this.inventoryMapper = inventoryMapper;
         this.inventoryLogMapper = inventoryLogMapper;
+        this.reservationMapper = reservationMapper;
         this.inventoryConverter = inventoryConverter;
         this.redisTemplate = redisTemplate;
         this.deductInventoryScript = deductInventoryScript;
@@ -147,6 +150,18 @@ public class InventoryServiceImpl implements InventoryService {
             return false;
         }
 
+        // STOCK-01：登记订单级预占台账——UNIQUE(order_id, sku_id) 幂等，重复预占显式拒绝
+        if (request.orderId() != null && request.orderId() > 0) {
+            int inserted = reservationMapper.insertReservation(
+                    request.orderId(), request.skuId(), request.quantity());
+            if (inserted == 0) {
+                // 台账已存在：回滚 DB 预扣并归还 Redis，重复下单预占必须显式失败
+                redisTemplate.opsForValue().increment(key, request.quantity());
+                throw new BusinessException("INVENTORY_DUPLICATE_RESERVATION",
+                        "该订单对此 SKU 已有预占记录");
+            }
+        }
+
         InventoryLog logEntry = new InventoryLog();
         logEntry.setSkuId(request.skuId());
         logEntry.setType("DEDUCT");
@@ -187,20 +202,46 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private void doReleaseStock(ReleaseRequest request) {
-        int updated = inventoryMapper.releaseStock(request.skuId(), request.quantity());
-
-        if (updated == 0) {
-            throw new BusinessException("INVENTORY_NOT_FOUND", "库存记录不存在，无法释放");
+        // STOCK-01：台账驱动——先按 (orderId, skuId) 状态机迁移，再动库存行
+        if (request.orderId() != null && request.orderId() > 0) {
+            var reservation = reservationMapper.findByOrderAndSku(request.orderId(), request.skuId());
+            if (reservation != null) {
+                if ("RELEASED".equals(reservation.getStatus())) {
+                    log.info("预占已释放（幂等成功）, orderId={}, skuId={}", request.orderId(), request.skuId());
+                    return;
+                }
+                if (!"RESERVED".equals(reservation.getStatus())) {
+                    // 已确认销售：不得复用"释放预占"回补可售库存（退货应走 RETURN_INBOUND）
+                    throw new BusinessException("INVENTORY_RELEASE_CONFLICT",
+                            "预占已确认销售，不能按释放处理");
+                }
+                if (reservationMapper.releaseReservation(request.orderId(), request.skuId()) == 0) {
+                    throw new BusinessException("INVENTORY_RELEASE_CONFLICT", "预占状态已变更，释放失败");
+                }
+                doReleaseStockRow(request.skuId(), reservation.getQuantity(), request.orderId());
+                return;
+            }
+            // 无台账行：排空期兼容路径（旧预占），SQL 带 reserved 下限防负数
         }
 
-        String key = INVENTORY_KEY_PREFIX + request.skuId();
-        redisTemplate.opsForValue().increment(key, request.quantity());
+        doReleaseStockRow(request.skuId(), request.quantity(), request.orderId());
+    }
+
+    private void doReleaseStockRow(Long skuId, Integer quantity, Long orderId) {
+        int updated = inventoryMapper.releaseStock(skuId, quantity);
+
+        if (updated == 0) {
+            throw new BusinessException("INVENTORY_NOT_FOUND", "库存记录不存在或预占不足，无法释放");
+        }
+
+        String key = INVENTORY_KEY_PREFIX + skuId;
+        redisTemplate.opsForValue().increment(key, quantity);
 
         InventoryLog logEntry = new InventoryLog();
-        logEntry.setSkuId(request.skuId());
+        logEntry.setSkuId(skuId);
         logEntry.setType("RELEASE");
-        logEntry.setQuantity(request.quantity());
-        logEntry.setOrderId(request.orderId());
+        logEntry.setQuantity(quantity);
+        logEntry.setOrderId(orderId);
         inventoryLogMapper.insert(logEntry);
     }
 
@@ -234,7 +275,31 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private void doConfirmDeduct(Long skuId, Integer quantity, Long orderId) {
-        int updated = inventoryMapper.confirmDeduct(skuId, quantity);
+        // STOCK-01：台账为准——确认数量取自预占行（不再信任客户端数量），
+        // 状态机一次性迁移避免重复确认/串单消耗
+        Integer quantityToConfirm = quantity;
+        if (orderId != null && orderId > 0) {
+            var reservation = reservationMapper.findByOrderAndSku(orderId, skuId);
+            if (reservation != null) {
+                if ("CONFIRMED".equals(reservation.getStatus())) {
+                    log.info("预占已确认（幂等成功）, orderId={}, skuId={}", orderId, skuId);
+                    return;
+                }
+                if (!"RESERVED".equals(reservation.getStatus())) {
+                    throw new BusinessException("INVENTORY_CONFIRM_CONFLICT", "预占已释放，不能确认销售");
+                }
+                if (quantity != null && quantity > 0 && !quantity.equals(reservation.getQuantity())) {
+                    log.warn("确认数量与台账不一致，以台账为准, orderId={}, skuId={}, client={}, ledger={}",
+                            orderId, skuId, quantity, reservation.getQuantity());
+                }
+                quantityToConfirm = reservation.getQuantity();
+                if (reservationMapper.confirmReservation(orderId, skuId) == 0) {
+                    throw new BusinessException("INVENTORY_CONFIRM_CONFLICT", "预占状态已变更，确认失败");
+                }
+            }
+        }
+
+        int updated = inventoryMapper.confirmDeduct(skuId, quantityToConfirm);
 
         if (updated == 0) {
             throw new BusinessException("INVENTORY_CONFIRM_FAILED", "库存确认扣减失败，预占库存不足");
@@ -243,7 +308,7 @@ public class InventoryServiceImpl implements InventoryService {
         InventoryLog logEntry = new InventoryLog();
         logEntry.setSkuId(skuId);
         logEntry.setType("CONFIRM");
-        logEntry.setQuantity(quantity);
+        logEntry.setQuantity(quantityToConfirm);
         logEntry.setOrderId(orderId);
         inventoryLogMapper.insert(logEntry);
     }

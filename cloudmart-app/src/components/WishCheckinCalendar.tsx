@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, TouchableOpacity } from 'react-native'
 import dayjs from 'dayjs'
 import { wishApi } from '@/api/wish'
-import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { Spacing, FontSize } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 
 /**
  * 心愿打卡日历（Sprint 1.3 验收，APP 端）：当月已打卡日点亮 + 今日描边。
  */
 export default function WishCheckinCalendar({ wishId, accentColor }: { wishId: string; accentColor: string }) {
-  const now = dayjs()
   const [month, setMonth] = useState(dayjs().startOf('month'))
   const [lit, setLit] = useState<Set<string>>(new Set())
 

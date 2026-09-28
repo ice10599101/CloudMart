@@ -14,7 +14,7 @@ public interface InventoryMapper extends BaseMapper<Inventory> {
     int deductStock(@Param("skuId") Long skuId, @Param("quantity") Integer quantity);
 
     @Update("UPDATE inventory SET available = available + #{quantity}, reserved = reserved - #{quantity}, updated_at = NOW() " +
-            "WHERE sku_id = #{skuId}")
+            "WHERE sku_id = #{skuId} AND reserved >= #{quantity}")
     int releaseStock(@Param("skuId") Long skuId, @Param("quantity") Integer quantity);
 
     @Update("UPDATE inventory SET reserved = reserved - #{quantity}, updated_at = NOW() " +

@@ -40,7 +40,6 @@ export default function TopicDetailScreen() {
       }
 
       const list: Post[] = res.data?.data?.list || res.data?.data || []
-      const total = res.data?.meta?.total ?? res.data?.data?.total ?? 0
 
       if (isRefresh || targetPage === 1) {
         setPosts(list)

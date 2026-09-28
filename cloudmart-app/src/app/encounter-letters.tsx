@@ -16,7 +16,7 @@ import {
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
-import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem } from '@/types'
+import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem, DriftBottleQuota } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -624,6 +624,22 @@ export default function DriftBottleScreen() {
     loadBottles()
   }, [loadBottles])
 
+  // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
+  const [quota, setQuota] = useState<DriftBottleQuota | null>(null)
+  const loadQuota = useCallback(async () => {
+    if (!isLoggedIn) return
+    try {
+      const res = await wishApi.getDriftBottleQuota()
+      if (res.data?.success) setQuota(res.data.data ?? null)
+    } catch {
+      // 静默
+    }
+  }, [isLoggedIn])
+
+  useEffect(() => {
+    void loadQuota()
+  }, [loadQuota])
+
   /** 收藏漂流瓶（仅捞起人，PICKED 态；幂等） */
   const handleCollect = useCallback(async (bottle: DriftBottleItem) => {
     try {
@@ -795,6 +811,7 @@ export default function DriftBottleScreen() {
             onRefresh={async () => {
               setRefreshing(true)
               await loadBottles()
+              void loadQuota()
               setRefreshing(false)
             }}
             tintColor={WishColors.accentCyan}
@@ -807,6 +824,47 @@ export default function DriftBottleScreen() {
           </Text>
         ) : (
           <>
+            {/* 每日配额 chips（投瓶 10/天、打捞 20/天，对齐 Web 端） */}
+            {quota && (
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: Spacing.md,
+                    paddingVertical: Spacing.xs,
+                    borderRadius: BorderRadius.xl,
+                    backgroundColor: 'rgba(0,212,255,0.10)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(0,212,255,0.25)',
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>今日投瓶</Text>
+                  <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: quota.throwUsed >= quota.throwLimit ? '#ff6b6b' : WishColors.accentCyan }}>
+                    {quota.throwUsed}/{quota.throwLimit}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: Spacing.md,
+                    paddingVertical: Spacing.xs,
+                    borderRadius: BorderRadius.xl,
+                    backgroundColor: 'rgba(255,215,0,0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,215,0,0.25)',
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>今日打捞</Text>
+                  <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: quota.fishUsed >= quota.fishLimit ? '#ff6b6b' : '#FFD700' }}>
+                    {quota.fishUsed}/{quota.fishLimit}
+                  </Text>
+                </View>
+              </View>
+            )}
             <View
               style={{
                 backgroundColor: WishColors.bgContainer,

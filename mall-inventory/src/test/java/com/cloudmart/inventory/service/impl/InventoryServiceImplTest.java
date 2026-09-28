@@ -70,7 +70,9 @@ class InventoryServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         inventoryService = new InventoryServiceImpl(
-                inventoryMapper, inventoryLogMapper, inventoryConverter,
+                inventoryMapper, inventoryLogMapper,
+                org.mockito.Mockito.mock(com.cloudmart.inventory.repository.InventoryReservationMapper.class),
+                inventoryConverter,
                 redisTemplate, deductInventoryScript, redissonClient, transactionTemplate
         );
     }
