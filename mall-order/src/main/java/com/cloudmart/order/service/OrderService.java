@@ -23,6 +23,15 @@ public interface OrderService {
 
     ApiResponse<List<OrderDTO>> listOrders(Long userId, String status, int page, int size);
 
+    /**
+     * TRADE-01：从服务端报价创建订单——金额/商品信息全部取报价快照，
+     * 客户端不提交任何价格字段；报价 CAS 消费（一报价一单）。
+     *
+     * @throws BusinessException QUOTE_NOT_FOUND / QUOTE_NOT_AVAILABLE
+     */
+    OrderDTO createOrderFromQuote(Long userId, Long quoteId, String receiverName,
+                                  String receiverPhone, String receiverAddress);
+
     OrderDTO getOrderById(Long userId, Long orderId);
 
     /**

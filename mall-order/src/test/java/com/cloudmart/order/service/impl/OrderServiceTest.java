@@ -81,7 +81,10 @@ class OrderServiceTest {
                 orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient,
                 couponFeignClient, redisTemplate, orderEventProducer,
-                outboxService, compensationTaskService, new ObjectMapper()
+                outboxService, compensationTaskService, new ObjectMapper(),
+                org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
+                org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class)
         );
     }
 

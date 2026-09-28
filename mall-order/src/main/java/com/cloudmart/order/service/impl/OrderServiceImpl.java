@@ -73,6 +73,10 @@ public class OrderServiceImpl implements OrderService {
     private final OutboxService outboxService;
     private final CompensationTaskService compensationTaskService;
     private final ObjectMapper objectMapper;
+    private final com.cloudmart.order.repository.OrderQuoteMapper orderQuoteMapper;
+    private final com.cloudmart.order.repository.OrderQuoteItemMapper orderQuoteItemMapper;
+    /** 自代理：createOrderFromQuote 经代理调用 createOrder，保证其事务/Seata 注解生效 */
+    private final org.springframework.beans.factory.ObjectProvider<OrderService> selfProvider;
 
     @Override
     @SentinelResource(value = "createOrder", blockHandler = "createOrderBlockHandler", fallback = "createOrderFallback")
@@ -834,6 +838,45 @@ public class OrderServiceImpl implements OrderService {
     public OrderDTO cancelOrderBlockHandler(Long userId, Long orderId, BlockException ex) {
         log.warn("cancelOrder blocked by Sentinel: {}", ex.getRule());
         return null;
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO createOrderFromQuote(Long userId, Long quoteId, String receiverName,
+                                         String receiverPhone, String receiverAddress) {
+        // TRADE-01：归属与状态前置校验（他人/不存在一律 404）
+        com.cloudmart.order.entity.OrderQuote quote = orderQuoteMapper.selectById(quoteId);
+        if (quote == null || !quote.getUserId().equals(userId)) {
+            throw new BusinessException("QUOTE_NOT_FOUND", "报价不存在");
+        }
+
+        // CAS 消费报价（与建单同事务：建单失败回滚后报价自动恢复 ACTIVE）；
+        // 并发重复下单同一报价只有一个赢家
+        if (orderQuoteMapper.consume(quoteId, 0L) == 0) {
+            throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已使用或已过期，请重新报价");
+        }
+
+        // 服务端构造下单请求：金额/商品名/图片/属性全部取报价快照，
+        // 客户端在 v2 接口上没有可提交的价格字段
+        List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
+                        .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quoteId));
+        List<CreateOrderRequest.OrderItemInput> items = quoteItems.stream()
+                .map(qi -> new CreateOrderRequest.OrderItemInput(
+                        qi.getProductId(), qi.getSkuId(), qi.getQuantity(),
+                        qi.getProductName(), qi.getSkuImage(), qi.getSkuAttributes(), qi.getPrice()))
+                .toList();
+
+        // requestId 绑定报价：同报价重试收敛为同一幂等意图
+        String requestId = "quote-" + quoteId;
+        CreateOrderRequest request = new CreateOrderRequest(
+                requestId, items, receiverName, receiverPhone, receiverAddress,
+                quote.getCouponId(), null);
+
+        OrderDTO order = selfProvider.getObject().createOrder(userId, request);
+
+        orderQuoteMapper.updateConsumedBy(quoteId, order.id());
+        return order;
     }
 
     @Override

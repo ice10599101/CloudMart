@@ -95,7 +95,10 @@ class OrderServiceImplTest {
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient, couponFeignClient,
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
-                new ObjectMapper());
+                new ObjectMapper(),
+                org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
+                org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class));
     }
 
     private Order buildOrder(Long id, Long userId, String status) {

@@ -30,11 +30,30 @@ public class OrderController {
     }
 
     @PostMapping
-    @Operation(summary = "创建订单", description = "从购物车结算创建订单，预扣库存")
+    @Operation(summary = "创建订单", description = "旧结算入口（TRADE-01 迁移期兼容）："
+            + "价格与商品信息以下单时服务端校验为准，客户端金额不再作为记账依据")
     public ApiResponse<OrderVO> createOrder(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "创建订单请求") @Valid @RequestBody CreateOrderRequest request) {
         OrderDTO dto = orderService.createOrder(userId, request);
+        return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
+    }
+
+    public record CreateOrderFromQuoteRequest(
+            @jakarta.validation.constraints.NotNull Long quoteId,
+            String receiverName,
+            String receiverPhone,
+            String receiverAddress) {
+    }
+
+    @PostMapping("/v2")
+    @Operation(summary = "创建订单 v2（报价下单）", description = "TRADE-01：必须引用本人有效报价，"
+            + "金额/商品信息全部取报价快照，本接口没有价格字段；报价 CAS 消费（一报价一单）")
+    public ApiResponse<OrderVO> createOrderFromQuote(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "报价下单请求") @Valid @RequestBody CreateOrderFromQuoteRequest request) {
+        OrderDTO dto = orderService.createOrderFromQuote(userId, request.quoteId(),
+                request.receiverName(), request.receiverPhone(), request.receiverAddress());
         return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
     }
 
