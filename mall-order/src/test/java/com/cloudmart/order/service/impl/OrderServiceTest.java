@@ -54,6 +54,7 @@ class OrderServiceTest {
     private OrderItemMapper orderItemMapper;
     private OrderConverter orderConverter;
     private InventoryFeignClient inventoryFeignClient;
+    private com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private CartFeignClient cartFeignClient;
     private PaymentFeignClient paymentFeignClient;
@@ -72,6 +73,7 @@ class OrderServiceTest {
         orderConverter = mock(OrderConverter.class);
         inventoryFeignClient = mock(InventoryFeignClient.class);
         productFeignClient = mock(com.cloudmart.order.feign.ProductFeignClient.class);
+        riskFeignClient = mock(com.cloudmart.order.feign.RiskFeignClient.class);
         cartFeignClient = mock(CartFeignClient.class);
         paymentFeignClient = mock(PaymentFeignClient.class);
         couponFeignClient = mock(CouponFeignClient.class);
@@ -86,6 +88,7 @@ class OrderServiceTest {
                 inventoryFeignClient, cartFeignClient, paymentFeignClient,
                 couponFeignClient,
                 productFeignClient,
+                riskFeignClient,
                 redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -347,6 +350,9 @@ class OrderServiceTest {
         CreateOrderRequest request = new CreateOrderRequest(
                 "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null
         );
+
+        // RISK-01：风控放行
+        when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
 
         // TRADE-01：下单前服务端按 skuId 覆盖权威价格/商品信息
         Map<String, Object> authoritativeSku = new HashMap<>();

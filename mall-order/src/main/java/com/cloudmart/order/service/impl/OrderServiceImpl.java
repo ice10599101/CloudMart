@@ -69,6 +69,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentFeignClient paymentFeignClient;
     private final CouponFeignClient couponFeignClient;
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
+    private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -93,6 +94,10 @@ public class OrderServiceImpl implements OrderService {
         if (request.items() == null || request.items().isEmpty()) {
             throw new BusinessException("ORDER_EMPTY", "订单项不能为空");
         }
+
+        // RISK-01：下单前置风控检查（黑名单/频次规则）——REJECT 拒绝下单，
+        // 风控不可用时降级工厂抛错（fail-closed，"风控挂了就放行"被禁止）
+        performRiskCheck(userId, "ORDER_CREATE");
 
         // TRADE-01：旧结算入口的价格丢弃适配——客户端声明的价格/商品名/图片/属性
         // 一律覆盖为商品服务权威值（T07：篡改 price/productId/skuId 不能改变服务端应付价）
@@ -687,6 +692,24 @@ public class OrderServiceImpl implements OrderService {
                         "stock-confirm:" + orderId + ":" + item.getSkuId(), "stock-confirm",
                         String.valueOf(orderId), compensationPayload(orderId, item.getSkuId(), item.getQuantity()));
             }
+        }
+    }
+
+    /**
+     * RISK-01：下单前置风控——REJECT 抛 RISK_REJECTED；REVIEW 放行但留审计记录
+     * （人工复核在风控后台）；风控服务不可用由降级工厂 fail-closed 拒绝。
+     */
+    private void performRiskCheck(Long userId, String actionType) {
+        var response = riskFeignClient.check(java.util.Map.of(
+                "userId", userId, "actionType", actionType));
+        if (response == null || !response.success() || response.data() == null) {
+            throw new BusinessException("RISK_SERVICE_UNAVAILABLE", "风控服务暂不可用，下单被拒绝");
+        }
+        String result = String.valueOf(response.data().getOrDefault("result", "PASS"));
+        if ("REJECT".equals(result)) {
+            String reason = String.valueOf(response.data().getOrDefault("reason", "触发风控规则"));
+            log.warn("[RISK01] 下单被风控拒绝 userId={} reason={}", userId, reason);
+            throw new BusinessException("RISK_REJECTED", "下单被拒绝：" + reason);
         }
     }
 

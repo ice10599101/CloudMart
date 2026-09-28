@@ -55,10 +55,14 @@ public class RiskCheckServiceImpl implements RiskCheckService {
             return new RiskCheckVO(vo.passed(), vo.riskLevel(), vo.reason(), null);
         }
 
+        // RISK-01：规则按 priority 升序 + id 稳定排序（原遍历命中首个，顺序依赖
+        // DB 返回不稳定——同输入可能得出不同结论）
         List<RiskRule> rules = riskRuleMapper.selectList(
                 new LambdaQueryWrapper<RiskRule>()
                         .eq(RiskRule::getActionType, actionType)
                         .eq(RiskRule::getStatus, 0)
+                        .orderByAsc(RiskRule::getPriority)
+                        .orderByAsc(RiskRule::getId)
         );
 
         String riskLevel = "LOW";

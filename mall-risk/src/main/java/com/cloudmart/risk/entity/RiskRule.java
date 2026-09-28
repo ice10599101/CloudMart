@@ -28,6 +28,9 @@ public class RiskRule {
 
     private Integer status;
 
+    /** 评估优先级（小者先评；同级按 id 稳定排序，RISK-01） */
+    private Integer priority;
+
     private String description;
 
     @TableField(fill = FieldFill.INSERT)

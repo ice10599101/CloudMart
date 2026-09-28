@@ -95,6 +95,7 @@ class OrderServiceImplTest {
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient, couponFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.ProductFeignClient.class),
+                org.mockito.Mockito.mock(com.cloudmart.order.feign.RiskFeignClient.class),
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),

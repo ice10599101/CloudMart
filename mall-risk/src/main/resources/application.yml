@@ -118,6 +118,10 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: risk:admin
+      # RISK-01：主链路风控检查（下单/领券/支付创建）
+      - prefix: /internal
+        issuers: [mall-order, mall-coupon, mall-payment]
+        scope: risk:check
       - prefix: /blacklist
         issuers: [mall-admin]
         scope: risk:admin

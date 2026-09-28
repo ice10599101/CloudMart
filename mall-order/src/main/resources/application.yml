@@ -154,6 +154,8 @@ cloudmart:
         scope: order:internal
     outbound-scopes:
       mall-product: product:read
+      # RISK-01：下单前置风控检查
+      mall-risk: risk:check
       mall-inventory: inventory:trade
       mall-coupon: coupon:trade
       mall-cart: cart:trade

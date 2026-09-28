@@ -14,6 +14,15 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "风控检查", description = "风控检查接口")
 public class RiskCheckController {
 
+    /** RISK-01：内部检查入口（服务令牌）——与外部 /check 同语义，供主链路调用 */
+    @org.springframework.web.bind.annotation.PostMapping("/internal")
+    @io.swagger.v3.oas.annotations.Operation(summary = "内部风控检查", description = "下单/领券/支付创建前置检查（服务令牌可达）")
+    public ApiResponse<RiskCheckVO> checkInternal(
+            @org.springframework.validation.annotation.Validated @org.springframework.web.bind.annotation.RequestBody
+            com.cloudmart.risk.dto.RiskCheckRequest request) {
+        return ApiResponse.ok(riskCheckService.check(request));
+    }
+
     private final RiskCheckService riskCheckService;
 
     public RiskCheckController(RiskCheckService riskCheckService) {
