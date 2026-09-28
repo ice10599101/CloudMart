@@ -199,6 +199,17 @@
     <build>
         <pluginManagement>
             <plugins>
+        <!-- ENG-01：UT/IT 分组——*IntegrationTest 需要 ES/DB 等外部资源，
+             默认 mvn test 排除；集成测试用 -Pintegration-test 单独执行 -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+                <excludes>
+                    <exclude>**/*IntegrationTest.java</exclude>
+                </excludes>
+            </configuration>
+        </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
@@ -305,4 +316,23 @@
         <module>mall-wish</module>
         <module>mall-pet</module>
     </modules>
+
+  <profiles>
+    <profile>
+      <id>integration-test</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludes>
+                <exclude>none</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
