@@ -95,7 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
             paymentMapper.updateById(payment);
 
             // ASYNC-01：与支付状态同事务登记 Outbox 事件，由后台可靠投递（替代直发+吞异常）
-            outboxService.record(EventEnvelope.of("PAYMENT_SUCCESS", 1,
+            outboxService.record(EventEnvelope.of("PAYMENT_SUCCEEDED", 2,
                     String.valueOf(payment.getOrderId()), 0, null,
                     paymentPayload(payment.getOrderId(), payment.getId())));
         } else if ("FAILED".equalsIgnoreCase(request.status())) {
@@ -164,7 +164,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentMapper.updateById(payment);
 
         // ASYNC-01：模拟支付同样经 Outbox 可靠投递（PAY-01 将按环境禁用模拟入口）
-        outboxService.record(EventEnvelope.of("PAYMENT_SUCCESS", 1,
+        outboxService.record(EventEnvelope.of("PAYMENT_SUCCEEDED", 2,
                 String.valueOf(payment.getOrderId()), 0, null,
                 paymentPayload(payment.getOrderId(), payment.getId())));
 

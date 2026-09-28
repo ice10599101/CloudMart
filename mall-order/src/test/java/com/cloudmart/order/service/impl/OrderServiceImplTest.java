@@ -474,7 +474,13 @@ class OrderServiceImplTest {
             orderService.notifyPaymentSuccess(1L);
 
             verify(orderMapper).updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID");
-            verify(outboxService).record(any(EventEnvelope.class));
+            // ASYNC-01：支付成功发布两个事件——ORDER_STATUS_CHANGE（通知）+ ORDER_PAID（WMS 拣货）
+            org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> envelopeCaptor =
+                    org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
+            verify(outboxService, org.mockito.Mockito.times(2)).record(envelopeCaptor.capture());
+            assertThat(envelopeCaptor.getAllValues())
+                    .extracting(com.cloudmart.common.async.EventEnvelope::eventType)
+                    .containsExactly("ORDER_STATUS_CHANGE", "ORDER_PAID");
             verify(redisTemplate).delete(anyString());
         }
 

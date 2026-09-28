@@ -53,8 +53,9 @@ public class PaymentOutboxDelivery implements OutboxDelivery {
     }
 
     private String tagFor(String eventType) {
+        // ASYNC-01：v2 事件名 PAYMENT_SUCCEEDED 与旧 v1 PAYMENT_SUCCESS 显式映射到同一 tag
         return switch (eventType) {
-            case "PAYMENT_SUCCESS" -> RocketMQConfig.PAYMENT_TAG_RESULT;
+            case "PAYMENT_SUCCEEDED", "PAYMENT_SUCCESS" -> RocketMQConfig.PAYMENT_TAG_RESULT;
             case "PAYMENT_REFUND" -> RocketMQConfig.PAYMENT_TAG_REFUND;
             default -> throw new IllegalArgumentException("未知的支付事件类型: " + eventType);
         };

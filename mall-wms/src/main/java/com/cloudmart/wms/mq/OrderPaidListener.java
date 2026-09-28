@@ -27,26 +27,44 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
         this.pickOrderService = pickOrderService;
     }
 
+    /**
+     * ASYNC-01 断点 3：形状判定——新格式为事件信封（orderId 在 payload 内），
+     * 旧格式 orderId 在顶层。处理失败必须重抛给 MQ 重试：此前 catch 后只记日志，
+     * 消息被 ACK，拣货单丢失且无恢复手段。
+     */
     @Override
     public void onMessage(Map<String, Object> message) {
-        Long orderId = ((Number) message.get("orderId")).longValue();
-        Long warehouseId = message.get("warehouseId") != null
-                ? ((Number) message.get("warehouseId")).longValue()
-                : 1L;
+        Long orderId = extractOrderId(message);
+        Long warehouseId = extractWarehouseId(message);
 
         log.info("Received order paid event, creating pick order: orderId={}, warehouseId={}", orderId, warehouseId);
 
-        try {
-            if (pickOrderService.findByOrderId(orderId) != null) {
-                log.info("Pick order already exists for orderId={}, skipping", orderId);
-                return;
-            }
-
-            CreatePickOrderRequest request = new CreatePickOrderRequest(orderId, warehouseId, "订单支付成功自动生成");
-            pickOrderService.createPickOrder(request);
-            log.info("Pick order created for orderId={}", orderId);
-        } catch (Exception e) {
-            log.error("Failed to create pick order for orderId={}: {}", orderId, e.getMessage());
+        if (pickOrderService.findByOrderId(orderId) != null) {
+            log.info("Pick order already exists for orderId={}, skipping", orderId);
+            return;
         }
+
+        CreatePickOrderRequest request = new CreatePickOrderRequest(orderId, warehouseId, "订单支付成功自动生成");
+        pickOrderService.createPickOrder(request);
+        log.info("Pick order created for orderId={}", orderId);
+    }
+
+    /** 形状判定：新格式 orderId 在 payload 内；旧格式在顶层 */
+    static Long extractOrderId(Map<String, Object> message) {
+        Object payload = message.get("payload");
+        if (payload instanceof Map<?, ?> payloadMap && payloadMap.get("orderId") instanceof Number n) {
+            return n.longValue();
+        }
+        if (message.get("orderId") instanceof Number n) {
+            return n.longValue();
+        }
+        throw new IllegalArgumentException("消息缺少 orderId（新旧形状均未命中）: " + message.keySet());
+    }
+
+    static Long extractWarehouseId(Map<String, Object> message) {
+        if (message.get("warehouseId") instanceof Number n) {
+            return n.longValue();
+        }
+        return 1L;
     }
 }

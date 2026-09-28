@@ -24,8 +24,11 @@ public class InventoryFeignClientFallbackFactory implements FallbackFactory<Inve
 
             @Override
             public ApiResponse<Void> releaseStock(InventoryReleaseRequest request) {
-                log.error("释放库存降级跳过, skuId={}: {}", request.skuId(), cause.getMessage());
-                return ApiResponse.ok(null);
+                // ASYNC-01 断点 4：fallback 不得伪装成功——调用方依赖失败信号登记补偿，
+                // 返回 ok(null) 会让释放结果丢失且无恢复待办（fail-closed）
+                log.error("释放库存降级失败, skuId={}: {}", request.skuId(), cause.getMessage());
+                throw new com.cloudmart.common.exception.BusinessException(
+                        "INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用，释放操作失败");
             }
 
             @Override
@@ -36,8 +39,10 @@ public class InventoryFeignClientFallbackFactory implements FallbackFactory<Inve
 
             @Override
             public ApiResponse<Void> confirmDeduct(Long skuId, Integer quantity, Long orderId) {
-                log.error("确认扣减降级跳过, skuId={}: {}", skuId, cause.getMessage());
-                return ApiResponse.ok(null);
+                // ASYNC-01 断点 4：同 releaseStock——失败必须显式，交给补偿任务恢复
+                log.error("确认扣减降级失败, skuId={}, orderId={}: {}", skuId, orderId, cause.getMessage());
+                throw new com.cloudmart.common.exception.BusinessException(
+                        "INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用，确认操作失败");
             }
         };
     }

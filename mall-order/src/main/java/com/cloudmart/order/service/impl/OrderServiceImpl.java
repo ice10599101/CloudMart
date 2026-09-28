@@ -242,6 +242,15 @@ public class OrderServiceImpl implements OrderService {
                 orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
         ));
 
+        // ASYNC-01 断点 3：发布 ORDER_PAID（WMS 按独立 tag 订阅生成拣货单）——
+        // 此前只发 ORDER_STATUS_CHANGE（status-change tag），WMS 订阅的 paid tag
+        // 永远收不到消息，拣货单只能靠手工触发
+        outboxService.record(EventEnvelope.of("ORDER_PAID", 2,
+                String.valueOf(orderId), 1, null,
+                compensationJson(java.util.Map.of(
+                        "orderId", orderId,
+                        "userId", order.getUserId()))));
+
         confirmStockDeduct(orderId);
 
         redisTemplate.delete(ORDER_TIMEOUT_KEY_PREFIX + orderId);

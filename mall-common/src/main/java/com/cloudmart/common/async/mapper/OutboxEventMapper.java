@@ -70,7 +70,7 @@ public interface OutboxEventMapper {
             SET status = CASE WHEN attempts + 1 >= #{maxAttempts} THEN 'DEAD_LETTER' ELSE 'FAILED' END,
                 attempts = attempts + 1,
                 next_retry_at = CASE WHEN attempts + 1 >= #{maxAttempts} THEN NULL
-                                     ELSE DATE_ADD(NOW(3), INTERVAL #{backoffMillis} MICROSECOND) END,
+                                     ELSE DATE_ADD(NOW(3), INTERVAL (#{backoffMillis} * 1000) MICROSECOND) END,
                 last_error = #{lastError},
                 locked_by = NULL,
                 locked_at = NULL,

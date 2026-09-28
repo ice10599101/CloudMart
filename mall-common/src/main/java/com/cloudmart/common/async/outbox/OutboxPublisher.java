@@ -39,7 +39,11 @@ public class OutboxPublisher {
         this.workerId = java.util.UUID.randomUUID().toString();
     }
 
-    /** 由 @Scheduled 调用（fixedDelay），亦可手动触发 */
+    /**
+     * ASYNC-01：后台投递轮询——可配置 fixedDelay（默认 1 秒）。
+     * 此前方法无 @Scheduled 且无生产调用入口，Outbox 事件永远停在 PENDING。
+     */
+    @Scheduled(fixedDelayString = "${cloudmart.async.outbox.publish-delay-ms:1000}")
     public void publishPending() {
         try {
             int claimed = mapper.claimBatch(workerId, leaseSeconds, batchSize);

@@ -43,11 +43,16 @@ public class CompensationTaskService {
     }
 
     /**
-     * 登记补偿任务（幂等）：必须与业务写同事务调用（补偿记录与业务状态同生共死）。
+     * 登记补偿任务（幂等），独立事务提交（ASYNC-01 断点 5）。
+     *
+     * <p>语义：登记的是"外部效果已发生或可能已发生"（RPC 已尝试）之后的恢复待办——
+     * REQUIRED 下外层事务回滚会连补偿记录一并吞掉，库存/余额将无法恢复。
+     * 独立事务保证登记在本地回滚后幸存；任务本身幂等（insertIfAbsent），调用方
+     * 在尚未产生外部效果前的纯业务补偿不应使用本方法。</p>
      *
      * @param taskId 业务幂等键，如 stock-confirm:{orderId}:{skuId}
      */
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void createIfAbsent(String taskId, String action, String aggregateId, String payload) {
         CompensationTaskEntity task = new CompensationTaskEntity();
         task.setTaskId(taskId);
@@ -60,7 +65,11 @@ public class CompensationTaskService {
         }
     }
 
-    /** 由 @Scheduled 调用；亦可手动触发 */
+    /**
+     * ASYNC-01：补偿执行轮询——可配置 fixedDelay（默认 5 秒）。
+     * 此前方法无 @Scheduled 且无生产调用入口，补偿任务永远不被执行。
+     */
+    @Scheduled(fixedDelayString = "${cloudmart.async.compensation.run-delay-ms:5000}")
     public void runDueTasks() {
         try {
             int claimed = mapper.claimBatch(workerId, leaseSeconds, batchSize);

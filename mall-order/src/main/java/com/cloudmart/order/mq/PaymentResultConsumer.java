@@ -16,6 +16,11 @@ import java.util.Map;
 /**
  * 支付结果消费者（ASYNC-01）：信封事件 + Inbox 幂等消费。
  *
+ * <p>形状判定（ASYNC-01 断点 2）：新格式为事件信封——orderId 在 {@code payload}
+ * 内，事件类型在顶层 {@code eventType}（v2 名 PAYMENT_SUCCEEDED / 旧名
+ * PAYMENT_SUCCESS 均接受）；旧格式 orderId/event 在顶层。此前消费端按旧形状
+ * 直接读顶层 orderId，新消息在解析阶段即 NPE 失败。</p>
+ *
  * <p>begin 的消费记录与 markOrderPaid 的业务变更同一事务——业务回滚则记录一并
  * 回滚，MQ 重投后重试；重复投递命中已处理记录直接跳过。</p>
  */
@@ -37,12 +42,12 @@ public class PaymentResultConsumer implements RocketMQListener<Map<String, Objec
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
+        Long orderId = extractOrderId(message);
+        String event = extractEventType(message);
         String eventId = (String) message.get("eventId");
-        Long orderId = ((Number) message.get("orderId")).longValue();
-        String event = (String) message.get("event");
         log.info("收到支付结果消息, orderId={}, event={}, eventId={}", orderId, event, eventId);
 
-        if (!"PAYMENT_SUCCESS".equals(event)) {
+        if (!"PAYMENT_SUCCESS".equals(event) && !"PAYMENT_SUCCEEDED".equals(event)) {
             return;
         }
         // 兼容旧格式消息（无 eventId）：退化为直接处理，不做 Inbox 判重
@@ -64,6 +69,27 @@ public class PaymentResultConsumer implements RocketMQListener<Map<String, Objec
             inboxService.failConsume(CONSUMER, envelope, e.getMessage());
             throw e;
         }
+    }
+
+    /** 形状判定：新格式 orderId 在 payload 内；旧格式在顶层 */
+    static Long extractOrderId(Map<String, Object> message) {
+        Object payload = message.get("payload");
+        if (payload instanceof Map<?, ?> payloadMap && payloadMap.get("orderId") instanceof Number n) {
+            return n.longValue();
+        }
+        if (message.get("orderId") instanceof Number n) {
+            return n.longValue();
+        }
+        throw new IllegalArgumentException("[ASYNC01] 消息缺少 orderId（新旧形状均未命中）: " + message.keySet());
+    }
+
+    /** 事件类型：新格式顶层 eventType；旧格式顶层 event */
+    static String extractEventType(Map<String, Object> message) {
+        Object eventType = message.get("eventType");
+        if (eventType instanceof String s && !s.isBlank()) {
+            return s;
+        }
+        return (String) message.get("event");
     }
 
     static EventEnvelope envelopeOf(Map<String, Object> message) {

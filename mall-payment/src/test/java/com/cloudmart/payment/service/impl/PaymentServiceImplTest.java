@@ -154,7 +154,7 @@ class PaymentServiceImplTest {
             assertThat(payment.getPaidAt()).isNotNull();
             verify(paymentMapper).updateById(payment);
             verify(outboxService).record(argThat(evt ->
-                "PAYMENT_SUCCESS".equals(evt.eventType())
+                "PAYMENT_SUCCEEDED".equals(evt.eventType())
                         && evt.payload().contains("\"orderId\":100")
                         && evt.payload().contains("\"paymentId\":1")));
         }
@@ -282,7 +282,7 @@ class PaymentServiceImplTest {
             assertThat(payment.getPaidAt()).isNotNull();
             verify(paymentMapper).updateById(payment);
             verify(outboxService).record(argThat(evt ->
-                "PAYMENT_SUCCESS".equals(evt.eventType())
+                "PAYMENT_SUCCEEDED".equals(evt.eventType())
                         && evt.payload().contains("\"orderId\":100")
                         && evt.payload().contains("\"paymentId\":1")));
         }
