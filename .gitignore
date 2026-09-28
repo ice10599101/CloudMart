@@ -27,7 +27,7 @@ logs/
 # IDE / 编辑器
 /.vscode/
 /.trae/
-/.idea/
+.idea/
 /.mvn/
 *.iml
 *.ipr
@@ -51,6 +51,7 @@ desktop.ini
 # 缓存
 **/.cache/
 **/.eslintcache
+**/.swc/
 
 # 密钥与证书
 **/*.keystore
@@ -61,6 +62,17 @@ desktop.ini
 /前端页面访问.txt
 /.ice/
 /CloudMart-ui/src/.umi/
+# Umi 构建产物（dev 生成 .umi，build 生成 .umi-production）
+/CloudMart-ui/src/.umi-production/
+# Playwright 测试报告产物
+**/playwright-report/
+**/test-results/
+# 原型截图产物（根目录 shots/；pet-game/shots 已单列）
+/shots/
+# 运行时上传目录（mall-file 存储根，用户内容不入库）
+/files/
+# 本地测试结果临时文件
+/测试结果.txt
 
 # pet-game Cocos 构建产物（构建到 Web 宿主静态目录）
 CloudMart-ui/public/pet-game/
