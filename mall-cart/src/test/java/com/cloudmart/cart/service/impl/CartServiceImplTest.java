@@ -26,6 +26,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -108,6 +109,16 @@ class CartServiceImplTest {
             SkuInfo skuInfo = new SkuInfo(10L, "SKU001", "Red", new BigDecimal("999.00"), new BigDecimal("1299.00"), 100, "phone.jpg", 1);
             ProductInfo productInfo = new ProductInfo(100L, "Phone", "main.jpg", List.of(skuInfo));
             when(productFeignClient.getProductById(100L)).thenReturn(ApiResponse.ok(productInfo));
+            // CART-01：DB 权威——upsert 后回查返回新行
+            CartItem entity = new CartItem();
+            entity.setId(1L);
+            entity.setUserId(1L);
+            entity.setProductId(100L);
+            entity.setSkuId(10L);
+            entity.setQuantity(1);
+            entity.setChecked(1);
+            when(cartItemMapper.upsertIncrement(1L, 100L, 10L, 1)).thenReturn(1);
+            when(cartItemMapper.findByUserAndSku(1L, 10L)).thenReturn(entity);
 
             AddCartItemRequest request = new AddCartItemRequest(100L, 10L, 1);
             CartItemDTO result = cartService.addItem(1L, request);
@@ -121,14 +132,39 @@ class CartServiceImplTest {
 
         @Test
         @DisplayName("existing item -> increments quantity")
-        void addItem_ExistingItem_ShouldIncrementQuantity() throws Exception {
-            CartItemDTO existing = buildCartItemDTO(10L, 2, 1);
-            when(hashOperations.get("cart:user:1", "10")).thenReturn(objectMapper.writeValueAsString(existing));
+        void addItem_ExistingItem_ShouldIncrementQuantity() {
+            // CART-01：增量由 DB 原子 upsert 完成（并发不丢），服务读回权威行
+            SkuInfo skuInfo = new SkuInfo(10L, "SKU001", "Red", new BigDecimal("999.00"), new BigDecimal("1299.00"), 100, "phone.jpg", 1);
+            ProductInfo productInfo = new ProductInfo(100L, "Phone", "main.jpg", List.of(skuInfo));
+            when(productFeignClient.getProductById(100L)).thenReturn(ApiResponse.ok(productInfo));
+            CartItem merged = new CartItem();
+            merged.setId(1L);
+            merged.setUserId(1L);
+            merged.setProductId(100L);
+            merged.setSkuId(10L);
+            merged.setQuantity(5);
+            merged.setChecked(1);
+            when(cartItemMapper.upsertIncrement(1L, 100L, 10L, 3)).thenReturn(1);
+            when(cartItemMapper.findByUserAndSku(1L, 10L)).thenReturn(merged);
 
             AddCartItemRequest request = new AddCartItemRequest(100L, 10L, 3);
             CartItemDTO result = cartService.addItem(1L, request);
 
             assertThat(result.quantity()).isEqualTo(5);
+            verify(cartItemMapper).upsertIncrement(1L, 100L, 10L, 3);
+        }
+
+        @Test
+        @DisplayName("CART-01：SKU 与商品不匹配拒绝加购")
+        void addItem_SkuMismatch_ShouldReject() {
+            SkuInfo otherSku = new SkuInfo(20L, "SKU002", "Blue", new BigDecimal("999.00"), new BigDecimal("1299.00"), 100, "phone.jpg", 1);
+            ProductInfo productInfo = new ProductInfo(100L, "Phone", "main.jpg", List.of(otherSku));
+            when(productFeignClient.getProductById(100L)).thenReturn(ApiResponse.ok(productInfo));
+
+            assertThatThrownBy(() -> cartService.addItem(1L, new AddCartItemRequest(100L, 10L, 1)))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("CART_SKU_MISMATCH"));
+            verify(cartItemMapper, never()).upsertIncrement(anyLong(), anyLong(), anyLong(), org.mockito.ArgumentMatchers.anyInt());
         }
     }
 
@@ -139,21 +175,33 @@ class CartServiceImplTest {
         @Test
         @DisplayName("existing item -> updates quantity and checked")
         void updateItem_ExistingItem_ShouldUpdate() throws Exception {
-            CartItemDTO existing = buildCartItemDTO(10L, 2, 1);
-            when(hashOperations.get("cart:user:1", "10")).thenReturn(objectMapper.writeValueAsString(existing));
+            // CART-01：基准取 DB 权威行，缓存仅用于补展示字段
+            CartItem entity = new CartItem();
+            entity.setId(1L);
+            entity.setUserId(1L);
+            entity.setProductId(100L);
+            entity.setSkuId(10L);
+            entity.setQuantity(2);
+            entity.setChecked(1);
+            when(cartItemMapper.findByUserAndSku(1L, 10L)).thenReturn(entity);
+            when(cartItemMapper.updateById(any(CartItem.class))).thenReturn(1);
+            CartItemDTO cached = buildCartItemDTO(10L, 2, 1);
+            when(hashOperations.get("cart:user:1", "10")).thenReturn(objectMapper.writeValueAsString(cached));
 
             UpdateCartItemRequest request = new UpdateCartItemRequest(5, 0);
             CartItemDTO result = cartService.updateItem(1L, 10L, request);
 
             assertThat(result.quantity()).isEqualTo(5);
             assertThat(result.checked()).isEqualTo(0);
+            verify(cartItemMapper).updateById(any(CartItem.class));
             verify(hashOperations).put(eq("cart:user:1"), eq("10"), anyString());
         }
 
         @Test
         @DisplayName("non-existing item -> throws CART_ITEM_NOT_FOUND")
         void updateItem_NonExisting_ShouldThrowBusinessException() {
-            when(hashOperations.get("cart:user:1", "999")).thenReturn(null);
+            // CART-01：以 DB 为准判断存在性
+            when(cartItemMapper.findByUserAndSku(1L, 999L)).thenReturn(null);
 
             UpdateCartItemRequest request = new UpdateCartItemRequest(1, 1);
 
@@ -165,8 +213,17 @@ class CartServiceImplTest {
         @Test
         @DisplayName("null fields -> keeps existing values")
         void updateItem_NullFields_ShouldKeepExisting() throws Exception {
-            CartItemDTO existing = buildCartItemDTO(10L, 2, 1);
-            when(hashOperations.get("cart:user:1", "10")).thenReturn(objectMapper.writeValueAsString(existing));
+            CartItem entity = new CartItem();
+            entity.setId(1L);
+            entity.setUserId(1L);
+            entity.setProductId(100L);
+            entity.setSkuId(10L);
+            entity.setQuantity(2);
+            entity.setChecked(1);
+            when(cartItemMapper.findByUserAndSku(1L, 10L)).thenReturn(entity);
+            when(cartItemMapper.updateById(any(CartItem.class))).thenReturn(1);
+            CartItemDTO cached = buildCartItemDTO(10L, 2, 1);
+            when(hashOperations.get("cart:user:1", "10")).thenReturn(objectMapper.writeValueAsString(cached));
 
             UpdateCartItemRequest request = new UpdateCartItemRequest(null, null);
             CartItemDTO result = cartService.updateItem(1L, 10L, request);
@@ -183,7 +240,8 @@ class CartServiceImplTest {
         @Test
         @DisplayName("existing item -> removes from cart")
         void removeItem_ExistingItem_ShouldRemove() {
-            when(hashOperations.get("cart:user:1", "10")).thenReturn("some-data");
+            // CART-01：删除权威行 + 同步缓存
+            when(cartItemMapper.delete(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
 
             cartService.removeItem(1L, 10L);
 
@@ -193,7 +251,7 @@ class CartServiceImplTest {
         @Test
         @DisplayName("non-existing item -> throws CART_ITEM_NOT_FOUND")
         void removeItem_NonExisting_ShouldThrowBusinessException() {
-            when(hashOperations.get("cart:user:1", "999")).thenReturn(null);
+            when(cartItemMapper.delete(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(0);
 
             assertThatThrownBy(() -> cartService.removeItem(1L, 999L))
                     .isInstanceOf(BusinessException.class)

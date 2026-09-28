@@ -52,6 +52,12 @@ public class CartServiceImpl implements CartService {
     public CartDTO getCart(Long userId) {
         String key = buildKey(userId);
         Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+        // CART-01：缓存空且 DB 有行（Redis 被清/过期/重启）→ 从权威回源重建
+        if (entries.isEmpty() && cartItemMapper.selectCount(
+                new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId)) > 0) {
+            warmCacheFromDb(userId, key);
+            entries = redisTemplate.opsForHash().entries(key);
+        }
 
         List<CartItemDTO> items = new ArrayList<>();
         int totalQuantity = 0;
@@ -84,49 +90,29 @@ public class CartServiceImpl implements CartService {
         String skuField = request.skuId().toString();
 
         ProductInfo productInfo = fetchProductInfo(request.productId());
-
-        Object existing = redisTemplate.opsForHash().get(key, skuField);
-        CartItemDTO item;
-
-        if (existing != null) {
-            try {
-                CartItemDTO current = deserializeItem(existing.toString(), userId, skuField);
-                item = new CartItemDTO(
-                        current.id(), current.userId(), current.productId(), current.skuId(),
-                        current.quantity() + request.quantity(), current.checked(),
-                        current.productName(), current.skuImage(), current.skuAttributes(), current.price()
-                );
-            } catch (JacksonException e) {
-                log.error("反序列化购物车项失败, userId={}, skuId={}", userId, request.skuId(), e);
-                throw new BusinessException("CART_DESERIALIZE_ERROR", "购物车数据解析失败");
-            }
-        } else {
-            String productName = productInfo != null ? productInfo.name() : null;
-            String skuImage = null;
-            String skuAttributes = null;
-            BigDecimal price = null;
-
-            if (productInfo != null && productInfo.skus() != null) {
-                SkuInfo matchedSku = productInfo.skus().stream()
-                        .filter(s -> s.id().equals(request.skuId()))
-                        .findFirst()
-                        .orElse(null);
-                if (matchedSku != null) {
-                    skuImage = matchedSku.image();
-                    skuAttributes = matchedSku.attributes();
-                    price = matchedSku.price();
-                }
-            }
-
-            if (skuImage == null && productInfo != null) {
-                skuImage = productInfo.mainImage();
-            }
-
-            item = new CartItemDTO(
-                    null, userId, request.productId(), request.skuId(),
-                    request.quantity(), 1, productName, skuImage, skuAttributes, price
-            );
+        // CART-01：SKU 必须属于该商品且可售——商品获取失败/无该 SKU/无有效价格一律拒绝，
+        // 不再写 price=null 的坏行
+        if (productInfo == null || productInfo.skus() == null) {
+            throw new BusinessException("CART_PRODUCT_UNAVAILABLE", "商品信息不可用，无法加入购物车");
         }
+        SkuInfo matchedSku = productInfo.skus().stream()
+                .filter(s -> s.id().equals(request.skuId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("CART_SKU_MISMATCH", "SKU 与商品不匹配"));
+        if (matchedSku.price() == null) {
+            throw new BusinessException("CART_SKU_NOT_SELLABLE", "该商品暂不可售");
+        }
+
+        // CART-01：DB 权威原子增量（UNIQUE(user_id,sku_id) + ON DUPLICATE KEY 累加），
+        // 并发加购不丢增量；Redis 仅作缓存同步
+        cartItemMapper.upsertIncrement(userId, request.productId(), request.skuId(), request.quantity());
+        CartItem entity = cartItemMapper.findByUserAndSku(userId, request.skuId());
+
+        CartItemDTO item = new CartItemDTO(
+                entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
+                entity.getQuantity(), entity.getChecked(),
+                productInfo.name(), matchedSku.image(), matchedSku.attributes(), matchedSku.price()
+        );
 
         serializeAndPut(key, skuField, item, userId);
         return item;
@@ -134,97 +120,107 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public CartItemDTO updateItem(Long userId, Long skuId, UpdateCartItemRequest request) {
-        String key = buildKey(userId);
-        String skuField = skuId.toString();
-
-        Object existing = redisTemplate.opsForHash().get(key, skuField);
-        if (existing == null) {
+        // CART-01：以 DB 权威行为基准（缓存缺失也能改），更新后同步缓存
+        CartItem entity = cartItemMapper.findByUserAndSku(userId, skuId);
+        if (entity == null) {
             throw new BusinessException("CART_ITEM_NOT_FOUND", "购物车项不存在");
         }
 
+        if (request.quantity() != null) {
+            if (request.quantity() < 1 || request.quantity() > 999) {
+                throw new BusinessException("INVALID_QUANTITY", "数量必须为 1-999");
+            }
+            entity.setQuantity(request.quantity());
+        }
+        if (request.checked() != null) {
+            entity.setChecked(request.checked());
+        }
+        cartItemMapper.updateById(entity);
+
+        CartItemDTO cached = findCachedItem(userId, skuId);
+        CartItemDTO updated = new CartItemDTO(
+                entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
+                entity.getQuantity(), entity.getChecked(),
+                cached != null ? cached.productName() : null,
+                cached != null ? cached.skuImage() : null,
+                cached != null ? cached.skuAttributes() : null,
+                cached != null ? cached.price() : null
+        );
+        serializeAndPut(buildKey(userId), skuId.toString(), updated, userId);
+        return updated;
+    }
+
+    /** 缓存中查找单项（不存在返回 null） */
+    private CartItemDTO findCachedItem(Long userId, Long skuId) {
+        Object existing = redisTemplate.opsForHash().get(buildKey(userId), skuId.toString());
+        if (existing == null) {
+            return null;
+        }
         try {
-            CartItemDTO current = deserializeItem(existing.toString(), userId, skuField);
-            CartItemDTO updated = new CartItemDTO(
-                    current.id(), current.userId(), current.productId(), current.skuId(),
-                    request.quantity() != null ? request.quantity() : current.quantity(),
-                    request.checked() != null ? request.checked() : current.checked(),
-                    current.productName(), current.skuImage(), current.skuAttributes(), current.price()
-            );
-            serializeAndPut(key, skuField, updated, userId);
-            return updated;
+            return deserializeItem(existing.toString(), userId, skuId.toString());
         } catch (JacksonException e) {
-            log.error("反序列化购物车项失败, userId={}, skuId={}", userId, skuId, e);
-            throw new BusinessException("CART_DESERIALIZE_ERROR", "购物车数据解析失败");
+            return null;
         }
     }
 
     @Override
     public void removeItem(Long userId, Long skuId) {
-        String key = buildKey(userId);
-        String skuField = skuId.toString();
-
-        Object existing = redisTemplate.opsForHash().get(key, skuField);
-        if (existing == null) {
+        int deleted = cartItemMapper.delete(new LambdaQueryWrapper<CartItem>()
+                .eq(CartItem::getUserId, userId).eq(CartItem::getSkuId, skuId));
+        if (deleted == 0) {
             throw new BusinessException("CART_ITEM_NOT_FOUND", "购物车项不存在");
         }
-
-        redisTemplate.opsForHash().delete(key, skuField);
+        redisTemplate.opsForHash().delete(buildKey(userId), skuId.toString());
     }
 
     @Override
     public void clearCart(Long userId) {
+        cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId));
         redisTemplate.delete(buildKey(userId));
     }
 
     @Override
     public void clearCheckedItems(Long userId) {
-        String key = buildKey(userId);
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
-
-        for (Map.Entry<Object, Object> entry : entries.entrySet()) {
-            try {
-                CartItemDTO item = deserializeItem(entry.getValue().toString(), userId, entry.getKey());
-                if (item != null && item.checked() != null && item.checked() == 1) {
-                    redisTemplate.opsForHash().delete(key, entry.getKey().toString());
-                }
-            } catch (JacksonException e) {
-                log.error("反序列化购物车项失败, userId={}, skuId={}", userId, entry.getKey(), e);
-            }
+        // CART-01：清理权威行（勾选态以 DB 为准）；先读勾选集合再按集合删除，
+        // 缩小与并发改动的竞态窗口，不动无关行
+        List<CartItem> checked = cartItemMapper.selectList(new LambdaQueryWrapper<CartItem>()
+                .eq(CartItem::getUserId, userId).eq(CartItem::getChecked, 1));
+        if (checked.isEmpty()) {
+            return;
         }
+        List<Long> skuIds = checked.stream().map(CartItem::getSkuId).toList();
+        cartItemMapper.deleteCheckedBySkus(userId, skuIds);
+        redisTemplate.opsForHash().delete(buildKey(userId),
+                skuIds.stream().map(String::valueOf).toArray());
     }
 
     @Override
     public void syncToDatabase(Long userId) {
-        String key = buildKey(userId);
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+        // CART-01：DB 已是权威——本方法语义变更为「从权威重建缓存」
+        //（原"先删后插同步"会在并发下丢行，已废弃；CartSyncTask 调用点保留为缓存预热）
+        warmCacheFromDb(userId, buildKey(userId));
+    }
 
-        if (entries.isEmpty()) {
-            cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId));
+    /** 从 DB 权威重建 Redis 缓存（缓存空/损坏时自愈） */
+    private void warmCacheFromDb(Long userId, String key) {
+        List<CartItem> rows = cartItemMapper.selectList(
+                new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId));
+        if (rows.isEmpty()) {
             return;
         }
-
-        List<CartItem> redisItems = new ArrayList<>();
-        for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+        for (CartItem entity : rows) {
             try {
-                CartItemDTO dto = deserializeItem(entry.getValue().toString(), userId, entry.getKey());
-                if (dto != null) {
-                    CartItem entity = new CartItem();
-                    entity.setUserId(dto.userId());
-                    entity.setProductId(dto.productId());
-                    entity.setSkuId(dto.skuId());
-                    entity.setQuantity(dto.quantity());
-                    entity.setChecked(dto.checked());
-                    redisItems.add(entity);
-                }
+                String productJson = null;
+                CartItemDTO item = new CartItemDTO(
+                        entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
+                        entity.getQuantity(), entity.getChecked(),
+                        null, null, null, null
+                );
+                redisTemplate.opsForHash().put(key, entity.getSkuId().toString(),
+                        objectMapper.writeValueAsString(item));
             } catch (JacksonException e) {
-                log.error("同步购物车反序列化失败, userId={}, skuId={}", userId, entry.getKey(), e);
+                log.warn("购物车缓存重建失败, userId={}, skuId={}", userId, entity.getSkuId(), e);
             }
-        }
-
-        cartItemMapper.delete(new LambdaQueryWrapper<CartItem>().eq(CartItem::getUserId, userId));
-
-        for (CartItem item : redisItems) {
-            cartItemMapper.insert(item);
         }
     }
 
