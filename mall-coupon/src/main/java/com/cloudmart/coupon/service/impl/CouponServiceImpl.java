@@ -42,6 +42,7 @@ public class CouponServiceImpl implements CouponService {
 
     private final CouponTemplateMapper couponTemplateMapper;
     private final UserCouponMapper userCouponMapper;
+    private final com.cloudmart.coupon.repository.CouponClaimCounterMapper claimCounterMapper;
     private final CouponTemplateConverter couponTemplateConverter;
     private final UserCouponConverter userCouponConverter;
     private final RedissonClient redissonClient;
@@ -203,41 +204,24 @@ public class CouponServiceImpl implements CouponService {
             }
         }
 
-        String currentStock = redisTemplate.opsForValue().get(COUPON_STOCK_KEY_PREFIX + templateId);
-        if (currentStock == null) {
-            redisTemplate.opsForValue().set(
-                    COUPON_STOCK_KEY_PREFIX + templateId,
-                    String.valueOf(template.getRemainingQuantity()),
-                    Duration.ofDays(365)
-            );
-            currentStock = String.valueOf(template.getRemainingQuantity());
-        }
-        if (Long.parseLong(currentStock) <= 0) {
-            throw new BusinessException("STOCK_INSUFFICIENT", "优惠券已领完");
-        }
-
-        Long claimedCount = userCouponMapper.selectCount(
-                new LambdaQueryWrapper<UserCoupon>()
-                        .eq(UserCoupon::getUserId, userId)
-                        .eq(UserCoupon::getTemplateId, templateId)
-        );
-        if (claimedCount >= template.getPerUserLimit()) {
+        // COUPON-01：限领判定改为 DB 计数台账原子递增（权威，不依赖锁/Redis）——
+        // 并发领取最多递增到 per_user_limit，超限 0 行直接拒绝
+        claimCounterMapper.insertIfAbsent(userId, templateId);
+        int perUserLimit = template.getPerUserLimit() != null && template.getPerUserLimit() > 0
+                ? template.getPerUserLimit() : 1;
+        if (claimCounterMapper.incrementWithinLimit(userId, templateId, perUserLimit) == 0) {
             throw new BusinessException("CLAIM_LIMIT_EXCEEDED", "已达到领取上限");
         }
 
-        Long remainingAfterDecrement = redisTemplate.opsForValue().decrement(COUPON_STOCK_KEY_PREFIX + templateId);
-        if (remainingAfterDecrement == null || remainingAfterDecrement < 0) {
-            redisTemplate.opsForValue().increment(COUPON_STOCK_KEY_PREFIX + templateId);
-            throw new BusinessException("STOCK_INSUFFICIENT", "优惠券已领完");
-        }
-
+        // 库存扣减以 DB 条件更新为权威（remaining_quantity > 0 才递减）
         LambdaUpdateWrapper<CouponTemplate> stockUpdate = new LambdaUpdateWrapper<CouponTemplate>()
                 .eq(CouponTemplate::getId, templateId)
                 .gt(CouponTemplate::getRemainingQuantity, 0)
                 .setSql("remaining_quantity = remaining_quantity - 1");
         int dbUpdated = couponTemplateMapper.update(null, stockUpdate);
         if (dbUpdated == 0) {
-            redisTemplate.opsForValue().increment(COUPON_STOCK_KEY_PREFIX + templateId);
+            // 归还限领名额，保持台账与实际一致
+            claimCounterMapper.decrement(userId, templateId);
             throw new BusinessException("STOCK_INSUFFICIENT", "优惠券已领完");
         }
 
@@ -311,6 +295,14 @@ public class CouponServiceImpl implements CouponService {
         if (userCoupon == null) {
             throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
         }
+        // COUPON-01：同订单重试幂等——已 USED 且绑定同一订单时返回成功
+        //（订单创建失败重试会再次调 useCoupon，此前抛状态异常导致重试永远失败）
+        if ("USED".equals(userCoupon.getStatus())) {
+            if (orderId.equals(userCoupon.getOrderId())) {
+                return;
+            }
+            throw new BusinessException("COUPON_STATUS_ERROR", "优惠券已被其他订单使用");
+        }
         if (!"UNUSED".equals(userCoupon.getStatus())) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态不允许使用");
         }
@@ -331,6 +323,11 @@ public class CouponServiceImpl implements CouponService {
         UserCoupon userCoupon = userCouponMapper.selectById(userCouponId);
         if (userCoupon == null) {
             throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
+        }
+        // COUPON-01：重放幂等——已 UNUSED（此前退券已成功）直接返回成功；
+        // 退券方向安全（券回到可用态，不存在重复资金效果）
+        if ("UNUSED".equals(userCoupon.getStatus())) {
+            return;
         }
         if (!"USED".equals(userCoupon.getStatus())) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态不允许退还");

@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +42,7 @@ class CouponServiceImplTest {
     private StringRedisTemplate redisTemplate;
     private RLock rLock;
     private ValueOperations<String, String> valueOperations;
+    private com.cloudmart.coupon.repository.CouponClaimCounterMapper claimCounterMapper;
     private CouponServiceImpl couponService;
 
     private static final Long USER_ID = 1001L;
@@ -61,8 +63,10 @@ class CouponServiceImplTest {
         rLock = mock(RLock.class);
         valueOperations = mock(ValueOperations.class);
 
+        claimCounterMapper = mock(com.cloudmart.coupon.repository.CouponClaimCounterMapper.class);
         couponService = new CouponServiceImpl(
-                couponTemplateMapper, userCouponMapper, couponTemplateConverter,
+                couponTemplateMapper, userCouponMapper, claimCounterMapper,
+                couponTemplateConverter,
                 userCouponConverter, redissonClient, redisTemplate
         );
 
@@ -100,6 +104,7 @@ class CouponServiceImplTest {
             when(valueOperations.get("coupon:stock:" + TEMPLATE_ID)).thenReturn("50");
             when(userCouponMapper.selectCount(any())).thenReturn(0L);
             when(valueOperations.decrement("coupon:stock:" + TEMPLATE_ID)).thenReturn(49L);
+            when(claimCounterMapper.incrementWithinLimit(USER_ID, TEMPLATE_ID, 1)).thenReturn(1);
             when(couponTemplateMapper.update(any(), any())).thenReturn(1);
             when(userCouponMapper.insert(any(UserCoupon.class))).thenReturn(1);
             when(userCouponConverter.toDTO(any(UserCoupon.class), any(CouponTemplate.class)))
@@ -153,16 +158,32 @@ class CouponServiceImplTest {
         }
 
         @Test
-        @DisplayName("should throw when coupon stock is exhausted")
+        @DisplayName("COUPON-01：库存尽（DB 条件更新 0 行）拒绝并回退限领台账")
         void claimCoupon_stockExhausted_throwsException() throws InterruptedException {
             mockLockAcquired();
             when(couponTemplateMapper.selectById(TEMPLATE_ID)).thenReturn(enabledTemplate);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get("coupon:stock:" + TEMPLATE_ID)).thenReturn("0");
+            when(claimCounterMapper.incrementWithinLimit(USER_ID, TEMPLATE_ID, 1)).thenReturn(1);
+            when(couponTemplateMapper.update(any(), any())).thenReturn(0);
+            when(claimCounterMapper.decrement(USER_ID, TEMPLATE_ID)).thenReturn(1);
 
             assertThatThrownBy(() -> couponService.claimCoupon(USER_ID, TEMPLATE_ID))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("STOCK_INSUFFICIENT"));
+            verify(claimCounterMapper).decrement(USER_ID, TEMPLATE_ID);
+            verify(userCouponMapper, never()).insert(any(UserCoupon.class));
+        }
+
+        @Test
+        @DisplayName("COUPON-01：限领台账原子判定——incrementWithinLimit 0 行即超限拒绝")
+        void claimCoupon_claimCounterLimit_rejected() throws InterruptedException {
+            mockLockAcquired();
+            when(couponTemplateMapper.selectById(TEMPLATE_ID)).thenReturn(enabledTemplate);
+            when(claimCounterMapper.incrementWithinLimit(USER_ID, TEMPLATE_ID, 1)).thenReturn(0);
+
+            assertThatThrownBy(() -> couponService.claimCoupon(USER_ID, TEMPLATE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("CLAIM_LIMIT_EXCEEDED"));
+            verify(couponTemplateMapper, never()).update(any(), any());
         }
 
         @Test
@@ -180,36 +201,56 @@ class CouponServiceImplTest {
         }
 
         @Test
-        @DisplayName("should throw when Redis decrement goes below zero and rollback")
-        void claimCoupon_decrementBelowZero_rollbacksAndThrows() throws InterruptedException {
+        @DisplayName("COUPON-01：领取成功路径走台账判定 + DB 条件扣库存（Redis 不再参与决策）")
+        void claimCoupon_success_ledgerDriven() throws InterruptedException {
             mockLockAcquired();
             when(couponTemplateMapper.selectById(TEMPLATE_ID)).thenReturn(enabledTemplate);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get("coupon:stock:" + TEMPLATE_ID)).thenReturn("1");
-            when(userCouponMapper.selectCount(any())).thenReturn(0L);
-            when(valueOperations.decrement("coupon:stock:" + TEMPLATE_ID)).thenReturn(-1L);
+            when(claimCounterMapper.incrementWithinLimit(USER_ID, TEMPLATE_ID, 1)).thenReturn(1);
+            when(couponTemplateMapper.update(any(), any())).thenReturn(1);
+            when(userCouponConverter.toDTO(any(UserCoupon.class), any(CouponTemplate.class)))
+                    .thenReturn(new UserCouponDTO(
+                            USER_COUPON_ID, USER_ID, TEMPLATE_ID, "UNUSED",
+                            null, LocalDateTime.now(), null, enabledTemplate.getEndTime(),
+                            "Test Coupon", "AMOUNT_OFF", new BigDecimal("100"),
+                            new BigDecimal("20"), null
+                    ));
+            org.mockito.Mockito.doAnswer(inv -> {
+                UserCoupon uc = inv.getArgument(0);
+                uc.setId(USER_COUPON_ID);
+                return 1;
+            }).when(userCouponMapper).insert(any(UserCoupon.class));
 
-            assertThatThrownBy(() -> couponService.claimCoupon(USER_ID, TEMPLATE_ID))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("STOCK_INSUFFICIENT"));
-            verify(valueOperations).increment("coupon:stock:" + TEMPLATE_ID);
+            var dto = couponService.claimCoupon(USER_ID, TEMPLATE_ID);
+
+            assertThat(dto).isNotNull();
+            verify(claimCounterMapper).incrementWithinLimit(USER_ID, TEMPLATE_ID, 1);
+            verify(claimCounterMapper, never()).decrement(anyLong(), anyLong());
         }
 
         @Test
-        @DisplayName("should throw when DB stock update fails and rollback Redis")
-        void claimCoupon_dbStockUpdateFails_rollbacksRedis() throws InterruptedException {
+        @DisplayName("COUPON-01：Redis 缓存缺失不再影响领取（台账+DB 权威，缓存仅加速）")
+        void claimCoupon_redisUnavailable_stillWorks() throws InterruptedException {
             mockLockAcquired();
             when(couponTemplateMapper.selectById(TEMPLATE_ID)).thenReturn(enabledTemplate);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get("coupon:stock:" + TEMPLATE_ID)).thenReturn("50");
-            when(userCouponMapper.selectCount(any())).thenReturn(0L);
-            when(valueOperations.decrement("coupon:stock:" + TEMPLATE_ID)).thenReturn(49L);
-            when(couponTemplateMapper.update(any(), any())).thenReturn(0);
+            when(claimCounterMapper.incrementWithinLimit(USER_ID, TEMPLATE_ID, 1)).thenReturn(1);
+            when(couponTemplateMapper.update(any(), any())).thenReturn(1);
+            when(userCouponConverter.toDTO(any(UserCoupon.class), any(CouponTemplate.class)))
+                    .thenReturn(new UserCouponDTO(
+                            USER_COUPON_ID, USER_ID, TEMPLATE_ID, "UNUSED",
+                            null, LocalDateTime.now(), null, enabledTemplate.getEndTime(),
+                            "Test Coupon", "AMOUNT_OFF", new BigDecimal("100"),
+                            new BigDecimal("20"), null
+                    ));
+            org.mockito.Mockito.doAnswer(inv -> {
+                UserCoupon uc = inv.getArgument(0);
+                uc.setId(USER_COUPON_ID);
+                return 1;
+            }).when(userCouponMapper).insert(any(UserCoupon.class));
+            // Redis 全部异常：不应影响领取结果
+            when(redisTemplate.opsForValue()).thenThrow(new IllegalStateException("redis down"));
 
-            assertThatThrownBy(() -> couponService.claimCoupon(USER_ID, TEMPLATE_ID))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("STOCK_INSUFFICIENT"));
-            verify(valueOperations).increment("coupon:stock:" + TEMPLATE_ID);
+            var dto = couponService.claimCoupon(USER_ID, TEMPLATE_ID);
+            assertThat(dto).isNotNull();
         }
     }
 
@@ -323,16 +364,18 @@ class CouponServiceImplTest {
 
         @Test
         @DisplayName("should throw when coupon is not in USED status")
-        void returnCoupon_notUsed_throwsException() {
+        void returnCoupon_notUsed_idempotentSuccess() {
+            // COUPON-01：重放幂等——已 UNUSED（此前退券成功）再次退券直接成功，
+            // 不再抛状态异常（退券方向安全，不存在重复资金效果）
             UserCoupon userCoupon = new UserCoupon();
             userCoupon.setId(USER_COUPON_ID);
             userCoupon.setStatus("UNUSED");
 
             when(userCouponMapper.selectById(USER_COUPON_ID)).thenReturn(userCoupon);
 
-            assertThatThrownBy(() -> couponService.returnCoupon(USER_COUPON_ID, ORDER_ID))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("COUPON_STATUS_ERROR"));
+            couponService.returnCoupon(USER_COUPON_ID, ORDER_ID);
+
+            verify(userCouponMapper, never()).returnCouponIfMatch(anyLong(), anyString(), anyString(), anyLong());
         }
 
         @Test

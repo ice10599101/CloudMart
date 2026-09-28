@@ -141,7 +141,8 @@ public class OrderServiceImpl implements OrderService {
 
         order.setTotalAmount(totalAmount);
         order.setDiscountAmount(discountAmount);
-        order.setPayAmount(totalAmount.subtract(discountAmount));
+        // COUPON-01：应付金额下限保护，禁止负数订单
+        order.setPayAmount(totalAmount.subtract(discountAmount).max(BigDecimal.ZERO));
         order.setCouponId(request.couponId());
         order.setActivityId(request.activityId());
 
@@ -801,14 +802,24 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private BigDecimal calculateDiscount(UserCouponDTO coupon, BigDecimal totalAmount) {
+        // COUPON-01：优惠封顶——任何券的优惠不得超过商品总额（防 payAmount 为负）；
+        // 折扣率必须在 (0,1] 区间（如 0.90 = 9 折），配置异常按无优惠处理并告警
+        BigDecimal discount = BigDecimal.ZERO;
         if ("AMOUNT_OFF".equals(coupon.templateType()) && coupon.discountAmount() != null) {
-            return coupon.discountAmount();
+            discount = coupon.discountAmount();
+        } else if ("PERCENT_OFF".equals(coupon.templateType()) && coupon.discountRate() != null) {
+            BigDecimal rate = coupon.discountRate();
+            if (rate.compareTo(BigDecimal.ZERO) <= 0 || rate.compareTo(BigDecimal.ONE) > 0) {
+                log.warn("[COUPON01] 折扣率配置越界，按无优惠处理, couponId={}, rate={}",
+                        coupon.id(), rate);
+                return BigDecimal.ZERO;
+            }
+            discount = totalAmount.subtract(totalAmount.multiply(rate));
         }
-        if ("PERCENT_OFF".equals(coupon.templateType()) && coupon.discountRate() != null) {
-            BigDecimal discounted = totalAmount.multiply(coupon.discountRate());
-            return totalAmount.subtract(discounted);
+        if (discount.compareTo(BigDecimal.ZERO) < 0) {
+            discount = BigDecimal.ZERO;
         }
-        return BigDecimal.ZERO;
+        return discount.min(totalAmount);
     }
 
     private void returnCouponForOrder(Long couponId, Long orderId) {
