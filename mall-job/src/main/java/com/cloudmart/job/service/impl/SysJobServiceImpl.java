@@ -28,6 +28,7 @@ public class SysJobServiceImpl implements SysJobService {
     private final SysJobMapper sysJobMapper;
     private final SysJobLogMapper sysJobLogMapper;
     private final ThreadPoolTaskScheduler taskScheduler;
+
     private final JobInvoker jobInvoker;
     private final Map<Long, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
@@ -38,6 +39,24 @@ public class SysJobServiceImpl implements SysJobService {
         this.taskScheduler = taskScheduler;
         this.jobInvoker = jobInvoker;
     }
+    /** JOB-01：启动恢复——重启后自动重新注册全部启用任务（原只在创建/修改时注册） */
+    @jakarta.annotation.PostConstruct
+    public void recoverEnabledJobs() {
+        var enabled = sysJobMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.job.entity.SysJob>()
+                        .eq(com.cloudmart.job.entity.SysJob::getStatus, 1));
+        for (var job : enabled) {
+            try {
+                scheduleJob(job);
+            } catch (Exception e) {
+                // 单任务恢复失败不阻断其他任务（cron 非法等），日志可见人工修复
+                org.slf4j.LoggerFactory.getLogger(SysJobServiceImpl.class)
+                        .error("[JOB01] 任务恢复失败 id={} target={}: {}", job.getId(),
+                                job.getInvokeTarget(), e.getMessage());
+            }
+        }
+    }
+
 
     @Override
     public IPage<SysJobResponse> page(Integer page, Integer pageSize, String jobName, Integer status) {
@@ -64,6 +83,10 @@ public class SysJobServiceImpl implements SysJobService {
     @Transactional
     public Long create(SysJobRequest request) {
         validateCron(request.cronExpression());
+        // JOB-01：未知 handler 配置时拒绝（白名单前置校验）
+        if (!jobInvoker.isRegistered(request.invokeTarget())) {
+            throw new BusinessException("JOB_HANDLER_NOT_FOUND", "未注册的任务目标: " + request.invokeTarget());
+        }
         SysJob job = new SysJob();
         job.setJobName(request.jobName());
         job.setJobGroup(request.jobGroup());
@@ -89,6 +112,10 @@ public class SysJobServiceImpl implements SysJobService {
         SysJob job = sysJobMapper.selectById(id);
         if (job == null) throw new BusinessException("JOB_NOT_FOUND", "任务不存在");
         validateCron(request.cronExpression());
+        // JOB-01：未知 handler 配置时拒绝（白名单前置校验）
+        if (!jobInvoker.isRegistered(request.invokeTarget())) {
+            throw new BusinessException("JOB_HANDLER_NOT_FOUND", "未注册的任务目标: " + request.invokeTarget());
+        }
 
         cancelJob(id);
         job.setJobName(request.jobName());

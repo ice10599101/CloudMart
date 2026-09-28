@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 import java.util.concurrent.ScheduledFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -47,6 +49,13 @@ class SysJobServiceImplTest {
 
     @Mock
     private JobInvoker jobInvoker;
+
+    @BeforeEach
+    void allowRegisteredTargets() {
+        // 门禁判定由 JobInvokerTest 覆盖；service 流程测试放行白名单校验
+        org.mockito.Mockito.lenient().when(jobInvoker.isRegistered(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+    }
 
     @InjectMocks
     private SysJobServiceImpl sysJobService;
