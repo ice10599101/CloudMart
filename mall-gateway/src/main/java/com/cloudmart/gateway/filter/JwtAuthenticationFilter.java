@@ -37,22 +37,23 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-/**
- * 网关 JWT 认证过滤器（SEC-01/03）。
- *
- * <p>校验链（任一失败即拒绝并返回 401 信封，不注入任何身份头）：</p>
- * <ol>
- *   <li>拒绝未签名令牌（alg=none）与强制 RS256；</li>
- *   <li>按 kid 从 JWKS 验签；</li>
- *   <li>完整声明语义：iss/aud/nbf/exp/sub 全部核对；</li>
- *   <li>会话与版本：sid 必须存在于会话账本且 authVersion 与令牌声明一致——
- *      禁用/改密/踢人后旧令牌秒级失效（目标 ≤ 5 秒），刷新无法恢复；</li>
- *   <li>Redis 故障 fail-closed：拒绝认证并告警，绝不放行未校验会话。</li>
- * </ol>
- *
- * <p>验签成功后注入身份数据头（X-User-Id/X-Admin-*）；不再注入 X-Internal-Call——
- * 服务间身份只由 X-Service-Token 短期签名令牌建立。</p>
- */
+    /**
+     * 网关 JWT 认证过滤器（SEC-01/03）。
+     *
+     * <p>校验链（任一失败即拒绝并返回 401 信封，不注入任何身份头）：</p>
+     * <ol>
+     *   <li>拒绝未签名令牌（alg=none）与强制 RS256；</li>
+     *   <li>按 kid 从 JWKS 验签；</li>
+     *   <li>完整声明语义：iss/aud/nbf/exp/sub 全部核对；</li>
+     *   <li>会话与版本：绑定 subjectType/subjectId/sid——会话存在、会话版本与令牌
+     *      authVersion 一致、主体当前版本与令牌 authVersion 一致。禁用/改密/
+     *      权限变更递增主体版本后旧令牌秒级失效（目标 ≤ 5 秒），刷新无法恢复；</li>
+     *   <li>Redis 故障 fail-closed：拒绝认证并告警，绝不放行未校验会话。</li>
+     * </ol>
+     *
+     * <p>验签成功后注入身份数据头（X-User-Id/X-Admin-*）；不再注入 X-Internal-Call——
+     * 服务间身份只由 X-Service-Token 短期签名令牌建立。</p>
+     */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
@@ -210,7 +211,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         final String fUsername = username;
         final String fDeptId = deptId;
 
-        return sessionValidator.isSessionValid(fSid, fAuthVersion)
+        return sessionValidator.isSessionValid(fScope, fUserId, fSid, fAuthVersion)
                 .flatMap(valid -> {
                     if (!valid) {
                         log.warn("[AUTH REJECT] 会话无效或认证状态版本过期 sid={}: {}",

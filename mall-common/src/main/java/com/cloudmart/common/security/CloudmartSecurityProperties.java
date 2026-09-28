@@ -47,6 +47,12 @@ public class CloudmartSecurityProperties {
     /** mall-auth JWKS 地址（RS256 用户/管理员令牌验签公钥） */
     private String jwksUri = "http://127.0.0.1:9001/oauth2/jwks";
 
+    /** 入站用户/管理员令牌的期望签发方（与 mall-auth JwtProvider.ISSUER 一致） */
+    private String jwtIssuer = "cloudmart-auth";
+
+    /** 入站用户/管理员令牌的期望受众（与 mall-auth JwtProvider.AUDIENCE 一致） */
+    private String jwtAudience = "cloudmart-api";
+
     /** 令牌校验时钟偏移容忍（秒） */
     private int clockSkewSeconds = 30;
 
@@ -91,6 +97,22 @@ public class CloudmartSecurityProperties {
 
     public void setJwksUri(String jwksUri) {
         this.jwksUri = jwksUri;
+    }
+
+    public String getJwtIssuer() {
+        return jwtIssuer;
+    }
+
+    public void setJwtIssuer(String jwtIssuer) {
+        this.jwtIssuer = jwtIssuer;
+    }
+
+    public String getJwtAudience() {
+        return jwtAudience;
+    }
+
+    public void setJwtAudience(String jwtAudience) {
+        this.jwtAudience = jwtAudience;
     }
 
     public int getClockSkewSeconds() {

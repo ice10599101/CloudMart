@@ -51,6 +51,8 @@ class JwtAuthenticationFilterTest {
     private RSAKey rsaKey;
     private ServerWebExchange exchange;
     private final Map<String, String> sessionStore = new HashMap<>();
+    /** 主体当前认证状态版本（键 user:1 / admin:7，缺省视为 0） */
+    private final Map<String, String> subjectVersionStore = new HashMap<>();
 
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException, com.nimbusds.jose.JOSEException {
@@ -63,19 +65,23 @@ class JwtAuthenticationFilterTest {
                 .build();
         signer = new RSASSASigner(rsaKey);
         sessionStore.clear();
+        subjectVersionStore.clear();
         sessionStore.put(SID, "0");
         filter = new JwtAuthenticationFilter(new ImmutableJWKSet<>(new JWKSet(rsaKey)), stubValidator());
     }
 
-    /** 以内存 Map 模拟会话账本 */
+    /** 以内存 Map 模拟会话账本与主体版本账本（与 SessionValidator 同一语义） */
     private SessionValidator stubValidator() {
         return new SessionValidator(null, "auth:session_valid:") {
             @Override
-            public Mono<Boolean> isSessionValid(String sid, String expectedVersion) {
-                if (sid == null || !sessionStore.containsKey(sid)) {
+            public Mono<Boolean> isSessionValid(String subjectType, String subjectId,
+                                                String sid, String expectedVersion) {
+                String sessionVersion = sessionStore.get(sid);
+                if (sessionVersion == null || !sessionVersion.equals(expectedVersion)) {
                     return Mono.just(false);
                 }
-                return Mono.just(sessionStore.get(sid).equals(expectedVersion));
+                String currentVersion = subjectVersionStore.get(subjectType + ":" + subjectId);
+                return Mono.just((currentVersion == null ? "0" : currentVersion).equals(expectedVersion));
             }
         };
     }
@@ -201,11 +207,23 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void subjectVersionIncremented_returns401() {
+        // 主体当前版本递增（invalidate）而会话记录仍为旧版本：旧令牌必须失效
+        subjectVersionStore.put("user:1", "1");
+        run(MockServerHttpRequest.get("/api/community/posts/drafts")
+                .header("Authorization", "Bearer " + signedToken("1", inOneMinute(), "user", SID, 0L))
+                .build());
+        assertThat(exchange.getResponse().getStatusCode().value()).isEqualTo(401);
+        assertThat(exchange.getRequest().getHeaders().getFirst("X-User-Id")).isNull();
+    }
+
+    @Test
     void sessionValidatorFailure_failsClosedWith401() throws Exception {
         JwtAuthenticationFilter failClosedFilter = new JwtAuthenticationFilter(
                 new ImmutableJWKSet<>(new JWKSet(rsaKey)), new SessionValidator(null, "p:") {
                     @Override
-                    public Mono<Boolean> isSessionValid(String sid, String expectedVersion) {
+                    public Mono<Boolean> isSessionValid(String subjectType, String subjectId,
+                                                        String sid, String expectedVersion) {
                         return Mono.error(new IllegalStateException("redis down"));
                     }
                 });

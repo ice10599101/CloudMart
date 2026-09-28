@@ -30,6 +30,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.net.URL;
 import java.text.ParseException;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Enumeration;
@@ -43,14 +44,20 @@ import java.util.Set;
  * 不再作为身份源。
  *
  * <p>验签规则与网关 {@code JwtAuthenticationFilter} 对齐并更严格：拒绝未签名令牌
- * （alg=none）、强制 RS256、按 kid 匹配 JWKS 公钥验签、拒绝过期与 nbf 在未来的令牌。
- * 身份域由 {@code scope} 声明决定：</p>
+ * （alg=none）、强制 RS256、按 kid 匹配 JWKS 公钥验签、完整声明语义
+ * （iss/aud/sub/sid/authVersion/subjectType 与 scope 一致），时钟规则为
+ * {@code nbf > now + skew} 拒绝、{@code exp <= now - skew} 拒绝——刚签发
+ * （nbf=now）的令牌立即可用，过期判断不提前拒绝。配置的
+ * {@link AuthRevocationChecker} 存在时，直连服务同样检查会话账本与主体
+ * 认证状态版本（登出/禁用/改密秒级失效）；检查本身不可用时 fail-closed 拒绝。</p>
+ *
+ * <p>身份域由 {@code scope} 声明决定（缺失或未知一律拒绝，不缺省为 user）：</p>
  * <ul>
- *   <li>{@code user}（或缺省）→ ROLE_USER；</li>
+ *   <li>{@code user} → ROLE_USER；</li>
  *   <li>{@code admin} → ROLE_ADMIN，并按令牌声明填充 {@link AdminSecurityContext}
  *       （userId/username/deptId/permissions），使 @RequiresPermission 注解在
  *       管理员上下文缺失的模块（如 mall-job/mall-gen）真正生效；</li>
- *   <li>其他取值 → 拒绝建立身份（未知身份域不允许冒充用户）。</li>
+ *   <li>其他取值或缺失 → 拒绝建立身份（未知身份域不允许冒充用户）。</li>
  * </ul>
  *
  * <p>防直连伪造：认证成功后用请求包装器把 {@code X-User-Id} 强制改写为令牌主体
@@ -69,8 +76,37 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JWKSource<com.nimbusds.jose.proc.SecurityContext> jwkSource;
     private final CloudmartSecurityProperties properties;
+    private final Clock clock;
+    private final AuthRevocationChecker revocationChecker;
 
     public UserJwtAuthenticationFilter(CloudmartSecurityProperties properties) {
+        this(properties, Clock.systemUTC(), null);
+    }
+
+    /** 测试用构造：注入受控 JWKSource，避免测试期间访问网络。 */
+    public UserJwtAuthenticationFilter(CloudmartSecurityProperties properties,
+                                       JWKSource<com.nimbusds.jose.proc.SecurityContext> jwkSource) {
+        this(properties, jwkSource, Clock.systemUTC(), null);
+    }
+
+    /**
+     * @param clock            可注入时钟（测试固定时间，验收 ±skew 边界）
+     * @param revocationChecker 撤销状态检查器；null 表示仅本地验签（无 Redis 的模块）
+     */
+    public UserJwtAuthenticationFilter(CloudmartSecurityProperties properties,
+                                       JWKSource<com.nimbusds.jose.proc.SecurityContext> jwkSource,
+                                       Clock clock,
+                                       AuthRevocationChecker revocationChecker) {
+        this.properties = properties;
+        this.jwkSource = jwkSource;
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.revocationChecker = revocationChecker;
+    }
+
+    /** 生产构造：JWKS 来自配置的远程地址 */
+    public UserJwtAuthenticationFilter(CloudmartSecurityProperties properties,
+                                       Clock clock,
+                                       AuthRevocationChecker revocationChecker) {
         this.properties = properties;
         try {
             this.jwkSource = new RemoteJWKSet<>(new URL(properties.getJwksUri()));
@@ -78,13 +114,8 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
             throw new IllegalStateException("cloudmart.security.jwks-uri 配置非法: "
                     + properties.getJwksUri(), e);
         }
-    }
-
-    /** 测试用构造：注入受控 JWKSource，避免测试期间访问网络。 */
-    public UserJwtAuthenticationFilter(CloudmartSecurityProperties properties,
-                                       JWKSource<com.nimbusds.jose.proc.SecurityContext> jwkSource) {
-        this.properties = properties;
-        this.jwkSource = jwkSource;
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.revocationChecker = revocationChecker;
     }
 
     @Override
@@ -143,35 +174,29 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
                 return null;
             }
             JWTClaimsSet claims = jwt.getJWTClaimsSet();
-            Date expiration = claims.getExpirationTime();
-            if (expiration == null) {
-                log.warn("[SEC01 REJECT] JWT 缺少 exp: {}", requestUri);
-                return null;
-            }
-            long skewSeconds = properties.getClockSkewSeconds();
-            if (expiration.getTime() - skewSeconds * 1000L <= System.currentTimeMillis()) {
-                log.warn("[SEC01 REJECT] JWT 已过期: {}", requestUri);
-                return null;
-            }
-            Date notBefore = claims.getNotBeforeTime();
-            if (notBefore != null
-                    && notBefore.getTime() + skewSeconds * 1000L > System.currentTimeMillis()) {
-                log.warn("[SEC01 REJECT] JWT nbf 在未来: {}", requestUri);
-                return null;
-            }
-            String subject = claims.getSubject();
-            if (subject == null || subject.isBlank()) {
-                log.warn("[SEC01 REJECT] JWT 缺少主体声明: {}", requestUri);
+            String rejectReason = validateClaims(claims);
+            if (rejectReason != null) {
+                log.warn("[SEC01 REJECT] {}: path={}", rejectReason, requestUri);
                 return null;
             }
             String scope = claims.getStringClaim("scope");
-            if (scope == null || scope.isBlank() || SCOPE_USER.equals(scope)) {
-                return new VerifiedIdentity(subject, ROLE_USER, null);
+            String subject = claims.getSubject();
+            String sid = claims.getStringClaim("sid");
+            long authVersion = claims.getLongClaim("authVersion");
+            if (revocationChecker != null
+                    && !revocationChecker.isActive(scope, subject, sid, authVersion)) {
+                log.warn("[SEC01 REJECT] 会话已撤销或认证状态版本过期 sid={}: {}",
+                        sid, requestUri);
+                return null;
             }
             if (SCOPE_ADMIN.equals(scope)) {
                 return new VerifiedIdentity(subject, ROLE_ADMIN, buildAdminContext(claims, subject));
             }
-            log.warn("[SEC01 REJECT] 未知身份域 scope={}: {}", scope, requestUri);
+            return new VerifiedIdentity(subject, ROLE_USER, null);
+        } catch (AuthStateException e) {
+            // fail-closed：撤销状态无法确认时拒绝建立身份，绝不放行未校验会话
+            log.error("[SEC01 REJECT] 撤销状态校验不可用（fail-closed）: {} reason={}",
+                    requestUri, e.getMessage());
             return null;
         } catch (ParseException e) {
             log.warn("[SEC01 REJECT] JWT 解析失败: {} reason={}", requestUri, e.getMessage());
@@ -180,6 +205,50 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
             log.warn("[SEC01 REJECT] JWT 验签异常: {} reason={}", requestUri, e.getMessage());
             return null;
         }
+    }
+
+    /** @return null 表示全部通过；否则返回拒绝原因（与网关 JwtAuthenticationFilter 同一语义） */
+    private String validateClaims(JWTClaimsSet claims) throws ParseException {
+        long now = clock.millis();
+        long skewMillis = properties.getClockSkewSeconds() * 1000L;
+        Date expiration = claims.getExpirationTime();
+        if (expiration == null) {
+            return "缺少 exp";
+        }
+        if (expiration.getTime() <= now - skewMillis) {
+            return "JWT 已过期";
+        }
+        Date notBefore = claims.getNotBeforeTime();
+        if (notBefore != null && notBefore.getTime() > now + skewMillis) {
+            return "JWT nbf 在未来";
+        }
+        String subject = claims.getSubject();
+        if (subject == null || subject.isBlank()) {
+            return "缺少主体声明";
+        }
+        if (!properties.getJwtIssuer().equals(claims.getIssuer())) {
+            return "iss 不匹配: " + claims.getIssuer();
+        }
+        List<String> audience = claims.getAudience();
+        if (audience == null || !audience.contains(properties.getJwtAudience())) {
+            return "aud 不匹配";
+        }
+        String sid = claims.getStringClaim("sid");
+        if (sid == null || sid.isBlank()) {
+            return "缺少会话声明 sid";
+        }
+        if (claims.getClaim("authVersion") == null) {
+            return "缺少认证状态版本 authVersion";
+        }
+        String scope = claims.getStringClaim("scope");
+        String subjectType = claims.getStringClaim("subjectType");
+        if (scope == null || !(SCOPE_USER.equals(scope) || SCOPE_ADMIN.equals(scope))) {
+            return "身份域非法: scope=" + scope;
+        }
+        if (!scope.equals(subjectType)) {
+            return "身份域不一致: subjectType=" + subjectType;
+        }
+        return null;
     }
 
     /** 管理员令牌携带的声明与网关注入头同源：perms 为逗号分隔的权限码 */
