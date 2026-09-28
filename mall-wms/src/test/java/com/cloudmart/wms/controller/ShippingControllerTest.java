@@ -46,7 +46,7 @@ class ShippingControllerTest {
 
         mockMvc.perform(post("/shipping")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"orderId\":100,\"warehouseId\":1,\"receiverName\":\"张三\",\"receiverPhone\":\"13800138000\",\"receiverAddress\":\"北京市\"}"))
+                        .content("{\"orderId\":100,\"warehouseId\":1,\"carrier\":\"SF\",\"trackingNo\":\"SF1234567890\",\"receiverName\":\"张三\",\"receiverPhone\":\"13800138000\",\"receiverAddress\":\"北京市\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1))

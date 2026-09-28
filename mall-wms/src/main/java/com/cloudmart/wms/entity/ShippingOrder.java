@@ -24,7 +24,13 @@ public class ShippingOrder {
 
     private String carrier;
 
+    /** 承运商运单号（真实单号，建档必填，WMS-01） */
+    private String trackingNo;
+
     private String status;
+
+    /** 出库时间（WMS-01） */
+    private java.time.LocalDateTime shippedAt;
 
     private String receiverName;
 

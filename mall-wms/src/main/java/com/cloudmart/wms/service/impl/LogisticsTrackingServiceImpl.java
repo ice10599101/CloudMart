@@ -19,7 +19,13 @@ import java.util.List;
  * 2. 在 application.yml 配置 api-key 和 customer-id
  * 3. 替换 queryTracking 方法中的模拟逻辑为真实 API 调用
  */
+/**
+ * WMS-01：模拟轨迹——只在非生产 profile 注册；生产环境由
+ * {@link ProductionLogisticsTrackingService} 提供明确"未接入物流商"的失败状态，
+ * 绝不向用户展示编造的轨迹。
+ */
 @Service
+@org.springframework.context.annotation.Profile("!prod")
 public class LogisticsTrackingServiceImpl implements LogisticsTrackingService {
 
     private static final Logger log = LoggerFactory.getLogger(LogisticsTrackingServiceImpl.class);

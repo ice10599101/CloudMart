@@ -27,6 +27,9 @@ public final class RocketMQConfig {
     public static final String ORDER_TAG_STATUS_CHANGE = "status-change";
     public static final String ORDER_TAG_PAID = "paid";
     public static final String ORDER_TAG_TIMEOUT_CHECK = "timeout-check";
+    /** WMS-01：出库事件（wms Outbox 发布，OrderShippedConsumer 消费推进订单） */
+    public static final String ORDER_TAG_SHIPPED = "shipped";
+    public static final String CG_ORDER_SHIPPED = "cg-order-shipped";
     public static final String PAYMENT_TAG_RESULT = "result";
     public static final String PAYMENT_TAG_REFUND = "refund";
     public static final String MARKETING_TAG_GROUP_SUCCESS = "group-success";

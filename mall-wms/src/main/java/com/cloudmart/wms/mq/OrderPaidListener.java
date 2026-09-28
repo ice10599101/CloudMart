@@ -23,8 +23,12 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
 
     private final PickOrderService pickOrderService;
 
-    public OrderPaidListener(PickOrderService pickOrderService) {
+    private final com.cloudmart.wms.repository.WarehouseMapper warehouseMapper;
+
+    public OrderPaidListener(PickOrderService pickOrderService,
+                             com.cloudmart.wms.repository.WarehouseMapper warehouseMapper) {
         this.pickOrderService = pickOrderService;
+        this.warehouseMapper = warehouseMapper;
     }
 
     /**
@@ -35,7 +39,7 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
     @Override
     public void onMessage(Map<String, Object> message) {
         Long orderId = extractOrderId(message);
-        Long warehouseId = extractWarehouseId(message);
+        Long warehouseId = extractWarehouseIdOrDefault(message);
 
         log.info("Received order paid event, creating pick order: orderId={}, warehouseId={}", orderId, warehouseId);
 
@@ -61,10 +65,17 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
         throw new IllegalArgumentException("消息缺少 orderId（新旧形状均未命中）: " + message.keySet());
     }
 
-    static Long extractWarehouseId(Map<String, Object> message) {
+    /** WMS-01：仓库分配——事件未指定时取第一个可用仓库，不再硬编码 1 */
+    Long extractWarehouseIdOrDefault(Map<String, Object> message) {
         if (message.get("warehouseId") instanceof Number n) {
             return n.longValue();
         }
-        return 1L;
+        var first = warehouseMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.wms.entity.Warehouse>()
+                        .last("LIMIT 1"));
+        if (first.isEmpty()) {
+            throw new IllegalStateException("无可用仓库，拣货单创建失败（事件将重试）");
+        }
+        return first.get(0).getId();
     }
 }

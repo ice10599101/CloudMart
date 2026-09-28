@@ -31,24 +31,45 @@ public class ShippingServiceImpl implements ShippingService {
     private final ShippingTrackingMapper shippingTrackingMapper;
     private final WmsConverter wmsConverter;
     private final OrderInfoFeignClient orderInfoFeignClient;
+    private final com.cloudmart.common.async.outbox.OutboxService outboxService;
+
+    private static final java.util.Set<String> ALLOWED_STATUSES =
+            java.util.Set.of("PENDING", "PICKING", "SHIPPED", "DELIVERED");
+    /** 状态机允许的迁移（WMS-01：拒绝任意字符串状态） */
+    private static final java.util.Map<String, java.util.Set<String>> ALLOWED_TRANSITIONS = java.util.Map.of(
+            "PENDING", java.util.Set.of("PICKING", "SHIPPED", "DELIVERED"),
+            "PICKING", java.util.Set.of("SHIPPED", "DELIVERED"),
+            "SHIPPED", java.util.Set.of("DELIVERED"),
+            "DELIVERED", java.util.Set.of());
 
     public ShippingServiceImpl(ShippingOrderMapper shippingOrderMapper,
                                ShippingTrackingMapper shippingTrackingMapper,
-                               WmsConverter wmsConverter, OrderInfoFeignClient orderInfoFeignClient) {
+                               WmsConverter wmsConverter, OrderInfoFeignClient orderInfoFeignClient,
+                               com.cloudmart.common.async.outbox.OutboxService outboxService) {
         this.shippingOrderMapper = shippingOrderMapper;
         this.shippingTrackingMapper = shippingTrackingMapper;
         this.wmsConverter = wmsConverter;
         this.orderInfoFeignClient = orderInfoFeignClient;
+        this.outboxService = outboxService;
     }
 
     @Override
     @SentinelResource(value = "createShippingOrder", fallback = "createShippingOrderFallback")
     public ShippingOrderVO createShipping(CreateShippingRequest request) {
+        // WMS-01：无运单不得建档（真实单号必填）；重复 paid 事件按订单幂等返回原包裹
+        if (request.trackingNo() == null || request.trackingNo().isBlank()) {
+            throw new BusinessException("TRACKING_NO_REQUIRED", "承运商运单号不能为空");
+        }
+        if (shippingOrderMapper.countByOrderId(request.orderId()) > 0) {
+            log.info("[WMS01] 重复建包裹请求，返回已有包裹 orderId={}", request.orderId());
+            return getByOrderId(request.orderId(), null);
+        }
         ShippingOrder order = new ShippingOrder();
         order.setOrderId(request.orderId());
         order.setWarehouseId(request.warehouseId());
         order.setShippingNo("SF" + System.currentTimeMillis());
         order.setCarrier(request.carrier());
+        order.setTrackingNo(request.trackingNo().trim());
         order.setStatus("PENDING");
         order.setReceiverName(request.receiverName());
         order.setReceiverPhone(request.receiverPhone());
@@ -90,12 +111,44 @@ public class ShippingServiceImpl implements ShippingService {
         if (order == null) {
             throw new BusinessException("SHIPPING_ORDER_NOT_FOUND", "物流订单不存在");
         }
-        order.setStatus(status);
-        shippingOrderMapper.updateById(order);
+        // WMS-01：状态机白名单 + 合法迁移——拒绝任意字符串状态
+        String current = order.getStatus() == null ? "PENDING" : order.getStatus();
+        if (!ALLOWED_STATUSES.contains(status)) {
+            throw new BusinessException("SHIPPING_STATUS_INVALID", "非法物流状态: " + status);
+        }
+        if (!ALLOWED_TRANSITIONS.getOrDefault(current, java.util.Set.of()).contains(status)) {
+            throw new BusinessException("SHIPPING_STATUS_TRANSITION_INVALID",
+                    "不允许的状态迁移: " + current + " -> " + status);
+        }
+        // WMS-01：无运单不得 SHIPPED
+        if ("SHIPPED".equals(status)
+                && (order.getTrackingNo() == null || order.getTrackingNo().isBlank())) {
+            throw new BusinessException("TRACKING_NO_REQUIRED", "缺少运单号，不允许出库");
+        }
+
+        int updated = "SHIPPED".equals(status)
+                ? shippingOrderMapper.updateStatusIfMatch(shippingOrderId, current, status)
+                : shippingOrderMapper.updateStatusPlainIfMatch(shippingOrderId, current, status);
+        if (updated == 0) {
+            throw new BusinessException("SHIPPING_STATUS_CONFLICT", "物流状态已变更，请刷新重试");
+        }
+
+        // WMS-01：出库即发布 ORDER_SHIPPED（Outbox 与状态更新同事务语义——本方法由
+        // 调用方事务包裹；订单服务消费后推进订单 SHIPPED）
+        if ("SHIPPED".equals(status)) {
+            String payload = "{\"orderId\":" + order.getOrderId()
+                    + ",\"shipmentId\":" + order.getId()
+                    + ",\"carrier\":\"" + (order.getCarrier() == null ? "" : order.getCarrier())
+                    + "\",\"trackingNo\":\"" + order.getTrackingNo() + "\"}";
+            outboxService.record(com.cloudmart.common.async.EventEnvelope.of(
+                    "ORDER_SHIPPED", 1, String.valueOf(order.getOrderId()), 1, null, payload));
+        }
+
+        ShippingOrder refreshed = shippingOrderMapper.selectById(shippingOrderId);
         List<ShippingTracking> trackings = shippingTrackingMapper.selectList(
-                new LambdaQueryWrapper<ShippingTracking>().eq(ShippingTracking::getShippingOrderId, order.getId())
+                new LambdaQueryWrapper<ShippingTracking>().eq(ShippingTracking::getShippingOrderId, shippingOrderId)
         );
-        ShippingOrderDTO dto = toOrderDTO(order, trackings.stream().map(this::toTrackingDTO).toList());
+        ShippingOrderDTO dto = toOrderDTO(refreshed, trackings.stream().map(this::toTrackingDTO).toList());
         return wmsConverter.fromShippingOrderDTO(dto);
     }
 

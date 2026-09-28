@@ -112,6 +112,11 @@ management:
 # X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
 # 裸 X-Internal-Call 头不再构成任何信任凭证。
 cloudmart:
+  # WMS-01：启用 Outbox——ORDER_SHIPPED 与包裹状态同事务登记、可靠投递
+  async:
+    enabled: true
+    outbox:
+      publish-delay-ms: 1000
   security:
     service-id: mall-wms
     service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}

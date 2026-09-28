@@ -42,11 +42,14 @@ class ShippingServiceImplTest {
     private WmsConverter wmsConverter;
 
     private ShippingServiceImpl shippingService;
+    private com.cloudmart.common.async.outbox.OutboxService outboxService;
 
     @BeforeEach
     void setUp() {
+        outboxService = org.mockito.Mockito.mock(com.cloudmart.common.async.outbox.OutboxService.class);
         shippingService = new ShippingServiceImpl(shippingOrderMapper, shippingTrackingMapper,
-                wmsConverter, org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class));
+                wmsConverter, org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class),
+                outboxService);
     }
 
     private static final Long SHIPPING_ORDER_ID = 1L;
@@ -61,7 +64,7 @@ class ShippingServiceImplTest {
         @DisplayName("should create shipping order and return VO")
         void createShippingOrder_success_returnsVO() {
             CreateShippingRequest request = new CreateShippingRequest(
-                    ORDER_ID, WAREHOUSE_ID, "顺丰", "张三", "13800138000", "北京市朝阳区");
+                    ORDER_ID, WAREHOUSE_ID, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
                     SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "PENDING", null);
@@ -126,24 +129,29 @@ class ShippingServiceImplTest {
         @Test
         @DisplayName("should update status and return VO")
         void updateShippingStatus_existing_updatesAndReturnsVO() {
+            // WMS-01：状态机白名单——PENDING → PICKING 合法迁移；CAS 更新
             ShippingOrder order = new ShippingOrder();
             order.setId(SHIPPING_ORDER_ID);
             order.setOrderId(ORDER_ID);
             order.setStatus("PENDING");
+            order.setTrackingNo("SF1234567890");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
-                    SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "IN_TRANSIT", null);
+                    SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "PICKING", null);
 
+            // WMS-01：CAS 更新后 service 会回查刷新（两次 selectById）
             when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(order);
-            when(shippingOrderMapper.updateById(order)).thenReturn(1);
+            when(shippingOrderMapper.updateStatusPlainIfMatch(SHIPPING_ORDER_ID, "PENDING", "PICKING"))
+                    .thenReturn(1);
+
             when(shippingTrackingMapper.selectList(any(LambdaQueryWrapper.class)))
                     .thenReturn(Collections.emptyList());
             when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class))).thenReturn(expectedVO);
 
-            ShippingOrderVO result = shippingService.updateStatus(SHIPPING_ORDER_ID, "IN_TRANSIT");
+            ShippingOrderVO result = shippingService.updateStatus(SHIPPING_ORDER_ID, "PICKING");
 
             assertThat(result).isNotNull();
-            assertThat(order.getStatus()).isEqualTo("IN_TRANSIT");
+            assertThat(result.status()).isEqualTo("PICKING");
         }
 
         @Test
@@ -151,7 +159,7 @@ class ShippingServiceImplTest {
         void updateShippingStatus_nonExistent_throwsException() {
             when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(null);
 
-            assertThatThrownBy(() -> shippingService.updateStatus(SHIPPING_ORDER_ID, "IN_TRANSIT"))
+            assertThatThrownBy(() -> shippingService.updateStatus(SHIPPING_ORDER_ID, "PICKING"))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code")
                     .isEqualTo("SHIPPING_ORDER_NOT_FOUND");

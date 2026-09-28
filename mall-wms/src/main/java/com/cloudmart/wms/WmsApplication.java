@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
-@MapperScan("com.cloudmart.wms.repository")
+@MapperScan({"com.cloudmart.wms.repository", "com.cloudmart.common.async.mapper"})
 @Import(GlobalExceptionHandler.class)
 public class WmsApplication {
     public static void main(String[] args) {
