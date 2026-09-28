@@ -256,6 +256,8 @@ export default function PaymentPage() {
   const [paying, setPaying] = useState(false)
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // FE-03：轮询生命周期控制——cancelled 标志保证卸载后循环退出；串行 await+延迟避免请求重叠
+  const pollCancelledRef = useRef(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -279,24 +281,60 @@ export default function PaymentPage() {
     loadData()
   }, [loadData])
 
+  // FE-03：倒计时以订单创建时刻为基准（服务端 15 分钟超时键）——
+  // 重进页面/刷新不重置支付有效期（原实现从进入页面开始倒数）
   useEffect(() => {
-    if (payment?.status && payment.status !== 'PENDING') return
-    timerRef.current = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    if (!order?.createdAt) return
+    const deadline = new Date(order.createdAt).getTime() + COUNTDOWN_SECONDS * 1000
+    const tick = () => {
+      const left = Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+      setRemaining(left)
+    }
+    tick()
+    timerRef.current = setInterval(tick, 1000)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [payment?.status])
+  }, [order?.createdAt])
+
+  /** 单一轮询任务：await 查单 → 延迟 → 再查（不重叠）；终态/取消退出 */
+  const startPolling = useCallback(() => {
+    pollCancelledRef.current = false
+    const loop = async () => {
+      while (!pollCancelledRef.current) {
+        try {
+          const { data: pollRes } = await getPaymentByOrderId(orderId)
+          if (pollCancelledRef.current) return
+          setPayment(pollRes.data)
+          if (pollRes.data.status === 'SUCCESS') {
+            message.success('支付成功')
+            return
+          }
+          if (pollRes.data.status !== 'PENDING') {
+            // FAILED/CLOSED 等终态：允许用户重新发起，不误报失败也不无限轮询
+            return
+          }
+        } catch {
+          // 查询失败退避：静默进入下一轮（弱网恢复后继续查单）
+        }
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+    }
+    void loop()
+    return () => {
+      pollCancelledRef.current = true
+    }
+  }, [orderId])
+
+  // FE-03：卸载/离开页面取消轮询与倒计时（无残留请求）
+  useEffect(() => {
+    return () => {
+      pollCancelledRef.current = true
+    }
+  }, [])
 
   const handlePay = async () => {
-    if (!order) return
+    if (!order || paying) return
     setPaying(true)
     try {
       const { data: res } = await createPayment({
@@ -305,18 +343,9 @@ export default function PaymentPage() {
         payMethod,
       })
       setPayment(res.data)
-      message.success('支付请求已提交')
-      const pollTimer = setInterval(async () => {
-        try {
-          const { data: pollRes } = await getPaymentByOrderId(orderId)
-          setPayment(pollRes.data)
-          if (pollRes.data.status !== 'PENDING') {
-            clearInterval(pollTimer)
-          }
-        } catch {
-          clearInterval(pollTimer)
-        }
-      }, 3000)
+      message.success('支付请求已提交，结果确认中')
+      // FE-03：success 只能来自查单结果——发起后进入确认轮询，不直接标记成功
+      startPolling()
     } catch {
       message.error('支付失败，请重试')
     } finally {
