@@ -1018,6 +1018,6 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
-        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus());
+        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
     }
 }

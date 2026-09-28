@@ -8,5 +8,6 @@ package com.cloudmart.order.dto;
  * @param userId  订单归属用户
  * @param status  当前订单状态
  */
-public record OrderInternalInfoDTO(Long orderId, Long userId, String status) {
+public record OrderInternalInfoDTO(Long orderId, Long userId, String status,
+                                   java.math.BigDecimal payAmount) {
 }
