@@ -24,9 +24,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +49,9 @@ class AiChatServiceImplTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private org.springframework.data.redis.core.ListOperations<String, String> listOperations;
+
     private ObjectMapper objectMapper;
 
     private AiChatServiceImpl aiChatService;
@@ -60,6 +65,9 @@ class AiChatServiceImplTest {
         aiChatService = new AiChatServiceImpl(
                 chatClientBuilder, vectorSearchService, redisTemplate, objectMapper
         );
+        // AI-01：历史存储为 Redis List（按 userId 命名空间）；默认空历史
+        when(redisTemplate.opsForList()).thenReturn(listOperations);
+        when(listOperations.range(anyString(), anyLong(), anyLong())).thenReturn(null);
     }
 
     @Nested
@@ -70,8 +78,6 @@ class AiChatServiceImplTest {
         @DisplayName("should return LLM response successfully")
         void chat_success_returnsLlmResponse() {
             ChatRequest request = new ChatRequest("推荐一款手机", null);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get(anyString())).thenReturn(null);
             when(vectorSearchService.semanticSearch(anyString(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
@@ -94,8 +100,6 @@ class AiChatServiceImplTest {
         @DisplayName("should degrade to keyword search when LLM is unavailable")
         void chat_llmUnavailable_degradesToKeywordSearch() {
             ChatRequest request = new ChatRequest("推荐一款手机", null);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get(anyString())).thenReturn(null);
             when(vectorSearchService.semanticSearch(anyString(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
@@ -118,8 +122,6 @@ class AiChatServiceImplTest {
                     "http://img.test.com/iphone16.jpg", "手机", 0.95
             );
             ChatRequest request = new ChatRequest("推荐一款手机", null);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get(anyString())).thenReturn(null);
             when(vectorSearchService.semanticSearch(anyString(), anyInt()))
                     .thenReturn(List.of(searchResult));
 
@@ -137,16 +139,15 @@ class AiChatServiceImplTest {
         }
 
         @Test
-        @DisplayName("should continue existing conversation when conversationId provided")
+        @DisplayName("AI-01：回传本服务签发的 UUID 会话 ID 时继续同一会话（键绑定 userId 命名空间）")
         void chat_existingConversation_continuesConversation() {
-            String existingConvId = "conv:1001:1234567890";
+            String existingConvId = "0199f225-0000-7000-8000-000000000001";
             ChatRequest request = new ChatRequest("还有别的推荐吗", existingConvId);
 
-            String historyJson = "[{\"role\":\"system\",\"content\":\"You are a helpful assistant\"}," +
-                    "{\"role\":\"user\",\"content\":\"推荐一款手机\"}," +
-                    "{\"role\":\"assistant\",\"content\":\"我推荐 iPhone 16\"}]";
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get("ai:conversation:" + existingConvId)).thenReturn(historyJson);
+            when(listOperations.range("ai:conversation:1001:" + existingConvId, 0, -1))
+                    .thenReturn(List.of(
+                            "{\"role\":\"user\",\"content\":\"推荐一款手机\"}",
+                            "{\"role\":\"assistant\",\"content\":\"我推荐 iPhone 16\"}"));
             when(vectorSearchService.semanticSearch(anyString(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
@@ -165,11 +166,82 @@ class AiChatServiceImplTest {
         }
 
         @Test
+        @DisplayName("AI-01：旧格式/自造会话 ID 被拒绝并签发新会话（旧会话无可靠 owner，失效重建）")
+        void chat_legacyOrForgedConversationId_issuesNewConversation() {
+            ChatRequest request = new ChatRequest("还有别的推荐吗", "conv:1001:1234567890");
+            when(vectorSearchService.semanticSearch(anyString(), anyInt()))
+                    .thenReturn(Collections.emptyList());
+
+            ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+            ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+
+            when(chatClient.prompt()).thenReturn(requestSpec);
+            doReturn(requestSpec).when(requestSpec).messages(any(List.class));
+            when(requestSpec.call()).thenReturn(callResponseSpec);
+            when(callResponseSpec.content()).thenReturn("推荐 iPhone 16");
+
+            ChatResponse response = aiChatService.chat(USER_ID, request);
+
+            // 新 UUID 与旧 ID 不同；历史读取与追加都走新会话键
+            assertThat(response.conversationId()).isNotEqualTo(request.conversationId());
+            verify(listOperations).range(
+                    org.mockito.ArgumentMatchers.eq("ai:conversation:1001:" + response.conversationId()),
+                    org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(-1L));
+        }
+
+        @Test
+        @DisplayName("AI-01：含结构字符的会话 ID（键注入尝试）不接受，签发新会话")
+        void chat_keyInjectionConversationId_rejected() {
+            ChatRequest request = new ChatRequest("hi", "1001:injected");
+            when(vectorSearchService.semanticSearch(anyString(), anyInt()))
+                    .thenReturn(Collections.emptyList());
+
+            ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+            ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+
+            when(chatClient.prompt()).thenReturn(requestSpec);
+            doReturn(requestSpec).when(requestSpec).messages(any(List.class));
+            when(requestSpec.call()).thenReturn(callResponseSpec);
+            when(callResponseSpec.content()).thenReturn("你好");
+
+            ChatResponse response = aiChatService.chat(USER_ID, request);
+
+            assertThat(response.conversationId()).isNotEqualTo(request.conversationId());
+            assertThat(response.conversationId()).doesNotContain(":");
+        }
+
+        @Test
+        @DisplayName("AI-01：本轮对话原子追加到 userId 命名空间键（并发消息不丢）")
+        void chat_appendsHistoryToUserNamespacedKey() {
+            ChatRequest request = new ChatRequest("推荐一款手机", null);
+            when(vectorSearchService.semanticSearch(anyString(), anyInt()))
+                    .thenReturn(Collections.emptyList());
+
+            ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+            ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+
+            when(chatClient.prompt()).thenReturn(requestSpec);
+            doReturn(requestSpec).when(requestSpec).messages(any(List.class));
+            when(requestSpec.call()).thenReturn(callResponseSpec);
+            when(callResponseSpec.content()).thenReturn("推荐 iPhone 16");
+
+            ChatResponse response = aiChatService.chat(USER_ID, request);
+
+            org.mockito.ArgumentCaptor<String> keyCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            org.mockito.ArgumentCaptor<String[]> valuesCaptor =
+                    org.mockito.ArgumentCaptor.forClass(String[].class);
+            verify(listOperations).rightPushAll(keyCaptor.capture(), valuesCaptor.capture());
+            assertThat(keyCaptor.getValue())
+                    .isEqualTo("ai:conversation:1001:" + response.conversationId());
+            assertThat(valuesCaptor.getValue()).hasSize(2);
+            verify(redisTemplate).expire(keyCaptor.getValue(), java.time.Duration.ofMinutes(30));
+        }
+
+        @Test
         @DisplayName("should handle RAG search failure gracefully")
         void chat_ragSearchFails_continuesWithoutRag() {
             ChatRequest request = new ChatRequest("推荐一款手机", null);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.get(anyString())).thenReturn(null);
             when(vectorSearchService.semanticSearch(anyString(), anyInt()))
                     .thenThrow(new RuntimeException("ES unavailable"));
 

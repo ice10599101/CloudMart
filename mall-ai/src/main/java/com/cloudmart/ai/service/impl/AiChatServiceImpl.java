@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
@@ -74,7 +75,7 @@ public class AiChatServiceImpl implements AiChatService {
     @SentinelResource(value = "chat", fallback = "chatFallback")
     public ChatResponse chat(Long userId, ChatRequest request) {
         String conversationId = resolveConversationId(userId, request.conversationId());
-        List<Message> history = loadHistory(conversationId);
+        List<Message> history = loadHistory(userId, conversationId);
 
         // RAG: 先做向量检索获取相关商品上下文
         String ragContext = buildRagContext(request.message());
@@ -85,10 +86,6 @@ public class AiChatServiceImpl implements AiChatService {
 
         history.add(new UserMessage(effectiveMessage));
 
-        if (history.size() > MAX_CONVERSATION_HISTORY) {
-            trimHistory(history);
-        }
-
         try {
             String reply = chatClient.prompt()
                     .messages(history)
@@ -97,10 +94,9 @@ public class AiChatServiceImpl implements AiChatService {
 
             history.add(new AssistantMessage(reply != null ? reply : ""));
 
-            // 只存储用户原始消息到历史（不含 RAG 上下文，避免历史膨胀）
-            history.set(history.size() - 2, new UserMessage(request.message()));
-
-            saveHistory(conversationId, history);
+            // 只存储用户原始消息到历史（不含 RAG 上下文，避免历史膨胀）；
+            // AI-01：原子追加（RPUSH+LTRIM）替代整体覆盖——同会话并发消息不丢
+            appendHistory(userId, conversationId, request.message(), reply == null ? "" : reply);
 
             return new ChatResponse(reply, conversationId, false);
         } catch (Exception e) {
@@ -129,76 +125,74 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
+    /**
+     * AI-01：会话 ID 由服务端签发并绑定调用者命名空间。客户端只能回传本服务
+     * 之前返回的 UUID；自造 ID、旧格式 ID（无可靠 owner）或他人会话 ID 一律
+     * 静默开新会话——既不返回他人历史，也不暴露会话存在性（无枚举探针）。
+     */
     private String resolveConversationId(Long userId, String requestedId) {
-        if (requestedId != null && !requestedId.isBlank()) {
+        if (requestedId != null && !requestedId.isBlank() && isUuid(requestedId)) {
             return requestedId;
         }
-        return "conv:" + userId + ":" + System.currentTimeMillis();
+        return UUID.randomUUID().toString();
     }
 
-    private List<Message> loadHistory(String conversationId) {
-        String key = REDIS_KEY_PREFIX + conversationId;
-        String serialized = redisTemplate.opsForValue().get(key);
-        if (serialized != null) {
-            try {
-                @SuppressWarnings("unchecked")
-                List<Map<String, String>> raw = objectMapper.readValue(serialized, List.class);
-                List<Message> messages = new ArrayList<>();
-                for (Map<String, String> entry : raw) {
-                    String role = entry.get("role");
-                    String content = entry.get("content");
-                    if ("system".equals(role)) {
-                        messages.add(new SystemMessage(content));
-                    } else if ("user".equals(role)) {
-                        messages.add(new UserMessage(content));
-                    } else if ("assistant".equals(role)) {
-                        messages.add(new AssistantMessage(content));
-                    }
-                }
-                return messages;
-            } catch (JacksonException e) {
-                log.warn("Failed to deserialize conversation history: {}", e.getMessage());
-            }
+    /** 严格 UUID 解析，防止 ":" 等字符注入 Redis 键结构 */
+    private boolean isUuid(String value) {
+        try {
+            java.util.UUID.fromString(value);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
+    }
 
+    /** AI-01：历史键绑定 userId 命名空间——A 无法读写 B 的会话，即使猜到其会话 ID */
+    private String historyKey(Long userId, String conversationId) {
+        return REDIS_KEY_PREFIX + userId + ":" + conversationId;
+    }
+
+    /** AI-01：历史改为 Redis List（每条消息一个元素）；旧 JSON 整块存储的会话自然失效重建 */
+    private List<Message> loadHistory(Long userId, String conversationId) {
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(SYSTEM_PROMPT));
+        try {
+            List<String> raw = redisTemplate.opsForList().range(historyKey(userId, conversationId), 0, -1);
+            if (raw != null) {
+                for (String serialized : raw) {
+                    try {
+                        Map<String, String> entry = objectMapper.readValue(serialized, Map.class);
+                        String role = entry.get("role");
+                        String content = entry.get("content");
+                        if ("user".equals(role)) {
+                            messages.add(new UserMessage(content));
+                        } else if ("assistant".equals(role)) {
+                            messages.add(new AssistantMessage(content));
+                        }
+                    } catch (JacksonException e) {
+                        log.warn("Failed to deserialize history entry, skipped: {}", e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load conversation history (degrade to fresh): {}", e.getMessage());
+        }
         return messages;
     }
 
-    private void saveHistory(String conversationId, List<Message> history) {
-        String key = REDIS_KEY_PREFIX + conversationId;
+    /** 原子追加本轮对话（用户原始消息 + 回复）并刷新 TTL；LTRIM 保留最近 N 条 */
+    private void appendHistory(Long userId, String conversationId, String userMessage, String assistantReply) {
+        String key = historyKey(userId, conversationId);
         try {
-            List<Map<String, String>> serialized = history.stream()
-                    .map(msg -> Map.of(
-                            "role", getMessageRole(msg),
-                            "content", msg.getText()
-                    ))
-                    .toList();
-            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(serialized), CONVERSATION_TTL);
-        } catch (JacksonException e) {
-            log.warn("Failed to serialize conversation history: {}", e.getMessage());
+            redisTemplate.opsForList().rightPushAll(key,
+                    objectMapper.writeValueAsString(Map.of("role", "user", "content", userMessage)),
+                    objectMapper.writeValueAsString(Map.of("role", "assistant", "content", assistantReply)));
+            redisTemplate.opsForList().trim(key, -MAX_CONVERSATION_HISTORY, -1);
+            redisTemplate.expire(key, CONVERSATION_TTL);
+        } catch (Exception e) {
+            // 历史写失败不阻断本轮回复（回复已生成），TTL 内下次对话自动重建
+            log.warn("Failed to append conversation history: {}", e.getMessage());
         }
-    }
-
-    private String getMessageRole(Message message) {
-        if (message instanceof SystemMessage) return "system";
-        if (message instanceof UserMessage) return "user";
-        if (message instanceof AssistantMessage) return "assistant";
-        return "user";
-    }
-
-    private void trimHistory(List<Message> history) {
-        if (history.size() <= 1) {
-            return;
-        }
-        Message systemMsg = history.getFirst();
-        List<Message> trimmed = new ArrayList<>();
-        trimmed.add(systemMsg);
-        int start = Math.max(1, history.size() - MAX_CONVERSATION_HISTORY + 1);
-        trimmed.addAll(history.subList(start, history.size()));
-        history.clear();
-        history.addAll(trimmed);
     }
 
     public ChatResponse chatFallback(Long userId, ChatRequest request, Throwable throwable) {
