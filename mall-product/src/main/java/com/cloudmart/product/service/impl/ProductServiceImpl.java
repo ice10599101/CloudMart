@@ -186,10 +186,12 @@ public class ProductServiceImpl implements ProductService {
         return skus.stream()
                 .map(sku -> {
                     Product product = productMap.get(sku.getProductId());
+                    // TRADE-01：报价需要权威价格/销售状态/属性——价格以此处 DB 值为准
                     return new com.cloudmart.product.vo.SkuBatchItemVO(
                             sku.getId(), sku.getProductId(),
                             product != null ? product.getName() : null,
-                            sku.getImage());
+                            sku.getImage(),
+                            sku.getPrice(), sku.getStatus(), sku.getAttributes());
                 })
                 .toList();
     }

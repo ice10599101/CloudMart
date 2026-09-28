@@ -153,6 +153,7 @@ cloudmart:
         issuers: [mall-payment]
         scope: order:internal
     outbound-scopes:
+      mall-product: product:read
       mall-inventory: inventory:trade
       mall-coupon: coupon:trade
       mall-cart: cart:trade

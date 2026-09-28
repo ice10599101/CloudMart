@@ -130,5 +130,5 @@ cloudmart:
         issuers: [mall-admin]
         scope: product:admin
       - prefix: /products
-        issuers: [mall-ai, mall-cart, mall-seckill]
+        issuers: [mall-ai, mall-cart, mall-seckill, mall-order]
         scope: product:read
