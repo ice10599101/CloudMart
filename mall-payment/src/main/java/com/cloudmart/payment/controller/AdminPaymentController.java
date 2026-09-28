@@ -42,7 +42,7 @@ public class AdminPaymentController {
     @Operation(summary = "查询支付记录", description = "管理后台根据订单ID查询支付记录")
     public ApiResponse<PaymentVO> getPaymentByOrderId(
             @Parameter(description = "订单ID") @PathVariable("orderId") Long orderId) {
-        PaymentDTO dto = paymentService.getPaymentByOrderId(orderId);
+        PaymentDTO dto = paymentService.getPaymentByOrderId(orderId, null);
         return ApiResponse.ok(paymentConverter.dtoToVO(dto));
     }
 

@@ -128,6 +128,13 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: user:admin
+      # SEC-04：内部端点——mall-auth 凭据验证 / wish 等服务聚合注销进度
+      - prefix: /internal/users
+        issuers: [mall-auth]
+        scope: user:internal
+      - prefix: /users/account-deletion/status
+        issuers: [mall-wish]
+        scope: user:internal
     outbound-scopes:
       mall-auth: admin:auth
       mall-community: community:internal

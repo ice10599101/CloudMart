@@ -45,7 +45,8 @@ class ShippingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        shippingService = new ShippingServiceImpl(shippingOrderMapper, shippingTrackingMapper, wmsConverter);
+        shippingService = new ShippingServiceImpl(shippingOrderMapper, shippingTrackingMapper,
+                wmsConverter, org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class));
     }
 
     private static final Long SHIPPING_ORDER_ID = 1L;
@@ -100,7 +101,7 @@ class ShippingServiceImplTest {
                     .thenReturn(Collections.emptyList());
             when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class))).thenReturn(expectedVO);
 
-            ShippingOrderVO result = shippingService.getByOrderId(ORDER_ID);
+            ShippingOrderVO result = shippingService.getByOrderId(ORDER_ID, null);
 
             assertThat(result).isNotNull();
             assertThat(result.orderId()).isEqualTo(ORDER_ID);
@@ -111,7 +112,7 @@ class ShippingServiceImplTest {
         void getByOrderId_nonExistent_throwsException() {
             when(shippingOrderMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
-            assertThatThrownBy(() -> shippingService.getByOrderId(ORDER_ID))
+            assertThatThrownBy(() -> shippingService.getByOrderId(ORDER_ID, null))
                     .isInstanceOf(BusinessException.class)
                     .extracting("code")
                     .isEqualTo("SHIPPING_ORDER_NOT_FOUND");

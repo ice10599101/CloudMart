@@ -77,7 +77,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final Set<String> ANY_METHOD_PUBLIC_PREFIXES = Set.of(
             "/api/auth/",
             "/api/user/users/register",
-            "/api/user/users/validate",
+            // SEC-04：/users/validate 已迁移至 /internal/users/validate（仅服务令牌可达），
+            // 不再作为匿名公开端点
             "/api/payment/payments/callback"
     );
 

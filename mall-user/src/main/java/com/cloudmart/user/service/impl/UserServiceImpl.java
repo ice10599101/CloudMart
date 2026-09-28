@@ -30,6 +30,13 @@ import java.util.Map;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
+    /** SEC-04：批量用户查询单次上限 */
+    private static final int MAX_BATCH_USER_IDS = 100;
+    /** SEC-04：搜索关键词最大长度 */
+    private static final int MAX_KEYWORD_LENGTH = 100;
+    /** SEC-04：公开搜索单页上限 */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final UserMapper userMapper;
     private final UserConverter userConverter;
     private final PasswordEncoder passwordEncoder;
@@ -330,12 +337,29 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserVO> batchGetUsers(List<Long> ids) {
+        // SEC-04：批量上限 100，且与 search 同一脱敏策略——不再整卡返回邮箱/生日
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("VALIDATION_ERROR", "用户 ID 列表不能为空");
+        }
+        if (ids.size() > MAX_BATCH_USER_IDS) {
+            throw new BusinessException("VALIDATION_ERROR", "单次批量获取用户不能超过 " + MAX_BATCH_USER_IDS + " 个");
+        }
         List<User> users = userMapper.selectBatchIds(ids);
-        return users.stream().map(userConverter::toVO).toList();
+        return users.stream()
+                .map(userConverter::toVO)
+                .map(this::maskEmailBirthday)
+                .toList();
     }
 
     @Override
     public List<UserVO> searchUsers(String keyword, int page, int pageSize) {
+        // SEC-04：入参边界收敛——关键词 1-100 字符、页大小 1-100，防止全量枚举
+        if (keyword == null || keyword.isBlank() || keyword.length() > MAX_KEYWORD_LENGTH) {
+            throw new BusinessException("VALIDATION_ERROR", "关键词长度须为 1-100 个字符");
+        }
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new BusinessException("VALIDATION_ERROR", "每页数量须为 1-" + MAX_PAGE_SIZE);
+        }
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
                 .like(User::getUsername, keyword)
                 .or().like(User::getNickname, keyword)

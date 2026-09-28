@@ -51,13 +51,6 @@ public class UserController {
                 "message", result.message() == null ? "" : result.message()));
     }
 
-    @PostMapping("/validate")
-    @Operation(summary = "验证用户凭据", description = "通过小答号或邮箱验证用户名密码，供认证服务调用")
-    public ApiResponse<UserDTO> validateUser(
-            @Parameter(description = "验证请求体") @Valid @RequestBody ValidateRequest request) {
-        return ApiResponse.ok(userService.validateUser(request));
-    }
-
     @GetMapping("/me")
     @Operation(summary = "获取当前用户信息")
     public ApiResponse<UserVO> getCurrentUser() {

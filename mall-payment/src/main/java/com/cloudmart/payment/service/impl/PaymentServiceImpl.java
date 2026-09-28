@@ -6,8 +6,11 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.payment.converter.PaymentConverter;
 import com.cloudmart.payment.dto.CreatePaymentRequest;
 import com.cloudmart.payment.dto.PaymentCallbackRequest;
+import com.cloudmart.payment.dto.OrderInternalInfoDTO;
 import com.cloudmart.payment.dto.PaymentDTO;
 import com.cloudmart.payment.entity.Payment;
+import com.cloudmart.payment.feign.OrderFeignClient;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentConverter paymentConverter;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
+    private final OrderFeignClient orderFeignClient;
 
     @Override
     public Page<PaymentDTO> listPayments(String status, int page, int size) {
@@ -48,7 +52,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     @SentinelResource(value = "createPayment", fallback = "createPaymentFallback")
-    public PaymentDTO createPayment(CreatePaymentRequest request) {
+    public PaymentDTO createPayment(CreatePaymentRequest request, Long callerUserId) {
+        assertOrderOwner(request.orderId(), callerUserId);
         Payment existing = paymentMapper.selectOne(
                 new LambdaQueryWrapper<Payment>()
                         .eq(Payment::getOrderId, request.orderId())
@@ -129,7 +134,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public PaymentDTO getPaymentByOrderId(Long orderId) {
+    public PaymentDTO getPaymentByOrderId(Long orderId, Long callerUserId) {
+        assertOrderOwner(orderId, callerUserId);
         Payment payment = paymentMapper.selectOne(
                 new LambdaQueryWrapper<Payment>()
                         .eq(Payment::getOrderId, orderId)
@@ -181,7 +187,7 @@ public class PaymentServiceImpl implements PaymentService {
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
     }
 
-    public PaymentDTO createPaymentFallback(CreatePaymentRequest request, Throwable throwable) {
+    public PaymentDTO createPaymentFallback(CreatePaymentRequest request, Long callerUserId, Throwable throwable) {
         log.warn("createPayment fallback triggered: {}", throwable.getMessage());
         return null;
     }
@@ -197,6 +203,25 @@ public class PaymentServiceImpl implements PaymentService {
             return objectMapper.writeValueAsString(java.util.Map.of("orderId", orderId, "paymentId", paymentId));
         } catch (Exception e) {
             throw new IllegalStateException("payment payload serialize failed", e);
+        }
+    }
+
+    /**
+     * SEC-04 对象归属校验（requireOwner）：用户调用必须与订单权威归属一致；
+     * 内部服务调用方（callerUserId == null）跳过——其自身已过服务令牌认证，
+     * 归属由上游服务（mall-order）保证。订单读不到或越权一律拒绝（404/403），
+     * 绝不透传为可支付。
+     */
+    private void assertOrderOwner(Long orderId, Long callerUserId) {
+        if (callerUserId == null) {
+            return;
+        }
+        ApiResponse<OrderInternalInfoDTO> response = orderFeignClient.getOrderInfo(orderId);
+        if (response == null || !response.success() || response.data() == null) {
+            throw new BusinessException("PAYMENT_NOT_FOUND", "支付记录不存在");
+        }
+        if (!callerUserId.equals(response.data().userId())) {
+            throw new BusinessException("PAYMENT_FORBIDDEN", "无权操作该订单的支付");
         }
     }
 }

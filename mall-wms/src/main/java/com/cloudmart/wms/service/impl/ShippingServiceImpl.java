@@ -9,6 +9,7 @@ import com.cloudmart.wms.dto.CreateShippingRequest;
 import com.cloudmart.wms.dto.ShippingOrderDTO;
 import com.cloudmart.wms.dto.ShippingTrackingDTO;
 import com.cloudmart.wms.entity.ShippingOrder;
+import com.cloudmart.wms.feign.OrderInfoFeignClient;
 import com.cloudmart.wms.entity.ShippingTracking;
 import com.cloudmart.wms.repository.ShippingOrderMapper;
 import com.cloudmart.wms.repository.ShippingTrackingMapper;
@@ -29,13 +30,15 @@ public class ShippingServiceImpl implements ShippingService {
     private final ShippingOrderMapper shippingOrderMapper;
     private final ShippingTrackingMapper shippingTrackingMapper;
     private final WmsConverter wmsConverter;
+    private final OrderInfoFeignClient orderInfoFeignClient;
 
     public ShippingServiceImpl(ShippingOrderMapper shippingOrderMapper,
                                ShippingTrackingMapper shippingTrackingMapper,
-                               WmsConverter wmsConverter) {
+                               WmsConverter wmsConverter, OrderInfoFeignClient orderInfoFeignClient) {
         this.shippingOrderMapper = shippingOrderMapper;
         this.shippingTrackingMapper = shippingTrackingMapper;
         this.wmsConverter = wmsConverter;
+        this.orderInfoFeignClient = orderInfoFeignClient;
     }
 
     @Override
@@ -56,7 +59,18 @@ public class ShippingServiceImpl implements ShippingService {
     }
 
     @Override
-    public ShippingOrderVO getByOrderId(Long orderId) {
+    public ShippingOrderVO getByOrderId(Long orderId, Long callerUserId) {
+        // SEC-04：用户调用先核订单权威归属（fail-closed：订单服务不可用即拒绝）
+        if (callerUserId != null) {
+            com.cloudmart.common.api.ApiResponse<com.cloudmart.wms.dto.OrderInternalInfoDTO> orderInfo =
+                    orderInfoFeignClient.getOrderInfo(orderId);
+            if (orderInfo == null || !orderInfo.success() || orderInfo.data() == null) {
+                throw new BusinessException("SHIPPING_ORDER_NOT_FOUND", "物流订单不存在");
+            }
+            if (!callerUserId.equals(orderInfo.data().userId())) {
+                throw new BusinessException("SHIPPING_FORBIDDEN", "无权查看该订单的物流信息");
+            }
+        }
         ShippingOrder order = shippingOrderMapper.selectOne(
                 new LambdaQueryWrapper<ShippingOrder>().eq(ShippingOrder::getOrderId, orderId)
         );

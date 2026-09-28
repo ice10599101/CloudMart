@@ -59,13 +59,25 @@ class ShippingControllerTest {
     void getByOrderId_ShouldReturnEnvelope() throws Exception {
         ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, "SF123456", "顺丰", "SHIPPED", FIXED_TIME);
 
-        given(shippingService.getByOrderId(100L)).willReturn(vo);
+        given(shippingService.getByOrderId(100L, 42L)).willReturn(vo);
+        setUserAuthentication("42");
 
-        mockMvc.perform(get("/shipping/order/100"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.status").value("SHIPPED"));
+        try {
+            mockMvc.perform(get("/shipping/order/100"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.id").value(1))
+                    .andExpect(jsonPath("$.data.status").value("SHIPPED"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    /** 以用户主体（数字 userId 字符串）建立 SecurityContext，模拟 UserJwtAuthenticationFilter 结果 */
+    private void setUserAuthentication(String userId) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
+                        userId, null, java.util.List.of()));
     }
 
     @Test
@@ -85,12 +97,17 @@ class ShippingControllerTest {
     @Test
     @DisplayName("根据订单ID查询物流 - 不存在时返回错误信封")
     void getByOrderId_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        given(shippingService.getByOrderId(999L))
+        given(shippingService.getByOrderId(999L, 42L))
                 .willThrow(new BusinessException("WMS_SERVICE_UNAVAILABLE", "物流订单不存在"));
+        setUserAuthentication("42");
 
-        mockMvc.perform(get("/shipping/order/999"))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("WMS_SERVICE_UNAVAILABLE"));
+        try {
+            mockMvc.perform(get("/shipping/order/999"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value("WMS_SERVICE_UNAVAILABLE"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

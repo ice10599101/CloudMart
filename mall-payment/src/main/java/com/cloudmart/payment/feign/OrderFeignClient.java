@@ -1,7 +1,9 @@
 package com.cloudmart.payment.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.payment.dto.OrderInternalInfoDTO;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
@@ -18,4 +20,8 @@ public interface OrderFeignClient {
 
     @PostMapping("/cancel-notify/{orderId}")
     ApiResponse<Void> notifyOrderCancel(@PathVariable("orderId") Long orderId);
+
+    /** SEC-04：读取订单权威归属，支付创建/查询前校验 requireOwner */
+    @GetMapping("/{orderId}")
+    ApiResponse<OrderInternalInfoDTO> getOrderInfo(@PathVariable("orderId") Long orderId);
 }

@@ -1,6 +1,7 @@
 package com.cloudmart.payment.controller;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.payment.converter.PaymentConverter;
 import com.cloudmart.payment.dto.CreatePaymentRequest;
 import com.cloudmart.payment.dto.PaymentCallbackRequest;
@@ -28,9 +29,9 @@ public class PaymentController {
     }
 
     @PostMapping
-    @Operation(summary = "创建支付", description = "为订单创建支付记录，幂等设计")
+    @Operation(summary = "创建支付", description = "为订单创建支付记录，幂等设计；用户调用校验订单归属")
     public ApiResponse<PaymentVO> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
-        PaymentDTO dto = paymentService.createPayment(request);
+        PaymentDTO dto = paymentService.createPayment(request, resolveCallerUserIdOrNull());
         return ApiResponse.ok(paymentConverter.dtoToVO(dto));
     }
 
@@ -51,11 +52,33 @@ public class PaymentController {
     }
 
     @GetMapping("/order/{orderId}")
-    @Operation(summary = "查询支付状态", description = "根据订单ID查询支付记录")
+    @Operation(summary = "查询支付状态", description = "根据订单ID查询支付记录；用户调用校验订单归属")
     public ApiResponse<PaymentVO> getPaymentByOrderId(
             @Parameter(description = "订单ID") @PathVariable("orderId") Long orderId) {
-        PaymentDTO dto = paymentService.getPaymentByOrderId(orderId);
+        PaymentDTO dto = paymentService.getPaymentByOrderId(orderId, resolveCallerUserIdOrNull());
         return ApiResponse.ok(paymentConverter.dtoToVO(dto));
+    }
+
+    /**
+     * SEC-04：解析调用方身份——服务令牌调用（ROLE_INTERNAL，如 mall-order 内部创建支付）
+     * 返回 null，归属由调用方保证；用户调用返回令牌主体，服务层据此校验订单归属。
+     */
+    private Long resolveCallerUserIdOrNull() {
+        org.springframework.security.core.Authentication authentication =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BusinessException("UNAUTHORIZED", "未登录或登录已过期");
+        }
+        boolean internal = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_INTERNAL".equals(a.getAuthority()));
+        if (internal) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(authentication.getPrincipal()));
+        } catch (NumberFormatException e) {
+            throw new BusinessException("UNAUTHORIZED", "无法识别的调用方身份");
+        }
     }
 
     @PutMapping("/{paymentId}/simulate-success")

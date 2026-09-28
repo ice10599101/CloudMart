@@ -11,7 +11,11 @@ public interface ShippingService {
 
     ShippingOrderVO createShipping(CreateShippingRequest request);
 
-    ShippingOrderVO getByOrderId(Long orderId);
+    /**
+     * 按订单查询物流（SEC-04 对象归属）：用户调用校验订单归属，越权一律拒绝；
+     * 管理员/服务调用方（callerUserId == null）跳过归属校验。
+     */
+    ShippingOrderVO getByOrderId(Long orderId, Long callerUserId);
 
     ShippingOrderVO updateStatus(Long id, String status);
 

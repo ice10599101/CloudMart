@@ -25,6 +25,13 @@ public interface OrderService {
 
     OrderDTO getOrderById(Long userId, Long orderId);
 
+    /**
+     * 订单最小内部信息（SEC-04）：供支付/履约服务做对象归属校验，不含业务明细。
+     *
+     * @throws BusinessException ORDER_NOT_FOUND 订单不存在
+     */
+    com.cloudmart.order.dto.OrderInternalInfoDTO getInternalOrderInfo(Long orderId);
+
     PaymentDTO payForOrder(Long userId, Long orderId);
 
     PaymentDTO getPaymentByOrderId(Long userId, Long orderId);

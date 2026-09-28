@@ -122,6 +122,12 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: wms:admin
+      - prefix: /warehouses
+        issuers: [mall-admin]
+        scope: wms:admin
+      - prefix: /shipping
+        issuers: [mall-admin, mall-order]
+        scope: wms:admin
       - prefix: /internal
         issuers: [mall-job]
         scope: wms:jobs

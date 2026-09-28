@@ -68,7 +68,7 @@ class AdminPaymentControllerTest {
         PaymentDTO dto = new PaymentDTO(1L, 100L, "PAY20260101001", new BigDecimal("198.00"),
                 "ALIPAY", "PAID", LocalDateTime.now(), LocalDateTime.now(), null);
 
-        given(paymentService.getPaymentByOrderId(100L)).willReturn(dto);
+        given(paymentService.getPaymentByOrderId(100L, null)).willReturn(dto);
 
         PaymentVO vo = new PaymentVO(1L, 100L, "PAY20260101001", new BigDecimal("198.00"),
                 "ALIPAY", "PAID", LocalDateTime.now(), LocalDateTime.now(), null);
@@ -101,7 +101,7 @@ class AdminPaymentControllerTest {
     @Test
     @DisplayName("管理端查询不存在的支付记录 - 返回错误信封")
     void getPaymentByOrderId_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        given(paymentService.getPaymentByOrderId(999L))
+        given(paymentService.getPaymentByOrderId(999L, null))
                 .willThrow(new BusinessException("PAYMENT_NOT_FOUND", "支付记录不存在"));
 
         mockMvc.perform(get("/admin/payments/order/999"))

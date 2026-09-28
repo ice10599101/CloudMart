@@ -61,17 +61,22 @@ class PaymentControllerTest {
         @DisplayName("valid request -> creates payment and returns 200")
         void createPayment_ValidRequest_ShouldReturn200() throws Exception {
             PaymentDTO dto = buildPaymentDTO();
-            when(paymentService.createPayment(any(CreatePaymentRequest.class))).thenReturn(dto);
+            when(paymentService.createPayment(any(CreatePaymentRequest.class), eq(42L))).thenReturn(dto);
             when(paymentConverter.dtoToVO(dto)).thenReturn(buildPaymentVO());
+            setUserAuthentication("42");
 
             CreatePaymentRequest request = new CreatePaymentRequest(100L, new BigDecimal("100.00"), "MOCK");
 
-            mockMvc.perform(post("/payments")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.status").value("PENDING"));
+            try {
+                mockMvc.perform(post("/payments")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.success").value(true))
+                        .andExpect(jsonPath("$.data.status").value("PENDING"));
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            }
         }
     }
 
@@ -121,13 +126,25 @@ class PaymentControllerTest {
         @DisplayName("payment exists -> returns 200")
         void getPaymentByOrderId_Exists_ShouldReturn200() throws Exception {
             PaymentDTO dto = buildPaymentDTO();
-            when(paymentService.getPaymentByOrderId(100L)).thenReturn(dto);
+            when(paymentService.getPaymentByOrderId(eq(100L), eq(42L))).thenReturn(dto);
             when(paymentConverter.dtoToVO(dto)).thenReturn(buildPaymentVO());
+            setUserAuthentication("42");
 
-            mockMvc.perform(get("/payments/order/100"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.orderId").value(100));
+            try {
+                mockMvc.perform(get("/payments/order/100"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.orderId").value(100));
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            }
         }
+    }
+
+    /** 以用户主体（数字 userId 字符串）建立 SecurityContext，模拟 UserJwtAuthenticationFilter 结果 */
+    private void setUserAuthentication(String userId) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
+                        userId, null, java.util.List.of()));
     }
 
     @Nested

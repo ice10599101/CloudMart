@@ -51,8 +51,9 @@ public class AccountDeletionController {
         return ApiResponse.ok(orchestrationService.cancel(userId));
     }
 
-    /** 内部状态查询（服务间调用，X-Internal-Call 认证）：供 wish 等服务聚合真实进度 */
+    /** 内部状态查询（SEC-04：仅服务令牌可达）：供 wish 等服务聚合真实进度 */
     @GetMapping("/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('INTERNAL')")
     @Operation(summary = "按 userId 查询注销进度（内部）")
     public ApiResponse<Map<String, Object>> statusInternal(
             @RequestParam("userId") Long userId) {

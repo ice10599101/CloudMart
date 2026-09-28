@@ -12,6 +12,7 @@ import com.cloudmart.payment.dto.CreatePaymentRequest;
 import com.cloudmart.payment.dto.PaymentCallbackRequest;
 import com.cloudmart.payment.dto.PaymentDTO;
 import com.cloudmart.payment.entity.Payment;
+import com.cloudmart.payment.feign.OrderFeignClient;
 import com.cloudmart.payment.mq.PaymentEventProducer;
 import com.cloudmart.payment.repository.PaymentMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -59,7 +60,7 @@ class PaymentServiceImplTest {
         paymentMapper = mock(PaymentMapper.class);
         paymentConverter = mock(PaymentConverter.class);
         paymentService = new PaymentServiceImpl(paymentMapper, paymentConverter,
-                outboxService, objectMapper);
+                outboxService, objectMapper, mock(OrderFeignClient.class));
     }
 
     private Payment buildPayment(Long id, Long orderId, String status) {
@@ -95,7 +96,7 @@ class PaymentServiceImplTest {
             when(paymentConverter.toDTO(any(Payment.class))).thenReturn(dto);
 
             CreatePaymentRequest request = new CreatePaymentRequest(100L, new BigDecimal("100.00"), "MOCK");
-            PaymentDTO result = paymentService.createPayment(request);
+            PaymentDTO result = paymentService.createPayment(request, null);
 
             assertThat(result).isNotNull();
             assertThat(result.status()).isEqualTo("PENDING");
@@ -112,7 +113,7 @@ class PaymentServiceImplTest {
             when(paymentConverter.toDTO(existing)).thenReturn(dto);
 
             CreatePaymentRequest request = new CreatePaymentRequest(100L, new BigDecimal("100.00"), "MOCK");
-            PaymentDTO result = paymentService.createPayment(request);
+            PaymentDTO result = paymentService.createPayment(request, null);
 
             assertThat(result).isNotNull();
             verify(paymentMapper, never()).insert(any(Payment.class));
@@ -127,7 +128,7 @@ class PaymentServiceImplTest {
             when(paymentConverter.toDTO(any(Payment.class))).thenReturn(dto);
 
             CreatePaymentRequest request = new CreatePaymentRequest(100L, new BigDecimal("100.00"), null);
-            PaymentDTO result = paymentService.createPayment(request);
+            PaymentDTO result = paymentService.createPayment(request, null);
 
             assertThat(result).isNotNull();
         }
@@ -321,7 +322,7 @@ class PaymentServiceImplTest {
             PaymentDTO dto = buildPaymentDTO(payment);
             when(paymentConverter.toDTO(payment)).thenReturn(dto);
 
-            PaymentDTO result = paymentService.getPaymentByOrderId(100L);
+            PaymentDTO result = paymentService.getPaymentByOrderId(100L, null);
 
             assertThat(result).isNotNull();
             assertThat(result.orderId()).isEqualTo(100L);
@@ -332,7 +333,7 @@ class PaymentServiceImplTest {
         void getPaymentByOrderId_NotFound_ShouldThrowBusinessException() {
             when(paymentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
-            assertThatThrownBy(() -> paymentService.getPaymentByOrderId(999L))
+            assertThatThrownBy(() -> paymentService.getPaymentByOrderId(999L, null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("PAYMENT_NOT_FOUND"));
         }

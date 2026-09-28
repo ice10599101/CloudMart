@@ -121,6 +121,7 @@ public class GlobalExceptionHandler {
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
             case "ACCOUNT_LOCKED", "FORBIDDEN",
+                 "PAYMENT_FORBIDDEN", "SHIPPING_FORBIDDEN",
                  "WISH_NOT_AUTHOR", "WISH_RESTRICTED", "WISH_FORBIDDEN",
                  "WISH_CONSENT_REQUIRED",
                  "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED",

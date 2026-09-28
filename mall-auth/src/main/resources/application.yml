@@ -105,4 +105,6 @@ cloudmart:
         scope: admin:auth
     outbound-scopes:
       mall-admin: admin:auth
+      # SEC-04：/internal/users/validate 凭据验证经服务令牌调用
+      mall-user: user:internal
     user-jwt-verification-enabled: false

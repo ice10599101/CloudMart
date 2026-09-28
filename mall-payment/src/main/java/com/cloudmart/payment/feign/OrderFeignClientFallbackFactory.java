@@ -24,6 +24,13 @@ public class OrderFeignClientFallbackFactory implements FallbackFactory<OrderFei
                 log.error("通知订单取消降级, orderId={}: {}", orderId, cause.getMessage());
                 return ApiResponse.ok(null);
             }
+
+            @Override
+            public ApiResponse<com.cloudmart.payment.dto.OrderInternalInfoDTO> getOrderInfo(Long orderId) {
+                // SEC-04：归属数据读不到时返回空数据，调用方按订单不存在拒绝（fail-closed）
+                log.error("查询订单归属信息降级, orderId={}: {}", orderId, cause.getMessage());
+                return ApiResponse.ok(null);
+            }
         };
     }
 }

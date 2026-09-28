@@ -142,39 +142,6 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("POST /users/validate - 验证用户凭据成功返回信封格式")
-    void validateUser_ShouldReturnSuccessEnvelope() throws Exception {
-        UserDTO dto = new UserDTO(1L, "xd100001", "test@example.com", "测试用户",
-                "avatar.jpg", "签名", "男", "摩羯座", "工程师",
-                "北京大学", "北京", "编程", 1, FIXED_TIME, FIXED_TIME);
-        given(userService.validateUser(any(ValidateRequest.class))).willReturn(dto);
-
-        mockMvc.perform(post("/users/validate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new ValidateRequest("xd100001", "pass123456"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.username").value("xd100001"));
-    }
-
-    @Test
-    @DisplayName("POST /users/validate - 凭据无效返回错误信封")
-    void validateUser_WhenInvalidCredentials_ShouldReturnErrorEnvelope() throws Exception {
-        willThrow(new BusinessException("AUTH_FAILED", "用户名或密码错误"))
-                .given(userService).validateUser(any(ValidateRequest.class));
-
-        mockMvc.perform(post("/users/validate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new ValidateRequest("xd100001", "wrong"))))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("AUTH_FAILED"));
-    }
-
-    @Test
     @DisplayName("GET /users/me - 获取当前用户信息返回信封格式")
     void getCurrentUser_ShouldReturnSuccessEnvelope() throws Exception {
         setSecurityContext(1L);

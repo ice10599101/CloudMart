@@ -826,4 +826,13 @@ public class OrderServiceImpl implements OrderService {
         log.warn("cancelOrder blocked by Sentinel: {}", ex.getRule());
         return null;
     }
+
+    @Override
+    public com.cloudmart.order.dto.OrderInternalInfoDTO getInternalOrderInfo(Long orderId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
+        }
+        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus());
+    }
 }

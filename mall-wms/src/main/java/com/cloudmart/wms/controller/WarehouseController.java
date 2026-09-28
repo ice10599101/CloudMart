@@ -23,6 +23,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/warehouses")
 @Tag(name = "仓库管理", description = "仓库的增删改查接口")
+@org.springframework.security.access.prepost.PreAuthorize(
+        "hasAnyAuthority('ROLE_ADMIN', 'ROLE_INTERNAL')") // SEC-04：仓库/拣货/入库管理仅限管理员与服务调用方
 public class WarehouseController {
 
     private final WarehouseService warehouseService;

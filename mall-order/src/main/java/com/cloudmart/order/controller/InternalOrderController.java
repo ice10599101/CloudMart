@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +45,16 @@ public class InternalOrderController {
             @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
         orderService.notifyOrderCancel(orderId);
         return ApiResponse.ok(null);
+    }
+
+    /**
+     * SEC-04：订单最小内部信息——支付/履约服务在做对象归属校验（requireOwner）
+     * 时读取权威归属，只暴露 orderId/userId/status。
+     */
+    @GetMapping("/{orderId}")
+    @Operation(summary = "订单内部信息", description = "归属校验用最小字段（服务令牌可达）")
+    public ApiResponse<com.cloudmart.order.dto.OrderInternalInfoDTO> getInternalInfo(
+            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
+        return ApiResponse.ok(orderService.getInternalOrderInfo(orderId));
     }
 }

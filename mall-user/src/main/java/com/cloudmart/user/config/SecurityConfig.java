@@ -43,7 +43,11 @@ public class SecurityConfig {
             .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/error", "/users/register", "/users/register/code", "/users/validate").permitAll()
+                .requestMatchers("/error", "/users/register", "/users/register/code").permitAll()
+                // SEC-04：内部端点（/internal/users/validate 等）仅服务令牌可达
+                .requestMatchers("/internal/**").hasAuthority("ROLE_INTERNAL")
+                // SEC-04：完整会员列表迁管理侧，普通用户不可访问
+                .requestMatchers("/users/page").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/users/batch").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
