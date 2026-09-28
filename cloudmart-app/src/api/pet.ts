@@ -1,5 +1,4 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/types'
 
 // ========== 社区宠物（契约对齐 mall-pet，Web/App/小程序三端同构；实施文档 §4） ==========
 // 数值全部服务端计算：客户端只发意图（POST /pet/feed 等），不携带任何数值字段

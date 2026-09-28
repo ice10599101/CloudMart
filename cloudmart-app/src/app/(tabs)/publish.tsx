@@ -1,12 +1,10 @@
-import type { Product } from '@/types'
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, BackHandler } from 'react-native'
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { router, useLocalSearchParams, useGlobalSearchParams } from 'expo-router'
+import { useState, useRef, useEffect } from 'react'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
-import { productApi } from '@/api/product'
 import { fileApi } from '@/api/file'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -31,13 +29,8 @@ export default function PublishPage() {
   const [tags, setTags] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
-  const [linkProduct, setLinkProduct] = useState(false)
-  const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
-  const [linkedProduct, setLinkedProduct] = useState<Product | null>(null)
-  const [productKeyword, setProductKeyword] = useState('')
-  const [productOptions, setProductOptions] = useState<Product[]>([])
-  const [searchingProducts, setSearchingProducts] = useState(false)
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [linkProduct] = useState(false)
+  const [linkedProductId] = useState<number | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -300,20 +293,6 @@ export default function PublishPage() {
         uploaded: false,
       },
     ])
-  }
-
-  /** 搜索可关联的好物 */
-  const handleSearchProducts = async () => {
-    if (!productKeyword.trim() || searchingProducts) return
-    setSearchingProducts(true)
-    try {
-      const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
-      setProductOptions((res.data as { data?: { products?: Product[] } })?.data?.products ?? [])
-    } catch {
-      Alert.alert('提示', '商品搜索失败')
-    } finally {
-      setSearchingProducts(false)
-    }
   }
 
   const handleInsertImageToEditor = async () => {

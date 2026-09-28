@@ -24,7 +24,6 @@ export default function FollowingScreen() {
   const { user: currentUser } = useAuthStore()
 
   const targetUserId = userIdParam ? Number(userIdParam) : currentUser?.id
-  const isOwnList = targetUserId === currentUser?.id
 
   const initialTab: TabKey = type === 'followers' ? 'followers' : 'following'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)

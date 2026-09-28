@@ -16,7 +16,7 @@ import {
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
-import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem, DriftBottleQuota } from '@/types'
+import type { DriftBottleCandidateWish, DriftBottleCommentItem, DriftBottleItem } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -623,22 +623,6 @@ export default function DriftBottleScreen() {
   useEffect(() => {
     loadBottles()
   }, [loadBottles])
-
-  // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
-  const [quota, setQuota] = useState<DriftBottleQuota | null>(null)
-  const loadQuota = useCallback(async () => {
-    if (!isLoggedIn) return
-    try {
-      const res = await wishApi.getDriftBottleQuota()
-      if (res.data?.success) setQuota(res.data.data ?? null)
-    } catch {
-      // 静默
-    }
-  }, [isLoggedIn])
-
-  useEffect(() => {
-    void loadQuota()
-  }, [loadQuota])
 
   /** 收藏漂流瓶（仅捞起人，PICKED 态；幂等） */
   const handleCollect = useCallback(async (bottle: DriftBottleItem) => {

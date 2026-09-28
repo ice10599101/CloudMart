@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { router, useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/store/auth'

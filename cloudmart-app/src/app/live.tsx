@@ -6,7 +6,6 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
-  StyleSheet,
 } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
