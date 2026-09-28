@@ -11,7 +11,7 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.ERROR)
 public interface OrderConverter {
 
     @Mapping(target = "items", source = "items")
@@ -24,6 +24,8 @@ public interface OrderConverter {
     @Mapping(target = "items", source = "items")
     OrderVO toVO(Order order, List<OrderItemVO> items);
 
+    @Mapping(source = "skuImage", target = "productImage")
+    @Mapping(target = "subtotal", ignore = true) // default 方法按 price*quantity 补齐
     OrderItemVO toItemVO(OrderItem orderItem);
 
     List<OrderItemVO> toItemVOList(List<OrderItem> orderItems);

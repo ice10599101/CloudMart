@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend:
+    name: 后端编译与单测（22 个范围内模块）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+      - name: 编译（范围模块，-am 依赖链）
+        run: mvn -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am -DskipTests compile
+      - name: 单元测试（范围模块）
+        run: mvn -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' test
+
+  frontend:
+    name: 三端类型检查与 Web 单测
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dir: CloudMart-ui
+            cmds: npx tsc --noEmit && npx vitest run
+          - dir: cloudmart-app
+            cmds: npx tsc --noEmit
+          - dir: cloudmart-mobile
+            cmds: npx tsc --noEmit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+      - name: 安装依赖（锁文件严格模式）
+        working-directory: ${{ matrix.dir }}
+        run: npm ci
+      - name: 校验
+        working-directory: ${{ matrix.dir }}
+        run: ${{ matrix.cmds }}
