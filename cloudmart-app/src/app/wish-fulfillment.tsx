@@ -1,6 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator , Animated, Easing } from 'react-native'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Animated, Easing } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'

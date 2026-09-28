@@ -1464,6 +1464,154 @@ interface CarePanelProps {
  * 与其它面板同约定：所有数值/价格/门槛由服务端下发，本组件只做展示与意图发起；
  * 按钮禁用依据服务端返回的 eligible/lockReason，不在前端复算规则。
  */
+/** 职业面板（三期）：入职 / 职业工作 / 晋升 / 工作历史（挂在「养成 → 职业」页签下） */
+function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
+  const { message } = App.useApp()
+  const [panel, setPanel] = useState<PetCareerPanel | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await getPetCareer()
+      if (res.success && res.data) {
+        setPanel(res.data)
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+    setPending(key)
+    try {
+      const { data: res } = await action()
+      if (res.success) {
+        message.success(text)
+        await load()
+        onRefresh()
+      }
+    } catch {
+      // 拦截器已提示（条件不满足等业务码）
+    } finally {
+      setPending(null)
+    }
+  }
+
+  if (loading && !panel) {
+    return <Spin />
+  }
+  if (!panel) {
+    return <p className={styles.bottleHint}>职业信息暂时打不开，稍后再试试吧</p>
+  }
+
+  const activity = panel.activeActivity
+
+  return (
+    <div>
+      <p className={styles.careBalance}>
+        {panel.careerCode
+          ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
+          : '还没有工作，挑一份喜欢的职业入职吧'}
+        {panel.canPromote && panel.promoteToName
+          ? ` · 可晋升为「${panel.promoteToName}」（消耗 ✨${panel.promoteStarCost}）`
+          : ''}
+        {panel.promoteLockReason && panel.promoteToName ? ` · 晋升条件：${panel.promoteLockReason}` : ''}
+      </p>
+
+      {panel.careerCode && (
+        <span className={styles.careActions}>
+          {activity ? (
+            <Button
+              size="small"
+              type="primary"
+              disabled={!activity.canClaim}
+              loading={pending === 'career-claim'}
+              onClick={() => run('career-claim', () => claimPetCareerWork(), '工钱到手啦！')}
+            >
+              {activity.canClaim
+                ? '领取工作奖励'
+                : `工作中，剩 ${Math.max(0, Math.ceil(activity.remainingSeconds / 60))} 分钟`}
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              type="primary"
+              loading={pending === 'career-start'}
+              onClick={() => run('career-start', () => startPetCareerWork(), '开始工作啦')}
+            >
+              去上班
+            </Button>
+          )}
+          <Button
+            size="small"
+            disabled={!panel.canPromote}
+            title={panel.promoteLockReason ?? undefined}
+            loading={pending === 'career-promote'}
+            onClick={() => run('career-promote', () => promotePetCareer(), '晋升成功！')}
+          >
+            晋升
+          </Button>
+        </span>
+      )}
+
+      <div className={styles.careGrid}>
+        {panel.careers.map((career) => (
+          <div key={career.code} className={styles.careCard}>
+            <span className={styles.careIcon}>{career.icon}</span>
+            <strong>
+              {career.name} <Tag>{career.careerLine} · {career.tier} 阶</Tag>
+            </strong>
+            <span className={styles.careMeta}>{career.description}</span>
+            <span className={styles.careMeta}>
+              Lv.{career.requiredLevel}
+              {career.requiredIntelligence > 0 ? ` · 智力 ${career.requiredIntelligence}` : ''}
+              {' · '}
+              {Math.round(career.durationSeconds / 60)} 分钟 · 精力 {career.energyCost} · 经验+{career.expReward} ✨+{career.currencyReward}
+            </span>
+            {career.workCount > 0 && <span className={styles.careMeta}>已工作 {career.workCount} 次</span>}
+            <span className={styles.careActions}>
+              {career.current ? (
+                <Tag color="green">在职</Tag>
+              ) : (
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={!career.eligible}
+                  title={career.lockReason ?? undefined}
+                  loading={pending === `apply-${career.code}`}
+                  onClick={() => run(`apply-${career.code}`, () => applyPetCareer(career.code), '入职成功！')}
+                >
+                  {career.eligible ? '入职' : career.lockReason || '未解锁'}
+                </Button>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {panel.history.length > 0 && (
+        <>
+          <p className={styles.careBalance}>工作经历</p>
+          <p className={styles.careMeta}>
+            {panel.history
+              .map((item) => `${item.name}（${item.workCount} 次 / ✨${item.totalCurrency}）`)
+              .join(' · ')}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+
 function CarePanel({ pet, onRefresh }: CarePanelProps) {
   const { message } = App.useApp()
   const [tab, setTab] = useState<CareTab>('shop')
@@ -1886,154 +2034,6 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
   )
 }
 
-/** 职业面板（三期）：入职 / 职业工作 / 晋升 / 工作历史（挂在「养成 → 职业」页签下） */
-function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
-  const { message } = App.useApp()
-  const [panel, setPanel] = useState<PetCareerPanel | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [pending, setPending] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: res } = await getPetCareer()
-      if (res.success && res.data) {
-        setPanel(res.data)
-      }
-    } catch {
-      // 拦截器已提示
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
-    setPending(key)
-    try {
-      const { data: res } = await action()
-      if (res.success) {
-        message.success(text)
-        await load()
-        onRefresh()
-      }
-    } catch {
-      // 拦截器已提示（条件不满足等业务码）
-    } finally {
-      setPending(null)
-    }
-  }
-
-  if (loading && !panel) {
-    return <Spin />
-  }
-  if (!panel) {
-    return <p className={styles.bottleHint}>职业信息暂时打不开，稍后再试试吧</p>
-  }
-
-  const activity = panel.activeActivity
-
-  return (
-    <div>
-      <p className={styles.careBalance}>
-        {panel.careerCode
-          ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
-          : '还没有工作，挑一份喜欢的职业入职吧'}
-        {panel.canPromote && panel.promoteToName
-          ? ` · 可晋升为「${panel.promoteToName}」（消耗 ✨${panel.promoteStarCost}）`
-          : ''}
-        {panel.promoteLockReason && panel.promoteToName ? ` · 晋升条件：${panel.promoteLockReason}` : ''}
-      </p>
-
-      {panel.careerCode && (
-        <span className={styles.careActions}>
-          {activity ? (
-            <Button
-              size="small"
-              type="primary"
-              disabled={!activity.canClaim}
-              loading={pending === 'career-claim'}
-              onClick={() => run('career-claim', () => claimPetCareerWork(), '工钱到手啦！')}
-            >
-              {activity.canClaim
-                ? '领取工作奖励'
-                : `工作中，剩 ${Math.max(0, Math.ceil(activity.remainingSeconds / 60))} 分钟`}
-            </Button>
-          ) : (
-            <Button
-              size="small"
-              type="primary"
-              loading={pending === 'career-start'}
-              onClick={() => run('career-start', () => startPetCareerWork(), '开始工作啦')}
-            >
-              去上班
-            </Button>
-          )}
-          <Button
-            size="small"
-            disabled={!panel.canPromote}
-            title={panel.promoteLockReason ?? undefined}
-            loading={pending === 'career-promote'}
-            onClick={() => run('career-promote', () => promotePetCareer(), '晋升成功！')}
-          >
-            晋升
-          </Button>
-        </span>
-      )}
-
-      <div className={styles.careGrid}>
-        {panel.careers.map((career) => (
-          <div key={career.code} className={styles.careCard}>
-            <span className={styles.careIcon}>{career.icon}</span>
-            <strong>
-              {career.name} <Tag>{career.careerLine} · {career.tier} 阶</Tag>
-            </strong>
-            <span className={styles.careMeta}>{career.description}</span>
-            <span className={styles.careMeta}>
-              Lv.{career.requiredLevel}
-              {career.requiredIntelligence > 0 ? ` · 智力 ${career.requiredIntelligence}` : ''}
-              {' · '}
-              {Math.round(career.durationSeconds / 60)} 分钟 · 精力 {career.energyCost} · 经验+{career.expReward} ✨+{career.currencyReward}
-            </span>
-            {career.workCount > 0 && <span className={styles.careMeta}>已工作 {career.workCount} 次</span>}
-            <span className={styles.careActions}>
-              {career.current ? (
-                <Tag color="green">在职</Tag>
-              ) : (
-                <Button
-                  size="small"
-                  type="primary"
-                  disabled={!career.eligible}
-                  title={career.lockReason ?? undefined}
-                  loading={pending === `apply-${career.code}`}
-                  onClick={() => run(`apply-${career.code}`, () => applyPetCareer(career.code), '入职成功！')}
-                >
-                  {career.eligible ? '入职' : career.lockReason || '未解锁'}
-                </Button>
-              )}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {panel.history.length > 0 && (
-        <>
-          <p className={styles.careBalance}>工作经历</p>
-          <p className={styles.careMeta}>
-            {panel.history
-              .map((item) => `${item.name}（${item.workCount} 次 / ✨${item.totalCurrency}）`)
-              .join(' · ')}
-          </p>
-        </>
-      )}
-    </div>
-  )
-}
-
-/** 家园面板（三期）：房间布置 + 家具商城 + 邻里拜访 + 家园设置 */
 function HomePanel({ onRefresh }: { onRefresh: () => void }) {
   const { message } = App.useApp()
   const [home, setHome] = useState<PetHome | null>(null)

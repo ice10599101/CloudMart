@@ -72,7 +72,7 @@ export default function WishBGM() {
                 storage.setItem(BGM_STORAGE_KEY, 'false')
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [status.error, playlist.length])
 
     // 开关/切歌后驱动播放器（replace 后需重新 play）

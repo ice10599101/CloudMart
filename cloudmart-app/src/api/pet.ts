@@ -546,7 +546,7 @@ export const petApi = {
   // ==================== N 系列：小游戏/托管/摘要/合作/图鉴（§8.3） ====================
   startMinigameRound: (petId: number | string) =>
     request<MinigameRoundVO>({ url: `/pet/pets/${petId}/minigames`, method: 'POST' }),
-  submitMinigameOps: (roundId: number | string, ops: Array<{ seq: number; windowIndex: number; slot: string }>) =>
+  submitMinigameOps: (roundId: number | string, ops: { seq: number; windowIndex: number; slot: string }[]) =>
     request<{ accepted: number; status: string }>({ url: `/pet/minigames/${roundId}/ops`, method: 'POST', data: { ops } }),
   settleMinigame: (roundId: number | string) =>
     request<{ status: string; successCount: number; rewardEligible: boolean; validCompletion: boolean; reward: Record<string, number> }>({ url: `/pet/minigames/${roundId}/settle`, method: 'POST' }),
@@ -566,9 +566,9 @@ export const petApi = {
     request<void>({ url: `/pet/cooperation/${cooperationId}/leave`, method: 'POST' }),
   claimCooperationReward: (cooperationId: number | string) =>
     request<{ reward: { type: string; itemCode?: string; amount?: number }; duplicate?: boolean }>({ url: `/pet/cooperation/${cooperationId}/claim`, method: 'POST' }),
-  listCooperations: () => request<Array<Record<string, unknown>>>({ url: '/pet/cooperation' }),
+  listCooperations: () => request<Record<string, unknown>[]>({ url: '/pet/cooperation' }),
   getCollection: (category?: string, page = 1, size = 20) =>
-    request<Array<Record<string, unknown>>>({ url: '/pet/collection', params: { category, page, size } }),
+    request<Record<string, unknown>[]>({ url: '/pet/collection', params: { category, page, size } }),
   getCollectionStats: () => request<Record<string, number>>({ url: '/pet/collection/stats' }),
 
   /** 本人宠物币余额（懒创建期初 0；FROZEN 仍可读） */
@@ -703,7 +703,7 @@ export interface MinigameRoundVO {
   rewardEligible: boolean
   deadlineAt: string
   ruleVersion: string
-  sequence: Array<'LEFT' | 'CENTER' | 'RIGHT'>
+  sequence: ('LEFT' | 'CENTER' | 'RIGHT')[]
 }
 
 /** 宠物币钱包视图（契约 §8.1：ID/余额为字符串） */
@@ -756,7 +756,7 @@ export interface PetIntimacyInfo {
   dailyCompanionCapSeconds: number
   companionDays: number
   companionStreak: number
-  levels: Array<{ level: number; name: string; threshold: number; achieved: boolean }>
+  levels: { level: number; name: string; threshold: number; achieved: boolean }[]
 }
 
 /** 职业项 */
@@ -801,14 +801,14 @@ export interface PetCareerPanel {
   promoteStarCost: number
   promoteLockReason: string | null
   careers: PetCareerItem[]
-  history: Array<{
+  history: {
     code: string
     name: string
     workCount: number
     totalCurrency: number
     startedAt: string
     promotedAt: string
-  }>
+  }[]
 }
 
 /** 每日任务项 */
@@ -870,7 +870,7 @@ export interface PetRelationPanel {
   incoming: PetRelationItem[]
   outgoing: PetRelationItem[]
   candidates: PetRelationItem[]
-  limits: Array<{ relType: string; label: string; max: number; current: number; exclusive: boolean }>
+  limits: { relType: string; label: string; max: number; current: number; exclusive: boolean }[]
 }
 
 /** 家园家具项 */

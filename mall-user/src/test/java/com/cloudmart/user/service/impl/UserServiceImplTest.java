@@ -11,6 +11,7 @@ import com.cloudmart.user.entity.User;
 import com.cloudmart.user.feign.AuthStateFeignClient;
 import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
+import com.cloudmart.user.service.RegisterCodeService;
 import com.cloudmart.user.vo.UserVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,6 +42,7 @@ class UserServiceImplTest {
     private PasswordEncoder passwordEncoder;
     private CommunityFeignClient communityFeignClient;
     private AuthStateFeignClient authStateFeignClient;
+    private RegisterCodeService registerCodeService;
     private UserServiceImpl userService;
 
     @BeforeAll
@@ -59,8 +62,9 @@ class UserServiceImplTest {
         passwordEncoder = mock(PasswordEncoder.class);
         communityFeignClient = mock(CommunityFeignClient.class);
         authStateFeignClient = mock(AuthStateFeignClient.class);
+        registerCodeService = mock(RegisterCodeService.class);
         userService = new UserServiceImpl(userMapper, userConverter, passwordEncoder, communityFeignClient,
-                authStateFeignClient);
+                authStateFeignClient, registerCodeService);
     }
 
     private User buildActiveUser() {
@@ -82,7 +86,7 @@ class UserServiceImplTest {
         @Test
         @DisplayName("email not exists -> creates user and returns UserVO")
         void register_WhenEmailNotExists_ShouldCreateUser() {
-            RegisterRequest request = new RegisterRequest("password123", "test@example.com", "Tester");
+            RegisterRequest request = new RegisterRequest("password123", "test@example.com", "Tester", "123456");
 
             when(userMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(userMapper.selectMaxXiaoDaHao()).thenReturn(10000L);
@@ -96,12 +100,29 @@ class UserServiceImplTest {
             assertThat(result).isEqualTo(expected);
             verify(userMapper).insert(any(User.class));
             verify(passwordEncoder).encode("password123");
+            verify(registerCodeService).verifyAndConsume("test@example.com", "123456");
+        }
+
+        @Test
+        @DisplayName("code invalid -> throws USER_REGISTER_CODE_INVALID and no insert")
+        void register_WhenCodeInvalid_ShouldThrowBusinessException() {
+            RegisterRequest request = new RegisterRequest("password123", "test@example.com", "Tester", "000000");
+
+            when(userMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+            doThrow(new BusinessException("USER_REGISTER_CODE_INVALID", "验证码无效或已过期"))
+                    .when(registerCodeService).verifyAndConsume(anyString(), anyString());
+
+            assertThatThrownBy(() -> userService.register(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("USER_REGISTER_CODE_INVALID"));
+            verify(userMapper, never()).insert(any(User.class));
         }
 
         @Test
         @DisplayName("email exists -> throws EMAIL_DUPLICATE")
         void register_WhenEmailExists_ShouldThrowBusinessException() {
-            RegisterRequest request = new RegisterRequest("password123", "dup@example.com", "Dup");
+            RegisterRequest request = new RegisterRequest("password123", "dup@example.com", "Dup", "123456");
 
             when(userMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
 
@@ -113,7 +134,7 @@ class UserServiceImplTest {
         @Test
         @DisplayName("nickname exists -> throws NICKNAME_DUPLICATE")
         void register_WhenNicknameExists_ShouldThrowBusinessException() {
-            RegisterRequest request = new RegisterRequest("password123", "new@example.com", "DupNick");
+            RegisterRequest request = new RegisterRequest("password123", "new@example.com", "DupNick", "123456");
 
             when(userMapper.selectCount(any(LambdaQueryWrapper.class)))
                     .thenReturn(0L)

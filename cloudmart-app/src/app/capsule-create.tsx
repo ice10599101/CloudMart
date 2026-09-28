@@ -110,7 +110,7 @@ export default function CapsuleCreateScreen() {
 
         setUploads((prev) => [...prev, ...items])
         items.forEach((item) => uploadItem(item.key, item.base64))
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [uploads.length])
 
     const retryUpload = (item: UploadItem) => {
@@ -153,7 +153,7 @@ export default function CapsuleCreateScreen() {
         return () => {
             cancelled = true
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [prefillWishId])
 
     const resolveOpenAt = (): { openAt: string; error: string | null } => {

@@ -108,6 +108,13 @@ management:
 # X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
 # 裸 X-Internal-Call 头不再构成任何信任凭证。
 cloudmart:
+  # 注册邮箱验证码：SMTP 通道（mall-common 平台组件，未配置则发码如实 sent=false）
+  mail:
+    host: ${CLOUDMART_MAIL_HOST:}
+    port: ${CLOUDMART_MAIL_PORT:465}
+    username: ${CLOUDMART_MAIL_USERNAME:}
+    password: ${CLOUDMART_MAIL_PASSWORD:}
+    from: ${CLOUDMART_MAIL_FROM:}
   security:
     service-id: mall-user
     service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}
@@ -124,3 +131,8 @@ cloudmart:
     outbound-scopes:
       mall-auth: admin:auth
       mall-community: community:internal
+
+# 注册发码：echo-code 仅供无邮件通道的开发/测试环境回显验证码，生产必须关闭
+user:
+  register:
+    echo-code: ${USER_REGISTER_ECHO_CODE:false}

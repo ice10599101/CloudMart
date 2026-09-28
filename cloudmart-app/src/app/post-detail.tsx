@@ -223,7 +223,7 @@ export default function PostDetailScreen() {
 
   const handleCommentPress = (comment: CommentData) => {
     const isMine = comment.user?.id === user?.id
-    const buttons: Array<{ text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }> = [
+    const buttons: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[] = [
       { text: '取消', style: 'cancel' },
       { text: '回复', onPress: () => setReplyTo(comment) },
     ]
@@ -296,7 +296,7 @@ export default function PostDetailScreen() {
 
   const handleMoreActions = () => {
     const isMine = post?.user?.id === user?.id
-    const buttons: Array<{ text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }> = [
+    const buttons: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[] = [
       { text: '取消', style: 'cancel' },
       { text: '分享', onPress: handleShare },
       { text: '举报', style: 'destructive', onPress: handleReport },

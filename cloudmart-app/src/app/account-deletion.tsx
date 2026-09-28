@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+
+/** 发码 60 秒冷却（与服务端每用户冷却一致，仅 UI 层提示） */
+const SEND_CODE_COOLDOWN_SECONDS = 60
 
 /**
  * 账号注销（合规 34.2 / API 2.13，四AB A1 APP 端）：
@@ -19,6 +22,7 @@ export default function AccountDeletionScreen() {
   const [codeSent, setCodeSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -26,14 +30,26 @@ export default function AccountDeletionScreen() {
     }
   }, [isLoggedIn])
 
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown])
+
   const handleSend = async () => {
     setBusy(true)
     try {
       const res = await wishApi.sendDeletionCode()
       if (res.data?.success) {
-        setCodeSent(true)
-        const devCode = res.data.data?.devCode
-        alert(devCode ? `验证码已发送（开发回显：${devCode}）` : '验证码已发送，请查收短信/邮件')
+        // 后端不假成功：sent=false（频控/通道未配置/发送失败）时如实提示，不进入已发码态
+        const result = res.data.data
+        if (result?.sent) {
+          setCodeSent(true)
+          setCountdown(SEND_CODE_COOLDOWN_SECONDS)
+          alert(result.devCode ? `验证码已发送（开发回显：${result.devCode}）` : '验证码已发送，请查收短信/邮件')
+        } else {
+          alert(result?.message || '验证码发送失败，请稍后重试')
+        }
       }
     } catch (err) {
       const errNode = err as { response?: { data?: { error?: { message?: string } } } }
@@ -130,7 +146,7 @@ export default function AccountDeletionScreen() {
           <View>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={busy || codeSent}
+              disabled={busy || countdown > 0}
               onPress={handleSend}
               style={{
                 paddingVertical: Spacing.md,
@@ -141,7 +157,11 @@ export default function AccountDeletionScreen() {
               }}
             >
               <Text style={{ fontSize: FontSize.sm, color: WishColors.accentCyan }}>
-                {codeSent ? '验证码已发送（5 分钟有效）' : '1. 发送注销验证码'}
+                {countdown > 0
+                  ? `${countdown}s 后重发`
+                  : codeSent
+                    ? '重新发送注销验证码（5 分钟有效）'
+                    : '1. 发送注销验证码'}
               </Text>
             </TouchableOpacity>
             <TextInput

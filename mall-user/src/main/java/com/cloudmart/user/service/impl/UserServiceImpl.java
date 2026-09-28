@@ -10,6 +10,7 @@ import com.cloudmart.user.entity.User;
 import com.cloudmart.user.feign.AuthStateFeignClient;
 import com.cloudmart.user.feign.CommunityFeignClient;
 import com.cloudmart.user.repository.UserMapper;
+import com.cloudmart.user.service.RegisterCodeService;
 import com.cloudmart.user.service.UserService;
 import com.cloudmart.user.vo.UserVO;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
@@ -34,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final CommunityFeignClient communityFeignClient;
     private final AuthStateFeignClient authStateFeignClient;
+    private final RegisterCodeService registerCodeService;
 
     private static final long NICKNAME_COOLDOWN_DAYS = 7;
 
@@ -41,8 +43,10 @@ public class UserServiceImpl implements UserService {
     @SentinelResource(value = "register", fallback = "registerFallback")
     @Transactional
     public UserVO register(RegisterRequest request) {
+        // 唯一性先行（无副作用，失败不消耗验证码），验证码最后校验并消费
         checkEmailUniqueness(request.email());
         checkNicknameUniqueness(request.nickname());
+        registerCodeService.verifyAndConsume(request.email(), request.code());
 
         User user = new User();
         user.setUsername(generateXiaoDaHao());

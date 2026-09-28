@@ -39,12 +39,14 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
 
     private static final long GRACE_DAYS = 30;
     private static final Duration CODE_TTL = Duration.ofMinutes(5);
+    private static final Duration SEND_COOLDOWN = Duration.ofSeconds(60);
     private static final String CODE_KEY_PREFIX = "wish:account-deletion:code:";
+    private static final String SEND_COOLDOWN_KEY_PREFIX = "wish:account-deletion:code:cooldown:";
 
     private final WishAccountDeletionMapper deletionMapper;
     private final WishMapper wishMapper;
     private final StringRedisTemplate redisTemplate;
-    private final MailVerificationSender mailSender;
+    private final com.cloudmart.common.mail.MailVerificationSender mailSender;
     private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
 
     @Value("${wish.account-deletion.echo-code:false}")
@@ -63,9 +65,14 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
         if (existing != null && "EXECUTED".equals(existing.getStatus())) {
             throw new BusinessException(WishErrorCodes.WISH_DELETION_EXECUTED, "账号已注销");
         }
+        // 每用户 60s 冷却防邮件轰炸（与注册发码频控对称；用户只能轰炸自己的绑定邮箱）
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(SEND_COOLDOWN_KEY_PREFIX + userId))) {
+            return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(false, null,
+                    "验证码发送过于频繁，请 1 分钟后再试");
+        }
         final String code = String.format("%06d", secureRandom.nextInt(1_000_000));
 
-        // B20：验证码经邮件通道下发（SMTP 配置 wish.mail.*；echo-code 仅开发/测试回显）
+        // B20：验证码经邮件通道下发（SMTP 配置 cloudmart.mail.*；echo-code 仅开发/测试回显）
         if (echoCode) {
             redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
             log.warn("注销验证码回显模式（仅开发/测试）userId={}", userId);
@@ -93,7 +100,10 @@ public class AccountDeletionServiceImpl implements AccountDeletionService {
         }
 
         redisTemplate.opsForValue().set(CODE_KEY_PREFIX + userId, sha256(code), CODE_TTL);
-        boolean sent = mailSender.sendVerificationCode(email, code, 5);
+        redisTemplate.opsForValue().set(SEND_COOLDOWN_KEY_PREFIX + userId, "1", SEND_COOLDOWN);
+        boolean sent = mailSender.send(email, "账号注销验证码",
+                "您正在申请注销账号。\n\n验证码：" + code
+                        + "\n有效期：" + CODE_TTL.toMinutes() + " 分钟\n\n如果这不是您本人的操作，请忽略本邮件。");
         if (sent) {
             log.info("注销验证码邮件已发送 userId={}", userId);
             return new com.cloudmart.wish.service.AccountDeletionService.SendCodeResult(true, null, null);

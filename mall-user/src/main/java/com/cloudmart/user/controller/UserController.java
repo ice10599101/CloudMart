@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.dto.*;
+import com.cloudmart.user.service.RegisterCodeService;
 import com.cloudmart.user.service.UserService;
 import com.cloudmart.user.vo.UserVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -24,12 +26,29 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final RegisterCodeService registerCodeService;
 
     @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "注册新用户，小答号自动生成，邮箱和昵称需唯一")
+    @Operation(summary = "用户注册", description = "注册新用户，需先经 /users/register/code 获取邮箱验证码；"
+            + "小答号自动生成，邮箱和昵称需唯一；"
+            + "errors: 400 USER_REGISTER_CODE_INVALID / 409 EMAIL_DUPLICATE / NICKNAME_DUPLICATE")
     public ApiResponse<UserVO> register(
             @Parameter(description = "注册请求体") @Valid @RequestBody RegisterRequest request) {
         return ApiResponse.ok(userService.register(request));
+    }
+
+    @PostMapping("/register/code")
+    @Operation(summary = "发送注册验证码", description = "6 位数字，Redis 存哈希 5 分钟有效，"
+            + "每邮箱 60 秒冷却 + 每小时 5 次上限；邮件通道未配置时返回 sent=false 及原因，不假成功；"
+            + "errors: 409 EMAIL_DUPLICATE / 429 USER_REGISTER_CODE_FREQUENT")
+    public ApiResponse<Map<String, Object>> sendRegisterCode(
+            @Parameter(description = "发码请求体") @Valid @RequestBody RegisterCodeRequest request) {
+        final RegisterCodeService.SendCodeResult result = registerCodeService.sendCode(request.email());
+        return ApiResponse.ok(Map.of(
+                "sent", result.sent(),
+                "expiresInSeconds", result.sent() ? 300 : 0,
+                "devCode", result.echoCode() == null ? "" : result.echoCode(),
+                "message", result.message() == null ? "" : result.message()));
     }
 
     @PostMapping("/validate")

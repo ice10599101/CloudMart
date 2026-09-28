@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Empty, Select, Space, Tag, message as antdMessage } from 'antd'
 import type { PetInfo } from '@/api/pet'
 import type { PetFriendItem } from '@/api/pet'
@@ -22,7 +22,6 @@ import {
 } from '@/api/pet'
 import styles from './PetPlayPanel.module.css'
 
-const WINDOW_SECONDS = 3
 const CATCH_WINDOWS = 10
 const SLOT_LABEL: Record<string, string> = { LEFT: '← 左', CENTER: '● 中', RIGHT: '右 →' }
 
@@ -35,37 +34,6 @@ const PLAY_TABS: Array<{ key: PlayTab; label: string; emoji: string }> = [
   { key: 'coop', label: '好友合作', emoji: '🤝' },
   { key: 'collection', label: '图鉴', emoji: '📖' },
 ]
-
-interface PetPlayPanelProps {
-  pet: PetInfo
-}
-
-/**
- * 玩法面板（N 系列 / §7.4-§7.7）：接球小游戏、有限托管、离线摘要、好友合作、收藏图鉴。
- *
- * 与其它面板同约定：规则/时窗/奖励全部服务端权威（§7.4 不信客户端分数）；
- * 摘要确认只推进展示上界 throughAt（BE-10）；合作领取按 claim 唯一事实幂等（BE-01）。
- */
-export default function PetPlayPanel({ pet }: PetPlayPanelProps) {
-  const [tab, setTab] = useState<PlayTab>('minigame')
-
-  return (
-    <div className={styles.panel}>
-      <Select
-        size="small"
-        style={{ width: 200 }}
-        value={tab}
-        onChange={(v) => setTab(v as PlayTab)}
-        options={PLAY_TABS.map((t) => ({ value: t.key, label: `${t.emoji} ${t.label}` }))}
-      />
-      {tab === 'minigame' && <MinigameTab pet={pet} />}
-      {tab === 'custody' && <CustodyTab />}
-      {tab === 'digest' && <DigestTab />}
-      {tab === 'coop' && <CoopTab />}
-      {tab === 'collection' && <CollectionTab />}
-    </div>
-  )
-}
 
 // ---------------- N04 接球小游戏 ----------------
 
@@ -97,6 +65,22 @@ function MinigameTab({ pet }: { pet: PetInfo }) {
       if (timerRef.current) {
         window.clearInterval(timerRef.current)
       }
+    }
+  }, [round])
+
+  const doSettle = useCallback(async () => {
+    if (!round) {
+      return
+    }
+    setBusy(true)
+    try {
+      const { data: res } = await settleMinigame(round.roundId)
+      if (res.success && res.data && res.data.status === 'SETTLED') {
+        setResult({ valid: res.data.validCompletion, reward: res.data.reward })
+        setRound(null)
+      }
+    } finally {
+      setBusy(false)
     }
   }, [round])
 
@@ -155,22 +139,6 @@ function MinigameTab({ pet }: { pet: PetInfo }) {
     },
     [round],
   )
-
-  const doSettle = useCallback(async () => {
-    if (!round) {
-      return
-    }
-    setBusy(true)
-    try {
-      const { data: res } = await settleMinigame(round.roundId)
-      if (res.success && res.data && res.data.status === 'SETTLED') {
-        setResult({ valid: res.data.validCompletion, reward: res.data.reward })
-        setRound(null)
-      }
-    } finally {
-      setBusy(false)
-    }
-  }, [round])
 
   const currentWindow = round ? (round.submitted.size > 0 ? Math.max(...round.submitted) : 0) + 1 : 0
   const slotOf = (idx: number): 'LEFT' | 'CENTER' | 'RIGHT' | undefined => round?.sequence[idx - 1]
@@ -399,6 +367,23 @@ interface CoopRow {
   status: string
 }
 
+function useMyUserId(): string | null {
+  // 与请求层同源：登录态由 auth store 维护；这里从 localStorage 读取解析（JWT sub）
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+        setUserId(String(payload.sub))
+      }
+    } catch {
+      setUserId(null)
+    }
+  }, [])
+  return userId
+}
+
 function CoopTab() {
   const [coops, setCoops] = useState<CoopRow[]>([])
   const [friends, setFriends] = useState<PetFriendItem[]>([])
@@ -489,7 +474,7 @@ function CoopTab() {
         <Empty description="还没有合作记录" />
       ) : (
         coops.map((coop) => {
-          const isInviter = myUserId != null && coop.inviterUserId === myUserId
+          const isInviter = myUserId !== null && coop.inviterUserId === myUserId
           const canAccept = coop.status === 'INVITED' && !isInviter
           const canLeave = (coop.status === 'INVITED' || coop.status === 'ACTIVE')
           const canClaim = coop.status === 'COMPLETED'
@@ -526,23 +511,6 @@ function CoopTab() {
       )}
     </div>
   )
-}
-
-function useMyUserId(): string | null {
-  // 与请求层同源：登录态由 auth store 维护；这里从 localStorage 读取解析（JWT sub）
-  const [userId, setUserId] = useState<string | null>(null)
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem('access_token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        setUserId(String(payload.sub))
-      }
-    } catch {
-      setUserId(null)
-    }
-  }, [])
-  return userId
 }
 
 // ---------------- N07 收藏图鉴 ----------------
@@ -609,6 +577,37 @@ function CollectionTab() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+interface PetPlayPanelProps {
+  pet: PetInfo
+}
+
+/**
+ * 玩法面板（N 系列 / §7.4-§7.7）：接球小游戏、有限托管、离线摘要、好友合作、收藏图鉴。
+ *
+ * 与其它面板同约定：规则/时窗/奖励全部服务端权威（§7.4 不信客户端分数）；
+ * 摘要确认只推进展示上界 throughAt（BE-10）；合作领取按 claim 唯一事实幂等（BE-01）。
+ */
+export default function PetPlayPanel({ pet }: PetPlayPanelProps) {
+  const [tab, setTab] = useState<PlayTab>('minigame')
+
+  return (
+    <div className={styles.panel}>
+      <Select
+        size="small"
+        style={{ width: 200 }}
+        value={tab}
+        onChange={(v) => setTab(v as PlayTab)}
+        options={PLAY_TABS.map((t) => ({ value: t.key, label: `${t.emoji} ${t.label}` }))}
+      />
+      {tab === 'minigame' && <MinigameTab pet={pet} />}
+      {tab === 'custody' && <CustodyTab />}
+      {tab === 'digest' && <DigestTab />}
+      {tab === 'coop' && <CoopTab />}
+      {tab === 'collection' && <CollectionTab />}
     </div>
   )
 }

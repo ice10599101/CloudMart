@@ -28,6 +28,10 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     private static final String REFRESH_PATH = "/api/auth/refresh";
     private static final String ADMIN_AUTH_PATH_PREFIX = "/api/admin/auth/";
     private static final String SECKILL_PATH_PREFIX = "/api/seckill/";
+    /** 注册发码为匿名邮件下发接口：IP 维度限流防换邮箱轰炸（服务层另有每邮箱频控） */
+    private static final String REGISTER_CODE_PATH = "/api/user/users/register/code";
+    /** 注销发码为登录态邮件下发接口：用户维度限流（服务层另有每用户 60s 冷却） */
+    private static final String WISH_DELETION_CODE_PATH = "/api/wish/my/account-deletion/code";
 
     private static final int AUTH_CAPACITY = 10;
     private static final Duration AUTH_REFILL_PERIOD = Duration.ofMinutes(1);
@@ -38,6 +42,9 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private static final int SECKILL_CAPACITY = 20;
     private static final Duration SECKILL_REFILL_PERIOD = Duration.ofSeconds(1);
+
+    private static final int MAIL_CODE_CAPACITY = 5;
+    private static final Duration MAIL_CODE_REFILL_PERIOD = Duration.ofMinutes(1);
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
@@ -62,6 +69,26 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                 log.warn("Refresh rate limit exceeded for IP: {}", clientIp);
                 return writeRateLimitResponse(exchange, "RATE_LIMIT_EXCEEDED",
                         "登录状态刷新过于频繁，请稍后再试");
+            }
+        }
+
+        if (REGISTER_CODE_PATH.equals(path)) {
+            String clientIp = resolveClientIp(exchange);
+            Bucket bucket = buckets.computeIfAbsent("register-code:" + clientIp, key -> createMailCodeBucket());
+            if (!bucket.tryConsume(1)) {
+                log.warn("Register code rate limit exceeded for IP: {}", clientIp);
+                return writeRateLimitResponse(exchange, "RATE_LIMIT_EXCEEDED",
+                        "验证码发送过于频繁，请稍后再试");
+            }
+        }
+
+        if (WISH_DELETION_CODE_PATH.equals(path)) {
+            String userId = resolveUserId(exchange);
+            Bucket bucket = buckets.computeIfAbsent("wish-deletion-code:" + userId, key -> createMailCodeBucket());
+            if (!bucket.tryConsume(1)) {
+                log.warn("Wish deletion code rate limit exceeded for user: {}", userId);
+                return writeRateLimitResponse(exchange, "RATE_LIMIT_EXCEEDED",
+                        "验证码发送过于频繁，请稍后再试");
             }
         }
 
@@ -104,6 +131,14 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     private Bucket createSeckillBucket() {
         Bandwidth bandwidth = Bandwidth.classic(SECKILL_CAPACITY,
                 Refill.intervally(SECKILL_CAPACITY, SECKILL_REFILL_PERIOD));
+        return Bucket.builder()
+                .addLimit(bandwidth)
+                .build();
+    }
+
+    private Bucket createMailCodeBucket() {
+        Bandwidth bandwidth = Bandwidth.classic(MAIL_CODE_CAPACITY,
+                Refill.intervally(MAIL_CODE_CAPACITY, MAIL_CODE_REFILL_PERIOD));
         return Bucket.builder()
                 .addLimit(bandwidth)
                 .build();

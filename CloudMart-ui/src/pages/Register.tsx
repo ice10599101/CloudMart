@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ConfigProvider, theme, App, Form, Input, Button, Modal } from 'antd'
 import {
   LockOutlined,
@@ -10,7 +10,7 @@ import {
   CopyOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
-import { register } from '@/api/user'
+import { register, sendRegisterCode } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import AppMessageBinder from '@/components/AppMessageBinder'
 import { useMessage } from '@/utils/useMessage'
@@ -20,7 +20,11 @@ interface RegisterFormValues {
   confirmPassword: string
   email: string
   nickname: string
+  code: string
 }
+
+/** 发码 60 秒冷却（与服务端每邮箱冷却一致，仅 UI 层提示） */
+const SEND_CODE_COOLDOWN_SECONDS = 60
 
 const styles = {
   page: {
@@ -182,6 +186,44 @@ function RegisterContent() {
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm<RegisterFormValues>()
   const loginAction = useAuthStore((s) => s.login)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  // 已发码邮箱（小写）：邮箱改动后旧验证码失效，重置倒计时引导重发
+  const [sentEmail, setSentEmail] = useState('')
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown])
+
+  const handleSendCode = async () => {
+    try {
+      await form.validateFields(['email'])
+    } catch {
+      return
+    }
+    const email = (form.getFieldValue('email') as string).trim()
+    setSendingCode(true)
+    try {
+      const { data: response } = await sendRegisterCode(email)
+      const result = response.data
+      if (result.sent) {
+        setCountdown(SEND_CODE_COOLDOWN_SECONDS)
+        setSentEmail(email.toLowerCase())
+        messageApi.success(
+          result.devCode ? `验证码已发送（开发回显：${result.devCode}）` : '验证码已发送，请查收邮箱',
+        )
+      } else {
+        // 通道未配置/发送失败：后端不假成功，如实展示原因
+        messageApi.warning(result.message || '验证码发送失败，请稍后重试')
+      }
+    } catch {
+      // 拦截器已提示（邮箱已注册/触发频控等）
+    } finally {
+      setSendingCode(false)
+    }
+  }
 
   const handleSubmit = async (values: RegisterFormValues) => {
     setLoading(true)
@@ -190,6 +232,7 @@ function RegisterContent() {
         password: values.password,
         email: values.email,
         nickname: values.nickname,
+        code: values.code,
       })
       const { username, nickname } = response.data
 
@@ -236,7 +279,7 @@ function RegisterContent() {
         },
       })
     } catch {
-      messageApi.error('注册失败，请稍后重试')
+      // 具体错误（验证码无效/邮箱重复等）已由 request 拦截器统一提示
     } finally {
       setLoading(false)
     }
@@ -280,6 +323,13 @@ function RegisterContent() {
             name="register"
             onFinish={handleSubmit}
             autoComplete="off"
+            onValuesChange={(changed) => {
+              if (changed.email !== undefined
+                && changed.email.trim().toLowerCase() !== sentEmail
+                && countdown > 0) {
+                setCountdown(0)
+              }
+            }}
           >
             <Form.Item
               name="nickname"
@@ -308,6 +358,36 @@ function RegisterContent() {
                 prefix={<MailOutlined style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }} />}
                 placeholder="邮箱（必填，不可重复）"
                 style={styles.darkInput}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="code"
+              dependencies={['email']}
+              rules={[
+                { required: true, message: '请输入邮箱验证码' },
+                { pattern: /^\d{6}$/, message: '验证码为 6 位数字' },
+              ]}
+              style={styles.inputWrapper}
+            >
+              <Input
+                prefix={<SafetyCertificateOutlined style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }} />}
+                placeholder="邮箱验证码"
+                maxLength={6}
+                inputMode="numeric"
+                style={styles.darkInput}
+                suffix={
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={handleSendCode}
+                    loading={sendingCode}
+                    disabled={countdown > 0}
+                    style={{ padding: '0 4px' }}
+                  >
+                    {countdown > 0 ? `${countdown}s 后重发` : '发送验证码'}
+                  </Button>
+                }
               />
             </Form.Item>
 

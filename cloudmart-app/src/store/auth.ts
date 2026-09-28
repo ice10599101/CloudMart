@@ -9,7 +9,8 @@ interface AuthState {
   user: User | null
   isLoggedIn: boolean
   login: (account: string, password: string) => Promise<void>
-  register: (nickname: string, email: string, password: string) => Promise<string | undefined>
+  sendRegisterCode: (email: string) => Promise<{ sent: boolean; devCode?: string; message?: string }>
+  register: (nickname: string, email: string, password: string, code: string) => Promise<string | undefined>
   logout: () => Promise<void>
   fetchUser: () => Promise<void>
   updateUser: (user: Partial<User>) => void
@@ -35,8 +36,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (nickname, email, password) => {
-    const res = await authApi.register({ nickname, email, password })
+  sendRegisterCode: async (email) => {
+    const res = await authApi.sendRegisterCode(email)
+    // sent=false 为后端如实回传（通道未配置/发送失败），交由页面用 message 提示
+    return res.data.data
+  },
+
+  register: async (nickname, email, password, code) => {
+    const res = await authApi.register({ nickname, email, password, code })
     // 返回专属小答号（对齐 Web 端注册成功展示）
     return (res.data as { data?: { username?: string } })?.data?.username
   },

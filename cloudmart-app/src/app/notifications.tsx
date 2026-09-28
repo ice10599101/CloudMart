@@ -142,7 +142,7 @@ function NotificationItem({
                 { action: 'EXTEND', label: '延长预期' },
                 { action: 'ADJUST', label: '调整目标' },
                 { action: 'TO_CAPSULE', label: '转入胶囊' },
-              ] as Array<{ action: ExpectedActionType; label: string }>
+              ] as { action: ExpectedActionType; label: string }[]
             ).map(({ action, label }) => (
               <TouchableOpacity
                 key={action}

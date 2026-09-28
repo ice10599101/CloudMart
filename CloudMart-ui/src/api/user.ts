@@ -6,6 +6,7 @@ export interface RegisterData {
   password: string
   email: string
   nickname: string
+  code: string
 }
 
 export interface RegisterResult {
@@ -13,6 +14,16 @@ export interface RegisterResult {
   username: string
   nickname: string
   email: string
+}
+
+/** 注册验证码发送结果（与注销发码响应结构一致） */
+export interface RegisterCodeResult {
+  /** 验证码是否真实下发（通道未配置/发送失败时为 false，message 带原因） */
+  sent: boolean
+  expiresInSeconds: number
+  /** 开发/测试回显模式的验证码，生产为空串 */
+  devCode: string
+  message: string
 }
 
 export interface UserProfile {
@@ -35,6 +46,11 @@ export interface UserProfile {
 
 export function register(data: RegisterData) {
   return request.post<ApiResponse<RegisterResult>>('/user/users/register', data)
+}
+
+/** 发送注册验证码（匿名可调用；sent=false 时用 message 向用户如实提示） */
+export function sendRegisterCode(email: string) {
+  return request.post<ApiResponse<RegisterCodeResult>>('/user/users/register/code', { email })
 }
 
 export function getUserProfile() {

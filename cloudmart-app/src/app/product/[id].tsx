@@ -25,7 +25,7 @@ function parseSkuAttributes(attributes: string): Record<string, string> | null {
 }
 
 /** SKU 规格组：{ 颜色: ['红','蓝'], 尺码: ['M','L'] } */
-function buildSpecGroups(skus: Sku[]): Array<{ name: string; values: string[] }> {
+function buildSpecGroups(skus: Sku[]): { name: string; values: string[] }[] {
   const groups = new Map<string, Set<string>>()
   for (const sku of skus) {
     const attrs = parseSkuAttributes(sku.attributes)

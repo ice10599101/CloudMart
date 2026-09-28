@@ -176,7 +176,6 @@
   background: linear-gradient(170deg, #fffcf7, #fff6ec);
   border-radius: 22px;
   border: 2px solid rgba(255, 255, 255, 78%);
-  box-shadow: 0 12px 26px rgba(96, 62, 84, 12%), inset 0 2px 0 rgba(255, 255, 255, 85%);
   padding: 40px 24px;
   text-align: center;
   box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 6%));

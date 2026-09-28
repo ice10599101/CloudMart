@@ -1605,7 +1605,7 @@ export interface AccountDeletionStatus {
 }
 
 export function sendDeletionCode() {
-  return request.post<ApiResponse<{ sent: boolean; expiresInSeconds: number; devCode?: string }>>(
+  return request.post<ApiResponse<{ sent: boolean; expiresInSeconds: number; devCode?: string; message?: string }>>(
     '/wish/my/account-deletion/code')
 }
 

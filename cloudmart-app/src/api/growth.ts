@@ -12,7 +12,7 @@ import type {
 
 export const growthApi = {
   /** 批量查询用户头像装饰（公开接口：头像框/等级/徽章数；契约对齐 Web 端） */
-  getUserDecorations: (ids: Array<number | string>) =>
+  getUserDecorations: (ids: (number | string)[]) =>
     request<Record<string, { userId: number; level: number; levelTitle: string; levelIcon: string; avatarFrame: string; badgeCount: number; avatar?: string | null }>>({
       url: `/community/growth/decorations?ids=${ids.map(String).join(',')}`,
     }),

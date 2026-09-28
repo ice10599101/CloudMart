@@ -32,8 +32,8 @@ export default function UserProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes' | 'comments'>('posts')
   const [posts, setPosts] = useState<any[]>([])
   const [collections, setCollections] = useState<any[]>([])
-  const [wishes, setWishes] = useState<Array<{ wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }>>([])
-  const [userComments, setUserComments] = useState<Array<{ id: number; postId?: number; content: string; createdAt: string }>>([])
+  const [wishes, setWishes] = useState<{ wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }[]>([])
+  const [userComments, setUserComments] = useState<{ id: number; postId?: number; content: string; createdAt: string }[]>([])
   const [loading, setLoading] = useState(false)
 
   const isOwnProfile = String(currentUser?.id ?? '') === userId
@@ -94,7 +94,7 @@ export default function UserProfileScreen() {
     if (!userId) return
     try {
       const res = await wishApi.listWishes({ userId: Number(userId), pageSize: 30 })
-      setWishes((res.data as { data?: Array<{ wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }> })?.data ?? [])
+      setWishes((res.data as { data?: { wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }[] })?.data ?? [])
     } catch {
       setWishes([])
     }
@@ -105,7 +105,7 @@ export default function UserProfileScreen() {
     if (!userId) return
     try {
       const res = await communityApi.getUserComments(userId, { page: 1, pageSize: 20 })
-      setUserComments((res.data as { data?: { list?: Array<{ id: number; postId?: number; content: string; createdAt: string }> } })?.data?.list ?? [])
+      setUserComments((res.data as { data?: { list?: { id: number; postId?: number; content: string; createdAt: string }[] } })?.data?.list ?? [])
     } catch {
       setUserComments([])
     }

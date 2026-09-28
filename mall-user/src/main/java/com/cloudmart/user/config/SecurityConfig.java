@@ -43,7 +43,7 @@ public class SecurityConfig {
             .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/error", "/users/register", "/users/validate").permitAll()
+                .requestMatchers("/error", "/users/register", "/users/register/code", "/users/validate").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/batch").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
                 .requestMatchers("/actuator/**").permitAll()

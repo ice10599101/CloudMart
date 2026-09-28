@@ -31,7 +31,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   SYSTEM: '系统公告',
 }
 
-type Matrix = { preferences: Array<{ type: NotificationType; channels: Record<NotificationChannel, boolean> }> }
+type Matrix = { preferences: { type: NotificationType; channels: Record<NotificationChannel, boolean> }[] }
 
 /**
  * 通知偏好（Sprint 2.5，四AB B11 APP 端）：

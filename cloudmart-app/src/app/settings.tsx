@@ -138,10 +138,6 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
   const loadSettings = async () => {
     try {
       const res = await communityApi.getSettings()
@@ -169,6 +165,10 @@ export default function SettingsPage() {
       // Use defaults
     }
   }
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
 
   /** 资料可见范围变更（即时保存，失败回滚，对齐 Web 端） */
   const handleVisibilityChange = async (key: string, value: string) => {

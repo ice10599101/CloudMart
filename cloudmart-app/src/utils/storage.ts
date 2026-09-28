@@ -11,10 +11,10 @@ const webStorage = {
   removeItem: async (key: string): Promise<void> => {
     localStorage.removeItem(key)
   },
-  multiGet: async (keys: string[]): Promise<Array<[string, string | null]>> => {
+  multiGet: async (keys: string[]): Promise<[string, string | null][]> => {
     return keys.map((key) => [key, localStorage.getItem(key)] as [string, string | null])
   },
-  multiSet: async (pairs: Array<[string, string]>): Promise<void> => {
+  multiSet: async (pairs: [string, string][]): Promise<void> => {
     pairs.forEach(([key, value]) => localStorage.setItem(key, value))
   },
   multiRemove: async (keys: string[]): Promise<void> => {
@@ -38,10 +38,10 @@ async function getNativeStorage() {
     removeItem: async (key: string): Promise<void> => {
       await SecureStore.deleteItemAsync(key)
     },
-    multiGet: async (keys: string[]): Promise<Array<[string, string | null]>> => {
+    multiGet: async (keys: string[]): Promise<[string, string | null][]> => {
       return Promise.all(keys.map(async (key) => [key, await SecureStore.getItemAsync(key).catch(() => null)] as [string, string | null]))
     },
-    multiSet: async (pairs: Array<[string, string]>): Promise<void> => {
+    multiSet: async (pairs: [string, string][]): Promise<void> => {
       await Promise.all(pairs.map(([key, value]) => SecureStore.setItemAsync(key, value)))
     },
     multiRemove: async (keys: string[]): Promise<void> => {
@@ -73,11 +73,11 @@ export const storage = {
     const s = await getStorage()
     return s.removeItem(key)
   },
-  multiGet: async (keys: string[]): Promise<Array<[string, string | null]>> => {
+  multiGet: async (keys: string[]): Promise<[string, string | null][]> => {
     const s = await getStorage()
     return s.multiGet(keys)
   },
-  multiSet: async (pairs: Array<[string, string]>): Promise<void> => {
+  multiSet: async (pairs: [string, string][]): Promise<void> => {
     const s = await getStorage()
     return s.multiSet(pairs)
   },

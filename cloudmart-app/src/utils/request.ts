@@ -42,7 +42,7 @@ const client = axios.create({
 })
 
 let isRefreshing = false
-let pendingRequests: Array<(token: string) => void> = []
+let pendingRequests: ((token: string) => void)[] = []
 
 // ==================== W03/FE-03：持久化幂等意图键 ====================
 // §8.5.2：同一意图（方法+路径+载荷+账号）的键持久化；网络重试/刷新/重启复用原键，

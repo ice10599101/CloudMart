@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Animated, Easing, Modal, Pressable, Text, View } from 'react-native'
-import { Vibration } from 'react-native'
+import { Animated, Easing, Modal, Pressable, Text, View , Vibration } from 'react-native'
 import type { LevelUpEvent } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'

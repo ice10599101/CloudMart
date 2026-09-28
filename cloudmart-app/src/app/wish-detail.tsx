@@ -44,7 +44,7 @@ export default function WishDetailScreen() {
   const [growthOpen, setGrowthOpen] = useState(false)
   const [growthType, setGrowthType] = useState<'TEXT' | 'DIARY' | 'IMAGE'>('TEXT')
   // IMAGE 类型：本地上传列表（key/base64/url/status），复用发布页上传链路
-  const [growthUploads, setGrowthUploads] = useState<Array<{ key: string; base64: string; url?: string; status: 'uploading' | 'success' | 'error' }>>([])
+  const [growthUploads, setGrowthUploads] = useState<{ key: string; base64: string; url?: string; status: 'uploading' | 'success' | 'error' }[]>([])
   const [growthPicking, setGrowthPicking] = useState(false)
   const [growthContent, setGrowthContent] = useState('')
   const [growthDelta, setGrowthDelta] = useState('')

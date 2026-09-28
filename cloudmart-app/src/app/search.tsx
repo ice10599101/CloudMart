@@ -34,11 +34,6 @@ export default function SearchScreen() {
     inputRef.current?.focus()
   }, [])
 
-  useEffect(() => {
-    loadHotSearches()
-    loadSearchHistory()
-  }, [])
-
   const loadHotSearches = async () => {
     try {
       const res = await communityApi.getHotSearch()
@@ -66,6 +61,11 @@ export default function SearchScreen() {
       // no history available
     }
   }
+
+  useEffect(() => {
+    loadHotSearches()
+    loadSearchHistory()
+  }, [])
 
   const handleSearch = useCallback(async (text: string) => {
     const trimmed = text.trim()

@@ -385,7 +385,7 @@ export const wishApi = {
 
     // ---- 账号注销宽限期（合规 34.2，四AB A1）----
     sendDeletionCode: () =>
-        request<{ sent: boolean; expiresInSeconds: number; devCode?: string }>({
+        request<{ sent: boolean; expiresInSeconds: number; devCode?: string; message?: string }>({
             url: '/wish/my/account-deletion/code',
             method: 'POST',
         }),

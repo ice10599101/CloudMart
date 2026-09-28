@@ -7,7 +7,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import type { LeaderboardEntry, LeaderboardType } from '@/types'
 
-const BOARDS: Array<{ type: LeaderboardType; label: string; icon: string; hint: string }> = [
+const BOARDS: { type: LeaderboardType; label: string; icon: string; hint: string }[] = [
   { type: 'HOT', label: '热门榜', icon: '🔥', hint: '心愿点亮数' },
   { type: 'WARM', label: '温暖榜', icon: '🌤️', hint: '心愿祝福数' },
   { type: 'PERSISTENCE', label: '坚持榜', icon: '📅', hint: '累计打卡天数' },

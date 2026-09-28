@@ -40,21 +40,6 @@ const DIRECTION_TAG: Record<string, { color: string; label: string }> = {
   ADJUSTMENT: { color: 'purple', label: '调账' },
 }
 
-/** 宠物钱包管理（W04/§4.3-3/4/7）：账户查询/冻结、调账申请-审批、对账批次。 */
-export default function PetWalletAdmin() {
-  return (
-    <Card title="宠物币钱包管理" style={{ margin: 16 }}>
-      <Tabs
-        items={[
-          { key: 'accounts', label: '账户与流水', children: <AccountsTab /> },
-          { key: 'adjustments', label: '调账', children: <AdjustmentsTab /> },
-          { key: 'reconciliations', label: '对账', children: <ReconciliationsTab /> },
-        ]}
-      />
-    </Card>
-  )
-}
-
 // ---------------- 账户与流水 ----------------
 
 function AccountsTab() {
@@ -392,5 +377,20 @@ function ReconciliationsTab() {
         </Card>
       )}
     </Space>
+  )
+}
+
+/** 宠物钱包管理（W04/§4.3-3/4/7）：账户查询/冻结、调账申请-审批、对账批次。 */
+export default function PetWalletAdmin() {
+  return (
+    <Card title="宠物币钱包管理" style={{ margin: 16 }}>
+      <Tabs
+        items={[
+          { key: 'accounts', label: '账户与流水', children: <AccountsTab /> },
+          { key: 'adjustments', label: '调账', children: <AdjustmentsTab /> },
+          { key: 'reconciliations', label: '对账', children: <ReconciliationsTab /> },
+        ]}
+      />
+    </Card>
   )
 }

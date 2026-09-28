@@ -65,7 +65,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 const GROWTH_STAGE_LABEL: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' }
 const PET_COLORS = ['orange', 'white', 'black', 'gray', 'brown']
-const ACCESSORIES: Array<{ key: string; label: string }> = [
+const ACCESSORIES: { key: string; label: string }[] = [
   { key: 'none', label: '无' },
   { key: 'bell', label: '铃铛' },
   { key: 'bow', label: '领结' },
@@ -84,7 +84,7 @@ type PanelKey =
 /** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物 + 三期职业） */
 type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'career' | 'pets'
 
-const CARE_TABS: Array<{ key: CareTab; label: string }> = [
+const CARE_TABS: { key: CareTab; label: string }[] = [
   { key: 'shop', label: '🛒 商城' },
   { key: 'inventory', label: '🎒 背包' },
   { key: 'skills', label: '🌟 技能' },
@@ -118,7 +118,7 @@ const CARE_ERROR_HINT: Record<string, string> = {
   WISH_STARLIGHT_INSUFFICIENT: '星光不够啦，让宠物去打工赚点吧',
 }
 
-const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
+const PANELS: { key: PanelKey; label: string; emoji: string }[] = [
   { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'care', label: '养成', emoji: '🎒' },
   { key: 'daily', label: '任务', emoji: '✅' },
@@ -133,13 +133,13 @@ const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'reminders', label: '提醒', emoji: '🔔' },
 ]
 
-const RANKING_TABS: Array<{ key: PetRankingType; label: string }> = [
+const RANKING_TABS: { key: PetRankingType; label: string }[] = [
   { key: 'LEVEL', label: '等级榜' },
   { key: 'BATTLE_WIN', label: '胜场榜' },
   { key: 'BOTTLE', label: '捞瓶榜' },
 ]
 
-const SHARE_TYPES: Array<{ key: Parameters<typeof petApi.getShareCard>[0]; label: string }> = [
+const SHARE_TYPES: { key: Parameters<typeof petApi.getShareCard>[0]; label: string }[] = [
   { key: 'DAILY', label: '日常卡片' },
   { key: 'LEVEL_UP', label: '升级卡片' },
   { key: 'ACHIEVEMENT', label: '成就卡片' },
@@ -152,7 +152,7 @@ type HostToGame =
   | { source: 'pet-host'; type: 'init'; pet: Record<string, unknown> }
   | { source: 'pet-host'; type: 'petState'; pet: Record<string, unknown> }
   | { source: 'pet-host'; type: 'actionResult'; action: string; ok: boolean; message?: string }
-  | { source: 'pet-host'; type: 'battleRounds'; rounds: Array<Record<string, unknown>>; won: boolean }
+  | { source: 'pet-host'; type: 'battleRounds'; rounds: Record<string, unknown>[]; won: boolean }
   | { source: 'pet-host'; type: 'chatBubble'; content: string }
 
 interface BattleRound {
@@ -711,7 +711,7 @@ export default function PetScreen() {
     const myPetId = battle.role === 'ATTACKER' ? battle.attackerPetId : battle.defenderPetId
     const won = String(battle.winnerPetId) === String(myPetId)
     if (gameReady) {
-      postToGame({ source: 'pet-host', type: 'battleRounds', rounds: rounds as unknown as Array<Record<string, unknown>>, won })
+      postToGame({ source: 'pet-host', type: 'battleRounds', rounds: rounds as unknown as Record<string, unknown>[], won })
       return
     }
     setRoundIndex(0)
@@ -2084,7 +2084,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
           ['relation', '💞 关系'],
           ['friend', '🫂 好友'],
           ['wall', '📝 留言墙'],
-        ] as Array<[typeof tab, string]>).map(([key, label]) => (
+        ] as [typeof tab, string][]).map(([key, label]) => (
           <TouchableOpacity
             key={key}
             onPress={() => setTab(key)}
@@ -2447,7 +2447,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
           ['room', '🛋️ 布置'],
           ['shop', '🛒 家具'],
           ['visit', '🚪 拜访'],
-        ] as Array<[typeof tab, string]>).map(([key, label]) => (
+        ] as [typeof tab, string][]).map(([key, label]) => (
           <TouchableOpacity
             key={key}
             onPress={() => setTab(key)}

@@ -812,7 +812,7 @@ export interface AiGoal {
 export interface CreateAiGoalsPayload {
   sessionId: string
   wishId?: number
-  goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>
+  goals: Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>[]
 }
 
 export interface MyAiGoalsQuery {
@@ -863,10 +863,10 @@ export type NotificationType =
 
 /** 13 类通知 × 4 渠道开关；无记录项默认开启 */
 export interface NotificationPreferenceMatrix {
-  preferences: Array<{
+  preferences: {
     type: NotificationType
     channels: Record<NotificationChannel, boolean>
-  }>
+  }[]
 }
 
 export interface NotificationPreferenceUpdate {

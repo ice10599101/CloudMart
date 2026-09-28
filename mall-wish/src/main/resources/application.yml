@@ -178,13 +178,6 @@ wish:
     jwks-uri: ${WISH_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     # 令牌时钟偏移容忍
     clock-skew-seconds: 30
-  mail:
-    # B20 注销验证码邮件通道（SMTP；未配置则发码如实 sent=false）
-    host: ${WISH_MAIL_HOST:}
-    port: ${WISH_MAIL_PORT:465}
-    username: ${WISH_MAIL_USERNAME:}
-    password: ${WISH_MAIL_PASSWORD:}
-    from: ${WISH_MAIL_FROM:}
   ai:
     # 树洞单用户每日调用上限（文档 30.3：10 次/日）
     tree-hole-daily-limit: 10
@@ -245,3 +238,13 @@ wish:
       host: ${QWEATHER_HOST:https://devapi.qweather.com}
       # Redis 天气缓存 TTL（分钟，验收：5 分钟不重复请求）
       cache-ttl-minutes: 5
+
+# 平台级邮件验证码通道（mall-common 泛化组件，注销发码经此下发；
+# 部署优先注入 CLOUDMART_MAIL_*，兼容历史 WISH_MAIL_* 环境变量）
+cloudmart:
+  mail:
+    host: ${CLOUDMART_MAIL_HOST:${WISH_MAIL_HOST:}}
+    port: ${CLOUDMART_MAIL_PORT:${WISH_MAIL_PORT:465}}
+    username: ${CLOUDMART_MAIL_USERNAME:${WISH_MAIL_USERNAME:}}
+    password: ${CLOUDMART_MAIL_PASSWORD:${WISH_MAIL_PASSWORD:}}
+    from: ${CLOUDMART_MAIL_FROM:${WISH_MAIL_FROM:}}

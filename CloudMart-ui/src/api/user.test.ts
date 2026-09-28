@@ -7,6 +7,7 @@ vi.mock('@/utils/request', () => ({
 import request from '@/utils/request'
 import {
   register,
+  sendRegisterCode,
   getUserProfile,
   updateProfile,
   changeNickname,
@@ -27,12 +28,23 @@ describe('user API', () => {
   it('register() calls POST /user/users/register', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await register({ password: 'pass123', email: 'test@example.com', nickname: 'Tester' })
+    await register({ password: 'pass123', email: 'test@example.com', nickname: 'Tester', code: '123456' })
 
     expect(request.post).toHaveBeenCalledWith('/user/users/register', {
       password: 'pass123',
       email: 'test@example.com',
       nickname: 'Tester',
+      code: '123456',
+    })
+  })
+
+  it('sendRegisterCode() calls POST /user/users/register/code', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    await sendRegisterCode('test@example.com')
+
+    expect(request.post).toHaveBeenCalledWith('/user/users/register/code', {
+      email: 'test@example.com',
     })
   })
 

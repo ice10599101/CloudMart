@@ -14,7 +14,7 @@ export interface UserDecoration {
 interface DecorationState {
   decorations: Record<number, UserDecoration>
   inFlight: Record<number, boolean>
-  ensure: (userIds: Array<number | string>) => Promise<void>
+  ensure: (userIds: (number | string)[]) => Promise<void>
   setAvatarFrame: (userId: number, frame: string) => void
 }
 

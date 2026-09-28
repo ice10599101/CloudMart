@@ -11,6 +11,9 @@ import {
   type AccountDeletionStatus,
 } from '@/api/wish'
 
+/** 发码 60 秒冷却（与服务端每用户冷却一致，仅 UI 层提示） */
+const SEND_CODE_COOLDOWN_SECONDS = 60
+
 /**
  * 危险区 · 注销账号（合规 34.2，四AB A1）。
  * 自包含：状态加载 / 发送验证码 / 申请注销 / 撤回申请。
@@ -24,6 +27,13 @@ export default function AccountDeletionSection() {
   const [deletionReason, setDeletionReason] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [deletionBusy, setDeletionBusy] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [countdown])
 
   const loadDeletion = useCallback(async () => {
     if (!user) return
@@ -45,9 +55,15 @@ export default function AccountDeletionSection() {
     try {
       const res = await sendDeletionCode()
       if (res.data.success) {
-        const devCode = (res.data.data as { devCode?: string })?.devCode
-        message.success(devCode ? `验证码已发送（开发回显：${devCode}）` : '验证码已发送，请查收短信/邮件')
-        setCodeSent(true)
+        const result = res.data.data as { sent?: boolean; devCode?: string; message?: string }
+        // 后端不假成功：sent=false（频控/通道未配置/发送失败）时如实提示，不进入已发码态
+        if (result.sent) {
+          message.success(result.devCode ? `验证码已发送（开发回显：${result.devCode}）` : '验证码已发送，请查收短信/邮件')
+          setCodeSent(true)
+          setCountdown(SEND_CODE_COOLDOWN_SECONDS)
+        } else {
+          message.warning(result.message || '验证码发送失败，请稍后重试')
+        }
       }
     } catch {
       // 拦截器已提示
@@ -133,8 +149,12 @@ export default function AccountDeletionSection() {
           注销后 30 天宽限期内可撤回；到期将清除心愿、成长记录等个人数据且不可恢复。
         </p>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <Button onClick={handleSendCode} loading={deletionBusy} disabled={codeSent}>
-            {codeSent ? '验证码已发送' : '发送验证码'}
+          <Button
+            onClick={handleSendCode}
+            loading={deletionBusy}
+            disabled={countdown > 0}
+          >
+            {countdown > 0 ? `${countdown}s 后重发` : codeSent ? '重新发送验证码' : '发送验证码'}
           </Button>
           <Input
             placeholder="6 位验证码"

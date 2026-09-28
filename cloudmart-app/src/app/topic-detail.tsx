@@ -23,10 +23,6 @@ export default function TopicDetailScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
 
-  useEffect(() => {
-    loadPosts(1, true)
-  }, [tagId, tagName])
-
   const loadPosts = useCallback(async (targetPage: number, isRefresh = false) => {
     if (loading && !isRefresh) return
     setLoading(true)
@@ -70,6 +66,10 @@ export default function TopicDetailScreen() {
       setRefreshing(false)
     }
   }, [tagId, tagName, loading])
+
+  useEffect(() => {
+    loadPosts(1, true)
+  }, [tagId, tagName])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)

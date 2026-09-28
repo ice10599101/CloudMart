@@ -202,7 +202,9 @@ public class GlobalExceptionHandler {
                  "PET_FURNITURE_ALREADY_PLACED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
                  "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED",
-                 "PET_QUOTA_EXHAUSTED" -> HttpStatus.TOO_MANY_REQUESTS;
+                 "PET_QUOTA_EXHAUSTED",
+                 // 注册发码频控（每邮箱冷却/每小时上限）
+                 "USER_REGISTER_CODE_FREQUENT" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
                  "PET_SETTLEMENT_PENDING", "PET_FEATURE_DISABLED",

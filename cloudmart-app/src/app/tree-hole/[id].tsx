@@ -30,7 +30,7 @@ function TypeText({ text, active }: { text: string; active: boolean }) {
   return <Text style={{ fontSize: FontSize.sm, lineHeight: 22, color: '#fff' }}>{shown}</Text>
 }
 
-function isLastAiMessage(item: { id: number | string; role?: string }, list?: Array<{ id: number | string; role?: string }>): boolean {
+function isLastAiMessage(item: { id: number | string; role?: string }, list?: { id: number | string; role?: string }[]): boolean {
   if (!list || list.length === 0) return false
   const last = list[list.length - 1]
   return last.id === item.id && item.role !== 'USER'

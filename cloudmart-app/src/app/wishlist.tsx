@@ -54,7 +54,7 @@ export default function WishlistScreen() {
   const handleAddToCart = async (item: WishlistItem) => {
     try {
       const res = await productApi.getDetail(item.productId)
-      const skuId = (res.data as { data?: { skus?: Array<{ id: number }> } })?.data?.skus?.[0]?.id
+      const skuId = (res.data as { data?: { skus?: { id: number }[] } })?.data?.skus?.[0]?.id
       if (!skuId) {
         Alert.alert('提示', '商品暂无可售规格')
         return

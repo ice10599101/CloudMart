@@ -51,7 +51,7 @@ const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 
 const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_TYPE_LABEL) as NotificationType[]
 
-const CHANNELS: Array<{ key: NotificationChannel; label: string }> = [
+const CHANNELS: { key: NotificationChannel; label: string }[] = [
   { key: 'IN_APP', label: '站内' },
   { key: 'PUSH', label: '推送' },
   { key: 'SMS', label: '短信' },
@@ -245,7 +245,7 @@ export default function AiAssistantScreen() {
         setBreaking(false)
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [text, breaking, user, wishId],
   )
 

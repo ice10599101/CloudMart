@@ -35,6 +35,7 @@ meta:
 gateway-public:
   - { method: "*",   path: /api/auth/**,                        subjectType: ANON, note: "登录/刷新/注销（含管理员登录）" }
   - { method: POST,  path: /api/user/users/register,            subjectType: ANON }
+  - { method: POST,  path: /api/user/users/register/code,       subjectType: ANON, note: "注册发码：网关 IP 限流 5/min + 服务层每邮箱 60s 冷却/5 次每小时" }
   - { method: POST,  path: /api/user/users/validate,            subjectType: ANON }
   - { method: "*",   path: /api/payment/payments/callback,      subjectType: ANON, note: "PAY-01：改造为渠道验签回调" }
   - { method: GET,   path: /files/**,                           subjectType: ANON, note: "mall-file 静态资源（公开 URL）" }

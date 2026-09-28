@@ -8,8 +8,8 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import * as Location from 'expo-location'
 import AmapWishMap from '@/components/AmapWishMap'
-import type { NearbyWish, WarmEventItem } from '@/types'
-import type { MyWishListItem } from '@/types'
+import type { NearbyWish, WarmEventItem , MyWishListItem } from '@/types'
+
 
 /**
  * 附近心愿（Sprint 3.1 APP 端）：地图 + 列表双形态。

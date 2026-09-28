@@ -9,6 +9,7 @@ import com.cloudmart.user.dto.RegisterRequest;
 import com.cloudmart.user.dto.UpdateProfileRequest;
 import com.cloudmart.user.dto.UserDTO;
 import com.cloudmart.user.dto.ValidateRequest;
+import com.cloudmart.user.service.RegisterCodeService;
 import com.cloudmart.user.service.UserService;
 import com.cloudmart.user.vo.UserVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,13 +47,14 @@ class UserControllerTest {
     private MockMvc mockMvc;
 
     private final UserService userService = Mockito.mock(UserService.class);
+    private final RegisterCodeService registerCodeService = Mockito.mock(RegisterCodeService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 5, 29, 10, 0);
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userService, registerCodeService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -84,7 +86,7 @@ class UserControllerTest {
         mockMvc.perform(post("/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new RegisterRequest("pass123456", "test@example.com", "测试用户"))))
+                                new RegisterRequest("pass123456", "test@example.com", "测试用户", "123456"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1))
@@ -101,10 +103,42 @@ class UserControllerTest {
         mockMvc.perform(post("/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new RegisterRequest("pass123456", "dup@example.com", "用户"))))
+                                new RegisterRequest("pass123456", "dup@example.com", "用户", "123456"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /users/register/code - 发码成功返回 sent=true 与有效期")
+    void sendRegisterCode_ShouldReturnSentResult() throws Exception {
+        given(registerCodeService.sendCode("test@example.com"))
+                .willReturn(new RegisterCodeService.SendCodeResult(true, null, null));
+
+        mockMvc.perform(post("/users/register/code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new com.cloudmart.user.dto.RegisterCodeRequest("test@example.com"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.sent").value(true))
+                .andExpect(jsonPath("$.data.expiresInSeconds").value(300))
+                .andExpect(jsonPath("$.data.devCode").value(""));
+    }
+
+    @Test
+    @DisplayName("POST /users/register/code - 邮箱已注册返回错误信封（EMAIL_DUPLICATE 沿用默认 400 映射）")
+    void sendRegisterCode_WhenEmailDuplicate_ShouldReturnErrorEnvelope() throws Exception {
+        given(registerCodeService.sendCode("dup@example.com"))
+                .willThrow(new BusinessException("EMAIL_DUPLICATE", "邮箱已被注册"));
+
+        mockMvc.perform(post("/users/register/code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new com.cloudmart.user.dto.RegisterCodeRequest("dup@example.com"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("EMAIL_DUPLICATE"));
     }
 
     @Test

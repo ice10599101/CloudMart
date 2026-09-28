@@ -9,10 +9,10 @@ import {
   Animated,
   Dimensions,
   StatusBar,
-} from 'react-native'
+ Platform } from 'react-native'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Platform } from 'react-native'
+
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { liveApi } from '@/api/live'

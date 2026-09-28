@@ -60,7 +60,7 @@ export default function PetPlayScreen() {
   const [mgResult, setMgResult] = useState('')
   const [custody, setCustody] = useState<CustodyState | null>(null)
   const [digest, setDigest] = useState<DigestState | null>(null)
-  const [coops, setCoops] = useState<Array<Record<string, unknown>>>([])
+  const [coops, setCoops] = useState<Record<string, unknown>[]>([])
   const [collection, setCollection] = useState<{ total: number; unlocked: number } | null>(null)
 
   const loadAll = useCallback(async () => {

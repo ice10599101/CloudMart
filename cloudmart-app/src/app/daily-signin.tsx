@@ -183,7 +183,7 @@ export default function DailySigninScreen() {
   const calendarCells = useMemo(() => {
     const daysInMonth = new Date(year, month, 0).getDate()
     const startOffset = new Date(year, month - 1, 1).getDay()
-    const cells: Array<{ day: number; dateStr: string }> = []
+    const cells: { day: number; dateStr: string }[] = []
     for (let d = 1; d <= daysInMonth; d++) {
       cells.push({ day: d, dateStr: formatDate(year, month, d) })
     }
