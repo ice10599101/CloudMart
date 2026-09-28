@@ -88,7 +88,8 @@ class ProductServiceTest {
         productService = new ProductServiceImpl(
                 productMapper, productSkuMapper, categoryMapper,
                 productConverter, cacheManager, esProductSearchServiceProvider,
-                productSyncServiceProvider, bloomFilterProvider, cacheBreakdownGuardProvider
+                productSyncServiceProvider, bloomFilterProvider, cacheBreakdownGuardProvider,
+                org.mockito.Mockito.mock(com.cloudmart.product.feign.InventoryInitFeignClient.class)
         );
 
         lenient().when(cacheManager.getCache("category")).thenReturn(categoryCache);

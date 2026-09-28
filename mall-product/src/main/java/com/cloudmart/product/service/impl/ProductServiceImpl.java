@@ -55,6 +55,7 @@ public class ProductServiceImpl implements ProductService {
     private final ObjectProvider<ProductSyncService> productSyncServiceProvider;
     private final ObjectProvider<BloomFilterInitializer> bloomFilterProvider;
     private final ObjectProvider<CacheBreakdownGuard> cacheBreakdownGuardProvider;
+    private final com.cloudmart.product.feign.InventoryInitFeignClient inventoryInitFeignClient;
 
     public ProductServiceImpl(ProductMapper productMapper,
                               ProductSkuMapper productSkuMapper,
@@ -64,7 +65,8 @@ public class ProductServiceImpl implements ProductService {
                               ObjectProvider<EsProductSearchService> esProductSearchServiceProvider,
                               ObjectProvider<ProductSyncService> productSyncServiceProvider,
                               ObjectProvider<BloomFilterInitializer> bloomFilterProvider,
-                              ObjectProvider<CacheBreakdownGuard> cacheBreakdownGuardProvider) {
+                              ObjectProvider<CacheBreakdownGuard> cacheBreakdownGuardProvider,
+                              com.cloudmart.product.feign.InventoryInitFeignClient inventoryInitFeignClient) {
         this.productMapper = productMapper;
         this.productSkuMapper = productSkuMapper;
         this.categoryMapper = categoryMapper;
@@ -74,6 +76,7 @@ public class ProductServiceImpl implements ProductService {
         this.productSyncServiceProvider = productSyncServiceProvider;
         this.bloomFilterProvider = bloomFilterProvider;
         this.cacheBreakdownGuardProvider = cacheBreakdownGuardProvider;
+        this.inventoryInitFeignClient = inventoryInitFeignClient;
     }
 
     @Override
@@ -82,6 +85,14 @@ public class ProductServiceImpl implements ProductService {
         Category category = categoryMapper.selectById(request.categoryId());
         if (category == null) {
             throw new BusinessException("CATEGORY_NOT_FOUND", "分类不存在");
+        }
+
+        // CAT-01：发布门禁——商品直接发布（status=1）必须至少带 1 个价格合法的 SKU；
+        // 无 SKU 的建档只能以草稿/下架态存在
+        if (request.skus() == null || request.skus().isEmpty()
+                || request.skus().stream().anyMatch(s -> s.price() == null
+                        || s.price().compareTo(java.math.BigDecimal.ZERO) <= 0)) {
+            throw new BusinessException("PRODUCT_PUBLISH_INVALID", "发布商品必须包含至少一个价格合法的 SKU");
         }
 
         Product product = new Product();
@@ -94,29 +105,41 @@ public class ProductServiceImpl implements ProductService {
         productMapper.insert(product);
 
         List<ProductSku> skus = new ArrayList<>();
-        if (request.skus() != null && !request.skus().isEmpty()) {
-            for (CreateSkuRequest skuReq : request.skus()) {
-                ProductSku sku = new ProductSku();
-                sku.setProductId(product.getId());
-                sku.setSkuCode(skuReq.skuCode());
-                sku.setAttributes(skuReq.attributes());
-                sku.setPrice(skuReq.price());
-                sku.setOriginalPrice(skuReq.originalPrice());
-                sku.setStock(skuReq.stock());
-                sku.setImage(skuReq.image());
-                sku.setStatus(1);
-                skus.add(sku);
-            }
-            for (ProductSku sku : skus) {
-                productSkuMapper.insert(sku);
+        for (CreateSkuRequest skuReq : request.skus()) {
+            ProductSku sku = new ProductSku();
+            sku.setProductId(product.getId());
+            sku.setSkuCode(skuReq.skuCode());
+            sku.setAttributes(skuReq.attributes());
+            sku.setPrice(skuReq.price());
+            sku.setOriginalPrice(skuReq.originalPrice());
+            sku.setStock(skuReq.stock());
+            sku.setImage(skuReq.image());
+            sku.setStatus(1);
+            skus.add(sku);
+        }
+        for (ProductSku sku : skus) {
+            productSkuMapper.insert(sku);
+        }
+
+        // CAT-01：库存建档到库存服务（唯一库存权威）——建档失败抛异常，
+        // 与 @Transactional 一起回滚商品/SKU，防止出现无库存档案的可售商品
+        for (ProductSku sku : skus) {
+            try {
+                inventoryInitFeignClient.initStock(sku.getId(), product.getId(),
+                        sku.getStock() != null ? sku.getStock() : 0);
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new BusinessException("INVENTORY_INIT_FAILED", "库存建档失败: SKU " + sku.getId());
             }
         }
 
         syncToElasticsearch(product.getId());
 
-        // 将新 SKU ID 加入布隆过滤器
+        // CAT-01：新 ID 分别加入商品/SKU 布隆过滤器
         BloomFilterInitializer bloomFilter = bloomFilterProvider.getIfAvailable();
         if (bloomFilter != null) {
+            bloomFilter.addProductId(product.getId());
             for (ProductSku sku : skus) {
                 bloomFilter.addSkuId(sku.getId());
             }
@@ -128,9 +151,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @SentinelResource(value = "getProductById", blockHandler = "getProductByIdBlockHandler")
     public ProductDTO getProductById(Long id) {
-        // 布隆过滤器防穿透：快速拦截不存在的商品 ID
+        // CAT-01：防穿透用「商品」过滤器（原误用 SKU 过滤器，商品 ID ≠ SKU ID 会误杀正常详情）
         BloomFilterInitializer bloomFilter = bloomFilterProvider.getIfAvailable();
-        if (bloomFilter != null && !bloomFilter.mightContain(id)) {
+        if (bloomFilter != null && !bloomFilter.mightContainProductId(id)) {
             log.debug("Bloom filter rejected product ID: {}", id);
             throw new BusinessException("PRODUCT_NOT_FOUND", "商品不存在");
         }

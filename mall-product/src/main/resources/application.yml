@@ -125,6 +125,8 @@ cloudmart:
     outbound-scopes:
       # REVIEW-01：评价资格内部查询（/internal/orders/purchase-eligibility）
       mall-order: order:internal
+      # CAT-01：商品发布时库存建档（/inventory/init）
+      mall-inventory: inventory:admin
     service-token-paths:
       - prefix: /products/es
         issuers: [mall-admin, mall-ai]

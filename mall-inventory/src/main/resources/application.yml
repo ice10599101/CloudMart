@@ -136,6 +136,9 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: inventory:admin
+      - prefix: /inventory/init
+        issuers: [mall-product]
+        scope: inventory:admin
       - prefix: /internal
         issuers: [mall-order]
         scope: inventory:trade
