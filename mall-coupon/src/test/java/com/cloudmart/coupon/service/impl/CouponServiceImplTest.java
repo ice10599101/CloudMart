@@ -1,5 +1,6 @@
 package com.cloudmart.coupon.service.impl;
 
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.coupon.converter.CouponTemplateConverter;
 import com.cloudmart.coupon.converter.UserCouponConverter;
@@ -64,8 +65,12 @@ class CouponServiceImplTest {
         valueOperations = mock(ValueOperations.class);
 
         claimCounterMapper = mock(com.cloudmart.coupon.repository.CouponClaimCounterMapper.class);
+        var riskFeignClient = mock(com.cloudmart.coupon.feign.RiskFeignClient.class);
+        when(riskFeignClient.check(any())).thenReturn(
+                ApiResponse.ok(java.util.Map.of("result", "PASS")));
         couponService = new CouponServiceImpl(
                 couponTemplateMapper, userCouponMapper, claimCounterMapper,
+                riskFeignClient,
                 couponTemplateConverter,
                 userCouponConverter, redissonClient, redisTemplate
         );

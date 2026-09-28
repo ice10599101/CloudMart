@@ -43,6 +43,7 @@ public class CouponServiceImpl implements CouponService {
     private final CouponTemplateMapper couponTemplateMapper;
     private final UserCouponMapper userCouponMapper;
     private final com.cloudmart.coupon.repository.CouponClaimCounterMapper claimCounterMapper;
+    private final com.cloudmart.coupon.feign.RiskFeignClient riskFeignClient;
     private final CouponTemplateConverter couponTemplateConverter;
     private final UserCouponConverter userCouponConverter;
     private final RedissonClient redissonClient;
@@ -165,6 +166,14 @@ public class CouponServiceImpl implements CouponService {
     @Transactional
     @SentinelResource(value = "claimCoupon", fallback = "claimCouponFallback")
     public UserCouponDTO claimCoupon(Long userId, Long templateId) {
+        // RISK-01：领券前置风控——REJECT 拒绝；风控不可用时降级放行（fallback 已留告警）
+        var riskResp = riskFeignClient.check(java.util.Map.of(
+                "userId", userId, "actionType", "COUPON_CLAIM"));
+        if (riskResp != null && riskResp.success() && riskResp.data() != null
+                && "REJECT".equals(String.valueOf(riskResp.data().get("result")))) {
+            throw new BusinessException("RISK_REJECTED", "领券被拒绝："
+                    + riskResp.data().getOrDefault("reason", "触发风控规则"));
+        }
         String lockKey = CLAIM_LOCK_KEY_PREFIX + userId + ":" + templateId;
         RLock lock = redissonClient.getLock(lockKey);
 

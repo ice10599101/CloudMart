@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
 @EnableDiscoveryClient
+@org.springframework.cloud.openfeign.EnableFeignClients
 @MapperScan("com.cloudmart.coupon.repository")
 @Import(GlobalExceptionHandler.class)
 public class CouponApplication {
