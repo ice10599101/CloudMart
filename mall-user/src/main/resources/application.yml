@@ -137,6 +137,8 @@ cloudmart:
         scope: user:internal
     outbound-scopes:
       mall-auth: admin:auth
+      # USER-01：注销阻塞核验（/internal/orders/has-open-orders）
+      mall-order: order:internal
       mall-community: community:internal
 
 # 注册发码：echo-code 仅供无邮件通道的开发/测试环境回显验证码，生产必须关闭

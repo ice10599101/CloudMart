@@ -954,6 +954,15 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public boolean hasOpenOrders(Long userId) {
+        // USER-01：未结 = PENDING_PAYMENT / PAID / SHIPPED（资金或履约未完成）
+        Long count = orderMapper.selectCount(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .in(Order::getStatus, "PENDING_PAYMENT", "PAID", "SHIPPED"));
+        return count != null && count > 0;
+    }
+
+    @Override
     public List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId) {
         return orderMapper.findCompletedOrderIdsWithSku(userId, skuId);
     }

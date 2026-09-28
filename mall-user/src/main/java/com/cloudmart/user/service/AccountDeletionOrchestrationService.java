@@ -39,15 +39,18 @@ public class AccountDeletionOrchestrationService {
 
     private final AccountDeletionTaskMapper taskMapper;
     private final ErasureFeignClient erasureFeignClient;
+    private final com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient;
     private final String secret;
     private volatile ServiceTokenSigner cachedSigner;
 
     public AccountDeletionOrchestrationService(
             AccountDeletionTaskMapper taskMapper,
             ErasureFeignClient erasureFeignClient,
+            com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient,
             @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
         this.taskMapper = taskMapper;
         this.erasureFeignClient = erasureFeignClient;
+        this.orderQueryFeignClient = orderQueryFeignClient;
         this.secret = secret;
     }
 
@@ -59,17 +62,42 @@ public class AccountDeletionOrchestrationService {
         return cachedSigner;
     }
 
-    /** 申请注销（30 天宽限期；同用户仅一个任务）。 */
+    /** 申请注销（30 天宽限期；同用户仅一个任务）。
+     *
+     *  <p>USER-01：CANCELED 任务 CAS 复活为新一轮 PENDING（申请→取消→再申请闭环）——
+     *  修复 uk_deletion_task_user 唯一键下再次 insert 必然冲突的断点；每次申请的
+     *  历史通过 updated_at/version 体现，原行不删除（保留取消痕迹审计）。</p>
+     */
     public AccountDeletionTask apply(Long userId, String reason) {
         AccountDeletionTask existing = getByUser(userId);
         if (existing != null && !"CANCELED".equals(existing.getStatus())) {
             throw new BusinessException("WISH_DELETION_PENDING", "已存在注销申请");
         }
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        if (existing != null) {
+            // CAS 复活：仅 CANCELED 行可被重新激活（并发申请只有一个赢家）
+            int revived = taskMapper.update(null, new LambdaUpdateWrapper<AccountDeletionTask>()
+                    .eq(AccountDeletionTask::getId, existing.getId())
+                    .eq(AccountDeletionTask::getStatus, "CANCELED")
+                    .set(AccountDeletionTask::getStatus, "PENDING")
+                    .set(AccountDeletionTask::getReason, reason)
+                    .set(AccountDeletionTask::getRequestedAt, now)
+                    .set(AccountDeletionTask::getExecuteAfter, now.plusDays(GRACE_DAYS))
+                    .set(AccountDeletionTask::getCanceledAt, null)
+                    .set(AccountDeletionTask::getExecutedAt, null)
+                    .set(AccountDeletionTask::getServiceProgress, null)
+                    .setSql("version = version + 1"));
+            if (revived == 0) {
+                throw new BusinessException("WISH_STATUS_CONFLICT", "注销申请状态已变更，请刷新");
+            }
+            log.warn("用户重新申请全账号注销 userId={}，宽限期至 {}", userId, existing.getExecuteAfter());
+            return getByUser(userId);
+        }
         AccountDeletionTask task = new AccountDeletionTask();
         task.setUserId(userId);
         task.setStatus("PENDING");
         task.setReason(reason);
-        task.setRequestedAt(LocalDateTime.now(ZoneId.of("UTC")));
+        task.setRequestedAt(now);
         task.setExecuteAfter(task.getRequestedAt().plusDays(GRACE_DAYS));
         task.setVersion(0);
         taskMapper.insert(task);
@@ -119,14 +147,35 @@ public class AccountDeletionOrchestrationService {
     }
 
     void executeTask(AccountDeletionTask task) {
+        // USER-01：CAS 认领扩展——EXECUTING 超过 30 分钟（进程崩溃遗留）允许其他
+        // 实例接管（stale 租约）；活跃 EXECUTING 不可抢
+        LocalDateTime staleBefore = LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(30);
         int claimed = taskMapper.update(null, new LambdaUpdateWrapper<AccountDeletionTask>()
                 .eq(AccountDeletionTask::getId, task.getId())
-                .eq(AccountDeletionTask::getStatus, "PENDING")
-                .set(AccountDeletionTask::getStatus, "EXECUTING"));
+                .and(w -> w.eq(AccountDeletionTask::getStatus, "PENDING")
+                        .or(x -> x.eq(AccountDeletionTask::getStatus, "EXECUTING")
+                                .lt(AccountDeletionTask::getUpdatedAt, staleBefore)))
+                .set(AccountDeletionTask::getStatus, "EXECUTING")
+                .set(AccountDeletionTask::getUpdatedAt, LocalDateTime.now(ZoneId.of("UTC"))));
         if (claimed == 0) {
             return;
         }
         try {
+            // USER-01：未结订单阻塞——有 PENDING_PAYMENT/PAID/SHIPPED 未结订单时
+            // 不执行注销，返回明确阻塞原因（宽限期内用户应自行处理）
+            var blocking = orderQueryFeignClient.hasOpenOrders(task.getUserId(),
+                    signer().sign("mall-order"));
+            if (blocking.success() && Boolean.TRUE.equals(blocking.data())) {
+                taskMapper.update(null, new LambdaUpdateWrapper<AccountDeletionTask>()
+                        .eq(AccountDeletionTask::getId, task.getId())
+                        .eq(AccountDeletionTask::getStatus, "EXECUTING")
+                        .set(AccountDeletionTask::getStatus, "PENDING")
+                        .set(AccountDeletionTask::getServiceProgress,
+                            "{\"blocked\":\"OPEN_ORDERS\"}"));
+                log.warn("注销被未结订单阻塞，回退待重试 userId={}", task.getUserId());
+                return;
+            }
+
             Map<String, Object> progress = new java.util.LinkedHashMap<>();
             boolean allSuccess = true;
 

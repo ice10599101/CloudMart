@@ -60,6 +60,15 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.getInternalOrderInfo(orderId));
     }
 
+    /** USER-01：注销阻塞核验——用户是否存在未结订单（PENDING_PAYMENT/PAID/SHIPPED） */
+    @GetMapping("/has-open-orders")
+    @Operation(summary = "未结订单核验", description = "注销编排前置：有未结订单返回 true（阻塞注销）")
+    public ApiResponse<Boolean> hasOpenOrders(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String token) {
+        return ApiResponse.ok(orderService.hasOpenOrders(userId));
+    }
+
     /** REVIEW-01：评价资格判定——该用户已完成订单中包含指定 SKU 的订单列表 */
     @GetMapping("/purchase-eligibility")
     @Operation(summary = "购买资格查询", description = "userId+skuId；返回已完成且包含该 SKU 的订单 ID")
