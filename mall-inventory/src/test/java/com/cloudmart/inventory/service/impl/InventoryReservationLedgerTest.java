@@ -70,6 +70,13 @@ class InventoryReservationLedgerTest {
             TransactionCallback<?> cb = inv.getArgument(0);
             return cb.doInTransaction(null);
         });
+        // executeWithoutResult 是接口 default 方法，mock 不执行——显式触发回调
+        org.mockito.Mockito.doAnswer(inv -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> consumer =
+                    inv.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
         RedissonClient redissonClient = mock(RedissonClient.class);
         lock = mock(RLock.class);
         when(redissonClient.getLock(anyString())).thenReturn(lock);
@@ -77,7 +84,9 @@ class InventoryReservationLedgerTest {
         when(lock.isHeldByCurrentThread()).thenReturn(true);
 
         service = new InventoryServiceImpl(inventoryMapper, inventoryLogMapper, reservationMapper,
-                null, redisTemplate, null, redissonClient, transactionTemplate);
+                null, redisTemplate,
+                mock(org.springframework.data.redis.core.script.DefaultRedisScript.class),
+                redissonClient, transactionTemplate);
     }
 
     private InventoryReservation reservation(String status) {
@@ -109,7 +118,7 @@ class InventoryReservationLedgerTest {
         assertThatThrownBy(() -> service.deductStock(new DeductRequest(SKU_ID, 2, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "INVENTORY_DUPLICATE_RESERVATION");
-        verify(valueOperations, Mockito.atLeastOnce()).increment(anyString(), eq(2));
+        verify(valueOperations, Mockito.atLeastOnce()).increment(anyString(), eq(2L));
     }
 
     @Test
