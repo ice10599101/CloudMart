@@ -63,6 +63,18 @@ public class LiveDanmakuHandler extends TextWebSocketHandler {
             return;
         }
 
+        // LIVE-01：发消息必须使用已认证 subject——身份在握手时由一次性票据绑定到会话，
+        // 载荷中的 userId/nickname 一律忽略（防冒充）；匿名连接只可观看
+        Long sessionUserId = (Long) session.getAttributes().get(LiveWsHandshakeInterceptor.ATTR_USER_ID);
+        if (sessionUserId == null) {
+            log.warn("[LIVE01] 匿名连接尝试发送弹幕，关闭连接 roomId={} sessionId={}",
+                    roomId, session.getId());
+            session.close(CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        String nickname = (String) session.getAttributes()
+                .getOrDefault(LiveWsHandshakeInterceptor.ATTR_NICKNAME, "用户" + sessionUserId);
+
         DanmakuMessage danmaku;
         try {
             danmaku = objectMapper.readValue(message.getPayload(), DanmakuMessage.class);
@@ -79,7 +91,7 @@ public class LiveDanmakuHandler extends TextWebSocketHandler {
         }
 
         DanmakuMessage enriched = new DanmakuMessage(
-            roomId, danmaku.userId(), danmaku.nickname(),
+            roomId, sessionUserId, nickname,
             sanitizeContent(danmaku.content()),
             System.currentTimeMillis()
         );

@@ -26,8 +26,14 @@ import java.util.concurrent.TimeUnit;
  * Netty WebSocket 服务器，支持百万级长连接弹幕广播。
  * 独立于 Spring Web 端口运行，避免阻塞 HTTP 请求处理线程。
  * 配置了 IdleStateHandler 检测僵尸连接，WriteBufferWaterMark 控制背压。
+ *
+ * <p>LIVE-01：直播 WS 保留一套接入实现（Spring 栈，带票据握手认证）；
+ * 本 Netty 栈默认关闭（{@code live.netty.enabled=true} 显式开启），开启前必须
+ * 接入同一套票据认证，否则两套身份模型并存会重新引入冒充面。</p>
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "live.netty.enabled", havingValue = "true", matchIfMissing = false)
 public class NettyWebSocketServer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(NettyWebSocketServer.class);
