@@ -1,16 +1,18 @@
-import axios, { InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import Constants from 'expo-constants'
 import { Platform } from 'react-native'
+import { router } from 'expo-router'
 import { storage } from '@/utils/storage'
+import { useAuthStore } from '@/store/auth'
 import type { ApiResponse } from '@/types'
 
 /**
- * API 基址按运行环境解析：
+ * API 基址按运行环境解析（FE-01）：
  * - Web（metro dev server / expo web）：相对路径 /api，由 metro.config.js 代理转发到 Gateway
- * - Native + Expo Go dev：走 metro 代理（manifest2.extra.expoGoHostUri 为 Expo 连接的
- *   dev server 地址，手机只需可达电脑 8081——Expo Go 本身就依赖它；避免真机直连
- *   公网 8090 被网络拦截）
- * - Native 生产构建或显式配置：EXPO_PUBLIC_API_HOST 直连 Gateway
+ * - Native + Expo Go dev：走 metro 代理（手机只需可达 dev server，避免真机直连公网被拦）
+ * - Native 生产构建：必须注入 EXPO_PUBLIC_API_HOST 完整基址（scheme+host[:port]），
+ *   缺失时启动即抛错（fail-fast），绝不静默回退到手机自身 127.0.0.1；支持完整
+ *   HTTPS 域名，不再硬拼 :8090
  *
  * 注意：RN 运行时全局存在 window（window === global），typeof window 判定 web
  * 在原生端恒为 true，必须用 Platform.OS 判定（曾因此导致真机全部请求走相对路径失败）
@@ -24,7 +26,14 @@ function resolveApiBase(): string {
   if (isDev && metroHost) {
     return `http://${metroHost}/api`
   }
-  return `${process.env.EXPO_PUBLIC_API_HOST || 'http://127.0.0.1'}:8090/api`
+  const configured = process.env.EXPO_PUBLIC_API_HOST?.trim()
+  if (configured) {
+    return `${configured.replace(/\/+$/, '')}/api`
+  }
+  if (!isDev) {
+    throw new Error('[request] 生产构建必须注入 EXPO_PUBLIC_API_HOST（完整 HTTPS API 基址）')
+  }
+  return 'http://127.0.0.1:8090/api'
 }
 
 const API_BASE = resolveApiBase()
@@ -36,6 +45,16 @@ if (Platform.OS !== 'web') {
 export { API_BASE }
 
 const client = axios.create({
+  baseURL: API_BASE,
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+/**
+ * FE-01：刷新走独立 client——不带 401 拦截器。否则刷新自身 401 时会再次进入
+ * 本文件的刷新分支，把自己排进等待队列形成自等待死锁（此前缺陷）。
+ */
+const refreshClient = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
@@ -64,6 +83,41 @@ function hashFingerprint(input: string): string {
   return `${(hash >>> 0).toString(16)}-${input.length.toString(36)}`
 }
 
+/** Hermes 无全局 atob 的兜底解码（仅用于 JWT payload，ASCII 安全） */
+function decodeBase64(input: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '')
+  let output = ''
+  let buffer = 0
+  let bits = 0
+  for (const ch of normalized) {
+    const value = chars.indexOf(ch)
+    if (value < 0) continue
+    buffer = (buffer << 6) | value
+    bits += 6
+    if (bits >= 8) {
+      bits -= 8
+      output += String.fromCharCode((buffer >> bits) & 0xff)
+    }
+  }
+  return output
+}
+
+/** FE-01/T22：从已附带的 Bearer 令牌解出稳定主体（sub）；指纹不随 token 轮换变化 */
+function subjectFromAuthorization(authorization: unknown): string {
+  if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
+    return ''
+  }
+  const parts = authorization.slice('Bearer '.length).split('.')
+  if (parts.length !== 3) return ''
+  try {
+    const payload = JSON.parse(decodeBase64(parts[1])) as { sub?: string }
+    return payload.sub ?? ''
+  } catch {
+    return ''
+  }
+}
+
 function intentStoreKey(config: InternalAxiosRequestConfig): string | null {
   const method = (config.method ?? 'GET').toUpperCase()
   if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
@@ -75,7 +129,7 @@ function intentStoreKey(config: InternalAxiosRequestConfig): string | null {
       config.url ?? '',
       config.params ? JSON.stringify(config.params) : '',
       config.data ? JSON.stringify(config.data) : '',
-      config.headers?.Authorization ?? '',
+      subjectFromAuthorization(config.headers?.Authorization),
     ].join('|'),
   )
   return `idem:intent:${fingerprint}`
@@ -133,6 +187,13 @@ client.interceptors.request.use(async (config) => {
   return config
 })
 
+/** 刷新失败：清凭据 + 同步认证 store + 跳登录，等待者随后统一拒绝 */
+async function handleRefreshFailure() {
+  await storage.multiRemove(['access_token', 'refresh_token'])
+  useAuthStore.setState({ user: null, isLoggedIn: false })
+  router.replace('/login')
+}
+
 client.interceptors.response.use(
   (response) => {
     void clearIntent(response.config)
@@ -144,16 +205,28 @@ client.interceptors.response.use(
       void clearIntent(error.config)
     }
     const originalRequest = error.config
+    // FE-01：只有 401 触发刷新；403 是已认证但无权限，刷新无济于事
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = await storage.getItem('refresh_token')
       if (!refreshToken) {
-        await storage.multiRemove(['access_token', 'refresh_token'])
+        await handleRefreshFailure()
         return Promise.reject(error)
       }
 
       if (isRefreshing) {
+        // 入队前标记 _retry：重放若仍 401 直接终态，不再排队刷新（防循环）
+        originalRequest._retry = true
         return new Promise((resolve) => {
           pendingRequests.push((token: string) => {
+            if (!token) {
+              // 刷新失败：等待者以明确终态拒绝，绝不悬挂（T21）
+              resolve(
+                Promise.reject(
+                  new AxiosError('登录状态已失效，请重新登录', 'UNAUTHORIZED', originalRequest),
+                ),
+              )
+              return
+            }
             originalRequest.headers.Authorization = `Bearer ${token}`
             resolve(client(originalRequest))
           })
@@ -164,7 +237,8 @@ client.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        const res = await client.post('/auth/refresh', { refreshToken })
+        // FE-01：refreshClient 无拦截器——刷新自身 401 直接走 catch 分支
+        const res = await refreshClient.post('/auth/refresh', { refreshToken })
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data.data
         await storage.multiSet([
           ['access_token', newAccessToken],
@@ -175,8 +249,12 @@ client.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return client(originalRequest)
       } catch {
-        await storage.multiRemove(['access_token', 'refresh_token'])
-        return Promise.reject(error)
+        await handleRefreshFailure()
+        pendingRequests.forEach((cb) => cb(''))
+        pendingRequests = []
+        return Promise.reject(
+          new AxiosError('登录状态已失效，请重新登录', 'UNAUTHORIZED', originalRequest),
+        )
       } finally {
         isRefreshing = false
       }

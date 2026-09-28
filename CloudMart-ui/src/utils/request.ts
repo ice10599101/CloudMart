@@ -23,26 +23,81 @@ const request = axios.create({
   timeout: 15000,
 })
 
-let isRefreshing = false
-let pendingRequests: Array<(token: string) => void> = []
+// ==================== FE-01：分身份域刷新状态机 ====================
+// 用户域与管理员域各自独立维护 isRefreshing + 等待队列：一边 token 过期
+// 触发刷新时，另一边的 401 互不阻塞、互不串 token（T21：两域并发 401 各刷一次）。
+
+type AuthDomain = 'user' | 'admin'
+
+interface RefreshDomainState {
+  isRefreshing: boolean
+  pendingRequests: Array<(token: string) => void>
+}
+
+const refreshDomains: Record<AuthDomain, RefreshDomainState> = {
+  user: { isRefreshing: false, pendingRequests: [] },
+  admin: { isRefreshing: false, pendingRequests: [] },
+}
 
 const SERVICE_UNAVAILABLE_CODES = new Set<string>()
 let serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null
 
-function processPendingRequests(token: string) {
-  pendingRequests.forEach((cb) => cb(token))
-  pendingRequests = []
+function processPendingRequests(domain: AuthDomain, token: string) {
+  refreshDomains[domain].pendingRequests.forEach((cb) => cb(token))
+  refreshDomains[domain].pendingRequests = []
+}
+
+function rejectPendingRequests(domain: AuthDomain, cause: unknown) {
+  refreshDomains[domain].pendingRequests.forEach((cb) => cb(''))
+  refreshDomains[domain].pendingRequests = []
+  // 空 token 回调已让等待者以原错误收尾；保留 cause 供调用方日志使用
+  void cause
 }
 
 function isAdminRequest(url: string): boolean {
-  return url.startsWith('/admin/') || url.startsWith('/auth/admin/')
+  // FE-01：/job、/gen 是管理后台页面使用的服务，必须归入管理员域取 admin token
+  return (
+    url.startsWith('/admin/') ||
+    url.startsWith('/auth/admin/') ||
+    url.startsWith('/job') ||
+    url.startsWith('/gen')
+  )
+}
+
+/** 解码 JWT payload 的 sub（稳定 subjectId），不引依赖；非法令牌返回空串 */
+function jwtSubject(token: string | null | undefined): string {
+  if (!token) return ''
+  const parts = token.split('.')
+  if (parts.length !== 3) return ''
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+      sub?: string
+    }
+    return payload.sub ?? ''
+  } catch {
+    return ''
+  }
 }
 
 /** 构造携带业务错误码的 Error（组件需按 code 区分 402/409/429 等场景） */
-function toBusinessError(code: string, messageText: string): Error & { code: string } {
-  const error = new Error(messageText) as Error & { code: string }
+function toBusinessError(
+  code: string,
+  messageText: string,
+  extra?: { status?: number; requestId?: string },
+): Error & { code: string; status?: number; requestId?: string } {
+  const error = new Error(messageText) as Error & { code: string; status?: number; requestId?: string }
   error.code = code
+  if (extra?.status !== undefined) error.status = extra.status
+  if (extra?.requestId) error.requestId = extra.requestId
   return error
+}
+
+/** 从响应中提取 requestId（X-Request-Id）用于问题追踪 */
+function requestIdOf(response: { headers?: Record<string, unknown> } | undefined): string | undefined {
+  const headers = response?.headers
+  if (!headers) return undefined
+  const value = headers['x-request-id'] ?? headers['X-Request-Id']
+  return typeof value === 'string' ? value : undefined
 }
 
 /** 请求级静默开关：可选型请求（如数据面板）失败时由组件自行兜底，不弹全局错误提示 */
@@ -90,13 +145,19 @@ function intentStoreKey(config: AxiosRequestConfig): string | null {
   if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
     return null
   }
+  // FE-01/T22：指纹绑定稳定主体（JWT sub）而非 Authorization 头——token 刷新后
+  // 指纹不变，重试沿用原意图键；域内无令牌（匿名）时主体为空串，同样稳定
+  const domain: AuthDomain = isAdminRequest(config.url ?? '') ? 'admin' : 'user'
+  const token = localStorage.getItem(domain === 'admin' ? 'admin_access_token' : 'access_token')
+  const subject = jwtSubject(token)
   const fingerprint = hashFingerprint(
     [
       method,
       config.url ?? '',
       config.params ? JSON.stringify(config.params) : '',
       config.data ? JSON.stringify(config.data) : '',
-      config.headers?.Authorization ?? '',
+      domain,
+      subject,
     ].join('|'),
   )
   return `idem:intent:${fingerprint}`
@@ -135,7 +196,8 @@ function clearIntent(config: AxiosRequestConfig | undefined): void {
 request.interceptors.request.use(
   (config) => {
     const url = config.url ?? ''
-    const tokenKey = isAdminRequest(url) ? 'admin_access_token' : 'access_token'
+    const domain: AuthDomain = isAdminRequest(url) ? 'admin' : 'user'
+    const tokenKey = domain === 'admin' ? 'admin_access_token' : 'access_token'
     const token = localStorage.getItem(tokenKey)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -173,13 +235,35 @@ request.interceptors.request.use(
   (error) => Promise.reject(error),
 )
 
+function clearDomainCredentials(domain: AuthDomain) {
+  if (domain === 'admin') {
+    localStorage.removeItem('admin_access_token')
+    localStorage.removeItem('admin_refresh_token')
+    useAdminAuthStore.setState({ accessToken: '', refreshToken: '', adminInfo: null, permissions: [], roles: [] })
+    history.replace('/admin/login')
+    return
+  }
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  // FE-01：用户域同步清 zustand store——依赖 isAuthenticated 的布局/WS 立即感知登出
+  useAuthStore.setState({ accessToken: '', refreshToken: '', isAuthenticated: false, user: null })
+  const currentPath = window.location.pathname
+  if (currentPath !== '/login' && currentPath !== '/register') {
+    sessionStorage.setItem('login_redirect', currentPath)
+  }
+  history.replace('/login')
+}
+
 request.interceptors.response.use(
   (response) => {
     clearIntent(response.config)
     const data = response.data as ApiResponse<unknown>
     if (data.success === false) {
       const errorCode = data.error?.code ?? ''
-      const businessError = toBusinessError(errorCode, data.error?.message || '请求失败')
+      const businessError = toBusinessError(errorCode, data.error?.message || '请求失败', {
+        status: response.status,
+        requestId: requestIdOf(response),
+      })
       if (errorCode === 'UNAUTHORIZED') {
         return Promise.reject(businessError)
       }
@@ -206,30 +290,48 @@ request.interceptors.response.use(
     if (errorStatus && errorStatus < 500) {
       clearIntent(error.config)
     }
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // 业务错误（携带 error.code，如 WISH_CONSENT_REQUIRED/WISH_NOT_AUTHOR）直接透传，
-      // 不触发 token refresh：refresh 后仍会 403，既浪费也会造成组件拿不到业务码
+    // FE-01：只有 401 才触发刷新；403 是「已认证但无权限」，刷新无济于事（T21 规则）
+    if (errorStatus === 403) {
+      const errCode = error.response?.data?.error?.code as string | undefined
+      if (errCode) {
+        return Promise.reject(
+          toBusinessError(errCode, error.response?.data?.error?.message || '请求失败', {
+            status: 403,
+            requestId: requestIdOf(error.response),
+          }),
+        )
+      }
+      return Promise.reject(error)
+    }
+    if (errorStatus === 401) {
+      // 业务错误（携带 error.code，如 TOKEN_REUSE_DETECTED）直接透传，
+      // 不触发 token refresh：refresh 后仍会失败，既浪费也会造成组件拿不到业务码
       const errCode = error.response?.data?.error?.code as string | undefined
       if (errCode && errCode !== 'UNAUTHORIZED') {
         return Promise.reject(
-          toBusinessError(errCode, error.response?.data?.error?.message || '请求失败'),
+          toBusinessError(errCode, error.response?.data?.error?.message || '请求失败', {
+            status: 401,
+            requestId: requestIdOf(error.response),
+          }),
         )
       }
       // 防循环：refresh 重放后仍 401 的请求不再触发下一轮 refresh，
       // 避免无限循环打爆认证接口限流并导致强制登出
-      if ((error.config as { _authRetried?: boolean })?._authRetried) {
-        return Promise.reject(toBusinessError('UNAUTHORIZED', '登录状态已失效'))
+      if ((error.config as { _authRetried?: boolean } | undefined)?._authRetried) {
+        return Promise.reject(toBusinessError('UNAUTHORIZED', '登录状态已失效', { status: 401 }))
       }
-      const url = error.config.url ?? ''
-      const admin = isAdminRequest(url)
-      const refreshTokenKey = admin ? 'admin_refresh_token' : 'refresh_token'
-      const accessTokenKey = admin ? 'admin_access_token' : 'access_token'
+      const domain: AuthDomain = isAdminRequest(error.config.url ?? '') ? 'admin' : 'user'
+      const state = refreshDomains[domain]
+      const accessTokenKey = domain === 'admin' ? 'admin_access_token' : 'access_token'
+      const refreshTokenKey = domain === 'admin' ? 'admin_refresh_token' : 'refresh_token'
       const refreshTokenValue = localStorage.getItem(refreshTokenKey)
 
       if (refreshTokenValue) {
-        if (isRefreshing) {
+        if (state.isRefreshing) {
+          // 入队前标记已重试：重放请求若仍 401 直接终态，不再进入下一轮刷新
+          ;(error.config as { _authRetried?: boolean })._authRetried = true
           return new Promise((resolve) => {
-            pendingRequests.push((token: string) => {
+            state.pendingRequests.push((token: string) => {
               if (!token) {
                 resolve(Promise.reject(error))
                 return
@@ -239,56 +341,39 @@ request.interceptors.response.use(
             })
           })
         }
-        isRefreshing = true
+        state.isRefreshing = true
         try {
-          const refreshUrl = admin ? '/api/auth/admin/refresh' : '/api/auth/refresh'
+          const refreshUrl = domain === 'admin' ? '/api/auth/admin/refresh' : '/api/auth/refresh'
           const { data } = await axios.post(refreshUrl, {
             refreshToken: refreshTokenValue,
           })
           localStorage.setItem(accessTokenKey, data.data.accessToken)
           localStorage.setItem(refreshTokenKey, data.data.refreshToken)
-          if (admin) {
+          if (domain === 'admin') {
             useAdminAuthStore.setState({ accessToken: data.data.accessToken, refreshToken: data.data.refreshToken })
           } else {
             // 同步 zustand store：UserLayout 等依赖 accessToken 的 WS 连接才能用新 token 重连
             useAuthStore.setState({ accessToken: data.data.accessToken, refreshToken: data.data.refreshToken, isAuthenticated: true })
           }
-          processPendingRequests(data.data.accessToken)
+          processPendingRequests(domain, data.data.accessToken)
           error.config.headers.Authorization = `Bearer ${data.data.accessToken}`
           ;(error.config as { _authRetried?: boolean })._authRetried = true
           return request(error.config)
-        } catch {
-          localStorage.removeItem(accessTokenKey)
-          localStorage.removeItem(refreshTokenKey)
-          if (admin) {
-            useAdminAuthStore.setState({ accessToken: '', refreshToken: '', adminInfo: null, permissions: [], roles: [] })
-          }
-          pendingRequests.forEach((cb) => cb(''))
-          pendingRequests = []
-          if (admin) {
-            history.replace('/admin/login')
-          } else {
-            const currentPath = window.location.pathname
-            if (currentPath !== '/login' && currentPath !== '/register') {
-              sessionStorage.setItem('login_redirect', currentPath)
-            }
-            history.replace('/login')
-          }
-          return Promise.reject(error)
+        } catch (refreshError) {
+          // FE-01：刷新失败统一拒绝所有等待者、清凭据与 store 并跳登录——
+          // 任何等待中的请求都不允许悬挂（T21：refresh 401/403/500/断网均有终态）
+          clearDomainCredentials(domain)
+          rejectPendingRequests(domain, refreshError)
+          return Promise.reject(
+            toBusinessError('UNAUTHORIZED', '登录状态已失效，请重新登录', {
+              status: 401,
+            }),
+          )
         } finally {
-          isRefreshing = false
+          state.isRefreshing = false
         }
       } else {
-        if (admin) {
-          useAdminAuthStore.setState({ accessToken: '', refreshToken: '', adminInfo: null, permissions: [], roles: [] })
-          history.replace('/admin/login')
-        } else {
-          const currentPath = window.location.pathname
-          if (currentPath !== '/login' && currentPath !== '/register') {
-            sessionStorage.setItem('login_redirect', currentPath)
-          }
-          history.replace('/login')
-        }
+        clearDomainCredentials(domain)
         return Promise.reject(error)
       }
     }

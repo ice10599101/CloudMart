@@ -150,3 +150,98 @@ describe('request 响应拦截器（信封处理，真实实例）', () => {
     expect(result).toEqual(response)
   })
 })
+
+// ==================== FE-01：分域刷新状态机 ====================
+
+/** 构造可被 jwtSubject 解析的假 JWT（payload.sub 可控） */
+function fakeJwt(sub: string): string {
+  const encode = (obj: unknown) => window.btoa(JSON.stringify(obj)).replace(/=/g, '')
+  return `${encode({ alg: 'RS256' })}.${encode({ sub })}.sig`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const responseRejected: (error: unknown) => Promise<unknown> = chains.response.handlers[0].rejected
+
+describe('FE-01 身份域选择与 403 规则', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('admin 前缀之外，/job 与 /gen 同样归管理员域取 admin token', () => {
+    localStorage.setItem('admin_access_token', 'admin-token')
+    localStorage.setItem('access_token', 'user-token')
+
+    const jobConfig = runRequestInterceptor({ url: '/job/list', method: 'get' })
+    const genConfig = runRequestInterceptor({ url: '/gen/tables', method: 'get' })
+
+    expect(jobConfig.headers.Authorization).toBe('Bearer admin-token')
+    expect(genConfig.headers.Authorization).toBe('Bearer admin-token')
+  })
+
+  it('403 携带业务码直接透传，不触发刷新流程', async () => {
+    const error = {
+      config: { url: '/admin/users', headers: {} },
+      response: {
+        status: 403,
+        headers: { 'x-request-id': 'req-403' },
+        data: { error: { code: 'FORBIDDEN', message: '没有操作权限' } },
+      },
+    }
+
+    await expect(responseRejected(error)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+      requestId: 'req-403',
+    })
+  })
+
+  it('403 无业务码原样拒绝，同样不触发刷新', async () => {
+    const error = {
+      config: { url: '/admin/users', headers: {} },
+      response: { status: 403, data: {} },
+    }
+
+    await expect(responseRejected(error)).rejects.toBe(error)
+  })
+})
+
+describe('FE-01 意图键绑定稳定主体（T22）', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('token 刷新（同主体换令牌）后同一写操作复用原意图键', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'stable-intent-key' })
+    localStorage.setItem('access_token', fakeJwt('42'))
+
+    const before = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: { quoteId: '1' } })
+
+    // 模拟刷新：换了新 access token（签名段不同），但 sub 仍是 42
+    const encode = (obj: unknown) => window.btoa(JSON.stringify(obj)).replace(/=/g, '')
+    localStorage.setItem('access_token', `${encode({ alg: 'RS256' })}.${encode({ sub: '42' })}.refreshed-sig`)
+
+    const after = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: { quoteId: '1' } })
+
+    expect(before.headers['X-Idempotency-Key']).toBe('stable-intent-key')
+    expect(after.headers['X-Idempotency-Key']).toBe('stable-intent-key')
+  })
+
+  it('不同主体的同一写操作使用不同意图键', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'per-subject-key' })
+    localStorage.setItem('access_token', fakeJwt('42'))
+
+    const userA = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: {} })
+
+    localStorage.clear()
+    localStorage.setItem('access_token', fakeJwt('43'))
+
+    const userB = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: {} })
+
+    expect(userA.headers['X-Idempotency-Key']).toBe('per-subject-key')
+    expect(userB.headers['X-Idempotency-Key']).toBe('per-subject-key')
+    // 同键不同主体必须不同存储位（指纹含主体），互不覆盖
+    expect(userA._intentStoreKey).not.toBe(userB._intentStoreKey)
+  })
+})
