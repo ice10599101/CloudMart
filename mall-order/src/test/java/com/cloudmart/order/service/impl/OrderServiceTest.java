@@ -31,7 +31,9 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,6 +54,7 @@ class OrderServiceTest {
     private OrderItemMapper orderItemMapper;
     private OrderConverter orderConverter;
     private InventoryFeignClient inventoryFeignClient;
+    private com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private CartFeignClient cartFeignClient;
     private PaymentFeignClient paymentFeignClient;
     private CouponFeignClient couponFeignClient;
@@ -68,6 +71,7 @@ class OrderServiceTest {
         orderItemMapper = mock(OrderItemMapper.class);
         orderConverter = mock(OrderConverter.class);
         inventoryFeignClient = mock(InventoryFeignClient.class);
+        productFeignClient = mock(com.cloudmart.order.feign.ProductFeignClient.class);
         cartFeignClient = mock(CartFeignClient.class);
         paymentFeignClient = mock(PaymentFeignClient.class);
         couponFeignClient = mock(CouponFeignClient.class);
@@ -80,7 +84,9 @@ class OrderServiceTest {
         orderService = new OrderServiceImpl(
                 orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, paymentFeignClient,
-                couponFeignClient, redisTemplate, orderEventProducer,
+                couponFeignClient,
+                productFeignClient,
+                redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
@@ -341,6 +347,18 @@ class OrderServiceTest {
         CreateOrderRequest request = new CreateOrderRequest(
                 "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null
         );
+
+        // TRADE-01：下单前服务端按 skuId 覆盖权威价格/商品信息
+        Map<String, Object> authoritativeSku = new HashMap<>();
+        authoritativeSku.put("skuId", 200L);
+        authoritativeSku.put("productId", 300L);
+        authoritativeSku.put("productName", "商品A");
+        authoritativeSku.put("image", "img.jpg");
+        authoritativeSku.put("attributes", "红色");
+        authoritativeSku.put("price", new BigDecimal("99.00"));
+        authoritativeSku.put("status", 1);
+        when(productFeignClient.getSkusBatch(List.of(200L)))
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(10L);

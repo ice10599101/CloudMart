@@ -68,6 +68,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartFeignClient cartFeignClient;
     private final PaymentFeignClient paymentFeignClient;
     private final CouponFeignClient couponFeignClient;
+    private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -92,6 +93,13 @@ public class OrderServiceImpl implements OrderService {
         if (request.items() == null || request.items().isEmpty()) {
             throw new BusinessException("ORDER_EMPTY", "订单项不能为空");
         }
+
+        // TRADE-01：旧结算入口的价格丢弃适配——客户端声明的价格/商品名/图片/属性
+        // 一律覆盖为商品服务权威值（T07：篡改 price/productId/skuId 不能改变服务端应付价）
+        request = new CreateOrderRequest(request.requestId(),
+                overrideItemsFromProduct(request.items()),
+                request.receiverName(), request.receiverPhone(), request.receiverAddress(),
+                request.couponId(), request.activityId());
 
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
         try {
@@ -679,6 +687,61 @@ public class OrderServiceImpl implements OrderService {
                         String.valueOf(orderId), compensationPayload(orderId, item.getSkuId(), item.getQuantity()));
             }
         }
+    }
+
+    /**
+     * TRADE-01：按 skuId 从商品服务取权威价格/名称/图片/属性，覆盖客户端声明值。
+     * SKU 缺失或已下架直接拒绝下单；商品服务不可用 fail-closed。
+     */
+    private List<CreateOrderRequest.OrderItemInput> overrideItemsFromProduct(
+            List<CreateOrderRequest.OrderItemInput> items) {
+        List<Long> skuIds = items.stream().map(CreateOrderRequest.OrderItemInput::skuId)
+                .distinct().toList();
+        ApiResponse<List<Map<String, Object>>> response = productFeignClient.getSkusBatch(skuIds);
+        if (response == null || !response.success() || response.data() == null) {
+            throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法下单");
+        }
+        Map<Long, Map<String, Object>> skuMap = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> sku : response.data()) {
+            if (sku.get("skuId") instanceof Number n) {
+                skuMap.put(n.longValue(), sku);
+            }
+        }
+        // 构造新列表——入参可能是不可变 List（如 List.of）
+        List<CreateOrderRequest.OrderItemInput> overridden = new ArrayList<>(items.size());
+        for (CreateOrderRequest.OrderItemInput item : items) {
+            Map<String, Object> sku = skuMap.get(item.skuId());
+            if (sku == null) {
+                throw new BusinessException("SKU_NOT_FOUND", "商品不存在: SKU " + item.skuId());
+            }
+            if (!Integer.valueOf(1).equals(sku.get("status"))) {
+                throw new BusinessException("SKU_OFF_SALE", "商品已下架: SKU " + item.skuId());
+            }
+            BigDecimal authoritativePrice = toBigDecimal(sku.get("price"), item.skuId());
+            overridden.add(new CreateOrderRequest.OrderItemInput(
+                    toLongSafely(sku.get("productId")),
+                    item.skuId(),
+                    item.quantity(),
+                    (String) sku.get("productName"),
+                    (String) sku.get("image"),
+                    (String) sku.get("attributes"),
+                    authoritativePrice));
+        }
+        return overridden;
+    }
+
+    private BigDecimal toBigDecimal(Object value, Long skuId) {
+        if (value instanceof BigDecimal amount) {
+            return amount;
+        }
+        if (value instanceof Number n) {
+            return BigDecimal.valueOf(n.doubleValue());
+        }
+        throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
+    }
+
+    private Long toLongSafely(Object value) {
+        return value instanceof Number n ? n.longValue() : null;
     }
 
     private void compensateDeductedStock(List<CreateOrderRequest.OrderItemInput> deductedItems) {
