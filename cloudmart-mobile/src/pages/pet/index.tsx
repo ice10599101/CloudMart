@@ -297,7 +297,7 @@ export default function PetPage() {
       if (tab === 'shop') {
         const { data: res } = await petApi.getShop()
         if (res.success && res.data) {
-          setShopBalance(res.data.starlightBalance)
+          setShopBalance(res.data.balance)
           setShopItems(res.data.items || [])
         }
       } else if (tab === 'inventory') {

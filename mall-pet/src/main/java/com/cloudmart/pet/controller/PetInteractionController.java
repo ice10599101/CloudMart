@@ -76,7 +76,7 @@ public class PetInteractionController {
         return ApiResponse.ok(interactionService.rest(userId));
     }
 
-    @GetMapping("/pet/pets/{petId}/actions")
+    @GetMapping("/pets/{petId}/actions")
     @Operation(summary = "动作可执行性查询（B06）", description = "每个动作的 allowed/reasonCode/reasonText/"
             + "nextAvailableAt/rewardRemainingToday；客户端按钮禁用与文案依据，服务端权威")
     @SentinelResource("PET_QUERY")

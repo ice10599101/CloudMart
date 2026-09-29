@@ -286,7 +286,8 @@ export interface PetShopItem {
 
 export interface PetShopResult {
   /** 星光余额（null=余额服务降级，前端隐藏） */
-  starlightBalance: number | null
+  balance: number | null
+  currency: 'PET_COIN' | 'STARLIGHT'
   items: PetShopItem[]
 }
 

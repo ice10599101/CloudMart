@@ -125,7 +125,7 @@ import {
   type PetRelationPanel,
   type PetWallPage,
 } from '@/api/pet'
-import { markAllAsRead, markAsRead } from '@/api/notification'
+import { markAsRead } from '@/api/notification'
 import PetStage, { type PetStageHandle } from '@/components/PetStage'
 import type { BattleRound, PetDisplayState, PetIntentAction } from '@/components/PetStage/bridge'
 import { useAuthStore } from '@/stores/auth'
@@ -1634,7 +1634,7 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
   const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState<string | null>(null)
-  const [shop, setShop] = useState<{ starlightBalance: number | null; items: PetShopItem[] }>({ starlightBalance: null, items: [] })
+  const [shop, setShop] = useState<{ balance: number | null; currency: string; items: PetShopItem[] }>({ balance: null, currency: 'PET_COIN', items: [] })
   const [inventory, setInventory] = useState<PetInventoryItem[]>([])
   const [skills, setSkills] = useState<PetSkillItem[]>([])
   const [evolution, setEvolution] = useState<PetEvolutionStatus | null>(null)
@@ -1740,7 +1740,7 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
           {tab === 'shop' && (
             <div>
               <p className={styles.careBalance}>
-                ✨ 星光余额：{shop.starlightBalance === null ? '暂不可用（服务降级）' : shop.starlightBalance}
+                ✨ 余额：{shop.balance === null ? '暂不可用（服务降级）' : `${shop.balance} ${shop.currency === 'PET_COIN' ? '宠物币' : '星光'}`}
               </p>
               <div className={styles.careGrid}>
                 {shop.items.map((item) => (
@@ -2547,6 +2547,28 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
   const [reportTargetMessage, setReportTargetMessage] = useState<{ messageId: number; content: string } | null>(null)
   const [reportReasonText, setReportReasonText] = useState('')
 
+  const handleReportWallMessage = async () => {
+    if (!reportTargetMessage) return
+    if (!reportReasonText.trim()) {
+      message.warning('请填写举报说明')
+      return
+    }
+    try {
+      const res = await reportPetTarget({
+        targetType: 'WALL_MESSAGE',
+        targetId: reportTargetMessage.messageId,
+        reason: reportReasonText.trim(),
+      })
+      if (res.data.success) {
+        message.success('举报已提交，进入管理员处理队列')
+        setReportTargetMessage(null)
+        setReportReasonText('')
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }
+
   const loadRelations = useCallback(async () => {
     try {
       const { data: res } = await getPetRelations()
@@ -2590,27 +2612,6 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
     }
   }
 
-  const handleReportWallMessage = async () => {
-    if (!reportTargetMessage) return
-    if (!reportReasonText.trim()) {
-      message.warning('请填写举报说明')
-      return
-    }
-    try {
-      const res = await reportPetTarget({
-        targetType: 'WALL_MESSAGE',
-        targetId: reportTargetMessage.messageId,
-        reason: reportReasonText.trim(),
-      })
-      if (res.data.success) {
-        message.success('举报已提交，进入管理员处理队列')
-        setReportTargetMessage(null)
-        setReportReasonText('')
-      }
-    } catch {
-      // 拦截器已提示
-    }
-  }
 
   const loadWall = useCallback(async (targetPetId: number | string) => {
     try {
@@ -3293,13 +3294,15 @@ export default function PetHomePage() {
     }
   }, [pet, syncStage])
 
-  /** ?adopt=1（多宠物：从个人中心/养成面板直接进入领养） */
+  /** ?adopt=1（多宠物：从个人中心/养成面板直接进入领养）；?panel=xxx（消息中心宠物消息深链直达面板） */
   useEffect(() => {
-    if (!noPet) {
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('adopt') === '1') {
-        setAdoptOpen(true)
-      }
+    const params = new URLSearchParams(window.location.search)
+    if (!noPet && params.get('adopt') === '1') {
+      setAdoptOpen(true)
+    }
+    const requested = params.get('panel') as PanelKey | null
+    if (requested && PANELS.some((item) => item.key === requested)) {
+      setPanel(requested)
     }
   }, [noPet])
 
@@ -3481,6 +3484,32 @@ export default function PetHomePage() {
 
       <RenameModal pet={pet} open={renameOpen} onClose={() => setRenameOpen(false)} onRenamed={refresh} />
       <ProfileModal pet={pet} open={profileOpen} onClose={() => setProfileOpen(false)} onSaved={refresh} />
+      <Modal
+        open={reportTargetMessage !== null}
+        title="举报该留言"
+        width={480}
+        onCancel={() => setReportTargetMessage(null)}
+        footer={null}
+      >
+        {reportTargetMessage && (
+          <>
+            <p className={styles.bottleHint}>举报对象：「{reportTargetMessage.content}」</p>
+            <Input.TextArea
+              rows={3}
+              maxLength={200}
+              placeholder="请填写举报说明（必填，进入管理员处理队列）"
+              value={reportReasonText}
+              onChange={(e) => setReportReasonText(e.target.value)}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <Button onClick={() => setReportTargetMessage(null)}>取消</Button>
+              <Button type="primary" danger onClick={() => void handleReportWallMessage()}>
+                提交举报
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
       <Modal
         open={adoptOpen}
         footer={null}

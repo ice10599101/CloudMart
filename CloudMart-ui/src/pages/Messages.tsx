@@ -28,7 +28,37 @@ import {
 } from '@/api/notification'
 import { useNotificationStore } from '@/stores/notification'
 import { recordExpectedAction, type ExpectedActionType } from '@/api/wish'
+import { getMyPet, type PetInfo } from '@/api/pet'
 import styles from './Messages.module.css'
+
+// 宠物消息（bizType=PET_*）：果头与主题色同源 PetHome（V28 五果体系）
+const PET_SPECIES_EMOJI: Record<string, string> = {
+  STRAWBERRY: '🍓', ORANGE: '🍊', WATERMELON: '🍉', BLUEBERRY: '🫐', DRAGONFRUIT: '🐉',
+  CAT: '🍓', DOG: '🍊', RABBIT: '🍉', FOX: '🫐', PANDA: '🐉',
+}
+const PET_SPECIES_ACCENT: Record<string, string> = {
+  STRAWBERRY: '#E85D7A', ORANGE: '#F08A1F', WATERMELON: '#4E9A34', BLUEBERRY: '#5A7CC4', DRAGONFRUIT: '#E93B72',
+  CAT: '#E85D7A', DOG: '#F08A1F', RABBIT: '#4E9A34', FOX: '#5A7CC4', PANDA: '#E93B72',
+}
+
+function isPetNotification(item: { bizType?: string | null; type?: string | null }): boolean {
+  return (item.bizType ?? '').startsWith('PET_') || item.type === 'PET'
+}
+
+/** 宠物消息 → /pet 面板深链映射（未命中的回落家园） */
+function petPanelFor(bizType: string): string {
+  if (bizType.startsWith('PET_WORK') || bizType.startsWith('PET_CAREER_WORK')) return 'work'
+  if (bizType.startsWith('PET_STUDY')) return 'study'
+  if (bizType.startsWith('PET_BOTTLE')) return 'bottle'
+  if (bizType.startsWith('PET_BATTLE')) return 'battle'
+  if (bizType.startsWith('PET_ACHIEVEMENT')) return 'achievements'
+  if (bizType.startsWith('PET_LEVEL_UP') || bizType.startsWith('PET_EVOLVED') || bizType.startsWith('PET_SEASON')) return 'rankings'
+  if (bizType.startsWith('PET_EVENT') || bizType.startsWith('PET_DAILY_QUEST')) return 'daily'
+  if (bizType.startsWith('PET_WALL') || bizType.startsWith('PET_RELATION') || bizType.startsWith('PET_FRIEND') || bizType.startsWith('PET_HOME')) return 'social'
+  if (bizType.startsWith('PET_CHAT') || bizType === 'PET_MESSAGE') return 'chat'
+  if (bizType.startsWith('PET_REMINDER')) return 'reminders'
+  return 'home'
+}
 
 type NotificationCategory = 'all' | 'interaction' | 'follow' | 'system'
 
@@ -106,6 +136,10 @@ function extractFollowNickname(content: string): string {
 }
 
 function navigateToBiz(item: EnrichedNotification) {
+  if (isPetNotification(item)) {
+    history.push(`/pet?panel=${petPanelFor(item.bizType ?? '')}`)
+    return
+  }
   if (item.bizType === 'POST' && item.bizId) {
     history.push(`/post/${item.bizId}`)
   } else if (item.bizType === 'TAG' && item.bizId) {
@@ -286,7 +320,18 @@ export default function Messages() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [followedMap, setFollowedMap] = useState<Record<string, boolean>>({})
+  const [petIdentity, setPetIdentity] = useState<{ name: string; species: string } | null>(null)
   const { unreadCount, fetchUnreadCount, resetUnread } = useNotificationStore()
+
+  useEffect(() => {
+    // 宠物消息头像：拉一次自己的主宠（Fail-Open，未领养/接口故障回落系统图标）
+    getMyPet()
+      .then((res) => {
+        const pet = res.data.data as PetInfo | null
+        if (pet?.species) setPetIdentity({ name: pet.name, species: pet.species })
+      })
+      .catch(() => {})
+  }, [])
 
   const enrichAndSet = useCallback((items: NotificationItem[]) => {
     setNotifications(items.map(enrichNotification))
@@ -497,6 +542,14 @@ export default function Messages() {
                   size={40}
                   fallback={extractUsername(item.content).charAt(0) || '?'}
                 />
+              ) : isPetNotification(item) && petIdentity ? (
+                <div
+                  className={styles.notificationAvatar}
+                  style={{ background: PET_SPECIES_ACCENT[petIdentity.species] ?? '#4E9A34', fontSize: 20 }}
+                  title={petIdentity.name}
+                >
+                  {PET_SPECIES_EMOJI[petIdentity.species] ?? '🐾'}
+                </div>
               ) : (
                 <div className={`${styles.notificationAvatar} ${item.avatarClass}`}>
                   {item.icon}

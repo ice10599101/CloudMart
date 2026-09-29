@@ -126,7 +126,9 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                     1, 0,
                     false, true, null));
         }
-        return new PetShopVO(starlightBalanceQuietly(userId), items);
+        // 余额币种随钱包模式切换（PET=宠物币 / LEGACY=社区星光），字段名不再绑定币种
+        String currency = economyService.mode() == com.cloudmart.pet.wallet.PetEconomyService.Mode.PET ? "PET_COIN" : "STARLIGHT";
+        return new PetShopVO(balanceQuietly(userId), currency, items);
     }
 
     @Override
@@ -372,7 +374,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
     }
 
     /** 余额查询：展示型数据 Fail-Open（null=前端隐藏余额，不阻断商城浏览） */
-    private Integer starlightBalanceQuietly(Long userId) {
+    private Integer balanceQuietly(Long userId) {
         try {
             return economyService.balanceOf(userId);
         } catch (Exception e) {
