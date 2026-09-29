@@ -9,6 +9,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 @MapperScan({"com.cloudmart.payment.repository", "com.cloudmart.common.async.mapper"})
 @EnableDiscoveryClient
 @EnableFeignClients

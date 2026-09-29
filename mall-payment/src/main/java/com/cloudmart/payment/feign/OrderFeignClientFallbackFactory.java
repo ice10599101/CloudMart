@@ -26,6 +26,12 @@ public class OrderFeignClientFallbackFactory implements FallbackFactory<OrderFei
             }
 
             @Override
+            public ApiResponse<OrderFeignClient.PageDTO> listPaidOrders(int page, int size) {
+                // OPS-01：对账数据读不到时返回空页（本轮核对跳过订单侧，差异不误报）
+                return ApiResponse.ok(new OrderFeignClient.PageDTO(java.util.List.of(), 0));
+            }
+
+            @Override
             public ApiResponse<com.cloudmart.payment.dto.OrderInternalInfoDTO> getOrderInfo(Long orderId) {
                 // SEC-04：归属数据读不到时返回空数据，调用方按订单不存在拒绝（fail-closed）
                 log.error("查询订单归属信息降级, orderId={}: {}", orderId, cause.getMessage());

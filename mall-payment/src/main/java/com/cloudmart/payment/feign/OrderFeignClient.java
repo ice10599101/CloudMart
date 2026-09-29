@@ -2,6 +2,8 @@ package com.cloudmart.payment.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.payment.dto.OrderInternalInfoDTO;
+
+import java.util.List;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +22,15 @@ public interface OrderFeignClient {
 
     @PostMapping("/cancel-notify/{orderId}")
     ApiResponse<Void> notifyOrderCancel(@PathVariable("orderId") Long orderId);
+
+    /** OPS-01：分页获取已推进资金状态的订单（PAID/SHIPPED/COMPLETED），对账核对用 */
+    @GetMapping("/paid-orders")
+    ApiResponse<PageDTO> listPaidOrders(@org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                        @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    /** 简化分页 DTO（避免依赖 mybatis-plus Page 类型跨服务传播） */
+    record PageDTO(java.util.List<OrderInternalInfoDTO> records, long total) {
+    }
 
     /** SEC-04：读取订单权威归属，支付创建/查询前校验 requireOwner */
     @GetMapping("/{orderId}")
