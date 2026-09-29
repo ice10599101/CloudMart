@@ -92,6 +92,7 @@ public class PetChatServiceImpl implements PetChatService {
     private final com.cloudmart.pet.repository.PetReportMapper reportMapper;
     private final com.cloudmart.pet.config.PetMetrics metrics;
     private final com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper;
+    private final PetPersonaPhraseService personaPhraseService;
 
     public PetChatServiceImpl(PetService petService,
                               PetContextService contextService,
@@ -109,7 +110,8 @@ public class PetChatServiceImpl implements PetChatService {
                               PetContentSafetyService safetyService,
                               com.cloudmart.pet.repository.PetReportMapper reportMapper,
                               com.cloudmart.pet.config.PetMetrics metrics,
-                              com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper) {
+                              com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper,
+                              PetPersonaPhraseService personaPhraseService) {
         this.petService = petService;
         this.contextService = contextService;
         this.aiClient = aiClient;
@@ -127,6 +129,7 @@ public class PetChatServiceImpl implements PetChatService {
         this.reportMapper = reportMapper;
         this.metrics = metrics;
         this.careerConfigMapper = careerConfigMapper;
+        this.personaPhraseService = personaPhraseService;
     }
 
     /**
@@ -538,11 +541,9 @@ public class PetChatServiceImpl implements PetChatService {
         };
     }
 
-    /** 性格 → 口头禅（F8：Nacos personaPhrases 可改，未配置回落空串） */
+    /** 性格 → 口头禅（F8：DB 权威 + 60s TTL 定时同步，Nacos 兜底；见 PetPersonaPhraseService） */
     private String phraseOf(String personality, String petName) {
-        String template = properties.getChat().getPersonaPhrases()
-                .getOrDefault(personality != null ? personality : "LIVELY", "");
-        return template.replace("{name}", petName);
+        return personaPhraseService.phraseOf(personality, petName);
     }
 
     /** 职业名查询（人设展示型数据 Fail-Open，P2-1 同款 5 分钟本地缓存语义） */

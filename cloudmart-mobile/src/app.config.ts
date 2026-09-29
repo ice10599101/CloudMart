@@ -44,6 +44,8 @@ export default defineAppConfig({
     'pages/notificationPrefs/index',
     'pages/dataExport/index',
     'pages/starlightLog/index',
+    'pages/myGifts/index',
+    'pages/wishPrivacy/index',
     'pages/badgeWall/index',
     'pages/treeHole/index',
     'pages/worldTree/index',

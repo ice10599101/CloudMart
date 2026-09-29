@@ -497,3 +497,26 @@
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
+
+// ==== 漂流瓶筛选 chips（对齐 Web 端：全部/我投出的/我捞到的/我收藏的） ====
+
+.bottleFilterRow {
+  display: flex;
+  gap: 14rpx;
+  flex-wrap: wrap;
+  margin-bottom: 18rpx;
+}
+
+.bottleFilterChip {
+  font-size: 24rpx;
+  padding: 10rpx 26rpx;
+  border-radius: 999rpx;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary, #b8c4d9);
+}
+
+.bottleFilterChipActive {
+  background: var(--color-primary, #00d4ff);
+  color: #0b1220;
+  font-weight: 600;
+}

@@ -102,6 +102,29 @@ export default function CartPage() {
     })
   }
 
+  /** 删除选中项（对齐 Web 端 Cart 批量删除：仅移除勾选商品，其余保留） */
+  const handleClearChecked = () => {
+    const checkedCount = items.filter((i) => i.checked).length
+    if (checkedCount === 0) {
+      Taro.showToast({ title: '请先选择要删除的商品', icon: 'none' })
+      return
+    }
+    Taro.showModal({
+      title: '删除选中商品',
+      content: `确定要删除选中的 ${checkedCount} 件商品吗？`,
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await cartApi.clearChecked()
+          await loadCart()
+          Taro.showToast({ title: '已删除选中商品', icon: 'success' })
+        } catch {
+          Taro.showToast({ title: '删除失败', icon: 'none' })
+        }
+      },
+    })
+  }
+
   const handleCheckout = () => {
     const checkedItems = items.filter(i => i.checked)
     if (checkedItems.length === 0) {
@@ -116,7 +139,12 @@ export default function CartPage() {
       {items.length > 0 && (
         <View className={styles.cartHeader}>
           <Text className={styles.cartTitle}>购物车</Text>
-          <Text className={styles.clearBtn} onClick={handleClearCart}>清空购物车</Text>
+          <View className={styles.headerActions}>
+            {items.some((i) => i.checked) && (
+              <Text className={styles.clearBtn} onClick={handleClearChecked}>删除选中</Text>
+            )}
+            <Text className={styles.clearBtn} onClick={handleClearCart}>清空购物车</Text>
+          </View>
         </View>
       )}
       <ScrollView scrollY className={styles.content}>

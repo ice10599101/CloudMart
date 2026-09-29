@@ -1253,6 +1253,18 @@ export interface GiftRecordItem {
   createdAt: string
 }
 
+/** 我的礼物资产总览（对齐 mall-wish GET /gifts/my/summary；星光余额另查 /wish/my/resources） */
+export interface MyGiftSummary {
+  /** 累计送出件数 */
+  sentCount: number
+  /** 累计送出消耗星光 */
+  sentStarlight: number
+  /** 累计收到件数 */
+  receivedCount: number
+  /** 累计收到星光价值 */
+  receivedStarlight: number
+}
+
 // ==== 签到里程碑（契约对齐 mall-wish CheckinMilestoneController） ====
 
 export interface SigninMilestone {

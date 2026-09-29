@@ -419,10 +419,13 @@ export default function EncounterLettersPage() {
   const [isAnonymousThrow, setIsAnonymousThrow] = useState(true)
   const [throwing, setThrowing] = useState(false)
 
-  // 我的漂流瓶
+  // 我的漂流瓶（筛选对齐 Web 端：全部/我投出的/我捞到的/我收藏的）
   const [bottles, setBottles] = useState<DriftBottleItem[]>([])
   const [loadingMine, setLoadingMine] = useState(true)
   const [interactingId, setInteractingId] = useState<number | null>(null)
+  const [bottleFilter, setBottleFilter] = useState<'ALL' | 'THROWN' | 'PICKED' | 'COLLECTED'>('ALL')
+  const [collectedBottles, setCollectedBottles] = useState<DriftBottleItem[]>([])
+  const [loadingCollected, setLoadingCollected] = useState(false)
 
   // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
   const [quota, setQuota] = useState<DriftBottleQuota | null>(null)
@@ -446,6 +449,8 @@ export default function EncounterLettersPage() {
         setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, isCollected: true }) : it)))
         setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, isCollected: true }) : prev))
         Taro.showToast({ title: '已收藏 ⭐', icon: 'none' })
+        // 收藏视图保持实时（新收藏的瓶子立即出现）
+        if (bottleFilter === 'COLLECTED') loadCollected()
       } else {
         Taro.showToast({ title: res.data.error?.message ?? '收藏失败', icon: 'none' })
       }
@@ -500,6 +505,20 @@ export default function EncounterLettersPage() {
       // 静默
     } finally {
       setLoadingMine(false)
+    }
+  }, [isLoggedIn])
+
+  /** 我收藏的瓶子（对齐 Web 端 UserCenter 收藏视图；仅捞起人可收藏，幂等） */
+  const loadCollected = useCallback(async () => {
+    if (!isLoggedIn) return
+    setLoadingCollected(true)
+    try {
+      const res = await wishApi.listMyCollectedDriftBottles()
+      if (res.data.success) setCollectedBottles(res.data.data ?? [])
+    } catch {
+      // 静默
+    } finally {
+      setLoadingCollected(false)
     }
   }, [isLoggedIn])
 
@@ -578,6 +597,7 @@ export default function EncounterLettersPage() {
       const res = await wishApi.interactDriftBottle(bottle.bottleId, type)
       if (res.data.success) {
         setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
+        setCollectedBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
         setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? res.data.data : prev))
         Taro.showToast({ title: type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨', icon: 'none' })
       } else if (res.data.error?.code === 'WISH_RATE_LIMITED') {
@@ -598,6 +618,7 @@ export default function EncounterLettersPage() {
       commentCount: Math.max(0, b.commentCount + delta),
     })
     setBottles((prev) => prev.map((it) => (it.bottleId === bottleId ? patch(it) : it)))
+    setCollectedBottles((prev) => prev.map((it) => (it.bottleId === bottleId ? patch(it) : it)))
     setFishedBottle((prev) => (prev && prev.bottleId === bottleId ? patch(prev) : prev))
   }, [])
 
@@ -722,10 +743,54 @@ export default function EncounterLettersPage() {
             </View>
           </View>
 
-          {/* 我的漂流瓶 */}
+          {/* 我的漂流瓶（筛选对齐 Web 端：全部/我投出的/我捞到的/⭐我收藏的） */}
           <View className={styles.section}>
             <Text className={styles.sectionTitle}>🗺️ 我的漂流瓶</Text>
-            {loadingMine ? (
+            <View className={styles.bottleFilterRow}>
+              {(
+                [
+                  { key: 'ALL', label: '全部' },
+                  { key: 'THROWN', label: '我投出的' },
+                  { key: 'PICKED', label: '我捞到的' },
+                  { key: 'COLLECTED', label: '⭐ 我收藏的' },
+                ] as const
+              ).map((chip) => (
+                <Text
+                  key={chip.key}
+                  className={`${styles.bottleFilterChip} ${bottleFilter === chip.key ? styles.bottleFilterChipActive : ''}`}
+                  onClick={() => {
+                    setBottleFilter(chip.key)
+                    if (chip.key === 'COLLECTED') loadCollected()
+                  }}
+                >
+                  {chip.label}
+                </Text>
+              ))}
+            </View>
+            {bottleFilter === 'COLLECTED' ? (
+              loadingCollected ? (
+                <View className={styles.emptyWrap}>
+                  <Text className={styles.loadingText}>加载中...</Text>
+                </View>
+              ) : collectedBottles.length === 0 ? (
+                <View className={styles.emptyWrap}>
+                  <Text className={styles.emptyWrapText}>还没有收藏的瓶子，捞起后在瓶卡点「⭐ 收藏」吧</Text>
+                </View>
+              ) : (
+                <View className={styles.bottleList}>
+                  {collectedBottles.map((bottle) => (
+                    <BottleCard
+                      key={bottle.bottleId}
+                      bottle={bottle}
+                      interacting={interactingId === bottle.bottleId}
+                      onInteract={(type) => handleInteract(bottle, type)}
+                      onCountChange={(delta) => handleCommentCountChange(bottle.bottleId, delta)}
+                      onCollect={handleCollect}
+                    />
+                  ))}
+                </View>
+              )
+            ) : loadingMine ? (
               <View className={styles.emptyWrap}>
                 <Text className={styles.loadingText}>加载中...</Text>
               </View>

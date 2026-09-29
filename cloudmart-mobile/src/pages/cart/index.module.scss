@@ -188,3 +188,9 @@
   margin-left: $spacing-md;
   padding: 4rpx 12rpx;
 }
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}

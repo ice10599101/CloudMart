@@ -2,12 +2,14 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
+import com.cloudmart.pet.entity.PetFoodConfig;
 import com.cloudmart.pet.entity.PetFurnitureConfig;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetSkillConfig;
 import com.cloudmart.pet.entity.PetSkinConfig;
 import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.repository.PetEquipmentConfigMapper;
+import com.cloudmart.pet.repository.PetFoodConfigMapper;
 import com.cloudmart.pet.repository.PetFurnitureConfigMapper;
 import com.cloudmart.pet.repository.PetSkillConfigMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
@@ -40,40 +42,83 @@ public class PetItemCatalog {
     private static final String DEFAULT_ACCESSORY = "none";
 
     /**
-     * 食物道具（F1 喂养道具化）：目录服务端代码定义（效果/价格服务端权威，客户端不可传），
-     * 堆叠入包 {@code pet_inventory(quantity)}，喂食时条件扣减。apple 基准：
-     * hunger+15 / happiness+2（方案 F1 验收口径）。
+     * 食物道具（F1 配置化）：配置存 {@code pet_food_config}（管理端可编辑，服务端权威），
+     * 本地 60 秒 TTL 缓存定时同步；管理端保存后调 {@link #invalidateFoodCache()} 本实例即时生效。
+     * 堆叠入包 {@code pet_inventory(quantity)}，喂食时条件扣减。
      */
     public record FoodItem(String code, String name, String icon, String description,
                            int priceStarlight, int hunger, int happiness, int hp) {
     }
 
-    public static final List<FoodItem> FOODS = List.of(
-            new FoodItem("apple", "苹果", "🍎", "脆脆的苹果，宠物最爱", 20, 15, 2, 0),
-            new FoodItem("milk", "牛奶", "🥛", "温热的一杯牛奶", 25, 10, 8, 5),
-            new FoodItem("fish", "小鱼干", "🐟", "香喷喷的小鱼干", 35, 25, 5, 10),
-            new FoodItem("cake", "奶油蛋糕", "🍰", "节日限定的甜品", 60, 40, 12, 15));
-
-    public static Optional<FoodItem> food(String code) {
-        if (code == null || code.isBlank()) {
-            return Optional.empty();
-        }
-        return FOODS.stream().filter(f -> f.code().equals(code)).findFirst();
-    }
-
+    private static final long FOOD_CACHE_TTL_NANOS = 60L * 1_000_000_000L;
+    private final PetFoodConfigMapper foodConfigMapper;
+    private final java.util.concurrent.atomic.AtomicReference<CachedFoods> foodsCache =
+            new java.util.concurrent.atomic.AtomicReference<>(new CachedFoods(List.of(), 0));
     private final PetEquipmentConfigMapper equipmentConfigMapper;
     private final PetSkinConfigMapper skinConfigMapper;
     private final PetSkillConfigMapper skillConfigMapper;
     private final PetFurnitureConfigMapper furnitureConfigMapper;
 
+    private record CachedFoods(List<FoodItem> foods, long expiresAtNanos) {
+    }
+
+    /** 实例构造后由 Spring 注入（食物 Mapper 为新增依赖） */
     public PetItemCatalog(PetEquipmentConfigMapper equipmentConfigMapper,
                           PetSkinConfigMapper skinConfigMapper,
                           PetSkillConfigMapper skillConfigMapper,
-                          PetFurnitureConfigMapper furnitureConfigMapper) {
+                          PetFurnitureConfigMapper furnitureConfigMapper,
+                          PetFoodConfigMapper foodConfigMapper) {
         this.equipmentConfigMapper = equipmentConfigMapper;
         this.skinConfigMapper = skinConfigMapper;
         this.skillConfigMapper = skillConfigMapper;
         this.furnitureConfigMapper = furnitureConfigMapper;
+        this.foodConfigMapper = foodConfigMapper;
+    }
+
+    /** 上架食物列表（商城展示；TTL 缓存，查询失败回落最近一次成功快照，首次失败返回空） */
+    public List<FoodItem> listFoods() {
+        return foodsSnapshot().foods();
+    }
+
+    /** 按编码取食物（喂食接口；下架/不存在返回 empty） */
+    public Optional<FoodItem> food(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return foodsSnapshot().foods().stream().filter(f -> f.code().equals(code)).findFirst();
+    }
+
+    /** 管理端保存后调用：本实例下次访问即拉新（其他实例靠 60 秒 TTL 收敛） */
+    public void invalidateFoodCache() {
+        foodsCache.set(new CachedFoods(List.of(), 0));
+    }
+
+    private CachedFoods foodsSnapshot() {
+        CachedFoods cached = foodsCache.get();
+        if (cached.expiresAtNanos() > System.nanoTime() && !cached.foods().isEmpty()) {
+            return cached;
+        }
+        try {
+            List<FoodItem> foods = foodConfigMapper.selectList(
+                            new LambdaQueryWrapper<PetFoodConfig>()
+                                    .eq(PetFoodConfig::getEnabled, 1)
+                                    .orderByAsc(PetFoodConfig::getSort))
+                    .stream()
+                    .map(config -> new FoodItem(config.getCode(), config.getName(),
+                            config.getIcon() != null ? config.getIcon() : "🍎",
+                            config.getDescription() != null ? config.getDescription() : "",
+                            config.getPriceStarlight() != null ? config.getPriceStarlight() : 0,
+                            config.getHunger() != null ? config.getHunger() : 0,
+                            config.getHappiness() != null ? config.getHappiness() : 0,
+                            config.getHp() != null ? config.getHp() : 0))
+                    .toList();
+            CachedFoods fresh = new CachedFoods(foods, System.nanoTime() + FOOD_CACHE_TTL_NANOS);
+            foodsCache.set(fresh);
+            return fresh;
+        } catch (Exception e) {
+            // Fail-Open：DB 抖动沿用旧快照（与模块内展示型数据降级同风格）
+            return cached;
+        }
     }
 
     /** 家具配置（三期家园）：不存在返回空 */

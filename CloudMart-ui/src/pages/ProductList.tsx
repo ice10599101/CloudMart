@@ -640,7 +640,7 @@ function GroupBuyPreview() {
           return (
             <div
               key={activity.id}
-              onClick={() => history.push('/group-buy')}
+              onClick={() => history.push('/shop/group-buy')}
               style={{
                 flex: 1,
                 background: 'var(--color-bg-container)',

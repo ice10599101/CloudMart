@@ -59,7 +59,7 @@ export default function WishPrivacyCenter() {
             {view?.aiDataProcessing.granted
               ? <Tag color="green">已授权（v{view.aiDataProcessing.version}）</Tag>
               : <Tag>未授权</Tag>}
-            <Button size="small" type="link" onClick={() => history.push('/wish/settings/ai')}>
+            <Button size="small" type="link" onClick={() => history.push('/wish/assistant')}>
               管理授权
             </Button>
           </Descriptions.Item>
@@ -68,7 +68,7 @@ export default function WishPrivacyCenter() {
               <Tag>{view?.dataExport.status ?? 'NONE'}</Tag>
               {view?.dataExport.status === 'SUCCESS' && (
                 <Button size="small" type="link"
-                  onClick={() => history.push('/wish/settings/export')}>去下载</Button>
+                  onClick={() => history.push('/settings/export')}>去下载</Button>
               )}
             </Space>
           </Descriptions.Item>

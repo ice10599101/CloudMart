@@ -10,6 +10,7 @@ import type { ApiResponse } from '@/types/api'
 
 /** 宠物配置类型（与后端 /admin/pet/{type} 一一对应） */
 export type PetConfigType =
+  | 'configs/foods'
   | 'configs/jobs'
   | 'configs/studies'
   | 'configs/equipment'
@@ -357,4 +358,20 @@ export function upsertPetSensitiveWord(data: {
 
 export function deletePetSensitiveWord(id: number | string) {
   return request.delete<ApiResponse<void>>(`/admin/pet/configs/sensitive-words/${id}`)
+}
+
+// ==================== F8 口头禅配置（DB 权威 + 60s 定时同步） ====================
+
+export interface AdminPetPersonaPhrase {
+  personality: string
+  phrase: string
+  source: 'DB' | 'DEFAULT'
+}
+
+export function listPetPersonaPhrases() {
+  return request.get<ApiResponse<AdminPetPersonaPhrase[]>>('/admin/pet/configs/persona-phrases')
+}
+
+export function upsertPetPersonaPhrase(data: { personality: string; phrase: string }) {
+  return request.post<ApiResponse<void>>('/admin/pet/configs/persona-phrases', data)
 }

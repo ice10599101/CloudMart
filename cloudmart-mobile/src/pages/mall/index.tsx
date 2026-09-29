@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { productApi } from '@/api/product'
-import type { Product } from '@/types'
+import type { Product, ProductCategory } from '@/types'
 import { ICON_BASE64 } from '@/components/Icon'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -20,20 +20,40 @@ const QUICK_ENTRIES = [
   { icon: '📋', name: '更多', path: '/pages/search/index?type=product', gradient: 'linear-gradient(135deg, #8B9DC3, #5A6F8E)' },
 ]
 
+/** 排序项对齐 Web 端 ProductList 六种（value 与后端一致，勿改 key） */
+const SORT_OPTIONS = [
+  { label: '综合', value: 'relevance' },
+  { label: '价格从低到高', value: 'price_asc' },
+  { label: '价格从高到低', value: 'price_desc' },
+  { label: '销量', value: 'sales_desc' },
+  { label: '评分', value: 'rating_desc' },
+  { label: '新品', value: 'created' },
+]
+
 export default function MallPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [sort, setSort] = useState('relevance')
   const [, setLoading] = useState(false)
 
   useEffect(() => {
-    loadProducts()
+    productApi
+      .getCategories()
+      .then((res) => setCategories(res.data?.data ?? []))
+      .catch(() => setCategories([]))
   }, [])
+
+  useEffect(() => {
+    loadProducts()
+  }, [categoryId, sort])
 
   const loadProducts = async () => {
     setLoading(true)
     try {
-      const res = await productApi.search({ page: 1, size: 20 })
+      const res = await productApi.search({ page: 1, size: 20, categoryId: categoryId ?? undefined, sort })
       // 后端 ProductSearchResultVO 返回 products 字段（非 list）
       setProducts((res.data?.data as unknown as { products?: Product[] })?.products || [])
     } catch {
@@ -74,6 +94,40 @@ export default function MallPage() {
             </View>
           ))}
         </View>
+
+        {/* 分类筛选 + 排序（对齐 Web 端 ProductList：两级分类 chips + 6 种排序） */}
+        <ScrollView scrollX className={styles.filterScroll} enhanced showScrollbar={false}>
+          <View className={styles.chipRow}>
+            <Text
+              className={`${styles.chip} ${categoryId === null ? styles.chipActive : ''}`}
+              onClick={() => setCategoryId(null)}
+            >
+              全部
+            </Text>
+            {categories.map((category) => (
+              <Text
+                key={category.id}
+                className={`${styles.chip} ${categoryId === category.id ? styles.chipActive : ''}`}
+                onClick={() => setCategoryId(category.id)}
+              >
+                {category.name}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
+        <ScrollView scrollX className={styles.filterScroll} enhanced showScrollbar={false}>
+          <View className={styles.chipRow}>
+            {SORT_OPTIONS.map((option) => (
+              <Text
+                key={option.value}
+                className={`${styles.chip} ${sort === option.value ? styles.chipActive : ''}`}
+                onClick={() => setSort(option.value)}
+              >
+                {option.label}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
 
         <View className={styles.sectionHeader}>
           <Text className={styles.sectionTitle}>为你推荐</Text>

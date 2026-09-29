@@ -3,6 +3,8 @@ import { useParams, history } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import { getLiveRoom, enterLiveRoom } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
+import { getProductById } from '@/api/product'
+import type { Product } from '@/types'
 import WishLiveWidget from '@/components/WishLiveWidget'
 import { useAuthStore } from '@/stores/auth'
 import GiftPickerModal from '@/components/GiftPickerModal'
@@ -22,12 +24,34 @@ export default function LiveRoomPage() {
   const { user, accessToken } = useAuthStore()
 
   const [room, setRoom] = useState<LiveRoom | null>(null)
+  // 讲解商品详情（对齐移动端：真实名称/价格，拉取失败时回退「商品ID-x」占位）
+  const [roomProduct, setRoomProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [messages, setMessages] = useState<DanmakuMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const danmakuInputRef = useRef<any>(null)
   const [likes, setLikes] = useState(0)
   const [wsConnected, setWsConnected] = useState(false)
+
+  // 讲解商品详情（失败静默回退占位展示；productId 变化时重拉）
+  useEffect(() => {
+    const productId = room?.productId
+    if (!productId) {
+      setRoomProduct(null)
+      return
+    }
+    let cancelled = false
+    getProductById(productId)
+      .then((res) => {
+        if (!cancelled) setRoomProduct(res.data.data ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setRoomProduct(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [room?.productId])
 
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -446,9 +470,17 @@ export default function LiveRoomPage() {
               </div>
               <div style={{ padding: 14 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
-                  {`商品ID-${room.productId}`}
+                  {roomProduct?.name ?? `商品ID-${room.productId}`}
                 </div>
-                <button type="button" style={{
+                {roomProduct?.skus?.length ? (
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#ff4d4f', marginBottom: 8 }}>
+                    ¥{Math.min(...roomProduct.skus.map((s) => s.price)).toFixed(2)} 起
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => history.push(`/products/${room.productId}`)}
+                  style={{
                   width: '100%',
                   padding: '8px 0',
                   border: 'none',

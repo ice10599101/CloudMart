@@ -58,6 +58,9 @@ public class AdminPetContentConfigController {
     private final PetEventConfigMapper eventConfigMapper;
     private final com.cloudmart.pet.repository.PetContentSensitiveWordMapper sensitiveWordMapper;
     private final com.cloudmart.pet.service.impl.PetContentSafetyService contentSafetyService;
+    private final com.cloudmart.pet.repository.PetFoodConfigMapper foodConfigMapper;
+    private final com.cloudmart.pet.repository.PetPersonaPhraseMapper personaPhraseMapper;
+    private final com.cloudmart.pet.service.impl.PetItemCatalog itemCatalog;
 
     // ---------------- 装备 ----------------
 
@@ -409,6 +412,130 @@ public class AdminPetContentConfigController {
         contentSafetyService.refresh();
         return ApiResponse.ok(null);
     }
+
+    // ---------------- 食物配置（F1 配置化） ----------------
+
+    @GetMapping("/foods")
+    @Operation(summary = "食物列表", description = "全量（含下架）；喂养效果服务端权威")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetFoodConfig>> listFoods() {
+        return ApiResponse.ok(foodConfigMapper.selectList(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetFoodConfig>()
+                .orderByAsc(com.cloudmart.pet.entity.PetFoodConfig::getSort)));
+    }
+
+    /** 食物配置请求（F1） */
+    public record FoodUpsertRequest(
+            Long id,
+            @NotBlank String code,
+            @NotBlank String name,
+            String icon,
+            String description,
+            @NotNull @Min(0) Integer priceStarlight,
+            @NotNull @Min(0) @jakarta.validation.constraints.Max(100) Integer hunger,
+            @NotNull @Min(0) @jakarta.validation.constraints.Max(100) Integer happiness,
+            @NotNull @Min(0) Integer hp,
+            Boolean enabled,
+            Integer sort
+    ) {
+    }
+
+    @PostMapping("/foods")
+    @Operation(summary = "新增/更新食物", description = "带 id 为更新；价格/效果服务端权威（0≤hunger/happiness≤100）；本实例即时生效，其他实例 ≤60s")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<com.cloudmart.pet.entity.PetFoodConfig> upsertFood(
+            @Valid @RequestBody FoodUpsertRequest request) {
+        com.cloudmart.pet.entity.PetFoodConfig config = new com.cloudmart.pet.entity.PetFoodConfig();
+        config.setId(request.id());
+        config.setCode(request.code().strip());
+        config.setName(request.name().strip());
+        config.setIcon(request.icon() != null && !request.icon().isBlank() ? request.icon() : "🍎");
+        config.setDescription(request.description() != null ? request.description() : "");
+        config.setPriceStarlight(request.priceStarlight());
+        config.setHunger(request.hunger());
+        config.setHappiness(request.happiness());
+        config.setHp(request.hp());
+        config.setEnabled(request.enabled() == null || request.enabled() ? 1 : 0);
+        config.setSort(request.sort() != null ? request.sort() : 0);
+        try {
+            if (request.id() != null && foodConfigMapper.selectById(request.id()) != null) {
+                foodConfigMapper.updateById(config);
+            } else {
+                config.setId(null);
+                foodConfigMapper.insert(config);
+            }
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "食物编码已存在: " + config.getCode());
+        }
+        governance.snapshotAndRecord("food", config.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        itemCatalog.invalidateFoodCache();
+        return ApiResponse.ok(config);
+    }
+
+    @PutMapping("/foods/{id}/enabled")
+    @Operation(summary = "食物上下架")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> toggleFood(@PathVariable("id") Long id,
+                                        @RequestParam("enabled") Boolean enabled) {
+        com.cloudmart.pet.entity.PetFoodConfig patch = new com.cloudmart.pet.entity.PetFoodConfig();
+        patch.setId(id);
+        patch.setEnabled(enabled ? 1 : 0);
+        foodConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("food", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        itemCatalog.invalidateFoodCache();
+        return ApiResponse.ok(null);
+    }
+
+    // ---------------- 人设口头禅（F8 配置化） ----------------
+
+    @GetMapping("/persona-phrases")
+    @Operation(summary = "口头禅列表", description = "按性格一行；DB 无行的性格回落 Nacos 出厂默认（读取结果标 source）")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<List<java.util.Map<String, String>>> listPersonaPhrases() {
+        java.util.Map<String, com.cloudmart.pet.entity.PetPersonaPhrase> byDb = new java.util.HashMap<>();
+        personaPhraseMapper.selectList(null)
+                .forEach(row -> byDb.put(row.getPersonality(), row));
+        List<java.util.Map<String, String>> result = new java.util.ArrayList<>();
+        for (com.cloudmart.pet.enums.PetPersonality personality : com.cloudmart.pet.enums.PetPersonality.values()) {
+            com.cloudmart.pet.entity.PetPersonaPhrase row = byDb.get(personality.name());
+            java.util.Map<String, String> item = new java.util.LinkedHashMap<>();
+            item.put("personality", personality.name());
+            item.put("phrase", row != null ? row.getPhrase()
+                    : com.cloudmart.pet.service.impl.PetPersonaPhraseService.PHRASE_PLACEHOLDER);
+            item.put("source", row != null ? "DB" : "DEFAULT");
+            result.add(item);
+        }
+        return ApiResponse.ok(result);
+    }
+
+    /** 口头禅保存请求（F8） */
+    public record PersonaPhraseUpsertRequest(
+            @NotBlank String personality,
+            @NotBlank String phrase) {
+    }
+
+    @PostMapping("/persona-phrases")
+    @Operation(summary = "保存口头禅", description = "按性格 upsert；{name} 占位宠物名；60 秒内同步到全部实例")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> upsertPersonaPhrase(@Valid @RequestBody PersonaPhraseUpsertRequest request) {
+        try {
+            com.cloudmart.pet.enums.PetPersonality.valueOf(request.personality());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "性格编码非法: " + request.personality());
+        }
+        String phrase = request.phrase().strip();
+        if (phrase.isEmpty() || phrase.length() > 64) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "口头禅需 1~64 字");
+        }
+        personaPhraseService.save(request.personality(), phrase);
+        governance.snapshotAndRecord("persona_phrase", 0L,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        return ApiResponse.ok(null);
+    }
+
+    private final com.cloudmart.pet.service.impl.PetPersonaPhraseService personaPhraseService;
 
     // ---------------- 请求体 ----------------
 

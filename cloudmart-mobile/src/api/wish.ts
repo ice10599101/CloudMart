@@ -101,6 +101,14 @@ export interface DataExportTask {
     createdAt: string
 }
 
+/** 统一隐私中心聚合视图（对齐 Web N05：GET /wish/v2/my/privacy，单一数据源） */
+export interface PrivacyOverview {
+    aiDataProcessing: { granted: boolean; version: string; updatedAt: string }
+    dataExport: { status: string; taskId?: string; expiresAt?: string }
+    accountDeletion: { status: string; executeAfter?: string; executedAt?: string }
+    defaults: { locationSharing: boolean; fulfillmentAutoShare: boolean; rmbPayment: boolean }
+}
+
 export interface WishCollectionItem {
     wishId: number
     title: string
@@ -408,6 +416,9 @@ export const wishApi = {
         }),
     getAccountDeletionStatus: () =>
         request<{ status: 'PENDING' | 'CANCELED' | 'EXECUTED' } | null>({ url: '/wish/my/account-deletion' }),
+
+    /** 统一隐私中心聚合视图（对齐 Web N05：单一数据源，AI 授权/导出/注销/默认关闭项） */
+    getMyPrivacyOverview: () => request<PrivacyOverview>({ url: '/wish/v2/my/privacy' }),
 
     // ---- 世界树（Sprint 2.1）----
     /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */

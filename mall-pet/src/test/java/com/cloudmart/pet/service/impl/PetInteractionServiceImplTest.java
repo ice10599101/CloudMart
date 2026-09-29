@@ -79,6 +79,8 @@ class PetInteractionServiceImplTest {
     private com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
     @Mock
     private PetFriendFeedService friendFeedService;
+    @Mock
+    private PetItemCatalog itemCatalog;
 
     private final PetProperties properties = new PetProperties();
     private PetInteractionServiceImpl interactionService;
@@ -107,9 +109,13 @@ class PetInteractionServiceImplTest {
         interactionService = new PetInteractionServiceImpl(petService, stateService, activityMapper,
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
                 properties, quotaService, outboxService, petClock, inventoryMapper, friendFeedService,
+                itemCatalog,
                 org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
+        // F1 配置化：食物效果由 PetItemCatalog 查配置表提供（测试 stub 静态基线 apple）
+        lenient().when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
+                new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆脆的苹果", 20, 15, 2, 0)));
     }
 
     private Pet pet() {

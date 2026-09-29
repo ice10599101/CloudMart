@@ -37,7 +37,8 @@ public class PetConfigGovernanceService {
             Map.entry("sensitive_word", "pet_content_sensitive_word"),
             // F5：宠物数值调整快照留痕（调整写后快照进 pet_config_version 审计）
             Map.entry("pet", "pet"),
-            Map.entry("pet_season", "pet_season"));
+            Map.entry("pet_season", "pet_season"),
+            Map.entry("food", "pet_food_config"));
 
     private final PetConfigVersionMapper versionMapper;
     private final JdbcTemplate jdbcTemplate;

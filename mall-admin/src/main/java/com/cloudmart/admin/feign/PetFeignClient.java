@@ -163,6 +163,24 @@ public interface PetFeignClient {
     ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                        @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 
+    // ---------------- F1 食物配置 / F8 口头禅（下游 /admin/configs/**） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/foods")
+    ApiResponse<Object> listFoods();
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/foods")
+    ApiResponse<Object> upsertFood(@RequestBody Map<String, Object> data);
+
+    @org.springframework.web.bind.annotation.PutMapping("/configs/foods/{id}/enabled")
+    ApiResponse<Object> toggleFood(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                   @org.springframework.web.bind.annotation.RequestParam("enabled") Boolean enabled);
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/persona-phrases")
+    ApiResponse<Object> listPersonaPhrases();
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/persona-phrases")
+    ApiResponse<Void> upsertPersonaPhrase(@RequestBody Map<String, Object> data);
+
     // ---------------- P0-1 内容安全：敏感词库 ----------------
 
     @org.springframework.web.bind.annotation.GetMapping("/configs/sensitive-words")

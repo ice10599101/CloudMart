@@ -1,0 +1,100 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-bg-base, #0b1220);
+  color: var(--color-text-primary, #eaeaf2);
+  box-sizing: border-box;
+  padding-bottom: 60rpx;
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  opacity: 0.6;
+}
+
+.card {
+  background: var(--color-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin: 24rpx;
+}
+
+.cardTitle {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 16rpx;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--color-border, rgba(255, 255, 255, 0.08));
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+}
+
+.rowLabel {
+  font-size: 26rpx;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.rowValue {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.inlineActions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.plainText {
+  font-size: 24rpx;
+  opacity: 0.7;
+}
+
+.tag {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  background: var(--color-bg-secondary, rgba(0, 212, 255, 0.08));
+  color: var(--color-text-secondary, #b8c4d9);
+}
+
+.tagDanger {
+  background: rgba(255, 77, 79, 0.15);
+  color: #ff6b6b;
+}
+
+.actionLink {
+  font-size: 24rpx;
+  color: var(--color-primary, #00d4ff);
+}
+
+.actionDanger {
+  color: #ff6b6b;
+}
+
+.hint {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  opacity: 0.55;
+}
+
+.footNote {
+  display: block;
+  margin: 8rpx 24rpx 0;
+  font-size: 22rpx;
+  opacity: 0.45;
+}

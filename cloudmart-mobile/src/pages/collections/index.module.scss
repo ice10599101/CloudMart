@@ -359,3 +359,25 @@
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
+
+// ==== 收藏子分类入口（对齐 Web 端 UserCenter：帖子/商品/心愿） ====
+
+.collectChips {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.collectChip {
+  font-size: 24rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary, #b8c4d9);
+}
+
+.collectChipActive {
+  background: var(--color-primary, #00d4ff);
+  color: #0b1220;
+  font-weight: 600;
+}

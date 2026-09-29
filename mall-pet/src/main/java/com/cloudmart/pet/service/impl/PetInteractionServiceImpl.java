@@ -62,6 +62,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final PetClock petClock;
     private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
     private final PetFriendFeedService friendFeedService;
+    private final PetItemCatalog itemCatalog;
 
     public PetInteractionServiceImpl(PetService petService,
                                      PetStateService stateService,
@@ -77,6 +78,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetClock petClock,
                                      com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper,
                                      PetFriendFeedService friendFeedService,
+                                     PetItemCatalog itemCatalog,
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
                                      com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService) {
         this.petService = petService;
@@ -93,6 +95,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.petClock = petClock;
         this.inventoryMapper = inventoryMapper;
         this.friendFeedService = friendFeedService;
+        this.itemCatalog = itemCatalog;
         this.companionFeatureService = companionFeatureService;
         this.playFeatureService = playFeatureService;
     }
@@ -151,7 +154,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     public PetVO feedItem(Long userId, String itemCode) {
         Pet pet = petService.requireOwnedPet(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
-        PetItemCatalog.FoodItem food = PetItemCatalog.food(itemCode)
+        PetItemCatalog.FoodItem food = itemCatalog.food(itemCode)
                 .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
         if (pet.getHunger() >= 100) {
             throw new BusinessException(PetErrorCodes.PET_STATE_FULL, "宠物已经吃饱啦，先陪它玩一会吧");

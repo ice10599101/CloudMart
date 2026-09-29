@@ -463,6 +463,47 @@ public class AdminPetController {
         return petFeignClient.compensateUser(userId, body);
     }
 
+    // ---------------- F1 食物配置 / F8 口头禅 ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/foods")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "食物列表", description = "全量（含下架）；喂养效果服务端权威")
+    public ApiResponse<Object> listFoods() {
+        return petFeignClient.listFoods();
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/foods")
+    @OperLog(title = "宠物食物配置", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "新增/更新食物", description = "带 id 为更新；0≤hunger/happiness≤100")
+    public ApiResponse<Object> upsertFood(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> data) {
+        return petFeignClient.upsertFood(data);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/configs/foods/{id}/enabled")
+    @OperLog(title = "宠物食物上下架", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "食物上下架")
+    public ApiResponse<Object> toggleFood(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                          @org.springframework.web.bind.annotation.RequestParam("enabled") Boolean enabled) {
+        return petFeignClient.toggleFood(id, enabled);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/persona-phrases")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "口头禅列表", description = "按性格一行，DB 无行回落出厂默认")
+    public ApiResponse<Object> listPersonaPhrases() {
+        return petFeignClient.listPersonaPhrases();
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/persona-phrases")
+    @OperLog(title = "宠物口头禅配置", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "保存口头禅", description = "按性格 upsert；60 秒内同步全部实例")
+    public ApiResponse<Void> upsertPersonaPhrase(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> data) {
+        return petFeignClient.upsertPersonaPhrase(data);
+    }
+
     // ---------------- P0-1 内容安全：敏感词库 ----------------
 
     @org.springframework.web.bind.annotation.GetMapping("/configs/sensitive-words")

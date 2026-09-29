@@ -117,8 +117,8 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                         learnedSkills.contains(config.getCode())
                                 || owned.getOrDefault(PetItemType.SKILL_BOOK, Set.of()).contains(config.getCode()),
                         skillLockReason(pet, config))));
-        // F1：食物道具上架（代码目录，可重复购买堆叠入包）
-        for (PetItemCatalog.FoodItem food : PetItemCatalog.FOODS) {
+        // F1：食物道具上架（配置表，可重复购买堆叠入包）
+        for (PetItemCatalog.FoodItem food : itemCatalog.listFoods()) {
             items.add(new PetShopItemVO(PetItemType.FOOD.name(), food.code(), food.name(),
                     food.description(), food.icon(), "COMMON", food.priceStarlight(),
                     null, null, null, null, null, null, null,
@@ -150,7 +150,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
      * 同键重试收敛不重复扣款），入包按 (pet, FOOD, code) 原子堆叠。
      */
     private PetInventoryItemVO buyFood(Pet pet, String code) {
-        PetItemCatalog.FoodItem food = PetItemCatalog.food(code)
+        PetItemCatalog.FoodItem food = itemCatalog.food(code)
                 .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
         spendForPurchase(pet, PetItemType.FOOD, code, food.priceStarlight());
         PetInventory item = stackInventory(pet, PetItemType.FOOD, code);

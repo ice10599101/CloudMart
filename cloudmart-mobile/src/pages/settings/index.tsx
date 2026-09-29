@@ -211,6 +211,13 @@ export default function SettingsPage() {
       {/* 心愿宇宙合规入口 */}
       <View className={styles.sectionTitle}>心愿宇宙 · 合规</View>
       <View className={styles.section}>
+        <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/wishPrivacy/index' })}>
+          <View className={styles.switchInfo}>
+            <Text className={styles.switchLabel}>隐私中心</Text>
+            <Text className={styles.switchDesc}>AI 授权 / 导出进度 / 注销阶段一览</Text>
+          </View>
+          <Text style={{ color: '#4a90d9', fontSize: 13 }}>→</Text>
+        </View>
         <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/starlightLog/index' })}>
           <View className={styles.switchInfo}>
             <Text className={styles.switchLabel}>星光流水</Text>

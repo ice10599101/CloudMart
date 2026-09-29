@@ -130,3 +130,32 @@
   color: var(--color-text-tertiary);
   margin-top: 4rpx;
 }
+
+// ==== 分类筛选 + 排序 chips（对齐 Web 端 ProductList） ====
+
+.filterScroll {
+  width: 100%;
+  white-space: nowrap;
+  margin-top: 16rpx;
+}
+
+.chipRow {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 0 24rpx;
+}
+
+.chip {
+  display: inline-block;
+  font-size: 24rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary, #b8c4d9);
+}
+
+.chipActive {
+  background: var(--color-primary, #00d4ff);
+  color: #0b1220;
+  font-weight: 600;
+}

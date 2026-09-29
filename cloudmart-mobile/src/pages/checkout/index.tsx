@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { View, Text, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { orderApi } from '@/api/order'
 import { userApi } from '@/api/user'
 import { cartApi } from '@/api/cart'
@@ -51,6 +51,8 @@ export default function CheckoutPage() {
   const isDirectBuy = !!directProductId
 
   const [address, setAddress] = useState<Address | null>(null)
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [addressPickerOpen, setAddressPickerOpen] = useState(false)
   const [items, setItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -63,11 +65,30 @@ export default function CheckoutPage() {
     initData()
   }, [])
 
+  /** 地址列表（对齐 Web 端结算页：多地址可选，默认地址自动选中）。
+   *  useDidShow 每次展示都刷新——从地址管理页返回后立即看到新增/修改结果。 */
+  const loadAddresses = useCallback(async () => {
+    try {
+      const res = await userApi.getAddresses()
+      const list = res.data?.data ?? []
+      setAddresses(list)
+      setAddress((prev) => {
+        if (prev) return prev
+        return list.find((a) => a.isDefault) ?? list[0] ?? null
+      })
+    } catch {
+      // 地址服务不可用时保留空态引导
+    }
+  }, [])
+
+  useDidShow(() => {
+    loadAddresses()
+  })
+
   const initData = async () => {
     setLoading(true)
     try {
-      const addrRes = await userApi.getDefaultAddress().catch(() => null)
-      setAddress(addrRes?.data?.data || null)
+      // 地址由 useDidShow → loadAddresses 负责（首次展示同样触发，避免双请求）
 
       if (isDirectBuy) {
         // 直购模式：拉商品详情，用指定 SKU/数量
@@ -175,7 +196,10 @@ export default function CheckoutPage() {
 
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
-      <View className={styles.section} onClick={() => Taro.navigateTo({ url: '/pages/address/index' })}>
+      <View
+        className={styles.section}
+        onClick={() => (addresses.length > 1 ? setAddressPickerOpen(!addressPickerOpen) : Taro.navigateTo({ url: '/pages/address/index' }))}
+      >
         <Text className={styles.label}>收货地址</Text>
         {address ? (
           <View className={styles.addressInfo}>
@@ -186,6 +210,39 @@ export default function CheckoutPage() {
           <Text className={styles.emptyText}>请添加收货地址 ›</Text>
         )}
       </View>
+
+      {/* 地址选择（对齐 Web 端结算页：多地址展开选择，默认地址前置勾选） */}
+      {addressPickerOpen && addresses.length > 1 && (
+        <View className={styles.section}>
+          {addresses.map((item) => (
+            <View
+              key={item.id}
+              className={`${styles.addressOption} ${item.id === address?.id ? styles.addressOptionActive : ''}`}
+              onClick={() => {
+                setAddress(item)
+                setAddressPickerOpen(false)
+              }}
+            >
+              <Text className={styles.addressOptionCheck}>{item.id === address?.id ? '☑️' : '⬜'}</Text>
+              <View className={styles.addressOptionInfo}>
+                <Text className={styles.addressOptionName}>
+                  {item.name} {item.phone}
+                  {item.isDefault && <Text className={styles.addressDefaultTag}> 默认</Text>}
+                </Text>
+                <Text className={styles.addressOptionDetail}>
+                  {item.province}{item.city}{item.district}{item.detail}
+                </Text>
+              </View>
+            </View>
+          ))}
+          <Text
+            className={styles.addressManageLink}
+            onClick={() => Taro.navigateTo({ url: '/pages/address/index' })}
+          >
+            管理地址 ›
+          </Text>
+        </View>
+      )}
 
       <View className={styles.section}>
         <Text className={styles.label}>商品清单</Text>

@@ -252,9 +252,29 @@ export default function CollectionsPage() {
           ? <View className={styles.draftList}>{drafts.map(renderDraftCard)}</View>
           : renderEmpty('📋', '暂无草稿', '发布内容时可保存为草稿稍后编辑')
       case 'collections':
-        return collectedPosts.length > 0
-          ? <View className={styles.postGrid}>{collectedPosts.map(renderPostCard)}</View>
-          : renderEmpty('⭐', '暂无收藏', '在帖子详情点击收藏吧')
+        // 子分类入口对齐 Web 端 UserCenter 收藏面板：帖子（本页）/ 商品 / 心愿
+        return (
+          <View>
+            <View className={styles.collectChips}>
+              <Text className={`${styles.collectChip} ${styles.collectChipActive}`}>帖子</Text>
+              <Text
+                className={styles.collectChip}
+                onClick={() => Taro.navigateTo({ url: '/pages/wishlist/index' })}
+              >
+                商品
+              </Text>
+              <Text
+                className={styles.collectChip}
+                onClick={() => Taro.navigateTo({ url: '/pages/wishCollections/index' })}
+              >
+                心愿
+              </Text>
+            </View>
+            {collectedPosts.length > 0
+              ? <View className={styles.postGrid}>{collectedPosts.map(renderPostCard)}</View>
+              : renderEmpty('⭐', '暂无帖子收藏', '在帖子详情点击收藏吧')}
+          </View>
+        )
       case 'liked':
         return likedPosts.length > 0
           ? <View className={styles.postGrid}>{likedPosts.map(renderPostCard)}</View>
