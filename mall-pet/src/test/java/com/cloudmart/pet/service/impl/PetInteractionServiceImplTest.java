@@ -75,6 +75,10 @@ class PetInteractionServiceImplTest {
     private PetEventProducer eventProducer;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
+    @Mock
+    private PetFriendFeedService friendFeedService;
 
     private final PetProperties properties = new PetProperties();
     private PetInteractionServiceImpl interactionService;
@@ -83,6 +87,9 @@ class PetInteractionServiceImplTest {
     static void initEntityMeta() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PetActivity.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetInventory.class);
+        // F1 feedItem 用 LambdaUpdateWrapper<Pet>，需要 Pet 的 lambda 列缓存
+        TableInfoHelper.initTableInfo(assistant, Pet.class);
     }
 
     @BeforeEach
@@ -99,7 +106,7 @@ class PetInteractionServiceImplTest {
         outboxService = org.mockito.Mockito.mock(PetOutboxService.class);
         interactionService = new PetInteractionServiceImpl(petService, stateService, activityMapper,
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
-                properties, quotaService, outboxService, petClock,
+                properties, quotaService, outboxService, petClock, inventoryMapper, friendFeedService,
                 org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
@@ -211,5 +218,65 @@ class PetInteractionServiceImplTest {
 
         verify(achievementService).evaluate(eq(pet), eq(PetAchievementService.Event.REST));
         org.assertj.core.api.Assertions.assertThat(pet.getEnergy()).isEqualTo(100);
+    }
+
+    // ---------------- F1 喂养道具 ----------------
+
+    @Test
+    @DisplayName("F1 feedItem：消耗背包食物并应用恢复效果，默认不占免费次数")
+    void feedItemConsumesInventoryAndAppliesEffects() {
+        Pet pet = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(petService.toVo(any())).thenReturn(petVo());
+        when(inventoryMapper.update(any(), any())).thenReturn(1);
+
+        PetVO vo = interactionService.feedItem(100L, "apple");
+
+        org.assertj.core.api.Assertions.assertThat(vo).isNotNull();
+        // 基线 hunger=50/happiness=50/hp=80：apple = hunger+15 / happiness+2 / hp+0
+        org.assertj.core.api.Assertions.assertThat(pet.getHunger()).isEqualTo(65);
+        org.assertj.core.api.Assertions.assertThat(pet.getHappiness()).isEqualTo(52);
+        org.assertj.core.api.Assertions.assertThat(pet.getHp()).isEqualTo(80);
+        // 不发经验（升级事件零调用）
+        verify(stateService, never()).grantExp(any(), org.mockito.ArgumentMatchers.anyInt());
+        // 默认不占每日免费喂食次数
+        verify(quotaService, never()).tryConsume(any(), eq(PetQuotaService.QuotaType.FEED),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("F1 feedItem：背包无货抛 PET_ITEM_NOT_ENOUGH")
+    void feedItemWithoutStockRejected() {
+        Pet pet = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(inventoryMapper.update(any(), any())).thenReturn(0);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                .hasMessageContaining("背包里没有这个食物");
+    }
+
+    @Test
+    @DisplayName("F1 feedItem：未知食物编码抛 PET_ITEM_NOT_FOUND")
+    void feedItemUnknownFoodRejected() {
+        Pet pet = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "poison"))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                .hasMessageContaining("不存在");
+    }
+
+    @Test
+    @DisplayName("F1 feedItem：已饱抛 PET_STATE_FULL 不扣背包")
+    void feedItemWhenFullRejected() {
+        Pet pet = pet();
+        pet.setHunger(100);
+        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                .hasMessageContaining("已经吃饱");
+        verify(inventoryMapper, never()).update(any(), any());
     }
 }

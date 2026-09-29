@@ -117,6 +117,15 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                         learnedSkills.contains(config.getCode())
                                 || owned.getOrDefault(PetItemType.SKILL_BOOK, Set.of()).contains(config.getCode()),
                         skillLockReason(pet, config))));
+        // F1：食物道具上架（代码目录，可重复购买堆叠入包）
+        for (PetItemCatalog.FoodItem food : PetItemCatalog.FOODS) {
+            items.add(new PetShopItemVO(PetItemType.FOOD.name(), food.code(), food.name(),
+                    food.description(), food.icon(), "COMMON", food.priceStarlight(),
+                    null, null, null, null, null, null, null,
+                    0, 0, 0, 0, 0,
+                    1, 0,
+                    false, true, null));
+        }
         return new PetShopVO(starlightBalanceQuietly(userId), items);
     }
 
@@ -128,10 +137,65 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
             case EQUIPMENT -> buyEquipment(pet, request.itemCode());
             case SKIN -> buySkin(pet, request.itemCode());
             case SKILL_BOOK -> buySkillBook(pet, request.itemCode());
+            // F1：食物可重复购买（堆叠 quantity）
+            case FOOD -> buyFood(pet, request.itemCode());
             // 三期家具走家园商城（/home/furniture/buy）：这里显式拒绝，避免前端走错入口默默失败
             case FURNITURE -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
                     "家具请到家园商城购买哦");
         };
+    }
+
+    /**
+     * F1 食物购买：可重复购买——每次意图独立扣款（SPEND 意图键含客户端 Idempotency-Key，
+     * 同键重试收敛不重复扣款），入包按 (pet, FOOD, code) 原子堆叠。
+     */
+    private PetInventoryItemVO buyFood(Pet pet, String code) {
+        PetItemCatalog.FoodItem food = PetItemCatalog.food(code)
+                .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
+        spendForPurchase(pet, PetItemType.FOOD, code, food.priceStarlight());
+        PetInventory item = stackInventory(pet, PetItemType.FOOD, code);
+        return itemCatalog.toInventoryVo(item, false);
+    }
+
+    /** 堆叠入包：已有行 quantity+1（条件更新），无行则插入（uk 并发兜底重试一次） */
+    private PetInventory stackInventory(Pet pet, PetItemType type, String code) {
+        int updated = inventoryMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetInventory>()
+                .setSql("quantity = quantity + 1")
+                .eq(PetInventory::getPetId, pet.getId())
+                .eq(PetInventory::getItemType, type.name())
+                .eq(PetInventory::getItemCode, code));
+        if (updated > 0) {
+            return inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
+                    .eq(PetInventory::getPetId, pet.getId())
+                    .eq(PetInventory::getItemType, type.name())
+                    .eq(PetInventory::getItemCode, code)
+                    .last("LIMIT 1"));
+        }
+        PetInventory item = new PetInventory();
+        item.setPetId(pet.getId());
+        item.setUserId(pet.getUserId());
+        item.setItemType(type.name());
+        item.setItemCode(code);
+        item.setQuantity(1);
+        item.setEquipped(false);
+        item.setAcquiredAt(petClock.nowUtc());
+        try {
+            inventoryMapper.insert(item);
+        } catch (DuplicateKeyException e) {
+            // 并发首购：重试一次堆叠
+            inventoryMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetInventory>()
+                    .setSql("quantity = quantity + 1")
+                    .eq(PetInventory::getPetId, pet.getId())
+                    .eq(PetInventory::getItemType, type.name())
+                    .eq(PetInventory::getItemCode, code));
+        }
+        playFeatureService.unlockCollection(pet.getUserId(), pet.getId(),
+                type.name(), code, "SHOP_BUY:" + pet.getId() + ":" + type.name() + ":" + code);
+        return inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
+                .eq(PetInventory::getPetId, pet.getId())
+                .eq(PetInventory::getItemType, type.name())
+                .eq(PetInventory::getItemCode, code)
+                .last("LIMIT 1"));
     }
 
     private PetInventoryItemVO buyEquipment(Pet pet, String code) {
@@ -326,6 +390,26 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
      * 恢复任务回调（B01）：钱包已扣款但本地入包未落地时，按 rewardSnapshot 幂等补入包。
      * 已拥有（DuplicateKey/存在查询）视为已履约。
      */
+    /** 恢复任务堆叠履约（F1）：无条件 quantity+1（insert 1 冲突转 +1） */
+    private void stackInventory(PetItemType type, String code, PetOperation operation) {
+        int updated = inventoryMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetInventory>()
+                .setSql("quantity = quantity + 1")
+                .eq(PetInventory::getPetId, operation.getPetId())
+                .eq(PetInventory::getItemType, type.name())
+                .eq(PetInventory::getItemCode, code));
+        if (updated == 0) {
+            PetInventory item = new PetInventory();
+            item.setPetId(operation.getPetId());
+            item.setUserId(operation.getUserId());
+            item.setItemType(type.name());
+            item.setItemCode(code);
+            item.setQuantity(1);
+            item.setEquipped(false);
+            item.setAcquiredAt(LocalDateTime.now(java.time.ZoneOffset.UTC));
+            inventoryMapper.insert(item);
+        }
+    }
+
     @Override
     public boolean completePendingOperation(PetOperation operation) {
         Map<String, Object> snapshot = PetJsonUtils.parse(operation.getRewardSnapshot(),
@@ -333,6 +417,16 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
                 });
         String itemType = String.valueOf(snapshot.get("itemType"));
         String itemCode = String.valueOf(snapshot.get("itemCode"));
+        // F1：食物可堆叠——同一 (pet,FOOD,code) 已有历史行不代表本次购买已履约，
+        // 无条件补 1（insert quantity=1，uk 冲突转堆叠 +1）
+        if (PetItemType.FOOD.name().equals(itemType)) {
+            try {
+                stackInventory(PetItemType.FOOD, itemCode, operation);
+            } catch (DuplicateKeyException e) {
+                // 并发履约：视为已入包
+            }
+            return true;
+        }
         boolean exists = inventoryMapper.selectCount(new LambdaQueryWrapper<PetInventory>()
                 .eq(PetInventory::getPetId, operation.getPetId())
                 .eq(PetInventory::getItemType, itemType)

@@ -116,7 +116,7 @@ class PetBottleFishingServiceImplTest {
                 stateService, dailyQuestService, intimacyService, economyService, playFeatureService,
                 org.mockito.Mockito.mock(PetOutboxService.class), properties, petClock);
         bottleService = new PetBottleFishingServiceImpl(petService, activityMapper,
-                bottleRecordMapper, petMapper, settlementService, properties, petClock);
+                bottleRecordMapper, petMapper, settlementService, properties, petClock, stateService);
         // 无装备/技能时战斗属性 = 宠物基础属性（与改造前成功率口径一致）
         lenient().when(statsService.combatStats(any())).thenAnswer(invocation -> {
             Pet pet = invocation.getArgument(0);

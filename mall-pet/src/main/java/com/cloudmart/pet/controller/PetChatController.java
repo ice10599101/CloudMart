@@ -42,6 +42,14 @@ public class PetChatController {
         return ApiResponse.ok(chatService.chat(userId, request));
     }
 
+    @GetMapping("/chat/persona")
+    @Operation(summary = "宠物人设卡（F8）", description = "名字/性格/口头禅/职业/亲密度阶段——与注入 AI prompt 的身份信息同源")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<com.cloudmart.pet.service.PetChatService.PetPersonaVO> persona(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(chatService.persona(userId));
+    }
+
     @GetMapping("/chat/history")
     @Operation(summary = "聊天历史", description = "cursor 分页（messageId 倒序）；单页 ≤50 条")
     @SentinelResource("PET_QUERY")

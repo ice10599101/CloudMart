@@ -180,6 +180,8 @@ pet:
   # 基础互动数值（每日次数按 UTC 日计）
   interaction:
     feed-daily-limit: 5
+    # F1：喂养道具是否占用每日免费喂食次数（默认不占）
+    feed-item-costs-quota: false
     feed-hunger: 30
     feed-happiness: 5
     feed-hp: 10

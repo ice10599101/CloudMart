@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 社区宠物模块业务参数（Nacos {@code mall-pet.yml} 热更新，application.yml 提供默认值）。
@@ -95,6 +96,8 @@ public class PetProperties {
         private long restDurationSeconds = 600;
         /** 休息每日亲密度收益次数上限（B06） */
         private int restIntimacyDailyLimit = 3;
+    /** F1：喂养道具是否占用每日免费喂食次数（产品开关，默认不占） */
+    private boolean feedItemCostsQuota = false;
     }
 
     /** 捞漂流瓶 */
@@ -139,6 +142,14 @@ public class PetProperties {
         private List<String> crisisKeywords = List.of("自杀", "自残", "轻生", "不想活", "想死", "结束生命", "伤害自己", "了结自己");
         /** 简单问候固定行为命中后不再走 AI（省 token；正则前缀列表） */
         private List<String> fixedIntentKeywords = List.of("你叫什么", "你的名字", "你是谁", "在干嘛", "在干什么", "在做什么");
+        /** F8：性格 → 口头禅模板（Nacos 可改；{name} 占位宠物名，注入 prompt 与人设卡） */
+        private Map<String, String> personaPhrases = Map.of(
+                "LIVELY", "冲鸭！今天也要元气满满！",
+                "GENTLE", "主人慢慢来，我会一直陪着你的呢。",
+                "TSUNDERE", "哼、才、才不是为了你才努力的呢！",
+                "SIMPLE", "嗯！好吃！开心！",
+                "COOL", "……有事？说吧，我罩你。",
+                "CHATTERBOX", "跟你说哦！今天社区超多新鲜事，我一条条讲给你听！");
     }
 
     /** 主动消息频控 */

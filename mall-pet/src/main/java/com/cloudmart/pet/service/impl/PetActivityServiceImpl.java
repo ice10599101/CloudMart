@@ -356,6 +356,10 @@ public class PetActivityServiceImpl implements PetActivityService {
                                              Integer requiredLevel, Map<String, Object> rewardRules) {
         Pet pet = petService.requireOwnedPet(userId);
         ensureNoBusyActivity(userId);
+        // F4：虚弱状态禁止打工（读书不受限）
+        if (type == PetActivityType.WORK && stateService.isWeak(pet)) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了没力气打工，先喂点东西吧");
+        }
 
         if (!isEligible(pet, requiredLevel, energyCost, hungerCost)) {
             if (pet.getLevel() < requiredLevel) {

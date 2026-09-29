@@ -75,6 +75,8 @@ class PetChatServiceImplTest {
     private com.cloudmart.pet.repository.PetReportMapper reportMapper;
     @Mock
     private com.cloudmart.pet.config.PetMetrics metrics;
+    @Mock
+    private com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper;
 
     private PetChatServiceImpl chatService;
 
@@ -97,7 +99,7 @@ class PetChatServiceImplTest {
         chatService = new PetChatServiceImpl(petService, contextService, aiClient, sessionMapper,
                 messageMapper, memoryMapper, petMapper, achievementService, dailyQuestService,
                 intimacyService, chatProps, redisTemplate, txTemplate, safetyService, reportMapper,
-                metrics);
+                metrics, careerConfigMapper);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.increment(anyString())).thenReturn(1L);
     }

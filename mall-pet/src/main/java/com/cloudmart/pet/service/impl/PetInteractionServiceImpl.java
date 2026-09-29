@@ -11,6 +11,7 @@ import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetIntimacySource;
+import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.repository.PetActivityMapper;
@@ -59,6 +60,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
+    private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
+    private final PetFriendFeedService friendFeedService;
 
     public PetInteractionServiceImpl(PetService petService,
                                      PetStateService stateService,
@@ -72,6 +75,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetQuotaService quotaService,
                                      PetOutboxService outboxService,
                                      PetClock petClock,
+                                     com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper,
+                                     PetFriendFeedService friendFeedService,
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
                                      com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService) {
         this.petService = petService;
@@ -86,6 +91,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.quotaService = quotaService;
         this.outboxService = outboxService;
         this.petClock = petClock;
+        this.inventoryMapper = inventoryMapper;
+        this.friendFeedService = friendFeedService;
         this.companionFeatureService = companionFeatureService;
         this.playFeatureService = playFeatureService;
     }
@@ -131,6 +138,55 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         achievementService.evaluate(pet, PetAchievementService.Event.FEED);
         notifyLevelUpIfAny(pet, levelups);
         // P2-1：状态已同步到实体，直接组装 VO（省 requireOwnedPet 的 SELECT + 重复懒更新）
+        return petService.toVo(pet);
+    }
+
+    /**
+     * F1 喂养道具：条件扣减背包（quantity &gt; 0 原子减 1，无货 409）→ 原子应用恢复效果
+     * （LEAST 封顶，hungerFrac 归零与免费喂食同口径）→ 任务/成就/亲密度按喂食同口径推进
+     * （不加经验）。可配置占用每日喂食次数；占用失败与扣减同事务回滚（白吃物品不可发生）。
+     */
+    @Override
+    @Transactional
+    public PetVO feedItem(Long userId, String itemCode) {
+        Pet pet = petService.requireOwnedPet(userId);
+        PetProperties.Interaction cfg = properties.getInteraction();
+        PetItemCatalog.FoodItem food = PetItemCatalog.food(itemCode)
+                .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
+        if (pet.getHunger() >= 100) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_FULL, "宠物已经吃饱啦，先陪它玩一会吧");
+        }
+        int consumed = inventoryMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetInventory>()
+                .setSql("quantity = quantity - 1")
+                .eq(com.cloudmart.pet.entity.PetInventory::getPetId, pet.getId())
+                .eq(com.cloudmart.pet.entity.PetInventory::getItemType, PetItemType.FOOD.name())
+                .eq(com.cloudmart.pet.entity.PetInventory::getItemCode, itemCode)
+                .gt(com.cloudmart.pet.entity.PetInventory::getQuantity, 0));
+        if (consumed == 0) {
+            throw new BusinessException(PetErrorCodes.PET_ITEM_NOT_ENOUGH, "背包里没有这个食物啦，去商城买一点吧");
+        }
+        if (cfg.isFeedItemCostsQuota()
+                && !quotaService.tryConsume(userId, PetQuotaService.QuotaType.FEED, 0, cfg.getFeedDailyLimit())) {
+            // 抛出回滚整个事务：背包扣减一并还原（不白吃物品）
+            throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
+                    "今天已经喂了 " + cfg.getFeedDailyLimit() + " 次啦，明天再来吧");
+        }
+        petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .setSql("hunger = LEAST(hunger + {0}, 100)", food.hunger())
+                .setSql("happiness = LEAST(happiness + {0}, 100)", food.happiness())
+                .setSql("hp = LEAST(hp + {0}, max_hp)", food.hp())
+                .set(Pet::getStatus, PetStatus.IDLE.name())
+                .set(Pet::getHungerFrac, 0.0)
+                .eq(Pet::getId, pet.getId()));
+        pet.setHunger(Math.min(100, pet.getHunger() + food.hunger()));
+        pet.setHappiness(Math.min(100, pet.getHappiness() + food.happiness()));
+        pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + food.hp()));
+        pet.setStatus(PetStatus.IDLE.name());
+        pet.setHungerFrac(0.0);
+        recordInstantActivity(pet, PetActivityType.FEED, 0);
+        intimacyService.gain(pet, PetIntimacySource.FEED);
+        dailyQuestService.record(pet, PetQuestType.FEED, 1);
+        achievementService.evaluate(pet, PetAchievementService.Event.FEED);
         return petService.toVo(pet);
     }
 
@@ -346,6 +402,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             return;
         }
         achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+        // F3：升级动态扇出给好友（展示型，Fail-Open）
+        friendFeedService.append(pet.getUserId(), pet.getId(), PetFriendFeedService.EVENT_LEVEL_UP,
+                pet.getName() + " 升到了 Lv." + pet.getLevel() + "！", pet.getName());
         String eventId = "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel();
         outboxService.record(eventId, com.cloudmart.pet.config.RocketMQConfig.PET_TAG_LEVEL_UP, pet.getUserId(), pet.getId(),
                 new com.cloudmart.pet.mq.PetEventProducer.PetEventMessage(

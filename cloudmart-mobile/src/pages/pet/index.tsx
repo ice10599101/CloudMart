@@ -3,6 +3,10 @@ import { View, Text, Input, Button, ScrollView, Switch } from '@tarojs/component
 import Taro, { useRouter } from '@tarojs/taro'
 import {
   petApi,
+  type PetAnniversary,
+  type PetChatPersona,
+  type PetSeasonHistoryItem,
+  type PetSeasonRanking,
   type PetAchievement,
   type PetBattleItem,
   type PetBottleResult,
@@ -72,6 +76,7 @@ const PERSONALITY_OPTIONS = [
 const SPECIES_EMOJI: Record<string, string> = { CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }
 const STATUS_LABEL: Record<string, string> = {
   IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
+  WEAK: '饿坏了！快喂食', SICK: '不开心病了，多陪陪它',
 }
 const GROWTH_STAGE_LABEL: Record<string, string> = { BABY: '幼年', YOUNG: '成长期', ADULT: '成年' }
 const ACTIVITY_LABEL: Record<string, string> = { WORK: '打工', STUDY: '读书', BOTTLE_FISHING: '捞漂流瓶' }
@@ -237,6 +242,9 @@ export default function PetPage() {
   const [chatMessages, setChatMessages] = useState<PetChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [rankings, setRankings] = useState<PetRankingResult | null>(null)
+  // F2：赛季榜与历届名次
+  const [season, setSeason] = useState<PetSeasonRanking | null>(null)
+  const [seasonHistory, setSeasonHistory] = useState<PetSeasonHistoryItem[]>([])
   const [rankingType, setRankingType] = useState<PetRankingType>('LEVEL')
   const [reminders, setReminders] = useState<PetReminder[]>([])
   const [reminderUnread, setReminderUnread] = useState(0)
@@ -413,6 +421,19 @@ export default function PetPage() {
 
   const loadPanelData = useCallback(async (key: PanelKey) => {
     try {
+      if (key === 'chat' && !personaLoaded) {
+        setPersonaLoaded(true)
+        void (async () => {
+          try {
+            const { data: res } = await petApi.getChatPersona()
+            if (res.success && res.data) {
+              setPersona(res.data)
+            }
+          } catch {
+            // 人设卡展示型数据：忽略
+          }
+        })()
+      }
       if (key === 'work') {
         const { data: res } = await petApi.listJobs()
         if (res.success) setJobs(res.data || [])
@@ -448,6 +469,17 @@ export default function PetPage() {
       } else if (key === 'rankings') {
         const { data: res } = await petApi.getRankings(rankingType)
         if (res.success) setRankings(res.data)
+        // F2：赛季榜 + 历届名次惰性加载（失败静默）
+        try {
+          const [seasonRes, historyRes] = await Promise.all([
+            petApi.getSeasonRanking(),
+            petApi.getSeasonHistory(),
+          ])
+          if (seasonRes.data.success) setSeason(seasonRes.data.data)
+          if (historyRes.data.success) setSeasonHistory(historyRes.data.data || [])
+        } catch {
+          // 赛季为可选增强，失败不阻断排行榜
+        }
       } else if (key === 'reminders') {
         const { data: res } = await petApi.listReminders()
         if (res.success) setReminders(res.data || [])
@@ -505,6 +537,12 @@ export default function PetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityKey, activeRemaining])
 
+  // F8：聊天人设卡（进聊天面板时惰性拉取一次；数据与 AI prompt 同源）
+  const [persona, setPersona] = useState<PetChatPersona | null>(null)
+  const [personaLoaded, setPersonaLoaded] = useState(false)
+
+  // F7：纪念日卡片（档案弹窗打开时惰性拉取，失败静默）
+  const [anniversary, setAnniversary] = useState<PetAnniversary | null>(null)
   const openProfile = useCallback(() => {
     if (!pet) return
     setProfileName(pet.name)
@@ -512,6 +550,16 @@ export default function PetPage() {
     setProfileColor(appearance?.color ?? PET_COLORS[0])
     setProfileAccessory(appearance?.accessory ?? 'none')
     setProfileOpen(true)
+    void (async () => {
+      try {
+        const { data: res } = await petApi.getAnniversaries()
+        if (res.success && res.data) {
+          setAnniversary(res.data)
+        }
+      } catch {
+        // 展示型数据：忽略
+      }
+    })()
   }, [pet])
 
   // 微信 web-view 舞台页的实时意图回落：navigateTo('/pages/pet/index?intent=feed')
@@ -537,6 +585,40 @@ export default function PetPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.intent, pet, openProfile])
+
+  // F1：长按喂食打开背包食物选择（ActionSheet 展示 FOOD 数量，选中即消耗并恢复状态）
+  const openFoodPicker = async () => {
+    try {
+      const { data: res } = await petApi.listInventory()
+      const foods = (res.data || []).filter(
+        (it) => it.itemType === 'FOOD' && (it.quantity ?? 0) > 0,
+      )
+      if (!res.success || foods.length === 0) {
+        toast('背包里没有食物，去商城买一点吧')
+        return
+      }
+      const labels = foods.map((it) => `${it.icon} ${it.name} x${it.quantity}`)
+      const picked = await Taro.showActionSheet({ itemList: labels.slice(0, 6) })
+      const index = picked.tapIndex ?? -1
+      if (index < 0 || acting) {
+        return
+      }
+      setActing(true)
+      try {
+        const { data: feedRes } = await petApi.feedItem(foods[index].code)
+        if (feedRes.success && feedRes.data) {
+          setPet(feedRes.data)
+          toast('好嘞！')
+        }
+      } catch (error) {
+        toast(friendlyError(error))
+      } finally {
+        setTimeout(() => setActing(false), 300)
+      }
+    } catch {
+      toast('背包暂时打不开，稍后再试')
+    }
+  }
 
   const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
     if (acting) return
@@ -859,7 +941,14 @@ export default function PetPage() {
           </Text>
           {/* 互动按钮 */}
           <View className={styles.actionRow}>
-            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('feed')}>🍖 喂食</Button>
+            <Button
+              className={styles.actionBtn}
+              disabled={acting}
+              onClick={() => runInteraction('feed')}
+              onLongPress={() => void openFoodPicker()}
+            >
+              🍖 喂食
+            </Button>
             <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('play')}>🎾 玩耍</Button>
             <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('clean')}>🫧 清洁</Button>
             <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('rest')}>💤 休息</Button>
@@ -1134,6 +1223,17 @@ export default function PetPage() {
 
           {panel === 'chat' && (
             <View className={styles.chatPanel}>
+              {persona && (
+                <View className={styles.chatPersonaCard}>
+                  <Text className={styles.chatPersonaTitle}>
+                    {persona.name} · {persona.intimacyLevelName}（Lv.{persona.intimacyLevel}）
+                  </Text>
+                  <Text className={styles.chatPersonaText}>
+                    {persona.phrase ? `「${persona.phrase}」` : ''}
+                    {persona.careerName ? ` · 现任${persona.careerName}` : ''}
+                  </Text>
+                </View>
+              )}
               {chatHasMore && (
                 <View className={styles.chatMoreRow} onClick={loadMoreChat}>
                   <Text className={styles.chatMoreText}>{chatLoadingMore ? '加载中…' : '加载更早的对话'}</Text>
@@ -1177,6 +1277,26 @@ export default function PetPage() {
 
           {panel === 'rankings' && (
             <View className={styles.rankList}>
+              {season?.season && (
+                <View className={styles.seasonCard}>
+                  <Text className={styles.seasonTitle}>
+                    🏆 {season.season.name}（{season.season.startsAt} ~ {season.season.endsAt}）
+                  </Text>
+                  {season.top50.slice(0, 3).map((item) => (
+                    <Text key={String(item.petId)} className={styles.seasonRow}>
+                      {['🥇', '🥈', '🥉'][item.rank - 1]} {item.name} Lv.{item.level}
+                    </Text>
+                  ))}
+                  {season.myRank != null && (
+                    <Text className={styles.seasonRow}>我的实时名次：第 {season.myRank} 名</Text>
+                  )}
+                  {seasonHistory.length > 0 && (
+                    <Text className={styles.seasonRow}>
+                      历届最好成绩：第 {Math.min(...seasonHistory.map((h) => h.rankNo))} 名
+                    </Text>
+                  )}
+                </View>
+              )}
               <View className={styles.rankTabs}>
                 {RANKING_TABS.map((tab) => (
                   <View
@@ -1548,6 +1668,14 @@ export default function PetPage() {
                 </View>
               ))}
             </View>
+            {anniversary && (
+              <View className={styles.modalRow}>
+                <Text className={styles.modalLabel}>
+                  🎂 相遇第 {anniversary.adoptionDays} 天 · 连续陪伴 {anniversary.companionStreak} 天
+                  {anniversary.nextMilestone ? ` · ${anniversary.nextMilestone.title}` : ''}
+                </Text>
+              </View>
+            )}
             <View className={styles.modalRow}>
               <Text className={styles.modalLabel}>在个人主页展示宠物</Text>
               <Switch checked={pet.isPublic} disabled={privacyBusy} onChange={(e) => void togglePrivacy(e.detail.value)} />

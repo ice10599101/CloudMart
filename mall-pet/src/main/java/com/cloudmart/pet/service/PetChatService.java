@@ -19,4 +19,16 @@ public interface PetChatService {
 
     /** 聊天历史（cursor 分页：messageId 倒序，cursor 为上一页最后一条 ID） */
     List<PetChatMessageVO> history(Long userId, Long cursor, Integer pageSize);
+
+    /**
+     * 宠物人设摘要（F8）：与注入 AI prompt 的身份信息同源——前端人设卡展示内容
+     * 与 AI 实际"知道"的身份一致（验收要求）。
+     */
+    PetPersonaVO persona(Long userId);
+
+    /** 宠物人设摘要 VO（F8） */
+    record PetPersonaVO(String name, String personality, String personalityText,
+                        String careerCode, String careerName, String phrase,
+                        int intimacyLevel, String intimacyLevelName) {
+    }
 }

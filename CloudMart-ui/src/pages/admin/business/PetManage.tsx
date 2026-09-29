@@ -3,6 +3,9 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
+  Descriptions,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -23,8 +26,22 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
+  adjustUserPet,
+  compensateUser,
+  deletePetSensitiveWord,
+  listPetSensitiveWords,
+  upsertPetSensitiveWord,
+  type AdminPetSensitiveWord,
+  listPetSeasons,
+  listPetSeasonRewards,
+  savePetSeasonRewards,
+  settlePetSeason,
+  upsertPetSeason,
+  type AdminPetSeason,
+  type AdminPetSeasonReward,
   getPetDashboard,
   getPetReports,
+  getUserPets,
   listPetConfigs,
   listPetWallMessages,
   resolvePetReport,
@@ -32,6 +49,7 @@ import {
   updatePetWallMessageStatus,
   upsertPetConfig,
   type AdminPetReport,
+  type AdminUserPet,
   type PetConfigType,
   type PetDashboard,
 } from '@/api/admin/pet'
@@ -449,6 +467,19 @@ function WallPanel() {
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<string | undefined>(undefined)
   const [petId, setPetId] = useState<number | undefined>(undefined)
+  // F6：时间范围筛选 + CSV 导出（后端流式拼装，20 万行上限）
+  const [dateRange, setDateRange] = useState<[string, string] | null>(null)
+
+  const exportCsv = () => {
+    const params = new URLSearchParams()
+    if (dateRange) {
+      params.set('from', dateRange[0])
+      params.set('to', dateRange[1])
+    }
+    // 走网关同源下载（携带会话 Cookie；浏览器原生处理文件流）
+    window.open(`/api/admin/pet/wall/messages/export?${params.toString()}`, '_blank')
+    messageApi.success('已开始导出（大数据量浏览器可能需要数秒）')
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -552,6 +583,16 @@ function WallPanel() {
         <Button type="primary" onClick={() => void load()}>
           查询
         </Button>
+        <DatePicker.RangePicker
+          onChange={(values) =>
+            setDateRange(
+              values && values[0] && values[1]
+                ? [values[0].format('YYYY-MM-DD'), values[1].format('YYYY-MM-DD')]
+                : null,
+            )
+          }
+        />
+        <Button onClick={exportCsv}>导出 CSV</Button>
         <Text type="secondary">隐藏后用户端立即不可见，管理端仍保留（可溯源、可恢复）</Text>
       </Space>
       <Table
@@ -728,6 +769,616 @@ function DashboardPanel() {
           </Card>
         </Col>
       </Row>
+    </div>
+  )
+}
+
+/** 赛季管理面板（F2：创建/延后/梯度/手动结算） */
+function SeasonPanel() {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [rows, setRows] = useState<AdminPetSeason[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [editing, setEditing] = useState<AdminPetSeason | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [form] = Form.useForm<{ name: string; range: [string, string] }>()
+  const [saving, setSaving] = useState(false)
+  const [tiers, setTiers] = useState<AdminPetSeasonReward[]>([])
+
+  const load = useCallback(
+    async (targetPage = page) => {
+      setLoading(true)
+      try {
+        const { data: res } = await listPetSeasons({ page: targetPage, size: 10 })
+        if (res.success) {
+          setRows(res.data || [])
+          setTotal(Number(res.meta?.total ?? res.data?.length ?? 0))
+        }
+      } catch {
+        // 拦截器已提示
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page],
+  )
+
+  useEffect(() => {
+    void load(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const openEditor = async (row: AdminPetSeason | null) => {
+    setCreating(row === null)
+    setEditing(row)
+    if (row) {
+      form.setFieldsValue({ name: row.name, range: [row.startsAt, row.endsAt] })
+      try {
+        const { data: res } = await listPetSeasonRewards(row.id)
+        if (res.success) {
+          setTiers(res.data || [])
+        }
+      } catch {
+        // 拦截器已提示
+      }
+    } else {
+      form.setFieldsValue({ name: '', range: undefined })
+      setTiers([{ rankMin: 1, rankMax: 1, rewardStarlight: 100, rewardExp: 0 }])
+    }
+  }
+
+  const submit = async () => {
+    const values = await form.validateFields()
+    setSaving(true)
+    try {
+      const { data: res } = await upsertPetSeason({
+        id: creating ? undefined : editing?.id,
+        name: values.name,
+        startsAt: values.range[0],
+        endsAt: values.range[1],
+      })
+      if (res.success && creating && res.data) {
+        // 新赛季直接保存梯度
+        await savePetSeasonRewards(String(res.data.id), tiers)
+      } else if (res.success && editing && !creating) {
+        await savePetSeasonRewards(String(editing.id), tiers)
+      }
+      messageApi.success('已保存')
+      setEditing(null)
+      setCreating(false)
+      void load()
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const doSettle = (row: AdminPetSeason) => {
+    Modal.confirm({
+      title: '确认手动结算该赛季？',
+      content: `${row.name}：快照最终榜并按梯度发奖（幂等，可重跑）。`,
+      okText: '确认结算',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const { data: res } = await settlePetSeason(row.id)
+          if (res.success) {
+            messageApi.success('已结算')
+            void load()
+          }
+        } catch {
+          // 拦截器已提示
+        }
+      },
+    })
+  }
+
+  const columns: ColumnsType<AdminPetSeason> = [
+    { title: '名称', dataIndex: 'name' },
+    { title: '开始', dataIndex: 'startsAt', width: 120, render: (v: string) => v?.slice(0, 10) },
+    { title: '结束', dataIndex: 'endsAt', width: 120, render: (v: string) => v?.slice(0, 10) },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 100,
+      render: (v: AdminPetSeason['status']) => (
+        <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v === 'ACTIVE' ? '进行中' : '已结算'}</Tag>
+      ),
+    },
+    {
+      title: '操作',
+      width: 200,
+      render: (_: unknown, row) => (
+        <Space>
+          {row.status === 'ACTIVE' && <Button type="link" size="small" onClick={() => void openEditor(row)}>编辑</Button>}
+          {row.status === 'ACTIVE' && (
+            <Button type="link" size="small" danger onClick={() => doSettle(row)}>
+              结算
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ]
+
+  return (
+    <div>
+      {contextHolder}
+      <Space style={{ marginBottom: 12 }}>
+        <Button
+          type="primary"
+          onClick={() => {
+            void openEditor(null)
+          }}
+        >
+          新建赛季
+        </Button>
+        <Text type="secondary">进行中赛季唯一；结束时间只允许延后；梯度区间需从第 1 名连续覆盖</Text>
+      </Space>
+      <Table
+        rowKey={(row) => String(row.id)}
+        size="small"
+        loading={loading}
+        columns={columns}
+        dataSource={rows}
+        pagination={{
+          current: page,
+          pageSize: 10,
+          total,
+          showSizeChanger: false,
+          onChange: (next) => {
+            setPage(next)
+            void load(next)
+          },
+        }}
+      />
+      <Modal
+        title={creating ? '新建赛季' : '编辑赛季'}
+        open={editing !== null || creating}
+        onCancel={() => {
+          setEditing(null)
+          setCreating(false)
+        }}
+        onOk={() => void submit()}
+        confirmLoading={saving}
+        width={640}
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="赛季名称" rules={[{ required: true, message: '请填写名称' }]}>
+            <Input placeholder="例如：第一届养成大赛" />
+          </Form.Item>
+          <Form.Item name="range" label="起止时间（UTC）" rules={[{ required: true, message: '请选择区间' }]}>
+            <DatePicker.RangePicker showTime style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+        <Card size="small" title="奖励梯度（星光/经验，按名次区间）">
+          {tiers.map((tier, idx) => (
+            <Space key={idx} wrap style={{ marginBottom: 8 }}>
+              <InputNumber
+                min={1}
+                value={tier.rankMin}
+                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rankMin: v ?? 1 } : t)))}
+                addonBefore="第"
+                style={{ width: 130 }}
+              />
+              <InputNumber
+                min={1}
+                value={tier.rankMax}
+                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rankMax: v ?? 1 } : t)))}
+                addonBefore="至"
+                style={{ width: 130 }}
+              />
+              <InputNumber
+                min={0}
+                value={tier.rewardStarlight}
+                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rewardStarlight: v ?? 0 } : t)))}
+                addonBefore="星光"
+                style={{ width: 150 }}
+              />
+              <InputNumber
+                min={0}
+                value={tier.rewardExp}
+                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rewardExp: v ?? 0 } : t)))}
+                addonBefore="经验"
+                style={{ width: 150 }}
+              />
+              {tiers.length > 1 && (
+                <Button type="link" danger size="small" onClick={() => setTiers(tiers.filter((_, i) => i !== idx))}>
+                  删除
+                </Button>
+              )}
+            </Space>
+          ))}
+          <Button type="dashed" block onClick={() => setTiers([...tiers, { rankMin: 1, rankMax: 1, rewardStarlight: 0, rewardExp: 0 }])}>
+            增加梯度
+          </Button>
+        </Card>
+      </Modal>
+    </div>
+  )
+}
+
+/** 敏感词类别文案（与后端枚举对齐） */
+const SENSITIVE_CATEGORY_LABELS: Record<string, string> = {
+  POLITICS: '政治',
+  ABUSE: '辱骂',
+  AD: '广告导流',
+  CRISIS: '危机干预',
+}
+
+/** 敏感词库面板（P0-1 内容安全：增删改 + 停用，生效 ≤1 分钟） */
+function SensitiveWordPanel() {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [rows, setRows] = useState<AdminPetSensitiveWord[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [form] = Form.useForm<{ word: string; category: string }>()
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(
+    async (targetPage = page) => {
+      setLoading(true)
+      try {
+        const { data: res } = await listPetSensitiveWords({ page: targetPage, size: 10 })
+        if (res.success) {
+          setRows(res.data || [])
+          setTotal(Number(res.meta?.total ?? res.data?.length ?? 0))
+        }
+      } catch {
+        // 拦截器已提示
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page],
+  )
+
+  useEffect(() => {
+    void load(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const submit = async () => {
+    const values = await form.validateFields()
+    setSaving(true)
+    try {
+      const { data: res } = await upsertPetSensitiveWord(values)
+      if (res.success) {
+        messageApi.success('已保存，≤1 分钟全实例生效')
+        form.resetFields()
+        void load()
+      }
+    } catch {
+      // 拦截器已提示（重复词 400）
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const doDelete = (row: AdminPetSensitiveWord) => {
+    Modal.confirm({
+      title: '删除该敏感词？',
+      content: `「${row.word}」删除后立即从匹配词库移除。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const { data: res } = await deletePetSensitiveWord(row.id)
+          if (res.success) {
+            messageApi.success('已删除')
+            void load()
+          }
+        } catch {
+          // 拦截器已提示
+        }
+      },
+    })
+  }
+
+  const columns: ColumnsType<AdminPetSensitiveWord> = [
+    { title: 'ID', dataIndex: 'id', width: 100 },
+    { title: '敏感词', dataIndex: 'word', width: 160 },
+    {
+      title: '类别',
+      dataIndex: 'category',
+      width: 110,
+      render: (v: AdminPetSensitiveWord['category']) => <Tag>{SENSITIVE_CATEGORY_LABELS[v] ?? v}</Tag>,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 80,
+      render: (v: number) => <Tag color={v === 1 ? 'green' : 'default'}>{v === 1 ? '启用' : '停用'}</Tag>,
+    },
+    { title: '创建时间', dataIndex: 'createdAt', width: 170 },
+    {
+      title: '操作',
+      width: 80,
+      render: (_: unknown, row) => (
+        <Button type="link" size="small" danger onClick={() => doDelete(row)}>
+          删除
+        </Button>
+      ),
+    },
+  ]
+
+  return (
+    <div>
+      {contextHolder}
+      <Space style={{ marginBottom: 12 }}>
+        <Form form={form} layout="inline">
+          <Form.Item name="word" rules={[{ required: true, message: '填写敏感词' }]}>
+            <Input placeholder="敏感词（≤64 字）" style={{ width: 200 }} />
+          </Form.Item>
+          <Form.Item name="category" initialValue="AD" rules={[{ required: true, message: '选择类别' }]}>
+            <Select
+              style={{ width: 120 }}
+              options={Object.entries(SENSITIVE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+            />
+          </Form.Item>
+          <Button type="primary" loading={saving} onClick={() => void submit()}>
+            添加
+          </Button>
+        </Form>
+        <Text type="secondary">命中宠物名/留言直接拒绝；CRISIS 类聊天触发安抚话术并自动举报；变更 ≤1 分钟生效</Text>
+      </Space>
+      <Table
+        rowKey={(row) => String(row.id)}
+        size="small"
+        loading={loading}
+        columns={columns}
+        dataSource={rows}
+        pagination={{
+          current: page,
+          pageSize: 10,
+          total,
+          showSizeChanger: false,
+          onChange: (next) => {
+            setPage(next)
+            void load(next)
+          },
+        }}
+      />
+    </div>
+  )
+}
+
+/** F5 可调字段（与后端白名单对齐） */
+const ADJUSTABLE_FIELDS = [
+  { value: 'exp', label: '经验' },
+  { value: 'hp', label: '生命' },
+  { value: 'hunger', label: '饱食' },
+  { value: 'happiness', label: '心情' },
+  { value: 'energy', label: '精力' },
+  { value: 'cleanliness', label: '清洁' },
+  { value: 'strength', label: '力量' },
+  { value: 'intelligence', label: '智力' },
+  { value: 'agility', label: '敏捷' },
+  { value: 'charm', label: '魅力' },
+]
+
+const STATUS_TEXT: Record<string, string> = {
+  IDLE: '悠闲中',
+  WORKING: '打工中',
+  STUDYING: '读书中',
+  FISHING: '捞瓶中',
+  RESTING: '休息中',
+}
+
+/** 用户宠物运营面板（F5：搜索用户 → 宠物全貌 → 调账/补偿，全部留审计） */
+function UserPanel() {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [userIdInput, setUserIdInput] = useState<number | undefined>(undefined)
+  const [userId, setUserId] = useState<number | undefined>(undefined)
+  const [pets, setPets] = useState<AdminUserPet[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<AdminUserPet | null>(null)
+  const [adjustForm] = Form.useForm<{ field: string; delta: number; reason: string }>()
+  const [compForm] = Form.useForm<{ delta: number; reason: string; ticketNo?: string }>()
+  const [submitting, setSubmitting] = useState(false)
+
+  const load = useCallback(async (targetId: number | undefined) => {
+    if (!targetId) {
+      messageApi.warning('请输入用户 ID')
+      return
+    }
+    setLoading(true)
+    try {
+      const { data: res } = await getUserPets(targetId)
+      if (res.success) {
+        setPets(res.data || [])
+      }
+    } catch {
+      // 拦截器已提示
+    } finally {
+      setLoading(false)
+    }
+  }, [messageApi])
+
+  const submitAdjust = async () => {
+    if (!selected || !userId) {
+      return
+    }
+    const values = await adjustForm.validateFields()
+    const label = ADJUSTABLE_FIELDS.find((f) => f.value === values.field)?.label ?? values.field
+    Modal.confirm({
+      title: '确认调整宠物数值？',
+      content: `${selected.name}（#${String(selected.petId)}）的 ${label} 调整 ${values.delta > 0 ? '+' : ''}${values.delta}。操作将留快照审计，不可静默撤销。`,
+      okText: '确认调整',
+      cancelText: '再想想',
+      onOk: async () => {
+        setSubmitting(true)
+        try {
+          const { data: res } = await adjustUserPet(userId, selected.petId, values)
+          if (res.success) {
+            messageApi.success('已调整并留痕')
+            adjustForm.resetFields()
+            await load(userId)
+            setSelected(null)
+          }
+        } catch {
+          // 拦截器已提示
+        } finally {
+          setSubmitting(false)
+        }
+      },
+    })
+  }
+
+  const submitCompensation = async () => {
+    if (!userId) {
+      return
+    }
+    const values = await compForm.validateFields()
+    Modal.confirm({
+      title: '确认提交补偿申请？',
+      content: `为用户 ${String(userId)} 申请 ${values.delta > 0 ? '+' : ''}${values.delta} 宠物币。申请单需另一管理员审批后才会入账。`,
+      okText: '提交申请',
+      cancelText: '再想想',
+      onOk: async () => {
+        setSubmitting(true)
+        try {
+          const { data: res } = await compensateUser(userId, values)
+          if (res.success) {
+            messageApi.success('补偿申请已提交，等待另一管理员审批')
+            compForm.resetFields()
+          }
+        } catch {
+          // 拦截器已提示
+        } finally {
+          setSubmitting(false)
+        }
+      },
+    })
+  }
+
+  return (
+    <div>
+      {contextHolder}
+      <Space style={{ marginBottom: 12 }}>
+        <InputNumber
+          placeholder="用户 ID"
+          value={userIdInput}
+          onChange={(value) => setUserIdInput(value ?? undefined)}
+          style={{ width: 160 }}
+        />
+        <Button
+          type="primary"
+          onClick={() => {
+            setUserId(userIdInput)
+            void load(userIdInput)
+          }}
+          loading={loading}
+        >
+          查询
+        </Button>
+        <Text type="secondary">数值调整与钱包补偿均留审计/走审批；字段与幅度有服务端白名单限制</Text>
+      </Space>
+      {!userId && <Empty description="输入用户 ID 开始查询" />}
+      {userId && (
+        <Row gutter={[12, 12]}>
+          {pets.length === 0 && !loading && <Col span={24}><Empty description="该用户没有宠物" /></Col>}
+          {pets.map((pet) => (
+            <Col span={8} key={String(pet.petId)}>
+              <Card
+                size="small"
+                title={`${pet.name}（Lv.${pet.level}）`}
+                extra={
+                  <Button type="link" size="small" onClick={() => setSelected(pet)}>
+                    详情
+                  </Button>
+                }
+              >
+                <Space wrap>
+                  <Tag color={pet.isActive ? 'green' : 'default'}>{pet.isActive ? '主宠' : '副宠'}</Tag>
+                  <Tag>{pet.species}</Tag>
+                  <Tag>{STATUS_TEXT[pet.status ?? ''] ?? pet.status ?? '-'}</Tag>
+                  <Text type="secondary">
+                    HP {pet.hp}/{pet.maxHp} · 饱食 {pet.hunger} · 心情 {pet.happiness}
+                  </Text>
+                  <Text type="secondary">
+                    钱包 {pet.walletBalance ?? '-'}{pet.walletStatus ? `（${pet.walletStatus}）` : ''}
+                  </Text>
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
+      <Drawer
+        title={selected ? `${selected.name}（#${String(selected.petId)}）` : '宠物详情'}
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        width={520}
+      >
+        {selected && (
+          <>
+            <Descriptions size="small" column={2} bordered>
+              <Descriptions.Item label="等级">{selected.level}（exp {selected.exp}）</Descriptions.Item>
+              <Descriptions.Item label="成长阶段">{selected.growthStage}</Descriptions.Item>
+              <Descriptions.Item label="HP">{selected.hp}/{selected.maxHp}</Descriptions.Item>
+              <Descriptions.Item label="饱食">{selected.hunger}</Descriptions.Item>
+              <Descriptions.Item label="心情">{selected.happiness}</Descriptions.Item>
+              <Descriptions.Item label="精力">{selected.energy}</Descriptions.Item>
+              <Descriptions.Item label="清洁">{selected.cleanliness}</Descriptions.Item>
+              <Descriptions.Item label="四维">
+                力{selected.strength} 智{selected.intelligence} 敏{selected.agility} 魅{selected.charm}
+              </Descriptions.Item>
+              <Descriptions.Item label="钱包余额" span={2}>
+                {selected.walletBalance ?? '-'} {selected.walletStatus ? `（${selected.walletStatus}）` : ''}
+              </Descriptions.Item>
+              <Descriptions.Item label="背包摘要" span={2}>
+                {selected.inventorySummary.length === 0
+                  ? '空'
+                  : selected.inventorySummary
+                      .map((line) => `${line.itemCode} x${line.quantity}`)
+                      .join('，')}
+              </Descriptions.Item>
+            </Descriptions>
+            <Card size="small" title="数值调整（快照审计）" style={{ marginTop: 16 }}>
+              <Form form={adjustForm} layout="vertical">
+                <Space wrap>
+                  <Form.Item name="field" label="字段" rules={[{ required: true, message: '选择字段' }]}>
+                    <Select style={{ width: 120 }} options={ADJUSTABLE_FIELDS} placeholder="字段" />
+                  </Form.Item>
+                  <Form.Item name="delta" label="变化量（±10000）" rules={[{ required: true, message: '填写变化量' }]}>
+                    <InputNumber style={{ width: 140 }} />
+                  </Form.Item>
+                </Space>
+                <Form.Item name="reason" label="调整理由（工单号）" rules={[{ required: true, message: '必填' }]}>
+                  <Input.TextArea rows={2} placeholder="例如：工单#123 补偿" />
+                </Form.Item>
+                <Button type="primary" danger loading={submitting} onClick={() => void submitAdjust()}>
+                  提交调整
+                </Button>
+              </Form>
+            </Card>
+            <Card size="small" title="钱包补偿申请（需另一管理员审批）" style={{ marginTop: 16 }}>
+              <Form form={compForm} layout="vertical">
+                <Space wrap>
+                  <Form.Item name="delta" label="金额（±10000）" rules={[{ required: true, message: '填写金额' }]}>
+                    <InputNumber style={{ width: 140 }} />
+                  </Form.Item>
+                  <Form.Item name="ticketNo" label="工单号">
+                    <Input style={{ width: 160 }} placeholder="可空" />
+                  </Form.Item>
+                </Space>
+                <Form.Item name="reason" label="补偿理由" rules={[{ required: true, message: '必填' }]}>
+                  <Input.TextArea rows={2} />
+                </Form.Item>
+                <Button type="primary" loading={submitting} onClick={() => void submitCompensation()}>
+                  提交申请
+                </Button>
+              </Form>
+            </Card>
+          </>
+        )}
+      </Drawer>
     </div>
   )
 }
@@ -975,6 +1626,9 @@ export default function PetManage() {
           },
           { key: 'wall', label: '留言审核', children: <WallPanel /> },
           { key: 'reports', label: '举报处理', children: <ReportPanel /> },
+          { key: 'users', label: '用户宠物', children: <UserPanel /> },
+          { key: 'seasons', label: '赛季管理', children: <SeasonPanel /> },
+          { key: 'sensitive-words', label: '敏感词库', children: <SensitiveWordPanel /> },
         ]}
       />
     </Card>

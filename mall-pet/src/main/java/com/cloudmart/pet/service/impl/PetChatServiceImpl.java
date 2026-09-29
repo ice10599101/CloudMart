@@ -91,6 +91,7 @@ public class PetChatServiceImpl implements PetChatService {
     private final PetContentSafetyService safetyService;
     private final com.cloudmart.pet.repository.PetReportMapper reportMapper;
     private final com.cloudmart.pet.config.PetMetrics metrics;
+    private final com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper;
 
     public PetChatServiceImpl(PetService petService,
                               PetContextService contextService,
@@ -107,7 +108,8 @@ public class PetChatServiceImpl implements PetChatService {
                               org.springframework.transaction.support.TransactionTemplate transactionTemplate,
                               PetContentSafetyService safetyService,
                               com.cloudmart.pet.repository.PetReportMapper reportMapper,
-                              com.cloudmart.pet.config.PetMetrics metrics) {
+                              com.cloudmart.pet.config.PetMetrics metrics,
+                              com.cloudmart.pet.repository.PetCareerConfigMapper careerConfigMapper) {
         this.petService = petService;
         this.contextService = contextService;
         this.aiClient = aiClient;
@@ -124,6 +126,7 @@ public class PetChatServiceImpl implements PetChatService {
         this.safetyService = safetyService;
         this.reportMapper = reportMapper;
         this.metrics = metrics;
+        this.careerConfigMapper = careerConfigMapper;
     }
 
     /**
@@ -502,6 +505,56 @@ public class PetChatServiceImpl implements PetChatService {
                     .eq(PetChatSession::getPetId, petId));
         }
         return created;
+    }
+
+    /** F8：人设摘要（与 buildSystemPrompt 同源取数，保证人设卡与 prompt 一致） */
+    @Override
+    public com.cloudmart.pet.service.PetChatService.PetPersonaVO persona(Long userId) {
+        Pet pet = petService.requireOwnedPet(userId);
+        String personality = pet.getPersonality() != null ? pet.getPersonality() : "LIVELY";
+        var careerCfg = pet.getCareerCode() != null ? careerConfigQuietly(pet.getCareerCode()) : null;
+        int intimacy = pet.getIntimacy() != null ? pet.getIntimacy() : 0;
+        int intimacyLevel = com.cloudmart.pet.util.PetIntimacyMath.levelOf(
+                intimacy, properties.getIntimacy().getLevelThresholds());
+        String intimacyName = com.cloudmart.pet.util.PetIntimacyMath.levelName(
+                intimacyLevel, properties.getIntimacy().getLevelNames());
+        return new com.cloudmart.pet.service.PetChatService.PetPersonaVO(
+                pet.getName(), personality, personalityStyleOf(personality),
+                pet.getCareerCode(),
+                careerCfg != null ? careerCfg.getName() : null,
+                phraseOf(personality, pet.getName()),
+                intimacyLevel, intimacyName);
+    }
+
+    /** 性格 → 行为描述（与 buildSystemPrompt 同表；新性格必须两处同步） */
+    private String personalityStyleOf(String personality) {
+        return switch (personality != null ? personality : "LIVELY") {
+            case "GENTLE" -> "说话温柔轻声，多用「呢」「哦」，关心主人的身体和心情";
+            case "TSUNDERE" -> "嘴硬心软，先小小嫌弃再热心帮忙，傲娇但可靠";
+            case "SIMPLE" -> "反应慢半拍、憨厚老实，句子简单直接";
+            case "COOL" -> "高冷话少，句短有力，但关键时刻给主人撑腰";
+            case "CHATTERBOX" -> "话痨，信息量大，爱汇报社区里的新鲜事";
+            default -> "活泼开朗，多用感叹号和可爱语气词，主动提议一起玩";
+        };
+    }
+
+    /** 性格 → 口头禅（F8：Nacos personaPhrases 可改，未配置回落空串） */
+    private String phraseOf(String personality, String petName) {
+        String template = properties.getChat().getPersonaPhrases()
+                .getOrDefault(personality != null ? personality : "LIVELY", "");
+        return template.replace("{name}", petName);
+    }
+
+    /** 职业名查询（人设展示型数据 Fail-Open，P2-1 同款 5 分钟本地缓存语义） */
+    private com.cloudmart.pet.entity.PetCareerConfig careerConfigQuietly(String careerCode) {
+        try {
+            return careerConfigMapper.selectOne(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetCareerConfig>()
+                    .eq(com.cloudmart.pet.entity.PetCareerConfig::getCode, careerCode)
+                    .last("LIMIT 1"));
+        } catch (Exception e) {
+            log.warn("人设职业查询降级: careerCode={}", careerCode, e);
+            return null;
+        }
     }
 
     private PetChatMessageVO toVo(PetChatMessage message) {

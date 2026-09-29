@@ -14,5 +14,7 @@ public enum PetItemType {
     /** 技能书（学习后获得技能） */
     SKILL_BOOK,
     /** 家具（家园装扮：墙纸/地板穿戴，其余摆放） */
-    FURNITURE
+    FURNITURE,
+    /** 食物（F1 喂养道具化：堆叠入包，喂食直接消耗，恢复饱食/心情/HP） */
+    FOOD
 }

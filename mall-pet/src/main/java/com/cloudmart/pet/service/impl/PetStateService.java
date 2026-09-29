@@ -8,6 +8,7 @@ import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.enums.PetGrowthStage;
+import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.util.PetIntimacyMath;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,13 @@ public class PetStateService {
     private static final int ATTRIBUTE_MAX = 999;
     private static final int LEVEL_MAX = 100;
 
+    /** F4：饥饿归零持续多久进入 WEAK */
+    public static final int WEAK_AFTER_HOURS = 24;
+    /** F4：心情归零持续多久进入 SICK */
+    public static final int SICK_AFTER_HOURS = 48;
+    /** F4：恢复阈值（饱食/心情回到该值以上清除 WEAK/SICK） */
+    public static final int RECOVER_THRESHOLD = 50;
+
     private final PetMapper petMapper;
     private final PetProperties properties;
     private final PetClock petClock;
@@ -52,6 +60,23 @@ public class PetStateService {
      * 结算自然变化（饥饿下降/心情下降/精力恢复/清洁下降），CAS 以 lastStateUpdateAt 为条件。
      * 更新未命中（并发写者已结算）时重读实体，保证调用方拿到最新状态。
      */
+    /**
+     * F4：是否虚弱（hunger=0 且归零起点距今 ≥24h）。以列实时判定而非状态快照，
+     * 避免活动结算回写 IDLE 时弱化门禁失效。
+     */
+    public boolean isWeak(Pet pet) {
+        return pet.getHunger() != null && pet.getHunger() == 0
+                && pet.getHungerZeroSince() != null
+                && Duration.between(pet.getHungerZeroSince(), petClock.nowUtc()).toHours() >= WEAK_AFTER_HOURS;
+    }
+
+    /** F4：是否生病（happiness=0 且归零起点距今 ≥48h） */
+    public boolean isSick(Pet pet) {
+        return pet.getHappiness() != null && pet.getHappiness() == 0
+                && pet.getHappinessZeroSince() != null
+                && Duration.between(pet.getHappinessZeroSince(), petClock.nowUtc()).toHours() >= SICK_AFTER_HOURS;
+    }
+
     public Pet applyIdleDecay(Pet pet) {
         LocalDateTime now = petClock.nowUtc();
         LocalDateTime cursor = pet.getLastStateUpdateAt();
@@ -111,7 +136,30 @@ public class PetStateService {
         int cleanliness = clamp(pet.getCleanliness() - cleanDelta);
         double nextCleanFrac = (cleanliness == 0 || cleanliness == STATE_MAX) ? 0 : cleanFrac;
 
-        int updated = petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+        // F4：归零起点维护——恢复正值清 NULL，持续归零首次记录起点
+        LocalDateTime nextHungerZeroSince = hunger > 0 ? null
+                : (pet.getHungerZeroSince() != null ? pet.getHungerZeroSince() : now);
+        LocalDateTime nextHappinessZeroSince = happiness > 0 ? null
+                : (pet.getHappinessZeroSince() != null ? pet.getHappinessZeroSince() : now);
+        // F4：状态快照仅用于展示——WEAK/SICK 判定与解除都在这里惰性落列；
+        // WORKING 等活动快照不被覆盖（resolveStatus 以活动行为权威）
+        String currentStatus = pet.getStatus() != null ? pet.getStatus() : PetStatus.IDLE.name();
+        String nextStatus = currentStatus;
+        boolean weakNow = hunger == 0 && nextHungerZeroSince != null
+                && Duration.between(nextHungerZeroSince, now).toHours() >= WEAK_AFTER_HOURS;
+        boolean sickNow = happiness == 0 && nextHappinessZeroSince != null
+                && Duration.between(nextHappinessZeroSince, now).toHours() >= SICK_AFTER_HOURS;
+        if (weakNow) {
+            nextStatus = PetStatus.WEAK.name();
+        } else if (sickNow) {
+            nextStatus = PetStatus.SICK.name();
+        } else if (PetStatus.WEAK.name().equals(currentStatus) && hunger >= RECOVER_THRESHOLD) {
+            nextStatus = PetStatus.IDLE.name();
+        } else if (PetStatus.SICK.name().equals(currentStatus) && happiness >= RECOVER_THRESHOLD) {
+            nextStatus = PetStatus.IDLE.name();
+        }
+
+        LambdaUpdateWrapper<Pet> decayUpdate = new LambdaUpdateWrapper<Pet>()
                 .set(Pet::getHunger, hunger)
                 .set(Pet::getEnergy, energy)
                 .set(Pet::getCleanliness, cleanliness)
@@ -120,9 +168,18 @@ public class PetStateService {
                 .set(Pet::getHappinessFrac, nextHappinessFrac)
                 .set(Pet::getEnergyFrac, nextEnergyFrac)
                 .set(Pet::getCleanlinessFrac, nextCleanFrac)
+                .set(Pet::getHungerZeroSince, nextHungerZeroSince)
+                .set(Pet::getHappinessZeroSince, nextHappinessZeroSince)
                 .set(Pet::getLastStateUpdateAt, now)
                 .eq(Pet::getId, pet.getId())
-                .eq(Pet::getLastStateUpdateAt, pet.getLastStateUpdateAt()));
+                .eq(Pet::getLastStateUpdateAt, pet.getLastStateUpdateAt());
+        if (!nextStatus.equals(currentStatus)
+                && (PetStatus.WEAK.name().equals(nextStatus) || PetStatus.SICK.name().equals(nextStatus)
+                || PetStatus.WEAK.name().equals(currentStatus) || PetStatus.SICK.name().equals(currentStatus))) {
+            // 只在进入/离开恶化态时写状态列，不覆盖其他快照语义
+            decayUpdate.set(Pet::getStatus, nextStatus);
+        }
+        int updated = petMapper.update(null, decayUpdate);
         if (updated > 0) {
             pet.setHunger(hunger);
             pet.setEnergy(energy);
@@ -132,7 +189,10 @@ public class PetStateService {
             pet.setHappinessFrac(nextHappinessFrac);
             pet.setEnergyFrac(nextEnergyFrac);
             pet.setCleanlinessFrac(nextCleanFrac);
+            pet.setHungerZeroSince(nextHungerZeroSince);
+            pet.setHappinessZeroSince(nextHappinessZeroSince);
             pet.setLastStateUpdateAt(now);
+            pet.setStatus(nextStatus);
         } else {
             Pet latest = petMapper.selectById(pet.getId());
             if (latest != null) {
@@ -160,6 +220,10 @@ public class PetStateService {
         // 亲密度加成（三期）：所有经验都从这里发，加成只需在这一处生效
         int effectiveGain = expGain
                 + (int) Math.round(expGain * PetIntimacyMath.expBonus(pet, properties.getIntimacy()));
+        // F4：SICK（心情归零连续超 48h）经验获取减半——以归零起点列实时判定，不信展示快照
+        if (isSick(pet)) {
+            effectiveGain = effectiveGain / 2;
+        }
 
         // 计算（不直接改实体）：CAS 失败时基于最新行重算一次，再失败抛冲突回滚本次业务
         Integer version = pet.getVersion();
@@ -272,6 +336,9 @@ public class PetStateService {
         target.setHappinessFrac(source.getHappinessFrac());
         target.setEnergyFrac(source.getEnergyFrac());
         target.setCleanlinessFrac(source.getCleanlinessFrac());
+        // F4：归零起点列随状态一起收敛到最新行
+        target.setHungerZeroSince(source.getHungerZeroSince());
+        target.setHappinessZeroSince(source.getHappinessZeroSince());
         target.setLastStateUpdateAt(source.getLastStateUpdateAt());
         target.setExp(source.getExp());
         target.setLevel(source.getLevel());

@@ -212,4 +212,41 @@ class PetStateServiceTest {
         org.mockito.Mockito.verify(petMapper).update(eq(null), any());
         assertThat(captor).isNotNull();
     }
+
+    // ---------------- F4 状态恶化 ----------------
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("F4 isWeak：饥饿归零超 24h 判定与边界")
+    void weakDetection() {
+        Pet pet = pet(0, 50, 100, 90, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        pet.setHungerZeroSince(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(25));
+        org.assertj.core.api.Assertions.assertThat(stateService.isWeak(pet)).isTrue();
+
+        pet.setHungerZeroSince(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(23));
+        org.assertj.core.api.Assertions.assertThat(stateService.isWeak(pet)).isFalse();
+
+        pet.setHunger(10);
+        org.assertj.core.api.Assertions.assertThat(stateService.isWeak(pet)).isFalse();
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("F4 SICK：心情归零超 48h 经验减半")
+    void sickHalvesExpGain() {
+        Pet pet = pet(50, 0, 100, 90, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        pet.setHappinessZeroSince(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(49));
+        org.assertj.core.api.Assertions.assertThat(stateService.isSick(pet)).isTrue();
+
+        int levelups = stateService.grantExp(pet, 11);
+        // SICK 减半：11/2 = 5（亲密度加成基线为 0）
+        org.assertj.core.api.Assertions.assertThat(pet.getExp()).isEqualTo(5);
+        org.assertj.core.api.Assertions.assertThat(levelups).isZero();
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("F4 正常状态经验不衰减")
+    void healthyExpUnchanged() {
+        Pet pet = pet(50, 50, 100, 90, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        stateService.grantExp(pet, 10);
+        org.assertj.core.api.Assertions.assertThat(pet.getExp()).isEqualTo(10);
+    }
 }

@@ -38,6 +38,20 @@ public class PetInteractionController {
         return ApiResponse.ok(interactionService.feed(userId));
     }
 
+    /** F1 喂养道具请求体 */
+    public record FeedItemRequest(String itemCode) {
+    }
+
+    @PostMapping("/feed-item")
+    @Operation(summary = "喂养道具（F1）", description = "消耗背包食物恢复状态（效果服务端权威）；默认不占免费次数；" +
+            "背包无货 409 PET_ITEM_NOT_ENOUGH，已饱 409")
+    @SentinelResource("PET_INTERACTION")
+    public ApiResponse<PetVO> feedItem(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.RequestBody FeedItemRequest request) {
+        return ApiResponse.ok(interactionService.feedItem(userId, request.itemCode()));
+    }
+
     @PostMapping("/play")
     @Operation(summary = "玩耍", description = "精力-15/心情+20/经验+8；精力不足 409")
     @SentinelResource("PET_INTERACTION")

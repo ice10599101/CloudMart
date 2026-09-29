@@ -14,6 +14,12 @@ public interface PetInteractionService {
     /** 喂食：饥饿+30、心情+5、HP+10、经验+2；每日 5 次有效喂食（数据库额度，按用户共享）；已饱 409 不耗次数 */
     PetVO feed(Long userId);
 
+    /**
+     * 喂养道具（F1）：消耗背包食物恢复状态（效果按食物目录服务端权威），默认不占每日免费次数
+     * （{@code pet.interaction.feed-item-costs-quota} 可开）；背包无货 409 PET_ITEM_NOT_ENOUGH。
+     */
+    PetVO feedItem(Long userId, String itemCode);
+
     /** 玩耍：精力-15、心情+20、经验+8；每日 10 次有收益（数据库额度），超限转无收益动画互动 */
     PetVO play(Long userId);
 

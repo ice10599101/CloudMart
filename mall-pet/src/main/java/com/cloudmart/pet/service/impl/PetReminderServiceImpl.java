@@ -201,6 +201,19 @@ public class PetReminderServiceImpl implements PetReminderService {
                     pet.getName() + "：" + "主人，我的肚子有点饿…可以喂喂我吗？", pet.getId());
         }
 
+        // 7.5 纪念日（F7）：领养满百日/整周年当天推送一次（pet.created_at 起算，UTC）
+        if (pet.getCreatedAt() != null && tryAcquireTrigger(userId, today, "PET_ANNIVERSARY", 0L)) {
+            long adoptionDays = java.time.temporal.ChronoUnit.DAYS.between(
+                    pet.getCreatedAt().atZone(java.time.ZoneId.of("UTC")).toLocalDate(),
+                    java.time.LocalDate.now(java.time.ZoneId.of("UTC")));
+            if (com.cloudmart.pet.controller.PetAnniversaryController.isMilestoneDay(adoptionDays)) {
+                publish(userId, "PET_ANNIVERSARY",
+                        "今天是特别的日子！",
+                        pet.getName() + "：" + "主人！今天是我们相遇的第 " + adoptionDays + " 天，谢谢你一直陪着我！",
+                        pet.getId());
+            }
+        }
+
         // 8. 每日问候（每日一次）
         if (tryAcquireTrigger(userId, today, "DAILY_GREETING", 0L)) {
             publish(userId, "PET_DAILY_GREETING",

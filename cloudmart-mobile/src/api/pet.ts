@@ -254,7 +254,7 @@ export interface PetSummary {
   isActive: boolean
 }
 
-export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK'
+export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK' | 'FOOD' | 'FURNITURE'
 
 /** 商城商品（装备/皮肤/技能书统一结构） */
 export interface PetShopItem {
@@ -288,6 +288,63 @@ export interface PetShopResult {
   /** 星光余额（null=余额服务降级，前端隐藏） */
   starlightBalance: number | null
   items: PetShopItem[]
+}
+
+/** F7 纪念日卡片（与后端 AnniversaryVO 对齐） */
+export interface PetAnniversary {
+  adoptionDays: number
+  companionStreak: number
+  currentMilestone: { key: string; title: string; daysToGo: number } | null
+  nextMilestone: { key: string; title: string; daysToGo: number } | null
+}
+
+/** F3 好友动态条目（与后端 FeedItemVO 对齐） */
+export interface PetFriendFeedItem {
+  feedId: number | string
+  actorUserId: number | string
+  actorPetId: number | string | null
+  eventType: 'LEVEL_UP' | 'WORK_COMPLETED' | 'STUDY_COMPLETED' | 'BATTLE_WIN'
+  text: string
+  petName: string | null
+  createdAt: string | null
+}
+
+/** F2 赛季榜单（与后端 SeasonResult 对齐） */
+export interface PetSeasonRanking {
+  season: { seasonId: number | string; name: string; startsAt: string; endsAt: string; status: string } | null
+  top50: Array<{
+    rank: number
+    petId: number | string
+    name: string
+    species: string
+    level: number
+    value: number
+    userId: number | string
+    ownerNickname: string
+    isMe: boolean
+  }>
+  myRank: number | null
+  myLevel: number | null
+}
+
+export interface PetSeasonHistoryItem {
+  seasonId: number | string
+  seasonName: string
+  endedAt: string | null
+  rankNo: number
+  level: number
+}
+
+/** F8 宠物人设卡（与后端 PetPersonaVO 对齐） */
+export interface PetChatPersona {
+  name: string
+  personality: string
+  personalityText: string
+  careerCode: string | null
+  careerName: string | null
+  phrase: string
+  intimacyLevel: number
+  intimacyLevelName: string
 }
 
 /** 背包物品 */
@@ -422,6 +479,14 @@ export const petApi = {
 
   /** 基础互动（数值/限频/经验全部服务端结算） */
   feed: () => request<PetInfo>({ url: '/pet/feed', method: 'POST' }),
+
+  /** F1 喂养道具：消耗背包食物恢复状态（效果服务端权威，默认不占免费次数） */
+  feedItem: (itemCode: string) =>
+    request<PetInfo>({ url: '/pet/feed-item', method: 'POST', data: { itemCode } }),
+
+  /** F7 纪念日卡片：领养天数/陪伴连续/里程碑 */
+  getAnniversaries: () =>
+    request<PetAnniversary>({ url: '/pet/me/anniversaries', method: 'GET' }),
   play: () => request<PetInfo>({ url: '/pet/play', method: 'POST' }),
   clean: () => request<PetInfo>({ url: '/pet/clean', method: 'POST' }),
   rest: () => request<PetInfo>({ url: '/pet/rest', method: 'POST' }),
@@ -461,6 +526,29 @@ export const petApi = {
     request<PetChatMessage>({ url: '/pet/chat', method: 'POST', data: { message } }),
   chatHistory: (params?: { cursor?: number | string; pageSize?: number }) =>
     request<PetChatMessage[]>({ url: '/pet/chat/history', data: params }),
+
+  /** F8 人设卡：名字/性格/口头禅/职业/亲密度（与 AI prompt 同源） */
+  getChatPersona: () =>
+    request<PetChatPersona>({ url: '/pet/chat/persona', method: 'GET' }),
+
+  /** F2 赛季榜：当前赛季 + Top50 + 我的实时名次 */
+  getSeasonRanking: () =>
+    request<PetSeasonRanking>({ url: '/pet/rankings/season', method: 'GET' }),
+
+  /** F2 历届我的名次 */
+  getSeasonHistory: () =>
+    request<PetSeasonHistoryItem[]>({ url: '/pet/rankings/season/history', method: 'GET' }),
+
+  /** F3 好友动态：收件箱游标分页 */
+  getFriendFeed: (params?: { beforeId?: number | string; size?: number }) =>
+    request<PetFriendFeedItem[]>({ url: '/pet/friends/feed', data: params }),
+
+  /** F3 好友动态未读数 */
+  getFriendFeedUnread: () => request<number>({ url: '/pet/friends/feed/unread-count', method: 'GET' }),
+
+  /** F3 标记好友动态已读 */
+  markFriendFeedRead: () =>
+    request<void>({ url: '/pet/friends/feed/read', method: 'POST' }),
 
   /** 宠物口吻提醒（原文档 §27；已读回写走 notificationApi） */
   listReminders: () => request<PetReminder[]>({ url: '/pet/reminders' }),

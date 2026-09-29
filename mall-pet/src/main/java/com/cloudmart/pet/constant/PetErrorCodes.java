@@ -57,6 +57,8 @@ public final class PetErrorCodes {
     public static final String PET_ALREADY_EXISTS = "PET_ALREADY_EXISTS";
     /** 宠物正在进行其他活动（打工/读书/捞瓶互斥） */
     public static final String PET_ACTIVITY_CONFLICT = "PET_ACTIVITY_CONFLICT";
+    /** 宠物虚弱（F4：饥饿归零超 24h，打工/对战/捞瓶被禁止，先喂食恢复） */
+    public static final String PET_STATE_WEAK = "PET_STATE_WEAK";
     /** 任务未完成，不可领取 */
     public static final String PET_ACTIVITY_NOT_FINISHED = "PET_ACTIVITY_NOT_FINISHED";
     /** 奖励已领取（幂等第二次返回） */
@@ -87,6 +89,8 @@ public final class PetErrorCodes {
     public static final String PET_ITEM_ALREADY_OWNED = "PET_ITEM_ALREADY_OWNED";
     /** 尚未拥有该物品（先购买再装备/穿戴） */
     public static final String PET_ITEM_NOT_OWNED = "PET_ITEM_NOT_OWNED";
+    /** 背包中该食物数量为 0（F1 喂养道具化） */
+    public static final String PET_ITEM_NOT_ENOUGH = "PET_ITEM_NOT_ENOUGH";
     /** 技能已学会（重复学习） */
     public static final String PET_SKILL_ALREADY_LEARNED = "PET_SKILL_ALREADY_LEARNED";
     /** 缺少技能书，需先在商城购买 */

@@ -189,6 +189,7 @@ public class GlobalExceptionHandler {
                  "PET_RENAME_COOLDOWN",
                  // 二期：多宠物/商城/背包/技能/进化/串门/活动（§1.1/§89）
                  "PET_PET_LIMIT_REACHED", "PET_ITEM_ALREADY_OWNED", "PET_ITEM_NOT_OWNED",
+                "PET_ITEM_NOT_ENOUGH",
                  "PET_SKILL_ALREADY_LEARNED", "PET_SKILL_BOOK_REQUIRED",
                  "PET_EVOLUTION_REQUIRED", "PET_EVOLUTION_MAX",
                  "PET_VISIT_SELF", "PET_VISIT_COOLDOWN", "PET_VISIT_ENERGY_INSUFFICIENT",
@@ -201,6 +202,7 @@ public class GlobalExceptionHandler {
                  "PET_ROOM_POS_OCCUPIED", "PET_FURNITURE_NOT_OWNED",
                  "PET_QUEST_NOT_FINISHED", "PET_QUEST_ALREADY_CLAIMED",
                  "PET_QUEST_CHEST_NOT_READY", "PET_QUEST_CHEST_CLAIMED",
+                 "PET_STATE_WEAK",
                  "PET_STATE_CONFLICT", "PET_OPERATION_CONFLICT", "PET_USER_BUSY",
                  "PET_FURNITURE_ALREADY_PLACED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",

@@ -136,6 +136,13 @@ public interface PetFeignClient {
     ApiResponse<Object> updateWallMessageStatus(@PathVariable("id") Long id,
                                                 @RequestBody Map<String, Object> data);
 
+    /** F6 导出分页：游标 + 时间范围，代理层流式拼装 CSV（mall-pet /admin/pet/wall/messages/export-page） */
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wall/messages/export-page")
+    ApiResponse<Object> exportWallPage(@org.springframework.web.bind.annotation.RequestParam(value = "beforeId", required = false) Long beforeId,
+                                       @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "500") int size,
+                                       @org.springframework.web.bind.annotation.RequestParam(value = "from", required = false) String from,
+                                       @org.springframework.web.bind.annotation.RequestParam(value = "to", required = false) String to);
+
     // ---------------- 数据看板 ----------------
 
     @GetMapping("/pet/dashboard")
@@ -181,6 +188,39 @@ public interface PetFeignClient {
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/operations/{operationId}/retry")
     ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId);
+
+    // ---------------- F2 赛季（下游 /admin/seasons/**） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons")
+    ApiResponse<Object> listSeasons(@org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                    @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons")
+    ApiResponse<Object> upsertSeason(@RequestBody Map<String, Object> data);
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/{id}/rewards")
+    ApiResponse<Object> listSeasonRewards(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/rewards")
+    ApiResponse<Object> saveSeasonRewards(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                          @RequestBody Map<String, Object> data);
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settle")
+    ApiResponse<Void> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    // ---------------- F5 用户宠物查询与运营工具（下游 /admin/users/**） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/pets")
+    ApiResponse<Object> userPets(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId);
+
+    @org.springframework.web.bind.annotation.PostMapping("/users/{userId}/pets/{petId}/adjust")
+    ApiResponse<Object> adjustUserPet(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                      @org.springframework.web.bind.annotation.PathVariable("petId") Long petId,
+                                      @RequestBody Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/users/{userId}/compensation")
+    ApiResponse<Object> compensateUser(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                       @RequestBody Map<String, Object> body);
 
     // ---------------- W04 钱包管理（§8.4；下游 /admin/pet/wallet/**） ----------------
 

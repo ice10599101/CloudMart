@@ -82,6 +82,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetEconomyService economyService;
     private final PetQuotaService quotaService;
     private final PetRankingCache rankingCache;
+    private final PetFriendFeedService friendFeedService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -100,7 +101,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetEconomyService economyService,
                                 com.cloudmart.pet.service.PetUserBlockService userBlockService,
                                 PetQuotaService quotaService,
-                                PetRankingCache rankingCache) {
+                                PetRankingCache rankingCache,
+                                PetFriendFeedService friendFeedService) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -118,6 +120,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.userBlockService = userBlockService;
         this.quotaService = quotaService;
         this.rankingCache = rankingCache;
+        this.friendFeedService = friendFeedService;
     }
 
     @Override
@@ -148,6 +151,10 @@ public class PetBattleServiceImpl implements PetBattleService {
     @Transactional
     public PetBattleVO challenge(Long userId, ChallengeBattleRequest request) {
         Pet attacker = petService.requireOwnedPet(userId);
+        // F4：虚弱状态禁止对战
+        if (stateService.isWeak(attacker)) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了上不了战场，先喂点东西吧");
+        }
         PetBattleMode mode = parseMode(request.mode());
 
         if (mode == PetBattleMode.PVE) {
@@ -403,6 +410,13 @@ public class PetBattleServiceImpl implements PetBattleService {
                 : (defenderPetId != null && defenderPetId > 0 ? defenderPetId : null);
         if (winnerPetId != null && winnerPetId > 0) {
             rankingCache.onBattleWin(winnerPetId);
+            // F3：获胜动态扇出（胜者行即持有主人 userId）
+            Pet winner = petMapper.selectById(winnerPetId);
+            if (winner != null && winner.getUserId() != null) {
+                friendFeedService.append(winner.getUserId(), winnerPetId,
+                        PetFriendFeedService.EVENT_BATTLE_WIN,
+                        winner.getName() + " 在对战中获胜！", winner.getName());
+            }
         }
         int attackerExp = attackerRewarded
                 ? (attackerWon ? properties.getBattle().getWinExp() : properties.getBattle().getLoseExp())

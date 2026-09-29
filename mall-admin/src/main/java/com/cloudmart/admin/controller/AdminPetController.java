@@ -297,6 +297,62 @@ public class AdminPetController {
         return petFeignClient.updateWallMessageStatus(id, data);
     }
 
+    @org.springframework.web.bind.annotation.GetMapping("/wall/messages/export")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "留言导出 CSV（F6）", description = "from/to 均为 UTC 日期（含）；游标分页流式拼装，10 万行不超时")
+    public void exportWallMessages(@org.springframework.web.bind.annotation.RequestParam(value = "from", required = false) String from,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "to", required = false) String to,
+                                   jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=pet-wall-messages.csv");
+        java.io.Writer writer = new java.io.OutputStreamWriter(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
+        // UTF-8 BOM：Excel 直接打开不乱码
+        writer.write('\ufeff');
+        writer.write("id,petId,authorUserId,status,likeCount,content,createdAt\n");
+        Long beforeId = null;
+        int batchSize = 500;
+        long total = 0;
+        final long MAX_ROWS = 200_000;
+        while (total <= MAX_ROWS) {
+            ApiResponse<Object> page = petFeignClient.exportWallPage(beforeId, batchSize, from, to);
+            if (page == null || !page.success() || !(page.data() instanceof java.util.List<?> rows) || rows.isEmpty()) {
+                break;
+            }
+            for (Object rowObject : rows) {
+                if (!(rowObject instanceof java.util.Map<?, ?> row)) {
+                    continue;
+                }
+                writer.write(csvRow(row));
+                total++;
+                Object id = row.get("id");
+                beforeId = id instanceof Number number ? number.longValue() : Long.valueOf(String.valueOf(id));
+            }
+            if (rows.size() < batchSize) {
+                break;
+            }
+        }
+        writer.flush();
+    }
+
+    /** 单行 CSV（引号转义；content 含逗号/换行时整体加引号） */
+    private static String csvRow(java.util.Map<?, ?> row) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(row.get("id")).append(',')
+                .append(row.get("petId")).append(',')
+                .append(row.get("authorUserId")).append(',')
+                .append(row.get("status")).append(',')
+                .append(row.get("likeCount")).append(',');
+        String content = String.valueOf(row.get("content"));
+        if (content.contains(",") || content.contains("\"") || content.contains("\n") || content.contains("\r")) {
+            // CSV 引号转义：内容内双引号翻倍
+            sb.append('"').append(content.replace("\"", "\"\"")).append('"');
+        } else {
+            sb.append(content);
+        }
+        sb.append(',').append(row.get("createdAt")).append('\n');
+        return sb.toString();
+    }
+
     // ---------------- 数据看板 ----------------
 
     @GetMapping("/dashboard")
@@ -335,6 +391,76 @@ public class AdminPetController {
     public ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                               @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
         return petFeignClient.resolvePetReport(id, body);
+    }
+
+    // ---------------- F2 赛季管理 ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "赛季列表")
+    public ApiResponse<Object> listSeasons(@org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
+        return petFeignClient.listSeasons(page, size);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons")
+    @OperLog(title = "宠物赛季配置", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "新增/更新赛季", description = "ends_at 只允许延后；进行中赛季唯一")
+    public ApiResponse<Object> upsertSeason(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> data) {
+        return petFeignClient.upsertSeason(data);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/{id}/rewards")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "赛季奖励梯度列表")
+    public ApiResponse<Object> listSeasonRewards(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
+        return petFeignClient.listSeasonRewards(id);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/rewards")
+    @OperLog(title = "宠物赛季奖励配置", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "保存奖励梯度", description = "整表替换；区间连续覆盖校验")
+    public ApiResponse<Object> saveSeasonRewards(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                                 @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> data) {
+        return petFeignClient.saveSeasonRewards(id, data);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settle")
+    @OperLog(title = "宠物赛季手动结算", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "手动触发结算", description = "仅到期 ACTIVE 赛季；幂等")
+    public ApiResponse<Void> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
+        return petFeignClient.settleSeason(id);
+    }
+
+    // ---------------- F5 用户宠物查询与运营工具 ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/pets")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "用户宠物全貌", description = "该用户全部宠物（状态/等级/属性/背包摘要/钱包余额）；客服工单查询用")
+    public ApiResponse<Object> userPets(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId) {
+        return petFeignClient.userPets(userId);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/users/{userId}/pets/{petId}/adjust")
+    @OperLog(title = "宠物数值调整", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "宠物数值调整", description = "白名单字段 + |delta|≤10000 + 理由必填；快照留痕可回溯")
+    public ApiResponse<Object> adjustUserPet(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                             @org.springframework.web.bind.annotation.PathVariable("petId") Long petId,
+                                             @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        return petFeignClient.adjustUserPet(userId, petId, body);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/users/{userId}/compensation")
+    @OperLog(title = "宠物币补偿申请", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "钱包补偿申请", description = "走 W04 调账审批流（PENDING，须另一管理员审批入账）")
+    public ApiResponse<Object> compensateUser(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                              @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        return petFeignClient.compensateUser(userId, body);
     }
 
     // ---------------- P0-1 内容安全：敏感词库 ----------------

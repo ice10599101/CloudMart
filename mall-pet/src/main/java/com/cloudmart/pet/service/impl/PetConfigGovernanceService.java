@@ -34,7 +34,10 @@ public class PetConfigGovernanceService {
             Map.entry("equipment", "pet_equipment_config"), Map.entry("skin", "pet_skin_config"),
             Map.entry("skill", "pet_skill_config"), Map.entry("evolution", "pet_evolution_config"),
             Map.entry("event", "pet_event_config"), Map.entry("daily_quest", "pet_daily_quest_config"),
-            Map.entry("sensitive_word", "pet_content_sensitive_word"));
+            Map.entry("sensitive_word", "pet_content_sensitive_word"),
+            // F5：宠物数值调整快照留痕（调整写后快照进 pet_config_version 审计）
+            Map.entry("pet", "pet"),
+            Map.entry("pet_season", "pet_season"));
 
     private final PetConfigVersionMapper versionMapper;
     private final JdbcTemplate jdbcTemplate;

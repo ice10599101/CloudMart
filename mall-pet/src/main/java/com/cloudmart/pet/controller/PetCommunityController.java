@@ -30,6 +30,23 @@ public class PetCommunityController {
 
     private final PetRankingService rankingService;
     private final PetShareService shareService;
+    private final com.cloudmart.pet.service.PetSeasonService seasonService;
+
+    @GetMapping("/rankings/season")
+    @Operation(summary = "赛季排行榜（F2）", description = "当前 ACTIVE 赛季 + Top50 + 我的实时名次；无进行中赛季 season=null")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<com.cloudmart.pet.service.PetSeasonService.SeasonResult> seasonRanking(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(seasonService.currentSeasonRanking(userId));
+    }
+
+    @GetMapping("/rankings/season/history")
+    @Operation(summary = "历届我的名次（F2）", description = "已结算赛季的快照名次，按结算时间倒序")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<List<com.cloudmart.pet.service.PetSeasonService.HistoryItem>> seasonHistory(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(seasonService.myHistory(userId));
+    }
 
     @GetMapping("/rankings")
     @Operation(summary = "宠物排行榜", description = "三榜（LEVEL 等级/BATTLE_WIN 胜场/BOTTLE 捞瓶）Top 20 + 我的数值与名次；"

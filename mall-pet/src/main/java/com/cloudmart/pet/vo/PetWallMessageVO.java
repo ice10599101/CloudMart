@@ -28,6 +28,7 @@ public record PetWallMessageVO(
         @Schema(description = "是否我发的") Boolean mine,
         @Schema(description = "我是否是墙主人") Boolean owner,
         @Schema(description = "是否主人回复") Boolean ownerReply,
+        @Schema(description = "是否被管理员隐藏（F6：前端渲染占位文案）") boolean adminHidden,
         @Schema(description = "创建时间") LocalDateTime createdAt,
         @Schema(description = "主人回复列表") List<PetWallMessageVO> replies
 ) {

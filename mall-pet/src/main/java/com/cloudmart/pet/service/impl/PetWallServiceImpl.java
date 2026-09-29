@@ -135,13 +135,14 @@ this.properties = properties;
         int safeSize = size != null && size > 0
                 ? Math.min(size, properties.getWall().getMaxPageSize())
                 : MAX_SIZE;
+        // F6：隐藏留言以占位形式返回（内容打码），用户端渲染"该留言已被隐藏"
         long total = wallMessageMapper.selectCount(new LambdaQueryWrapper<PetWallMessage>()
                 .eq(PetWallMessage::getPetId, owner.getId())
-                .eq(PetWallMessage::getStatus, PetWallStatus.NORMAL.name())
+                .in(PetWallMessage::getStatus, List.of(PetWallStatus.NORMAL.name(), PetWallStatus.HIDDEN.name()))
                 .isNull(PetWallMessage::getParentId));
         List<PetWallMessage> roots = wallMessageMapper.selectList(new LambdaQueryWrapper<PetWallMessage>()
                 .eq(PetWallMessage::getPetId, owner.getId())
-                .eq(PetWallMessage::getStatus, PetWallStatus.NORMAL.name())
+                .in(PetWallMessage::getStatus, List.of(PetWallStatus.NORMAL.name(), PetWallStatus.HIDDEN.name()))
                 .isNull(PetWallMessage::getParentId)
                 .orderByDesc(PetWallMessage::getId)
                 .last("LIMIT " + safeSize + " OFFSET " + (long) (safePage - 1) * safeSize));
@@ -150,7 +151,7 @@ this.properties = properties;
             List<Long> rootIds = roots.stream().map(PetWallMessage::getId).toList();
             wallMessageMapper.selectList(new LambdaQueryWrapper<PetWallMessage>()
                             .in(PetWallMessage::getParentId, rootIds)
-                            .eq(PetWallMessage::getStatus, PetWallStatus.NORMAL.name())
+                            .in(PetWallMessage::getStatus, List.of(PetWallStatus.NORMAL.name(), PetWallStatus.HIDDEN.name()))
                             .orderByAsc(PetWallMessage::getId))
                     .forEach(reply -> repliesByParent
                             .computeIfAbsent(reply.getParentId(), key -> new ArrayList<>())
@@ -450,6 +451,9 @@ this.properties = properties;
         List<PetWallMessageVO> replyVos = replies.stream()
                 .map(reply -> toVo(reply, owner, viewerId, likedIds, nicknames, authorPets, List.of()))
                 .toList();
+        // F6：管理员隐藏的留言对用户只展示占位文案（内容不再外泄，审计由管理端负责）
+        boolean adminHidden = PetWallStatus.HIDDEN.name().equals(message.getStatus());
+        String displayContent = adminHidden ? "该留言已被隐藏" : message.getContent();
         return new PetWallMessageVO(
                 message.getId(), message.getPetId(), message.getParentId(),
                 message.getAuthorUserId(),
@@ -457,13 +461,14 @@ this.properties = properties;
                 message.getAuthorPetId(),
                 authorPet != null ? authorPet.getName() : null,
                 authorPet != null ? authorPet.getSpecies() : null,
-                message.getContent(), message.getMood(), message.getStatus(),
+                displayContent, message.getMood(), message.getStatus(),
                 message.getLikeCount() != null ? message.getLikeCount() : 0,
                 message.getReplyCount() != null ? message.getReplyCount() : 0,
-                likedIds.contains(message.getId()),
+                !adminHidden && likedIds.contains(message.getId()),
                 viewerId != null && viewerId.equals(message.getAuthorUserId()),
                 viewerId != null && viewerId.equals(owner.getUserId()),
                 message.getParentId() != null,
+                adminHidden,
                 message.getCreatedAt(), replyVos);
     }
 

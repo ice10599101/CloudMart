@@ -223,3 +223,138 @@ export function getPetReports(params: { page: number; size: number; status?: str
 export function resolvePetReport(id: number | string, data: { action: string; reason: string }) {
   return request.post<ApiResponse<void>>(`/admin/pet/reports/${id}/resolve`, data)
 }
+
+// ==================== F5 用户宠物查询与运营工具 ====================
+
+/** 背包摘要行 */
+export interface AdminUserPetInventoryLine {
+  itemType: string
+  itemCode: string
+  quantity: number
+}
+
+/** 客服视角的宠物全貌 */
+export interface AdminUserPet {
+  petId: number | string
+  userId: number | string
+  name: string
+  species: string
+  gender: string
+  level: number
+  exp: number
+  growthStage: string
+  evolutionStage: number
+  skinCode: string | null
+  hp: number
+  maxHp: number
+  hunger: number
+  happiness: number
+  energy: number
+  cleanliness: number
+  strength: number
+  intelligence: number
+  agility: number
+  charm: number
+  status: string | null
+  isActive: boolean
+  isPublic: boolean
+  inventorySummary: AdminUserPetInventoryLine[]
+  walletBalance: number | string | null
+  walletStatus: string | null
+}
+
+/** 用户宠物全貌（客服工单查询用） */
+export function getUserPets(userId: number | string) {
+  return request.get<ApiResponse<AdminUserPet[]>>(`/admin/pet/users/${userId}/pets`)
+}
+
+/** 宠物数值调整（白名单字段 + 幅度上限 + 快照审计） */
+export function adjustUserPet(
+  userId: number | string,
+  petId: number | string,
+  data: { field: string; delta: number; reason: string },
+) {
+  return request.post<ApiResponse<Record<string, unknown>>>(
+    `/admin/pet/users/${userId}/pets/${petId}/adjust`,
+    data,
+  )
+}
+
+/** 钱包补偿申请（走调账审批流，须另一管理员审批入账） */
+export function compensateUser(
+  userId: number | string,
+  data: { delta: number; reason: string; ticketNo?: string },
+) {
+  return request.post<ApiResponse<Record<string, unknown>>>(
+    `/admin/pet/users/${userId}/compensation`,
+    data,
+  )
+}
+
+// ==================== F2 赛季管理 ====================
+
+export interface AdminPetSeason {
+  id: number | string
+  name: string
+  startsAt: string
+  endsAt: string
+  status: 'ACTIVE' | 'SETTLED'
+  settledAt: string | null
+  createdAt: string
+}
+
+export interface AdminPetSeasonReward {
+  id?: number | string
+  seasonId?: number | string
+  rankMin: number
+  rankMax: number
+  rewardStarlight: number
+  rewardExp: number
+}
+
+export function listPetSeasons(params: { page: number; size: number }) {
+  return request.get<ApiResponse<AdminPetSeason[]>>('/admin/pet/seasons', { params })
+}
+
+export function upsertPetSeason(data: { id?: number | string; name: string; startsAt: string; endsAt: string }) {
+  return request.post<ApiResponse<AdminPetSeason>>('/admin/pet/seasons', data)
+}
+
+export function listPetSeasonRewards(id: number | string) {
+  return request.get<ApiResponse<AdminPetSeasonReward[]>>(`/admin/pet/seasons/${id}/rewards`)
+}
+
+export function savePetSeasonRewards(id: number | string, tiers: AdminPetSeasonReward[]) {
+  return request.post<ApiResponse<void>>(`/admin/pet/seasons/${id}/rewards`, { tiers })
+}
+
+export function settlePetSeason(id: number | string) {
+  return request.post<ApiResponse<void>>(`/admin/pet/seasons/${id}/settle`)
+}
+
+// ==================== P0-1 内容安全：敏感词库 ====================
+
+export interface AdminPetSensitiveWord {
+  id: number | string
+  word: string
+  category: 'POLITICS' | 'ABUSE' | 'AD' | 'CRISIS'
+  status: number
+  createdAt: string
+}
+
+export function listPetSensitiveWords(params: { page?: number; size?: number; status?: number }) {
+  return request.get<ApiResponse<AdminPetSensitiveWord[]>>('/admin/pet/configs/sensitive-words', { params })
+}
+
+export function upsertPetSensitiveWord(data: {
+  id?: number | string
+  word: string
+  category: string
+  enabled?: boolean
+}) {
+  return request.post<ApiResponse<AdminPetSensitiveWord>>('/admin/pet/configs/sensitive-words', data)
+}
+
+export function deletePetSensitiveWord(id: number | string) {
+  return request.delete<ApiResponse<void>>(`/admin/pet/configs/sensitive-words/${id}`)
+}

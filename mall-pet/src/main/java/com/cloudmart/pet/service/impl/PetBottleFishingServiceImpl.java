@@ -57,6 +57,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     private final PetBottleSettlementService settlementService;
     private final PetProperties properties;
     private final PetClock petClock;
+    private final PetStateService stateService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBottleFishingServiceImpl(PetService petService,
@@ -65,7 +66,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                                        PetMapper petMapper,
                                        PetBottleSettlementService settlementService,
                                        PetProperties properties,
-                                       PetClock petClock) {
+                                       PetClock petClock,
+                                       PetStateService stateService) {
         this.petService = petService;
         this.activityMapper = activityMapper;
         this.bottleRecordMapper = bottleRecordMapper;
@@ -73,6 +75,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         this.settlementService = settlementService;
         this.properties = properties;
         this.petClock = petClock;
+        this.stateService = stateService;
     }
 
     @Override
@@ -137,6 +140,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                 .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
         if (busy > 0) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物已经在忙另一件事啦");
+        }
+        if (stateService.isWeak(pet)) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了没力气去海边，先喂点东西吧");
         }
         if (pet.getEnergy() < START_ENERGY_COST) {
             throw new BusinessException(PetErrorCodes.PET_ENERGY_INSUFFICIENT, "宠物没有力气去海边啦，先休息一下吧");

@@ -15,6 +15,7 @@ import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetShopItemVO;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -37,6 +38,28 @@ public class PetItemCatalog {
 
     private static final String DEFAULT_COLOR = "orange";
     private static final String DEFAULT_ACCESSORY = "none";
+
+    /**
+     * 食物道具（F1 喂养道具化）：目录服务端代码定义（效果/价格服务端权威，客户端不可传），
+     * 堆叠入包 {@code pet_inventory(quantity)}，喂食时条件扣减。apple 基准：
+     * hunger+15 / happiness+2（方案 F1 验收口径）。
+     */
+    public record FoodItem(String code, String name, String icon, String description,
+                           int priceStarlight, int hunger, int happiness, int hp) {
+    }
+
+    public static final List<FoodItem> FOODS = List.of(
+            new FoodItem("apple", "苹果", "🍎", "脆脆的苹果，宠物最爱", 20, 15, 2, 0),
+            new FoodItem("milk", "牛奶", "🥛", "温热的一杯牛奶", 25, 10, 8, 5),
+            new FoodItem("fish", "小鱼干", "🐟", "香喷喷的小鱼干", 35, 25, 5, 10),
+            new FoodItem("cake", "奶油蛋糕", "🍰", "节日限定的甜品", 60, 40, 12, 15));
+
+    public static Optional<FoodItem> food(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return FOODS.stream().filter(f -> f.code().equals(code)).findFirst();
+    }
 
     private final PetEquipmentConfigMapper equipmentConfigMapper;
     private final PetSkinConfigMapper skinConfigMapper;
@@ -148,6 +171,16 @@ public class PetItemCatalog {
                     java.math.BigDecimal.valueOf(
                             config != null && config.getComfort() != null ? config.getComfort() : 0),
                     0, 0, 0, 0, 0,
+                    Boolean.TRUE.equals(item.getEquipped()), item.getQuantity(), used, item.getAcquiredAt());
+        }
+        if (PetItemType.FOOD.name().equals(type)) {
+            // F1：食物目录为代码定义（无配置表行），缺失时回落编码占位
+            FoodItem food = food(item.getItemCode()).orElse(null);
+            return new PetInventoryItemVO(type, item.getItemCode(),
+                    food != null ? food.name() : item.getItemCode(),
+                    food != null ? food.description() : "",
+                    food != null ? food.icon() : "🍎",
+                    "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0,
                     Boolean.TRUE.equals(item.getEquipped()), item.getQuantity(), used, item.getAcquiredAt());
         }
         PetSkillConfig config = skill(item.getItemCode()).orElse(null);

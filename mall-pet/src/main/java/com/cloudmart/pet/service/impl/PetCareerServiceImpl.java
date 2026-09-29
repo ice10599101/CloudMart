@@ -208,6 +208,10 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         Pet pet = petService.requireOwnedPet(userId);
         PetCareerConfig config = requireCurrentCareer(pet);
         ensureNoBusyActivity(userId);
+        // F4：虚弱状态禁止职业打工
+        if (stateService.isWeak(pet)) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了没力气打工，先喂点东西吧");
+        }
         requireDailyQuota(userId, config);
         if (pet.getLevel() < orOne(config.getRequiredLevel())) {
             throw new BusinessException(PetErrorCodes.PET_CAREER_LOCKED,

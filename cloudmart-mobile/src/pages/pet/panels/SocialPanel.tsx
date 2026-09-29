@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, Text, View } from '@tarojs/components'
-import { petApi, type PetFriendPanel, PetInfo, PetRelationPanel, PetWallPage } from '@/api/pet'
+import {
+  petApi,
+  type PetFriendFeedItem,
+  type PetFriendPanel,
+  PetInfo,
+  PetRelationPanel,
+  PetWallPage,
+} from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
 import styles from '../index.module.scss'
 
-/** 社交面板（三期）：关系/好友/留言墙三个子 Tab（P2-4 自 index.tsx 拆出，行为不变） */
+/** 社交面板（三期）：关系/好友/留言墙/动态四个子 Tab（P2-4 拆出；F3 增加动态） */
 export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
-  const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
+  const [tab, setTab] = useState<'relation' | 'friend' | 'wall' | 'feed'>('relation')
+  const [feed, setFeed] = useState<PetFriendFeedItem[] | null>(null)
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false)
   const [relations, setRelations] = useState<PetRelationPanel | null>(null)
   const [friends, setFriends] = useState<PetFriendPanel | null>(null)
   const [wall, setWall] = useState<PetWallPage | null>(null)
@@ -29,6 +38,13 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
         if (res.success && res.data) {
           setFriends(res.data)
         }
+      } else if (tab === 'feed') {
+        const { data: res } = await petApi.getFriendFeed({ size: 20 })
+        if (res.success) {
+          setFeed(res.data || [])
+        }
+        // 打开即推进已读水位（幂等，失败静默）
+        void petApi.markFriendFeedRead().catch(() => undefined)
       } else {
         const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
         if (res.success && res.data) {
@@ -67,6 +83,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
           ['relation', '💞 关系'],
           ['friend', '🫂 好友'],
           ['wall', '📝 留言墙'],
+          ['feed', '📣 动态'],
         ] as Array<[typeof tab, string]>).map(([key, label]) => (
           <Button
             key={key}
@@ -248,6 +265,53 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
               </View>
             ))}
           </View>
+        </View>
+      )}
+
+      {tab === 'feed' && (
+        <View>
+          {feed !== null && feed.length === 0 && (
+            <Text className={styles.tip}>还没有好友动态～好友升级、打工归来、对战获胜时会出现在这里</Text>
+          )}
+          {feed?.map((item) => (
+            <View key={String(item.feedId)} className={styles.rankRow}>
+              <Text className={styles.rankNo}>
+                {item.eventType === 'LEVEL_UP'
+                  ? '⬆️'
+                  : item.eventType === 'BATTLE_WIN'
+                    ? '⚔️'
+                    : item.eventType === 'STUDY_COMPLETED'
+                      ? '📖'
+                      : '💼'}
+              </Text>
+              <Text className={styles.rankName}>{item.text}</Text>
+              <Text className={styles.rankValue}>{item.createdAt?.slice(5, 10) ?? ''}</Text>
+            </View>
+          ))}
+          {feed !== null && feed.length > 0 && (
+            <Button
+              className={styles.miniBtnGhost}
+              disabled={feedLoadingMore}
+              onClick={async () => {
+                const last = feed[feed.length - 1]
+                if (!last) return
+                setFeedLoadingMore(true)
+                try {
+                  const { data: res } = await petApi.getFriendFeed({ beforeId: last.feedId, size: 20 })
+                  if (res.success) {
+                    const more = res.data || []
+                    setFeed(more.length > 0 ? [...feed, ...more] : feed)
+                  }
+                } catch {
+                  // 拦截器已提示
+                } finally {
+                  setFeedLoadingMore(false)
+                }
+              }}
+            >
+              {feedLoadingMore ? '加载中…' : '加载更早的动态'}
+            </Button>
+          )}
         </View>
       )}
 

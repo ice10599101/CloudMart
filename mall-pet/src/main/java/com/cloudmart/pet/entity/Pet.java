@@ -91,6 +91,12 @@ public class Pet {
     /** 饱食变化小数余量（B04：独立累计，高频查询不丢小数） */
     private Double hungerFrac;
 
+    /** 饥饿归零起点（UTC，F4）：hunger>0 置 NULL，=0 首次记录；WEAK 判定依据 */
+    private LocalDateTime hungerZeroSince;
+
+    /** 心情归零起点（UTC，F4）：happiness>0 置 NULL，=0 首次记录；SICK 判定依据 */
+    private LocalDateTime happinessZeroSince;
+
     /** 心情变化小数余量（B04） */
     private Double happinessFrac;
 

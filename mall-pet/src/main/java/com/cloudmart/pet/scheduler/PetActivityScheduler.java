@@ -54,6 +54,8 @@ public class PetActivityScheduler {
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final com.cloudmart.pet.service.PetRankingService rankingService;
     private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService dashboardSnapshotService;
+    private final com.cloudmart.pet.service.impl.PetSeasonSettlementService seasonSettlementService;
+    private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
 
     @Scheduled(fixedDelay = 60_000)
     public void settleFinishedActivities() {
@@ -91,6 +93,8 @@ public class PetActivityScheduler {
             int expiredBattles = battleService.expirePendingBattles();
             // P2-3：看板当日快照小时级增量写入（历史日冻结，看板读快照 + 当日实时合并）
             dashboardSnapshotService.writeTodaySnapshot();
+            // F2：赛季到期结算（CAS 防重，失败回退 ACTIVE 下轮重试）
+            seasonSettlementService.settleExpiredSeasons();
             if (expiredClaims > 0 || expiredBattles > 0) {
                 log.info("宠物清扫完成: expiredClaims={}, expiredBattles={}", expiredClaims, expiredBattles);
             }
@@ -160,6 +164,12 @@ public class PetActivityScheduler {
     private void publishCompleted(PetActivity activity, PetActivityType type) {
         Pet pet = petMapper.selectById(activity.getPetId());
         String petName = pet != null ? pet.getName() : "宠物";
+        // F3：打工/读书完成动态（CAS 已保证仅首个结算者推送，扇出同样单次）
+        friendFeedService.append(activity.getUserId(), activity.getPetId(),
+                type == PetActivityType.STUDY
+                        ? com.cloudmart.pet.service.impl.PetFriendFeedService.EVENT_STUDY_COMPLETED
+                        : com.cloudmart.pet.service.impl.PetFriendFeedService.EVENT_WORK_COMPLETED,
+                petName + " " + (type == PetActivityType.STUDY ? "读完书啦！" : "打工归来！"), petName);
         if (type == PetActivityType.WORK) {
             eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
                     "WORK_COMPLETED:" + activity.getId(),

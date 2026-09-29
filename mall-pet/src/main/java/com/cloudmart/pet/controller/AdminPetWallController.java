@@ -1,6 +1,7 @@
 package com.cloudmart.pet.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -72,6 +73,59 @@ public class AdminPetWallController {
         Page<PetWallMessage> result = wallMessageMapper.selectPage(
                 new Page<>(Math.max(1, page), safeSize), wrapper);
         return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+    }
+
+    @PutMapping("/messages/{id}/hide")
+    @Operation(summary = "隐藏留言（F6）", description = "NORMAL → HIDDEN（用户端显示占位文案，管理端保留审计）；已隐藏/已删除跳过")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> hide(@PathVariable("id") Long id) {
+        PetWallMessage message = wallMessageMapper.selectById(id);
+        if (message == null) {
+            throw new BusinessException(PetErrorCodes.PET_WALL_MESSAGE_NOT_FOUND, "留言不存在");
+        }
+        wallMessageMapper.update(null, new LambdaUpdateWrapper<PetWallMessage>()
+                .set(PetWallMessage::getStatus, PetWallStatus.HIDDEN.name())
+                .eq(PetWallMessage::getId, id)
+                .eq(PetWallMessage::getStatus, PetWallStatus.NORMAL.name()));
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/messages/export-page")
+    @Operation(summary = "导出分页（F6，供代理层流式拼装 CSV）", description = "beforeId 游标 + 时间范围；返回原始行，幂等")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<java.util.List<java.util.Map<String, Object>>> exportPage(
+            @Parameter(description = "游标：上一批最后一条 id") @RequestParam(value = "beforeId", required = false) Long beforeId,
+            @RequestParam(value = "size", defaultValue = "500") int size,
+            @Parameter(description = "起始日（含，UTC）") @RequestParam(value = "from", required = false) String from,
+            @Parameter(description = "结束日（含，UTC）") @RequestParam(value = "to", required = false) String to) {
+        int safeSize = Math.min(Math.max(1, size), 1000);
+        LambdaQueryWrapper<PetWallMessage> wrapper = new LambdaQueryWrapper<PetWallMessage>()
+                .orderByDesc(PetWallMessage::getId)
+                .last("LIMIT " + safeSize);
+        if (beforeId != null) {
+            wrapper.lt(PetWallMessage::getId, beforeId);
+        }
+        if (from != null && !from.isBlank()) {
+            wrapper.ge(PetWallMessage::getCreatedAt, java.time.LocalDate.parse(from).atStartOfDay());
+        }
+        if (to != null && !to.isBlank()) {
+            wrapper.lt(PetWallMessage::getCreatedAt, java.time.LocalDate.parse(to).plusDays(1).atStartOfDay());
+        }
+        java.util.List<PetWallMessage> rows = wallMessageMapper.selectList(wrapper);
+        java.util.List<java.util.Map<String, Object>> result = rows.stream()
+                .map(row -> {
+                    java.util.Map<String, Object> map = new java.util.LinkedHashMap<String, Object>();
+                    map.put("id", row.getId());
+                    map.put("petId", row.getPetId());
+                    map.put("authorUserId", row.getAuthorUserId());
+                    map.put("status", row.getStatus());
+                    map.put("likeCount", row.getLikeCount());
+                    map.put("content", row.getContent());
+                    map.put("createdAt", row.getCreatedAt() != null ? row.getCreatedAt().toString() : null);
+                    return map;
+                })
+                .toList();
+        return ApiResponse.ok(result, 0, safeSize, result.size());
     }
 
     @PutMapping("/messages/{id}/status")

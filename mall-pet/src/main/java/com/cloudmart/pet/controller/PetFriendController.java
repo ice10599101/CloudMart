@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,34 @@ import org.springframework.web.bind.annotation.RestController;
 public class PetFriendController {
 
     private final PetFriendService friendService;
+    private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
+
+    @GetMapping("/friends/feed")
+    @Operation(summary = "好友动态（F3）", description = "收件箱游标分页（beforeId=上一页最后一条）；升级/打工读书完成/对战获胜事件")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<java.util.List<com.cloudmart.pet.service.impl.PetFriendFeedService.FeedItemVO>> feed(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "游标：上一页最后一条 feed id") @RequestParam(value = "beforeId", required = false) Long beforeId,
+            @RequestParam(value = "size", defaultValue = "20") Integer size) {
+        return ApiResponse.ok(friendFeedService.list(userId, beforeId, size != null ? size : 20));
+    }
+
+    @GetMapping("/friends/feed/unread-count")
+    @Operation(summary = "好友动态未读数（F3）", description = "已读水位之后的条数（封顶 100）")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<Long> feedUnread(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(friendFeedService.unreadCount(userId));
+    }
+
+    @PostMapping("/friends/feed/read")
+    @Operation(summary = "标记好友动态已读（F3）", description = "水位推进到当前最大 id（幂等，只前进）")
+    @SentinelResource("PET_SOCIAL_UPDATE")
+    public ApiResponse<Void> feedRead(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        friendFeedService.markRead(userId);
+        return ApiResponse.ok(null);
+    }
 
     @GetMapping("/friends")
     @Operation(summary = "好友面板", description = "好友 + 收到申请 + 我发出的申请 + 今日互访余量")
