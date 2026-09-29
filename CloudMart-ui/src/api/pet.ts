@@ -1224,3 +1224,198 @@ export function listPetWalletTransactions(
 export function sendPetCompanionHeartbeat(seconds: number, seq?: number) {
   return request.post<ApiResponse<PetCompanionSessionVO>>('/pet/companion/heartbeat', { seconds, seq })
 }
+
+// ==================== 陪伴功能面（N01 引导 / N02 日记·相册 / N03 记忆 / B19 通知偏好） ====================
+
+/** 新手引导进度（完成由领域事件驱动，客户端只能查看/跳过） */
+export interface PetOnboardingProgress {
+  currentStep: number
+  totalSteps: number
+  skippable: boolean
+  completed: boolean
+}
+
+export function getPetOnboarding() {
+  return request.get<ApiResponse<PetOnboardingProgress>>('/pet/onboarding')
+}
+
+/** 跳过引导（幂等；不伪造步骤与奖励） */
+export function skipPetOnboarding() {
+  return request.post<ApiResponse<void>>('/pet/onboarding/skip')
+}
+
+/** 成长日记条目（游标分页；他人仅见 PUBLIC） */
+export interface PetDiaryEntry {
+  id: number
+  petId: number
+  type: string
+  content: string
+  visibility: 'PUBLIC' | 'PRIVATE'
+  assetIds: number[] | null
+  createdAt: string
+}
+
+/** 日记游标分页信封（后端 Map：items/nextCursor/hasMore） */
+export interface PetDiaryPage {
+  items: PetDiaryEntry[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export function listPetDiary(petId: number | string, cursor?: number | string, pageSize = 20) {
+  return request.get<ApiResponse<PetDiaryPage>>(`/pet/pets/${petId}/diary`, {
+    params: { cursor, pageSize },
+  })
+}
+
+/** 相册资源（fileId 为 mall-file 授权引用；每用户 100 张） */
+export interface PetAlbumAsset {
+  id: number
+  userId: number
+  petId: number
+  diaryEntryId: number | null
+  fileId: string
+  auditStatus: string
+  createdAt: string
+  updatedAt: string
+}
+
+export function uploadPetAlbumAsset(petId: number | string, fileId: string, diaryEntryId?: number | string) {
+  return request.post<ApiResponse<PetAlbumAsset>>(`/pet/pets/${petId}/album`, { fileId, diaryEntryId })
+}
+
+export function deletePetAlbumAsset(petId: number | string, assetId: number | string) {
+  return request.delete<ApiResponse<void>>(`/pet/pets/${petId}/album/${assetId}`)
+}
+
+/** 宠物结构化记忆（仅主人可见；USER 编辑优先于 AUTO 抽取） */
+export interface PetMemory {
+  id: number
+  userId: number
+  petId: number
+  memoryType: 'FAVORITE' | 'HABIT' | 'FACT'
+  memoryKey: string
+  memoryValue: string
+  importance: number
+  confidence: number
+  source: 'AUTO' | 'USER'
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function listPetMemories(petId: number | string) {
+  return request.get<ApiResponse<PetMemory[]>>(`/pet/pets/${petId}/memories`)
+}
+
+export function editPetMemory(
+  petId: number | string,
+  memoryId: number | string,
+  data: { memoryValue: string; importance?: number },
+) {
+  return request.put<ApiResponse<PetMemory>>(`/pet/pets/${petId}/memories/${memoryId}`, data)
+}
+
+export function deletePetMemory(petId: number | string, memoryId: number | string) {
+  return request.delete<ApiResponse<void>>(`/pet/pets/${petId}/memories/${memoryId}`)
+}
+
+/** 批量清空记忆（全部软删，防复活标记） */
+export function clearPetMemories(petId: number | string) {
+  return request.delete<ApiResponse<void>>(`/pet/pets/${petId}/memories`)
+}
+
+/** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文，二者独立；服务端无读取端点） */
+export function setPetMemorySettings(petId: number | string, data: { extract: boolean; use: boolean }) {
+  return request.put<ApiResponse<void>>(`/pet/pets/${petId}/memory-settings`, data)
+}
+
+/** 通知偏好（B19：免打扰/日常问候；仅影响日常 proactive 问候） */
+export interface PetNotifyPref {
+  id: number
+  userId: number
+  muteDailyGreeting: boolean
+  dailyGreetingEnabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function getPetNotifyPrefs() {
+  return request.get<ApiResponse<PetNotifyPref>>('/pet/notify-settings')
+}
+
+export function updatePetNotifyPrefs(data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) {
+  return request.put<ApiResponse<PetNotifyPref>>('/pet/notify-settings', data)
+}
+
+// ==================== 已有能力的补口（拉黑列表 / 待应战 / 一键领取 / 停止陪伴 / 装备预览） ====================
+
+/** 宠物社交拉黑列表（屏蔽后双方不能新增拜访收益/挑战/留言/申请） */
+export function listPetBlocks() {
+  return request.get<ApiResponse<number[]>>('/pet/blocks')
+}
+
+export function unblockPetUser(blockedUserId: number | string) {
+  return request.delete<ApiResponse<void>>(`/pet/blocks/${blockedUserId}`)
+}
+
+/** 待我应战的挑战（未决对战） */
+export function listPendingBattles() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/battle/pending')
+}
+
+/** 一键领取全部已完成每日任务（逐项独立 CAS + 幂等，单项失败跳过可重试） */
+export function claimAllDailyQuests() {
+  return request.post<ApiResponse<Array<Record<string, unknown>>>>('/pet/daily-quests/claim-all')
+}
+
+/** 停止陪伴会话（结算有效窗口内未计入时间；幂等） */
+export function stopCompanionSession() {
+  return request.post<ApiResponse<Record<string, unknown>>>('/pet/companion/stop')
+}
+
+/** 装备预览（换装生效前查看属性变化） */
+export function previewPetEquip(itemId: number | string) {
+  return request.get<ApiResponse<Record<string, unknown>>>('/pet/inventory/equip-preview', {
+    params: { itemId },
+  })
+}
+
+// ==================== 审计补口第二批（限时活动 / 待战 / 拉黑与举报 / 交互目录 / 小游戏历史） ====================
+
+/** 宠物限时活动列表（与养成面板的常驻事件 /pet/events 是两套体系） */
+export function listPetActivities() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/activities')
+}
+
+/** 领取限时活动奖励（幂等） */
+export function claimPetActivity(activityId: number | string) {
+  return request.post<ApiResponse<Record<string, unknown>>>(`/pet/activities/${activityId}/claim`)
+}
+
+/** 小游戏历史回合（结果/收益回顾） */
+export function listMinigameRounds(cursor?: number | string, pageSize = 20) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/minigames', {
+    params: { cursor, pageSize },
+  })
+}
+
+/** 当前宠物可用互动目录（长按食物背包等入口的动态项） */
+export function getPetActions(petId: number | string) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/pet/pets/${petId}/actions`)
+}
+
+/** 拉黑用户（幂等；屏蔽后双方不能新增拜访收益/挑战/留言/申请） */
+export function blockPetUser(blockedUserId: number | string) {
+  return request.post<ApiResponse<void>>(`/pet/blocks/${blockedUserId}`)
+}
+
+/** 举报用户/内容（宠物社交场景） */
+export function reportPetTarget(data: { targetType: string; targetId: number | string; reason: string }) {
+  return request.post<ApiResponse<void>>('/pet/reports', data)
+}
+
+/** 全部宠物提醒标记已读 */
+export function markAllPetRemindersRead() {
+  return request.put<ApiResponse<void>>('/pet/reminders/read-all')
+}

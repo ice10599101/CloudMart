@@ -57,3 +57,13 @@ export function postWebrtcSignal(roomId: number, role: string, data: { sdp: stri
 export function addIceCandidate(data: { roomId: number; role: string; candidate: string }) {
   return request.post<ApiResponse<void>>('/live/webrtc/ice', data)
 }
+
+/** 拉取指定角色的 ICE 候选者列表（发布端与观看端各自拉对端候选） */
+export function getWebrtcIceCandidates(roomId: number | string, role: 'HOST' | 'VIEWER') {
+  return request.get<ApiResponse<string[]>>(`/live/webrtc/ice/${roomId}/${role}`)
+}
+
+/** 清除直播间信令缓存（直播结束/切换时调用） */
+export function clearWebrtcSignals(roomId: number | string) {
+  return request.delete<ApiResponse<void>>(`/live/webrtc/signal/${roomId}`)
+}

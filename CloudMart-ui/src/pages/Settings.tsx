@@ -1,12 +1,16 @@
 import AccountDeletionSection from '@/components/AccountDeletionSection'
 import { useState, useEffect } from 'react'
-import { Switch, Input, Button, Select } from 'antd'
+import { Switch, Input, Button, Select, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined,
   StarOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getUserProfile, changePassword } from '@/api/user'
+import { logoutAllDevices } from '@/api/auth'
+import { listMyWishReports, listMyAppeals } from '@/api/wish'
+import { getBlockedUserIds, unblockUser } from '@/api/community'
+import { useAuthStore } from '@/stores/auth'
 import type { UserProfile } from '@/api/user'
 import { getUserSettings, updateUserSettings } from '@/api/community'
 
@@ -76,6 +80,34 @@ const VISIBILITY_FIELDS: Array<{ key: string; label: string; desc: string }> = [
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const logout = useAuthStore((store) => store.logout)
+  const [myReports, setMyReports] = useState<Array<Record<string, unknown>>>([])
+  const [myAppeals, setMyAppeals] = useState<Array<Record<string, unknown>>>([])
+  const [reportsLoaded, setReportsLoaded] = useState(false)
+  const [blockedIds, setBlockedIds] = useState<number[]>([])
+  const [blocksLoaded, setBlocksLoaded] = useState(false)
+
+  const loadBlocked = async () => {
+    try {
+      const res = await getBlockedUserIds()
+      setBlockedIds(res.data.data ?? [])
+    } catch {
+      setBlockedIds([])
+    }
+  }
+
+  const handleUnblock = async (userId: number) => {
+    await unblockUser(userId)
+    message.success('已取消拉黑')
+    loadBlocked()
+  }
+
+  const loadMyModeration = async () => {
+    const [reportsRes, appealsRes] = await Promise.allSettled([listMyWishReports(), listMyAppeals()])
+    if (reportsRes.status === 'fulfilled') setMyReports(reportsRes.value.data.data ?? [])
+    if (appealsRes.status === 'fulfilled') setMyAppeals(appealsRes.value.data.data ?? [])
+    setReportsLoaded(true)
+  }
 
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -96,6 +128,25 @@ export default function SettingsPage() {
     } finally {
       setPasswordSaving(false)
     }
+  }
+
+  /** SEC-02：退出全部设备——服务端撤销全部刷新令牌家族后清本端凭据并回登录页 */
+  const handleLogoutAllDevices = async () => {
+    Modal.confirm({
+      title: '退出所有设备',
+      content: '将撤销所有已登录设备的会话（包括本机），需要重新登录。确定继续？',
+      okText: '退出所有设备',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await logoutAllDevices()
+        } finally {
+          logout()
+          message.success('已退出所有设备')
+          history.push('/login?redirect=/settings')
+        }
+      },
+    })
   }
 
   const [likeNotification, setLikeNotification] = useState(true)
@@ -340,6 +391,29 @@ export default function SettingsPage() {
                 确认修改
               </Button>
             </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 0',
+                borderTop: '1px solid var(--color-border)',
+                marginTop: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <LockOutlined style={{ color: 'var(--color-accent-red, #ff4d4f)', fontSize: 16 }} />
+                <div>
+                  <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500 }}>退出所有设备</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>
+                    撤销全部会话与刷新令牌（SEC-02），包括本机
+                  </div>
+                </div>
+              </div>
+              <Button danger onClick={handleLogoutAllDevices}>
+                退出
+              </Button>
+            </div>
           </div>
 
           <div
@@ -412,6 +486,99 @@ export default function SettingsPage() {
           </div>
 
           <AccountDeletionSection />
+        </div>
+
+        {/* 隐私：社区拉黑列表（GET /blocks；取消拉黑复用 unblockUser） */}
+        <div
+          style={{
+            background: 'var(--color-bg-container)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginTop: 16,
+          }}
+          ref={(node) => {
+            if (node && !blocksLoaded) {
+              setBlocksLoaded(true)
+              void loadBlocked()
+            }
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+            黑名单管理
+          </div>
+          {blockedIds.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>暂无拉黑用户</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {blockedIds.map((userId) => (
+                <span
+                  key={userId}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid var(--color-border)', borderRadius: 999, padding: '4px 12px', fontSize: 13 }}
+                >
+                  用户 #{userId}
+                  <a onClick={() => handleUnblock(userId)} style={{ color: 'var(--color-primary)', cursor: 'pointer', fontSize: 12 }}>
+                    取消拉黑
+                  </a>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 心愿治理：我的举报 / 我的申诉（v2 治理链路进度） */}
+        <div
+          style={{
+            background: 'var(--color-bg-container)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginTop: 16,
+          }}
+          ref={(node) => {
+            if (node && !reportsLoaded) {
+              setReportsLoaded(true)
+              void loadMyModeration()
+            }
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+            举报与申诉
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 8 }}>我的举报（处理进度）</div>
+          {myReports.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>暂无举报记录</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
+              {myReports.map((report, index) => (
+                <div
+                  key={String(report.id ?? index)}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, borderBottom: '1px solid var(--color-border)', paddingBottom: 6 }}
+                >
+                  <span>
+                    {String(report.targetType ?? '')} #{String(report.targetId ?? '')} · {String(report.reasonCode ?? '')}
+                  </span>
+                  <span style={{ color: 'var(--color-text-tertiary)' }}>{String(report.status ?? '处理中')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 8 }}>我的申诉（复核结果）</div>
+          {myAppeals.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>暂无申诉记录</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {myAppeals.map((appeal, index) => (
+                <div
+                  key={String(appeal.id ?? index)}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, borderBottom: '1px solid var(--color-border)', paddingBottom: 6 }}
+                >
+                  <span>{String(appeal.statement ?? '').slice(0, 40)}</span>
+                  <span style={{ color: 'var(--color-text-tertiary)' }}>{String(appeal.status ?? '复核中')}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

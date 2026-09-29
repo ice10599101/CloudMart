@@ -44,4 +44,25 @@ export const fileApi = {
     })
   },
   delete: (fileUrl: string) => request({ url: '/file/delete', method: 'DELETE', data: { url: fileUrl } }),
+
+  /** FILE-01 资产上传（内容魔数校验，SVG 拒绝）→ 返回 fileId（宠物相册等引用型场景） */
+  uploadAsset: (filePath: string, visibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC') => {
+    return new Promise<{ data: { data: { fileId: string; url: string; mime: string; fileSize: number } } }>((resolve, reject) => {
+      const token = Taro.getStorageSync('access_token')
+      Taro.uploadFile({
+        url: `${API_BASE}/file/assets?visibility=${visibility}`,
+        filePath,
+        name: 'file',
+        header: token ? { Authorization: `Bearer ${token}` } : {},
+        success: (res) => {
+          try {
+            resolve({ data: JSON.parse(res.data) })
+          } catch {
+            reject(new Error('Parse asset upload response failed'))
+          }
+        },
+        fail: (err) => reject(err),
+      })
+    })
+  },
 }

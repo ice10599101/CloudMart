@@ -195,9 +195,12 @@ public class PetRankingServiceImpl implements PetRankingService {
         return result;
     }
 
-    /** 我的数值（未养宠物/不公开返回 0） */
+    /** 我的数值（未养宠物/不公开返回 0；多宠物下取主宠，与 myRank/榜单同口径——P1-1 多宠物共存后 selectOne 必须限定主宠） */
     private Long myValue(RankingType type, Long userId) {
-        Pet pet = petMapper.selectOne(new LambdaQueryWrapper<Pet>().eq(Pet::getUserId, userId));
+        Pet pet = petMapper.selectOne(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getUserId, userId)
+                .eq(Pet::getIsActive, true)
+                .last("LIMIT 1"));
         if (pet == null) {
             return 0L;
         }

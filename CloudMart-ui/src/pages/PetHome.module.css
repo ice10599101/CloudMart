@@ -814,3 +814,17 @@
 .gameBtn:active {
   transform: scale(0.94);
 }
+
+/* N01 新手引导横幅（可跳过时展示跳过入口；完成由领域事件驱动） */
+.onboardingBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-container);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}

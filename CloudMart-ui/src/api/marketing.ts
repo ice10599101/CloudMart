@@ -68,3 +68,8 @@ export function getGroupOrder(groupOrderId: number) {
 export function calculateDiscount(data: { productId: number; quantity: number; totalAmount: number }) {
   return request.post<ApiResponse<unknown>>('/marketing/tiered/calculate', data)
 }
+
+/** 满减活动详情（含阶梯规则；用户面无列表端点，id 来自结算/计算响应） */
+export function getTieredPromotion(id: number | string) {
+  return request.get<ApiResponse<Record<string, unknown>>>(`/marketing/tiered/promotions/${id}`)
+}

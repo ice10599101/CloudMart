@@ -379,3 +379,45 @@ export function recordBrowseHistory(data: {
 export function getMyBrowseHistory(page = 1, size = 20) {
   return request.get<ApiResponse<BrowseHistoryItem[]>>('/community/browse-history', { params: { page, size } })
 }
+
+// ==================== 审计补口（话题目录 / 我的订阅 / 拉黑列表 / 帖子分享记录） ====================
+
+export interface CommunityTag {
+  id: number
+  name: string
+  icon: string | null
+  postCount: number | null
+  isHot: boolean | null
+  status: number | null
+  createdAt: string
+}
+
+/** 话题分页目录（发布器话题浏览用） */
+export function listCommunityTags(params: { page?: number; size?: number; keyword?: string } = {}) {
+  return request.get<ApiResponse<CommunityTag[]>>('/community/tags', { params })
+}
+
+/** 我订阅的话题 */
+export function getSubscribedTags() {
+  return request.get<ApiResponse<CommunityTag[]>>('/community/tags/subscriptions')
+}
+
+/** 拉黑用户 ID 列表（取消拉黑复用 unblockUser） */
+export function getBlockedUserIds() {
+  return request.get<ApiResponse<number[]>>('/community/blocks')
+}
+
+export interface PostShareRecord {
+  id: number
+  postId: number
+  userId: number
+  userNickname: string | null
+  userAvatar: string | null
+  channel: string | null
+  createdAt: string
+}
+
+/** 帖子分享记录列表 */
+export function getPostShares(postId: number | string, params: { page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<PostShareRecord[]>>(`/community/posts/${postId}/shares`, { params })
+}

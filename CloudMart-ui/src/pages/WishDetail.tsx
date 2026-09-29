@@ -15,6 +15,7 @@ import {
   BookOutlined,
   BookFilled,
   PlusOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import { history, useParams, useSearchParams } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
@@ -23,6 +24,9 @@ import RichText from '@/components/RichText'
 import {
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
+  archiveWish, unarchiveWish, listWishGoals, createWishGoal, updateWishGoal, deleteWishGoal,
+  reorderWishGoals, submitWishReport, listWishGrowthTimeline,
+  type WishGoalStep, type WishGrowthTimelineItem,
 } from '@/api/wish'
 import type { WishDetail as WishDetailData, WishFulfillmentDetail } from '@/api/wish'
 import { uploadFile } from '@/api/file'
@@ -111,6 +115,21 @@ export default function WishDetail() {
   const [refreshTick, setRefreshTick] = useState(0)
   const [blessTick, setBlessTick] = useState(0)
   const [checkedInToday, setCheckedInToday] = useState(false)
+  // ---- 心愿 v2：目标清单 / 归档 / 举报 / 成长完整时间轴 ----
+  const [goals, setGoals] = useState<WishGoalStep[]>([])
+  const [goalsOpen, setGoalsOpen] = useState(false)
+  const [goalsLoading, setGoalsLoading] = useState(false)
+  const [goalTitle, setGoalTitle] = useState('')
+  const [goalSaving, setGoalSaving] = useState(false)
+  const [archiveSaving, setArchiveSaving] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportSaving, setReportSaving] = useState(false)
+  const [timelineItems, setTimelineItems] = useState<WishGrowthTimelineItem[]>([])
+  const [timelineCursor, setTimelineCursor] = useState<string | null>(null)
+  const [timelineHasMore, setTimelineHasMore] = useState(false)
+  const [timelineLoading, setTimelineLoading] = useState(false)
+
   const { message } = App.useApp()
   const { user } = useAuthStore()
 
@@ -307,6 +326,125 @@ export default function WishDetail() {
     setWish((prev) => (prev ? { ...prev, ...partial } : prev))
   }
 
+  // ---- 心愿 v2 交互 ----
+  const loadGoals = async () => {
+    setGoalsLoading(true)
+    try {
+      const res = await listWishGoals(wishId)
+      if (res.data.success) setGoals(res.data.data ?? [])
+    } finally {
+      setGoalsLoading(false)
+    }
+  }
+
+  const handleAddGoal = async () => {
+    if (!goalTitle.trim()) {
+      message.warning('请填写步骤标题')
+      return
+    }
+    setGoalSaving(true)
+    try {
+      const res = await createWishGoal(wishId, { title: goalTitle.trim(), sortOrder: goals.length })
+      if (res.data.success) {
+        setGoalTitle('')
+        loadGoals()
+      }
+    } finally {
+      setGoalSaving(false)
+    }
+  }
+
+  const toggleGoalDone = async (goal: WishGoalStep) => {
+    const nextStatus = goal.status === 'DONE' ? 'IDLE' : 'DONE'
+    const res = await updateWishGoal(goal.id, { status: nextStatus, version: goal.version })
+    if (res.data.success) loadGoals()
+  }
+
+  const removeGoal = async (goal: WishGoalStep) => {
+    const res = await deleteWishGoal(goal.id)
+    if (res.data.success) loadGoals()
+  }
+
+  const moveGoal = async (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= goals.length) return
+    const next = [...goals]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    const goalOrder: Record<string, number> = {}
+    next.forEach((goal, order) => {
+      goalOrder[String(goal.id)] = order
+    })
+    const res = await reorderWishGoals(wishId, goalOrder)
+    if (res.data.success) loadGoals()
+  }
+
+  const handleArchive = async () => {
+    setArchiveSaving(true)
+    try {
+      const res = await archiveWish(wishId, {})
+      if (res.data.success) {
+        message.success('心愿已归档（停止提醒与增长写入，可随时取消归档）')
+        setRefreshTick((tick) => tick + 1)
+      }
+    } finally {
+      setArchiveSaving(false)
+    }
+  }
+
+  const handleUnarchive = async () => {
+    setArchiveSaving(true)
+    try {
+      const res = await unarchiveWish(wishId)
+      if (res.data.success) {
+        message.success('已取消归档，心愿恢复到归档前状态')
+        setRefreshTick((tick) => tick + 1)
+      }
+    } finally {
+      setArchiveSaving(false)
+    }
+  }
+
+  const handleReportWish = async () => {
+    if (!reportReason.trim()) {
+      message.warning('请填写举报说明（必填）')
+      return
+    }
+    setReportSaving(true)
+    try {
+      const res = await submitWishReport({
+        targetType: 'WISH',
+        targetId: wishId,
+        reasonCode: 'OTHER',
+        description: reportReason.trim(),
+      })
+      if (res.data.success) {
+        message.success('举报已提交，处理进度可在设置页「我的举报与申诉」查看')
+        setReportOpen(false)
+        setReportReason('')
+      }
+    } finally {
+      setReportSaving(false)
+    }
+  }
+
+  const loadTimeline = async (reset: boolean) => {
+    setTimelineLoading(true)
+    try {
+      const res = await listWishGrowthTimeline(wishId, {
+        cursor: reset ? undefined : (timelineCursor ?? undefined),
+        pageSize: 20,
+      })
+      if (res.data.success) {
+        const items = res.data.data ?? []
+        setTimelineItems((prev) => (reset ? items : [...prev, ...items]))
+        setTimelineCursor(items.length > 0 ? String(items[items.length - 1].id) : null)
+        setTimelineHasMore(items.length >= 20)
+      }
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
   /** 评论数变化（发表 +1 / 删除 -1） */
   const handleCommentCountChange = (delta: number) => {
     setWish((prev) =>
@@ -381,6 +519,11 @@ export default function WishDetail() {
             {collected ? '已收藏' : '收藏'}
           </Button>
         )}
+        {!isAuthor && (
+          <Button type="text" icon={<WarningOutlined />} onClick={() => setReportOpen(true)}>
+            举报
+          </Button>
+        )}
         {isAuthor && (
           <div className={styles.actionBtns}>
             {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
@@ -416,6 +559,25 @@ export default function WishDetail() {
                 onClick={() => setInheritOpen(true)}
               >
                 传承给同路人
+              </Button>
+            )}
+            {/* N03 生命周期：归档（停止提醒与增长写入）/ 取消归档（按归档前状态恢复） */}
+            {(wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+              <Popconfirm
+                title="归档这条心愿？"
+                description="归档后停止提醒与增长写入，可随时取消归档恢复"
+                onConfirm={handleArchive}
+                okText="归档"
+                cancelText="取消"
+              >
+                <Button loading={archiveSaving}>
+                  归档
+                </Button>
+              </Popconfirm>
+            )}
+            {wish.status === 'ARCHIVED' && (
+              <Button type="primary" ghost loading={archiveSaving} onClick={handleUnarchive}>
+                取消归档
               </Button>
             )}
             {/* 星火永久收藏（文档 2.3：FULFILLED+BLOOM 可设置；SPARK 展示已收藏态） */}
@@ -678,7 +840,96 @@ export default function WishDetail() {
                 ),
               }))}
             />
+            <div style={{ marginTop: 12, textAlign: 'center' }}>
+              {timelineItems.length > 0 ? (
+                <Button size="small" loading={timelineLoading} disabled={!timelineHasMore} onClick={() => loadTimeline(false)}>
+                  {timelineHasMore ? '加载更早记录' : '已加载全部'}
+                </Button>
+              ) : (
+                <Button size="small" loading={timelineLoading} onClick={() => loadTimeline(true)}>
+                  查看完整时间轴
+                </Button>
+              )}
+            </div>
           </Card>
+        )}
+
+        {/* 作者：目标步骤清单（v2 GoalPlan，最多 20 步） */}
+        {isAuthor && goalsOpen && (
+          <Card
+            className={styles.growthCard}
+            title="目标步骤"
+            extra={
+              <Button size="small" onClick={() => setGoalsOpen(false)}>
+                收起
+              </Button>
+            }
+          >
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <Input
+                value={goalTitle}
+                onChange={(e) => setGoalTitle(e.target.value)}
+                placeholder="下一步做什么？（最多 20 步）"
+                onPressEnter={handleAddGoal}
+              />
+              <Button type="primary" loading={goalSaving} onClick={handleAddGoal}>
+                添加
+              </Button>
+            </div>
+            {goalsLoading ? (
+              <div style={{ textAlign: 'center', padding: 16 }}>加载中...</div>
+            ) : goals.length === 0 ? (
+              <Empty description="还没有步骤；从一个小目标开始" />
+            ) : (
+              <Timeline
+                items={goals.map((goal, index) => ({
+                  color: goal.status === 'DONE' ? 'green' : 'blue',
+                  children: (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Input
+                        size="small"
+                        style={{ width: 220, textDecoration: goal.status === 'DONE' ? 'line-through' : 'none', opacity: goal.status === 'DONE' ? 0.6 : 1 }}
+                        defaultValue={goal.title}
+                        onPressEnter={(e) => {
+                          const title = (e.target as HTMLInputElement).value.trim()
+                          if (title && title !== goal.title) {
+                            updateWishGoal(goal.id, { title, version: goal.version }).then(loadGoals)
+                          }
+                        }}
+                      />
+                      <Button size="small" onClick={() => toggleGoalDone(goal)}>
+                        {goal.status === 'DONE' ? '取消完成' : '完成'}
+                      </Button>
+                      <Button size="small" disabled={index === 0} onClick={() => moveGoal(index, -1)}>
+                        ↑
+                      </Button>
+                      <Button size="small" disabled={index === goals.length - 1} onClick={() => moveGoal(index, 1)}>
+                        ↓
+                      </Button>
+                      <Popconfirm title="删除这个步骤？" onConfirm={() => removeGoal(goal)}>
+                        <Button size="small" danger>
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </div>
+                  ),
+                }))}
+              />
+            )}
+          </Card>
+        )}
+        {isAuthor && !goalsOpen && (
+          <div style={{ marginBottom: 16, textAlign: 'right' }}>
+            <Button
+              size="small"
+              onClick={() => {
+                setGoalsOpen(true)
+                loadGoals()
+              }}
+            >
+              🎯 目标步骤清单
+            </Button>
+          </div>
         )}
 
         {/* 评论模块（Sprint 1.2） */}

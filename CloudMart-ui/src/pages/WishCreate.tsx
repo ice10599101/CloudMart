@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Form, Input, Select, DatePicker, Button, Upload, Tag, App, Radio, Card, Progress } from 'antd'
+import { Form, Input, Modal, Select, DatePicker, Button, Upload, Tag, App, Radio, Card, Progress, Popconfirm } from 'antd'
 import { StarOutlined, PlusOutlined, ReloadOutlined, CloseOutlined } from '@ant-design/icons'
 import axios from 'axios'
 import { history } from 'umi'
-import type { Dayjs } from 'dayjs'
-import { createWish, getCategories } from '@/api/wish'
+import dayjs, { type Dayjs } from 'dayjs'
+import { createWish, getCategories, saveWishDraft, listMyWishDrafts, deleteWishDraft, publishWishDraft, type WishDraft } from '@/api/wish'
 import { materializeAttachments } from '@/utils/attachmentMaterialize'
 import type { Category, WishVisibility } from '@/api/wish'
 import { uploadFile } from '@/api/file'
@@ -45,6 +45,13 @@ export default function WishCreate() {
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [uploads, setUploads] = useState<UploadItem[]>([])
+  // ---- 心愿草稿 v2（clientDraftId 幂等 + version 乐观锁）----
+  const draftKeyRef = useRef<string>(`web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+  const draftVersionRef = useRef<number | undefined>(undefined)
+  const [draftsOpen, setDraftsOpen] = useState(false)
+  const [drafts, setDrafts] = useState<WishDraft[]>([])
+  const [draftsLoading, setDraftsLoading] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
   const { message, modal } = App.useApp()
   const { user, userLoading } = useAuthStore()
   const cancelTokenMapRef = useRef<Map<string, (message?: string) => void>>(new Map())
@@ -152,6 +159,96 @@ export default function WishCreate() {
     categoryId: number
     visibility: WishVisibility
     expectedAt?: Dayjs
+  }
+
+  const parseDraftJson = (raw: string | null): string[] => {
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    const values = form.getFieldsValue() as Partial<SubmitValues>
+    if (!values.title?.trim() && !values.description?.trim()) {
+      message.warning('标题或描述至少填写一项再保存草稿')
+      return
+    }
+    setDraftSaving(true)
+    try {
+      const res = await saveWishDraft({
+        clientDraftId: draftKeyRef.current,
+        title: values.title ?? '（无标题草稿）',
+        description: values.description,
+        categoryId: values.categoryId,
+        visibility: values.visibility,
+        expectedAt: values.expectedAt?.toISOString(),
+        mediaUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        version: draftVersionRef.current,
+      })
+      if (res.data.success && res.data.data) {
+        draftVersionRef.current = res.data.data.version
+        message.success('草稿已保存（可在「我的草稿」中继续编辑）')
+      }
+    } finally {
+      setDraftSaving(false)
+    }
+  }
+
+  const openDrafts = async () => {
+    setDraftsOpen(true)
+    setDraftsLoading(true)
+    try {
+      const res = await listMyWishDrafts()
+      setDrafts(res.data.data ?? [])
+    } finally {
+      setDraftsLoading(false)
+    }
+  }
+
+  const handleLoadDraft = (draft: WishDraft) => {
+    form.setFieldsValue({
+      title: draft.title,
+      description: draft.description ?? undefined,
+      categoryId: draft.categoryId ?? undefined,
+      visibility: (draft.visibility as WishVisibility) || 'PUBLIC',
+      expectedAt: draft.expectedAt ? dayjs(draft.expectedAt) : undefined,
+    })
+    setTags(parseDraftJson(draft.tags))
+    setUploads(parseDraftJson(draft.mediaUrls).map((url, index) => ({
+      id: `draft-${draft.id}-${index}`,
+      // 草稿媒体是已上传资产：file 仅为类型占位，不再参与上传流程
+      file: new File([], `draft-asset-${index}`),
+      url,
+      progress: 100,
+      status: 'success' as const,
+    })))
+    draftKeyRef.current = draft.clientDraftId
+    draftVersionRef.current = draft.version
+    setDraftsOpen(false)
+    message.success('草稿已载入，继续编辑后可发布')
+  }
+
+  const handleDeleteDraft = async (draft: WishDraft) => {
+    const res = await deleteWishDraft(draft.id)
+    if (res.data.success) {
+      message.success('草稿已删除')
+      setDrafts((prev) => prev.filter((d) => d.id !== draft.id))
+    }
+  }
+
+  const handlePublishDraft = async (draft: WishDraft) => {
+    const res = await publishWishDraft(draft.id)
+    if (res.data.success) {
+      message.success('草稿已发布')
+      setDraftsOpen(false)
+      const wishId = res.data.data?.wishId
+      if (wishId) history.push(`/wish/${wishId}`)
+    }
   }
 
   const doCreateWish = async (values: SubmitValues) => {
@@ -455,6 +552,69 @@ export default function WishCreate() {
               >
                 发布心愿
               </Button>
+              <Button size="large" onClick={handleSaveDraft} loading={draftSaving} disabled={isUploading}>
+                保存草稿
+              </Button>
+              <Button size="large" onClick={openDrafts}>
+                我的草稿
+              </Button>
+            </Form.Item>
+            <Form.Item noStyle>
+              <Modal
+                title="我的草稿（最多 20 份）"
+                open={draftsOpen}
+                onCancel={() => setDraftsOpen(false)}
+                footer={null}
+                width={560}
+              >
+                {draftsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 32 }}>加载中...</div>
+                ) : drafts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-tertiary)' }}>
+                    还没有草稿；填写表单后点「保存草稿」
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {drafts.map((draft) => (
+                      <div
+                        key={draft.id}
+                        style={{
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 8,
+                          padding: 12,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {draft.title || '（无标题）'}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>
+                            更新于 {draft.updatedAt ? new Date(draft.updatedAt).toLocaleString('zh-CN') : '—'} · v{draft.version}
+                            {draft.publishedWishId ? ' · 已发布过' : ''}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                          <Button size="small" type="primary" onClick={() => handleLoadDraft(draft)}>
+                            载入
+                          </Button>
+                          <Button size="small" onClick={() => handlePublishDraft(draft)}>
+                            直接发布
+                          </Button>
+                          <Popconfirm title="删除这份草稿？" onConfirm={() => handleDeleteDraft(draft)}>
+                            <Button size="small" danger>
+                              删除
+                            </Button>
+                          </Popconfirm>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Modal>
             </Form.Item>
           </Form>
         </Card>

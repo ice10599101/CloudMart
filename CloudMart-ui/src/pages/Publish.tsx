@@ -15,7 +15,8 @@ import { message } from '@/utils/appMessage'
 import TiptapEditor from '@/components/TiptapEditor'
 import { createPost, getPostDetail, updatePost, saveDraft } from '@/api/community'
 import { searchProducts } from '@/api/product'
-import { resolveTagsByName } from '@/api/community'
+import { resolveTagsByName, getSubscribedTags } from '@/api/community'
+import type { CommunityTag } from '@/api/community'
 import type { ProductSearchItem } from '@/types'
 import { uploadFile } from '@/api/file'
 import { materializeAttachments } from '@/utils/attachmentMaterialize'
@@ -67,6 +68,19 @@ function PublishForm() {
   const [productKeyword, setProductKeyword] = useState('')
   const [productOptions, setProductOptions] = useState<ProductSearchItem[]>([])
   const [searchingProducts, setSearchingProducts] = useState(false)
+  // 我订阅的话题（GET /tags/subscriptions）：点击追加到标签输入，替代记忆标签名
+  const [subscribedTags, setSubscribedTags] = useState<CommunityTag[]>([])
+  const [subsLoaded, setSubsLoaded] = useState(false)
+
+  useEffect(() => {
+    if (subsLoaded) return
+    setSubsLoaded(true)
+    getSubscribedTags()
+      .then(({ data: res }) => {
+        if (res.success) setSubscribedTags(res.data ?? [])
+      })
+      .catch(() => setSubscribedTags([]))
+  }, [subsLoaded])
 
   /** 搜索可关联的好物（对齐后端 ProductSearchResultVO.products） */
   const handleSearchProducts = async () => {
@@ -647,6 +661,33 @@ function PublishForm() {
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.4)' }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
               />
+              {subscribedTags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>我订阅的话题：</span>
+                  {subscribedTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => {
+                        const current = tags.trim()
+                        const names = current ? current.split(/[\s,，]+/).filter(Boolean) : []
+                        if (!names.includes(tag.name)) setTags([...names, tag.name].join(' '))
+                      }}
+                      style={{
+                        padding: '2px 10px',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 999,
+                        background: 'transparent',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      #{tag.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>

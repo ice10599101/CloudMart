@@ -1679,3 +1679,161 @@ export function createBrandPool(brandId: number | string, data: {
 }) {
   return request.post<ApiResponse<Record<string, unknown>>>(`/wish/brands/${brandId}/pools`, data)
 }
+
+// ==================== 心愿 v2（草稿 / 生命周期 / 目标清单 / 治理申诉 / 成长时间轴） ====================
+
+/** 心愿草稿（clientDraftId 幂等；version 乐观锁；每人最多 20 份） */
+export interface WishDraft {
+  id: number
+  userId: number
+  clientDraftId: string
+  title: string
+  description: string | null
+  categoryId: number | null
+  /** JSON 数组字符串（服务端存储形态） */
+  mediaUrls: string | null
+  tags: string | null
+  expectedAt: string | null
+  expectedTimezone: string | null
+  visibility: string
+  publishedWishId: number | null
+  version: number
+  updatedAt?: string
+}
+
+export interface WishDraftPayload {
+  clientDraftId?: string
+  title: string
+  description?: string
+  categoryId?: number
+  mediaUrls?: string[]
+  tags?: string[]
+  expectedAt?: string
+  expectedTimezone?: string
+  visibility?: string
+  version?: number
+}
+
+export function saveWishDraft(data: WishDraftPayload) {
+  return request.post<ApiResponse<WishDraft>>('/wish/v2/drafts', data)
+}
+
+export function listMyWishDrafts() {
+  return request.get<ApiResponse<WishDraft[]>>('/wish/v2/drafts/my')
+}
+
+export function updateWishDraft(id: number | string, data: WishDraftPayload) {
+  return request.patch<ApiResponse<WishDraft>>(`/wish/v2/drafts/${id}`, data)
+}
+
+export function deleteWishDraft(id: number | string) {
+  return request.delete<ApiResponse<void>>(`/wish/v2/drafts/${id}`)
+}
+
+/** 发布草稿（复用发布领域命令，幂等；返回心愿 ID） */
+export function publishWishDraft(id: number | string) {
+  return request.post<ApiResponse<{ wishId?: number | string }>>(`/wish/v2/drafts/${id}/publish`)
+}
+
+/** 延期（version CAS；新日期必须未来） */
+export function rescheduleWish(
+  id: number | string,
+  data: { version: number; expectedAt: string; expectedTimezone?: string; reason?: string },
+) {
+  return request.post<ApiResponse<void>>(`/wish/v2/wishes/${id}/reschedule`, data)
+}
+
+/** 归档（保存归档前状态；停止提醒与增长写入） */
+export function archiveWish(id: number | string, data: { version?: number; reason?: string }) {
+  return request.post<ApiResponse<void>>(`/wish/v2/wishes/${id}/archive`, data)
+}
+
+/** 取消归档（按归档前状态恢复 ACTIVE/OVERDUE） */
+export function unarchiveWish(id: number | string, version?: number) {
+  return request.post<ApiResponse<void>>(`/wish/v2/wishes/${id}/unarchive`, version ? { version } : {})
+}
+
+/** 目标步骤（作者专用；sortOrder 排序；每心愿最多 20 步） */
+export interface WishGoalStep {
+  id: number
+  userId: number
+  wishId: number
+  title: string
+  description: string | null
+  estimatedDays: number | null
+  priority: number | null
+  sortOrder: number
+  version: number
+  status: 'IDLE' | 'IN_PROGRESS' | 'DONE' | 'GIVEN_UP'
+  startedAt: string | null
+  completedAt?: string | null
+}
+
+export function listWishGoals(wishId: number | string) {
+  return request.get<ApiResponse<WishGoalStep[]>>(`/wish/v2/wishes/${wishId}/goals`)
+}
+
+export function createWishGoal(
+  wishId: number | string,
+  data: { title: string; description?: string; estimatedDays?: number; priority?: number; sortOrder?: number },
+) {
+  return request.post<ApiResponse<WishGoalStep>>(`/wish/v2/wishes/${wishId}/goals`, data)
+}
+
+export function updateWishGoal(
+  goalId: number | string,
+  data: { title?: string; description?: string; status?: WishGoalStep['status']; version: number },
+) {
+  return request.patch<ApiResponse<WishGoalStep>>(`/wish/v2/goals/${goalId}`, data)
+}
+
+export function deleteWishGoal(goalId: number | string) {
+  return request.delete<ApiResponse<void>>(`/wish/v2/goals/${goalId}`)
+}
+
+/** 批量排序（goalOrder={goalId:sortOrder}；集合必须完整且同心愿） */
+export function reorderWishGoals(wishId: number | string, goalOrder: Record<string, number>) {
+  return request.put<ApiResponse<void>>(`/wish/v2/wishes/${wishId}/goal-order`, { goalOrder })
+}
+
+// ---- 治理：举报 / 我的举报 / 申诉 ----
+
+export function submitWishReport(data: {
+  targetType: string
+  targetId: number | string
+  reasonCode: string
+  description?: string
+  evidenceMediaIds?: string[]
+}) {
+  return request.post<ApiResponse<{ reportId?: number | string }>>('/wish/v2/reports', data)
+}
+
+export function listMyWishReports() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/wish/v2/my/reports')
+}
+
+export function appealModerationDecision(decisionId: number | string, data: { statement: string; evidenceMediaIds?: string[] }) {
+  return request.post<ApiResponse<void>>(`/wish/v2/moderation-decisions/${decisionId}/appeals`, data)
+}
+
+export function listMyAppeals() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/wish/v2/my/appeals')
+}
+
+// ---- 成长记录完整时间轴（cursor 分页；可见性与详情内嵌一致；DIARY 已解密） ----
+
+export interface WishGrowthTimelineItem {
+  id: number
+  type: string
+  content: string
+  mediaUrls: string[] | null
+  progressDelta: number | null
+  createdAt: string
+}
+
+export function listWishGrowthTimeline(
+  wishId: number | string,
+  params: { cursor?: string; pageSize?: number } = {},
+) {
+  return request.get<ApiResponse<WishGrowthTimelineItem[]>>(`/wish/wishes/${wishId}/growth-records`, { params })
+}

@@ -33,6 +33,12 @@ import {
   requestPetFriend,
   requestPetRelation,
   sendPetCompanionHeartbeat,
+  getPetOnboarding,
+  skipPetOnboarding,
+  listPendingBattles,
+  stopCompanionSession,
+  claimAllDailyQuests,
+  markAllPetRemindersRead,
   startPetCareerWork,
   updatePetRoomSettings,
   updatePetRoomTheme,
@@ -117,6 +123,7 @@ import PetStage, { type PetStageHandle } from '@/components/PetStage'
 import type { BattleRound, PetDisplayState, PetIntentAction } from '@/components/PetStage/bridge'
 import { useAuthStore } from '@/stores/auth'
 import PetPlayPanel from './PetPlayPanel'
+import PetMemoryPanel from './PetMemoryPanel'
 import styles from './PetHome.module.css'
 
 /**
@@ -177,7 +184,7 @@ const STATUS_SPEECH: Record<string, string> = {
 
 type PanelKey =
   | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
-  | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'play'
+  | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'play' | 'memory'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'home', label: '家园', emoji: '🏠' },
@@ -193,6 +200,7 @@ const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'rankings', label: '排行', emoji: '📊' },
   { key: 'reminders', label: '提醒', emoji: '🔔' },
   { key: 'play', label: '玩法', emoji: '🎮' },
+  { key: 'memory', label: '回忆', emoji: '📖' },
 ]
 
 /** 领养可选外观（与服务端白名单一致：color/accessory） */
@@ -1144,6 +1152,16 @@ function RemindersPanel() {
 
   useEffect(() => { load() }, [load])
 
+  const markAllRead = async () => {
+    try {
+      await markAllPetRemindersRead()
+      setItems((prev) => prev.map((r) => ({ ...r, isRead: true })))
+      message.success('宠物提醒已全部读完')
+    } catch {
+      // 已读是弱一致操作，失败不影响查看
+    }
+  }
+
   const markRead = async (item: PetReminder) => {
     if (item.isRead) {
       return
@@ -1156,15 +1174,6 @@ function RemindersPanel() {
     }
   }
 
-  const markAllRead = async () => {
-    try {
-      await markAllAsRead()
-      setItems((prev) => prev.map((r) => ({ ...r, isRead: true })))
-      message.success('宠物的话都读完啦')
-    } catch {
-      // 同上
-    }
-  }
 
   if (loading) return <Spin />
   if (items.length === 0) {
@@ -2394,6 +2403,16 @@ function DailyPanel({ onRefresh }: { onRefresh: () => void }) {
       <p className={styles.careBalance}>
         今日进度 {panel.claimedCount}/{panel.totalCount}（已完成 {panel.completedCount}）
         · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
+        <Button
+          size="small"
+          style={{ marginLeft: 12 }}
+          loading={pending === 'claim-all'}
+          onClick={() =>
+            run('claim-all', claimAllDailyQuests, '已完成任务奖励已领取（单项失败可重试）')
+          }
+        >
+          一键领取
+        </Button>
       </p>
       <div className={styles.careGrid}>
         {panel.quests.map((quest) => (
@@ -2921,6 +2940,8 @@ export default function PetHomePage() {
   const [renameOpen, setRenameOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [unreadReminders, setUnreadReminders] = useState(0)
+  const [pendingBattles, setPendingBattles] = useState(0)
+  const [onboarding, setOnboarding] = useState<{ currentStep: number; totalSteps: number; skippable: boolean; completed: boolean } | null>(null)
   const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
   const [pendingInteraction, setPendingInteraction] = useState<PetIntentAction | null>(null)
   const [adoptOpen, setAdoptOpen] = useState(false)
@@ -2965,6 +2986,21 @@ export default function PetHomePage() {
     speakToStage(content)
   }, [speakToStage])
 
+  /** B05：停止陪伴会话（结算有效窗口内未计入时间并结束；幂等） */
+  const [companionStopping, setCompanionStopping] = useState(false)
+  const handleStopCompanion = async () => {
+    if (companionStopping) return
+    setCompanionStopping(true)
+    try {
+      const { data: res } = await stopCompanionSession()
+      if (res.success) {
+        message.success('陪伴会话已结束，本段陪伴时间已结算')
+      }
+    } finally {
+      setCompanionStopping(false)
+    }
+  }
+
   const refresh = useCallback(async () => {
     try {
       const { data: res } = await getMyPet()
@@ -2986,6 +3022,16 @@ export default function PetHomePage() {
     if (user) {
       refresh()
       loadUnread()
+      listPendingBattles()
+        .then(({ data: res }) => {
+          if (res.success) setPendingBattles(Array.isArray(res.data) ? res.data.length : 0)
+        })
+        .catch(() => undefined)
+      getPetOnboarding()
+        .then(({ data: res }) => {
+          if (res.success && res.data) setOnboarding(res.data)
+        })
+        .catch(() => undefined)
     }
   }, [user, refresh, loadUnread])
 
@@ -3194,6 +3240,29 @@ export default function PetHomePage() {
         ) : null}
       </div>
 
+      {onboarding && !onboarding.completed && (
+        <div className={styles.onboardingBanner}>
+          <span>
+            🧭 新手引导 {onboarding.currentStep}/{onboarding.totalSteps} 步
+          </span>
+          {onboarding.skippable && (
+            <Button
+              size="small"
+              type="text"
+              onClick={() =>
+                skipPetOnboarding().then(() => setOnboarding({ ...onboarding, completed: true }))
+              }
+            >
+              跳过引导
+            </Button>
+          )}
+        </div>
+      )}
+      <div style={{ marginBottom: 8, textAlign: 'right' }}>
+        <Button size="small" loading={companionStopping} onClick={handleStopCompanion}>
+          结束陪伴计时
+        </Button>
+      </div>
       <Segmented
         className={styles.panelTabs}
         block
@@ -3208,7 +3277,9 @@ export default function PetHomePage() {
           value: item.key,
           label: item.key === 'reminders' && unreadReminders > 0
             ? `${item.emoji} ${item.label} ${unreadReminders}`
-            : `${item.emoji} ${item.label}`,
+            : item.key === 'battle' && pendingBattles > 0
+              ? `${item.emoji} ${item.label} ${pendingBattles}`
+              : `${item.emoji} ${item.label}`,
         }))}
       />
 
@@ -3227,6 +3298,7 @@ export default function PetHomePage() {
         )}
         {panel === 'reminders' && <RemindersPanel />}
         {panel === 'play' && <PetPlayPanel pet={pet} />}
+        {panel === 'memory' && <PetMemoryPanel petId={pet?.petId ?? null} />}
         {panel === 'rankings' && <RankingsPanel />}
         {panel === 'daily' && <DailyPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}

@@ -902,3 +902,144 @@
   font-size: 12px;
   color: var(--color-text-secondary);
 }
+
+// ==================== 回忆面板（N01/N02/N03/B19，对齐 Web 端 PetMemoryPanel） ====================
+
+.panelWrap {
+  padding: 20rpx;
+}
+
+.memoryTabs {
+  display: flex;
+  gap: 14rpx;
+  margin-bottom: 20rpx;
+}
+
+.memoryTab {
+  font-size: 24rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary, #b8c4d9);
+}
+
+.memoryTabActive {
+  background: var(--color-primary, #00d4ff);
+  color: #0b1220;
+  font-weight: 600;
+}
+
+.memoryEmpty {
+  text-align: center;
+  padding: 80rpx 0;
+  font-size: 24rpx;
+  opacity: 0.6;
+}
+
+.memoryCard {
+  background: var(--color-bg-card, rgba(255, 255, 255, 0.06));
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 14rpx;
+}
+
+.memoryCardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.memoryPublic {
+  font-size: 20rpx;
+  color: #52c41a;
+}
+
+.memoryPrivate {
+  font-size: 20rpx;
+  opacity: 0.55;
+}
+
+.memoryTime {
+  font-size: 20rpx;
+  opacity: 0.5;
+}
+
+.memoryContent {
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.albumGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+  margin-top: 16rpx;
+}
+
+.albumCell {
+  position: relative;
+}
+
+.albumImage {
+  width: 100%;
+  height: 160rpx;
+  border-radius: 12rpx;
+}
+
+.albumDelete {
+  position: absolute;
+  right: 8rpx;
+  bottom: 8rpx;
+  font-size: 20rpx;
+  color: #ff6b6b;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.memoryActions {
+  display: flex;
+  gap: 14rpx;
+  align-items: center;
+  margin-top: 12rpx;
+  flex-wrap: wrap;
+}
+
+.memoryKey {
+  font-size: 26rpx;
+  font-weight: 600;
+  flex: 1;
+}
+
+.memorySource {
+  font-size: 20rpx;
+  opacity: 0.55;
+}
+
+.memoryEditInput {
+  width: 100%;
+  min-height: 100rpx;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.08));
+  border-radius: 12rpx;
+  padding: 14rpx;
+  font-size: 24rpx;
+  box-sizing: border-box;
+  margin-top: 10rpx;
+}
+
+.memoryHint {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  opacity: 0.5;
+}
+
+.prefRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--color-border, rgba(255, 255, 255, 0.08));
+  font-size: 26rpx;
+}

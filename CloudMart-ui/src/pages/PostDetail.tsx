@@ -46,6 +46,7 @@ import {
 } from '@/api/community'
 import type { Post, PostComment, SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
+import { getPostShares, type PostShareRecord } from '@/api/community'
 import ShareModal from '@/components/ShareModal'
 import ReportModal from '@/components/ReportModal'
 import GiftSection from '@/components/GiftSection'
@@ -442,6 +443,10 @@ export default function PostDetail() {
   } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [shareModalVisible, setShareModalVisible] = useState(false)
+  // 帖子分享记录（GET /posts/{id}/shares，按需加载）
+  const [sharesOpen, setSharesOpen] = useState(false)
+  const [shareRecords, setShareRecords] = useState<PostShareRecord[]>([])
+  const [sharesLoading, setSharesLoading] = useState(false)
   const [reportModalVisible, setReportModalVisible] = useState(false)
   const [reportTarget, setReportTarget] = useState<{ type: 'POST' | 'COMMENT'; id: number }>({
     type: 'POST',
@@ -721,6 +726,16 @@ export default function PostDetail() {
 
   const handleShare = useCallback(() => {
     setShareModalVisible(true)
+    setSharesOpen(true)
+    if (shareRecords.length === 0) {
+      setSharesLoading(true)
+      getPostShares(post!.id, { page: 1, size: 20 })
+        .then(({ data: res }) => {
+          if (res.success) setShareRecords(res.data ?? [])
+        })
+        .catch(() => setShareRecords([]))
+        .finally(() => setSharesLoading(false))
+    }
   }, [])
 
   const handleReportPost = useCallback(() => {
@@ -1409,6 +1424,33 @@ export default function PostDetail() {
           postTitle={post.title}
           postId={post.id}
         />
+      )}
+
+      {sharesOpen && (
+        <div style={{ maxWidth: 860, margin: '12px auto 0', padding: '0 16px' }}>
+          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 8 }}>
+            分享记录（{shareRecords.length}）
+          </div>
+          {sharesLoading ? (
+            <Spin size="small" />
+          ) : shareRecords.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>还没有分享记录</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 6 }}>
+              {shareRecords.map((record) => (
+                <div
+                  key={record.id}
+                  style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--color-text-secondary)' }}
+                >
+                  <span>{record.userNickname ?? `用户#${record.userId}`}</span>
+                  <span style={{ color: 'var(--color-text-tertiary)' }}>
+                    {record.channel ?? '未知渠道'} · {new Date(record.createdAt).toLocaleString('zh-CN')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <ReportModal

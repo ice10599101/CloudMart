@@ -1122,3 +1122,149 @@ export interface PetWallLike {
   newlyLiked: boolean
   message: string
 }
+
+// ==================== 宠物陪伴功能面（N01 引导 / N02 日记·相册 / N03 记忆 / B19 通知偏好 + 审计补口） ====================
+
+/** 新手引导进度（完成由领域事件驱动，客户端只能查看/跳过） */
+export interface PetOnboardingProgress {
+  currentStep: number
+  totalSteps: number
+  skippable: boolean
+  completed: boolean
+}
+
+/** 成长日记条目（游标分页；他人仅见 PUBLIC） */
+export interface PetDiaryEntry {
+  id: number
+  petId: number
+  type: string
+  content: string
+  visibility: 'PUBLIC' | 'PRIVATE'
+  assetIds: number[] | null
+  createdAt: string
+}
+
+/** 日记游标分页信封（后端 Map：items/nextCursor/hasMore） */
+export interface PetDiaryPage {
+  items: PetDiaryEntry[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+/** 相册资源（fileId 为 mall-file FILE-01 授权引用；每用户 100 张） */
+export interface PetAlbumAsset {
+  id: number
+  userId: number
+  petId: number
+  diaryEntryId: number | null
+  fileId: string
+  auditStatus: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 宠物结构化记忆（仅主人可见；USER 编辑优先于 AUTO 抽取） */
+export interface PetMemory {
+  id: number
+  userId: number
+  petId: number
+  memoryType: 'FAVORITE' | 'HABIT' | 'FACT'
+  memoryKey: string
+  memoryValue: string
+  importance: number
+  confidence: number
+  source: 'AUTO' | 'USER'
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** 通知偏好（B19：免打扰/日常问候；仅影响日常 proactive 问候） */
+export interface PetNotifyPref {
+  id: number
+  userId: number
+  muteDailyGreeting: boolean
+  dailyGreetingEnabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export const petCompanionApi = {
+  getOnboarding: () => request<PetOnboardingProgress>({ url: '/pet/onboarding' }),
+  /** 跳过引导（幂等；不伪造步骤与奖励） */
+  skipOnboarding: () => request<void>({ url: '/pet/onboarding/skip', method: 'POST' }),
+
+  listDiary: (petId: number | string, params?: { cursor?: number | string; pageSize?: number }) => {
+    const qs = Object.entries(params ?? {})
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+      .join('&')
+    return request<PetDiaryPage>({ url: `/pet/pets/${petId}/diary${qs ? `?${qs}` : ''}` })
+  },
+
+  uploadAlbumAsset: (petId: number | string, fileId: string, diaryEntryId?: number | string) =>
+    request<PetAlbumAsset>({
+      url: `/pet/pets/${petId}/album`,
+      method: 'POST',
+      data: { fileId, diaryEntryId } as unknown as Record<string, unknown>,
+    }),
+  deleteAlbumAsset: (petId: number | string, assetId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/album/${assetId}`, method: 'DELETE' }),
+
+  listMemories: (petId: number | string) =>
+    request<PetMemory[]>({ url: `/pet/pets/${petId}/memories` }),
+  /** 编辑记忆（USER 来源优先于自动抽取，不被覆盖） */
+  editMemory: (petId: number | string, memoryId: number | string, data: { memoryValue: string; importance?: number }) =>
+    request<PetMemory>({
+      url: `/pet/pets/${petId}/memories/${memoryId}`,
+      method: 'PUT',
+      data: data as unknown as Record<string, unknown>,
+    }),
+  deleteMemory: (petId: number | string, memoryId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/memories/${memoryId}`, method: 'DELETE' }),
+  /** 批量清空记忆（全部软删，防复活标记） */
+  clearMemories: (petId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/memories`, method: 'DELETE' }),
+  /** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文；服务端无读取端点） */
+  setMemorySettings: (petId: number | string, data: { extract: boolean; use: boolean }) =>
+    request<void>({
+      url: `/pet/pets/${petId}/memory-settings`,
+      method: 'PUT',
+      data: data as unknown as Record<string, unknown>,
+    }),
+
+  getNotifyPrefs: () => request<PetNotifyPref>({ url: '/pet/notify-settings' }),
+  updateNotifyPrefs: (data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) =>
+    request<PetNotifyPref>({
+      url: '/pet/notify-settings',
+      method: 'PUT',
+      data: data as unknown as Record<string, unknown>,
+    }),
+
+  // ---- 审计补口（拉黑/举报/待战/一键领取/停止陪伴/装备预览/限时活动/小游戏历史/交互目录） ----
+  listBlocks: () => request<number[]>({ url: '/pet/blocks' }),
+  blockUser: (blockedUserId: number | string) =>
+    request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'POST' }),
+  unblockUser: (blockedUserId: number | string) =>
+    request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'DELETE' }),
+  reportTarget: (data: { targetType: string; targetId: number | string; reason: string }) =>
+    request<void>({ url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
+
+  listPendingBattles: () => request<Array<Record<string, unknown>>>({ url: '/pet/battle/pending' }),
+  claimAllDailyQuests: () =>
+    request<Array<Record<string, unknown>>>({ url: '/pet/daily-quests/claim-all', method: 'POST' }),
+  stopCompanion: () =>
+    request<Record<string, unknown>>({ url: '/pet/companion/stop', method: 'POST' }),
+  previewEquip: (itemId: number | string) =>
+    request<Record<string, unknown>>({ url: `/pet/inventory/equip-preview?itemId=${itemId}` }),
+  listActivities: () => request<Array<Record<string, unknown>>>({ url: '/pet/activities' }),
+  claimActivity: (activityId: number | string) =>
+    request<Record<string, unknown>>({ url: `/pet/activities/${activityId}/claim`, method: 'POST' }),
+  listMinigameRounds: (cursor?: number | string, pageSize = 20) =>
+    request<Array<Record<string, unknown>>>({
+      url: `/pet/minigames?pageSize=${pageSize}${cursor ? `&cursor=${cursor}` : ''}`,
+    }),
+  getActions: (petId: number | string) =>
+    request<Array<Record<string, unknown>>>({ url: `/pet/pets/${petId}/actions` }),
+  markAllRemindersRead: () => request<void>({ url: '/pet/reminders/read-all', method: 'PUT' }),
+}

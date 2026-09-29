@@ -24,6 +24,11 @@ export function createQuote(data: QuoteRequest) {
   return request.post<ApiResponse<QuoteResult>>('/order/quotes', data)
 }
 
+/** 查询本人报价详情（5 分钟有效；他人报价按不存在处理） */
+export function getQuoteById(quoteId: string) {
+  return request.get<ApiResponse<QuoteResult>>(`/order/quotes/${quoteId}`)
+}
+
 /** TRADE-01：报价下单——无价格字段，金额取报价快照 */
 export function createOrderFromQuote(data: {
   quoteId: number | string

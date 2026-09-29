@@ -24,3 +24,8 @@ export function refreshTokenApi(refreshToken: string) {
 export function logoutApi() {
   return request.post<ApiResponse<void>>('/auth/logout')
 }
+
+/** SEC-02：退出全部设备（认证状态版本递增 + 撤销全部刷新令牌家族；调用后本端也被登出） */
+export function logoutAllDevices() {
+  return request.post<ApiResponse<void>>('/auth/logout-all')
+}

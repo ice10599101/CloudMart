@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Input, Button, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import {
-  petApi,
+  petApi, petCompanionApi,
   type PetAnniversary,
   type PetChatPersona,
   type PetSeasonHistoryItem,
@@ -28,6 +28,7 @@ import {
   type PetSummary,
   type PetVisitNeighbor,
   type PetIntimacyInfo,
+  type PetOnboardingProgress,
 } from '@/api/pet'
 import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/store/auth'
@@ -40,6 +41,7 @@ import { CareerPanel } from './panels/CareerPanel'
 import { DailyQuestPanel } from './panels/DailyQuestPanel'
 import { SocialPanel } from './panels/SocialPanel'
 import { HomePanel } from './panels/HomePanel'
+import { MemoryPanel } from './panels/MemoryPanel'
 
 
 /**
@@ -125,7 +127,7 @@ const SHARE_TYPES: Array<{ key: Parameters<typeof petApi.getShareCard>[0]; label
 type PanelKey =
   | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
-  | 'daily' | 'social'
+  | 'daily' | 'social' | 'memory'
 
 const PANELS: Array<{ key: PanelKey; label: string }> = [
   { key: 'home', label: '🏠 家园' },
@@ -140,6 +142,7 @@ const PANELS: Array<{ key: PanelKey; label: string }> = [
   { key: 'achievements', label: '🏆 成就' },
   { key: 'rankings', label: '📊 排行' },
   { key: 'reminders', label: '🔔 提醒' },
+  { key: 'memory', label: '📖 回忆' },
 ]
 
 interface BattleRound {
@@ -248,6 +251,16 @@ export default function PetPage() {
   const [rankingType, setRankingType] = useState<PetRankingType>('LEVEL')
   const [reminders, setReminders] = useState<PetReminder[]>([])
   const [reminderUnread, setReminderUnread] = useState(0)
+  const [onboarding, setOnboarding] = useState<PetOnboardingProgress | null>(null)
+
+  useEffect(() => {
+    petCompanionApi
+      .getOnboarding()
+      .then(({ data: res }) => {
+        if (res.success && res.data) setOnboarding(res.data)
+      })
+      .catch(() => undefined)
+  }, [])
   const [shareCard, setShareCard] = useState<PetShareCard | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -775,7 +788,8 @@ export default function PetPage() {
 
   const markAllRemindersRead = async () => {
     try {
-      await notificationApi.markAllRead()
+      // 宠物提醒与站内通知是两条链路：此处必须走 /pet/reminders/read-all
+      await petCompanionApi.markAllRemindersRead()
       setReminders((prev) => prev.map((r) => ({ ...r, isRead: true })))
       setReminderUnread(0)
     } catch (error) {
@@ -1017,6 +1031,27 @@ export default function PetPage() {
         {/* 面板切换 */}
         <ScrollView scrollX className={styles.panelTabs} enhanced showScrollbar={false}>
           <View className={styles.panelTabsInner}>
+            {onboarding && !onboarding.completed && (
+              <View className={styles.onboardingBanner}>
+                <Text className={styles.onboardingText}>
+                  🧭 新手引导 {onboarding.currentStep}/{onboarding.totalSteps} 步
+                </Text>
+                {onboarding.skippable && (
+                  <Button
+                    size='mini'
+                    className={styles.miniBtnGhost}
+                    onClick={() =>
+                      petCompanionApi.skipOnboarding().then(() => {
+                        setOnboarding({ ...onboarding, completed: true })
+                        Taro.showToast({ title: '已跳过引导', icon: 'none' })
+                      })
+                    }
+                  >
+                    跳过
+                  </Button>
+                )}
+              </View>
+            )}
             {PANELS.map((item) => (
               <View
                 key={item.key}
@@ -1032,6 +1067,7 @@ export default function PetPage() {
         <View className={styles.panelBody}>
           {panel === 'daily' && <DailyQuestPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
+        {panel === 'memory' && <MemoryPanel petId={pet?.petId ?? null} onRefresh={refresh} />}
         {panel === 'home' && (
             <View className={styles.tips}>
               {/* 三期：家园（房间布置 / 家具 / 拜访） */}

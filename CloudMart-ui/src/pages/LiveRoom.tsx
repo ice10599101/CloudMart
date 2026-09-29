@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, history } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
-import { getLiveRoom, enterLiveRoom } from '@/api/live'
+import { getLiveRoom, enterLiveRoom , clearWebrtcSignals } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
 import { getProductById } from '@/api/product'
 import type { Product } from '@/types'
@@ -180,6 +180,8 @@ export default function LiveRoomPage() {
         wsRef.current.close()
         wsRef.current = null
       }
+      // 离开直播间即清信令缓存（WebrtcController：直播结束或切换时清除）
+      clearWebrtcSignals(numericRoomId).catch(() => undefined)
     }
   }, [connectWebSocket])
 

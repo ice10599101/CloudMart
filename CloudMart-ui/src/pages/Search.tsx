@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Spin, Empty, Pagination, Tag } from 'antd'
 import { message } from '@/utils/appMessage'
 import { history, useSearchParams } from 'umi'
-import { searchProducts } from '@/api/product'
+import { searchProducts, listBrands, type BrandInfo } from '@/api/product'
 import { searchPosts, getSearchHistory, clearSearchHistory, getHotSearches } from '@/api/community'
 import RichText from '@/components/RichText'
 import type { ProductSearchItem, BrandBucket, CategoryBucket } from '@/types'
@@ -447,6 +447,7 @@ function FilterSidebar({
               )
             })}
           </div>
+          <BrandDirectory selectedBrand={selectedBrand} onBrandChange={onBrandChange} />
         </div>
       )}
 
@@ -1057,6 +1058,76 @@ export default function Search() {
           font-weight: 700 !important;
         }
       `}</style>
+    </div>
+  )
+}
+
+/** 品牌目录（GET /brands 全量列表；结果分面之外的品牌也可筛选） */
+function BrandDirectory({
+  selectedBrand,
+  onBrandChange,
+}: {
+  selectedBrand?: string
+  onBrandChange: (brand: string | undefined) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [allBrands, setAllBrands] = useState<BrandInfo[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const loadBrands = async () => {
+    setLoading(true)
+    try {
+      const res = await listBrands({ page: 1, size: 50 })
+      setAllBrands(res.data.data?.records ?? [])
+    } catch {
+      setAllBrands([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExpand = () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next && allBrands.length === 0) void loadBrands()
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div
+        onClick={handleExpand}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 12,
+          color: 'var(--color-primary)',
+          cursor: 'pointer',
+        }}
+      >
+        <span>{expanded ? '收起品牌目录' : '浏览全部品牌'}</span>
+        <span>{expanded ? '▲' : '▼'}</span>
+      </div>
+      {expanded && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {loading && <Spin size="small" />}
+          {allBrands.map((brand) => {
+            const isActive = selectedBrand === brand.name
+            return (
+              <Tag
+                key={brand.id}
+                color={isActive ? 'processing' : 'default'}
+                style={{ cursor: 'pointer' }}
+                onClick={() => onBrandChange(isActive ? undefined : brand.name)}
+              >
+                {brand.name}
+              </Tag>
+            )
+          })}
+          {!loading && allBrands.length === 0 && (
+            <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>暂无品牌</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Text, View } from '@tarojs/components'
-import { petApi, type PetDailyQuestPanel } from '@/api/pet'
+import { petApi, petCompanionApi, type PetDailyQuestPanel } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
 import styles from '../index.module.scss'
 
@@ -50,6 +50,14 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
       <Text className={styles.tip}>
         今日进度 {panel.claimedCount}/{panel.totalCount} · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
       </Text>
+      <Button
+        size='mini'
+        style={{ marginBottom: '12rpx' }}
+        loading={pending === 'claim-all'}
+        onClick={() => run('claim-all', () => petCompanionApi.claimAllDailyQuests(), '已完成任务奖励已全部领取')}
+      >
+        一键领取
+      </Button>
       <View className={styles.jobList}>
         {panel.quests.map((quest) => (
           <View key={quest.code} className={styles.jobCard}>

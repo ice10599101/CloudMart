@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import type { ApiResponse } from '@/types'
 
 export function adminLogin(data: { account: string; password: string }) {
   return request.post('/auth/admin/login', data)
@@ -6,6 +7,11 @@ export function adminLogin(data: { account: string; password: string }) {
 
 export function adminRefreshToken(data: { refreshToken: string }) {
   return request.post('/auth/admin/refresh', data)
+}
+
+/** 管理员退出全部设备（SEC-02 admin 面） */
+export function adminLogoutAll() {
+  return request.post<ApiResponse<void>>('/auth/admin/logout-all')
 }
 
 export function adminLogout() {

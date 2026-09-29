@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { ProForm, ProFormText } from '@ant-design/pro-components'
-import { Card, Col, Row, Spin } from 'antd'
+import { Button, Card, Col, Modal, Row, Spin, Space } from 'antd'
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
-import { getAdminProfile, updateAdminProfile, updateAdminPassword } from '@/api/admin/auth'
+import { getAdminProfile, updateAdminProfile, updateAdminPassword, adminLogoutAll } from '@/api/admin/auth'
+import { useAdminAuthStore } from '@/stores/adminAuth'
+import { history } from 'umi'
 import { useMessage } from '@/utils/useMessage'
 
 interface AdminProfile {
@@ -47,6 +49,24 @@ export default function AccountSettings() {
       newPassword: values.newPassword,
     })
     message.success('密码修改成功，下次登录请使用新密码')
+  }
+
+  /** SEC-02 admin 面：撤销全部管理员会话（含本端） */
+  const handleLogoutAllDevices = () => {
+    Modal.confirm({
+      title: '退出所有设备',
+      content: '将撤销所有已登录的管理会话（包括本机），需要重新登录。确定继续？',
+      okText: '退出所有设备',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await adminLogoutAll()
+        } finally {
+          useAdminAuthStore.getState().logout()
+          history.push('/admin/login')
+        }
+      },
+    })
   }
 
   if (!profile) {
@@ -129,6 +149,16 @@ export default function AccountSettings() {
                 ]}
               />
             </ProForm>
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+              <Space>
+                <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                  撤销全部管理会话与刷新令牌（SEC-02，含本机）
+                </span>
+                <Button danger onClick={handleLogoutAllDevices}>
+                  退出所有设备
+                </Button>
+              </Space>
+            </div>
           </Card>
         </Col>
       </Row>
