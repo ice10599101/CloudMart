@@ -56,4 +56,18 @@ public interface WmsFeignClient {
 
     @DeleteMapping("/warehouses/{id}")
     ApiResponse<Void> deleteWarehouse(@PathVariable("id") Long id);
+
+    @PostMapping("/pick-orders")
+    ApiResponse<Object> createPickOrder(@RequestBody Map<String, Object> body);
+
+    @PostMapping("/inbound-orders")
+    ApiResponse<Object> createInboundOrder(@RequestBody Map<String, Object> body);
+
+    @PutMapping("/inbound-orders/{id}/receive")
+    ApiResponse<Object> receiveInboundItem(@PathVariable("id") Long id,
+                                           @RequestParam("itemId") Long itemId,
+                                           @RequestParam("receivedQuantity") Integer receivedQuantity);
+
+    @PutMapping("/inbound-orders/{id}/complete")
+    ApiResponse<Object> completeInbound(@PathVariable("id") Long id);
 }

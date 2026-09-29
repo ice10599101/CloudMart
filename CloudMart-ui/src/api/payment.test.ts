@@ -5,7 +5,10 @@ vi.mock('@/utils/request', () => ({
 }))
 
 import request from '@/utils/request'
-import { createPayment, getPaymentByOrderId, simulateCallback, refundPayment } from './payment'
+import {
+  createPayment, getPaymentByOrderId, simulateCallback, refundPayment,
+  createPaymentAttempt, submitMockPaymentCallback,
+} from './payment'
 
 describe('payment API', () => {
   beforeEach(() => {
@@ -52,5 +55,28 @@ describe('payment API', () => {
     await refundPayment(1)
 
     expect(request.post).toHaveBeenCalledWith('/payment/payments/1/refund')
+  })
+
+  it('createPaymentAttempt() posts orderId + channel aligned with PaymentAttemptController', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    await createPaymentAttempt({ orderId: 7, channel: 'MOCK' })
+
+    expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts', { orderId: 7, channel: 'MOCK' })
+  })
+
+  it('submitMockPaymentCallback() posts signed mock callback payload', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    const payload = {
+      merchantPaymentNo: 'MP1',
+      amount: '99.99',
+      providerTxnNo: 'TX1',
+      notificationId: 'N1',
+      signature: 'sig',
+    }
+    await submitMockPaymentCallback(payload)
+
+    expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts/mock-callbacks', payload)
   })
 })

@@ -22,12 +22,32 @@ export function refundPayment(paymentId: number) {
   return request.post<ApiResponse<Payment>>(`/payment/payments/${paymentId}/refund`)
 }
 
-// ==================== PAY-01 支付尝试（新流程；当前收银台仍走 createPayment，迁移待排期） ====================
+// ==================== PAY-01 支付尝试（收银台主流程；旧 createPayment 保留为兜底） ====================
 
-/** 创建支付尝试（单订单单活动尝试；归属/金额服务端判定，返回商户支付号） */
-export function createPaymentAttempt(data: { orderId: number | string; payMethod?: string }) {
-  return request.post<ApiResponse<{ attemptId: string; merchantOrderNo?: string; status?: string }>>(
-    '/payment/payment-attempts',
-    data,
-  )
+/** MOCK 渠道回调载荷（仅测试环境由创建尝试返回，签名由服务端签发） */
+export interface MockCallbackPayload {
+  merchantPaymentNo: string
+  amount: string
+  providerTxnNo: string
+  notificationId: string
+  signature: string
+}
+
+/** 创建尝试返回（归属/状态/金额全部服务端判定；MOCK 渠道附带 mockCallback） */
+export interface PaymentAttemptResult {
+  merchantPaymentNo: string
+  status: string
+  amount: number | string
+  expiresAt: string | null
+  mockCallback?: MockCallbackPayload
+}
+
+/** 创建支付尝试（单订单单活动尝试；只收 orderId + channel，客户端金额不参与） */
+export function createPaymentAttempt(data: { orderId: number | string; channel: string }) {
+  return request.post<ApiResponse<PaymentAttemptResult>>('/payment/payment-attempts', data)
+}
+
+/** MOCK 渠道回调（HMAC 验签 + 重放防护 + 金额核对；仅测试环境启用） */
+export function submitMockPaymentCallback(data: MockCallbackPayload) {
+  return request.post<ApiResponse<{ result: string }>>('/payment/payment-attempts/mock-callbacks', data)
 }

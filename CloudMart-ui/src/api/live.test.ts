@@ -8,7 +8,7 @@ import request from '@/utils/request'
 import {
   listLiveRooms, getLiveRoom, enterLiveRoom,
   executeLiveSeckill, getLiveSeckillActivity,
-  getWebrtcSignals, postWebrtcSignal, addIceCandidate,
+  getWebrtcSignals, postWebrtcSignal, publishIceCandidate,
 } from './live'
 
 describe('live API', () => {
@@ -67,28 +67,28 @@ describe('live API', () => {
   it('getWebrtcSignals() calls GET /live/webrtc/signal/:roomId/:role', async () => {
     vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
 
-    await getWebrtcSignals(1, 'anchor')
+    await getWebrtcSignals(1, 'HOST')
 
-    expect(request.get).toHaveBeenCalledWith('/live/webrtc/signal/1/anchor')
+    expect(request.get).toHaveBeenCalledWith('/live/webrtc/signal/1/HOST')
   })
 
-  it('postWebrtcSignal() calls POST /live/webrtc/signal', async () => {
+  it('postWebrtcSignal() posts envelope aligned with WebrtcSignalRequest', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await postWebrtcSignal(1, 'anchor', { sdp: 'sdp-data', type: 'offer' })
+    await postWebrtcSignal(1, 'VIEWER', 'ANSWER', 'sdp-data')
 
     expect(request.post).toHaveBeenCalledWith('/live/webrtc/signal', {
-      roomId: 1, role: 'anchor', sdp: 'sdp-data', type: 'offer',
+      roomId: 1, role: 'VIEWER', type: 'ANSWER', payload: 'sdp-data',
     })
   })
 
-  it('addIceCandidate() calls POST /live/webrtc/ice', async () => {
+  it('publishIceCandidate() posts ICE_CANDIDATE envelope aligned with WebrtcSignalRequest', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await addIceCandidate({ roomId: 1, role: 'viewer', candidate: 'ice-candidate' })
+    await publishIceCandidate({ roomId: 1, role: 'VIEWER', payload: 'ice-candidate' })
 
     expect(request.post).toHaveBeenCalledWith('/live/webrtc/ice', {
-      roomId: 1, role: 'viewer', candidate: 'ice-candidate',
+      roomId: 1, role: 'VIEWER', type: 'ICE_CANDIDATE', payload: 'ice-candidate',
     })
   })
 })

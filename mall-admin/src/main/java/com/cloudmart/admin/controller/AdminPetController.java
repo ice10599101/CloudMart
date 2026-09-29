@@ -557,4 +557,39 @@ public class AdminPetController {
     public ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId) {
         return petFeignClient.retryPetOperation(operationId);
     }
+
+    // ---------------- B21 配置治理 / BE-11 相册审核 ----------------
+    // 说明：沿用现有权限码——治理查询为 business:pet:list，校验/回退/审核为 business:pet:edit；
+    // 细粒度权限码随对应菜单迁移任务落地后替换。
+
+    @org.springframework.web.bind.annotation.PostMapping("/config-governance/validate")
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "配置校验预览", description = "数值上下限组合校验，不落库（B21）")
+    public ApiResponse<Void> validateConfigGovernance(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        return petFeignClient.validateConfigGovernance(body);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/config-governance/history")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "配置历史版本", description = "按类型+配置 ID 查询发布/回退历史（最近 50 条）")
+    public ApiResponse<Object> listConfigGovernanceHistory(@org.springframework.web.bind.annotation.RequestParam("configType") String configType,
+                                                           @org.springframework.web.bind.annotation.RequestParam("configId") Long configId) {
+        return petFeignClient.listConfigGovernanceHistory(configType, configId);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/config-governance/rollback")
+    @OperLog(title = "宠物配置回退", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "回退配置", description = "将指定版本快照写回目标行；回退动作本身留版本审计")
+    public ApiResponse<Void> rollbackConfigGovernance(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        return petFeignClient.rollbackConfigGovernance(body);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/album/{assetId}/approve")
+    @OperLog(title = "宠物相册审核", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "相册资源审核通过", description = "BE-11：仅审核链路可设 APPROVED（用户上传进入时为 PENDING）")
+    public ApiResponse<Object> approveAlbumAsset(@org.springframework.web.bind.annotation.PathVariable("assetId") Long assetId) {
+        return petFeignClient.approveAlbumAsset(assetId);
+    }
 }

@@ -15,7 +15,7 @@ import { message } from '@/utils/appMessage'
 import TiptapEditor from '@/components/TiptapEditor'
 import { createPost, getPostDetail, updatePost, saveDraft } from '@/api/community'
 import { searchProducts } from '@/api/product'
-import { resolveTagsByName, getSubscribedTags } from '@/api/community'
+import { resolveTagsByName, getSubscribedTags, listCommunityTags } from '@/api/community'
 import type { CommunityTag } from '@/api/community'
 import type { ProductSearchItem } from '@/types'
 import { uploadFile } from '@/api/file'
@@ -71,6 +71,10 @@ function PublishForm() {
   // 我订阅的话题（GET /tags/subscriptions）：点击追加到标签输入，替代记忆标签名
   const [subscribedTags, setSubscribedTags] = useState<CommunityTag[]>([])
   const [subsLoaded, setSubsLoaded] = useState(false)
+  // 话题目录浏览（GET /tags 分页；发布时可直接挑选）
+  const [allTags, setAllTags] = useState<CommunityTag[]>([])
+  const [tagsBrowsing, setTagsBrowsing] = useState(false)
+  const [tagsLoading, setTagsLoading] = useState(false)
 
   useEffect(() => {
     if (subsLoaded) return
@@ -688,6 +692,54 @@ function PublishForm() {
                   ))}
                 </div>
               )}
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !tagsBrowsing
+                    setTagsBrowsing(next)
+                    if (next && allTags.length === 0) {
+                      setTagsLoading(true)
+                      listCommunityTags({ page: 1, size: 50 })
+                        .then(({ data: res }) => setAllTags(res.data ?? []))
+                        .catch(() => setAllTags([]))
+                        .finally(() => setTagsLoading(false))
+                    }
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', fontSize: 12, cursor: 'pointer', padding: 0 }}
+                >
+                  {tagsBrowsing ? '收起话题目录 ▲' : '浏览全部话题 ▼'}
+                </button>
+                {tagsBrowsing && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {tagsLoading && <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>加载中...</span>}
+                    {!tagsLoading && allTags.length === 0 && (
+                      <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>暂无话题</span>
+                    )}
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          const names = tags.trim() ? tags.trim().split(/[\s,，]+/).filter(Boolean) : []
+                          if (!names.includes(tag.name)) setTags([...names, tag.name].join(' '))
+                        }}
+                        style={{
+                          padding: '2px 10px',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 999,
+                          background: 'transparent',
+                          color: 'var(--color-text-secondary)',
+                          fontSize: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        #{tag.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>

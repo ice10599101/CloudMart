@@ -18,6 +18,7 @@ import {
   settleMinigame,
   startCustody,
   startMinigameRound,
+  listMinigameRounds,
   submitMinigameOps,
 } from '@/api/pet'
 import styles from './PetPlayPanel.module.css'
@@ -49,6 +50,9 @@ function MinigameTab({ pet }: { pet: PetInfo }) {
   const [round, setRound] = useState<ActiveRound | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ valid: boolean; reward: Record<string, number> } | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyRounds, setHistoryRounds] = useState<Array<Record<string, unknown>>>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [remaining, setRemaining] = useState(0)
   const timerRef = useRef<number | null>(null)
 
@@ -154,6 +158,44 @@ function MinigameTab({ pet }: { pet: PetInfo }) {
           开始一局（消耗 15 精力）
         </Button>
       )}
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !historyOpen
+            setHistoryOpen(next)
+            if (next && historyRounds.length === 0) {
+              setHistoryLoading(true)
+              listMinigameRounds(undefined, 20)
+                .then((res) => setHistoryRounds(res.data?.data ?? []))
+                .catch(() => setHistoryRounds([]))
+                .finally(() => setHistoryLoading(false))
+            }
+          }}
+          style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', fontSize: 13, cursor: 'pointer', padding: 0 }}
+        >
+          {historyOpen ? '收起历史战绩 ▲' : '查看历史战绩 ▼'}
+        </button>
+        {historyOpen && (
+          historyLoading ? (
+            <p className={styles.meta}>加载中...</p>
+          ) : historyRounds.length === 0 ? (
+            <p className={styles.meta}>还没有对局记录</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              {historyRounds.map((item, index) => (
+                <div key={String(item.roundId ?? item.id ?? index)} className={styles.meta} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>第 {String(item.roundId ?? item.id ?? '-')} 局</span>
+                  <span>
+                    {String(item.result ?? item.status ?? '已结束')}
+                    {item.rewardExp != null ? ` · 经验+${String(item.rewardExp)}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
       {round && (
         <>
           <div className={styles.row}>

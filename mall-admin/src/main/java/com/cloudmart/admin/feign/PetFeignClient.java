@@ -295,4 +295,21 @@ public interface PetFeignClient {
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/reconciliations/run")
     ApiResponse<Void> triggerWalletReconcile();
+
+    // ---------------- BE-11 相册资源审核（下游 /admin/pet/album/**） ----------------
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/album/{assetId}/approve")
+    ApiResponse<Object> approveAlbumAsset(@org.springframework.web.bind.annotation.PathVariable("assetId") Long assetId);
+
+    // ---------------- B21 配置治理（下游 /admin/pet/config-governance/**） ----------------
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/config-governance/validate")
+    ApiResponse<Void> validateConfigGovernance(@RequestBody Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/config-governance/history")
+    ApiResponse<Object> listConfigGovernanceHistory(@org.springframework.web.bind.annotation.RequestParam("configType") String configType,
+                                                    @org.springframework.web.bind.annotation.RequestParam("configId") Long configId);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/config-governance/rollback")
+    ApiResponse<Void> rollbackConfigGovernance(@RequestBody Map<String, Object> body);
 }

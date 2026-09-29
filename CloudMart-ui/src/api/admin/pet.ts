@@ -375,3 +375,42 @@ export function listPetPersonaPhrases() {
 export function upsertPetPersonaPhrase(data: { personality: string; phrase: string }) {
   return request.post<ApiResponse<void>>('/admin/pet/configs/persona-phrases', data)
 }
+
+// ==================== BE-11 相册审核 / B21 配置治理 ====================
+
+/** 相册资源审核通过（仅审核链路可设 APPROVED；用户上传进入时为 PENDING） */
+export function approvePetAlbumAsset(assetId: number | string) {
+  return request.post<ApiResponse<Record<string, unknown>>>(`/admin/pet/album/${assetId}/approve`)
+}
+
+/** 配置治理支持的配置类型（与后端白名单一致） */
+export const PET_CONFIG_GOVERNANCE_TYPES = [
+  'job', 'study', 'career', 'furniture', 'equipment', 'skin', 'skill',
+  'evolution', 'event', 'daily_quest', 'sensitive_word', 'pet', 'pet_season', 'food',
+] as const
+
+/** 配置校验预览（数值上下限组合校验，不落库） */
+export function validatePetConfigGovernance(data: { configType: string; data: Record<string, unknown> }) {
+  return request.post<ApiResponse<void>>('/admin/pet/config-governance/validate', data)
+}
+
+/** 配置历史版本（发布/回退快照，最近 50 条） */
+export interface AdminPetConfigVersion {
+  id: number | string
+  configType: string
+  configId: number | string
+  version: number
+  operation: 'PUBLISH' | 'ROLLBACK'
+  operator: string
+  snapshot: string
+  createdAt: string
+}
+
+export function listPetConfigGovernanceHistory(params: { configType: string; configId: number | string }) {
+  return request.get<ApiResponse<AdminPetConfigVersion[]>>('/admin/pet/config-governance/history', { params })
+}
+
+/** 回退配置（将指定版本快照写回目标行；回退动作本身留版本审计） */
+export function rollbackPetConfigGovernance(data: { configType: string; configId: number | string; version: number }) {
+  return request.post<ApiResponse<void>>('/admin/pet/config-governance/rollback', data)
+}

@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, history } from 'umi'
 import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
-import { getLiveRoom, enterLiveRoom , clearWebrtcSignals } from '@/api/live'
+import {
+  getLiveRoom,
+  enterLiveRoom,
+  getWebrtcSignals,
+  postWebrtcSignal,
+  publishIceCandidate,
+  getWebrtcIceCandidates,
+} from '@/api/live'
 import type { LiveRoom } from '@/api/live'
 import { getProductById } from '@/api/product'
 import type { Product } from '@/types'
@@ -180,10 +187,105 @@ export default function LiveRoomPage() {
         wsRef.current.close()
         wsRef.current = null
       }
-      // 离开直播间即清信令缓存（WebrtcController：直播结束或切换时清除）
-      clearWebrtcSignals(numericRoomId).catch(() => undefined)
+      // 观看端离开不再清信令缓存：信令按 (roomId, role) 全房间共享，
+      // 任一观众退出都会杀掉主播 OFFER 与其他观众的 ICE 拉取；清理职责在发布端（直播结束/切换）
     }
   }, [connectWebSocket])
+
+  // ==================== 观看端 WebRTC 拉流（无信令/无流时保留占位画面降级） ====================
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const pcRef = useRef<RTCPeerConnection | null>(null)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+
+  useEffect(() => {
+    if (!Number.isFinite(numericRoomId)) return
+    let cancelled = false
+    let iceTimer: ReturnType<typeof setInterval> | null = null
+    let seenIceCount = 0
+
+    // 拉取主播 ICE 候选（增量处理，列表只增不清）
+    const startIceExchange = (pc: RTCPeerConnection) => {
+      iceTimer = setInterval(async () => {
+        if (cancelled) return
+        try {
+          const { data: res } = await getWebrtcIceCandidates(numericRoomId, 'HOST')
+          const candidates = res.data ?? []
+          for (let i = seenIceCount; i < candidates.length; i++) {
+            try {
+              await pc.addIceCandidate(JSON.parse(candidates[i]))
+            } catch {
+              // 单个候选解析/应用失败不阻断后续候选
+            }
+          }
+          if (candidates.length > seenIceCount) {
+            seenIceCount = candidates.length
+          }
+        } catch {
+          // 拉取失败静默进入下一轮（弱网恢复后继续）
+        }
+      }, 2000)
+    }
+
+    const setupViewerConnection = async (offerSdp: string) => {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
+      pcRef.current = pc
+      pc.ontrack = (event) => {
+        if (!cancelled) {
+          setRemoteStream(event.streams[0] ?? null)
+        }
+      }
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          // 自己的候选发到 VIEWER 键，由发布端拉取
+          publishIceCandidate({
+            roomId: numericRoomId,
+            role: 'VIEWER',
+            payload: JSON.stringify(event.candidate.toJSON()),
+          }).catch(() => undefined)
+        }
+      }
+      await pc.setRemoteDescription({ type: 'offer', sdp: offerSdp })
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      await postWebrtcSignal(numericRoomId, 'VIEWER', 'ANSWER', pc.localDescription!.sdp)
+      startIceExchange(pc)
+    }
+
+    // 轮询主播 OFFER（信令 Redis List 无推送通道）；未出现前维持占位画面
+    const pollOfferLoop = async () => {
+      while (!cancelled) {
+        try {
+          const { data: res } = await getWebrtcSignals(numericRoomId, 'HOST')
+          const offer = (res.data ?? []).find((signal) => signal.type === 'OFFER')
+          if (offer) {
+            await setupViewerConnection(offer.payload)
+            return
+          }
+        } catch {
+          // 信令不可用：占位降级，不打扰用户
+        }
+        await new Promise((resolve) => {
+          setTimeout(resolve, 3000)
+        })
+      }
+    }
+
+    void pollOfferLoop()
+
+    return () => {
+      cancelled = true
+      if (iceTimer) clearInterval(iceTimer)
+      pcRef.current?.close()
+      pcRef.current = null
+    }
+  }, [numericRoomId])
+
+  // 远端流到达后绑定到 <video>（ontrack 可能早于 video 元素首次渲染）
+  useEffect(() => {
+    if (videoRef.current && remoteStream) {
+      videoRef.current.srcObject = remoteStream
+    }
+  }, [remoteStream])
 
   useEffect(() => {
     scrollToBottom()
@@ -263,15 +365,24 @@ export default function LiveRoomPage() {
           position: 'relative',
           minHeight: 0,
         }}>
-          <div style={{ textAlign: 'center' }}>
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.2)" strokeWidth="1.5">
-              <path d="M23 7l-7 5 7 5V7z" />
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-            <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: 16, fontSize: 15 }}>
-              直播画面区域
+          {remoteStream ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          ) : (
+            <div style={{ textAlign: 'center' }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.2)" strokeWidth="1.5">
+                <path d="M23 7l-7 5 7 5V7z" />
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+              </svg>
+              <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: 16, fontSize: 15 }}>
+                直播画面区域
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 心愿挂件叠加（Sprint 3.4：10s 轮询，可关闭，点击跳心愿详情） */}
           <WishLiveWidget streamerId={room.anchorUserId} />

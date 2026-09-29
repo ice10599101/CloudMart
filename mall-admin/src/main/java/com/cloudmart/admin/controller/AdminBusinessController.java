@@ -7,6 +7,7 @@ import com.cloudmart.admin.feign.BrandFeignClient;
 import com.cloudmart.admin.feign.CartFeignClient;
 import com.cloudmart.admin.feign.CategoryFeignClient;
 import com.cloudmart.admin.feign.CouponFeignClient;
+import com.cloudmart.admin.feign.ExchangeCodeFeignClient;
 import com.cloudmart.admin.feign.InventoryFeignClient;
 import com.cloudmart.admin.feign.LiveFeignClient;
 import com.cloudmart.admin.feign.MarketingFeignClient;
@@ -15,6 +16,7 @@ import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.feign.NotificationQueryFeignClient;
 import com.cloudmart.admin.feign.OrderFeignClient;
 import com.cloudmart.admin.feign.PaymentFeignClient;
+import com.cloudmart.admin.feign.PaymentReconciliationFeignClient;
 import com.cloudmart.admin.feign.ProductFeignClient;
 import com.cloudmart.admin.feign.ReviewFeignClient;
 import com.cloudmart.admin.feign.RiskFeignClient;
@@ -55,6 +57,8 @@ public class AdminBusinessController {
     private final RiskFeignClient riskFeignClient;
     private final AiFeignClient aiFeignClient;
     private final BrandFeignClient brandFeignClient;
+    private final PaymentReconciliationFeignClient paymentReconciliationFeignClient;
+    private final ExchangeCodeFeignClient exchangeCodeFeignClient;
 
     public AdminBusinessController(ProductFeignClient productFeignClient,
                                    CategoryFeignClient categoryFeignClient,
@@ -74,7 +78,9 @@ public class AdminBusinessController {
                                    RiskFeignClient riskFeignClient,
                                    AiFeignClient aiFeignClient,
                                    BrandFeignClient brandFeignClient,
-                                   NotificationQueryFeignClient notificationQueryFeignClient) {
+                                   NotificationQueryFeignClient notificationQueryFeignClient,
+                                   PaymentReconciliationFeignClient paymentReconciliationFeignClient,
+                                   ExchangeCodeFeignClient exchangeCodeFeignClient) {
         this.productFeignClient = productFeignClient;
         this.categoryFeignClient = categoryFeignClient;
         this.orderFeignClient = orderFeignClient;
@@ -94,6 +100,8 @@ public class AdminBusinessController {
         this.riskFeignClient = riskFeignClient;
         this.aiFeignClient = aiFeignClient;
         this.brandFeignClient = brandFeignClient;
+        this.paymentReconciliationFeignClient = paymentReconciliationFeignClient;
+        this.exchangeCodeFeignClient = exchangeCodeFeignClient;
     }
 
     // ==================== 品牌 ====================
@@ -404,6 +412,42 @@ public class AdminBusinessController {
         return couponFeignClient.deleteCoupon(id);
     }
 
+    // ==================== 兑换码 ====================
+
+    @PostMapping("/coupons/exchange-codes/generate")
+    @OperLog(title = "兑换码管理", businessType = 1)
+    @RequiresPermission("business:coupon:add")
+    @Operation(summary = "批量生成兑换码", description = "为指定优惠券模板批量生成，单次上限 1000 张")
+    public ApiResponse<Object> generateExchangeCodes(@RequestBody Map<String, Object> body) {
+        return exchangeCodeFeignClient.generateBatch(body);
+    }
+
+    @GetMapping("/coupons/exchange-codes")
+    @RequiresPermission("business:coupon:list")
+    @Operation(summary = "兑换码列表", description = "分页查询指定模板的兑换码，支持状态筛选")
+    public ApiResponse<Object> listExchangeCodes(
+            @RequestParam("templateId") Long templateId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
+        return exchangeCodeFeignClient.listExchangeCodes(templateId, status, page, pageSize);
+    }
+
+    @GetMapping("/coupons/exchange-codes/{code}")
+    @RequiresPermission("business:coupon:query")
+    @Operation(summary = "兑换码详情", description = "根据兑换码字符串查询详情")
+    public ApiResponse<Object> getExchangeCode(@PathVariable String code) {
+        return exchangeCodeFeignClient.getExchangeCode(code);
+    }
+
+    @PutMapping("/coupons/exchange-codes/{code}/disable")
+    @OperLog(title = "兑换码管理", businessType = 2)
+    @RequiresPermission("business:coupon:disable")
+    @Operation(summary = "作废兑换码", description = "作废未兑换的兑换码；已兑换的不允许作废")
+    public ApiResponse<Void> disableExchangeCode(@PathVariable String code) {
+        return exchangeCodeFeignClient.disableExchangeCode(code);
+    }
+
     // ==================== 库存 ====================
 
     @GetMapping("/inventory")
@@ -459,6 +503,46 @@ public class AdminBusinessController {
     @Operation(summary = "退款", description = "对已支付订单发起退款")
     public ApiResponse<PaymentDTO> refundPayment(@PathVariable Long paymentId) {
         return paymentFeignClient.refund(paymentId);
+    }
+
+    // ==================== 支付对账（OPS-01） ====================
+    // 说明：查询用 business:payment:list；执行/处置沿用同页写权限 business:payment:refund，
+    // 细粒度权限码随对应菜单迁移任务落地后替换。人工处置不直接改资金。
+
+    @GetMapping("/payments/reconciliation/runs")
+    @RequiresPermission("business:payment:list")
+    @Operation(summary = "对账运行列表", description = "按日期倒序；差异汇总随行")
+    public ApiResponse<Object> listReconciliationRuns(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return paymentReconciliationFeignClient.listRuns(page, size);
+    }
+
+    @GetMapping("/payments/reconciliation/runs/{runId}/differences")
+    @RequiresPermission("business:payment:list")
+    @Operation(summary = "对账差异列表", description = "按运行查差异；resolveStatus 过滤（默认 OPEN）")
+    public ApiResponse<Object> listReconciliationDifferences(
+            @PathVariable Long runId,
+            @RequestParam(value = "resolveStatus", required = false) String resolveStatus) {
+        return paymentReconciliationFeignClient.listDifferences(runId, resolveStatus);
+    }
+
+    @PostMapping("/payments/reconciliation/runs/execute")
+    @OperLog(title = "支付对账执行", businessType = 1)
+    @RequiresPermission("business:payment:refund")
+    @Operation(summary = "执行一次对账", description = "scanDays：扫描最近 N 天的 SUCCESS 支付")
+    public ApiResponse<Object> executeReconciliationRun(
+            @RequestParam(value = "scanDays", defaultValue = "7") int scanDays) {
+        return paymentReconciliationFeignClient.executeRun(scanDays);
+    }
+
+    @PostMapping("/payments/reconciliation/differences/{diffId}/resolve")
+    @OperLog(title = "支付对账差异处置", businessType = 2)
+    @RequiresPermission("business:payment:refund")
+    @Operation(summary = "处置差异", description = "resolveStatus=RESOLVED/ACCEPTED + 处置说明；不直接改资金")
+    public ApiResponse<Void> resolveReconciliationDifference(@PathVariable Long diffId,
+                                                             @RequestBody Map<String, Object> body) {
+        return paymentReconciliationFeignClient.resolveDifference(diffId, body);
     }
 
     // ==================== 通知 ====================
@@ -875,6 +959,40 @@ public class AdminBusinessController {
     @Operation(summary = "入库单详情", description = "查询入库单详情")
     public ApiResponse<Object> getInboundOrder(@PathVariable Long id) {
         return wmsFeignClient.getInboundOrder(id);
+    }
+
+    @PostMapping("/wms/pick-orders")
+    @OperLog(title = "仓储管理", businessType = 1)
+    @RequiresPermission("business:wms:edit")
+    @Operation(summary = "创建拣货单", description = "按订单+仓库生成拣货单")
+    public ApiResponse<Object> createPickOrder(@RequestBody Map<String, Object> body) {
+        return wmsFeignClient.createPickOrder(body);
+    }
+
+    @PostMapping("/wms/inbound-orders")
+    @OperLog(title = "仓储管理", businessType = 1)
+    @RequiresPermission("business:wms:edit")
+    @Operation(summary = "创建入库单", description = "创建 PURCHASE/RETURN/TRANSFER 类型入库单（含明细）")
+    public ApiResponse<Object> createInboundOrder(@RequestBody Map<String, Object> body) {
+        return wmsFeignClient.createInboundOrder(body);
+    }
+
+    @PutMapping("/wms/inbound-orders/{id}/receive")
+    @OperLog(title = "仓储管理", businessType = 2)
+    @RequiresPermission("business:wms:edit")
+    @Operation(summary = "收货入库", description = "按明细登记实收数量")
+    public ApiResponse<Object> receiveInboundItem(@PathVariable Long id,
+                                                  @RequestParam Long itemId,
+                                                  @RequestParam Integer receivedQuantity) {
+        return wmsFeignClient.receiveInboundItem(id, itemId, receivedQuantity);
+    }
+
+    @PutMapping("/wms/inbound-orders/{id}/complete")
+    @OperLog(title = "仓储管理", businessType = 2)
+    @RequiresPermission("business:wms:edit")
+    @Operation(summary = "完成入库", description = "全部明细收货完成后关闭入库单")
+    public ApiResponse<Object> completeInbound(@PathVariable Long id) {
+        return wmsFeignClient.completeInbound(id);
     }
 
     // ==================== 物流管理 ====================

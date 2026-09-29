@@ -19,6 +19,10 @@ import {
   getPetHome,
   getPetIntimacy,
   getPetRelations,
+  blockPetUser,
+  unblockPetUser,
+  listPetBlocks,
+  reportPetTarget,
   getPetWall,
   likePetHome,
   likePetWallMessage,
@@ -48,12 +52,15 @@ import {
   challengePetBattle,
   claimPetBottle,
   claimPetEvent,
+  listPetActivities,
+  claimPetActivity,
   claimPetStudy,
   claimPetWork,
   cleanPet,
   createPet,
   declinePetBattle,
   equipPetItem,
+  previewPetEquip,
   evolvePet,
   feedPet,
   getMyPet,
@@ -1632,6 +1639,7 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
   const [skills, setSkills] = useState<PetSkillItem[]>([])
   const [evolution, setEvolution] = useState<PetEvolutionStatus | null>(null)
   const [events, setEvents] = useState<PetEventItem[]>([])
+  const [limitedActivities, setLimitedActivities] = useState<Array<Record<string, unknown>>>([])
   const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
   const [pets, setPets] = useState<PetSummary[]>([])
   const [visitMessage, setVisitMessage] = useState<string | null>(null)
@@ -1658,6 +1666,11 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
         } else if (tab === 'events') {
           const { data: res } = await listPetEvents()
           if (!stale && res.success) setEvents(res.data || [])
+          listPetActivities()
+            .then(({ data: actRes }) => {
+              if (actRes.success) setLimitedActivities(actRes.data ?? [])
+            })
+            .catch(() => undefined)
         } else if (tab === 'visit') {
           const { data: res } = await listPetVisitNeighbors()
           if (!stale && res.success) setNeighbors(res.data || [])
@@ -1801,14 +1814,38 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
                               卸下
                             </Button>
                           ) : (
-                            <Button
-                              size="small"
-                              type="primary"
-                              loading={pending === `equip-${item.code}`}
-                              onClick={() => run(`equip-${item.code}`, () => equipPetItem(item.code), '已穿戴')}
-                            >
-                              穿戴
-                            </Button>
+                            <>
+                              <Button
+                                size="small"
+                                onClick={async () => {
+                                  try {
+                                    const { data: res } = await previewPetEquip(item.code)
+                                    if (res.data.success) {
+                                      Modal.info({
+                                        title: `装备预览：${item.name}`,
+                                        content: (
+                                          <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>
+                                            {JSON.stringify(res.data.data, null, 2)}
+                                          </pre>
+                                        ),
+                                      })
+                                    }
+                                  } catch {
+                                    // 拦截器已提示
+                                  }
+                                }}
+                              >
+                                预览
+                              </Button>
+                              <Button
+                                size="small"
+                                type="primary"
+                                loading={pending === `equip-${item.code}`}
+                                onClick={() => run(`equip-${item.code}`, () => equipPetItem(item.code), '已穿戴')}
+                              >
+                                穿戴
+                              </Button>
+                            </>
                           )
                         )}
                         {item.itemType === 'SKIN' && (
@@ -1951,6 +1988,34 @@ function CarePanel({ pet, onRefresh }: CarePanelProps) {
                   </span>
                 </div>
               ))}
+              {limitedActivities.length > 0 && (
+                <>
+                  <p className={styles.careBalance} style={{ marginTop: 12 }}>⏳ 限时活动</p>
+                  {limitedActivities.map((activity) => (
+                    <div key={String(activity.activityId ?? activity.id)} className={styles.careCard}>
+                      <span className={styles.careIcon}>⏳</span>
+                      <strong>{String(activity.name ?? '限时活动')}</strong>
+                      <span className={styles.careMeta}>{String(activity.description ?? '')}</span>
+                      <span className={styles.careActions}>
+                        <Button
+                          size="small"
+                          type="primary"
+                          loading={pending === `activity-${activity.activityId ?? activity.id}`}
+                          onClick={() =>
+                            run(
+                              `activity-${activity.activityId ?? activity.id}`,
+                              () => claimPetActivity(Number(activity.activityId ?? activity.id)),
+                              '限时活动奖励已领取！',
+                            )
+                          }
+                        >
+                          领取
+                        </Button>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
@@ -2476,6 +2541,11 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
   const [relationType, setRelationType] = useState('BESTIE')
   const [relationMsg, setRelationMsg] = useState('')
   const [tip, setTip] = useState<string | null>(null)
+  // ---- 拉黑 / 举报（PetBlockReportController：屏蔽后双方不能新增拜访收益/挑战/留言/申请） ----
+  const [blockedIds, setBlockedIds] = useState<number[]>([])
+  const [showBlocked, setShowBlocked] = useState(false)
+  const [reportTargetMessage, setReportTargetMessage] = useState<{ messageId: number; content: string } | null>(null)
+  const [reportReasonText, setReportReasonText] = useState('')
 
   const loadRelations = useCallback(async () => {
     try {
@@ -2498,6 +2568,49 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
       // 拦截器已提示
     }
   }, [])
+
+  const loadBlocks = async () => {
+    try {
+      const res = await listPetBlocks()
+      if (res.data.success) setBlockedIds(res.data.data ?? [])
+    } catch {
+      // 拦截器已提示
+    }
+  }
+
+  const handleUnblockPetUser = async (userId: number) => {
+    try {
+      const res = await unblockPetUser(userId)
+      if (res.data.success) {
+        message.success('已取消拉黑')
+        loadBlocks()
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }
+
+  const handleReportWallMessage = async () => {
+    if (!reportTargetMessage) return
+    if (!reportReasonText.trim()) {
+      message.warning('请填写举报说明')
+      return
+    }
+    try {
+      const res = await reportPetTarget({
+        targetType: 'WALL_MESSAGE',
+        targetId: reportTargetMessage.messageId,
+        reason: reportReasonText.trim(),
+      })
+      if (res.data.success) {
+        message.success('举报已提交，进入管理员处理队列')
+        setReportTargetMessage(null)
+        setReportReasonText('')
+      }
+    } catch {
+      // 拦截器已提示
+    }
+  }
 
   const loadWall = useCallback(async (targetPetId: number | string) => {
     try {
@@ -2742,6 +2855,15 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
                     >
                       删除
                     </Button>
+                    <Button
+                      size="small"
+                      loading={pending === `fblock-${item.userId}`}
+                      onClick={() =>
+                        run(`fblock-${item.userId}`, () => blockPetUser(item.userId), '已拉黑（双方不能新增互动）')
+                      }
+                    >
+                      拉黑
+                    </Button>
                   </span>
                 </div>
               ))}
@@ -2750,6 +2872,38 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
           {friends.outgoing.length > 0 && (
             <p className={styles.careMeta}>等待回应：{friends.outgoing.map((item) => item.nickname).join('、')}</p>
           )}
+          <div style={{ marginTop: 12 }}>
+            <Button
+              size="small"
+              onClick={() => {
+                const next = !showBlocked
+                setShowBlocked(next)
+                if (next) loadBlocks()
+              }}
+            >
+              {showBlocked ? '收起拉黑列表' : '拉黑列表'}
+            </Button>
+            {showBlocked && (
+              blockedIds.length === 0 ? (
+                <p className={styles.careMeta}>暂无拉黑用户</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {blockedIds.map((blockedId) => (
+                    <span
+                      key={blockedId}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid var(--color-border)', borderRadius: 999, padding: '4px 12px', fontSize: 13 }}
+                    >
+                      用户 #{blockedId}
+                      <a onClick={() => handleUnblockPetUser(blockedId)} style={{ color: 'var(--color-primary)', cursor: 'pointer', fontSize: 12 }}>
+                        取消拉黑
+                      </a>
+                    </span>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+
         </div>
       )}
 
@@ -2812,6 +2966,12 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
                     </span>
                     <strong>{item.content}</strong>
                     <span className={styles.careActions}>
+                      <Button
+                        size="small"
+                        onClick={() => setReportTargetMessage({ messageId: item.id, content: item.content })}
+                      >
+                        举报
+                      </Button>
                       <Button
                         size="small"
                         loading={pending === `like-${item.id}`}

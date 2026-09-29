@@ -418,6 +418,76 @@ export function deleteWarehouse(id: number | string) {
   return request.delete(`/admin/business/wms/warehouses/${id}`)
 }
 
+// ==================== WMS 写操作（拣货单/入库单） ====================
+
+/** 创建拣货单（orderId + warehouseId + remark） */
+export function createPickOrder(data: Record<string, any>) {
+  return request.post('/admin/business/wms/pick-orders', data)
+}
+
+/** 创建入库单（warehouseId + type + 明细列表） */
+export function createInboundOrder(data: Record<string, any>) {
+  return request.post('/admin/business/wms/inbound-orders', data)
+}
+
+/** 收货入库（按明细登记实收数量） */
+export function receiveInboundItem(id: number | string, itemId: number | string, receivedQuantity: number) {
+  return request.put(`/admin/business/wms/inbound-orders/${id}/receive`, undefined, {
+    params: { itemId, receivedQuantity },
+  })
+}
+
+/** 完成入库（关闭入库单） */
+export function completeInboundOrder(id: number | string) {
+  return request.put(`/admin/business/wms/inbound-orders/${id}/complete`)
+}
+
+// ==================== 支付对账（OPS-01） ====================
+
+/** 对账运行分页（按日期倒序，差异汇总随行） */
+export function listReconciliationRuns(params: { page?: number; size?: number } = {}) {
+  return request.get('/admin/business/payments/reconciliation/runs', { params })
+}
+
+/** 按运行查差异（resolveStatus 缺省 OPEN） */
+export function listReconciliationDifferences(runId: number | string, params: { resolveStatus?: string } = {}) {
+  return request.get(`/admin/business/payments/reconciliation/runs/${runId}/differences`, { params })
+}
+
+/** 执行一次对账（scanDays：扫描最近 N 天的 SUCCESS 支付） */
+export function executeReconciliationRun(scanDays: number) {
+  return request.post('/admin/business/payments/reconciliation/runs/execute', undefined, {
+    params: { scanDays },
+  })
+}
+
+/** 人工处置差异（RESOLVED/ACCEPTED + 说明；不直接改资金） */
+export function resolveReconciliationDifference(diffId: number | string, data: { resolveStatus: string; resolveNote: string }) {
+  return request.post(`/admin/business/payments/reconciliation/differences/${diffId}/resolve`, data)
+}
+
+// ==================== 兑换码 ====================
+
+/** 批量生成兑换码（单次上限 1000 张） */
+export function generateExchangeCodes(data: { templateId: number | string; quantity: number }) {
+  return request.post('/admin/business/coupons/exchange-codes/generate', data)
+}
+
+/** 分页查询指定模板的兑换码 */
+export function listExchangeCodes(params: { templateId: number | string; status?: string; page?: number; pageSize?: number }) {
+  return request.get('/admin/business/coupons/exchange-codes', { params })
+}
+
+/** 兑换码详情 */
+export function getExchangeCode(code: string) {
+  return request.get(`/admin/business/coupons/exchange-codes/${code}`)
+}
+
+/** 作废兑换码（已兑换的不允许作废） */
+export function disableExchangeCode(code: string) {
+  return request.put(`/admin/business/coupons/exchange-codes/${code}/disable`)
+}
+
 export function uploadFile(data: FormData) {
   return request.post('/file/upload', data)
 }

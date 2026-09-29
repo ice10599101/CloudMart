@@ -9,9 +9,9 @@ import jakarta.validation.constraints.Pattern;
  */
 @Schema(description = "宠物商城购买请求")
 public record BuyItemRequest(
-        @Schema(description = "物品类型: EQUIPMENT/SKIN/SKILL_BOOK", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "物品类型: EQUIPMENT/SKIN/SKILL_BOOK/FOOD", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "请选择物品类型")
-        @Pattern(regexp = "EQUIPMENT|SKIN|SKILL_BOOK", message = "物品类型非法")
+        @Pattern(regexp = "EQUIPMENT|SKIN|SKILL_BOOK|FOOD", message = "物品类型非法")
         String itemType,
 
         @Schema(description = "物品编码（商城列表返回的 code）", requiredMode = Schema.RequiredMode.REQUIRED)

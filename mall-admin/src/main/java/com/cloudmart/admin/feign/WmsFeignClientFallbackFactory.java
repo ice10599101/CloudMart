@@ -80,6 +80,26 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             public ApiResponse<Void> deleteWarehouse(Long id) {
                 throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> createPickOrder(Map<String, Object> body) {
+                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> createInboundOrder(Map<String, Object> body) {
+                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> receiveInboundItem(Long id, Long itemId, Integer receivedQuantity) {
+                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> completeInbound(Long id) {
+                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+            }
         };
     }
 }

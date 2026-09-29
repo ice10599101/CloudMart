@@ -12,8 +12,9 @@ import {
   ExclamationCircleOutlined,
   SafetyCertificateOutlined,
   UndoOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons'
-import { createPayment, getPaymentByOrderId } from '@/api/payment'
+import { createPayment, createPaymentAttempt, submitMockPaymentCallback, getPaymentByOrderId } from '@/api/payment'
 import { fetchOrderById } from '@/api/order'
 import { type Payment, type PaymentStatus, type Order, PAYMENT_STATUS_LABELS } from '@/types'
 
@@ -58,7 +59,19 @@ const PAY_METHODS = [
     icon: <CreditCardOutlined style={{ fontSize: 28, color: 'var(--color-primary)' }} />,
     desc: '储蓄卡/信用卡',
   },
+  // PAY-01：MOCK 渠道仅测试环境存在（生产由后端启动自检拒绝），入口随环境隐藏
+  {
+    value: 'MOCK',
+    label: '模拟支付',
+    icon: <ExperimentOutlined style={{ fontSize: 28, color: '#FFA940' }} />,
+    desc: '测试环境专用',
+  },
 ] as const
+
+/** 生产环境隐藏 MOCK 渠道入口 */
+const VISIBLE_PAY_METHODS = PAY_METHODS.filter(
+  (method) => method.value !== 'MOCK' || process.env.NODE_ENV !== 'production',
+)
 
 const COUNTDOWN_SECONDS = 15 * 60
 
@@ -317,7 +330,9 @@ export default function PaymentPage() {
         } catch {
           // 查询失败退避：静默进入下一轮（弱网恢复后继续查单）
         }
-        await new Promise((r) => setTimeout(r, 3000))
+        await new Promise((r) => {
+          setTimeout(r, 3000)
+        })
       }
     }
     void loop()
@@ -337,12 +352,22 @@ export default function PaymentPage() {
     if (!order || paying) return
     setPaying(true)
     try {
-      const { data: res } = await createPayment({
-        orderId: order.id,
-        amount: order.payAmount,
-        payMethod,
-      })
-      setPayment(res.data)
+      // PAY-01：优先走支付尝试流（归属/状态/金额全部服务端判定，客户端金额不参与）；
+      // 尝试端点不可用/渠道未启用时回退旧 createPayment 兜底
+      try {
+        const { data: res } = await createPaymentAttempt({ orderId: order.id, channel: payMethod })
+        if (res.data?.mockCallback) {
+          // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
+          await submitMockPaymentCallback(res.data.mockCallback)
+        }
+      } catch {
+        const { data: res } = await createPayment({
+          orderId: order.id,
+          amount: order.payAmount,
+          payMethod,
+        })
+        setPayment(res.data)
+      }
       message.success('支付请求已提交，结果确认中')
       // FE-03：success 只能来自查单结果——发起后进入确认轮询，不直接标记成功
       startPolling()
@@ -525,7 +550,7 @@ export default function PaymentPage() {
           </div>
 
           <div style={{ padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {PAY_METHODS.map((method) => (
+            {VISIBLE_PAY_METHODS.map((method) => (
               <PaymentMethodCard
                 key={method.value}
                 method={method}

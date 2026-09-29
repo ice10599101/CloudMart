@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ProTable,
   ModalForm,
@@ -9,7 +9,7 @@ import {
   ProFormDependency,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm } from 'antd'
+import { Button, Tag, Popconfirm, Tabs, Modal, Descriptions, Select, Input } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getCoupons,
@@ -18,8 +18,12 @@ import {
   enableCoupon,
   disableCoupon,
   deleteCoupon,
+  generateExchangeCodes,
+  listExchangeCodes,
+  disableExchangeCode,
 } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
+import type { ApiResponse } from '@/types/api'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
 
@@ -52,12 +56,58 @@ const COUPON_STATUS_MAP: Record<string, { label: string; color: string }> = {
   DISABLED: { label: '已禁用', color: 'default' },
 }
 
+interface ExchangeCodeRecord {
+  id: number
+  code: string
+  templateId: number
+  status: 'UNUSED' | 'EXCHANGED' | 'DISABLED'
+  userId: number | null
+  exchangedAt: string | null
+  createdAt: string
+}
+
+const EXCHANGE_CODE_STATUS_MAP: Record<string, { label: string; color: string }> = {
+  UNUSED: { label: '未兑换', color: 'blue' },
+  EXCHANGED: { label: '已兑换', color: 'green' },
+  DISABLED: { label: '已作废', color: 'default' },
+}
+
 export default function Coupons() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<CouponRecord | null>(null)
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
+
+  // ==================== 兑换码管理 ====================
+  const codesActionRef = useRef<ActionType>(null)
+  const [templateOptions, setTemplateOptions] = useState<{ label: string; value: number }[]>([])
+  const [codesTemplateId, setCodesTemplateId] = useState<number | null>(null)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateResult, setGenerateResult] = useState<{ batchNo: string; count: number; codes: string[] } | null>(null)
+
+  // 兑换码生成/列表需要模板下拉（取前 100 个模板）
+  useEffect(() => {
+    let cancelled = false
+    getCoupons({ page: 1, pageSize: 100 })
+      .then(({ data: res }) => {
+        if (cancelled) return
+        const response = res as ApiResponse<CouponRecord[]>
+        setTemplateOptions(
+          (response.data ?? []).map((c) => ({ label: `#${c.id} ${c.name}`, value: Number(c.id) })),
+        )
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleDisableCode = async (code: string) => {
+    await disableExchangeCode(code)
+    message.success('兑换码已作废')
+    codesActionRef.current?.reload()
+  }
 
   const handleEnable = async (id: number) => {
     await enableCoupon(id)
@@ -228,39 +278,125 @@ export default function Coupons() {
     },
   ]
 
+  const exchangeCodeColumns: ProColumns<ExchangeCodeRecord>[] = [
+    { title: 'ID', dataIndex: 'id', width: 80, search: false },
+    { title: '兑换码', dataIndex: 'code', width: 220, ellipsis: true, copyable: true },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 100,
+      render: (_, record) => {
+        const info = EXCHANGE_CODE_STATUS_MAP[record.status] ?? { label: record.status, color: 'default' }
+        return <Tag color={info.color}>{info.label}</Tag>
+      },
+    },
+    { title: '兑换用户', dataIndex: 'userId', width: 100, search: false, render: (v) => (v ? String(v) : '-') },
+    { title: '兑换时间', dataIndex: 'exchangedAt', width: 170, valueType: 'dateTime', search: false },
+    { title: '创建时间', dataIndex: 'createdAt', width: 170, valueType: 'dateTime', search: false },
+    {
+      title: '操作',
+      valueType: 'option',
+      width: 80,
+      render: (_, record) =>
+        record.status === 'UNUSED' ? (
+          <Popconfirm key="disable" title="确认作废该兑换码？作废后不可使用。" onConfirm={() => handleDisableCode(record.code)}>
+            <Button type="link" size="small" danger>作废</Button>
+          </Popconfirm>
+        ) : (
+          <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>-</span>
+        ),
+    },
+  ]
+
   return (
     <>
-      <ProTable<CouponRecord>
-        headerTitle="优惠券管理"
-        actionRef={actionRef}
-        rowKey="id"
-        scroll={{ x: 1400 }}
-        request={async (params) => {
-          return safeProTableRequest<CouponRecord>(() =>
-            getCoupons({
-              page: params.current,
-              pageSize: params.pageSize,
-              name: params.name,
-              type: params.type,
-              status: params.status,
-            })
-          )
-        }}
-        toolBarRender={() => [
-          <Button
-            key="add"
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingRecord(null)
-              setModalVisible(true)
-            }}
-          >
-            新增优惠券
-          </Button>,
+      <Tabs
+        defaultActiveKey="templates"
+        items={[
+          {
+            key: 'templates',
+            label: '优惠券模板',
+            children: (
+              <ProTable<CouponRecord>
+                headerTitle="优惠券管理"
+                actionRef={actionRef}
+                rowKey="id"
+                scroll={{ x: 1400 }}
+                request={async (params) => {
+                  return safeProTableRequest<CouponRecord>(() =>
+                    getCoupons({
+                      page: params.current,
+                      pageSize: params.pageSize,
+                      name: params.name,
+                      type: params.type,
+                      status: params.status,
+                    })
+                  )
+                }}
+                toolBarRender={() => [
+                  <Button
+                    key="add"
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      setEditingRecord(null)
+                      setModalVisible(true)
+                    }}
+                  >
+                    新增优惠券
+                  </Button>,
+                ]}
+                columns={columns}
+                pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+              />
+            ),
+          },
+          {
+            key: 'codes',
+            label: '兑换码管理',
+            children: (
+              <ProTable<ExchangeCodeRecord>
+                headerTitle="兑换码管理"
+                actionRef={codesActionRef}
+                rowKey="id"
+                search={false}
+                toolBarRender={() => [
+                  <Select
+                    key="tpl"
+                    style={{ width: 260 }}
+                    placeholder="选择优惠券模板"
+                    value={codesTemplateId}
+                    onChange={(v) => {
+                      setCodesTemplateId(v ?? null)
+                      // Select 变化后 request 闭包读不到新值，等 state 提交后主动刷新
+                      setTimeout(() => codesActionRef.current?.reload(), 0)
+                    }}
+                    options={templateOptions}
+                    allowClear
+                  />,
+                  <Button key="gen" type="primary" icon={<PlusOutlined />} onClick={() => setGenerateOpen(true)}>
+                    生成兑换码
+                  </Button>,
+                ]}
+                request={async (params) => {
+                  if (!codesTemplateId) {
+                    return { data: [], total: 0, success: true }
+                  }
+                  return safeProTableRequest<ExchangeCodeRecord>(() =>
+                    listExchangeCodes({
+                      templateId: codesTemplateId,
+                      status: undefined,
+                      page: params.current,
+                      pageSize: params.pageSize,
+                    })
+                  )
+                }}
+                columns={exchangeCodeColumns}
+                pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+              />
+            ),
+          },
         ]}
-        columns={columns}
-        pagination={{ defaultPageSize: 10, showSizeChanger: true }}
       />
 
       <ModalForm
@@ -380,6 +516,61 @@ export default function Coupons() {
           }}
         </ProFormDependency>
       </ModalForm>
+
+      <ModalForm
+        title="生成兑换码"
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        onFinish={async (values: Record<string, any>) => {
+          const { data: res } = await generateExchangeCodes({
+            templateId: values.templateId,
+            quantity: values.quantity,
+          })
+          const response = res as ApiResponse<{ batchNo: string; count: number; codes: string[] }>
+          setGenerateResult(response.data ?? null)
+          message.success(`已生成 ${response.data?.count ?? 0} 张兑换码`)
+          codesActionRef.current?.reload()
+          return true
+        }}
+        modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
+        width={480}
+      >
+        <ProFormSelect
+          name="templateId"
+          label="优惠券模板"
+          options={templateOptions}
+          rules={[{ required: true, message: '请选择优惠券模板' }]}
+        />
+        <ProFormDigit
+          name="quantity"
+          label="生成数量"
+          min={1}
+          max={1000}
+          fieldProps={{ precision: 0 }}
+          initialValue={100}
+          rules={[{ required: true, message: '请输入生成数量（1~1000）' }]}
+          extra="单次最多 1000 张"
+        />
+      </ModalForm>
+
+      <Modal
+        title="生成结果"
+        open={generateResult !== null}
+        onCancel={() => setGenerateResult(null)}
+        footer={null}
+        width={560}
+      >
+        {generateResult && (
+          <>
+            <Descriptions column={1} size="small" bordered style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="批次号">{generateResult.batchNo}</Descriptions.Item>
+              <Descriptions.Item label="数量">{generateResult.count}</Descriptions.Item>
+            </Descriptions>
+            <div style={{ marginBottom: 4 }}>兑换码列表：</div>
+            <Input.TextArea rows={8} readOnly value={generateResult.codes.join('\n')} />
+          </>
+        )}
+      </Modal>
     </>
   )
 }
