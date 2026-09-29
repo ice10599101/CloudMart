@@ -27,8 +27,9 @@ import java.util.Map;
 /**
  * 排行榜服务实现（原文档 §80）。
  *
- * <p>仅公开宠物入榜；榜单 Top 20 + 我的数值/名次。胜场/捞瓶榜用分组聚合查询
- * （不走 N+1）；主人昵称批量 Feign（Fail-Open 占位）。</p>
+ * <p>P1-4：等级榜/胜场榜走 Redis ZSet 缓存（O(logN)），读路径缓存优先、Redis 异常
+ * Fail-Open 回落 DB；捞瓶榜维持 DB 聚合（无 ZSet）。仅公开宠物入榜；缓存与 DB 间的
+ * 中间态漂移（私密化/改名）由读路径 is_public 过滤 + 每日全量重建收敛。</p>
  */
 @Service
 @Slf4j
@@ -42,24 +43,27 @@ public class PetRankingServiceImpl implements PetRankingService {
     private final PetBottleRecordMapper bottleRecordMapper;
     private final WishFeignClient wishFeignClient;
     private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
+    private final PetRankingCache rankingCache;
 
     public PetRankingServiceImpl(PetMapper petMapper,
                                  PetBattleMapper battleMapper,
                                  PetBottleRecordMapper bottleRecordMapper,
                                  WishFeignClient wishFeignClient,
-                                 com.cloudmart.pet.feign.UserFeignClient userFeignClient) {
+                                 com.cloudmart.pet.feign.UserFeignClient userFeignClient,
+                                 PetRankingCache rankingCache) {
         this.petMapper = petMapper;
         this.battleMapper = battleMapper;
         this.bottleRecordMapper = bottleRecordMapper;
         this.wishFeignClient = wishFeignClient;
         this.userFeignClient = userFeignClient;
+        this.rankingCache = rankingCache;
     }
 
     @Override
     public PetRankingResult ranking(RankingType type, Long userId) {
         List<PetRankingVO> top20 = switch (type) {
             case LEVEL -> levelRanking(userId);
-            case BATTLE_WIN -> groupedRanking(type, userId);
+            case BATTLE_WIN -> battleWinRanking(userId);
             case BOTTLE -> groupedRanking(type, userId);
         };
         Long myValue = myValue(type, userId);
@@ -67,8 +71,38 @@ public class PetRankingServiceImpl implements PetRankingService {
         return new PetRankingResult(top20, myValue, myRank);
     }
 
-    /** 等级榜：pet 表直接排序（等级同分比经验） */
+    /** 等级榜：ZSet 缓存优先（复合分=level×1e9+exp），miss/降级回落 DB 排序 */
     private List<PetRankingVO> levelRanking(Long userId) {
+        List<PetRankingCache.RankedEntry> cached = rankingCache.levelTop(TOP_N).orElse(null);
+        if (cached != null) {
+            List<Long> petIds = cached.stream().map(PetRankingCache.RankedEntry::petId).toList();
+            if (petIds.isEmpty()) {
+                return List.of();
+            }
+            Map<Long, Pet> petMap = petMapper.selectBatchIds(petIds).stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getIsPublic()))
+                    .collect(HashMap::new, (m, p) -> m.put(p.getId(), p), HashMap::putAll);
+            Map<Long, String> nicknames = resolveNicknames(
+                    petMap.values().stream().map(Pet::getUserId).toList());
+            List<PetRankingVO> result = new ArrayList<>();
+            int rank = 1;
+            for (Long petId : petIds) {
+                Pet pet = petMap.get(petId);
+                if (pet == null) {
+                    continue;
+                }
+                result.add(new PetRankingVO(rank++, pet.getId(), pet.getName(), pet.getSpecies(),
+                        pet.getLevel(), (long) pet.getLevel(), pet.getUserId(),
+                        nicknames.getOrDefault(pet.getUserId(), OWNER_PLACEHOLDER),
+                        pet.getUserId().equals(userId)));
+            }
+            return result;
+        }
+        return levelRankingFromDb(userId);
+    }
+
+    /** 等级榜 DB 兜底：pet 表直接排序（等级同分比经验） */
+    private List<PetRankingVO> levelRankingFromDb(Long userId) {
         List<Pet> top = petMapper.selectList(new LambdaQueryWrapper<Pet>()
                 .eq(Pet::getIsPublic, true)
                 .orderByDesc(Pet::getLevel)
@@ -86,6 +120,18 @@ public class PetRankingServiceImpl implements PetRankingService {
                     pet.getUserId().equals(userId)));
         }
         return result;
+    }
+
+    /** 胜场榜：ZSet 缓存优先，miss/降级回落 DB 分组聚合 */
+    private List<PetRankingVO> battleWinRanking(Long userId) {
+        List<PetRankingCache.RankedEntry> cached = rankingCache.battleWinTop(TOP_N).orElse(null);
+        if (cached != null) {
+            List<CountEntry> entries = cached.stream()
+                    .map(entry -> new CountEntry(entry.petId(), (long) entry.score()))
+                    .toList();
+            return assembleGrouped(entries, userId);
+        }
+        return groupedRanking(RankingType.BATTLE_WIN, userId);
     }
 
     /** 胜场/捞瓶榜：分组聚合 Top N，再回填宠物信息 */
@@ -111,16 +157,22 @@ public class PetRankingServiceImpl implements PetRankingService {
                     .last("LIMIT " + TOP_N));
         }
 
-        record Entry(Long petId, long cnt) {}
-        List<Entry> entries = new ArrayList<>();
+        List<CountEntry> entries = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            Object petId = row.get("petId");
-            Object cnt = row.get("cnt");
-            if (petId instanceof Number n && cnt instanceof Number c) {
-                entries.add(new Entry(n.longValue(), c.longValue()));
+            if (row.get("petId") instanceof Number n && row.get("cnt") instanceof Number c) {
+                entries.add(new CountEntry(n.longValue(), c.longValue()));
             }
         }
-        List<Long> petIds = entries.stream().map(Entry::petId).toList();
+        return assembleGrouped(entries, userId);
+    }
+
+    /** 计数榜条目（petId + 计数；缓存路径与 DB 聚合路径共用回填逻辑） */
+    private record CountEntry(Long petId, long cnt) {
+    }
+
+    /** 聚合条目 → 榜单 VO（批量回填宠物信息 + 昵称；私密宠物在回填时过滤） */
+    private List<PetRankingVO> assembleGrouped(List<CountEntry> entries, Long userId) {
+        List<Long> petIds = entries.stream().map(CountEntry::petId).toList();
         Map<Long, Pet> petMap = petIds.isEmpty() ? Map.of()
                 : petMapper.selectBatchIds(petIds).stream()
                         .filter(p -> Boolean.TRUE.equals(p.getIsPublic()))
@@ -130,7 +182,7 @@ public class PetRankingServiceImpl implements PetRankingService {
 
         List<PetRankingVO> result = new ArrayList<>();
         int rank = 1;
-        for (Entry entry : entries) {
+        for (CountEntry entry : entries) {
             Pet pet = petMap.get(entry.petId());
             if (pet == null) {
                 continue;
@@ -161,8 +213,9 @@ public class PetRankingServiceImpl implements PetRankingService {
     }
 
     /**
-     * 我的名次：等级榜=数值更好的公开宠物数+1；计数榜同理（全表计数，宠物量级可控）。
-     * 不公开的宠物也参与名次计算（名次是私有信息，公开性只影响是否上 Top 榜）。
+     * 我的名次：优先 ZSet ZREVRANK（P1-4）；不在榜/Redis 降级时回落 DB 计数。
+     * 等级榜=数值更好的公开宠物数+1；计数榜同理。不公开的宠物 rank=null
+     * （reason 由调用方以 PRIVATE 传达）。
      */
     private Integer myRank(RankingType type, Long userId, Long myValue) {
         // B20：与榜单同一可见性口径——取主宠；私密宠物 rank=null（reason 由调用方以 PRIVATE 传达）
@@ -175,6 +228,15 @@ public class PetRankingServiceImpl implements PetRankingService {
         }
         if (!Boolean.TRUE.equals(pet.getIsPublic())) {
             return null;
+        }
+        Long cachedRank = switch (type) {
+            case LEVEL -> rankingCache.levelRankOf(pet.getId());
+            case BATTLE_WIN -> rankingCache.battleWinRankOf(pet.getId());
+            case BOTTLE -> null;
+        };
+        if (cachedRank != null) {
+            // ZSet 内可能有已转私密的漂移条目（每日重建收敛）；名次是私有信息，误差可接受
+            return (int) (cachedRank + 1);
         }
         long better = switch (type) {
             // 与榜单同规则：只统计合法公开宠物（剔除野生模板/私密/已删除）
@@ -200,6 +262,32 @@ public class PetRankingServiceImpl implements PetRankingService {
                     .having("COUNT(*) > {0}", myValue)).size();
         };
         return (int) (better + 1);
+    }
+
+    /** 每日全量重建（P1-4）：公开宠物等级榜 + 全量胜场榜（与 DB 聚合同口径，仅公开宠物） */
+    @Override
+    public boolean rebuildRankingCache() {
+        List<PetRankingCache.LevelEntry> levelEntries = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                        .select(Pet::getId, Pet::getLevel, Pet::getExp)
+                        .eq(Pet::getIsPublic, true))
+                .stream()
+                .map(p -> new PetRankingCache.LevelEntry(p.getId(),
+                        p.getLevel() != null ? p.getLevel() : 1,
+                        p.getExp() != null ? p.getExp() : 0))
+                .toList();
+        List<PetRankingCache.RankedEntry> battleEntries = battleMapper.selectMaps(new QueryWrapper<PetBattle>()
+                        .select("winner_pet_id as petId", "COUNT(*) as cnt")
+                        .eq("status", PetBattleStatus.FINISHED.name())
+                        .isNotNull("winner_pet_id")
+                        .inSql("winner_pet_id", "SELECT id FROM pet WHERE is_public = 1")
+                        .groupBy("winner_pet_id"))
+                .stream()
+                .filter(row -> row.get("petId") instanceof Number && row.get("cnt") instanceof Number)
+                .map(row -> new PetRankingCache.RankedEntry(
+                        ((Number) row.get("petId")).longValue(),
+                        ((Number) row.get("cnt")).doubleValue()))
+                .toList();
+        return rankingCache.rebuild(levelEntries, battleEntries);
     }
 
     private Map<Long, String> resolveNicknames(List<Long> userIds) {

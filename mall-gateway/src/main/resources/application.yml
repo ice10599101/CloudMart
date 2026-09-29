@@ -213,6 +213,14 @@ spring:
                 - Path=/api/wish/**
               filters:
                 - StripPrefix=2
+            # P2-2：屏蔽宠物服务文档端点外泄（knife4j/swagger 仅供内部联调，生产另由
+            # Nacos mall-pet.yml 关闭 knife4j.enable 与 springdoc.api-docs.enabled）
+            - id: block-mall-pet-docs
+              uri: no://op
+              predicates:
+                - Path=/api/pet/v3/api-docs/**,/api/pet/swagger-ui/**,/api/pet/swagger-ui.html,/api/pet/doc.html,/api/pet/webjars/**,/api/pet/swagger-resources/**
+              filters:
+                - SetStatus=404
             - id: mall-pet
               uri: lb://mall-pet
               predicates:

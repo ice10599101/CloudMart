@@ -60,6 +60,11 @@ public class PetBattleServiceImpl implements PetBattleService {
     private static final String WILD_OWNER_PLACEHOLDER = "野生宠物";
     private static final String OWNER_PLACEHOLDER = "匿名训练家";
 
+    /** P1-3：发起方放弃（被拒/过期）冷却阈值——24h 内达阈值后禁止再发起 PvP */
+    static final int ABORT_COOLDOWN_LIMIT = 3;
+    /** PENDING 期 seed 哨兵值：seed 延迟到 accept 生成，发起时不可预测（列 NOT NULL 用 0 占位） */
+    static final long SEED_PENDING = 0L;
+
     private final PetService petService;
     private final PetStateService stateService;
     private final PetBattleMapper battleMapper;
@@ -75,6 +80,8 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
     private final PetEconomyService economyService;
+    private final PetQuotaService quotaService;
+    private final PetRankingCache rankingCache;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -91,7 +98,9 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetIntimacyService intimacyService,
                                 PetRelationService relationService,
                                 PetEconomyService economyService,
-                                com.cloudmart.pet.service.PetUserBlockService userBlockService) {
+                                com.cloudmart.pet.service.PetUserBlockService userBlockService,
+                                PetQuotaService quotaService,
+                                PetRankingCache rankingCache) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -107,6 +116,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.relationService = relationService;
         this.economyService = economyService;
         this.userBlockService = userBlockService;
+        this.quotaService = quotaService;
+        this.rankingCache = rankingCache;
     }
 
     @Override
@@ -163,9 +174,16 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法挑战该用户");
         }
 
-        long seed = secureRandom.nextLong();
+        // P1-3：放弃冷却——24h（当日业务日）内被拒/过期 ≥3 次禁止再发起，防 PENDING 期内无成本刷发起
+        if (quotaService.used(userId, PetQuotaService.QuotaType.BATTLE_ABORT, 0) >= ABORT_COOLDOWN_LIMIT) {
+            throw new BusinessException(PetErrorCodes.PET_BATTLE_CONFLICT,
+                    "对战发起太频繁啦，明天再约战吧");
+        }
+
+        // P1-3：seed 延迟到接受时生成（挑战者/防守方均不可预知，无法本地重放筛局）；
+        // seed 列 NOT NULL，PENDING 期以 0 占位（seed 不经任何 API 外泄）
         PetBattle battle = buildBattle(attacker, toFighter(defender), PetBattleMode.PVP,
-                defender.getId(), defender.getUserId(), seed);
+                defender.getId(), defender.getUserId(), SEED_PENDING);
         battle.setStatus(PetBattleStatus.PENDING.name());
         battleMapper.insert(battle);
 
@@ -200,22 +218,52 @@ public class PetBattleServiceImpl implements PetBattleService {
         PetBattleEngine.Fighter defender = PetJsonUtils.parse(battle.getDefenderSnapshot(),
                 new com.fasterxml.jackson.core.type.TypeReference<>() {
                 });
+        // P1-3：seed 在接受时才生成——挑战者发起时（乃至 PENDING 全程）都无法预知对局随机源
+        long seed = secureRandom.nextLong();
+        battle.setSeed(seed);
         PetBattleEngine.BattleResult result = PetBattleEngine.simulate(
-                attacker, defender, battle.getSeed(), properties.getBattle().getMaxRounds());
+                attacker, defender, seed, properties.getBattle().getMaxRounds());
 
         battle.setStatus(PetBattleStatus.FINISHED.name());
         battle.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")));
         battle.setWinnerPetId(result.winnerPetId());
         battle.setRounds(PetJsonUtils.toJson(result.rounds()));
+        // P1-3：每日收益场次/对同一对手收益配额（占满则该方 0 收益，参战与结算不受影响）
+        boolean attackerRewarded = tryConsumeRewardQuota(battle.getAttackerUserId(), battle.getDefenderUserId());
+        boolean defenderRewarded = tryConsumeRewardQuota(battle.getDefenderUserId(), battle.getAttackerUserId());
         int winExp = properties.getBattle().getWinExp();
         int loseExp = properties.getBattle().getLoseExp();
-        int expReward = result.attackerWon() ? winExp : loseExp;
+        int expReward = attackerRewarded ? (result.attackerWon() ? winExp : loseExp) : 0;
         battle.setExpReward(expReward);
-        battle.setCurrencyReward(result.attackerWon() ? properties.getBattle().getWinCurrency() : 0);
+        battle.setCurrencyReward(attackerRewarded && result.attackerWon()
+                ? properties.getBattle().getWinCurrency() : 0);
         battleMapper.updateById(battle);
 
-        grantRewards(attacker.petId(), defender.petId(), result.attackerWon(), battle);
+        grantRewards(attacker.petId(), defender.petId(), result.attackerWon(), battle,
+                attackerRewarded, defenderRewarded);
         return toVo(battle, userId, result.rounds());
+    }
+
+    /**
+     * 收益配额（P1-3）：BATTLE_REWARD = 每日<b>总</b>收益场次（targetId 固定 0，不按对手拆分，
+     * 多号互刷无法绕过）；PvP 另限对同一对手用户的收益场次（targetId = 对手 userId）。
+     * 任一条件不满足即该方本场合计 0 收益；已占用的总场次名额回退，避免白吃额度。
+     */
+    private boolean tryConsumeRewardQuota(Long userId, Long opponentUserId) {
+        if (userId == null) {
+            return false;
+        }
+        if (!quotaService.tryConsume(userId, PetQuotaService.QuotaType.BATTLE_REWARD, 0,
+                properties.getBattle().getRewardDailyLimit())) {
+            return false;
+        }
+        if (opponentUserId != null && opponentUserId > 0
+                && !quotaService.tryConsume(userId, PetQuotaService.QuotaType.PVP_OPPONENT,
+                        opponentUserId, properties.getBattle().getPvpPerOpponentDailyLimit())) {
+            quotaService.release(userId, PetQuotaService.QuotaType.BATTLE_REWARD, 0);
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -233,6 +281,8 @@ public class PetBattleServiceImpl implements PetBattleService {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_ALREADY_HANDLED, "这场挑战已经被处理过啦");
         }
         battle.setStatus(PetBattleStatus.DECLINED.name());
+        // P1-3：防守方拒绝计入发起方"放弃"累计（冷却防反复发起）
+        quotaService.record(battle.getAttackerUserId(), PetQuotaService.QuotaType.BATTLE_ABORT, 0);
         eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_BATTLE_FINISHED, new PetEventProducer.PetEventMessage(
                 "BATTLE_DECLINED:" + battle.getId(),
                 String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
@@ -267,11 +317,29 @@ public class PetBattleServiceImpl implements PetBattleService {
 
     @Override
     public int expirePendingBattles() {
-        return battleMapper.update(null, new LambdaUpdateWrapper<PetBattle>()
-                .set(PetBattle::getStatus, PetBattleStatus.EXPIRED.name())
+        // P1-3：过期同样计入发起方"放弃"累计——改为逐行 CAS 流转（过期行按 id 确定性排序，
+        // 多实例重扫由 CAS 兜底），并在同一业务日内累计 BATTLE_ABORT 配额
+        List<PetBattle> stale = battleMapper.selectList(new LambdaQueryWrapper<PetBattle>()
                 .eq(PetBattle::getStatus, PetBattleStatus.PENDING.name())
                 .le(PetBattle::getStartedAt, LocalDateTime.now(ZoneId.of("UTC"))
-                        .minusHours(properties.getBattle().getPendingExpireHours())));
+                        .minusHours(properties.getBattle().getPendingExpireHours()))
+                .orderByAsc(PetBattle::getId)
+                .last("LIMIT 200"));
+        int expired = 0;
+        for (PetBattle battle : stale) {
+            int updated = battleMapper.update(null, new LambdaUpdateWrapper<PetBattle>()
+                    .set(PetBattle::getStatus, PetBattleStatus.EXPIRED.name())
+                    .eq(PetBattle::getId, battle.getId())
+                    .eq(PetBattle::getStatus, PetBattleStatus.PENDING.name()));
+            if (updated > 0) {
+                expired++;
+                if (battle.getAttackerUserId() != null) {
+                    quotaService.record(battle.getAttackerUserId(),
+                            PetQuotaService.QuotaType.BATTLE_ABORT, 0);
+                }
+            }
+        }
+        return expired;
     }
 
     // ---------------- 内部共用 ----------------
@@ -284,9 +352,11 @@ public class PetBattleServiceImpl implements PetBattleService {
 
         PetBattleEngine.BattleResult result = PetBattleEngine.simulate(
                 toFighter(attacker), defender, seed, properties.getBattle().getMaxRounds());
+        // P1-3：PvE 同样受每日总收益场次配额约束（targetId=0）
+        boolean attackerRewarded = tryConsumeRewardQuota(attacker.getUserId(), null);
         int winExp = properties.getBattle().getWinExp();
         int loseExp = properties.getBattle().getLoseExp();
-        int expReward = result.attackerWon() ? winExp : loseExp;
+        int expReward = attackerRewarded ? (result.attackerWon() ? winExp : loseExp) : 0;
 
         battle.setStatus(PetBattleStatus.FINISHED.name());
         battle.setStartedAt(LocalDateTime.now(ZoneId.of("UTC")));
@@ -294,11 +364,11 @@ public class PetBattleServiceImpl implements PetBattleService {
         battle.setWinnerPetId(result.winnerPetId());
         battle.setRounds(PetJsonUtils.toJson(result.rounds()));
         battle.setExpReward(expReward);
-        battle.setCurrencyReward(properties.getBattle().getWinCurrency());
+        battle.setCurrencyReward(attackerRewarded ? properties.getBattle().getWinCurrency() : 0);
         // B08：PVP 星光归胜者（防守方获胜同样得奖，不依赖挑战者字段）；PVE 保持仅挑战方胜出有奖
         battleMapper.insert(battle);
 
-        grantRewards(attacker.getId(), null, result.attackerWon(), battle);
+        grantRewards(attacker.getId(), null, result.attackerWon(), battle, attackerRewarded, false);
         return toVo(battle, attacker.getUserId(), result.rounds());
     }
 
@@ -320,15 +390,23 @@ public class PetBattleServiceImpl implements PetBattleService {
     /**
      * 双方奖励发放：经验（本地乐观锁）+ 胜者星光（Feign，失败抛 503 事务回滚）。
      * 防守方被动应战也有收益（原文档 §1.8：鼓励 accept）。
+     * P1-3：收益配额占满的一方只结算 0 收益（attackerRewarded/defenderRewarded 控制实际发放）。
      */
-    private void grantRewards(Long attackerPetId, Long defenderPetId, boolean attackerWon, PetBattle battle) {
+    private void grantRewards(Long attackerPetId, Long defenderPetId, boolean attackerWon, PetBattle battle,
+                              boolean attackerRewarded, boolean defenderRewarded) {
         Pet attacker = petMapper.selectById(attackerPetId);
         if (attacker == null) {
             return;
         }
-        int attackerExp = attackerWon
-                ? properties.getBattle().getWinExp()
-                : properties.getBattle().getLoseExp();
+        // P1-4：胜场榜 ZSet 埋点——与 DB 聚合同口径（任何 FINISHED 对战中真实获胜的宠物 +1）
+        Long winnerPetId = attackerWon ? attackerPetId
+                : (defenderPetId != null && defenderPetId > 0 ? defenderPetId : null);
+        if (winnerPetId != null && winnerPetId > 0) {
+            rankingCache.onBattleWin(winnerPetId);
+        }
+        int attackerExp = attackerRewarded
+                ? (attackerWon ? properties.getBattle().getWinExp() : properties.getBattle().getLoseExp())
+                : 0;
         // 三期埋点：亲密度先叠加（与经验同一次写入）
         intimacyService.gain(attacker, PetIntimacySource.BATTLE);
         int levelups = stateService.grantExp(attacker, attackerExp);
@@ -339,7 +417,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         achievementService.evaluate(attacker, PetAchievementService.Event.BATTLE_FINISHED);
         dailyQuestService.record(attacker, PetQuestType.BATTLE, 1);
 
-        if (attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
+        if (attackerRewarded && attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
             // B01：本地奖励已生效；星光经统一操作记录幂等发放，结果未知不回滚本地奖励
             PetOperationService.WalletSettlement settlement = economyService.earn(
                     battle.getAttackerUserId(), battle.getAttackerPetId(),
@@ -354,9 +432,9 @@ public class PetBattleServiceImpl implements PetBattleService {
         if (defenderPetId != null && defenderPetId > 0) {
             Pet defender = petMapper.selectById(defenderPetId);
             if (defender != null) {
-                int defenderExp = attackerWon
-                        ? properties.getBattle().getLoseExp()
-                        : properties.getBattle().getWinExp();
+                int defenderExp = defenderRewarded
+                        ? (attackerWon ? properties.getBattle().getLoseExp() : properties.getBattle().getWinExp())
+                        : 0;
                 intimacyService.gain(defender, PetIntimacySource.BATTLE);
                 int defenderLevelups = stateService.grantExp(defender, defenderExp);
                 if (defenderLevelups > 0) {
@@ -367,7 +445,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                 dailyQuestService.record(defender, PetQuestType.BATTLE, 1);
                 // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
                 relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
-                if (!attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
+                if (defenderRewarded && !attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
                     PetOperationService.WalletSettlement settlement = economyService.earn(
                             defender.getUserId(), defender.getId(),
                             "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
@@ -385,7 +463,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                     "BATTLE_FINISHED:" + battle.getId() + ":attacker",
                     String.valueOf(battle.getAttackerUserId()), "PET_BATTLE_FINISHED",
                     resultAttackerWon(attackerWon),
-                    battleRewardText(battle, attackerWon),
+                    battleRewardText(battle, attackerWon, attackerRewarded),
                     String.valueOf(battle.getId()), "PET_BATTLE_FINISHED"));
         } else if (battle.getDefenderUserId() != null && defenderPetId != null && defenderPetId > 0) {
             boolean defenderWon = !attackerWon;
@@ -393,7 +471,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                     "BATTLE_FINISHED:" + battle.getId() + ":defender",
                     String.valueOf(battle.getDefenderUserId()), "PET_BATTLE_FINISHED",
                     resultAttackerWon(defenderWon),
-                    battleRewardText(battle, defenderWon),
+                    battleRewardText(battle, defenderWon, defenderRewarded),
                     String.valueOf(battle.getId()), "PET_BATTLE_FINISHED"));
         }
     }
@@ -402,7 +480,10 @@ public class PetBattleServiceImpl implements PetBattleService {
         return attackerWon ? "对战大获全胜！" : "对战惜败，下次再战！";
     }
 
-    private String battleRewardText(PetBattle battle, boolean attackerWon) {
+    private String battleRewardText(PetBattle battle, boolean attackerWon, boolean rewarded) {
+        if (!rewarded) {
+            return "今天和对战相关的收益场次已用完，这次没有奖励啦，明天继续加油！";
+        }
         int exp = attackerWon ? properties.getBattle().getWinExp() : properties.getBattle().getLoseExp();
         return (attackerWon ? "赢得了对战，获得 " + exp + " 点经验和 " + properties.getBattle().getWinCurrency()
                 + " 星光！" : "获得 " + exp + " 点经验，继续加油！");

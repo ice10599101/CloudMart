@@ -3,6 +3,7 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.config.PetServiceTokenConfig;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -150,6 +151,23 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PutMapping("/pet/reports/{id}/handle")
     ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                       @org.springframework.web.bind.annotation.RequestParam("action") String action);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/reports/{id}/resolve")
+    ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                       @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    // ---------------- P0-1 内容安全：敏感词库 ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/sensitive-words")
+    ApiResponse<Object> listSensitiveWords(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) Integer status,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/sensitive-words")
+    ApiResponse<Object> upsertSensitiveWord(@RequestBody Map<String, Object> data);
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/configs/sensitive-words/{id}")
+    ApiResponse<Object> deleteSensitiveWord(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/achievements/recalculate")
     ApiResponse<Integer> recalculateAchievements(@org.springframework.web.bind.annotation.RequestParam("petId") Long petId);

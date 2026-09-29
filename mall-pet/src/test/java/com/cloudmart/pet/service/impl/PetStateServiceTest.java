@@ -55,7 +55,8 @@ class PetStateServiceTest {
         org.mockito.Mockito.lenient().when(petMapper.update(any(), any())).thenReturn(1);
         org.mockito.Mockito.lenient().when(petMapper.selectById(org.mockito.ArgumentMatchers.any())).thenAnswer(
                 inv -> pet(80, 80, 100, 90, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1)));
-        stateService = new PetStateService(petMapper, new PetProperties(), petClock);
+        stateService = new PetStateService(petMapper, new PetProperties(), petClock,
+                org.mockito.Mockito.mock(PetRankingCache.class));
     }
 
     private Pet pet(int hunger, int happiness, int energy, int cleanliness,

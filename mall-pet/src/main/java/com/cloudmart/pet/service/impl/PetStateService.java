@@ -38,11 +38,14 @@ public class PetStateService {
     private final PetMapper petMapper;
     private final PetProperties properties;
     private final PetClock petClock;
+    private final PetRankingCache rankingCache;
 
-    public PetStateService(PetMapper petMapper, PetProperties properties, PetClock petClock) {
+    public PetStateService(PetMapper petMapper, PetProperties properties, PetClock petClock,
+                           PetRankingCache rankingCache) {
         this.petMapper = petMapper;
         this.properties = properties;
         this.petClock = petClock;
+        this.rankingCache = rankingCache;
     }
 
     /**
@@ -157,17 +160,6 @@ public class PetStateService {
         // 亲密度加成（三期）：所有经验都从这里发，加成只需在这一处生效
         int effectiveGain = expGain
                 + (int) Math.round(expGain * PetIntimacyMath.expBonus(pet, properties.getIntimacy()));
-        int exp = pet.getExp() + effectiveGain;
-        int level = pet.getLevel();
-        int levelups = 0;
-        while (level < LEVEL_MAX && exp >= expToNext(level)) {
-            exp -= expToNext(level);
-            level++;
-            levelups++;
-        }
-        if (level >= LEVEL_MAX) {
-            exp = Math.min(exp, expToNext(LEVEL_MAX));
-        }
 
         // 计算（不直接改实体）：CAS 失败时基于最新行重算一次，再失败抛冲突回滚本次业务
         Integer version = pet.getVersion();
@@ -223,6 +215,9 @@ public class PetStateService {
                     pet.setCharm(grow(currentCharm, nextLevelups));
                     pet.setGrowthStage(growthStageFor(nextLevel));
                 }
+                // P1-4：等级榜 ZSet 埋点（Fail-Open，Redis 异常不影响业务事务）
+                rankingCache.onExpGranted(pet.getId(), nextLevel, nextExp,
+                        Boolean.TRUE.equals(pet.getIsPublic()));
                 return nextLevelups;
             }
             // CAS 未命中：重读最新行，重算后重试一次（纯经验运算，重放安全）

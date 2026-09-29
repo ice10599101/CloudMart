@@ -19,8 +19,17 @@ import java.util.Map;
 public record PetDashboardVO(
         @Schema(description = "概览指标") Overview overview,
         @Schema(description = "近 N 日趋势") List<TrendPoint> trend,
-        @Schema(description = "分布与排行") Distribution distribution
+        @Schema(description = "分布与排行") Distribution distribution,
+        @Schema(description = "AI 聊天用量（P1-8）") AiUsage aiUsage
 ) {
+    /** AI 聊天用量（P1-8 成本可观测：调用次数/token 从 pet_chat_message 聚合，降级次数来自 metrics） */
+    @Schema(description = "AI 聊天用量")
+    public record AiUsage(
+            @Schema(description = "今日 AI 回复条数（≈ AI 调用次数）") long aiRepliesToday,
+            @Schema(description = "今日消息估算 token 消耗（chars/2 口径）") long tokensToday,
+            @Schema(description = "AI 降级累计次数（进程生命周期内）") long fallbackTotal
+    ) {
+    }
     /** 概览指标 */
     @Schema(description = "宠物看板概览")
     public record Overview(

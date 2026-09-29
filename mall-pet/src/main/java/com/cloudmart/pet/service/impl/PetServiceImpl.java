@@ -13,13 +13,16 @@ import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetAchievementRecord;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetCareerConfig;
+import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetGender;
+import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.enums.PetStatus;
 import com.cloudmart.pet.repository.PetAchievementRecordMapper;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetCareerConfigMapper;
+import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetReminderService;
 import com.cloudmart.pet.service.PetService;
@@ -28,6 +31,7 @@ import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetPublicVO;
 import com.cloudmart.pet.vo.PetSummaryVO;
 import com.cloudmart.pet.vo.PetVO;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -50,10 +54,14 @@ import java.util.Map;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class PetServiceImpl implements PetService {
 
     /** Redis Key：宠物模块限频计数，规范 {service}:{module}:{type}:{id}:{date} */
     static final String KEY_FEED_COUNTER = "pet:ratelimit:feed:%d:%s";
+
+    /** Redis Key：领养互斥锁（P1-1：首只宠物无可锁行时由它兜底并发） */
+    static final String KEY_ADOPT_LOCK = "pet:lock:adopt:%d";
 
     static final long RENAME_COOLDOWN_DAYS = 30;
 
@@ -65,32 +73,11 @@ public class PetServiceImpl implements PetService {
     private final StringRedisTemplate redisTemplate;
     private final PetProperties properties;
     private final PetCareerConfigMapper careerConfigMapper;
-
-    public PetServiceImpl(PetMapper petMapper,
-                          PetActivityMapper activityMapper,
-                          PetAchievementRecordMapper achievementRecordMapper,
-                          PetStateService stateService,
-                          PetReminderService reminderService,
-                          StringRedisTemplate redisTemplate,
-                          PetProperties properties,
-                          PetCareerConfigMapper careerConfigMapper,
-                          com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper,
-                          PetCompanionFeatureService companionFeatureService) {
-        this.petMapper = petMapper;
-        this.activityMapper = activityMapper;
-        this.achievementRecordMapper = achievementRecordMapper;
-        this.stateService = stateService;
-        this.reminderService = reminderService;
-        this.redisTemplate = redisTemplate;
-        this.properties = properties;
-        this.careerConfigMapper = careerConfigMapper;
-        this.skinInventoryMapper = skinInventoryMapper;
-        this.companionFeatureService = companionFeatureService;
-    }
-
     /** 背包 Mapper（B12：手动改外观同步卸皮肤穿戴标记） */
-    private final com.cloudmart.pet.repository.PetInventoryMapper skinInventoryMapper;
+    private final PetInventoryMapper skinInventoryMapper;
     private final PetCompanionFeatureService companionFeatureService;
+    private final PetContentSafetyService safetyService;
+    private final PetRankingCache rankingCache;
 
     @Override
     public PetVO getMyPet(Long userId) {
@@ -110,11 +97,41 @@ public class PetServiceImpl implements PetService {
     @Override
     @Transactional
     public PetVO createPet(Long userId, CreatePetRequest request) {
-        // B03：用户级原子配额——先对已有宠物行加锁（FOR UPDATE 锁住 idx_pet_user 范围，
-        // 并发领养在范围间隙上互斥），再检查数量，防止上限前同时领养超限
-        long owned = petMapper.selectCount(new LambdaQueryWrapper<Pet>()
-                .eq(Pet::getUserId, userId)
-                .last("FOR UPDATE"));
+        // P0-1 内容安全：宠物名先过敏感词（命中拒绝，词库故障 Fail-Open 放行）
+        safetyService.requireCleanPetName(request.name().trim());
+        // P1-1：领养互斥——Redis 锁兜底"首只宠物无可锁行"的并发窗口（Fail-Open 退化为行锁）；
+        // 已有宠物时 SELECT id ... FOR UPDATE 真实行锁串行化（原 COUNT FOR UPDATE 快照读不产生锁）
+        String lockKey = String.format(KEY_ADOPT_LOCK, userId);
+        boolean locked = false;
+        try {
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(10));
+            locked = Boolean.TRUE.equals(acquired);
+        } catch (Exception e) {
+            log.warn("领养分布式锁不可用（Fail-Open，退化行锁）: userId={}", userId, e);
+        }
+        if (!locked) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "领养处理中，请稍后再试");
+        }
+        try {
+            return doCreatePet(userId, request);
+        } finally {
+            try {
+                redisTemplate.delete(lockKey);
+            } catch (Exception e) {
+                log.debug("领养锁释放失败（TTL 兜底）: userId={}", userId);
+            }
+        }
+    }
+
+    /** 领养主体：行锁内检查数量上限并落库（调用方持有领养锁） */
+    private PetVO doCreatePet(Long userId, CreatePetRequest request) {
+        // P1-1：锁定该用户已有宠物行（真实行锁），并发领养在行锁上串行；
+        // 首只（空结果）由领养锁兜底，uk_pet_user_active + DuplicateKey 最终兜底
+        long owned = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                        .select(Pet::getId)
+                        .eq(Pet::getUserId, userId)
+                        .last("FOR UPDATE"))
+                .size();
         if (owned >= properties.getMultiPet().getMaxPets()) {
             throw new BusinessException(PetErrorCodes.PET_PET_LIMIT_REACHED,
                     "最多只能养 " + properties.getMultiPet().getMaxPets() + " 只宠物，先陪陪它们吧");
@@ -165,6 +182,8 @@ public class PetServiceImpl implements PetService {
                 log.warn("新手家具赠送失败（不阻断领养）: userId={}", userId, e);
             }
         }
+        // P1-4：新宠物立即进入等级榜缓存（Level 1 / exp 0），不等每日重建
+        rankingCache.onPetCreated(pet.getId(), Boolean.TRUE.equals(pet.getIsPublic()));
         return toVo(pet, null);
     }
 
@@ -213,9 +232,15 @@ public class PetServiceImpl implements PetService {
             throw new BusinessException(PetErrorCodes.PET_RENAME_COOLDOWN,
                     "改名太频繁啦，" + RENAME_COOLDOWN_DAYS + " 天内只能改一次名字");
         }
+        // P0-1 内容安全：新名字先过敏感词
+        safetyService.requireCleanPetName(request.name().trim());
         pet.setName(request.name().trim());
         pet.setLastRenamedAt(now);
-        petMapper.updateById(pet);
+        // P1-2：乐观锁冲突必须显式失败（静默吞掉会让用户误以为改名成功）
+        int updated = petMapper.updateById(pet);
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
+        }
         return toVo(pet, feedRemainingToday(userId));
     }
 
@@ -226,13 +251,17 @@ public class PetServiceImpl implements PetService {
         pet.setAppearance(PetJsonUtils.toJson(Map.of("color", request.color(), "accessory", request.accessory())));
         // 手动改外观视为脱离皮肤：卸下穿戴中的皮肤，避免"皮肤标记"与"实际外观"不一致
         // B12：手动改外观按明确接口意图卸皮肤，并同步背包穿戴标记（不因改名等无关保存误触发）
-        skinInventoryMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetInventory>()
-                .set(com.cloudmart.pet.entity.PetInventory::getEquipped, false)
-                .eq(com.cloudmart.pet.entity.PetInventory::getPetId, pet.getId())
-                .eq(com.cloudmart.pet.entity.PetInventory::getItemType, com.cloudmart.pet.enums.PetItemType.SKIN.name()));
+        skinInventoryMapper.update(null, new LambdaUpdateWrapper<PetInventory>()
+                .set(PetInventory::getEquipped, false)
+                .eq(PetInventory::getPetId, pet.getId())
+                .eq(PetInventory::getItemType, PetItemType.SKIN.name()));
         pet.setBaseAppearance(pet.getAppearance());
         pet.setSkinCode(null);
-        petMapper.updateById(pet);
+        // P1-2：乐观锁冲突必须显式失败（与 rest() 同一契约）
+        int updated = petMapper.updateById(pet);
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
+        }
         return toVo(pet, feedRemainingToday(userId));
     }
 
@@ -284,25 +313,34 @@ public class PetServiceImpl implements PetService {
         }
     }
 
+    /** P2-1：互动链路复用入口——基于调用方事务内已同步状态的实体组装 VO，免二次全量查询 */
+    @Override
+    public PetVO toVo(Pet pet) {
+        return toVo(pet, feedRemainingToday(pet.getUserId()));
+    }
+
     private PetVO toVo(Pet pet, Integer feedRemaining) {
-        // 活动 authority 在 pet_activity（status 快照列仅展示冗余）
-        PetActivity active = activityMapper.selectOne(new LambdaQueryWrapper<PetActivity>()
+        // P2-1：进行中 + 可领取活动合并为一次查询（原两条 SELECT），按 id 降序取每状态最新一条
+        List<PetActivity> recentActivities = activityMapper.selectList(new LambdaQueryWrapper<PetActivity>()
                 .eq(PetActivity::getUserId, pet.getUserId())
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name())
+                .in(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name(), PetActivityStatus.COMPLETED.name())
                 .orderByDesc(PetActivity::getId)
-                .last("LIMIT 1"));
-        String claimableType = null;
-        if (active == null) {
-            PetActivity claimable = activityMapper.selectOne(new LambdaQueryWrapper<PetActivity>()
-                    .eq(PetActivity::getUserId, pet.getUserId())
-                    .eq(PetActivity::getStatus, PetActivityStatus.COMPLETED.name())
-                    .orderByDesc(PetActivity::getId)
-                    .last("LIMIT 1"));
-            if (claimable != null) {
-                claimableType = claimable.getActivityType();
+                .last("LIMIT 4"));
+        PetActivity active = null;
+        PetActivity claimable = null;
+        for (PetActivity activity : recentActivities) {
+            if (active == null && PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())) {
+                active = activity;
+            }
+            if (claimable == null && PetActivityStatus.COMPLETED.name().equals(activity.getStatus())) {
+                claimable = activity;
             }
         }
+        String claimableType = claimable != null ? claimable.getActivityType() : null;
         String activeType = active != null ? active.getActivityType() : null;
+        // P2-4：亲密度只计算一次（原表达式链内重复调用 5 次）
+        int intimacy = intimacyOf(pet);
+        int intimacyLevel = PetIntimacyMath.levelOf(intimacy, properties.getIntimacy().getLevelThresholds());
         return new PetVO(
                 pet.getId(), pet.getUserId(), pet.getName(), pet.getSpecies(), pet.getGender(),
                 pet.getAppearance(),
@@ -316,12 +354,10 @@ public class PetServiceImpl implements PetService {
                 pet.getEvolutionStage() != null ? pet.getEvolutionStage() : 0, pet.getSkinCode(),
                 (int) stateService.countByUserId(pet.getUserId()), properties.getMultiPet().getMaxPets(),
                 // 三期：亲密度/陪伴（公式来自 PetIntimacyMath，避免与亲密度服务循环依赖）
-                intimacyOf(pet),
-                PetIntimacyMath.levelOf(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
-                PetIntimacyMath.levelName(
-                        PetIntimacyMath.levelOf(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
-                        properties.getIntimacy().getLevelNames()),
-                PetIntimacyMath.toNext(intimacyOf(pet), properties.getIntimacy().getLevelThresholds()),
+                intimacy,
+                intimacyLevel,
+                PetIntimacyMath.levelName(intimacyLevel, properties.getIntimacy().getLevelNames()),
+                PetIntimacyMath.toNext(intimacy, properties.getIntimacy().getLevelThresholds()),
                 PetIntimacyMath.expBonusPercent(pet, properties.getIntimacy()),
                 pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L,
                 pet.getTodayCompanionSeconds() != null ? pet.getTodayCompanionSeconds() : 0,
@@ -345,18 +381,34 @@ public class PetServiceImpl implements PetService {
         return config != null ? config.getTier() : null;
     }
 
+    /** 职业配置本地 TTL 缓存条目（P2-1：toVo 每次调用查 2 次配置表，缓存后 5 分钟内零 DB 往返） */
+    private record CareerCacheEntry(PetCareerConfig config, long expiresAtNanos) {
+    }
+
+    /** 职业配置缓存（TTL 5 分钟；配置由管理端低频维护，短陈旧可接受，负结果同样缓存防穿透） */
+    private static final long CAREER_CACHE_TTL_NANOS = 5 * 60L * 1_000_000_000L;
+    private final java.util.concurrent.ConcurrentHashMap<String, CareerCacheEntry> careerConfigCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private PetCareerConfig careerConfigOf(String careerCode) {
         if (careerCode == null || careerCode.isBlank()) {
             return null;
         }
+        long now = System.nanoTime();
+        CareerCacheEntry cached = careerConfigCache.get(careerCode);
+        if (cached != null && cached.expiresAtNanos() > now) {
+            return cached.config();
+        }
+        PetCareerConfig config = null;
         try {
-            return careerConfigMapper.selectOne(new LambdaQueryWrapper<PetCareerConfig>()
+            config = careerConfigMapper.selectOne(new LambdaQueryWrapper<PetCareerConfig>()
                     .eq(PetCareerConfig::getCode, careerCode)
                     .last("LIMIT 1"));
         } catch (Exception e) {
             log.warn("职业配置查询降级: careerCode={}", careerCode, e);
-            return null;
         }
+        careerConfigCache.put(careerCode, new CareerCacheEntry(config, now + CAREER_CACHE_TTL_NANOS));
+        return config;
     }
 
     /** 多宠物列表项（不触发懒更新落库，列表只做展示；主宠状态以 PetVO 为准） */

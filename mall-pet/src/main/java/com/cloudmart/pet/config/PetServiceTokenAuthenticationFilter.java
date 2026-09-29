@@ -70,7 +70,10 @@ public class PetServiceTokenAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication =
                         UsernamePasswordAuthenticationToken.authenticated(
                                 claims.issuer(), null, List.of(new SimpleGrantedAuthority(ROLE_INTERNAL)));
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // P0-3：审计身份取自已验签声明（签发方注入的 admin_username），
+                // 治理审计从 SecurityContext 读取，请求头 X-Admin-Username 不再作为身份源
+                authentication.setDetails(new ServiceAdminDetails(
+                        claims.adminUsername(), new WebAuthenticationDetailsSource().buildDetails(request)));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (ServiceTokenException e) {
                 // 拒绝但不中断：受保护端点将得到 401；公开端点保持匿名语义
@@ -80,6 +83,13 @@ public class PetServiceTokenAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * INTERNAL 身份的 details（P0-3）：携带验签后的审计操作者 + 标准 Web 请求细节。
+     */
+    public record ServiceAdminDetails(String adminUsername,
+                                      org.springframework.security.web.authentication.WebAuthenticationDetails webDetails) {
     }
 
     /**

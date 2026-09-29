@@ -118,6 +118,8 @@ public class GlobalExceptionHandler {
             return HttpStatus.SERVICE_UNAVAILABLE;
         }
         return switch (code) {
+            // 内容安全（P0-1）：宠物名/UGC 内容命中敏感词，客户端可换词重试
+            case "PET_NAME_SENSITIVE", "PET_CONTENT_SENSITIVE" -> HttpStatus.BAD_REQUEST;
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",
                  "PERMISSION_FETCH_FAILED", "AUTH_FAILED" -> HttpStatus.UNAUTHORIZED;
             case "ACCOUNT_LOCKED", "FORBIDDEN",

@@ -28,12 +28,13 @@ import java.util.Map;
 public class PetConfigGovernanceService {
 
     /** 配置类型 → 物理表名（白名单，防注入） */
-    private static final Map<String, String> TABLE_BY_TYPE = Map.of(
-            "job", "pet_job_config", "study", "pet_study_config",
-            "career", "pet_career_config", "furniture", "pet_furniture_config",
-            "equipment", "pet_equipment_config", "skin", "pet_skin_config",
-            "skill", "pet_skill_config", "evolution", "pet_evolution_config",
-            "event", "pet_event_config", "daily_quest", "pet_daily_quest_config");
+    private static final Map<String, String> TABLE_BY_TYPE = Map.ofEntries(
+            Map.entry("job", "pet_job_config"), Map.entry("study", "pet_study_config"),
+            Map.entry("career", "pet_career_config"), Map.entry("furniture", "pet_furniture_config"),
+            Map.entry("equipment", "pet_equipment_config"), Map.entry("skin", "pet_skin_config"),
+            Map.entry("skill", "pet_skill_config"), Map.entry("evolution", "pet_evolution_config"),
+            Map.entry("event", "pet_event_config"), Map.entry("daily_quest", "pet_daily_quest_config"),
+            Map.entry("sensitive_word", "pet_content_sensitive_word"));
 
     private final PetConfigVersionMapper versionMapper;
     private final JdbcTemplate jdbcTemplate;
@@ -62,26 +63,25 @@ public class PetConfigGovernanceService {
         record(configType, configId, snapshotRow(configType, configId), operator);
     }
 
-    /** 当前管理操作者：mall-admin Feign 代理透传 X-Admin-Username / X-User-Id（SEC-02 契约） */
+    /**
+     * 当前管理操作者（P0-3）：从 SecurityContext 中已验签的服务令牌声明读取
+     * （mall-admin 签发时注入 admin_username），不再信任可伪造的请求头。
+     * 读不到（令牌未携带/部署偏差）返回 "unknown" 并 WARN——审计宁可缺失不可造假。
+     */
     public static String currentOperator() {
         try {
-            org.springframework.web.context.request.RequestAttributes attrs =
-                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
-            if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes servletAttrs) {
-                jakarta.servlet.http.HttpServletRequest request = servletAttrs.getRequest();
-                String username = request.getHeader("X-Admin-Username");
-                if (username != null && !username.isBlank()) {
-                    return username;
-                }
-                String userId = request.getHeader("X-User-Id");
-                if (userId != null && !userId.isBlank()) {
-                    return "admin-" + userId;
-                }
+            org.springframework.security.core.Authentication authentication =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getDetails()
+                    instanceof com.cloudmart.pet.config.PetServiceTokenAuthenticationFilter.ServiceAdminDetails details
+                    && details.adminUsername() != null && !details.adminUsername().isBlank()) {
+                return details.adminUsername();
             }
         } catch (Exception e) {
             log.debug("操作者上下文不可用（非 Web 线程）", e);
         }
-        return "internal";
+        log.warn("[P0-3] 审计操作者缺失（服务令牌未携带 admin_username），记录为 unknown");
+        return "unknown";
     }
 
     /** 数值上下限组合校验（B21：阻止必然无法完成的任务/零成本无限奖励等） */
@@ -107,6 +107,19 @@ public class PetConfigGovernanceService {
                 checkRange(data, "rewardExp", 0, 2000, "经验奖励需 0~2000");
                 checkRange(data, "rewardStarlight", 0, 2000, "星光奖励需 0~2000");
                 checkRange(data, "rewardAltStarlight", 0, 2000, "替代星光需 0~2000");
+                checkRange(data, "targetValue", 1, 10000, "目标次数需 1~10000");
+                // P1-7：外键型校验——奖励物品编码必须真实存在（pet_equipment_config.code），
+                // 否则活动达成后发奖环节静默落空
+                Object itemCode = data.get("rewardItemCode");
+                if (itemCode != null && !String.valueOf(itemCode).isBlank()) {
+                    Long count = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM pet_equipment_config WHERE code = ?",
+                            Long.class, String.valueOf(itemCode));
+                    if (count == null || count == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                "rewardItemCode 不存在（须为已上架装备编码）: " + itemCode);
+                    }
+                }
                 // 开始时间必须早于结束时间（两者均提供时）
                 Object starts = data.get("startsAt");
                 Object ends = data.get("endsAt");
@@ -118,7 +131,75 @@ public class PetConfigGovernanceService {
                 checkRange(data, "priceStarlight", 0, 5000, "价格需 0~5000");
                 checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
             }
+            case "skill" -> {
+                // P1-7：数值型——价格/等级上限；effect 必须是服务端已实现枚举（否则配置形同虚设）；
+                // effectValue 按 effect 语义校验（比例型 0~1，点数型 0~100），防止配置超大值破坏战斗
+                checkRange(data, "priceStarlight", 0, 100000, "价格需 0~100000");
+                checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
+                Object effect = data.get("effect");
+                if (effect != null) {
+                    String effectName = String.valueOf(effect);
+                    try {
+                        com.cloudmart.pet.enums.PetSkillEffect.valueOf(effectName);
+                    } catch (IllegalArgumentException e) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                "effect 必须是服务端已实现的效果类型: " + effectName);
+                    }
+                    checkEffectValue(data.get("effectValue"), effectName);
+                }
+            }
+            case "evolution" -> {
+                // P1-7：costStarlight 负数 = 刷币漏洞；阶段必须逐阶递进；加成非负
+                checkRange(data, "costStarlight", 0, 100000, "进化费用需 0~100000");
+                checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
+                checkRange(data, "bonusMaxHp", 0, 10000, "生命上限加成需 0~10000");
+                checkRange(data, "bonusStrength", 0, 1000, "力量加成需 0~1000");
+                checkRange(data, "bonusIntelligence", 0, 1000, "智力加成需 0~1000");
+                checkRange(data, "bonusAgility", 0, 1000, "敏捷加成需 0~1000");
+                checkRange(data, "bonusCharm", 0, 1000, "魅力加成需 0~1000");
+                Object stageFrom = data.get("stageFrom");
+                Object stageTo = data.get("stageTo");
+                if (stageFrom != null && stageTo != null
+                        && Integer.parseInt(String.valueOf(stageTo))
+                                <= Integer.parseInt(String.valueOf(stageFrom))) {
+                    throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                            "stageTo 必须大于 stageFrom（逐阶进化）");
+                }
+                // P1-7：外键型校验——解锁皮肤编码必须真实存在
+                Object skinCode = data.get("unlockSkinCode");
+                if (skinCode != null && !String.valueOf(skinCode).isBlank()) {
+                    Long count = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM pet_skin_config WHERE code = ?",
+                            Long.class, String.valueOf(skinCode));
+                    if (count == null || count == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                "unlockSkinCode 不存在（须为已配置皮肤编码）: " + skinCode);
+                    }
+                }
+            }
             default -> { /* 其余类型暂无组合校验规则 */ }
+        }
+    }
+
+    /**
+     * 技能效果值语义校验（P1-7）：比例型效果（伤害/成功率/加成比例/减免）取值 0~1，
+     * 点数型（QUICK_STEP 先手加成）取值 0~100。
+     */
+    private void checkEffectValue(Object raw, String effectName) {
+        if (raw == null) {
+            return;
+        }
+        double value;
+        try {
+            value = Double.parseDouble(String.valueOf(raw));
+        } catch (NumberFormatException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "effectValue 必须是数字");
+        }
+        boolean ratio = !"QUICK_STEP".equals(effectName);
+        double max = ratio ? 1.0 : 100.0;
+        if (value < 0 || value > max) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "effectValue 需 0~" + (ratio ? "1" : "100") + "（" + effectName + " 语义）");
         }
     }
 

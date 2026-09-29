@@ -69,6 +69,12 @@ class PetChatServiceImplTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private PetContentSafetyService safetyService;
+    @Mock
+    private com.cloudmart.pet.repository.PetReportMapper reportMapper;
+    @Mock
+    private com.cloudmart.pet.config.PetMetrics metrics;
 
     private PetChatServiceImpl chatService;
 
@@ -90,7 +96,8 @@ class PetChatServiceImplTest {
                         .doInTransaction(org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class)));
         chatService = new PetChatServiceImpl(petService, contextService, aiClient, sessionMapper,
                 messageMapper, memoryMapper, petMapper, achievementService, dailyQuestService,
-                intimacyService, chatProps, redisTemplate, txTemplate);
+                intimacyService, chatProps, redisTemplate, txTemplate, safetyService, reportMapper,
+                metrics);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.increment(anyString())).thenReturn(1L);
     }
@@ -124,6 +131,7 @@ class PetChatServiceImplTest {
     @DisplayName("危机词本地拦截：安抚 + 热线资源，不调用 AI（数据安全）")
     void crisisKeywordBlocksAi() {
         when(petService.requireOwnedPet(100L)).thenReturn(pet());
+        when(safetyService.isCrisis("我不想活了")).thenReturn(true);
         when(sessionMapper.selectOne(any())).thenReturn(session());
         when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class))).thenReturn(1);
 
@@ -132,6 +140,8 @@ class PetChatServiceImplTest {
         assertThat(vo.content()).contains("12356");
         assertThat(vo.isAiReply()).isFalse();
         org.mockito.Mockito.verifyNoInteractions(aiClient);
+        // P0-1：危机词命中必须自动生成举报记录（进入管理端处理队列）
+        org.mockito.Mockito.verify(reportMapper).insert(any(com.cloudmart.pet.entity.PetReport.class));
     }
 
     @Test

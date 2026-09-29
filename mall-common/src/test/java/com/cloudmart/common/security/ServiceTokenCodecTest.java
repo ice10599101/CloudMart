@@ -36,6 +36,21 @@ class ServiceTokenCodecTest {
     }
 
     @Test
+    @DisplayName("P0-3：附加声明 admin_username 签发后随验签回读；无声明时为 null")
+    void extraClaims_adminUsername_roundTrip() throws Exception {
+        String withClaim = ServiceTokenCodec.sign("mall-admin", "mall-pet", "pet:admin", TTL, SECRET,
+                NOW, java.util.Map.of("admin_username", "ops-admin"));
+        ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(
+                withClaim, SECRET, "mall-pet", "mall-admin", "pet:admin", NOW.plusSeconds(60), SKEW);
+        assertThat(claims.adminUsername()).isEqualTo("ops-admin");
+
+        String withoutClaim = ServiceTokenCodec.sign("mall-admin", "mall-pet", "pet:admin", TTL, SECRET, NOW);
+        ServiceTokenCodec.ServiceTokenClaims plain = ServiceTokenCodec.verify(
+                withoutClaim, SECRET, "mall-pet", "mall-admin", "pet:admin", NOW.plusSeconds(60), SKEW);
+        assertThat(plain.adminUsername()).isNull();
+    }
+
+    @Test
     @DisplayName("过期令牌拒绝（含 skew 容忍边界）")
     void verify_expiredToken_rejected() {
         String token = ServiceTokenCodec.sign("mall-job", "mall-wish", "wish:jobs", TTL, SECRET, NOW);

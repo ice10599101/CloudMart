@@ -140,7 +140,10 @@ export default function PetStagePage() {
       const intent = INTENT_TO_PANEL[action]
       if (intent) {
         Taro.navigateTo({ url: `/pages/pet/index?intent=${intent}` })
+        return
       }
+      // P2-4：未知意图明确回执（联调/排查可见，不再静默丢弃）
+      postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: 'unknown_action' })
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)

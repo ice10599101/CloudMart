@@ -44,6 +44,10 @@ public interface OrderService {
     /** USER-01：用户是否存在未结订单（PENDING_PAYMENT/PAID/SHIPPED，注销阻塞判定） */
     boolean hasOpenOrders(Long userId);
 
+    /** OPS-01：已推进资金状态的订单分页（对账核对用）。 */
+    java.util.Map.Entry<java.util.List<com.cloudmart.order.dto.OrderInternalInfoDTO>, Long>
+            listPaidOrdersForReconciliation(int page, int size);
+
     /** WMS-01 余量：自动收货——发货超 N 天未确认的订单批量确认（mall-job 触发）。 */
     int autoConfirmReceipts(int days);
 

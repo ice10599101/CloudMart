@@ -78,6 +78,19 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.hasOpenOrders(userId));
     }
 
+    public record PageDTO(java.util.List<com.cloudmart.order.dto.OrderInternalInfoDTO> records, long total) {
+    }
+
+    /** OPS-01：分页获取已推进资金状态的订单（对账核对用） */
+    @GetMapping("/paid-orders")
+    @Operation(summary = "已支付订单分页", description = "PAID/SHIPPED/COMPLETED 状态订单，对账核对用")
+    public ApiResponse<PageDTO> listPaidOrders(
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "200") int size) {
+        var result = orderService.listPaidOrdersForReconciliation(page, Math.min(size, 500));
+        return ApiResponse.ok(new PageDTO(result.getKey(), result.getValue()));
+    }
+
     /** REVIEW-01：评价资格判定——该用户已完成订单中包含指定 SKU 的订单列表 */
     @GetMapping("/purchase-eligibility")
     @Operation(summary = "购买资格查询", description = "userId+skuId；返回已完成且包含该 SKU 的订单 ID")

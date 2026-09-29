@@ -60,8 +60,10 @@ spring:
     password: ${MYSQL_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
+      # P2-1/P2-2：互动链路高峰期 5 连接必现等待；连接获取 3s 快速失败，不无限排队
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 3000
   flyway:
     enabled: true
     baseline-on-migrate: true

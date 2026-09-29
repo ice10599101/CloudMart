@@ -32,8 +32,19 @@ public class PetServiceTokenConfig {
     public RequestInterceptor petServiceTokenInterceptor(
             @Value("${pet.service-token.secret:${PET_SERVICE_TOKEN_SECRET:${WISH_SERVICE_TOKEN_SECRET:}}}")
             String secret) {
-        return template -> template.header(ServiceTokenCodec.HEADER_NAME,
-                signerFor(secret).sign("mall-pet"));
+        return template -> {
+            ServiceTokenSigner signer = signerFor(secret);
+            // P0-3：把当前认证管理员的 username 签入令牌 claim（随签名防篡改），
+            // mall-pet 从已验签声明读取审计操作者，请求头 X-Admin-Username 不再被信任
+            com.cloudmart.common.context.AdminSecurityContext admin =
+                    com.cloudmart.common.context.AdminSecurityContext.get();
+            if (admin != null && admin.username() != null && !admin.username().isBlank()) {
+                template.header(ServiceTokenCodec.HEADER_NAME, signer.sign("mall-pet",
+                        java.util.Map.of("admin_username", admin.username())));
+            } else {
+                template.header(ServiceTokenCodec.HEADER_NAME, signer.sign("mall-pet"));
+            }
+        };
     }
 
     private ServiceTokenSigner signerFor(String secret) {

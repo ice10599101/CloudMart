@@ -20,4 +20,19 @@ public class PetMetrics {
     public void increment(String name, String tagKey, String tagValue) {
         Counter.builder(name).tag(tagKey, tagValue).register(registry).increment();
     }
+
+    /** 累计型计数（P1-8：token 消耗/延迟等按量累加） */
+    public void add(String name, double amount) {
+        Counter.builder(name).register(registry).increment(amount);
+    }
+
+    public void add(String name, double amount, String tagKey, String tagValue) {
+        Counter.builder(name).tag(tagKey, tagValue).register(registry).increment(amount);
+    }
+
+    /** 读取当前累计值（看板展示用；指标不存在返回 0） */
+    public double value(String name) {
+        Counter counter = registry.find(name).counter();
+        return counter != null ? counter.count() : 0;
+    }
 }

@@ -46,6 +46,8 @@ public class PetWalletReconcileJob {
     private final PetWalletReconcileRunMapper runMapper;
     private final PetWalletReconcileItemMapper itemMapper;
     private final PetMetrics metrics;
+    private final com.cloudmart.pet.mq.PetEventProducer eventProducer;
+    private final com.cloudmart.pet.config.PetProperties properties;
 
     /** 每日全量对账（凌晨 2:30，避开业务高峰；分钟级抽查由指标侧覆盖） */
     @Scheduled(cron = "0 30 2 * * *", zone = "UTC")
@@ -82,6 +84,8 @@ public class PetWalletReconcileJob {
                     item.setDiff(account.getBalance() - expected);
                     item.setStatus("OPEN");
                     itemMapper.insert(item);
+                    // P2-5：逐条差异计数（区别于 run 级完成计数），供告警阈值/趋势监控
+                    metrics.increment("pet_wallet_reconcile_diff", "trigger", trigger);
                     log.error("[RECONCILE DIFF] 账本不平! accountId={}, user={}, expected={}, actual={}, diff={}, version={}",
                             account.getId(), account.getUserId(), expected, account.getBalance(),
                             account.getBalance() - expected, account.getVersion());
@@ -94,8 +98,18 @@ public class PetWalletReconcileJob {
             runMapper.updateById(run);
             metrics.increment("pet_wallet_reconcile_diff_count", "trigger", trigger);
             if (diffCount > 0) {
-                // 资产差异>0 是立即阻断项：告警通道由运维手册接线（值班人工处置，不自动改平）
-                log.error("[RECONCILE] 对账完成但存在差异, runId={}, accounts={}, diffs={}",
+                // P2-5：告警经 outbox 可靠投递给管理员（站内信落库推送）；差异本身仍由值班人工处置，不自动改平
+                String eventId = "PET_WALLET_RECONCILE_ALERT:" + run.getId();
+                eventProducer.publishViaOutbox(com.cloudmart.pet.config.RocketMQConfig.PET_TAG_WALLET_ALERT,
+                        new com.cloudmart.pet.mq.PetEventProducer.PetEventMessage(
+                                eventId,
+                                String.valueOf(properties.getAlert().getAdminUserId()),
+                                "PET_WALLET_RECONCILE_ALERT",
+                                "钱包对账差异告警",
+                                "对账批次 " + run.getId() + " 发现 " + diffCount + " 个账本差异，"
+                                        + "差异明细已进入 pet_wallet_reconcile_item 待处置队列，请立即核查。",
+                                String.valueOf(run.getId()), "PET_WALLET_RECONCILE_ALERT"));
+                log.error("[RECONCILE] 对账完成但存在差异, runId={}, accounts={}, diffs={}, 已发送管理员告警",
                         run.getId(), accounts.size(), diffCount);
             } else {
                 log.info("[RECONCILE] 对账完成，全部平账, runId={}, accounts={}", run.getId(), accounts.size());

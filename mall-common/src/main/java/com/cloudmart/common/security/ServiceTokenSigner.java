@@ -42,4 +42,9 @@ public final class ServiceTokenSigner {
     public String sign(String audience) {
         return ServiceTokenCodec.sign(issuer, audience, scope, ttl, secret, clock.instant());
     }
+
+    /** 签出带附加声明的令牌（P0-3：如审计身份 admin_username，随签名防篡改传输）。 */
+    public String sign(String audience, java.util.Map<String, String> extraClaims) {
+        return ServiceTokenCodec.sign(issuer, audience, scope, ttl, secret, clock.instant(), extraClaims);
+    }
 }

@@ -36,6 +36,15 @@ public class PetReport {
 
     private LocalDateTime handledAt;
 
+    /** 处理动作：CONTENT_REMOVED/USER_WARNED/USER_PET_BANNED/DISMISSED（P0-2） */
+    private String handleAction;
+
+    /** 处理说明（通知举报人的依据，P0-2） */
+    private String handleReason;
+
+    /** 是否系统自动举报：1 自动（如危机词命中）0 用户提交（P0-1） */
+    private Integer isAuto;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

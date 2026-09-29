@@ -25,7 +25,9 @@ public class PetQuotaService {
     public enum QuotaType {
         FEED, PLAY_REWARD, REST_INTIMACY, BATTLE_REWARD, PVP_OPPONENT,
         WALL_POST, WALL_REPLY, VISIT_REWARD, FRIEND_VISIT_REWARD,
-        LIKE_REWARD, MINIGAME, DECORATE, HOST_CARE, HOME_ENTER, BATTLE_DEFEAT_TARGET
+        LIKE_REWARD, MINIGAME, DECORATE, HOST_CARE, HOME_ENTER, BATTLE_DEFEAT_TARGET,
+        /** 对战放弃/被拒/过期计数（P1-3：24h 内 ≥3 次进入发起冷却，仅计数无上限） */
+        BATTLE_ABORT
     }
 
     private final PetDailyQuotaMapper quotaMapper;
@@ -90,6 +92,41 @@ public class PetQuotaService {
                 .eq(PetDailyQuota::getQuotaType, type.name())
                 .eq(PetDailyQuota::getTargetId, targetId)
                 .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+    }
+
+    /**
+     * 仅计数（无上限语义，P1-3）：用于"放弃对战次数"这类软限制累计——
+     * 计数永远成功（达上限与否由调用方读 {@link #used} 判断），失败不阻断主流程。
+     */
+    public void record(Long userId, QuotaType type, long targetId) {
+        try {
+            int updated = quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
+                    .setSql("used = used + 1")
+                    .eq(PetDailyQuota::getUserId, userId)
+                    .eq(PetDailyQuota::getQuotaType, type.name())
+                    .eq(PetDailyQuota::getTargetId, targetId)
+                    .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+            if (updated == 0) {
+                PetDailyQuota row = new PetDailyQuota();
+                row.setUserId(userId);
+                row.setQuotaType(type.name());
+                row.setTargetId(targetId);
+                row.setBusinessDate(petClock.businessDate());
+                row.setUsed(1);
+                try {
+                    quotaMapper.insert(row);
+                } catch (DuplicateKeyException concurrent) {
+                    quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
+                            .setSql("used = used + 1")
+                            .eq(PetDailyQuota::getUserId, userId)
+                            .eq(PetDailyQuota::getQuotaType, type.name())
+                            .eq(PetDailyQuota::getTargetId, targetId)
+                            .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("配额计数失败（软限制不阻断）: userId={}, type={}", userId, type, e);
+        }
     }
 
     /** 已用次数（额度展示 rewardRemainingToday 用；无行返回 0） */

@@ -45,4 +45,11 @@ public interface PetService {
 
     /** 供其他宠物服务复用：加载用户<b>主宠</b>并结算懒更新（不存在抛 PET_NOT_FOUND） */
     Pet requireOwnedPet(Long userId);
+
+    /**
+     * 基于已持有的宠物实体组装完整 VO（P2-1）：互动/结算链路复用——状态已在调用方
+     * 事务内同步更新到实体上，不再经 {@link #getMyPet} 二次全量查询；
+     * 喂食余量按实体归属用户实时计算（Fail-Open 为 null）。
+     */
+    PetVO toVo(Pet pet);
 }

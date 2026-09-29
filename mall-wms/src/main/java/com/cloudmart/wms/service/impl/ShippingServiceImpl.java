@@ -32,6 +32,7 @@ public class ShippingServiceImpl implements ShippingService {
     private final WmsConverter wmsConverter;
     private final OrderInfoFeignClient orderInfoFeignClient;
     private final com.cloudmart.common.async.outbox.OutboxService outboxService;
+    private final com.cloudmart.wms.repository.WarehouseMapper warehouseMapper;
 
     private static final java.util.Set<String> ALLOWED_STATUSES =
             java.util.Set.of("PENDING", "PICKING", "SHIPPED", "DELIVERED");
@@ -45,12 +46,14 @@ public class ShippingServiceImpl implements ShippingService {
     public ShippingServiceImpl(ShippingOrderMapper shippingOrderMapper,
                                ShippingTrackingMapper shippingTrackingMapper,
                                WmsConverter wmsConverter, OrderInfoFeignClient orderInfoFeignClient,
-                               com.cloudmart.common.async.outbox.OutboxService outboxService) {
+                               com.cloudmart.common.async.outbox.OutboxService outboxService,
+                               com.cloudmart.wms.repository.WarehouseMapper warehouseMapper) {
         this.shippingOrderMapper = shippingOrderMapper;
         this.shippingTrackingMapper = shippingTrackingMapper;
         this.wmsConverter = wmsConverter;
         this.orderInfoFeignClient = orderInfoFeignClient;
         this.outboxService = outboxService;
+        this.warehouseMapper = warehouseMapper;
     }
 
     @Override
@@ -64,9 +67,19 @@ public class ShippingServiceImpl implements ShippingService {
             log.info("[WMS01] 重复建包裹请求，返回已有包裹 orderId={}", request.orderId());
             return getByOrderId(request.orderId(), null);
         }
+        // WMS-01：仓库分配——请求未指定时取第一个可用仓库（与拣货监听同策略）
+        Long warehouseId = request.warehouseId();
+        if (warehouseId == null) {
+            var first = warehouseMapper.selectList(
+                    new LambdaQueryWrapper<com.cloudmart.wms.entity.Warehouse>().last("LIMIT 1"));
+            if (first.isEmpty()) {
+                throw new BusinessException("WAREHOUSE_NOT_FOUND", "无可用仓库，无法创建物流订单");
+            }
+            warehouseId = first.get(0).getId();
+        }
         ShippingOrder order = new ShippingOrder();
         order.setOrderId(request.orderId());
-        order.setWarehouseId(request.warehouseId());
+        order.setWarehouseId(warehouseId);
         order.setShippingNo("SF" + System.currentTimeMillis());
         order.setCarrier(request.carrier());
         order.setTrackingNo(request.trackingNo().trim());

@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -38,6 +39,11 @@ public class PetActivityScheduler {
 
     private static final int SCAN_BATCH = 100;
 
+    /** P1-5：多实例互斥锁（抢不到直接返回；Redis 故障 Fail-Open 退化为无害重扫） */
+    static final String LOCK_SETTLE = "pet:lock:activity-settle";
+    static final String LOCK_HOUSEKEEPING = "pet:lock:activity-housekeeping";
+    static final String LOCK_RANK_REBUILD = "pet:lock:rank-rebuild";
+
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
     private final PetBottleFishingService bottleFishingService;
@@ -45,33 +51,88 @@ public class PetActivityScheduler {
     private final PetBattleService battleService;
     private final PetInteractionService interactionService;
     private final PetEventProducer eventProducer;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    private final com.cloudmart.pet.service.PetRankingService rankingService;
+    private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService dashboardSnapshotService;
 
     @Scheduled(fixedDelay = 60_000)
     public void settleFinishedActivities() {
-        List<PetActivity> finished = activityMapper.selectList(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name())
-                .le(PetActivity::getFinishedAt, LocalDateTime.now(ZoneId.of("UTC")))
-                .last("LIMIT " + SCAN_BATCH));
-        for (PetActivity activity : finished) {
-            try {
-                handleFinished(activity);
-            } catch (Exception e) {
-                // 单条失败不阻断批处理（下轮扫描重试；CAS 保证幂等）
-                log.error("活动结算失败: activityId={}, type={}", activity.getId(), activity.getActivityType(), e);
+        if (!tryLock(LOCK_SETTLE, Duration.ofSeconds(55))) {
+            return;
+        }
+        try {
+            List<PetActivity> finished = activityMapper.selectList(new LambdaQueryWrapper<PetActivity>()
+                    .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name())
+                    .le(PetActivity::getFinishedAt, LocalDateTime.now(ZoneId.of("UTC")))
+                    // P1-5：确定性排序——最老到期先结算，保证批处理推进顺序可复现
+                    .orderByAsc(PetActivity::getFinishedAt)
+                    .orderByAsc(PetActivity::getId)
+                    .last("LIMIT " + SCAN_BATCH));
+            for (PetActivity activity : finished) {
+                try {
+                    handleFinished(activity);
+                } catch (Exception e) {
+                    // 单条失败不阻断批处理（下轮扫描重试；CAS 保证幂等）
+                    log.error("活动结算失败: activityId={}, type={}", activity.getId(), activity.getActivityType(), e);
+                }
             }
+        } finally {
+            unlock(LOCK_SETTLE);
         }
     }
 
     @Scheduled(cron = "0 30 * * * *")
     public void housekeeping() {
+        if (!tryLock(LOCK_HOUSEKEEPING, Duration.ofSeconds(300))) {
+            return;
+        }
         try {
             int expiredClaims = activityService.expireStaleClaims();
             int expiredBattles = battleService.expirePendingBattles();
+            // P2-3：看板当日快照小时级增量写入（历史日冻结，看板读快照 + 当日实时合并）
+            dashboardSnapshotService.writeTodaySnapshot();
             if (expiredClaims > 0 || expiredBattles > 0) {
                 log.info("宠物清扫完成: expiredClaims={}, expiredBattles={}", expiredClaims, expiredBattles);
             }
         } catch (Exception e) {
             log.error("宠物清扫任务失败", e);
+        } finally {
+            unlock(LOCK_HOUSEKEEPING);
+        }
+    }
+
+    /** P1-4：排行榜缓存每日全量重建（校准 ZSet 漂移；Redis 异常由重建内部降级） */
+    @Scheduled(cron = "0 20 3 * * *")
+    public void rebuildRankingCache() {
+        if (!tryLock(LOCK_RANK_REBUILD, Duration.ofSeconds(600))) {
+            return;
+        }
+        try {
+            boolean rebuilt = rankingService.rebuildRankingCache();
+            log.info("排行榜缓存重建: result={}", rebuilt ? "OK" : "SKIPPED（降级）");
+        } catch (Exception e) {
+            log.error("排行榜缓存重建失败", e);
+        } finally {
+            unlock(LOCK_RANK_REBUILD);
+        }
+    }
+
+    /** SET NX EX 抢锁；Redis 故障 Fail-Open（返回 true 继续执行，靠下游 CAS 幂等兜底） */
+    private boolean tryLock(String key, Duration ttl) {
+        try {
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, "1", ttl);
+            return !Boolean.FALSE.equals(acquired);
+        } catch (Exception e) {
+            log.warn("调度分布式锁不可用（Fail-Open 继续执行）: key={}", key, e);
+            return true;
+        }
+    }
+
+    private void unlock(String key) {
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception ignored) {
+            // TTL 兜底过期，无需处理
         }
     }
 

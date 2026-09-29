@@ -9,6 +9,7 @@ import com.cloudmart.pet.entity.PetWallMessage;
 import com.cloudmart.pet.enums.PetWallStatus;
 import com.cloudmart.pet.repository.PetWallMessageMapper;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,21 +39,38 @@ public class AdminPetWallController {
     private final PetWallMessageMapper wallMessageMapper;
 
     @GetMapping("/messages")
-    @Operation(summary = "留言列表", description = "按宠物/作者/状态筛选，offset 分页；含 DELETED/HIDDEN 全量（审计）")
+    @Operation(summary = "留言列表", description = "按宠物/作者/状态筛选；beforeId 游标模式（深翻页首选）或 offset 分页（兼容）；含 DELETED/HIDDEN 全量（审计）")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<List<PetWallMessage>> listMessages(
             @RequestParam(value = "petId", required = false) Long petId,
             @RequestParam(value = "authorUserId", required = false) Long authorUserId,
             @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "游标：上一页最后一条的 id（与 page 互斥，提供时走游标模式）")
+            @RequestParam(value = "beforeId", required = false) Long beforeId,
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "20") Integer size) {
+        // P2-3：admin 列表 size 上限统一 100，防止一次性拉爆
+        int safeSize = Math.min(Math.max(1, size), 100);
         LambdaQueryWrapper<PetWallMessage> wrapper = new LambdaQueryWrapper<PetWallMessage>()
                 .eq(petId != null, PetWallMessage::getPetId, petId)
                 .eq(authorUserId != null, PetWallMessage::getAuthorUserId, authorUserId)
                 .eq(status != null && !status.isBlank(), PetWallMessage::getStatus, status)
                 .orderByDesc(PetWallMessage::getId);
+        if (beforeId != null) {
+            // P2-3：游标模式（id 倒序 + beforeId 截断）——大 offset 的深翻页不再有 offset 扫描成本
+            List<PetWallMessage> records = wallMessageMapper.selectList(wrapper
+                    .lt(PetWallMessage::getId, beforeId)
+                    .last("LIMIT " + (safeSize + 1)));
+            boolean hasMore = records.size() > safeSize;
+            if (hasMore) {
+                records = records.subList(0, safeSize);
+            }
+            String nextCursor = hasMore && !records.isEmpty()
+                    ? String.valueOf(records.get(records.size() - 1).getId()) : null;
+            return ApiResponse.okWithCursor(records, safeSize, nextCursor, hasMore);
+        }
         Page<PetWallMessage> result = wallMessageMapper.selectPage(
-                new Page<>(Math.max(1, page), Math.min(Math.max(1, size), 100)), wrapper);
+                new Page<>(Math.max(1, page), safeSize), wrapper);
         return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
     }
 

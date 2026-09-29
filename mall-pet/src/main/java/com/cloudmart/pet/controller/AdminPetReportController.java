@@ -44,6 +44,7 @@ public class AdminPetReportController {
     private final PetMapper petMapper;
     private final PetAchievementService achievementService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
+    private final com.cloudmart.pet.service.impl.PetReportResolutionService resolutionService;
 
     @GetMapping("/reports")
     @Operation(summary = "举报列表", description = "status 过滤 + 分页")
@@ -80,6 +81,21 @@ public class AdminPetReportController {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "举报不存在或已处理");
         }
+        return ApiResponse.ok(null);
+    }
+
+    /** 举报闭环处理请求（P0-2） */
+    public record ResolveReportRequest(String action, String reason) {
+    }
+
+    @PostMapping("/reports/{id}/resolve")
+    @Operation(summary = "闭环处理举报", description = "action: CONTENT_REMOVED/USER_WARNED/USER_PET_BANNED/DISMISSED + reason 必填；" +
+            "处理后经 outbox 通知举报人，CONTENT_REMOVED 联动隐藏留言墙内容")
+    public ApiResponse<Void> resolve(
+            @Parameter(description = "举报 ID") @PathVariable("id") Long id,
+            @org.springframework.web.bind.annotation.RequestBody ResolveReportRequest request,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        resolutionService.resolve(id, request.action(), request.reason(), adminUserId);
         return ApiResponse.ok(null);
     }
 

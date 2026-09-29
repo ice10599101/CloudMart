@@ -100,6 +100,12 @@ export interface PetDashboard {
     topFurniture: Array<{ name: string; value: number }>
     topIntimacy: Array<{ name: string; value: number }>
   }
+  /** AI 聊天用量（P1-8） */
+  aiUsage: {
+    aiRepliesToday: number
+    tokensToday: number
+    fallbackTotal: number
+  }
 }
 
 // ==================== W04 钱包管理（§8.4；/admin/pet/wallet/**） ====================
@@ -188,4 +194,32 @@ export function getPetWalletReconciliation(runId: number | string) {
 
 export function runPetWalletReconciliation() {
   return request.post<ApiResponse<void>>('/admin/pet/wallet/reconciliations/run')
+}
+
+// ==================== P0-2 举报处理闭环 ====================
+
+/** 举报条目（与后端 pet_report 对齐） */
+export interface AdminPetReport {
+  id: number | string
+  reporterUserId: number | string
+  targetType: 'WALL_MESSAGE' | 'BOTTLE_CONTENT' | 'NICKNAME' | 'CHAT_MESSAGE'
+  targetId: number | string
+  reason: string
+  status: 'PENDING' | 'HANDLED' | 'REJECTED'
+  handledBy?: number | string | null
+  handledAt?: string | null
+  handleAction?: 'CONTENT_REMOVED' | 'USER_WARNED' | 'USER_PET_BANNED' | 'DISMISSED' | null
+  handleReason?: string | null
+  isAuto?: number
+  createdAt: string
+}
+
+/** 举报列表（status 过滤 + 分页） */
+export function getPetReports(params: { page: number; size: number; status?: string }) {
+  return request.get<ApiResponse<AdminPetReport[]>>('/admin/pet/reports', { params })
+}
+
+/** 闭环处理举报（处理后通知举报人；CONTENT_REMOVED 联动隐藏留言内容） */
+export function resolvePetReport(id: number | string, data: { action: string; reason: string }) {
+  return request.post<ApiResponse<void>>(`/admin/pet/reports/${id}/resolve`, data)
 }

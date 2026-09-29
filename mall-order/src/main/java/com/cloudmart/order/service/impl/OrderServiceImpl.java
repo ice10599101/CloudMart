@@ -1008,6 +1008,21 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public java.util.Map.Entry<java.util.List<com.cloudmart.order.dto.OrderInternalInfoDTO>, Long>
+            listPaidOrdersForReconciliation(int page, int size) {
+        // OPS-01：对账核对——已推进资金状态的订单分页（PAID/SHIPPED/COMPLETED）
+        Page<Order> result = orderMapper.selectPage(new Page<>(page, size),
+                new LambdaQueryWrapper<Order>()
+                        .in(Order::getStatus, "PAID", "SHIPPED", "COMPLETED")
+                        .orderByAsc(Order::getId));
+        var records = result.getRecords().stream()
+                .map(o -> new com.cloudmart.order.dto.OrderInternalInfoDTO(
+                        o.getId(), o.getUserId(), o.getStatus(), o.getPayAmount()))
+                .toList();
+        return java.util.Map.entry(records, result.getTotal());
+    }
+
+    @Override
     public int autoConfirmReceipts(int days) {
         // WMS-01 余量：自动收货——CAS SHIPPED→COMPLETED 逐单推进（与用户手动确认
         // 及退款并发安全，先到先赢），每单发布状态事件；批量上限防长事务

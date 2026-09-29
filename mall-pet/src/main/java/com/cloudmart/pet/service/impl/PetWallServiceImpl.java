@@ -83,6 +83,7 @@ public class PetWallServiceImpl implements PetWallService {
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final StringRedisTemplate redisTemplate;
+    private final PetContentSafetyService safetyService;
 
     public PetWallServiceImpl(PetService petService,
                               PetMapper petMapper,
@@ -99,7 +100,8 @@ public class PetWallServiceImpl implements PetWallService {
                               PetProperties properties,
                               StringRedisTemplate redisTemplate,
                               PetQuotaService quotaService,
-                              com.cloudmart.pet.service.PetUserBlockService userBlockService) {
+                              com.cloudmart.pet.service.PetUserBlockService userBlockService,
+                              PetContentSafetyService safetyService) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.wallMessageMapper = wallMessageMapper;
@@ -116,6 +118,7 @@ this.properties = properties;
         this.redisTemplate = redisTemplate;
         this.quotaService = quotaService;
         this.userBlockService = userBlockService;
+        this.safetyService = safetyService;
     }
 
     @Override
@@ -184,6 +187,11 @@ this.properties = properties;
         }
         requireRoomPublic(owner, false);
         String content = normalize(request.content());
+        // P0-1 内容安全：先 check（命中直接拒绝）再 filter（打码入库，保留审核线索）
+        safetyService.check(content).ifPresent(hit -> {
+            throw new BusinessException(PetErrorCodes.PET_CONTENT_SENSITIVE, "留言包含不合适的内容，请调整后再发");
+        });
+        content = safetyService.filter(content);
         // B14：留言与回复共享数据库日限额（Redis 故障不发奖不计数）
         boolean allowed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.WALL_POST, 0,
                 properties.getWall().getDailyPostLimit());
@@ -235,7 +243,12 @@ this.properties = properties;
         reply.setAuthorUserId(userId);
         reply.setAuthorPetId(me.getId());
         reply.setParentId(root.getId());
-        reply.setContent(normalize(request.content()));
+        String replyContent = normalize(request.content());
+        // P0-1 内容安全：主人回复同样过敏感词（拒绝 + 打码）
+        safetyService.check(replyContent).ifPresent(hit -> {
+            throw new BusinessException(PetErrorCodes.PET_CONTENT_SENSITIVE, "回复包含不合适的内容，请调整后再发");
+        });
+        reply.setContent(safetyService.filter(replyContent));
         reply.setStatus(PetWallStatus.NORMAL.name());
         reply.setLikeCount(0);
         reply.setReplyCount(0);

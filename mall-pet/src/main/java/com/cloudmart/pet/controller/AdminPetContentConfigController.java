@@ -1,7 +1,10 @@
 package com.cloudmart.pet.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
 import com.cloudmart.pet.entity.PetEventConfig;
 import com.cloudmart.pet.entity.PetEvolutionConfig;
@@ -20,6 +23,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,6 +56,8 @@ public class AdminPetContentConfigController {
     private final PetSkillConfigMapper skillConfigMapper;
     private final PetEvolutionConfigMapper evolutionConfigMapper;
     private final PetEventConfigMapper eventConfigMapper;
+    private final com.cloudmart.pet.repository.PetContentSensitiveWordMapper sensitiveWordMapper;
+    private final com.cloudmart.pet.service.impl.PetContentSafetyService contentSafetyService;
 
     // ---------------- 装备 ----------------
 
@@ -336,6 +342,74 @@ public class AdminPetContentConfigController {
         return ApiResponse.ok(null);
     }
 
+    // ---------------- 敏感词库（P0-1 内容安全） ----------------
+
+    @GetMapping("/sensitive-words")
+    @Operation(summary = "敏感词列表", description = "status 过滤 + 分页（内容安全词库）")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetContentSensitiveWord>> listSensitiveWords(
+            @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        LambdaQueryWrapper<com.cloudmart.pet.entity.PetContentSensitiveWord> wrapper =
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetContentSensitiveWord>()
+                        .orderByDesc(com.cloudmart.pet.entity.PetContentSensitiveWord::getId);
+        if (status != null) {
+            wrapper.eq(com.cloudmart.pet.entity.PetContentSensitiveWord::getStatus, status);
+        }
+        Page<com.cloudmart.pet.entity.PetContentSensitiveWord> result =
+                sensitiveWordMapper.selectPage(new Page<>(Math.max(page, 1), Math.min(size, 100)), wrapper);
+        return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+    }
+
+    @PostMapping("/sensitive-words")
+    @Operation(summary = "新增/更新敏感词", description = "带 id 为更新；category: POLITICS/ABUSE/AD/CRISIS")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<com.cloudmart.pet.entity.PetContentSensitiveWord> upsertSensitiveWord(
+            @Valid @RequestBody SensitiveWordUpsertRequest request) {
+        String normalizedWord = request.word().strip();
+        if (normalizedWord.isEmpty() || normalizedWord.length() > 64) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "敏感词长度需 1~64 字");
+        }
+        if (!com.cloudmart.pet.service.impl.PetContentSafetyService.CATEGORIES.contains(request.category())) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "类别必须是 " + com.cloudmart.pet.service.impl.PetContentSafetyService.CATEGORIES);
+        }
+        com.cloudmart.pet.entity.PetContentSensitiveWord entry = new com.cloudmart.pet.entity.PetContentSensitiveWord();
+        entry.setId(request.id());
+        entry.setWord(normalizedWord);
+        entry.setCategory(request.category());
+        entry.setStatus(request.enabled() == null || request.enabled() ? 1 : 0);
+        try {
+            if (request.id() != null && sensitiveWordMapper.selectById(request.id()) != null) {
+                sensitiveWordMapper.updateById(entry);
+            } else {
+                entry.setId(null);
+                sensitiveWordMapper.insert(entry);
+            }
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该敏感词已存在");
+        }
+        governance.snapshotAndRecord("sensitive_word", entry.getId(),
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        contentSafetyService.refresh();
+        return ApiResponse.ok(entry);
+    }
+
+    @DeleteMapping("/sensitive-words/{id}")
+    @Operation(summary = "删除敏感词", description = "词库条目物理删除（非业务数据，重加同词不冲突）")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> deleteSensitiveWord(@PathVariable("id") Long id) {
+        if (sensitiveWordMapper.selectById(id) == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "敏感词不存在");
+        }
+        sensitiveWordMapper.deleteById(id);
+        governance.snapshotAndRecord("sensitive_word", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        contentSafetyService.refresh();
+        return ApiResponse.ok(null);
+    }
+
     // ---------------- 请求体 ----------------
 
     /** 装备配置请求 */
@@ -433,6 +507,15 @@ public class AdminPetContentConfigController {
             LocalDateTime endsAt,
             Boolean enabled,
             Integer sort
+    ) {
+    }
+
+    /** 敏感词请求（P0-1 内容安全词库） */
+    public record SensitiveWordUpsertRequest(
+            Long id,
+            @NotBlank String word,
+            @NotBlank String category,
+            Boolean enabled
     ) {
     }
 

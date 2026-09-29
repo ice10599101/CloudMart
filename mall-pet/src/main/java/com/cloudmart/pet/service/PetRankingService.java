@@ -27,6 +27,13 @@ public interface PetRankingService {
      */
     PetRankingResult ranking(RankingType type, Long userId);
 
+    /**
+     * 每日全量重建排行榜缓存（P1-4：校准 ZSet 与 DB 间的漂移，由调度器凌晨触发）。
+     *
+     * @return 是否重建成功（Redis 异常时 false，读路径继续回落 DB）
+     */
+    boolean rebuildRankingCache();
+
     /** 榜单 + 我的名次聚合结果 */
     record PetRankingResult(List<PetRankingVO> top20, Long myValue, Integer myRank) {
     }

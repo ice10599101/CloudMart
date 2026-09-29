@@ -16,8 +16,10 @@ import com.cloudmart.pet.entity.PetWallMessage;
 import com.cloudmart.pet.enums.PetFriendStatus;
 import com.cloudmart.pet.enums.PetQuestStatus;
 import com.cloudmart.pet.enums.PetRelationStatus;
+import com.cloudmart.pet.entity.PetChatMessage;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetBattleMapper;
+import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
 import com.cloudmart.pet.repository.PetDailyQuestMapper;
 import com.cloudmart.pet.repository.PetFriendMapper;
@@ -69,6 +71,9 @@ public class AdminPetDashboardController {
     private final PetRoomItemMapper roomItemMapper;
     private final PetDailyQuestMapper dailyQuestMapper;
     private final PetInventoryMapper inventoryMapper;
+    private final PetChatMessageMapper chatMessageMapper;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
+    private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService snapshotService;
 
     @GetMapping
     @Operation(summary = "宠物看板", description = "概览 + 近 N 日趋势 + 分布排行（days 默认 14，最多 60）")
@@ -108,7 +113,21 @@ public class AdminPetDashboardController {
                 purchasesByType());
 
         return ApiResponse.ok(new PetDashboardVO(overview,
-                trend(trendStart, today, safeDays), distribution()));
+                trend(trendStart, today, safeDays), distribution(), aiUsage(todayStart)));
+    }
+
+    // ---------------- AI 用量（P1-8 成本可观测） ----------------
+
+    /** 今日 AI 调用次数 / 估算 token（pet_chat_message 聚合）+ 降级次数（metrics 计数器） */
+    private PetDashboardVO.AiUsage aiUsage(LocalDateTime todayStart) {
+        List<Map<String, Object>> rows = chatMessageMapper.selectMaps(new QueryWrapper<PetChatMessage>()
+                .select("COALESCE(SUM(CASE WHEN is_ai_reply = 1 THEN 1 ELSE 0 END), 0) AS ai_replies",
+                        "COALESCE(SUM(token_count), 0) AS tokens")
+                .ge("created_at", todayStart));
+        long aiReplies = scalar(rows, "ai_replies");
+        long tokens = scalar(rows, "tokens");
+        long fallback = (long) metrics.value("pet_chat_ai_fallback_total");
+        return new PetDashboardVO.AiUsage(aiReplies, tokens, fallback);
     }
 
     // ---------------- 概览辅助 ----------------
@@ -157,6 +176,62 @@ public class AdminPetDashboardController {
     // ---------------- 趋势 ----------------
 
     private List<PetDashboardVO.TrendPoint> trend(LocalDateTime since, LocalDate today, int days) {
+        LocalDate fromDate = today.minusDays(days - 1L);
+        LocalDate yesterday = today.minusDays(1);
+        // P2-3：历史日优先读每日快照（调度器小时级增量写入）；覆盖不全（刚上线/快照故障）回落实时聚合
+        Map<java.time.LocalDate, Map<String, Long>> snapshots =
+                snapshotService.snapshotsBetween(fromDate, yesterday);
+        if (snapshotService.fullyCovered(snapshots, fromDate, yesterday)) {
+            return trendFromSnapshot(snapshots, since, today, days);
+        }
+        return trendRealtime(since, today, days);
+    }
+
+    /** 快照路径：历史日直读快照，当日实时聚合（扫描量只与今日数据相关，与历史总量无关） */
+    private List<PetDashboardVO.TrendPoint> trendFromSnapshot(Map<java.time.LocalDate, Map<String, Long>> snapshots,
+                                                              LocalDateTime since, LocalDate today, int days) {
+        LocalDateTime todayStart = since.isAfter(today.atStartOfDay()) ? since : today.atStartOfDay();
+        Map<String, Long> todayNewPets = toDateMap(petMapper.selectMaps(new QueryWrapper<Pet>()
+                .select("DATE(created_at) AS d", "COUNT(*) AS c").ge("created_at", todayStart)
+                .groupBy("DATE(created_at)")));
+        Map<String, Long> todayActivePets = groupDistinctPetsByDate(todayStart);
+        Map<String, Long> todayActivities = toDateMap(activityMapper.selectMaps(new QueryWrapper<PetActivity>()
+                .select("DATE(created_at) AS d", "COUNT(*) AS c").ge("created_at", todayStart)
+                .groupBy("DATE(created_at)")));
+        Map<String, Long> todayWallMessages = toDateMap(wallMessageMapper.selectMaps(new QueryWrapper<PetWallMessage>()
+                .select("DATE(created_at) AS d", "COUNT(*) AS c").ge("created_at", todayStart)
+                .groupBy("DATE(created_at)")));
+        Map<String, Long> todayVisits = groupByDateAndType(activityMapper, "VISIT", todayStart);
+        Map<String, Long> todayBattles = toDateMap(battleMapper.selectMaps(new QueryWrapper<PetBattle>()
+                .select("DATE(created_at) AS d", "COUNT(*) AS c").ge("created_at", todayStart)
+                .groupBy("DATE(created_at)")));
+        List<PetDashboardVO.TrendPoint> points = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
+            java.time.LocalDate date = today.minusDays(i);
+            if (!date.isBefore(today)) {
+                points.add(new PetDashboardVO.TrendPoint(date.toString(),
+                        todayNewPets.getOrDefault(date.toString(), 0L),
+                        todayActivePets.getOrDefault(date.toString(), 0L),
+                        todayActivities.getOrDefault(date.toString(), 0L),
+                        todayWallMessages.getOrDefault(date.toString(), 0L),
+                        todayVisits.getOrDefault(date.toString(), 0L),
+                        todayBattles.getOrDefault(date.toString(), 0L)));
+            } else {
+                Map<String, Long> day = snapshots.get(date);
+                points.add(new PetDashboardVO.TrendPoint(date.toString(),
+                        day.getOrDefault("new_pets", 0L),
+                        day.getOrDefault("active_pets", 0L),
+                        day.getOrDefault("activities", 0L),
+                        day.getOrDefault("wall_messages", 0L),
+                        day.getOrDefault("visits", 0L),
+                        day.getOrDefault("battles", 0L)));
+            }
+        }
+        return points;
+    }
+
+    /** 实时聚合路径（快照未覆盖时）：整段范围 GROUP BY，与 P2-3 改造前口径一致 */
+    private List<PetDashboardVO.TrendPoint> trendRealtime(LocalDateTime since, LocalDate today, int days) {
         Map<String, Long> newPets = toDateMap(petMapper.selectMaps(new QueryWrapper<Pet>()
                 .select("DATE(created_at) AS d", "COUNT(*) AS c")
                 .ge("created_at", since)

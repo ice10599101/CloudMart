@@ -47,6 +47,7 @@ public class PetProperties {
     private final Intimacy intimacy = new Intimacy();
     private final SkillSlots skillSlots = new SkillSlots();
     private final FeatureSwitches featureSwitches = new FeatureSwitches();
+    private final Alert alert = new Alert();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -344,5 +345,12 @@ public class PetProperties {
         private boolean onboarding = true;
         private boolean collection = true;
         private boolean diary = true;
+    }
+
+    /** 告警（P2-5）：钱包对账差异等运维告警的接收管理员用户 ID（站内信经 mall-notification 落库推送） */
+    @Getter
+    @Setter
+    public static class Alert {
+        private long adminUserId = 1;
     }
 }

@@ -43,6 +43,10 @@ public final class RocketMQConfig {
     public static final String PET_TAG_FRIEND = "friend";
     /** Tag：留言墙（收到留言/主人回复，三期） */
     public static final String PET_TAG_WALL = "wall";
+    /** Tag：举报处理完成（P0-2 举报闭环，通知举报人处理结果） */
+    public static final String PET_TAG_REPORT_RESOLVED = "report-resolved";
+    /** Tag：钱包对账差异告警（P2-5，通知管理员人工处置） */
+    public static final String PET_TAG_WALLET_ALERT = "wallet-alert";
     /** Tag：每日任务（全清宝箱可领，三期） */
     public static final String PET_TAG_DAILY_QUEST = "daily-quest";
     /** Tag：亲密度升级（三期） */

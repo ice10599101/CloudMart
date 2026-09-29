@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Input, Button, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import {
@@ -23,19 +23,20 @@ import {
   type PetStudyItem,
   type PetSummary,
   type PetVisitNeighbor,
-  type PetCareerPanel,
-  type PetDailyQuestPanel,
-  type PetFriendPanel,
-  type PetHome,
   type PetIntimacyInfo,
-  type PetRelationPanel,
-  type PetWallPage,
 } from '@/api/pet'
 import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
+// P2-4：独立面板组件拆分（行为不变，见各 panels 文件）
+import { CARE_ERROR_HINT } from './panels/shared'
+import { CareerPanel } from './panels/CareerPanel'
+import { DailyQuestPanel } from './panels/DailyQuestPanel'
+import { SocialPanel } from './panels/SocialPanel'
+import { HomePanel } from './panels/HomePanel'
+
 
 /**
  * 社区宠物原生管理页（小程序/H5，实施文档 §5/§34）。
@@ -87,23 +88,6 @@ const SLOT_LABEL: Record<string, string> = { HAT: '帽子', NECKLACE: '项圈', 
 const ITEM_TYPE_LABEL: Record<string, string> = { EQUIPMENT: '装备', SKIN: '皮肤', SKILL_BOOK: '技能书' }
 const EVENT_TYPE_LABEL: Record<string, string> = {
   BOTTLE: '捞瓶', BATTLE: '对战胜场', WORK: '打工', STUDY: '读书', FEED: '喂食', PLAY: '玩耍', VISIT: '串门',
-}
-/** 二期错误码 → 可读提示（原文档 §1.1/§89） */
-const CARE_ERROR_HINT: Record<string, string> = {
-  PET_ITEM_ALREADY_OWNED: '已经拥有这个物品啦',
-  PET_ITEM_NOT_OWNED: '先拥有才能使用哦',
-  PET_SKILL_BOOK_REQUIRED: '先去商城买这本技能书',
-  PET_SKILL_ALREADY_LEARNED: '这个技能已经学会啦',
-  PET_LEVEL_REQUIRED: '等级还不够，再养养吧',
-  PET_EVOLUTION_REQUIRED: '需要先完成进化',
-  PET_EVOLUTION_MAX: '已经进化到最高阶段啦',
-  PET_PET_LIMIT_REACHED: '宠物数量已达上限',
-  PET_VISIT_COOLDOWN: '今天已经去过这家啦',
-  PET_VISIT_SELF: '不能给自己串门哦',
-  PET_EVENT_NOT_FINISHED: '活动还没完成哦',
-  PET_EVENT_ALREADY_CLAIMED: '奖励已经领过啦',
-  PET_EVENT_ENDED: '活动已经结束啦',
-  WISH_STARLIGHT_INSUFFICIENT: '星光不够啦，让宠物去打工赚点吧',
 }
 
 /** 养成面板子页签（原文档 §89 商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物） */
@@ -235,6 +219,8 @@ export default function PetPage() {
   const [loading, setLoading] = useState(true)
   const [noPet, setNoPet] = useState(false)
   const [pet, setPet] = useState<PetInfo | null>(null)
+  // P1-6：互动请求进行中锁——快速连点只发 1 个请求（服务端配额原子扣减，但每次点击都会真实消耗）
+  const [acting, setActing] = useState(false)
   const [panel, setPanel] = useState<PanelKey>('home')
   const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
   const [adoptSpecies, setAdoptSpecies] = useState('CAT')
@@ -370,6 +356,11 @@ export default function PetPage() {
     }
   }, [])
 
+  // P2-4：心跳连续失败提示（不再完全静默）——连续 3 次失败展示"陪伴计时可能不准确"，
+  // 成功一次自动消失
+  const [companionWarn, setCompanionWarn] = useState(false)
+  const heartbeatFailuresRef = useRef(0)
+
   /**
    * 陪伴心跳：小程序在前台时每 60 秒上报一次（服务端按日封顶折算亲密度）。
    * 页面隐藏时不上报——"陪伴"必须是真实停留在宠物页。
@@ -381,10 +372,16 @@ export default function PetPage() {
           const { data: res } = await petApi.companionHeartbeat(60)
           if (res.success && res.data) {
             // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
+            heartbeatFailuresRef.current = 0
+            setCompanionWarn(false)
             await loadIntimacy()
           }
         } catch {
-          // 心跳失败静默（下一轮重试）
+          heartbeatFailuresRef.current += 1
+          if (heartbeatFailuresRef.current >= 3) {
+            setCompanionWarn(true)
+          }
+          // 下一轮心跳自动重试
         }
       })()
     }, 60_000)
@@ -466,9 +463,22 @@ export default function PetPage() {
     }
   }, [currentUser, refresh])
 
+  // P2-4：面板级缓存——记录每个面板最近一次加载时间，60s 内切回直接复用已有状态，
+  // 不重复请求；动作后的 loadPanelData 直调与下拉刷新绕过该守卫（保持强制刷新语义）
+  const lastPanelLoadAtRef = useRef<Partial<Record<PanelKey, number>>>({})
+  const PANEL_CACHE_TTL_MS = 60_000
+  const loadPanelDataIfStale = useCallback(async (key: PanelKey) => {
+    const last = lastPanelLoadAtRef.current[key] ?? 0
+    if (Date.now() - last < PANEL_CACHE_TTL_MS) {
+      return
+    }
+    lastPanelLoadAtRef.current[key] = Date.now()
+    await loadPanelData(key)
+  }, [loadPanelData])
+
   useEffect(() => {
-    if (pet) loadPanelData(panel)
-  }, [panel, pet, loadPanelData])
+    if (pet) loadPanelDataIfStale(panel)
+  }, [panel, pet, loadPanelDataIfStale])
 
   // 提醒未读角标
   useEffect(() => {
@@ -529,6 +539,8 @@ export default function PetPage() {
   }, [params.intent, pet, openProfile])
 
   const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
+    if (acting) return
+    setActing(true)
     try {
       const { data: res } =
         action === 'feed' ? await petApi.feed()
@@ -541,6 +553,9 @@ export default function PetPage() {
       }
     } catch (error) {
       toast(friendlyError(error))
+    } finally {
+      // P1-6：300ms 节流窗口，防手速极限连点（请求已返回后仍短暂锁定）
+      setTimeout(() => setActing(false), 300)
     }
   }
 
@@ -844,10 +859,10 @@ export default function PetPage() {
           </Text>
           {/* 互动按钮 */}
           <View className={styles.actionRow}>
-            <Button className={styles.actionBtn} onClick={() => runInteraction('feed')}>🍖 喂食</Button>
-            <Button className={styles.actionBtn} onClick={() => runInteraction('play')}>🎾 玩耍</Button>
-            <Button className={styles.actionBtn} onClick={() => runInteraction('clean')}>🫧 清洁</Button>
-            <Button className={styles.actionBtn} onClick={() => runInteraction('rest')}>💤 休息</Button>
+            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('feed')}>🍖 喂食</Button>
+            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('play')}>🎾 玩耍</Button>
+            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('clean')}>🫧 清洁</Button>
+            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('rest')}>💤 休息</Button>
           </View>
           <View className={styles.actionRow}>
             <Button className={styles.actionBtn} onClick={openProfile}>🎀 档案</Button>
@@ -865,6 +880,14 @@ export default function PetPage() {
             </Button>
           </View>
         </View>
+
+        {/* P2-4：陪伴心跳连续失败提示条（成功一次自动消失） */}
+        {companionWarn && (
+          <View className={styles.countdownCard}>
+            <Text className={styles.countdownLabel}>⚠️ 陪伴计时可能不准确</Text>
+            <Text className={styles.countdownValue}>网络波动，正在自动重试</Text>
+          </View>
+        )}
 
         {/* 进行中任务倒计时（严格按服务端 finishedAt） */}
         {pet.activityType && activeRemaining > 0 && (
@@ -1575,834 +1598,3 @@ export default function PetPage() {
 // 错误码文案复用文件顶部的 CARE_ERROR_HINT（三期新增错误码由后端返回 message 兜底展示）
 
 /** 职业面板：入职 / 职业工作 / 晋升 / 历史（养成 → 职业） */
-function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
-  const [panel, setPanel] = useState<PetCareerPanel | null>(null)
-  const [pending, setPending] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const { data: res } = await petApi.getCareer()
-      if (res.success && res.data) {
-        setPanel(res.data)
-      }
-    } catch {
-      // 拦截器已提示
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
-    setPending(key)
-    try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
-    } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
-    } finally {
-      setPending(null)
-    }
-  }
-
-  if (!panel) {
-    return <Text className={styles.tip}>职业信息加载中…</Text>
-  }
-  const activity = panel.activeActivity
-
-  return (
-    <View>
-      <Text className={styles.tip}>
-        {panel.careerCode
-          ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
-          : '还没有工作，挑一份喜欢的职业入职吧'}
-        {panel.canPromote && panel.promoteToName ? ` · 可晋升「${panel.promoteToName}」` : ''}
-        {panel.promoteLockReason && panel.promoteToName ? ` · 晋升条件：${panel.promoteLockReason}` : ''}
-      </Text>
-      {panel.careerCode && (
-        <View className={styles.actionRow}>
-          {activity ? (
-            <Button
-              className={styles.miniBtn}
-              disabled={!activity.canClaim || pending === 'claim'}
-              onClick={() => run('claim', () => petApi.claimCareerWork(), '工钱到手啦！')}
-            >
-              {activity.canClaim ? '领取工作奖励' : `工作中 ${Math.max(0, Math.ceil(activity.remainingSeconds / 60))} 分钟`}
-            </Button>
-          ) : (
-            <Button
-              className={styles.miniBtn}
-              disabled={pending === 'start'}
-              onClick={() => run('start', () => petApi.startCareerWork(), '开始工作啦')}
-            >
-              去上班
-            </Button>
-          )}
-          <Button
-            className={styles.miniBtnGhost}
-            disabled={!panel.canPromote || pending === 'promote'}
-            onClick={() => run('promote', () => petApi.promoteCareer(), '晋升成功！')}
-          >
-            晋升
-          </Button>
-        </View>
-      )}
-      <View className={styles.jobList}>
-        {panel.careers.map((career) => (
-          <View key={career.code} className={styles.jobCard}>
-            <View className={styles.jobInfo}>
-              <Text className={styles.jobName}>
-                {career.icon} {career.name} · {career.careerLine} {career.tier} 阶
-              </Text>
-              <Text className={styles.jobMeta}>{career.description}</Text>
-              <Text className={styles.jobMeta}>
-                Lv.{career.requiredLevel}
-                {career.requiredIntelligence > 0 ? ` · 智力 ${career.requiredIntelligence}` : ''} ·{' '}
-                {Math.round(career.durationSeconds / 60)} 分钟 · 经验+{career.expReward} ✨+{career.currencyReward}
-                {career.workCount > 0 ? ` · 已工作 ${career.workCount} 次` : ''}
-              </Text>
-            </View>
-            {career.current ? (
-              <Text className={styles.jobMeta}>在职</Text>
-            ) : (
-              <Button
-                className={career.eligible ? styles.miniBtn : styles.locked}
-                disabled={!career.eligible || pending === `apply-${career.code}`}
-                onClick={() => run(`apply-${career.code}`, () => petApi.applyCareer(career.code), '入职成功！')}
-              >
-                {career.eligible ? '入职' : career.lockReason ?? '未解锁'}
-              </Button>
-            )}
-          </View>
-        ))}
-      </View>
-      {panel.history.length > 0 && (
-        <Text className={styles.jobMeta}>
-          工作经历：{panel.history.map((item) => `${item.name}（${item.workCount} 次）`).join(' · ')}
-        </Text>
-      )}
-    </View>
-  )
-}
-
-/** 每日任务面板：进度 + 领奖 + 全清宝箱 */
-function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
-  const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
-  const [pending, setPending] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const { data: res } = await petApi.getDailyQuests()
-      if (res.success && res.data) {
-        setPanel(res.data)
-      }
-    } catch {
-      // 拦截器已提示
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
-    setPending(key)
-    try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
-    } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
-    } finally {
-      setPending(null)
-    }
-  }
-
-  if (!panel) {
-    return <Text className={styles.tip}>任务加载中…</Text>
-  }
-
-  return (
-    <View>
-      <Text className={styles.tip}>
-        今日进度 {panel.claimedCount}/{panel.totalCount} · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
-      </Text>
-      <View className={styles.jobList}>
-        {panel.quests.map((quest) => (
-          <View key={quest.code} className={styles.jobCard}>
-            <View className={styles.jobInfo}>
-              <Text className={styles.jobName}>
-                {quest.icon} {quest.name}
-              </Text>
-              <Text className={styles.jobMeta}>
-                {quest.description} · 进度 {Math.min(quest.progress, quest.targetValue)}/{quest.targetValue} · 经验+
-                {quest.expReward} ✨+{quest.currencyReward}
-              </Text>
-            </View>
-            {quest.status === 'CLAIMED' ? (
-              <Text className={styles.jobMeta}>已领取</Text>
-            ) : (
-              <Button
-                className={quest.claimable ? styles.miniBtn : styles.locked}
-                disabled={!quest.claimable || pending === `q-${quest.code}`}
-                onClick={() => run(`q-${quest.code}`, () => petApi.claimDailyQuest(quest.code), '奖励到手啦！')}
-              >
-                {quest.claimable ? '领取' : quest.statusLabel}
-              </Button>
-            )}
-          </View>
-        ))}
-      </View>
-      {panel.chestClaimed ? (
-        <Text className={styles.jobMeta}>宝箱已领取</Text>
-      ) : (
-        <Button
-          className={panel.chestClaimable ? styles.miniBtn : styles.locked}
-          disabled={!panel.chestClaimable || pending === 'chest'}
-          onClick={() => run('chest', () => petApi.claimDailyQuestChest(), '宝箱开啦！')}
-        >
-          {panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
-        </Button>
-      )}
-    </View>
-  )
-}
-
-/** 社交面板：关系 / 好友 / 留言墙 */
-function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
-  const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
-  const [relations, setRelations] = useState<PetRelationPanel | null>(null)
-  const [friends, setFriends] = useState<PetFriendPanel | null>(null)
-  const [wall, setWall] = useState<PetWallPage | null>(null)
-  const [wallInput, setWallInput] = useState('')
-  const [replyTo, setReplyTo] = useState<number | null>(null)
-  const [replyInput, setReplyInput] = useState('')
-  const [tip, setTip] = useState<string | null>(null)
-  const [pending, setPending] = useState<string | null>(null)
-
-  const loadActive = useCallback(async () => {
-    try {
-      if (tab === 'relation') {
-        const { data: res } = await petApi.getRelations()
-        if (res.success && res.data) {
-          setRelations(res.data)
-        }
-      } else if (tab === 'friend') {
-        const { data: res } = await petApi.getFriends()
-        if (res.success && res.data) {
-          setFriends(res.data)
-        }
-      } else {
-        const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
-        if (res.success && res.data) {
-          setWall(res.data)
-        }
-      }
-    } catch {
-      // 拦截器已提示
-    }
-  }, [tab, pet.petId])
-
-  useEffect(() => {
-    void loadActive()
-  }, [loadActive])
-
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
-    setPending(key)
-    try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await loadActive()
-        onRefresh()
-      }
-    } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
-    } finally {
-      setPending(null)
-    }
-  }
-
-  return (
-    <View>
-      <View className={styles.actionRow}>
-        {([
-          ['relation', '💞 关系'],
-          ['friend', '🫂 好友'],
-          ['wall', '📝 留言墙'],
-        ] as Array<[typeof tab, string]>).map(([key, label]) => (
-          <Button
-            key={key}
-            className={tab === key ? styles.miniBtn : styles.miniBtnGhost}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </Button>
-        ))}
-      </View>
-      {tip && <Text className={styles.tip}>{tip}</Text>}
-
-      {tab === 'relation' && relations && (
-        <View>
-          <Text className={styles.jobMeta}>
-            {relations.limits.map((limit) => `${limit.label} ${limit.current}/${limit.max}`).join(' · ')}
-          </Text>
-          <View className={styles.jobList}>
-            {relations.incoming.map((item) => (
-              <View key={String(item.id)} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {item.petName}（{item.ownerNickname}）
-                  </Text>
-                  <Text className={styles.jobMeta}>想成为{item.relTypeLabel}{item.message ? `：「${item.message}」` : ''}</Text>
-                </View>
-                <Button
-                  className={styles.miniBtn}
-                  disabled={pending === `a-${item.id}`}
-                  onClick={() => run(`a-${item.id}`, () => petApi.acceptRelation(item.id as number), '关系建立啦！')}
-                >
-                  同意
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `r-${item.id}`}
-                  onClick={() => run(`r-${item.id}`, () => petApi.rejectRelation(item.id as number), '已拒绝')}
-                >
-                  拒绝
-                </Button>
-              </View>
-            ))}
-            {relations.relations.map((item) => (
-              <View key={String(item.id)} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {item.petName} · {item.relTypeLabel}
-                  </Text>
-                  <Text className={styles.jobMeta}>
-                    {item.ownerNickname} · 亲密度 {item.intimacy}（{item.intimacyLevelName}）
-                  </Text>
-                </View>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `d-${item.id}`}
-                  onClick={() => run(`d-${item.id}`, () => petApi.dissolveRelation(item.id as number), '已解除关系')}
-                >
-                  解除
-                </Button>
-              </View>
-            ))}
-          </View>
-          {relations.candidates.length > 0 && <Text className={styles.sectionTitle}>可以认识的宠物</Text>}
-          <View className={styles.jobList}>
-            {relations.candidates.map((candidate) => (
-              <View key={candidate.petId} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {candidate.petName}（Lv.{candidate.level} · {candidate.ownerNickname}）
-                  </Text>
-                </View>
-                <Button
-                  className={styles.miniBtn}
-                  disabled={pending === `cr-${candidate.petId}`}
-                  onClick={() =>
-                    run(
-                      `cr-${candidate.petId}`,
-                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'COUPLE' }),
-                      '申请已发出～',
-                    )
-                  }
-                >
-                  情侣
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `br-${candidate.petId}`}
-                  onClick={() =>
-                    run(
-                      `br-${candidate.petId}`,
-                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'BESTIE' }),
-                      '申请已发出～',
-                    )
-                  }
-                >
-                  闺蜜
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `fr-${candidate.petId}`}
-                  onClick={() =>
-                    run(
-                      `fr-${candidate.petId}`,
-                      () => petApi.requestRelation({ toPetId: candidate.petId, relType: 'CONFIDANT' }),
-                      '申请已发出～',
-                    )
-                  }
-                >
-                  死党
-                </Button>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {tab === 'friend' && friends && (
-        <View>
-          <Text className={styles.jobMeta}>
-            今日互访 {friends.todayVisitCount}/{friends.dailyVisitLimit} · 好友上限 {friends.maxFriends}
-          </Text>
-          <View className={styles.jobList}>
-            {friends.incoming.map((item) => (
-              <View key={item.userId} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>{item.nickname}</Text>
-                  <Text className={styles.jobMeta}>{item.petName ?? '还没有宠物'}</Text>
-                </View>
-                <Button
-                  className={styles.miniBtn}
-                  disabled={pending === `fa-${item.userId}`}
-                  onClick={() => run(`fa-${item.userId}`, () => petApi.acceptFriend(item.userId), '成为好友啦！')}
-                >
-                  同意
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `fj-${item.userId}`}
-                  onClick={() => run(`fj-${item.userId}`, () => petApi.rejectFriend(item.userId), '已拒绝')}
-                >
-                  拒绝
-                </Button>
-              </View>
-            ))}
-            {friends.friends.map((item) => (
-              <View key={item.userId} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {item.nickname} · {item.petName ?? '—'}
-                  </Text>
-                  <Text className={styles.jobMeta}>互访 {item.visitCount} 次</Text>
-                </View>
-                <Button
-                  className={styles.miniBtn}
-                  disabled={pending === `fv-${item.userId}`}
-                  onClick={() =>
-                    run(
-                      `fv-${item.userId}`,
-                      async () => {
-                        const res = await petApi.visitFriend(item.userId)
-                        if (res.data.success && res.data.data) {
-                          setTip(res.data.data.message)
-                        }
-                        return res
-                      },
-                      '互访成功！',
-                    )
-                  }
-                >
-                  去互访
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `fd-${item.userId}`}
-                  onClick={() => run(`fd-${item.userId}`, () => petApi.removeFriend(item.userId), '已删除好友')}
-                >
-                  删除
-                </Button>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {tab === 'wall' && wall && (
-        <View>
-          <Text className={styles.jobMeta}>
-            {wall.petName} 的留言墙 · {wall.ownerNickname} · 共 {wall.total} 条（每日可留言 {wall.dailyPostLimit} 条）
-          </Text>
-          <View className={styles.actionRow}>
-            <Input
-              className={styles.nameInput}
-              value={wallInput}
-              maxlength={120}
-              placeholder="写一句留言吧"
-              onInput={(event) => setWallInput(event.detail.value)}
-            />
-            <Button
-              className={styles.miniBtn}
-              disabled={pending === 'post'}
-              onClick={() =>
-                run(
-                  'post',
-                  async () => {
-                    const res = await petApi.postWallMessage({ petId: Number(pet.petId), content: wallInput })
-                    if (res.data.success) {
-                      setWallInput('')
-                    }
-                    return res
-                  },
-                  '留言成功！',
-                )
-              }
-            >
-              留言
-            </Button>
-          </View>
-          <View className={styles.jobList}>
-            {wall.messages.map((item) => (
-              <View key={item.id} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobMeta}>
-                    {item.authorNickname}
-                    {item.ownerReply ? '（我的回复）' : ''} · {item.createdAt?.slice(5, 16).replace('T', ' ')}
-                  </Text>
-                  <Text className={styles.jobName}>{item.content}</Text>
-                  {item.replies.map((reply) => (
-                    <Text key={reply.id} className={styles.jobMeta}>
-                      ↳ {reply.authorNickname}：{reply.content}
-                    </Text>
-                  ))}
-                </View>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `wl-${item.id}`}
-                  onClick={() => run(`wl-${item.id}`, () => petApi.likeWallMessage(item.id), '已更新点赞')}
-                >
-                  {item.liked ? '取消赞' : '点赞'} {item.likeCount}
-                </Button>
-                {item.owner && item.parentId === null && (
-                  <Button
-                    className={styles.miniBtnGhost}
-                    onClick={() => {
-                      setReplyTo(replyTo === item.id ? null : item.id)
-                      setReplyInput('')
-                    }}
-                  >
-                    回复
-                  </Button>
-                )}
-                {(item.mine || item.owner) && (
-                  <Button
-                    className={styles.miniBtnGhost}
-                    disabled={pending === `wd-${item.id}`}
-                    onClick={() => run(`wd-${item.id}`, () => petApi.deleteWallMessage(item.id), '已删除')}
-                  >
-                    删除
-                  </Button>
-                )}
-              </View>
-            ))}
-          </View>
-          {replyTo !== null && (
-            <View className={styles.actionRow}>
-              <Input
-                className={styles.nameInput}
-                value={replyInput}
-                maxlength={120}
-                placeholder="回复这条留言"
-                onInput={(event) => setReplyInput(event.detail.value)}
-              />
-              <Button
-                className={styles.miniBtn}
-                disabled={pending === `wr-${replyTo}`}
-                onClick={() =>
-                  run(
-                    `wr-${replyTo}`,
-                    async () => {
-                      const res = await petApi.replyWallMessage({ messageId: replyTo, content: replyInput })
-                      if (res.data.success) {
-                        setReplyTo(null)
-                      }
-                      return res
-                    },
-                    '回复成功！',
-                  )
-                }
-              >
-                发送
-              </Button>
-            </View>
-          )}
-        </View>
-      )}
-    </View>
-  )
-}
-
-/** 家园面板：房间布置 / 家具商城 / 拜访与设置 */
-function HomePanel({ onRefresh }: { onRefresh: () => void }) {
-  const [home, setHome] = useState<PetHome | null>(null)
-  const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
-  const [pending, setPending] = useState<string | null>(null)
-  const [welcome, setWelcome] = useState('')
-  const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
-  const [tip, setTip] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const { data: res } = await petApi.getHome()
-      if (res.success && res.data) {
-        setHome(res.data)
-        setWelcome(res.data.welcomeMessage)
-      }
-    } catch {
-      // 拦截器已提示
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  useEffect(() => {
-    if (tab !== 'visit') {
-      return
-    }
-    void (async () => {
-      try {
-        const { data: res } = await petApi.listVisitNeighbors()
-        if (res.success) {
-          setNeighbors(res.data ?? [])
-        }
-      } catch {
-        // 展示型数据
-      }
-    })()
-  }, [tab])
-
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
-    setPending(key)
-    try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
-    } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
-    } finally {
-      setPending(null)
-    }
-  }
-
-  if (!home) {
-    return <Text className={styles.tip}>家园加载中…</Text>
-  }
-
-  return (
-    <View>
-      <Text className={styles.tip}>
-        🏡 舒适度 {home.comfort} · 来访 {home.visitCount} · 点赞 {home.likeCount}
-        {home.comfort >= home.comfortBonusThreshold ? ` · 休息心情 +${home.comfortRestHappinessBonus}` : ''}
-      </Text>
-      <View className={styles.actionRow}>
-        {([
-          ['room', '🛋️ 布置'],
-          ['shop', '🛒 家具'],
-          ['visit', '🚪 拜访'],
-        ] as Array<[typeof tab, string]>).map(([key, label]) => (
-          <Button key={key} className={tab === key ? styles.miniBtn : styles.miniBtnGhost} onClick={() => setTab(key)}>
-            {label}
-          </Button>
-        ))}
-      </View>
-      {tip && <Text className={styles.tip}>{tip}</Text>}
-
-      {tab === 'room' && (
-        <View>
-          <View className={styles.jobList}>
-            {home.placed.map((item) => (
-              <View key={`${item.posX}-${item.posY}`} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {item.icon} {item.name}
-                  </Text>
-                  <Text className={styles.jobMeta}>
-                    位置（{item.posX},{item.posY}）· 舒适度 +{item.comfort}
-                  </Text>
-                </View>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `rm-${item.posX}-${item.posY}`}
-                  onClick={() =>
-                    run(`rm-${item.posX}-${item.posY}`, () => petApi.removeFurniture(item.posX ?? 0, item.posY ?? 0), '已收回仓库')
-                  }
-                >
-                  收回
-                </Button>
-              </View>
-            ))}
-          </View>
-          <Text className={styles.jobMeta}>
-            当前墙纸/地板：{home.wallCode ?? '默认'} / {home.floorCode ?? '默认'}
-          </Text>
-          <View className={styles.actionRow}>
-            {home.shop
-              .filter((item) => item.owned)
-              .slice(0, 6)
-              .map((item) => (
-                <Button
-                  key={`theme-${item.code}`}
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `theme-${item.code}`}
-                  onClick={() =>
-                    run(
-                      `theme-${item.code}`,
-                      () =>
-                        petApi.updateRoomTheme(
-                          item.category === 'WALL'
-                            ? { wallCode: item.code, floorCode: home.floorCode }
-                            : { wallCode: home.wallCode, floorCode: item.code },
-                        ),
-                      '已更换主题',
-                    )
-                  }
-                >
-                  {item.icon}
-                  {item.name}
-                </Button>
-              ))}
-          </View>
-        </View>
-      )}
-
-      {tab === 'shop' && (
-        <View>
-          <Text className={styles.jobMeta}>
-            移动端简化交互：点「摆放」自动找空格；精细摆位请用 Web 端
-          </Text>
-          <View className={styles.jobList}>
-            {home.shop.map((item) => (
-              <View key={item.code} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {item.icon} {item.name} · {item.categoryLabel}
-                  </Text>
-                  <Text className={styles.jobMeta}>
-                    舒适度 +{item.comfort} · 需要 Lv.{item.requiredLevel} · ✨ {item.priceStarlight}
-                  </Text>
-                </View>
-                {item.owned ? (
-                  <Button
-                    className={styles.miniBtn}
-                    disabled={pending === `place-${item.code}`}
-                    onClick={() =>
-                      run(
-                        `place-${item.code}`,
-                        () => {
-                          const occupied = new Set(home.placed.map((placed) => `${placed.posX}-${placed.posY}`))
-                          for (let y = 0; y < home.gridHeight; y += 1) {
-                            for (let x = 0; x < home.gridWidth; x += 1) {
-                              if (!occupied.has(`${x}-${y}`)) {
-                                return petApi.placeFurniture({ furnitureCode: item.code, posX: x, posY: y })
-                              }
-                            }
-                          }
-                          return petApi.placeFurniture({ furnitureCode: item.code, posX: 0, posY: 0 })
-                        },
-                        '摆放好啦',
-                      )
-                    }
-                  >
-                    摆放
-                  </Button>
-                ) : (
-                  <Button
-                    className={item.eligible ? styles.miniBtn : styles.locked}
-                    disabled={!item.eligible || pending === `buy-${item.code}`}
-                    onClick={() => run(`buy-${item.code}`, () => petApi.buyFurniture(item.code), '买到啦')}
-                  >
-                    {item.eligible ? '购买' : item.lockReason ?? '未解锁'}
-                  </Button>
-                )}
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {tab === 'visit' && (
-        <View>
-          <View className={styles.actionRow}>
-            <Text className={styles.jobMeta}>允许来访</Text>
-            <Switch
-              checked={home.isPublic}
-              onChange={(event) =>
-                run('settings', () => petApi.updateRoomSettings({ isPublic: event.detail.value }), '设置已更新')
-              }
-            />
-            <Input
-              className={styles.nameInput}
-              value={welcome}
-              maxlength={40}
-              placeholder="欢迎语"
-              onInput={(event) => setWelcome(event.detail.value)}
-            />
-            <Button
-              className={styles.miniBtnGhost}
-              disabled={pending === 'welcome'}
-              onClick={() => run('welcome', () => petApi.updateRoomSettings({ welcomeMessage: welcome }), '欢迎语已更新')}
-            >
-              保存
-            </Button>
-          </View>
-          <View className={styles.jobList}>
-            {neighbors.map((neighbor) => (
-              <View key={String(neighbor.petId)} className={styles.jobCard}>
-                <View className={styles.jobInfo}>
-                  <Text className={styles.jobName}>
-                    {neighbor.name}（Lv.{neighbor.level}）
-                  </Text>
-                  <Text className={styles.jobMeta}>{neighbor.ownerNickname}</Text>
-                </View>
-                <Button
-                  className={styles.miniBtn}
-                  disabled={pending === `v-${neighbor.petId}`}
-                  onClick={() =>
-                    run(
-                      `v-${neighbor.petId}`,
-                      async () => {
-                        const res = await petApi.visitHome(Number(neighbor.petId))
-                        if (res.data.success && res.data.data) {
-                          setTip(res.data.data.message)
-                        }
-                        return res
-                      },
-                      '拜访成功！',
-                    )
-                  }
-                >
-                  去家里看看
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `l-${neighbor.petId}`}
-                  onClick={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(Number(neighbor.petId)), '点赞成功')}
-                >
-                  点赞
-                </Button>
-                <Button
-                  className={styles.miniBtnGhost}
-                  disabled={pending === `fq-${neighbor.petId}`}
-                  onClick={() =>
-                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(Number(neighbor.ownerUserId)), '好友申请已发出～')
-                  }
-                >
-                  加好友
-                </Button>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  )
-}

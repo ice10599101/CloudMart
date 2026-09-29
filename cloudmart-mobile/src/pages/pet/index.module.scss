@@ -252,6 +252,11 @@
   border: none;
 }
 
+/* P1-6：互动请求进行中的禁用态（防连点） */
+.actionBtn:disabled {
+  opacity: 0.5;
+}
+
 /* 面板 */
 .panelTabs {
   white-space: nowrap;

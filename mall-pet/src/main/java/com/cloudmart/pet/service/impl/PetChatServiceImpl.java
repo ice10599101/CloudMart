@@ -88,6 +88,9 @@ public class PetChatServiceImpl implements PetChatService {
     private final PetMapper petMapper;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
+    private final PetContentSafetyService safetyService;
+    private final com.cloudmart.pet.repository.PetReportMapper reportMapper;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
 
     public PetChatServiceImpl(PetService petService,
                               PetContextService contextService,
@@ -101,7 +104,10 @@ public class PetChatServiceImpl implements PetChatService {
                               PetIntimacyService intimacyService,
                               PetProperties properties,
                               StringRedisTemplate redisTemplate,
-                              org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
+                              org.springframework.transaction.support.TransactionTemplate transactionTemplate,
+                              PetContentSafetyService safetyService,
+                              com.cloudmart.pet.repository.PetReportMapper reportMapper,
+                              com.cloudmart.pet.config.PetMetrics metrics) {
         this.petService = petService;
         this.contextService = contextService;
         this.aiClient = aiClient;
@@ -115,6 +121,9 @@ public class PetChatServiceImpl implements PetChatService {
         this.properties = properties;
         this.redisTemplate = redisTemplate;
         this.transactionTemplate = transactionTemplate;
+        this.safetyService = safetyService;
+        this.reportMapper = reportMapper;
+        this.metrics = metrics;
     }
 
     /**
@@ -147,11 +156,14 @@ public class PetChatServiceImpl implements PetChatService {
             }
         }
 
-        // 危机词本地拦截：不发送大模型服务，直接安抚 + 热线资源（数据安全，与树洞同策略）
-        if (containsCrisisKeyword(message)) {
+        // 危机词本地拦截（P0-1：改走内容安全服务，配置词兜底）：不发送大模型服务，
+        // 直接安抚 + 热线资源，并自动生成一条举报记录进入管理端处理队列
+        if (safetyService.isCrisis(message)) {
             String reply = "主人别怕，我一直在你身边。如果心里很难受，可以拨打心理援助热线 12356，"
                     + "会有专业的叔叔阿姨帮助你。我们先一起深呼吸一下好不好？";
-            return persistChatPair(userId, pet, message, reply, false, requestId);
+            PersistedChatPair pair = persistChatPair(userId, pet, message, reply, false, requestId);
+            reportCrisisContent(userId, pair.userMessageId());
+            return pair.reply();
         }
 
         // 上下文先建（只读，无事务；固定行为中的游戏状态意图也需要它，原文档 §60）
@@ -160,26 +172,59 @@ public class PetChatServiceImpl implements PetChatService {
         // 第一层：固定行为（名字/在干嘛/游戏状态意图，模板直接回复省 token，不耗 AI 额度）
         String fixedReply = fixedIntentReply(message, pet, context);
         if (fixedReply != null) {
-            return persistChatPair(userId, pet, message, fixedReply, false, requestId);
+            return persistChatPair(userId, pet, message, fixedReply, false, requestId).reply();
         }
 
-        // 第二/三层：AI 生成——在事务外执行（慢 AI 不占数据库连接），失败降级模板
+        // 第二/三层：AI 生成——在事务外执行（慢 AI 不占数据库连接），失败降级模板；
+        // P1-8：调用打点（延迟/估算 token/降级次数），成本可观测
         consumeAiQuota(userId);
+        String systemPrompt = buildSystemPrompt(pet, context);
+        String aiInput = buildUserMessage(userId, pet, message);
+        long startNanos = System.nanoTime();
         String reply;
         boolean isAiReply = true;
         try {
-            reply = aiClient.generateReply(buildSystemPrompt(pet, context), buildUserMessage(userId, pet, message));
+            reply = aiClient.generateReply(systemPrompt, aiInput);
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+            metrics.add("pet_chat_ai_latency_ms", elapsedMs, "outcome", "success");
+            // 估算 token（与落库口径一致：chars/2；输入+输出全量）
+            metrics.add("pet_chat_ai_cost_tokens",
+                    (systemPrompt.length() + aiInput.length() + reply.length()) / 2.0);
         } catch (BusinessException e) {
+            metrics.add("pet_chat_ai_latency_ms", (System.nanoTime() - startNanos) / 1_000_000,
+                    "outcome", "fallback");
+            metrics.increment("pet_chat_ai_fallback_total", "code",
+                    e.getCode() != null ? e.getCode() : "unknown");
             log.warn("宠物AI降级为模板回复: userId={}, code={}", userId, e.getCode());
             reply = fallbackReply(pet, context);
             isAiReply = false;
         }
-        return persistChatPair(userId, pet, message, reply, isAiReply, requestId);
+        return persistChatPair(userId, pet, message, reply, isAiReply, requestId).reply();
+    }
+
+    /** 危机词自动举报（P0-1）：进入管理端处理队列；失败不阻断聊天主流程 */
+    private void reportCrisisContent(Long userId, Long userMessageId) {
+        try {
+            com.cloudmart.pet.entity.PetReport report = new com.cloudmart.pet.entity.PetReport();
+            report.setReporterUserId(userId);
+            report.setTargetType("CHAT_MESSAGE");
+            report.setTargetId(userMessageId != null ? userMessageId : 0L);
+            report.setReason("系统自动举报：对话命中危机词，已返回安抚话术与心理援助热线资源");
+            report.setStatus("PENDING");
+            report.setIsAuto(1);
+            reportMapper.insert(report);
+        } catch (Exception e) {
+            log.warn("危机词自动举报落库失败（不阻断聊天）: userId={}", userId, e);
+        }
+    }
+
+    /** 聊天落库结果：回复 VO + 用户消息行 ID（危机词自动举报定位原始消息用） */
+    private record PersistedChatPair(PetChatMessageVO reply, Long userMessageId) {
     }
 
     /** 短事务 2：保存回复消息 + 亲密度/任务/成就奖励（聊天成长额度在此生效） */
-    private PetChatMessageVO persistChatPair(Long userId, Pet pet, String userMessage,
-                                             String reply, boolean isAiReply, String requestId) {
+    private PersistedChatPair persistChatPair(Long userId, Pet pet, String userMessage,
+                                              String reply, boolean isAiReply, String requestId) {
         return transactionTemplate.execute(status -> {
             // 会话归属以 chat 开始时冻结的主宠为准（BE-05：AI 调用后切宠不影响写回归属）
             PetChatSession session = requireSession(userId, pet.getId());
@@ -198,7 +243,7 @@ public class PetChatServiceImpl implements PetChatService {
             } catch (Exception e) {
                 log.warn("聊天记忆抽取失败（不阻断）: userId={}", userId, e);
             }
-            return toVo(petMessage);
+            return new PersistedChatPair(toVo(petMessage), userMessageRow.getId());
         });
     }
 
@@ -215,15 +260,6 @@ public class PetChatServiceImpl implements PetChatService {
     }
 
     // ---------------- 内部实现 ----------------
-
-    private boolean containsCrisisKeyword(String message) {
-        for (String keyword : properties.getChat().getCrisisKeywords()) {
-            if (message.contains(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     /** 消息频控（B18：Fail-Open，Redis 故障放行——所有消息路径共用，含固定/危机回复） */
     private void consumeMessageQuota(Long userId) {

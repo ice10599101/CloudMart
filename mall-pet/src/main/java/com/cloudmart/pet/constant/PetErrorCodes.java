@@ -24,6 +24,10 @@ public final class PetErrorCodes {
     public static final String PET_CHAT_MESSAGE_INVALID = "PET_CHAT_MESSAGE_INVALID";
     /** 皮肤不适用于当前宠物种类 */
     public static final String PET_SKIN_SPECIES_MISMATCH = "PET_SKIN_SPECIES_MISMATCH";
+    /** 宠物名命中敏感词（内容安全，P0-1） */
+    public static final String PET_NAME_SENSITIVE = "PET_NAME_SENSITIVE";
+    /** 留言/UGC 内容命中敏感词（内容安全，P0-1） */
+    public static final String PET_CONTENT_SENSITIVE = "PET_CONTENT_SENSITIVE";
 
     // --- 403 Forbidden ---
     /** 非宠物主人，禁止操作 */

@@ -328,6 +328,42 @@ public class AdminPetController {
         return petFeignClient.handlePetReport(id, action);
     }
 
+    @org.springframework.web.bind.annotation.PostMapping("/reports/{id}/resolve")
+    @OperLog(title = "宠物举报处理闭环", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "闭环处理举报", description = "action: CONTENT_REMOVED/USER_WARNED/USER_PET_BANNED/DISMISSED + reason 必填；处理后通知举报人")
+    public ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                              @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        return petFeignClient.resolvePetReport(id, body);
+    }
+
+    // ---------------- P0-1 内容安全：敏感词库 ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/configs/sensitive-words")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "敏感词列表", description = "status 过滤 + 分页（内容安全词库）")
+    public ApiResponse<Object> listSensitiveWords(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) Integer status,
+                                                  @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                                  @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
+        return petFeignClient.listSensitiveWords(status, page, size);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/sensitive-words")
+    @OperLog(title = "宠物敏感词配置", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "新增/更新敏感词", description = "category: POLITICS/ABUSE/AD/CRISIS；生效延迟 ≤1 分钟")
+    public ApiResponse<Object> upsertSensitiveWord(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> data) {
+        return petFeignClient.upsertSensitiveWord(data);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/configs/sensitive-words/{id}")
+    @OperLog(title = "宠物敏感词删除", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "删除敏感词")
+    public ApiResponse<Object> deleteSensitiveWord(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
+        return petFeignClient.deleteSensitiveWord(id);
+    }
+
     @org.springframework.web.bind.annotation.PostMapping("/achievements/recalculate")
     @OperLog(title = "宠物成就补算", businessType = 2)
     @RequiresPermission("business:pet:edit")

@@ -13,6 +13,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -58,6 +59,18 @@ public final class ServiceTokenCodec {
      */
     public static String sign(String issuer, String audience, String scope,
                               Duration ttl, String secret, Instant now) {
+        return sign(issuer, audience, scope, ttl, secret, now, Map.of());
+    }
+
+    /**
+     * 签发服务令牌（支持附加声明，P0-3：如 {@code admin_username} 审计身份——
+     * 接收方从已验签的声明读取操作者，不再信任可伪造的请求头）。
+     *
+     * @param extraClaims 附加声明（键值均为字符串，拼入载荷；空值跳过）
+     */
+    public static String sign(String issuer, String audience, String scope,
+                              Duration ttl, String secret, Instant now,
+                              java.util.Map<String, String> extraClaims) {
         requireSecret(secret);
         Objects.requireNonNull(issuer, "issuer 不能为空");
         Objects.requireNonNull(audience, "audience 不能为空");
@@ -71,13 +84,27 @@ public final class ServiceTokenCodec {
         long exp = now.plus(ttl).getEpochSecond();
         String jti = new java.math.BigInteger(64, RANDOM).toString(36);
 
-        String payload = "{\"iss\":\"" + escape(issuer) + "\",\"aud\":\"" + escape(audience)
-                + "\",\"scope\":\"" + escape(scope) + "\",\"iat\":" + iat
-                + ",\"exp\":" + exp + ",\"jti\":\"" + jti + "\"}";
+        StringBuilder payload = new StringBuilder()
+                .append("{\"iss\":\"").append(escape(issuer))
+                .append("\",\"aud\":\"").append(escape(audience))
+                .append("\",\"scope\":\"").append(escape(scope))
+                .append("\",\"iat\":").append(iat)
+                .append(",\"exp\":").append(exp)
+                .append(",\"jti\":\"").append(jti).append("\"");
+        if (extraClaims != null) {
+            for (Map.Entry<String, String> claim : extraClaims.entrySet()) {
+                if (claim.getKey() == null || claim.getKey().isBlank() || claim.getValue() == null) {
+                    continue;
+                }
+                payload.append(",\"").append(escape(claim.getKey()))
+                        .append("\":\"").append(escape(claim.getValue())).append("\"");
+            }
+        }
+        payload.append("}");
         String header = "{\"alg\":\"" + ALG + "\",\"typ\":\"JWT\"}";
 
         String signingInput = ENCODER.encodeToString(header.getBytes(StandardCharsets.UTF_8))
-                + "." + ENCODER.encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+                + "." + ENCODER.encodeToString(payload.toString().getBytes(StandardCharsets.UTF_8));
         return signingInput + "." + hmac(signingInput, secret);
     }
 
@@ -154,7 +181,7 @@ public final class ServiceTokenCodec {
         if (iat >= 0 && iat - skew > now.getEpochSecond()) {
             throw new ServiceTokenException("iat 在未来", ServiceTokenError.MALFORMED);
         }
-        return new ServiceTokenClaims(iss, aud, scope, exp);
+        return new ServiceTokenClaims(iss, aud, scope, exp, text(claims, "admin_username"));
     }
 
     private static String readHeaderAlg(String headerSegment) throws ServiceTokenException {
@@ -199,8 +226,9 @@ public final class ServiceTokenCodec {
         }
     }
 
-    /** 已校验令牌的声明集。 */
-    public record ServiceTokenClaims(String issuer, String audience, String scope, long exp) {
+    /** 已校验令牌的声明集。adminUsername 为签发方注入的审计身份（P0-3），可为 null。 */
+    public record ServiceTokenClaims(String issuer, String audience, String scope, long exp,
+                                     String adminUsername) {
     }
 
     /** 校验失败原因，机器可读，用于日志与监控区分攻击类型。 */

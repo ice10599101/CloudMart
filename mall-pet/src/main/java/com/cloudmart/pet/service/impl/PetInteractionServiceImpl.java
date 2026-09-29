@@ -106,9 +106,9 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         }
         // B02：加法属性原子增量（并发喂食不丢属性），状态列单写
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
-                .setSql("hunger = LEAST(hunger + " + cfg.getFeedHunger() + ", 100)")
-                .setSql("happiness = LEAST(happiness + " + cfg.getFeedHappiness() + ", 100)")
-                .setSql("hp = LEAST(hp + " + cfg.getFeedHp() + ", max_hp)")
+                .setSql("hunger = LEAST(hunger + {0}, 100)", cfg.getFeedHunger())
+                .setSql("happiness = LEAST(happiness + {0}, 100)", cfg.getFeedHappiness())
+                .setSql("hp = LEAST(hp + {0}, max_hp)", cfg.getFeedHp())
                 .set(Pet::getStatus, PetStatus.IDLE.name())
                 .set(Pet::getHungerFrac, 0.0)
                 .eq(Pet::getId, pet.getId()));
@@ -130,7 +130,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         dailyQuestService.record(pet, PetQuestType.FEED, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.FEED);
         notifyLevelUpIfAny(pet, levelups);
-        return petService.getMyPet(userId);
+        // P2-1：状态已同步到实体，直接组装 VO（省 requireOwnedPet 的 SELECT + 重复懒更新）
+        return petService.toVo(pet);
     }
 
     @Override
@@ -141,7 +142,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
 
         // 长期活动进行中（工作/读书/捞瓶/休息）：只允许无收益动画互动，不改状态不推进任何进度
         if (hasBusyActivity(userId)) {
-            return petService.getMyPet(userId);
+            return petService.toVo(pet);
         }
         if (pet.getEnergy() < cfg.getPlayEnergy()) {
             throw new BusinessException(PetErrorCodes.PET_ENERGY_INSUFFICIENT,
@@ -152,8 +153,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                 cfg.getPlayRewardDailyLimit());
         // B02：原子增量（消耗与心情回填并发安全）
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
-                .setSql("energy = GREATEST(energy - " + cfg.getPlayEnergy() + ", 0)")
-                .setSql("happiness = LEAST(happiness + " + cfg.getPlayHappiness() + ", 100)")
+                .setSql("energy = GREATEST(energy - {0}, 0)", cfg.getPlayEnergy())
+                .setSql("happiness = LEAST(happiness + {0}, 100)", cfg.getPlayHappiness())
                 .set(Pet::getStatus, PetStatus.IDLE.name())
                 .eq(Pet::getId, pet.getId()));
         pet.setEnergy(Math.max(0, pet.getEnergy() - cfg.getPlayEnergy()));
@@ -175,7 +176,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         } else {
             log.debug("玩耍今日收益额度已耗尽，转为无收益动画互动: userId={}", userId);
         }
-        return petService.getMyPet(userId);
+        return petService.toVo(pet);
     }
 
     @Override
@@ -189,8 +190,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         }
         // B02：原子增量
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
-                .setSql("cleanliness = LEAST(cleanliness + " + cfg.getCleanCleanliness() + ", 100)")
-                .setSql("happiness = LEAST(happiness + " + cfg.getCleanHappiness() + ", 100)")
+                .setSql("cleanliness = LEAST(cleanliness + {0}, 100)", cfg.getCleanCleanliness())
+                .setSql("happiness = LEAST(happiness + {0}, 100)", cfg.getCleanHappiness())
                 .set(Pet::getStatus, PetStatus.IDLE.name())
                 .set(Pet::getCleanlinessFrac, 0.0)
                 .eq(Pet::getId, pet.getId()));
@@ -204,7 +205,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         dailyQuestService.record(pet, PetQuestType.CLEAN, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.CLEAN);
         notifyLevelUpIfAny(pet, levelups);
-        return petService.getMyPet(userId);
+        return petService.toVo(pet);
     }
 
     @Override
@@ -232,7 +233,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             if (updated == 0) {
                 throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
             }
-            return petService.getMyPet(userId);
+            return petService.toVo(pet);
         }
 
         // 长期活动互斥（每用户一条进行中）
@@ -265,7 +266,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
         }
-        return petService.getMyPet(userId);
+        return petService.toVo(pet);
     }
 
     /** 定时休息到期结算（幂等 CAS）：恢复精力/生命 + 舒适度心情加成 + 额度内亲密度 */
@@ -290,7 +291,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                 applyRestEffects(pet);
             }
         }
-        return petService.getMyPet(userId);
+        return petService.toVo(pet);
     }
 
     /** 休息恢复效果（到期自动应用）：精力/生命回满 + 家园舒适度心情加成 + 额度内亲密度 */
@@ -335,7 +336,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         activity.setStartedAt(now);
         activity.setFinishedAt(now);
         activity.setClaimedAt(now);
-        activity.setResult("{\"exp\":" + expGain + "}");
+        activity.setResult(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of("exp", expGain)));
         activityMapper.insert(activity);
     }
 
