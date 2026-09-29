@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
 @org.springframework.scheduling.annotation.EnableScheduling
-@MapperScan({"com.cloudmart.payment.repository", "com.cloudmart.common.async.mapper"})
+@MapperScan({"com.cloudmart.payment.repository", "com.cloudmart.payment.reconciliation", "com.cloudmart.common.async.mapper"})
 @EnableDiscoveryClient
 @EnableFeignClients
 @Import(GlobalExceptionHandler.class)

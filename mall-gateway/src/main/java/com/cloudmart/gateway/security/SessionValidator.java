@@ -1,6 +1,7 @@
 package com.cloudmart.gateway.security;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,7 @@ public class SessionValidator {
 
     private final String versionKeyPrefix;
 
+    @Autowired
     public SessionValidator(ReactiveStringRedisTemplate reactiveRedisTemplate,
                             @Value("${gateway.session.key-prefix:auth:session_valid:}") String keyPrefix) {
         this(reactiveRedisTemplate, keyPrefix, "auth:auth_version:");

@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
+@org.springframework.cloud.openfeign.EnableFeignClients
 @MapperScan({"com.cloudmart.wms.repository", "com.cloudmart.common.async.mapper"})
 @Import(GlobalExceptionHandler.class)
 public class WmsApplication {

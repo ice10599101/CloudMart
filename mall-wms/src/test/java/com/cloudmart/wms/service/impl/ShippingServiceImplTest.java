@@ -41,6 +41,9 @@ class ShippingServiceImplTest {
     @Mock
     private WmsConverter wmsConverter;
 
+    @Mock
+    private com.cloudmart.wms.repository.WarehouseMapper warehouseMapper;
+
     private ShippingServiceImpl shippingService;
     private com.cloudmart.common.async.outbox.OutboxService outboxService;
 
@@ -49,7 +52,7 @@ class ShippingServiceImplTest {
         outboxService = org.mockito.Mockito.mock(com.cloudmart.common.async.outbox.OutboxService.class);
         shippingService = new ShippingServiceImpl(shippingOrderMapper, shippingTrackingMapper,
                 wmsConverter, org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class),
-                outboxService);
+                outboxService, warehouseMapper);
     }
 
     private static final Long SHIPPING_ORDER_ID = 1L;
@@ -63,8 +66,14 @@ class ShippingServiceImplTest {
         @Test
         @DisplayName("should create shipping order and return VO")
         void createShippingOrder_success_returnsVO() {
+            // WMS-01：warehouseId 可空 → 服务端分配第一个可用仓库
+            var warehouse = new com.cloudmart.wms.entity.Warehouse();
+            warehouse.setId(WAREHOUSE_ID);
+            warehouse.setName("主仓");
+            when(warehouseMapper.selectList(any())).thenReturn(java.util.List.of(warehouse));
+
             CreateShippingRequest request = new CreateShippingRequest(
-                    ORDER_ID, WAREHOUSE_ID, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+                    ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
                     SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "PENDING", null);
