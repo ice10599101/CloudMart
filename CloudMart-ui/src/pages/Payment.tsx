@@ -14,7 +14,7 @@ import {
   UndoOutlined,
   ExperimentOutlined,
 } from '@ant-design/icons'
-import { createPayment, createPaymentAttempt, submitMockPaymentCallback, getPaymentByOrderId } from '@/api/payment'
+import { createPayment, createPaymentAttempt, submitMockPaymentCallback, getPaymentAttemptByOrderId, getPaymentByOrderId } from '@/api/payment'
 import { fetchOrderById } from '@/api/order'
 import { type Payment, type PaymentStatus, type Order, PAYMENT_STATUS_LABELS } from '@/types'
 
@@ -264,6 +264,8 @@ export default function PaymentPage() {
 
   const [order, setOrder] = useState<Order | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
+  // PAY-01：attempts 链路的终态（SUCCESS/FAILED）——台账独立于旧 payment 表，单独承载结果屏
+  const [attemptOutcome, setAttemptOutcome] = useState<PaymentStatus | null>(null)
   const [payMethod, setPayMethod] = useState<string>('ALIPAY')
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
@@ -271,6 +273,9 @@ export default function PaymentPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // FE-03：轮询生命周期控制——cancelled 标志保证卸载后循环退出；串行 await+延迟避免请求重叠
   const pollCancelledRef = useRef(false)
+  // PAY-01：本次收银走的是哪条链路——轮询必须打各自的真值源
+  // （attempts 台账在 payment_attempt 表，旧链路在 payment 表，互查不到）
+  const pollTargetRef = useRef<'attempt' | 'legacy'>('legacy')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -310,22 +315,39 @@ export default function PaymentPage() {
     }
   }, [order?.createdAt])
 
-  /** 单一轮询任务：await 查单 → 延迟 → 再查（不重叠）；终态/取消退出 */
+  /** 单一轮询任务：await 查单 → 延迟 → 再查（不重叠）；终态/取消退出。
+   *  按发起链路打各自的真值源：attempts → payment-attempts/order/{id}；legacy → payments/order/{id} */
   const startPolling = useCallback(() => {
     pollCancelledRef.current = false
     const loop = async () => {
       while (!pollCancelledRef.current) {
         try {
-          const { data: pollRes } = await getPaymentByOrderId(orderId)
-          if (pollCancelledRef.current) return
-          setPayment(pollRes.data)
-          if (pollRes.data.status === 'SUCCESS') {
-            message.success('支付成功')
-            return
-          }
-          if (pollRes.data.status !== 'PENDING') {
-            // FAILED/CLOSED 等终态：允许用户重新发起，不误报失败也不无限轮询
-            return
+          if (pollTargetRef.current === 'attempt') {
+            const { data: res } = await getPaymentAttemptByOrderId(orderId)
+            if (pollCancelledRef.current) return
+            const status = res.data?.status
+            if (status === 'SUCCESS') {
+              setAttemptOutcome('SUCCESS')
+              message.success('支付成功')
+              return
+            }
+            if (status && status !== 'PENDING') {
+              // FAILED/EXPIRED 等终态：允许用户重新发起，不误报也不无限轮询
+              setAttemptOutcome('FAILED')
+              return
+            }
+          } else {
+            const { data: pollRes } = await getPaymentByOrderId(orderId)
+            if (pollCancelledRef.current) return
+            setPayment(pollRes.data)
+            if (pollRes.data.status === 'SUCCESS') {
+              message.success('支付成功')
+              return
+            }
+            if (pollRes.data.status !== 'PENDING') {
+              // FAILED/CLOSED 等终态：允许用户重新发起，不误报失败也不无限轮询
+              return
+            }
           }
         } catch {
           // 查询失败退避：静默进入下一轮（弱网恢复后继续查单）
@@ -360,6 +382,8 @@ export default function PaymentPage() {
           // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
           await submitMockPaymentCallback(res.data.mockCallback)
         }
+        pollTargetRef.current = 'attempt'
+        setAttemptOutcome(null)
       } catch {
         const { data: res } = await createPayment({
           orderId: order.id,
@@ -367,6 +391,8 @@ export default function PaymentPage() {
           payMethod,
         })
         setPayment(res.data)
+        pollTargetRef.current = 'legacy'
+        setAttemptOutcome(null)
       }
       message.success('支付请求已提交，结果确认中')
       // FE-03：success 只能来自查单结果——发起后进入确认轮询，不直接标记成功
@@ -430,13 +456,17 @@ export default function PaymentPage() {
     )
   }
 
-  if (payment && payment.status !== 'PENDING') {
+  // 结果屏：attempts 链路终态或旧链路 payment 终态任一命中即展示
+  const resultStatus: PaymentStatus | null =
+    attemptOutcome ?? (payment && payment.status !== 'PENDING' ? payment.status : null)
+
+  if (resultStatus) {
     return (
       <div style={{ ...cssVars, background: 'var(--color-bg-base)', minHeight: '100vh', padding: '32px 24px' }}>
         <PaymentResult
-          status={payment.status}
+          status={resultStatus}
           orderNo={order.orderNo}
-          paymentStatusLabel={PAYMENT_STATUS_LABELS[payment.status]}
+          paymentStatusLabel={PAYMENT_STATUS_LABELS[resultStatus]}
         />
       </div>
     )

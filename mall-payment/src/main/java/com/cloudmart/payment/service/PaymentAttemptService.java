@@ -58,14 +58,7 @@ public class PaymentAttemptService {
     @Transactional
     public PaymentAttempt createAttempt(Long userId, Long orderId, String channel) {
         // 归属 + 可支付状态 + 服务端金额（权威）
-        ApiResponse<OrderInternalInfoDTO> orderResp = orderFeignClient.getOrderInfo(orderId);
-        if (orderResp == null || !orderResp.success() || orderResp.data() == null) {
-            throw new BusinessException("PAYMENT_NOT_FOUND", "订单不存在");
-        }
-        OrderInternalInfoDTO order = orderResp.data();
-        if (!userId.equals(order.userId())) {
-            throw new BusinessException("PAYMENT_FORBIDDEN", "无权为该订单创建支付");
-        }
+        OrderInternalInfoDTO order = requireOwnedOrder(userId, orderId);
         if (!"PENDING_PAYMENT".equals(order.status())) {
             throw new BusinessException("PAYMENT_STATUS_ERROR", "订单当前状态不允许支付");
         }
@@ -94,6 +87,47 @@ public class PaymentAttemptService {
         attemptMapper.updateById(attempt);
         log.info("[PAY01] 支付尝试已创建 orderId={} no={} amount={}", orderId, merchantPaymentNo, attempt.getAmount());
         return attempt;
+    }
+
+    /**
+     * 按订单查最近一次支付尝试视图（收银台轮询真值源）。
+     *
+     * <p>attempts 台账独立于旧 payment 表——入账后旧视图查不到，客户端必须轮询本端点；
+     * 归属经订单服务权威校验（payment_attempt 不冗余 user_id 列）。</p>
+     */
+    public java.util.Map<String, Object> findViewByOrder(Long userId, Long orderId) {
+        requireOwnedOrder(userId, orderId);
+        PaymentAttempt attempt = attemptMapper.selectOne(new LambdaQueryWrapper<PaymentAttempt>()
+                .eq(PaymentAttempt::getOrderId, orderId)
+                .orderByDesc(PaymentAttempt::getId)
+                .last("LIMIT 1"));
+        if (attempt == null) {
+            throw new BusinessException("PAYMENT_ATTEMPT_NOT_FOUND", "该订单暂无支付尝试");
+        }
+        return toAttemptView(attempt);
+    }
+
+    /** 尝试视图（收银台展示/轮询契约）；mockCallback 仅创建响应携带，状态轮询不重复签发 */
+    public java.util.Map<String, Object> toAttemptView(PaymentAttempt attempt) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("merchantPaymentNo", attempt.getMerchantPaymentNo());
+        result.put("status", attempt.getStatus());
+        result.put("amount", attempt.getAmount());
+        result.put("expiresAt", attempt.getExpiresAt() == null ? null : attempt.getExpiresAt().toString());
+        return result;
+    }
+
+    /** 归属校验（订单服务权威）：订单不存在/非本人一律拒绝 */
+    private OrderInternalInfoDTO requireOwnedOrder(Long userId, Long orderId) {
+        ApiResponse<OrderInternalInfoDTO> orderResp = orderFeignClient.getOrderInfo(orderId);
+        if (orderResp == null || !orderResp.success() || orderResp.data() == null) {
+            throw new BusinessException("PAYMENT_NOT_FOUND", "订单不存在");
+        }
+        OrderInternalInfoDTO order = orderResp.data();
+        if (!userId.equals(order.userId())) {
+            throw new BusinessException("PAYMENT_FORBIDDEN", "无权操作该订单的支付");
+        }
+        return order;
     }
 
     /**

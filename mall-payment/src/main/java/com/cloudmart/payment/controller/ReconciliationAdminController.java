@@ -33,21 +33,23 @@ public class ReconciliationAdminController {
     private final com.cloudmart.payment.reconciliation.ReconciliationService reconciliationService;
 
     @GetMapping("/runs")
-    @Operation(summary = "对账运行分页", description = "按日期倒序；差异汇总随行")
+    @Operation(summary = "对账运行分页", description = "按日期倒序；差异汇总随行；meta 携带 page/pageSize/total")
     public ApiResponse<List<ReconciliationRun>> listRuns(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
         Page<ReconciliationRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 100)),
                 new LambdaQueryWrapper<ReconciliationRun>().orderByDesc(ReconciliationRun::getId));
-        return ApiResponse.ok(result.getRecords());
+        return ApiResponse.ok(result.getRecords(), page, Math.min(size, 100), result.getTotal());
     }
 
     @GetMapping("/runs/{runId}/differences")
-    @Operation(summary = "差异查询", description = "按运行查差异；resolveStatus 过滤（OPEN 默认）")
+    @Operation(summary = "差异查询", description = "按运行查差异；resolveStatus 过滤（OPEN 默认）；分页返回")
     public ApiResponse<List<ReconciliationDifference>> listDifferences(
             @Parameter(description = "对账运行ID", required = true) @PathVariable("runId") Long runId,
             @Parameter(description = "处置状态过滤") @RequestParam(value = "resolveStatus", required = false)
-            String resolveStatus) {
+            String resolveStatus,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
         var wrapper = new LambdaQueryWrapper<ReconciliationDifference>()
                 .eq(ReconciliationDifference::getRunId, runId);
         if (resolveStatus != null && !resolveStatus.isBlank()) {
@@ -57,7 +59,9 @@ public class ReconciliationAdminController {
         }
         wrapper.orderByDesc(ReconciliationDifference::getSeverity)
                 .orderByAsc(ReconciliationDifference::getId);
-        return ApiResponse.ok(differenceMapper.selectList(wrapper));
+        Page<ReconciliationDifference> result = differenceMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(Math.max(size, 1), 100)), wrapper);
+        return ApiResponse.ok(result.getRecords(), page, Math.min(Math.max(size, 1), 100), result.getTotal());
     }
 
     @PostMapping("/runs/execute")

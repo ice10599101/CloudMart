@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -48,11 +50,7 @@ public class PaymentAttemptController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Valid @RequestBody CreateAttemptRequest request) {
         var attempt = attemptService.createAttempt(userId, request.orderId(), request.channel());
-        Map<String, Object> result = new java.util.LinkedHashMap<>();
-        result.put("merchantPaymentNo", attempt.getMerchantPaymentNo());
-        result.put("status", attempt.getStatus());
-        result.put("amount", attempt.getAmount());
-        result.put("expiresAt", attempt.getExpiresAt() == null ? null : attempt.getExpiresAt().toString());
+        Map<String, Object> result = attemptService.toAttemptView(attempt);
         if ("MOCK".equals(attempt.getChannel())) {
             MockChannelSigner.SignedNotification notification = attemptService.buildMockNotification(attempt);
             result.put("mockCallback", Map.of(
@@ -63,6 +61,16 @@ public class PaymentAttemptController {
                     "signature", notification.signature()));
         }
         return ApiResponse.ok(result);
+    }
+
+    @GetMapping("/order/{orderId}")
+    @Operation(summary = "查询订单支付尝试状态", description = "收银台轮询真值源（attempts 台账独立于旧 payment 表）；"
+            + "返回该订单最近一次尝试；归属经订单服务权威校验")
+    public ApiResponse<Map<String, Object>> getByOrder(
+            @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
+        return ApiResponse.ok(attemptService.findViewByOrder(userId, orderId));
     }
 
     public record MockNotifyRequest(

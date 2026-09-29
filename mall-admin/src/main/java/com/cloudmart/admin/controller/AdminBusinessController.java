@@ -506,12 +506,13 @@ public class AdminBusinessController {
     }
 
     // ==================== 支付对账（OPS-01） ====================
-    // 说明：查询用 business:payment:list；执行/处置沿用同页写权限 business:payment:refund，
-    // 细粒度权限码随对应菜单迁移任务落地后替换。人工处置不直接改资金。
+    // 说明：查询用 business:payment:list；执行/处置用细粒度 business:payment:reconcile
+    // （种子见 sql/business-payment-reconcile-perms.sql，超管通配不受影响；自定义角色
+    // 经菜单管理/角色管理授予）。人工处置不直接改资金。
 
     @GetMapping("/payments/reconciliation/runs")
     @RequiresPermission("business:payment:list")
-    @Operation(summary = "对账运行列表", description = "按日期倒序；差异汇总随行")
+    @Operation(summary = "对账运行列表", description = "按日期倒序；差异汇总随行；meta 携带分页")
     public ApiResponse<Object> listReconciliationRuns(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
@@ -520,16 +521,18 @@ public class AdminBusinessController {
 
     @GetMapping("/payments/reconciliation/runs/{runId}/differences")
     @RequiresPermission("business:payment:list")
-    @Operation(summary = "对账差异列表", description = "按运行查差异；resolveStatus 过滤（默认 OPEN）")
+    @Operation(summary = "对账差异列表", description = "按运行查差异；resolveStatus 过滤（默认 OPEN）；分页返回")
     public ApiResponse<Object> listReconciliationDifferences(
             @PathVariable Long runId,
-            @RequestParam(value = "resolveStatus", required = false) String resolveStatus) {
-        return paymentReconciliationFeignClient.listDifferences(runId, resolveStatus);
+            @RequestParam(value = "resolveStatus", required = false) String resolveStatus,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return paymentReconciliationFeignClient.listDifferences(runId, resolveStatus, page, size);
     }
 
     @PostMapping("/payments/reconciliation/runs/execute")
     @OperLog(title = "支付对账执行", businessType = 1)
-    @RequiresPermission("business:payment:refund")
+    @RequiresPermission("business:payment:reconcile")
     @Operation(summary = "执行一次对账", description = "scanDays：扫描最近 N 天的 SUCCESS 支付")
     public ApiResponse<Object> executeReconciliationRun(
             @RequestParam(value = "scanDays", defaultValue = "7") int scanDays) {
@@ -538,7 +541,7 @@ public class AdminBusinessController {
 
     @PostMapping("/payments/reconciliation/differences/{diffId}/resolve")
     @OperLog(title = "支付对账差异处置", businessType = 2)
-    @RequiresPermission("business:payment:refund")
+    @RequiresPermission("business:payment:reconcile")
     @Operation(summary = "处置差异", description = "resolveStatus=RESOLVED/ACCEPTED + 处置说明；不直接改资金")
     public ApiResponse<Void> resolveReconciliationDifference(@PathVariable Long diffId,
                                                              @RequestBody Map<String, Object> body) {

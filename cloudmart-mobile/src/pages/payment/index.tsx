@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
+import { paymentApi } from '@/api/payment'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
 
-type PaymentMethod = 'ALIPAY' | 'WECHAT' | 'BANK_CARD'
+type PaymentMethod = 'ALIPAY' | 'WECHAT' | 'BANK_CARD' | 'MOCK'
 type PaymentStatus = 'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'
 
 interface OrderItem {
@@ -46,7 +47,14 @@ const PAYMENT_METHODS: Array<{
   { key: 'ALIPAY', name: '支付宝', desc: '推荐使用', icon: '💳', iconClass: styles.methodIconAlipay },
   { key: 'WECHAT', name: '微信支付', desc: '微信安全支付', icon: '💬', iconClass: styles.methodIconWechat },
   { key: 'BANK_CARD', name: '银行卡', desc: '储蓄卡/信用卡', icon: '🏦', iconClass: styles.methodIconBank },
+  // PAY-01：MOCK 渠道仅测试环境存在（生产由后端启动自检拒绝），入口随环境隐藏
+  { key: 'MOCK', name: '模拟支付', desc: '测试环境专用', icon: '🧪', iconClass: styles.methodIconBank },
 ]
+
+/** 生产环境隐藏 MOCK 渠道入口 */
+const VISIBLE_PAYMENT_METHODS = PAYMENT_METHODS.filter(
+  (method) => method.key !== 'MOCK' || process.env.NODE_ENV !== 'production',
+)
 
 const COUNTDOWN_SECONDS = 15 * 60
 
@@ -72,6 +80,9 @@ export default function PaymentPage() {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollCancelledRef = useRef(false)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // PAY-01：本次收银走的是哪条链路——轮询必须打各自的真值源
+  // （attempts 在 mall-payment payment_attempt 表；旧链路在 order 侧支付视图，互查不到）
+  const pollTargetRef = useRef<'attempt' | 'legacy'>('legacy')
 
   const loadOrder = useCallback(async () => {
     if (!id) return
@@ -132,27 +143,35 @@ export default function PaymentPage() {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current)
     pollTimerRef.current = null
     // FE-03：串行轮询（await 查单→延迟→再查，不重叠）；查询失败退避续查不误报；
-    // cancelled ref 取消（类型安全，卸载/终态退出）
+    // cancelled ref 取消（类型安全，卸载/终态退出）。按发起链路打各自真值源。
     pollCancelledRef.current = false
     const loop = async () => {
       for (let attempt = 0; attempt < 100 && !pollCancelledRef.current; attempt++) {
         try {
-          const res = await orderApi.getPayment(id)
+          let status: string | undefined
+          if (pollTargetRef.current === 'attempt') {
+            const res = await paymentApi.getByOrder(id)
+            status = res.data?.data?.status
+          } else {
+            const res = await orderApi.getPayment(id)
+            status = (res.data?.data as PaymentInfo | undefined)?.status
+          }
           if (pollCancelledRef.current) return
-          const info = res.data?.data as PaymentInfo
-          setPaymentInfo(info)
-          if (info?.status === 'SUCCESS') {
+          if (status === 'SUCCESS') {
             setPaymentStatus('SUCCESS')
             return
           }
-          if (info?.status === 'FAILED') {
+          if (status && status !== 'PENDING') {
+            // FAILED/EXPIRED 等终态：允许用户重新发起，不误报也不无限轮询
             setPaymentStatus('FAILED')
             return
           }
         } catch {
           // 退避：弱网恢复后继续查单
         }
-        await new Promise((r) => setTimeout(r, 3000))
+        await new Promise((r) => {
+          setTimeout(r, 3000)
+        })
       }
     }
     void loop()
@@ -178,7 +197,20 @@ export default function PaymentPage() {
 
         setPaying(true)
         try {
-          await orderApi.pay(id, { paymentMethod: selectedMethod })
+          // PAY-01：优先走支付尝试流（归属/状态/金额全部服务端判定，客户端金额不参与）；
+          // 尝试端点不可用/渠道未启用时回退旧 orderApi.pay 兜底
+          try {
+            const attemptRes = await paymentApi.createAttempt({ orderId: id, channel: selectedMethod })
+            const mockCallback = attemptRes.data?.data?.mockCallback
+            if (mockCallback) {
+              // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
+              await paymentApi.submitMockCallback(mockCallback)
+            }
+            pollTargetRef.current = 'attempt'
+          } catch {
+            await orderApi.pay(id, { paymentMethod: selectedMethod })
+            pollTargetRef.current = 'legacy'
+          }
           setPaymentStatus('PENDING')
           startPolling()
         } catch (err: unknown) {
@@ -343,7 +375,7 @@ export default function PaymentPage() {
             <Text className={styles.sectionTitle}>支付方式</Text>
           </View>
           <View className={styles.methodList}>
-            {PAYMENT_METHODS.map((method) => (
+            {VISIBLE_PAYMENT_METHODS.map((method) => (
               <View
                 key={method.key}
                 className={`${styles.methodCard} ${selectedMethod === method.key ? styles.selected : ''}`}

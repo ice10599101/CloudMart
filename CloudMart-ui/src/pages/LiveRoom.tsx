@@ -227,7 +227,10 @@ export default function LiveRoomPage() {
     }
 
     const setupViewerConnection = async (offerSdp: string) => {
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
+      // ICE 服务器经 .umirc 从 WEBRTC_ICE_SERVERS 环境变量注入（define 后运行时为数组字面量；
+      // 默认空=内网 host 候选直连，不依赖公共 STUN；跨公网部署由部署方配置自建 STUN/TURN）
+      const iceServers = (process.env.WEBRTC_ICE_SERVERS ?? []) as unknown as RTCIceServer[]
+      const pc = new RTCPeerConnection({ iceServers })
       pcRef.current = pc
       pc.ontrack = (event) => {
         if (!cancelled) {

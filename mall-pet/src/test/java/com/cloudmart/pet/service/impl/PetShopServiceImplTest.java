@@ -235,4 +235,55 @@ class PetShopServiceImplTest {
         pet.setEvolutionStage(0);
         return pet;
     }
+
+    @Test
+    @DisplayName("F1 购买食物：扣款+堆叠入包+解锁图鉴，返回背包物品")
+    void buyFoodStacksInventory() {
+        when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
+                new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆", 20, 15, 2, 0)));
+        // 首购：条件更新命中 0 行 → insert quantity=1
+        when(inventoryMapper.update(any(), any())).thenReturn(0);
+        when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
+        when(inventoryMapper.selectOne(any())).thenReturn(inventory());
+        PetInventoryItemVO vo = new PetInventoryItemVO("FOOD", "apple", "苹果", "", "🍎",
+                "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0, false, 1, false, null);
+        when(itemCatalog.toInventoryVo(any(), eq(false))).thenReturn(vo);
+
+        PetInventoryItemVO result = shopService.buy(100L, new BuyItemRequest("FOOD", "apple"));
+
+        assertThat(result.code()).isEqualTo("apple");
+        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        verify(inventoryMapper).insert(any(PetInventory.class));
+    }
+
+    @Test
+    @DisplayName("F1 购买食物：已有库存行 quantity 原子 +1（不 insert）")
+    void buyFoodIncrementsExistingRow() {
+        when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
+                new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆", 20, 15, 2, 0)));
+        when(inventoryMapper.update(any(), any())).thenReturn(1);
+        when(inventoryMapper.selectOne(any())).thenReturn(inventory());
+        PetInventoryItemVO vo = new PetInventoryItemVO("FOOD", "apple", "苹果", "", "🍎",
+                "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0, false, 2, false, null);
+        when(itemCatalog.toInventoryVo(any(), eq(false))).thenReturn(vo);
+
+        PetInventoryItemVO result = shopService.buy(100L, new BuyItemRequest("FOOD", "apple"));
+
+        assertThat(result.quantity()).isEqualTo(2);
+        verify(inventoryMapper, org.mockito.Mockito.never()).insert(any(PetInventory.class));
+    }
+
+    private PetInventory inventory() {
+        PetInventory item = new PetInventory();
+        item.setPetId(1L);
+        item.setUserId(100L);
+        item.setItemType("FOOD");
+        item.setItemCode("apple");
+        item.setQuantity(1);
+        item.setEquipped(false);
+        return item;
+    }
 }

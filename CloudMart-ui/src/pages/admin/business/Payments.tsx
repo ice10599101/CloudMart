@@ -350,7 +350,7 @@ export default function Payments() {
                   )
                 }}
                 columns={reconColumns}
-                pagination={false}
+                pagination={{ defaultPageSize: 10, showSizeChanger: true }}
               />
             ),
           },
@@ -459,15 +459,17 @@ export default function Payments() {
           rowKey="id"
           search={false}
           size="small"
-          request={async () => {
+          request={async (params) => {
             if (!diffRun) return { data: [], total: 0, success: true }
-            // 下游差异接口按运行返回全量列表（不分页）
             return safeProTableRequest<ReconciliationDiffRecord>(() =>
-              listReconciliationDifferences(diffRun.id, {})
+              listReconciliationDifferences(diffRun.id, {
+                page: params.current,
+                size: params.pageSize,
+              })
             )
           }}
           columns={diffColumns}
-          pagination={false}
+          pagination={{ defaultPageSize: 10, showSizeChanger: true }}
         />
       </Modal>
 

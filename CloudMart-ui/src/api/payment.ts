@@ -47,6 +47,11 @@ export function createPaymentAttempt(data: { orderId: number | string; channel: 
   return request.post<ApiResponse<PaymentAttemptResult>>('/payment/payment-attempts', data)
 }
 
+/** 按订单查最近一次支付尝试状态（attempts 链路的收银台轮询真值源；归属服务端校验） */
+export function getPaymentAttemptByOrderId(orderId: number | string) {
+  return request.get<ApiResponse<PaymentAttemptResult>>(`/payment/payment-attempts/order/${orderId}`)
+}
+
 /** MOCK 渠道回调（HMAC 验签 + 重放防护 + 金额核对；仅测试环境启用） */
 export function submitMockPaymentCallback(data: MockCallbackPayload) {
   return request.post<ApiResponse<{ result: string }>>('/payment/payment-attempts/mock-callbacks', data)

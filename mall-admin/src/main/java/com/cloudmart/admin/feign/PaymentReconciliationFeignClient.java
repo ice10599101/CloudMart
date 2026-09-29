@@ -29,7 +29,9 @@ public interface PaymentReconciliationFeignClient {
 
     @GetMapping("/runs/{runId}/differences")
     ApiResponse<Object> listDifferences(@PathVariable("runId") Long runId,
-                                        @RequestParam(value = "resolveStatus", required = false) String resolveStatus);
+                                        @RequestParam(value = "resolveStatus", required = false) String resolveStatus,
+                                        @RequestParam("page") int page,
+                                        @RequestParam("size") int size);
 
     @PostMapping("/runs/execute")
     ApiResponse<Object> executeRun(@RequestParam("scanDays") int scanDays);

@@ -444,13 +444,13 @@ export function completeInboundOrder(id: number | string) {
 
 // ==================== 支付对账（OPS-01） ====================
 
-/** 对账运行分页（按日期倒序，差异汇总随行） */
+/** 对账运行分页（按日期倒序，差异汇总随行；meta 携带分页） */
 export function listReconciliationRuns(params: { page?: number; size?: number } = {}) {
   return request.get('/admin/business/payments/reconciliation/runs', { params })
 }
 
-/** 按运行查差异（resolveStatus 缺省 OPEN） */
-export function listReconciliationDifferences(runId: number | string, params: { resolveStatus?: string } = {}) {
+/** 按运行查差异（resolveStatus 缺省 OPEN；分页返回） */
+export function listReconciliationDifferences(runId: number | string, params: { resolveStatus?: string; page?: number; size?: number } = {}) {
   return request.get(`/admin/business/payments/reconciliation/runs/${runId}/differences`, { params })
 }
 

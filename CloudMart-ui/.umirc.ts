@@ -6,6 +6,22 @@ import { defineConfig } from 'umi';
 const GATEWAY_ORIGIN = process.env.GATEWAY_ORIGIN || 'http://129.204.152.168:8090'
 const GATEWAY_WS_ORIGIN = GATEWAY_ORIGIN.replace(/^http/, 'ws')
 
+// WebRTC ICE 服务器（直播观看端/推流端打洞用）：环境变量注入 RTCIceServer 数组 JSON，
+// 例如 WEBRTC_ICE_SERVERS='[{"urls":"turn:turn.example.com:3478","username":"u","credential":"p"}]'。
+// 默认空数组——同机/内网部署靠 host 候选即可连通，不依赖任何公共 STUN/TURN；
+// 跨公网部署时在此配置自建的 STUN/TURN（JSON 非法直接构建失败，不静默降级）。
+const WEBRTC_ICE_SERVERS = (() => {
+  const raw = process.env.WEBRTC_ICE_SERVERS
+  if (!raw || !raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) throw new Error('must be a JSON array of RTCIceServer')
+    return parsed
+  } catch (error) {
+    throw new Error(`WEBRTC_ICE_SERVERS 环境变量不是合法的 RTCIceServer JSON 数组: ${error instanceof Error ? error.message : error}`)
+  }
+})()
+
 export default defineConfig({
   title: '宝贝小答',
   metas: [
@@ -190,4 +206,7 @@ export default defineConfig({
   hash: true,
   jsMinifier: 'terser',
   cssMinifier: 'cssnano',
+  define: {
+    'process.env.WEBRTC_ICE_SERVERS': JSON.stringify(WEBRTC_ICE_SERVERS),
+  },
 });

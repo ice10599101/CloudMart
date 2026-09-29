@@ -7,7 +7,7 @@ vi.mock('@/utils/request', () => ({
 import request from '@/utils/request'
 import {
   createPayment, getPaymentByOrderId, simulateCallback, refundPayment,
-  createPaymentAttempt, submitMockPaymentCallback,
+  createPaymentAttempt, submitMockPaymentCallback, getPaymentAttemptByOrderId,
 } from './payment'
 
 describe('payment API', () => {
@@ -78,5 +78,13 @@ describe('payment API', () => {
     await submitMockPaymentCallback(payload)
 
     expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts/mock-callbacks', payload)
+  })
+
+  it('getPaymentAttemptByOrderId() calls GET /payment/payment-attempts/order/:id', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getPaymentAttemptByOrderId(7)
+
+    expect(request.get).toHaveBeenCalledWith('/payment/payment-attempts/order/7')
   })
 })
