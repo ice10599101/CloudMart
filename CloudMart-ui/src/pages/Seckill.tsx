@@ -209,9 +209,17 @@ function SeckillProductCard({
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.4)" strokeWidth="1.5">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
+          {product.productImage ? (
+            <img
+              src={product.productImage}
+              alt={product.productName ?? '秒杀商品'}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.4)" strokeWidth="1.5">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          )}
           {isOngoing && !isSoldOut && (
             <div style={{
               position: 'absolute',
@@ -231,8 +239,8 @@ function SeckillProductCard({
         </div>
 
         <div style={{ padding: 20 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {`商品SKU-${product.skuId}`}
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={product.productName ?? undefined}>
+            {product.productName || '秒杀商品'}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
@@ -247,7 +255,7 @@ function SeckillProductCard({
           <div style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>已抢{soldPercent}%</span>
-              <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>限购{product.perUserLimit}件</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>限购{product.limitPerUser}件</span>
             </div>
             <div style={{
               height: 6,

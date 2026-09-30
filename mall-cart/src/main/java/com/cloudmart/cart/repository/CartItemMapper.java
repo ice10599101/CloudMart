@@ -14,11 +14,15 @@ public interface CartItemMapper extends BaseMapper<CartItem> {
     /**
      * CART-01：原子加购（DB 权威）——UNIQUE(user_id,sku_id) 冲突时数量原子累加
      * （上限 999），并发加购不丢增量；返回 1 表示写入成功。
+     *
+     * <p>ODKU 子句中已有行字段必须用表名限定：MySQL 8.0.19+ 引入行别名
+     * `AS new` 后，未限定列名与别名字段同名的引用会被判定为 ambiguous（ERROR 1052）。</p>
      */
     @Insert("INSERT INTO cart_items (user_id, product_id, sku_id, quantity, checked) "
             + "VALUES (#{userId}, #{productId}, #{skuId}, #{quantity}, 1) "
             + "AS new "
-            + "ON DUPLICATE KEY UPDATE quantity = LEAST(quantity + new.quantity, 999), checked = 1, updated_at = NOW()")
+            + "ON DUPLICATE KEY UPDATE quantity = LEAST(cart_items.quantity + new.quantity, 999), "
+            + "checked = 1, updated_at = NOW()")
     int upsertIncrement(@Param("userId") Long userId, @Param("productId") Long productId,
                         @Param("skuId") Long skuId, @Param("quantity") Integer quantity);
 

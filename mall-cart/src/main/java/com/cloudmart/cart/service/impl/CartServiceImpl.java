@@ -62,11 +62,20 @@ public class CartServiceImpl implements CartService {
         List<CartItemDTO> items = new ArrayList<>();
         int totalQuantity = 0;
         BigDecimal totalPrice = BigDecimal.ZERO;
+        Map<Long, ProductInfo> productInfoCache = new java.util.HashMap<>();
 
         for (Map.Entry<Object, Object> entry : entries.entrySet()) {
             try {
                 CartItemDTO item = deserializeItem(entry.getValue().toString(), userId, entry.getKey());
                 if (item != null) {
+                    // 缓存行可能来自 DB 回源（不含商品快照），读取路径补齐后回写
+                    if (item.price() == null || item.productName() == null) {
+                        CartItemDTO enriched = enrichItem(item, productInfoCache);
+                        if (enriched != item) {
+                            item = enriched;
+                            serializeAndPut(key, entry.getKey().toString(), item, userId);
+                        }
+                    }
                     items.add(item);
                     if (item.checked() != null && item.checked() == 1) {
                         totalQuantity += item.quantity();
@@ -146,6 +155,9 @@ public class CartServiceImpl implements CartService {
                 cached != null ? cached.skuAttributes() : null,
                 cached != null ? cached.price() : null
         );
+        if (updated.price() == null || updated.productName() == null) {
+            updated = enrichItem(updated, new java.util.HashMap<>());
+        }
         serializeAndPut(buildKey(userId), skuId.toString(), updated, userId);
         return updated;
     }
@@ -210,7 +222,6 @@ public class CartServiceImpl implements CartService {
         }
         for (CartItem entity : rows) {
             try {
-                String productJson = null;
                 CartItemDTO item = new CartItemDTO(
                         entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
                         entity.getQuantity(), entity.getChecked(),
@@ -240,6 +251,31 @@ public class CartServiceImpl implements CartService {
         return objectMapper.readValue(json, CartItemDTO.class);
     }
 
+    /**
+     * 补齐缓存行缺失的商品快照（名称/图片/属性/价格）。DB 权威行只存
+     * user/product/sku/quantity/checked，回源重建的缓存不含快照；商品已下架或
+     * 商品服务不可用时按原样返回，不阻塞购物车读取。
+     */
+    private CartItemDTO enrichItem(CartItemDTO item, Map<Long, ProductInfo> productInfoCache) {
+        ProductInfo productInfo = productInfoCache.computeIfAbsent(item.productId(), this::fetchProductInfo);
+        if (productInfo == null || productInfo.skus() == null) {
+            return item;
+        }
+        SkuInfo matchedSku = productInfo.skus().stream()
+                .filter(s -> s.id().equals(item.skuId()))
+                .findFirst()
+                .orElse(null);
+        String skuImage = matchedSku != null ? matchedSku.image() : null;
+        if (skuImage == null) {
+            skuImage = productInfo.mainImage();
+        }
+        return new CartItemDTO(item.id(), item.userId(), item.productId(), item.skuId(),
+                item.quantity(), item.checked(),
+                productInfo.name(), skuImage,
+                matchedSku != null ? matchedSku.attributes() : null,
+                matchedSku != null ? matchedSku.price() : null);
+    }
+
     private void serializeAndPut(String key, String field, CartItemDTO item, Long userId) {
         try {
             redisTemplate.opsForHash().put(key, field, objectMapper.writeValueAsString(item));
@@ -253,13 +289,29 @@ public class CartServiceImpl implements CartService {
         return CART_KEY_PREFIX + userId;
     }
 
+    /**
+     * Sentinel 降级只应接管流量类异常（BlockException）；业务校验/数据访问异常必须原样上抛，
+     * 由全局异常处理器返回错误信封。此前所有异常一律返回 null，被控制器包装成
+     * `{"success":true}` 假成功，导致加购静默丢失（明确失败 &gt; 假装成功）。
+     */
     public CartDTO getCartFallback(Long userId, Throwable throwable) {
         log.warn("getCart fallback triggered, userId={}: {}", userId, throwable.getMessage());
-        return null;
+        throw degradedOrRethrow(throwable);
     }
 
     public CartItemDTO addToCartFallback(Long userId, AddCartItemRequest request, Throwable throwable) {
-        log.warn("addToCart fallback triggered, userId={}: {}", userId, throwable.getMessage());
-        return null;
+        log.warn("addToCart fallback triggered, userId={}, skuId={}: {}",
+                userId, request.skuId(), throwable.getMessage());
+        throw degradedOrRethrow(throwable);
+    }
+
+    private BusinessException degradedOrRethrow(Throwable throwable) {
+        if (throwable instanceof com.alibaba.csp.sentinel.slots.block.BlockException) {
+            return new BusinessException("CART_SERVICE_UNAVAILABLE", "购物车服务繁忙，请稍后重试");
+        }
+        if (throwable instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        return new BusinessException("CART_SERVICE_UNAVAILABLE", "购物车服务暂时不可用，请稍后重试");
     }
 }

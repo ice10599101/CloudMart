@@ -137,6 +137,23 @@ public class InventoryServiceImpl implements InventoryService {
                 String.valueOf(request.quantity())
         );
 
+        // 缓存缺失（未预热/已过期/TTL 到期）≠ 库存不足：回源 DB 预热后重试一次。
+        // 本方法持有该 SKU 的分布式锁，预热-重试不会与并发扣减竞态。
+        if (result != null && result == 2L) {
+            log.info("库存缓存缺失, 回源 DB 预热, skuId={}", request.skuId());
+            Inventory inventory = inventoryMapper.selectOne(
+                    new LambdaQueryWrapper<Inventory>().eq(Inventory::getSkuId, request.skuId()));
+            if (inventory == null) {
+                throw new BusinessException("INVENTORY_NOT_FOUND", "库存记录不存在");
+            }
+            redisTemplate.opsForValue().set(key, String.valueOf(inventory.getAvailable()), buildTtlWithJitter());
+            result = redisTemplate.execute(
+                    deductInventoryScript,
+                    Collections.singletonList(key),
+                    String.valueOf(request.quantity())
+            );
+        }
+
         if (result == null || result == 0L) {
             log.warn("库存预扣失败, skuId={}, quantity={}", request.skuId(), request.quantity());
             return false;
@@ -366,11 +383,21 @@ public class InventoryServiceImpl implements InventoryService {
 
     public InventoryDTO getStockFallback(Long skuId, Throwable throwable) {
         log.warn("getStock fallback triggered, skuId={}: {}", skuId, throwable.getMessage());
-        return null;
+        if (throwable instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        throw new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存服务繁忙，请稍后重试");
     }
 
+    /** Sentinel 降级只接管流量异常；业务/数据异常上抛。返回 false 会被下单方解读为"库存不足"，掩盖真实故障。 */
     public boolean deductStockFallback(DeductRequest request, Throwable throwable) {
         log.warn("deductStock fallback triggered, skuId={}: {}", request.skuId(), throwable.getMessage());
-        return false;
+        if (throwable instanceof com.alibaba.csp.sentinel.slots.block.BlockException) {
+            throw new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存服务繁忙，请稍后重试");
+        }
+        if (throwable instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        throw new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存服务暂时不可用，请稍后重试");
     }
 }

@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { App, Input, Spin } from 'antd'
+import { history } from 'umi'
 import {
     activatePet,
     cleanPet,
@@ -216,6 +217,9 @@ export default function PetCreamPage() {
                     <h1 className={styles.mastheadTitle}>Le Petit Jardin</h1>
                     <p className={styles.mastheadSub}>宠物小花园 · 五果相伴</p>
                     <div className={styles.mastheadRule} />
+                    <div className={styles.mastheadActions}>
+                        <CreamButton variant="ghost" onClick={() => history.push('/pet')}>返回旧版界面</CreamButton>
+                    </div>
                 </header>
 
                 {!pet ? (

@@ -83,7 +83,10 @@ const FOOTER_COLUMNS = [
 
 function getSelectedKey(pathname: string): string {
   if (pathname === '/' || pathname === '') return '/'
-  const matched = NAV_ITEMS.find((item) => item.key !== '/' && pathname.startsWith(item.key))
+  // 按路径段匹配，避免 /wishlist 误撞 /wish 前缀导致「心愿宇宙」被错误高亮
+  const matched = NAV_ITEMS.find(
+    (item) => item.key !== '/' && (pathname === item.key || pathname.startsWith(`${item.key}/`)),
+  )
   return matched?.key ?? '/'
 }
 

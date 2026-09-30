@@ -92,6 +92,8 @@ export default defineConfig({
         { path: '/wish/map', component: '@/pages/WishMap' },
         { path: '/wish/drift-bottle', component: '@/pages/DriftBottle' },
         { path: '/pet', component: '@/pages/PetHome' },
+        // 法式奶油风新版（并行验证）：面板全部迁入后替换 /pet 的 component
+        { path: '/pet-cream', component: '@/pages/PetCream' },
         { path: '/pet/wallet', component: '@/pages/PetWallet' },
         { path: '/wish/notification-prefs', component: '@/pages/WishNotificationPrefs' },
         { path: '/wish/privacy', component: '@/pages/WishPrivacyCenter' },

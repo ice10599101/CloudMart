@@ -118,8 +118,10 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: risk:admin
-      # RISK-01：主链路风控检查（下单/领券/支付创建）
-      - prefix: /internal
+      # RISK-01：主链路风控检查（下单/领券/支付创建）。
+      # 控制器实际路径为 /check/internal（RiskCheckController 类级 @RequestMapping("/check")），
+      # 前缀必须与真实 URI 一致，否则内部调用无法建立 INTERNAL 身份，全链路 401。
+      - prefix: /check/internal
         issuers: [mall-order, mall-coupon, mall-payment]
         scope: risk:check
       - prefix: /blacklist
@@ -131,6 +133,3 @@ cloudmart:
       - prefix: /rules
         issuers: [mall-admin]
         scope: risk:admin
-      - prefix: /internal
-        issuers: [mall-auth, mall-order, mall-payment, mall-seckill, mall-user, mall-job]
-        scope: risk:internal

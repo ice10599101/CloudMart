@@ -3374,6 +3374,7 @@ export default function PetHomePage() {
           </span>
           <span className={styles.stageActions}>
             <Button size="small" onClick={() => setRenameOpen(true)}>改名</Button>
+            <Button size="small" onClick={() => history.push('/pet-cream')}>新版界面</Button>
             <span className={styles.privacyRow}>
               主页展示
               <Switch

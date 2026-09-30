@@ -238,7 +238,6 @@ export interface UserCoupon {
 }
 
 export type SeckillActivityStatus = 'UPCOMING' | 'ONGOING' | 'ENDED'
-export type SeckillProductStatus = 'ON_SHELF' | 'OFF_SHELF'
 export type SeckillResultStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 
 export interface SeckillActivity {
@@ -253,16 +252,15 @@ export interface SeckillActivity {
 
 export interface SeckillProduct {
   id: number
-  activityId: number
-  skuId: number
-  productName: string
+  /** mall-seckill 返回的 VO 字段；enrich 失败时 productId/productName/productImage 可为 null */
+  productId: number | null
+  productName: string | null
+  productImage: string | null
   seckillPrice: number
   originalPrice: number
   totalStock: number
   availableStock: number
-  perUserLimit: number
-  status: SeckillProductStatus
-  createdAt: string
+  limitPerUser: number
 }
 
 export interface SeckillResult {

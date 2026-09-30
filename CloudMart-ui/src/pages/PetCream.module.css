@@ -46,6 +46,13 @@
   border-bottom: 1px solid rgba(231, 220, 203, 0.9);
 }
 
+.mastheadActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 12px;
+}
+
 /* 身份卡：拱形 + 立体头像 */
 .identity {
   display: flex;

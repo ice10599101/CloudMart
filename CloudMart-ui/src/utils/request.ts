@@ -41,6 +41,8 @@ const refreshDomains: Record<AuthDomain, RefreshDomainState> = {
 
 const SERVICE_UNAVAILABLE_CODES = new Set<string>()
 let serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null
+let NETWORK_ERROR_NOTIFIED = false
+let networkErrorTimer: ReturnType<typeof setTimeout> | null = null
 
 function processPendingRequests(domain: AuthDomain, token: string) {
   refreshDomains[domain].pendingRequests.forEach((cb) => cb(token))
@@ -378,7 +380,17 @@ request.interceptors.response.use(
       }
     }
     if (!isSilent(error.config as { silentError?: boolean } | undefined)) {
-      notify('error', error.response?.data?.error?.message || '网络错误')
+      // 网络级失败（断网/代理抖动）常成批出现：5 秒窗口内去重，避免 toast 刷屏
+      if (error.response) {
+        notify('error', error.response.data?.error?.message || '网络错误')
+      } else if (!NETWORK_ERROR_NOTIFIED) {
+        NETWORK_ERROR_NOTIFIED = true
+        notify('error', '网络错误，请检查网络连接')
+        if (networkErrorTimer) clearTimeout(networkErrorTimer)
+        networkErrorTimer = setTimeout(() => {
+          NETWORK_ERROR_NOTIFIED = false
+        }, 5000)
+      }
     }
     return Promise.reject(error)
   },

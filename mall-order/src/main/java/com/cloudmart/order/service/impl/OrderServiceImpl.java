@@ -946,17 +946,25 @@ public class OrderServiceImpl implements OrderService {
 
     public OrderDTO createOrderBlockHandler(Long userId, CreateOrderRequest request, BlockException ex) {
         log.warn("createOrder blocked by Sentinel: {}", ex.getRule());
-        return null;
+        throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "下单服务繁忙，请稍后重试");
     }
 
+    /**
+     * Sentinel 降级只接管流量类异常；业务/数据异常必须原样上抛。此前一律返回 null，
+     * 调用方 createOrderFromQuote 对 null 取 id() 直接 NPE（INTERNAL_ERROR 500），
+     * 且真实失败原因被吞掉。
+     */
     public OrderDTO createOrderFallback(Long userId, CreateOrderRequest request, Throwable throwable) {
         log.warn("createOrder fallback triggered: {}", throwable.getMessage());
-        return null;
+        if (throwable instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "下单服务暂时不可用，请稍后重试");
     }
 
     public OrderDTO cancelOrderBlockHandler(Long userId, Long orderId, BlockException ex) {
         log.warn("cancelOrder blocked by Sentinel: {}", ex.getRule());
-        return null;
+        throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "下单服务繁忙，请稍后重试");
     }
 
     @Override
@@ -993,6 +1001,10 @@ public class OrderServiceImpl implements OrderService {
                 quote.getCouponId(), null);
 
         OrderDTO order = selfProvider.getObject().createOrder(userId, request);
+        // 双保险：createOrder 在任何降级路径都不应返回 null；万一返回则明确失败而非 NPE
+        if (order == null) {
+            throw new BusinessException("ORDER_CREATE_FAILED", "订单创建失败，请稍后重试");
+        }
 
         orderQuoteMapper.updateConsumedBy(quoteId, order.id());
         return order;
