@@ -47,6 +47,7 @@ public class PetSeasonSettlementService {
     private final PetEconomyService economyService;
     private final PetEventProducer eventProducer;
     private final PetStateService stateService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     /** 每小时检查到期赛季（scheduler 调用；内部 CAS 防多实例重结算） */
     public void settleExpiredSeasons() {
@@ -104,10 +105,18 @@ public class PetSeasonSettlementService {
      * 单批结算：等级榜分页（与排行榜 DB 兜底同排序口径），每批一个事务——
      * 快照行 + 奖励入账 + 通知同事务，失败整批回滚（重跑幂等收敛）。
      *
+     * <p>注意：本方法由同类内部调用（自调用绕过 Spring 代理，@Transactional 不生效），
+     * 因此事务边界用 TransactionTemplate 显式声明——钱包 credit/debit 为
+     * MANDATORY 传播，无事务上下文会直接抛异常（远程验收发现的结算 500 根因）。</p>
+     *
      * @return 本批发奖人数
      */
-    @Transactional
     public int settleBatch(PetSeason season, List<PetSeasonReward> tiers, long offset, int limit) {
+        Integer rewarded = transactionTemplate.execute(status -> doSettleBatch(season, tiers, offset, limit));
+        return rewarded != null ? rewarded : 0;
+    }
+
+    private int doSettleBatch(PetSeason season, List<PetSeasonReward> tiers, long offset, int limit) {
         // 分页按 (level desc, exp desc, id asc) 游标推进；is_public=1 与榜单口径一致
         List<Pet> pets = petMapper.selectList(new LambdaQueryWrapper<Pet>()
                 .select(Pet::getId, Pet::getUserId, Pet::getLevel, Pet::getExp, Pet::getName)

@@ -31,7 +31,8 @@ export default function WishPrivacyCenter() {
     setLoading(true)
     try {
       const res = await request.get('/wish/v2/my/privacy')
-      setView((res as { data: PrivacyView }).data)
+      // request 拦截器返回的是 ApiResponse 信封：业务数据在 res.data.data
+      setView((res as { data: { data: PrivacyView } }).data.data)
     } finally {
       setLoading(false)
     }
@@ -56,7 +57,7 @@ export default function WishPrivacyCenter() {
       <Card title={<Typography.Title level={4}>隐私中心</Typography.Title>}>
         <Descriptions column={1} bordered size="small">
           <Descriptions.Item label="AI 数据处理授权">
-            {view?.aiDataProcessing.granted
+            {view?.aiDataProcessing?.granted
               ? <Tag color="green">已授权（v{view.aiDataProcessing.version}）</Tag>
               : <Tag>未授权</Tag>}
             <Button size="small" type="link" onClick={() => history.push('/wish/assistant')}>
@@ -65,8 +66,8 @@ export default function WishPrivacyCenter() {
           </Descriptions.Item>
           <Descriptions.Item label="数据导出">
             <Space>
-              <Tag>{view?.dataExport.status ?? 'NONE'}</Tag>
-              {view?.dataExport.status === 'SUCCESS' && (
+              <Tag>{view?.dataExport?.status ?? 'NONE'}</Tag>
+              {view?.dataExport?.status === 'SUCCESS' && (
                 <Button size="small" type="link"
                   onClick={() => history.push('/settings/export')}>去下载</Button>
               )}
@@ -74,10 +75,10 @@ export default function WishPrivacyCenter() {
           </Descriptions.Item>
           <Descriptions.Item label="全账号注销">
             <Space>
-              <Tag color={view?.accountDeletion.status === 'PENDING' ? 'red' : 'default'}>
-                {DELETION_LABEL[view?.accountDeletion.status ?? 'NONE'] ?? view?.accountDeletion.status}
+              <Tag color={view?.accountDeletion?.status === 'PENDING' ? 'red' : 'default'}>
+                {DELETION_LABEL[view?.accountDeletion?.status ?? 'NONE'] ?? view?.accountDeletion?.status}
               </Tag>
-              {view?.accountDeletion.status === 'PENDING' && (
+              {view?.accountDeletion?.status === 'PENDING' && (
                 <Button size="small" danger onClick={() => void cancelDeletion()}>取消注销</Button>
               )}
             </Space>
@@ -88,13 +89,13 @@ export default function WishPrivacyCenter() {
       <Card title="默认关闭项">
         <Descriptions column={1} bordered size="small">
           <Descriptions.Item label="位置共享">
-            <Tag color="default">{view?.defaults.locationSharing ? '开启' : '关闭（默认）'}</Tag>
+            <Tag color="default">{view?.defaults?.locationSharing ? '开启' : '关闭（默认）'}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="还愿自动分享到社区">
-            <Tag color="default">{view?.defaults.fulfillmentAutoShare ? '开启' : '关闭（默认）'}</Tag>
+            <Tag color="default">{view?.defaults?.fulfillmentAutoShare ? '开启' : '关闭（默认）'}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="人民币支付">
-            <Tag color="default">{view?.defaults.rmbPayment ? '开启' : '关闭（默认）'}</Tag>
+            <Tag color="default">{view?.defaults?.rmbPayment ? '开启' : '关闭（默认）'}</Tag>
           </Descriptions.Item>
         </Descriptions>
       </Card>
