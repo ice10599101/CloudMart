@@ -36,11 +36,9 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
     var toyBall = buildToys(parent, kit);
     buildContactShadows(parent, kit);
     buildForeground(parent, kit);
-    var orbs = buildOrbs(parent, kit);
     var bulbs = buildLampString(parent, kit);
     var sunBeam = buildSunBeam(parent, kit);
     return {
-      orbs,
       bulbs,
       sunBeam,
       toyBall
@@ -108,7 +106,28 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
       w: 0.4,
       h: 0.36,
       d: 7.6
-    }, base, new Vec3(-4.53, 0.18, 0.4));
+    }, base, new Vec3(-4.53, 0.18, 0.4)); // 法式线条：顶线（crown）+ 腰线（chair rail），近白奶油勾出墙裙层次
+
+    kit.boxPart(root, 'CrownBack', {
+      w: 16,
+      h: 0.16,
+      d: 0.44
+    }, base, new Vec3(0, 4.62, -2.92));
+    kit.boxPart(root, 'RailBack', {
+      w: 16,
+      h: 0.1,
+      d: 0.4
+    }, base, new Vec3(0, 1.12, -2.94));
+    kit.boxPart(root, 'CrownLeft', {
+      w: 0.44,
+      h: 0.16,
+      d: 7.6
+    }, base, new Vec3(-4.5, 4.62, 0.4));
+    kit.boxPart(root, 'RailLeft', {
+      w: 0.4,
+      h: 0.1,
+      d: 7.6
+    }, base, new Vec3(-4.52, 1.12, 0.4));
   }
   /** 大窗：窗框 + 透光玻璃（自发光）+ 十字窗棂 + 两侧窗帘 */
 
@@ -153,10 +172,8 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
         error: Error()
       }), shift) : shift)(C.curtain, -0.16)
     });
-    kit.capPart(root, 'Rod', 0.045, 3.5, style(C.woodDark, {
-      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
-        error: Error()
-      }), shift) : shift)(C.woodDark, -0.2)
+    kit.capPart(root, 'Rod', 0.045, 3.5, style(C.brass, {
+      shade: C.brassDark
     }), new Vec3(0, 1.06, 0.12), {
       rot: new Vec3(0, 0, 90)
     });
@@ -174,32 +191,47 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
       w: 2.9,
       h: 0.26,
       d: 0.24
-    }, curtain, new Vec3(0, 1.02, 0.12)); // 窗台小摆件：小盆栽
+    }, curtain, new Vec3(0, 1.02, 0.12)); // 窗台小花瓶：一朵玫瑰 + 两片叶
 
-    kit.cylPart(root, 'PotSmall', 0.16, 0.12, 0.2, style(C.pot, {
+    kit.cylPart(root, 'VaseSmall', 0.09, 0.07, 0.16, style(C.vase, {
       shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
         error: Error()
-      }), shift) : shift)(C.pot, -0.2)
-    }), new Vec3(0.72, -0.8, 0.12));
-    kit.ball(root, 'LeafSmall', 0.15, style(C.leaf, {
+      }), shift) : shift)(C.vase, -0.1)
+    }), new Vec3(0.72, -0.79, 0.12));
+    kit.capPart(root, 'StemSmall', 0.016, 0.14, style(C.leafDark, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.leafDark, -0.18)
+    }), new Vec3(0.72, -0.66, 0.12));
+    kit.ball(root, 'BloomSmall', 0.075, style(C.heart, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.heart, -0.18)
+    }), new Vec3(0.72, -0.55, 0.12));
+    kit.ball(root, 'LeafTinyA', 0.045, style(C.leaf, {
       shade: C.leafDark
-    }), new Vec3(0.72, -0.62, 0.12), {
-      scale: new Vec3(1, 0.9, 1)
+    }), new Vec3(0.66, -0.62, 0.1), {
+      scale: new Vec3(1, 0.6, 1)
+    });
+    kit.ball(root, 'LeafTinyB', 0.04, style(C.leaf, {
+      shade: C.leafDark
+    }), new Vec3(0.78, -0.6, 0.14), {
+      scale: new Vec3(1, 0.6, 1)
     });
   }
   /** 墙面装饰：挂画（含心形图案）+ 挂灯串（灯泡节点）+ 云朵星饰 */
 
 
   function buildWallDecor(parent, kit) {
-    var root = kit.make3dNode(parent, 'WallDecor', new Vec3(0, 0, 0)); // 挂画
+    var root = kit.make3dNode(parent, 'WallDecor', new Vec3(0, 0, 0)); // 挂画：黄铜画框（法式金框），画面为奶油底 + 玫瑰心
 
     var frame = kit.make3dNode(root, 'Painting', new Vec3(1.85, 2.55, -2.8));
     kit.boxPart(frame, 'Frame', {
       w: 1.5,
       h: 1.2,
       d: 0.1
-    }, style(C.wood, {
-      shade: C.woodDark
+    }, style(C.brass, {
+      shade: C.brassDark
     }), new Vec3(0, 0, 0));
     kit.boxPart(frame, 'Canvas', {
       w: 1.26,
@@ -280,21 +312,29 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
           error: Error()
         }), shift) : shift)(color, -0.22)
       }), new Vec3(x, 2.32 + h / 2, 0.02));
-    }
+    } // 架上小花瓶：一朵雾蓝小花
 
-    kit.cylPart(shelf, 'PotShelf', 0.18, 0.14, 0.22, style(C.pot, {
+
+    kit.cylPart(shelf, 'VaseShelf', 0.09, 0.07, 0.15, style(C.vase, {
       shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
         error: Error()
-      }), shift) : shift)(C.pot, -0.2)
-    }), new Vec3(0.45, 1.62 + 0.11, 0));
-    kit.ball(shelf, 'LeafShelf', 0.17, style(C.leaf, {
+      }), shift) : shift)(C.vase, -0.1)
+    }), new Vec3(0.45, 1.62 + 0.075, 0));
+    kit.capPart(shelf, 'StemShelf', 0.014, 0.12, style(C.leafDark, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.leafDark, -0.18)
+    }), new Vec3(0.45, 1.85, 0));
+    kit.ball(shelf, 'BloomShelf', 0.065, style(C.book1, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.book1, -0.18)
+    }), new Vec3(0.45, 1.94, 0));
+    kit.ball(shelf, 'LeafShelf', 0.05, style(C.leaf, {
       shade: C.leafDark
-    }), new Vec3(0.45, 1.94, 0), {
-      scale: new Vec3(1, 0.92, 1)
+    }), new Vec3(0.52, 1.88, 0.02), {
+      scale: new Vec3(1, 0.6, 1)
     });
-    kit.ball(shelf, 'LeafShelf2', 0.11, style(C.leaf, {
-      shade: C.leafDark
-    }), new Vec3(0.62, 1.83, 0.03));
   }
   /** 圆地毯（三层同心圆 + 边缘滚边），宠物活动区中心 */
 
@@ -328,7 +368,8 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
 
 
   function buildBed(parent, kit) {
-    var root = kit.make3dNode(parent, 'PetBed', new Vec3(2.6, 0, 1.15));
+    // 让开中央活动区：宠物窝退到右侧靠后
+    var root = kit.make3dNode(parent, 'PetBed', new Vec3(2.95, 0, 1.35));
     kit.cylPart(root, 'Rim', 0.88, 0.98, 0.34, style(C.bedRim, {
       shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
         error: Error()
@@ -383,46 +424,147 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
       }, drawerLine, new Vec3(0, y, 0));
     }
 
-    kit.ball(root, 'Knob1', 0.055, style(new Color(0xFF, 0xE0, 0xA8, 255), {
-      shade: C.woodDark
+    kit.ball(root, 'Knob1', 0.055, style(C.brass, {
+      shade: C.brassDark
     }), new Vec3(0, 0.66, 0.53));
-    kit.ball(root, 'Knob2', 0.055, style(new Color(0xFF, 0xE0, 0xA8, 255), {
-      shade: C.woodDark
-    }), new Vec3(0, 1.14, 0.53)); // 台灯（暖光）
+    kit.ball(root, 'Knob2', 0.055, style(C.brass, {
+      shade: C.brassDark
+    }), new Vec3(0, 1.14, 0.53)); // 台面餐具：立式碟架（圆盘面朝镜头，玫瑰/雾蓝描边）+ 两只粉彩圆碗 —— 替换旧版尖顶台灯
+    // （平摞的薄盘在低机位下只剩一条线，立起来才读得出"盘子"）
 
-    kit.capPart(root, 'LampPole', 0.035, 0.42, style(C.woodDark, {
+    var china = style(C.china, {
       shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
         error: Error()
-      }), shift) : shift)(C.woodDark, -0.2)
-    }), new Vec3(0.32, 1.64, 0));
-    kit.conePart(root, 'LampShade', 0.26, 0.34, style(new Color(0xFF, 0xD9, 0x9E, 255), {
-      glow: true
-    }), new Vec3(0.32, 1.98, 0));
+      }), shift) : shift)(C.china, -0.1)
+    });
+    var rackWood = style(C.wood, {
+      shade: C.woodDark
+    });
+    kit.boxPart(root, 'RackBase', {
+      w: 0.72,
+      h: 0.05,
+      d: 0.26
+    }, rackWood, new Vec3(-0.28, 1.46, 0.1));
+    kit.boxPart(root, 'RackBack', {
+      w: 0.72,
+      h: 0.34,
+      d: 0.035
+    }, rackWood, new Vec3(-0.28, 1.63, -0.03));
+    kit.boxPart(root, 'RackPostL', {
+      w: 0.05,
+      h: 0.3,
+      d: 0.24
+    }, rackWood, new Vec3(-0.55, 1.62, 0.06));
+    kit.boxPart(root, 'RackPostR', {
+      w: 0.05,
+      h: 0.3,
+      d: 0.24
+    }, rackWood, new Vec3(-0.01, 1.62, 0.06));
+
+    var standingPlate = (x, rim) => {
+      var face = new Vec3(x, 1.645, 0.1);
+      kit.cylPart(root, 'Plate', 0.16, 0.16, 0.035, china, face, {
+        rot: new Vec3(90, 0, 0)
+      });
+      kit.cylPart(root, 'PlateRim', 0.17, 0.17, 0.016, style(rim, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(rim, -0.18)
+      }), new Vec3(x, 1.645, 0.115), {
+        rot: new Vec3(90, 0, 0)
+      });
+      kit.cylPart(root, 'PlateHub', 0.055, 0.055, 0.018, style(rim, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(rim, -0.08)
+      }), new Vec3(x, 1.645, 0.128), {
+        rot: new Vec3(90, 0, 0)
+      });
+    };
+
+    standingPlate(-0.44, C.heart);
+    standingPlate(-0.12, C.book1); // 圆碗：粉彩球体下陷成碗身 + 奶油碗口内壁（圆润立体，双色）
+
+    var bowl = (x, color) => {
+      kit.ball(root, 'BowlBody', 0.15, style(color, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(color, -0.2)
+      }), new Vec3(x, 1.53, 0.12), {
+        scale: new Vec3(1, 0.72, 1)
+      });
+      kit.ball(root, 'BowlInner', 0.15, style(C.china, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(C.china, -0.06)
+      }), new Vec3(x, 1.562, 0.12), {
+        scale: new Vec3(0.8, 0.3, 0.8)
+      });
+    };
+
+    bowl(0.18, C.leaf);
+    bowl(0.46, C.book1);
   }
-  /** 大绿植（左后角）：陶盆 + 层叠叶片 */
+  /** 鲜花花瓶（左后角）：陶瓷花瓶 + 三束鲜花（玫瑰/奶油黄/雾蓝）+ 叶——替换旧版绿盆栽 */
 
 
   function buildPlant(parent, kit) {
-    var root = kit.make3dNode(parent, 'Plant', new Vec3(-3.7, 0, -2.1));
-    kit.cylPart(root, 'Pot', 0.42, 0.32, 0.55, style(C.pot, {
-      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
-        error: Error()
-      }), shift) : shift)(C.pot, -0.2)
-    }), new Vec3(0, 0.275, 0));
-    kit.capPart(root, 'Stem', 0.05, 0.9, style(C.leafDark, {
-      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
-        error: Error()
-      }), shift) : shift)(C.leafDark, -0.2)
-    }), new Vec3(0, 1.0, 0));
-    var leaves = [[0, 1.45, 0, 0.34], [0.3, 1.25, 0.1, 0.28], [-0.3, 1.22, 0.08, 0.3], [0.16, 1.62, -0.08, 0.24], [-0.18, 1.58, -0.06, 0.22]];
+    var root = kit.make3dNode(parent, 'FlowerVase', new Vec3(-3.7, 0, -2.1)); // 陶瓷花瓶：鼓腹 + 束颈
 
-    for (var [x, y, z, r] of leaves) {
-      kit.ball(root, 'Leaf', r, style(C.leaf, {
-        shade: C.leafDark
-      }), new Vec3(x, y, z), {
-        scale: new Vec3(1, 0.72, 1)
+    kit.cylPart(root, 'VaseBody', 0.34, 0.24, 0.5, style(C.vase, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.vase, -0.12)
+    }), new Vec3(0, 0.25, 0));
+    kit.cylPart(root, 'VaseNeck', 0.17, 0.21, 0.3, style(C.vase, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.vase, -0.08)
+    }), new Vec3(0, 0.6, 0));
+    kit.cylPart(root, 'VaseRim', 0.19, 0.19, 0.035, style(C.heart, {
+      shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+        error: Error()
+      }), shift) : shift)(C.heart, -0.2)
+    }), new Vec3(0, 0.765, 0)); // 三束花：茎从瓶口散开，花头 = 花瓣球 + 花芯
+
+    var blooms = [[-0.24, 1.3, 0.08, C.heart], [0.04, 1.44, -0.06, C.book3], [0.27, 1.24, 0.12, C.book1]];
+
+    for (var [x, y, z, color] of blooms) {
+      var dx = x;
+      var dz = z;
+      var dy = y - 0.78;
+      var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      var mid = new Vec3(dx / 2, 0.78 + dy / 2, dz / 2);
+      kit.capPart(root, 'Stem', 0.026, len, style(C.leafDark, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(C.leafDark, -0.18)
+      }), mid, {
+        rot: new Vec3(dz / len * 80, 0, -dx / len * 80)
       });
-    }
+      kit.ball(root, 'Petal', 0.11, style(color, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(color, -0.2)
+      }), new Vec3(x, y, z));
+      kit.ball(root, 'Core', 0.045, style(C.book3, {
+        shade: (_crd && shift === void 0 ? (_reportPossibleCrUseOfshift({
+          error: Error()
+        }), shift) : shift)(C.book3, -0.24)
+      }), new Vec3(x, y + 0.02, z));
+    } // 叶片点缀
+
+
+    kit.ball(root, 'LeafA', 0.09, style(C.leaf, {
+      shade: C.leafDark
+    }), new Vec3(-0.16, 0.95, 0.05), {
+      scale: new Vec3(1, 0.55, 1)
+    });
+    kit.ball(root, 'LeafB', 0.08, style(C.leaf, {
+      shade: C.leafDark
+    }), new Vec3(0.18, 1.02, 0.02), {
+      scale: new Vec3(1, 0.55, 1)
+    });
   }
   /** 散落玩具：皮球 / 毛线球 / 小黄鸭 / 骨头（中景与窝边，避免遮挡宠物正面）；返回皮球供氛围动画引用 */
 
@@ -515,27 +657,6 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
     }), new Vec3(2.0, 0.12, 2.6), {
       scale: new Vec3(1.2, 0.6, 1)
     });
-  }
-  /** 飘浮光点（暖白微光，缓慢上升；由 update 循环驱动） */
-
-
-  function buildOrbs(parent, kit) {
-    var root = kit.make3dNode(parent, 'Orbs', new Vec3(0, 0, 0));
-    var orbs = [];
-    var seeds = [[-2.4, 0.9, -1.2, 0.05], [1.7, 1.3, -0.6, 0.042], [-0.9, 1.9, -1.8, 0.048], [2.6, 0.7, 0.6, 0.038], [-2.9, 1.7, 0.9, 0.045], [0.6, 2.3, -1.4, 0.04], [3.1, 1.8, -2.0, 0.05], [-1.8, 0.6, 1.9, 0.036]];
-    seeds.forEach((_ref, index) => {
-      var [x, y, z, r] = _ref;
-      var orb = kit.ball(root, 'Orb' + index, r, {
-        color: C.orb,
-        shade: C.orb,
-        glow: true,
-        alpha: 168,
-        outline: 0,
-        plain: true
-      }, new Vec3(x, y, z));
-      orbs.push(orb);
-    });
-    return orbs;
   }
   /** 挂灯串：暖黄灯泡沿后墙上方弧线分布（轻微呼吸闪烁） */
 
@@ -684,49 +805,59 @@ System.register(["__unresolved_0", "cc", "__unresolved_1"], function (_export, _
 
       /** 房间可动元素引用（PetGameRoot.update 驱动氛围微动画） */
 
-      /** 房间配色（集中定义，便于整体调色） */
+      /**
+       * 房间配色（集中定义，便于整体调色）。
+       *
+       * v7 改为**法式奶油风**：墙/护墙板走象牙奶油，地板走浅橡木，家具一律奶油漆面（不再用褐色实木），
+       * 地毯用玫瑰+鼠尾草双色，黄铜作金属点缀。
+       * 旧版（v6）墙 0xC69A70 / 木家具 0xAF7C4C 是褐色系，整屋偏暗偏旧 —— 已整体替换。
+       */
       C = {
-        // 明度阶梯（按相对亮度排序，v6 重排）：地板 210 > 地毯 181 > 墙 154 > 木家具 134 > 墙暗部 117
-        // 重排原因：v5 的墙 0xE3C49E 与地板 0xD2AD80 亮度只差 3%，打光再准也拉不开层次，
-        // 整个画面陷在一条极窄的明度带里 → 读作"塑料"。
-        wall: new Color(0xC6, 0x9A, 0x70, 255),
-        wallShade: new Color(0x7E, 0x56, 0x36, 255),
-        baseboard: new Color(0xB4, 0x88, 0x5C, 255),
-        baseboardShade: new Color(0x8E, 0x67, 0x40, 255),
-        // 地板：v6 从 0xE4D2B8 压到 0xCBB495 —— 地板是全亮面（ndl 0.78 → lit 1.0），
-        // 再叠加天光与反弹光后原色会冲到 ~240 直接过曝发白，暖燕麦底子全丢。
-        floor: new Color(0xCB, 0xB4, 0x95, 255),
-        floorShade: new Color(0xA0, 0x8B, 0x6E, 255),
-        floorLine: new Color(0x8E, 0x76, 0x58, 255),
-        rugOuter: new Color(0xE0, 0xA0, 0x99, 255),
-        rugInner: new Color(0xE8, 0xC8, 0x94, 255),
-        // 中心圆略深于角色主体色：让奶油白宠物在浅色地毯上有清晰的明度层级
-        rugCenter: new Color(0xD6, 0xA0, 0x99, 255),
-        // 接触阴影用色（暖褐，绝不用黑：冷黑阴影在暖色空间里会发脏）
-        shadow: new Color(0x6B, 0x4A, 0x33, 255),
-        wood: new Color(0xAF, 0x7C, 0x4C, 255),
-        woodDark: new Color(0x8B, 0x62, 0x40, 255),
-        bedRim: new Color(0xA8, 0x77, 0x48, 255),
+        // 墙：象牙奶油（亮），暗部只压一档暖灰，绝不再落到深褐
+        wall: new Color(0xF5, 0xE6, 0xD2, 255),
+        wallShade: new Color(0xD9, 0xC3, 0xA8, 255),
+        // 护墙板/线条：近白奶油，做出法式墙裙的层次
+        baseboard: new Color(0xFB, 0xF5, 0xEC, 255),
+        baseboardShade: new Color(0xE4, 0xD4, 0xC0, 255),
+        // 地板：浅橡木奶油（比墙略深，拉出层次但不过曝）
+        floor: new Color(0xEA, 0xD8, 0xBF, 255),
+        floorShade: new Color(0xCF, 0xB9, 0x9A, 255),
+        floorLine: new Color(0xC8, 0xB1, 0x92, 255),
+        // 地毯：玫瑰外圈 + 奶油中圈 + 鼠尾草中心（宠物站在中心仍有明度层级）
+        rugOuter: new Color(0xE8, 0xB4, 0xB8, 255),
+        rugInner: new Color(0xF7, 0xEC, 0xDA, 255),
+        rugCenter: new Color(0xA8, 0xC3, 0x9A, 255),
+        // 接触阴影（暖褐，绝不用黑：冷黑阴影在暖色空间里会发脏）
+        shadow: new Color(0x9A, 0x7C, 0x62, 255),
+        // 家具：奶油漆面木（法式白木），不再是褐色
+        wood: new Color(0xF2, 0xE1, 0xCA, 255),
+        woodDark: new Color(0xD8, 0xC0, 0xA2, 255),
+        // 黄铜点缀（把手/杆件/镜框）
+        brass: new Color(0xCB, 0xA3, 0x6B, 255),
+        brassDark: new Color(0xA8, 0x83, 0x4F, 255),
+        bedRim: new Color(0xE6, 0xD0, 0xB2, 255),
         bedCushion: new Color(0xF6, 0xBF, 0xCE, 255),
-        windowFrame: new Color(0xFB, 0xF7, 0xF1, 255),
-        glass: new Color(0xAF, 0xDD, 0xF5, 255),
-        curtain: new Color(0xF7, 0xC4, 0xC4, 255),
+        windowFrame: new Color(0xFD, 0xF9, 0xF4, 255),
+        glass: new Color(0xB8, 0xDF, 0xF3, 255),
+        curtain: new Color(0xF8, 0xD7, 0xDA, 255),
         sun: new Color(0xFF, 0xF1, 0xC8, 255),
-        leaf: new Color(0x74, 0xC5, 0x8B, 255),
-        leafDark: new Color(0x54, 0xA8, 0x70, 255),
-        pot: new Color(0xD9, 0x96, 0x6B, 255),
-        book1: new Color(0x74, 0xB6, 0xF0, 255),
-        book2: new Color(0xFF, 0x9F, 0xB4, 255),
-        book3: new Color(0xFF, 0xD1, 0x66, 255),
+        leaf: new Color(0x7E, 0xC1, 0x93, 255),
+        leafDark: new Color(0x5F, 0xA4, 0x79, 255),
+        // 陶瓷器皿（花瓶/碗盘）：近白暖瓷
+        vase: new Color(0xFB, 0xF5, 0xEB, 255),
+        china: new Color(0xFD, 0xF8, 0xF0, 255),
+        // 书本与玩具：雾蓝 / 玫瑰 / 奶油黄的三色小面积点缀
+        book1: new Color(0x9C, 0xBE, 0xE0, 255),
+        book2: new Color(0xF4, 0xB0, 0xC2, 255),
+        book3: new Color(0xF7, 0xDD, 0xAE, 255),
         bulb: new Color(0xFF, 0xE2, 0x9E, 255),
-        ball: new Color(0x74, 0xB6, 0xF0, 255),
-        yarn: new Color(0xFF, 0x9F, 0xB4, 255),
-        duck: new Color(0xFF, 0xD1, 0x66, 255),
-        duckBeak: new Color(0xF5, 0x9B, 0x4B, 255),
-        cushion: new Color(0xF6, 0xE3, 0xC2, 255),
-        picture: new Color(0xFD, 0xEF, 0xDC, 255),
-        heart: new Color(0xFF, 0x8A, 0xA0, 255),
-        orb: new Color(0xFF, 0xF3, 0xCE, 255)
+        ball: new Color(0x9C, 0xBE, 0xE0, 255),
+        yarn: new Color(0xF4, 0xB0, 0xC2, 255),
+        duck: new Color(0xF7, 0xDD, 0xAE, 255),
+        duckBeak: new Color(0xEF, 0xB1, 0x77, 255),
+        cushion: new Color(0xF9, 0xEC, 0xD8, 255),
+        picture: new Color(0xFE, 0xF6, 0xEA, 255),
+        heart: new Color(0xFF, 0x9C, 0xB0, 255)
       };
 
       _cclegacy._RF.pop();

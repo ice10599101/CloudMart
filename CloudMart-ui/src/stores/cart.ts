@@ -39,6 +39,9 @@ export const useCartStore = create<CartState>((set) => ({
         totalCount: cart.totalQuantity,
         totalPrice: cart.totalPrice,
       })
+    } catch {
+      // 会话过期/网络失败：拦截器已提示并跳登录，这里兜底清空，避免未处理拒绝冒泡到全局
+      set({ items: [], totalCount: 0, totalPrice: 0 })
     } finally {
       set({ loading: false })
     }

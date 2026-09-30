@@ -70,12 +70,15 @@ describe('useCartStore', () => {
     expect(state.totalPrice).toBe(0)
   })
 
-  it('fetchCart() sets loading to false even on error', async () => {
+  it('fetchCart() swallows errors (clears cart, no unhandled rejection) and sets loading to false', async () => {
     vi.mocked(getCart).mockRejectedValue(new Error('Network error'))
 
-    await expect(useCartStore.getState().fetchCart()).rejects.toThrow('Network error')
+    // 会话过期/网络失败时兜底清空购物车；调用方（UserLayout/Checkout）裸 await，不得向外抛
+    await expect(useCartStore.getState().fetchCart()).resolves.toBeUndefined()
 
     expect(useCartStore.getState().loading).toBe(false)
+    expect(useCartStore.getState().items).toEqual([])
+    expect(useCartStore.getState().totalCount).toBe(0)
   })
 
   it('addItem() calls API and refreshes cart', async () => {

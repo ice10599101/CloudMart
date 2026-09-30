@@ -36,6 +36,14 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
    * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
    */
 
+  /**
+   * 相机机位。
+   *
+   * v8：房间布置变多（法式线条/花瓶/碟架/玩具），机位整体拉远升高，
+   * 让"完整的家"入画：后墙从踢脚线到顶线、地毯全貌、柜与窝都可见。
+   * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
+   */
+
 
   function _reportPossibleCrUseOfPetGameBridge(extras) {
     _reporterNs.report("PetGameBridge", "./PetGameBridge", _context.meta, extras);
@@ -197,20 +205,20 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
       };
       CAMERA_SHOT = {
         room: {
-          pos: [1.30, 1.36, 3.52],
-          target: [0, 0.60, 0.10]
+          pos: [1.5, 2.0, 5.6],
+          target: [0, 0.95, -0.1]
         },
         portrait: {
-          pos: [1.98, 1.48, 5.36],
-          target: [0, 0.56, 0.16]
+          pos: [2.3, 2.0, 6.7],
+          target: [0, 0.9, -0.1]
         },
         front: {
-          pos: [0, 0.86, 3.25],
-          target: [0, 0.74, 0.20]
+          pos: [0, 1.35, 4.7],
+          target: [0, 0.95, 0]
         },
         q34: {
-          pos: [-2.00, 1.00, 2.80],
-          target: [0, 0.76, 0.20]
+          pos: [-2.7, 1.6, 4.3],
+          target: [0, 0.85, 0.1]
         }
       };
       /** 纯色背景（?plain=1 验收模式：去掉房间，只留角色自证轮廓与材质） */
@@ -273,8 +281,6 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
           _defineProperty(this, "time", 0);
 
           _defineProperty(this, "roomTime", 0);
-
-          _defineProperty(this, "orbSeeds", []);
         }
 
         start() {
@@ -814,7 +820,7 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
           const scaleY = canvasSize.height / windowSize.height;
           return new Vec3(screenPos.x * scaleX - canvasSize.width / 2, screenPos.y * scaleY - canvasSize.height / 2, 0);
         }
-        /** 房间氛围：光点上升循环 / 灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
+        /** 房间氛围：灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
 
 
         roomAmbience(dt) {
@@ -824,17 +830,6 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
             return;
           }
 
-          room.orbs.forEach((orb, index) => {
-            if (this.orbSeeds.length <= index) {
-              this.orbSeeds.push(Math.random() * 6.28);
-            }
-
-            const seed = this.orbSeeds[index];
-            const y = orb.position.y + dt * 0.16;
-            orb.setPosition(orb.position.x + Math.sin(this.roomTime * 0.8 + seed) * dt * 0.1, y > 3.4 ? 0.5 : y, orb.position.z);
-            const scale = 0.85 + Math.sin(this.roomTime * 1.7 + seed) * 0.15;
-            orb.setScale(scale, scale, scale);
-          });
           room.bulbs.forEach((bulb, index) => {
             const scale = 0.92 + Math.sin(this.roomTime * 2.1 + index * 0.7) * 0.08;
             bulb.setScale(scale, scale, scale);

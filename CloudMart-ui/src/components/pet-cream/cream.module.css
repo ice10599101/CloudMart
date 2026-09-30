@@ -50,11 +50,11 @@
   padding: 18px 20px;
 }
 
-/* 拱形卡：宠物身份、舞台标题等主视觉 */
+/* 拱形卡：宠物身份、舞台标题等主视觉（两侧加宽内边距，避免眉标顶到拱弧出界） */
 .arch {
   border-radius: 120px 120px var(--r-lg) var(--r-lg);
   border: 1px solid rgba(200, 155, 90, 0.45);
-  padding-top: 26px;
+  padding: 30px 30px 18px;
 }
 
 /* 菜单双线卡：法式餐牌质感，承载列表与信息 */
@@ -103,9 +103,10 @@
 
 .label {
   font-size: 12px;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: var(--brass-600);
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* ---------- 按钮：挤出厚度 + 按下回弹 ---------- */
@@ -123,6 +124,7 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
   box-shadow: 0 3px 0 rgba(169, 124, 80, 0.55), 0 6px 14px rgba(74, 63, 53, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transition: transform 120ms ease, box-shadow 120ms ease;
@@ -183,11 +185,40 @@
 .statTrack {
   position: relative;
   flex: 1;
+  max-width: 240px;
   height: 12px;
   border-radius: var(--r-pill);
   background: var(--cream-200);
   box-shadow: var(--glass);
   overflow: hidden;
+}
+
+/* 单元格式仪表：状态不再拉满整行，改用紧凑小格排布 */
+.statCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statCellName {
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+.statCellTrack {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--cream-200);
+  box-shadow: var(--glass);
+  overflow: hidden;
+}
+
+.statCellValue {
+  font-size: 12px;
+  color: var(--espresso);
+  font-variant-numeric: tabular-nums;
 }
 
 .statFill {

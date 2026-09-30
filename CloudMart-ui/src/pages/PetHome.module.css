@@ -67,6 +67,12 @@
   gap: 12px;
 }
 
+/* 按钮文字禁止竖排：窄屏下整体换行，按钮本体保持横排 */
+.stageActions :global(.ant-btn) {
+  white-space: nowrap;
+  flex: none;
+}
+
 .privacyRow {
   display: inline-flex;
   align-items: center;

@@ -25,6 +25,8 @@ import type { AdminWishRecord, AdminWishStats, AdminDriftBottleDashboard } from 
 
 interface DashboardStats {
   userCount: number
+  /** 社区会员总数（mall-user users 表，非管理员账号数） */
+  memberCount: number
   onlineCount: number
   todayOrderCount: number
   todayRevenue: number
@@ -164,7 +166,8 @@ export default function Dashboard() {
       if (statsRes.status === 'fulfilled' && statsRes.value.data) {
         const resData = (statsRes.value.data as { data: DashboardStats }).data
         setOverview({
-          userCount: resData?.userCount ?? 0,
+          // 卡片标签是「用户总数」（社区会员，点击跳会员管理），不能取 userCount——那是后台管理员账号数
+          userCount: resData?.memberCount ?? 0,
           todayOrderCount: resData?.todayOrderCount ?? 0,
           todayRevenue: resData?.todayRevenue ?? 0,
         })

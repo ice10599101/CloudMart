@@ -132,11 +132,18 @@ function resolveFruitKey(urlSpecies: string | null, petSpecies: string | null): 
  * 比 v5 后退约 12% 把柜子/盆栽/窝/玩具收进画面 —— 一个"住着人"的空间需要生活痕迹。
  * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
  */
+/**
+ * 相机机位。
+ *
+ * v8：房间布置变多（法式线条/花瓶/碟架/玩具），机位整体拉远升高，
+ * 让"完整的家"入画：后墙从踢脚线到顶线、地毯全貌、柜与窝都可见。
+ * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
+ */
 const CAMERA_SHOT = {
-    room: { pos: [1.30, 1.36, 3.52], target: [0, 0.60, 0.10] },
-    portrait: { pos: [1.98, 1.48, 5.36], target: [0, 0.56, 0.16] },
-    front: { pos: [0, 0.86, 3.25], target: [0, 0.74, 0.20] },
-    q34: { pos: [-2.00, 1.00, 2.80], target: [0, 0.76, 0.20] },
+    room: { pos: [1.5, 2.0, 5.6], target: [0, 0.95, -0.1] },
+    portrait: { pos: [2.3, 2.0, 6.7], target: [0, 0.9, -0.1] },
+    front: { pos: [0, 1.35, 4.7], target: [0, 0.95, 0] },
+    q34: { pos: [-2.7, 1.6, 4.3], target: [0, 0.85, 0.1] },
 } as const
 
 /** 纯色背景（?plain=1 验收模式：去掉房间，只留角色自证轮廓与材质） */
@@ -179,7 +186,6 @@ export class PetGameRoot extends Component {
 
     private time = 0
     private roomTime = 0
-    private readonly orbSeeds: number[] = []
 
     start(): void {
         const params = new URLSearchParams(window.location.search)
@@ -672,26 +678,12 @@ export class PetGameRoot extends Component {
         )
     }
 
-    /** 房间氛围：光点上升循环 / 灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
+    /** 房间氛围：灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
     private roomAmbience(dt: number): void {
         const room = this.room
         if (!room) {
             return
         }
-        room.orbs.forEach((orb, index) => {
-            if (this.orbSeeds.length <= index) {
-                this.orbSeeds.push(Math.random() * 6.28)
-            }
-            const seed = this.orbSeeds[index]
-            const y = orb.position.y + dt * 0.16
-            orb.setPosition(
-                orb.position.x + Math.sin(this.roomTime * 0.8 + seed) * dt * 0.1,
-                y > 3.4 ? 0.5 : y,
-                orb.position.z,
-            )
-            const scale = 0.85 + Math.sin(this.roomTime * 1.7 + seed) * 0.15
-            orb.setScale(scale, scale, scale)
-        })
         room.bulbs.forEach((bulb, index) => {
             const scale = 0.92 + Math.sin(this.roomTime * 2.1 + index * 0.7) * 0.08
             bulb.setScale(scale, scale, scale)

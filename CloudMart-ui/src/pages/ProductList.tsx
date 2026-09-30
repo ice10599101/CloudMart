@@ -426,7 +426,8 @@ function PromoBannerCarousel() {
           }}
         >
           <div style={{ fontSize: 22, marginBottom: 4 }}>{banner.icon}</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-secondary)' }}>{banner.title}</div>
+          {/* 标题/副标题压在饱和渐变上，文字颜色不随页面主题变化，固定高对比白色 */}
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.95)', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>{banner.title}</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>{banner.subtitle}</div>
         </div>
       ))}

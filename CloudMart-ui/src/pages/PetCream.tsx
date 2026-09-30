@@ -250,8 +250,8 @@ export default function PetCreamPage() {
                     </CreamCard>
                 ) : (
                     <>
-                        <CreamCard variant="arch" label="Mon Petit" accent={accent}>
-                            <div className={styles.identity}>
+                        <CreamCard variant="arch" label="Ma Maison" accent={accent}>
+                            <div className={styles.identityStrip}>
                                 <div className={styles.avatar} style={{ boxShadow: `0 6px 14px ${accent}33, inset 0 2px 0 rgba(255,255,255,.95), inset 0 -4px 0 ${accent}2E` }}>
                                     <span>{SPECIES_EMOJI[pet.species] ?? '🐾'}</span>
                                 </div>
@@ -269,29 +269,28 @@ export default function PetCreamPage() {
                                     <p className={styles.speech}>“{STATUS_SPEECH[pet.status] ?? '今天也想和主人待在一起～'}”</p>
                                 </div>
                             </div>
+                            <CreamStage>
+                                <PetStage
+                                    pet={display}
+                                    onIntent={onIntent}
+                                    fallback={
+                                        <div style={{ display: 'grid', placeItems: 'center', fontSize: 64 }}>
+                                            {SPECIES_EMOJI[pet.species] ?? '🐾'}
+                                        </div>
+                                    }
+                                />
+                            </CreamStage>
                         </CreamCard>
 
                         <CreamCard variant="menu" label="État" title="状态">
-                            <div className={styles.stats}>
-                                <CreamStatBar name="生命" value={pet.hp} max={pet.maxHp} color={STAT_TONE.hp} />
-                                <CreamStatBar name="饱食" value={pet.hunger} max={100} color={STAT_TONE.hunger} />
-                                <CreamStatBar name="心情" value={pet.happiness} max={100} color={STAT_TONE.happiness} />
-                                <CreamStatBar name="精力" value={pet.energy} max={100} color={STAT_TONE.energy} />
-                                <CreamStatBar name="清洁" value={pet.cleanliness} max={100} color={STAT_TONE.cleanliness} />
+                            <div className={styles.statsGrid}>
+                                <CreamStatBar variant="cell" name="生命" value={pet.hp} max={pet.maxHp} color={STAT_TONE.hp} />
+                                <CreamStatBar variant="cell" name="饱食" value={pet.hunger} max={100} color={STAT_TONE.hunger} />
+                                <CreamStatBar variant="cell" name="心情" value={pet.happiness} max={100} color={STAT_TONE.happiness} />
+                                <CreamStatBar variant="cell" name="精力" value={pet.energy} max={100} color={STAT_TONE.energy} />
+                                <CreamStatBar variant="cell" name="清洁" value={pet.cleanliness} max={100} color={STAT_TONE.cleanliness} />
                             </div>
                         </CreamCard>
-
-                        <CreamStage>
-                            <PetStage
-                                pet={display}
-                                onIntent={onIntent}
-                                fallback={
-                                    <div style={{ display: 'grid', placeItems: 'center', fontSize: 64 }}>
-                                        {SPECIES_EMOJI[pet.species] ?? '🐾'}
-                                    </div>
-                                }
-                            />
-                        </CreamStage>
 
                         <div className={styles.actions}>
                             {(Object.keys(CARE_LABEL) as CareAction[]).map(action => (

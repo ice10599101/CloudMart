@@ -434,7 +434,7 @@ export default function ProductDetail() {
               <span style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginRight: 12 }}>
                 库存
               </span>
-              <span style={{ color: selectedSku ? '#FFFFFF' : 'var(--color-text-tertiary)', fontSize: 14 }}>
+              <span style={{ color: selectedSku ? 'var(--color-text)' : 'var(--color-text-tertiary)', fontSize: 14, fontWeight: selectedSku ? 600 : 400 }}>
                 {selectedSku ? selectedSku.stock : '请选择规格'}
               </span>
             </div>

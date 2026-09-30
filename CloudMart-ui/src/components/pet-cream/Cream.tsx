@@ -110,24 +110,38 @@ interface CreamStatBarProps {
     value: number
     max: number
     color: string
+    /** row 整行条（限宽 240px） / cell 紧凑小格（用于网格排布） */
+    variant?: 'row' | 'cell'
 }
 
 export function CreamStatBar(props: CreamStatBarProps) {
-    const { name, value, max, color } = props
+    const { name, value, max, color, variant = 'row' } = props
     const percent = max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0
+    const gauge = (track: string) => (
+        <div
+            className={track}
+            role="progressbar"
+            aria-label={name}
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+        >
+            <div className={styles.statFill} style={{ width: `${percent}%`, background: color }} />
+        </div>
+    )
+    if (variant === 'cell') {
+        return (
+            <div className={styles.statCell}>
+                <span className={styles.statCellName}>{name}</span>
+                {gauge(styles.statCellTrack)}
+                <span className={styles.statCellValue}>{percent}%</span>
+            </div>
+        )
+    }
     return (
         <div className={styles.statRow}>
             <span className={styles.statName}>{name}</span>
-            <div
-                className={styles.statTrack}
-                role="progressbar"
-                aria-label={name}
-                aria-valuenow={percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-            >
-                <div className={styles.statFill} style={{ width: `${percent}%`, background: color }} />
-            </div>
+            {gauge(styles.statTrack)}
             <span className={styles.statValue}>{percent}%</span>
         </div>
     )

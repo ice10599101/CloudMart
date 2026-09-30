@@ -108,13 +108,14 @@ management:
 # X-Service-Token 短期签名令牌认证（与全站共享 CLOUDMART_SERVICE_TOKEN_SECRET）。
 # 裸 X-Internal-Call 头不再构成任何信任凭证。
 cloudmart:
-  # 注册邮箱验证码：SMTP 通道（mall-common 平台组件，未配置则发码如实 sent=false）
+  # 注册邮箱验证码：SMTP 通道（mall-common 平台组件，未配置则发码如实 sent=false）。
+  # 部署优先注入 CLOUDMART_MAIL_*，兼容历史 WISH_MAIL_* 环境变量（与 mall-wish 注销发码共用同一套服务器变量）
   mail:
-    host: ${CLOUDMART_MAIL_HOST:}
-    port: ${CLOUDMART_MAIL_PORT:465}
-    username: ${CLOUDMART_MAIL_USERNAME:}
-    password: ${CLOUDMART_MAIL_PASSWORD:}
-    from: ${CLOUDMART_MAIL_FROM:}
+    host: ${CLOUDMART_MAIL_HOST:${WISH_MAIL_HOST:}}
+    port: ${CLOUDMART_MAIL_PORT:${WISH_MAIL_PORT:465}}
+    username: ${CLOUDMART_MAIL_USERNAME:${WISH_MAIL_USERNAME:}}
+    password: ${CLOUDMART_MAIL_PASSWORD:${WISH_MAIL_PASSWORD:}}
+    from: ${CLOUDMART_MAIL_FROM:${WISH_MAIL_FROM:}}
   security:
     service-id: mall-user
     service-token-secret: ${CLOUDMART_SERVICE_TOKEN_SECRET:}

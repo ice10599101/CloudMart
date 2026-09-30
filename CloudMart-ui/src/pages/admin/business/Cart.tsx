@@ -10,7 +10,6 @@ import {
   removeCartItem,
   clearCart,
 } from '@/api/admin/business'
-import type { ApiResponse } from '@/types/api'
 import { useMessage } from '@/utils/useMessage'
 
 interface CartItem {
@@ -44,8 +43,12 @@ export default function Cart() {
     setSearched(true)
     try {
       const { data: res } = await getCart(userId.trim())
-      const response = res as ApiResponse<CartItem[]>
-      setCartItems(response.data ?? [])
+      // 后端返回 CartVO（{ items, totalCount, totalAmount }），兼容历史裸数组契约
+      const payload = res.data as unknown
+      const items = Array.isArray(payload)
+        ? payload
+        : (payload as { items?: CartItem[] } | null)?.items ?? []
+      setCartItems(items)
     } catch {
       setCartItems([])
     } finally {

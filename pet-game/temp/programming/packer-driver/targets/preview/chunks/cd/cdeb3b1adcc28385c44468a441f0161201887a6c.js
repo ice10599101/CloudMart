@@ -273,8 +273,6 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
           _defineProperty(this, "time", 0);
 
           _defineProperty(this, "roomTime", 0);
-
-          _defineProperty(this, "orbSeeds", []);
         }
 
         start() {
@@ -818,7 +816,7 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
           var scaleY = canvasSize.height / windowSize.height;
           return new Vec3(screenPos.x * scaleX - canvasSize.width / 2, screenPos.y * scaleY - canvasSize.height / 2, 0);
         }
-        /** 房间氛围：光点上升循环 / 灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
+        /** 房间氛围：灯泡呼吸 / 阳光光斑呼吸 / 玩具球轻摆 */
 
 
         roomAmbience(dt) {
@@ -828,17 +826,6 @@ System.register(["__unresolved_0", "cc", "__unresolved_1", "__unresolved_2", "__
             return;
           }
 
-          room.orbs.forEach((orb, index) => {
-            if (this.orbSeeds.length <= index) {
-              this.orbSeeds.push(Math.random() * 6.28);
-            }
-
-            var seed = this.orbSeeds[index];
-            var y = orb.position.y + dt * 0.16;
-            orb.setPosition(orb.position.x + Math.sin(this.roomTime * 0.8 + seed) * dt * 0.1, y > 3.4 ? 0.5 : y, orb.position.z);
-            var scale = 0.85 + Math.sin(this.roomTime * 1.7 + seed) * 0.15;
-            orb.setScale(scale, scale, scale);
-          });
           room.bulbs.forEach((bulb, index) => {
             var scale = 0.92 + Math.sin(this.roomTime * 2.1 + index * 0.7) * 0.08;
             bulb.setScale(scale, scale, scale);
