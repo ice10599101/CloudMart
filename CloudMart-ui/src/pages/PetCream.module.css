@@ -1,0 +1,206 @@
+/* 宠物家园 · 法式奶油风版面 */
+
+.page {
+  min-height: 100vh;
+  padding: 24px 20px 48px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #FDF6EC 0%, #F7EADA 100%);
+  font-family: var(--font-sans);
+  color: var(--espresso);
+}
+
+.shell {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 招牌：衬线标题 + 法式双线 */
+.masthead {
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
+.mastheadTitle {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin: 0;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.mastheadSub {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: var(--brass-600);
+  margin: 4px 0 10px;
+}
+
+.mastheadRule {
+  height: 4px;
+  border-top: 1px solid rgba(200, 155, 90, 0.55);
+  border-bottom: 1px solid rgba(231, 220, 203, 0.9);
+}
+
+/* 身份卡：拱形 + 立体头像 */
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.avatar {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 44px;
+  background: linear-gradient(180deg, #FFFDF8, #F2E3CE);
+  box-shadow: 0 6px 14px rgba(74, 63, 53, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -4px 0 rgba(169, 124, 80, 0.22);
+}
+
+.petName {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gender {
+  font-size: 13px;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.speech {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--mocha);
+  font-style: italic;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.petRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.petChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.35), var(--z1);
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.petChipActive {
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.55), var(--z2);
+  font-weight: 500;
+}
+
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.renameRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* 领养向导：五果选择 */
+.fruitGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.fruitCard {
+  padding: 14px 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
+  box-shadow: var(--z1);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.fruitCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--z2);
+}
+
+.fruitCardActive {
+  border-color: var(--brass-400);
+  box-shadow: 0 0 0 2px rgba(200, 155, 90, 0.25), var(--z2);
+  transform: translateY(-2px);
+}
+
+.fruitEmoji {
+  font-size: 26px;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+@media (max-width: 640px) {
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fruitGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .identity {
+    flex-direction: column;
+    text-align: center;
+  }
+}

@@ -1,0 +1,297 @@
+/* 法式奶油风 · Petit Crème —— 宠物模块设计 token 与基础组件样式
+ * 立体语言：所有承托件带"挤出边"(bevel) 与暖调投影，凹陷件带玻璃内阴影(glass)，
+ * 舞台件走透视地台(perspective + rotateX)，让 3D 宠物坐进一个有深度的盒子里。 */
+
+:root {
+  /* 奶油底色阶 */
+  --cream-50: #FDF6EC;
+  --cream-100: #F9EFE1;
+  --cream-200: #F2E3CE;
+  --cream-300: #E7D5B8;
+  --cream-line: #E7DCCB;
+
+  /* 金属与点缀 */
+  --brass-300: #DBC49B;
+  --brass-400: #C89B5A;
+  --brass-600: #A97C50;
+  --rose-300: #E8B4B8;
+  --rose-500: #D89AA0;
+  --sage-300: #9CAF88;
+  --sage-500: #7E9270;
+  --mist-300: #A8BDD0;
+  --mist-500: #8AA5BC;
+
+  /* 文字 */
+  --espresso: #4A3F35;
+  --mocha: #7A6A5C;
+  --mocha-light: #9C8D7E;
+
+  /* 立体层级（暖调投影，不用冷灰） */
+  --z1: 0 1px 2px rgba(74, 63, 53, 0.06), 0 2px 6px rgba(74, 63, 53, 0.05);
+  --z2: 0 2px 4px rgba(74, 63, 53, 0.07), 0 8px 18px rgba(74, 63, 53, 0.08);
+  --z3: 0 4px 8px rgba(74, 63, 53, 0.08), 0 18px 38px rgba(74, 63, 53, 0.13);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(169, 124, 80, 0.18);
+  --glass: inset 0 2px 4px rgba(74, 63, 53, 0.16), inset 0 -1px 0 rgba(255, 255, 255, 0.7);
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  --font-serif: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  position: relative;
+  background: linear-gradient(180deg, #FFFDF9 0%, var(--cream-100) 100%);
+  box-shadow: var(--z2), var(--edge);
+  padding: 18px 20px;
+}
+
+/* 拱形卡：宠物身份、舞台标题等主视觉 */
+.arch {
+  border-radius: 120px 120px var(--r-lg) var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  padding-top: 26px;
+}
+
+/* 菜单双线卡：法式餐牌质感，承载列表与信息 */
+.menu {
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+}
+
+.menu::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(231, 220, 203, 0.9);
+  border-radius: calc(var(--r-lg) - 6px);
+  pointer-events: none;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--espresso);
+  margin: 0 0 2px;
+  letter-spacing: 0.4px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--mocha);
+  margin: 0;
+}
+
+.ribbon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.ribbon::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200, 155, 90, 0.5), rgba(200, 155, 90, 0));
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--brass-600);
+  text-transform: uppercase;
+}
+
+/* ---------- 按钮：挤出厚度 + 按下回弹 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--brass-400);
+  background: linear-gradient(180deg, #FFFDF8 0%, var(--cream-200) 100%);
+  color: var(--espresso);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.55), 0 6px 14px rgba(74, 63, 53, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 rgba(169, 124, 80, 0.55), 0 10px 20px rgba(74, 63, 53, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(169, 124, 80, 0.55), 0 2px 6px rgba(74, 63, 53, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  background: transparent;
+  box-shadow: none;
+  border-color: rgba(200, 155, 90, 0.55);
+  color: var(--mocha);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: rgba(253, 246, 236, 0.7);
+  transform: translateY(-1px);
+  box-shadow: var(--z1);
+}
+
+.btnGhost:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btnBlock {
+  width: 100%;
+}
+
+/* ---------- 状态条：玻璃内凹轨道 ---------- */
+.statRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statName {
+  width: 62px;
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+.statTrack {
+  position: relative;
+  flex: 1;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--cream-200);
+  box-shadow: var(--glass);
+  overflow: hidden;
+}
+
+.statFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 -3px 0 rgba(74, 63, 53, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.55);
+  transition: width 400ms ease;
+}
+
+.statValue {
+  width: 42px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--espresso);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 标签 ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--brass-300);
+  font-size: 14px;
+}
+
+.ornament::before,
+.ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cream-line);
+}
+
+/* ---------- 立体舞台：透视地台 + 画框 ---------- */
+.stage {
+  position: relative;
+  perspective: 1200px;
+  padding: 18px 0 34px;
+}
+
+.stageFrame {
+  position: relative;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.5);
+  background: linear-gradient(180deg, #FFFDF9, var(--cream-100));
+  box-shadow: var(--z3), var(--edge);
+  overflow: hidden;
+  transform: rotateX(3deg);
+  transform-origin: 50% 100%;
+}
+
+.stageInner {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  min-height: 260px;
+}
+
+.stageInner > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* 地台：椭圆暖影，让 3D 宠物"站"在纸面上 */
+.pedestal {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  width: 62%;
+  height: 26px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(120, 92, 62, 0.28), rgba(120, 92, 62, 0) 70%);
+  pointer-events: none;
+}
+
+/* ---------- 弹层 ---------- */
+.sheet {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: linear-gradient(180deg, #FFFDF9, var(--cream-100));
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  box-shadow: var(--z3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .statFill {
+    transition: none;
+  }
+
+  .stageFrame {
+    transform: none;
+  }
+}
