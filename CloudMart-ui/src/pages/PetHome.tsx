@@ -2662,6 +2662,32 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
 
   return (
     <div className={styles.carePanel}>
+      <Modal
+        open={reportTargetMessage !== null}
+        title="举报该留言"
+        width={480}
+        onCancel={() => setReportTargetMessage(null)}
+        footer={null}
+      >
+        {reportTargetMessage && (
+          <>
+            <p className={styles.bottleHint}>举报对象：「{reportTargetMessage.content}」</p>
+            <Input.TextArea
+              rows={3}
+              maxLength={200}
+              placeholder="请填写举报说明（必填，进入管理员处理队列）"
+              value={reportReasonText}
+              onChange={(e) => setReportReasonText(e.target.value)}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <Button onClick={() => setReportTargetMessage(null)}>取消</Button>
+              <Button type="primary" danger onClick={() => void handleReportWallMessage()}>
+                提交举报
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
       <Segmented
         block
         size="small"
@@ -3484,32 +3510,6 @@ export default function PetHomePage() {
 
       <RenameModal pet={pet} open={renameOpen} onClose={() => setRenameOpen(false)} onRenamed={refresh} />
       <ProfileModal pet={pet} open={profileOpen} onClose={() => setProfileOpen(false)} onSaved={refresh} />
-      <Modal
-        open={reportTargetMessage !== null}
-        title="举报该留言"
-        width={480}
-        onCancel={() => setReportTargetMessage(null)}
-        footer={null}
-      >
-        {reportTargetMessage && (
-          <>
-            <p className={styles.bottleHint}>举报对象：「{reportTargetMessage.content}」</p>
-            <Input.TextArea
-              rows={3}
-              maxLength={200}
-              placeholder="请填写举报说明（必填，进入管理员处理队列）"
-              value={reportReasonText}
-              onChange={(e) => setReportReasonText(e.target.value)}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Button onClick={() => setReportTargetMessage(null)}>取消</Button>
-              <Button type="primary" danger onClick={() => void handleReportWallMessage()}>
-                提交举报
-              </Button>
-            </div>
-          </>
-        )}
-      </Modal>
       <Modal
         open={adoptOpen}
         footer={null}
