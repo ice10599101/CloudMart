@@ -44,15 +44,18 @@ public class QuoteServiceImpl implements QuoteService {
     private final ProductFeignClient productFeignClient;
     private final OrderQuoteMapper quoteMapper;
     private final OrderQuoteItemMapper quoteItemMapper;
+    private final OrderCouponPolicy couponPolicy;
     private final long quoteTtlSeconds;
 
     public QuoteServiceImpl(ProductFeignClient productFeignClient,
                             OrderQuoteMapper quoteMapper,
                             OrderQuoteItemMapper quoteItemMapper,
+                            OrderCouponPolicy couponPolicy,
                             @Value("${order.quote.ttl-seconds:300}") long quoteTtlSeconds) {
         this.productFeignClient = productFeignClient;
         this.quoteMapper = quoteMapper;
         this.quoteItemMapper = quoteItemMapper;
+        this.couponPolicy = couponPolicy;
         this.quoteTtlSeconds = quoteTtlSeconds;
     }
 
@@ -121,11 +124,14 @@ public class QuoteServiceImpl implements QuoteService {
             total = total.add(item.getSubtotal());
         }
 
-        // 优惠券折扣在报价阶段仅记录券 ID；金额计算沿用下单时的服务端校验逻辑
-        //（折扣上限/舍入规则由 COUPON-01 统一收口，本阶段折扣记 0，下单时按券重算）
+        // T03：报价即订单金额快照——折扣在报价阶段按 COUPON-01 规则实算（与下单重算同一
+        // OrderCouponPolicy 实现），payAmount 成为权威应付；下单时重算不一致 → QUOTE_STALE
         quote.setTotalAmount(total);
-        quote.setDiscountAmount(BigDecimal.ZERO);
-        quote.setPayAmount(total);
+        BigDecimal discount = couponId == null
+                ? BigDecimal.ZERO
+                : couponPolicy.calculate(couponPolicy.validate(couponId, userId, total), total);
+        quote.setDiscountAmount(discount);
+        quote.setPayAmount(total.subtract(discount).max(BigDecimal.ZERO));
         quoteMapper.insert(quote);
 
         for (OrderQuoteItem item : quoteItems) {

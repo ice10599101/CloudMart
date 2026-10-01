@@ -15,7 +15,9 @@ public record CreateOrderRequest(
     String receiverPhone,
     String receiverAddress,
     Long couponId,
-    Long activityId
+    Long activityId,
+    /** T03：报价 ID（报价下单必填；秒杀/内部直填路径为 null） */
+    Long quoteId
 ) {
     public record OrderItemInput(
         Long productId,

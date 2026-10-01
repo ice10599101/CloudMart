@@ -42,8 +42,8 @@ export const orderApi = {
       url: '/order/quotes', method: 'POST', data: data as unknown as Record<string, unknown>,
     }),
   /** TRADE-01：报价下单——无价格字段，金额取报价快照 */
-  createFromQuote: (data: { quoteId: number | string; receiverName: string; receiverPhone: string; receiverAddress: string }) =>
-    request<Order>({ url: '/order/orders/v2', method: 'POST', data: data as unknown as Record<string, unknown> }),
+  createFromQuote: (data: { quoteId: number | string; expectedQuoteVersion: number; receiverName: string; receiverPhone: string; receiverAddress: string }) =>
+    request<Order>({ url: '/order/orders', method: 'POST', data: data as unknown as Record<string, unknown> }),
   getList: (params?: { status?: number; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
   getDetail: (id: number | string) => request<Order>({ url: `/order/orders/${id}` }),

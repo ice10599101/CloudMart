@@ -28,30 +28,30 @@ public class OrderController {
         this.orderConverter = orderConverter;
     }
 
-    @PostMapping
-    @Operation(summary = "创建订单", description = "旧结算入口（TRADE-01 迁移期兼容）："
-            + "价格与商品信息以下单时服务端校验为准，客户端金额不再作为记账依据")
-    public ApiResponse<OrderVO> createOrder(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Parameter(description = "创建订单请求") @Valid @RequestBody CreateOrderRequest request) {
-        OrderDTO dto = orderService.createOrder(userId, request);
-        return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
-    }
-
+    /**
+     * T03/LC02：唯一下单入口（报价快照权威）——客户端只提交报价引用 + 收货信息，
+     * 没有任何价格/商品字段；X-Idempotency-Key 可选（缺省绑定报价）。
+     * 旧 items/price 入参与 /orders/v2 双入口已删除。
+     */
     public record CreateOrderFromQuoteRequest(
             @jakarta.validation.constraints.NotNull Long quoteId,
+            @jakarta.validation.constraints.NotNull Integer expectedQuoteVersion,
             String receiverName,
             String receiverPhone,
             String receiverAddress) {
     }
 
-    @PostMapping("/v2")
-    @Operation(summary = "创建订单 v2（报价下单）", description = "TRADE-01：必须引用本人有效报价，"
-            + "金额/商品信息全部取报价快照，本接口没有价格字段；报价 CAS 消费（一报价一单）")
-    public ApiResponse<OrderVO> createOrderFromQuote(
+    @PostMapping
+    @Operation(summary = "创建订单（报价下单）", description = "T03：必须引用本人有效报价，"
+            + "金额/商品信息全部取报价快照；价格/可售/券变化返回 409 QUOTE_STALE；"
+            + "幂等：X-Idempotency-Key 优先，缺省绑定报价，同键同参重放返回原单")
+    public ApiResponse<OrderVO> createOrder(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "幂等键（可选，缺省绑定报价）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @Parameter(description = "报价下单请求") @Valid @RequestBody CreateOrderFromQuoteRequest request) {
         OrderDTO dto = orderService.createOrderFromQuote(userId, request.quoteId(),
+                request.expectedQuoteVersion(), idempotencyKey,
                 request.receiverName(), request.receiverPhone(), request.receiverAddress());
         return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
     }

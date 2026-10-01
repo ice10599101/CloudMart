@@ -93,6 +93,7 @@ class OrderServiceTest {
                 inventoryFeignClient, cartFeignClient,
                 couponFeignClient,
                 refundFeignClient,
+                new OrderCouponPolicy(couponFeignClient),
                 productFeignClient,
                 riskFeignClient,
                 wmsShippingFeignClient,
@@ -330,7 +331,7 @@ class OrderServiceTest {
                 300L, 200L, 2, "商品A", "img.jpg", "红色", new BigDecimal("99.00")
         );
         CreateOrderRequest request = new CreateOrderRequest(
-                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null
+                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null, null
         );
 
         // RISK-01：风控放行

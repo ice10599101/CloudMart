@@ -394,6 +394,7 @@ export default function Checkout() {
       const quote = quoteRes.data.data
       const orderRes = await createOrderFromQuote({
         quoteId: quote.quoteId,
+        expectedQuoteVersion: quote.version,
         receiverName: selectedAddress.receiverName,
         receiverPhone: selectedAddress.receiverPhone,
         receiverAddress: `${selectedAddress.province}${selectedAddress.city}${selectedAddress.district}${selectedAddress.detailAddress}`,

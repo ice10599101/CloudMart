@@ -41,7 +41,7 @@ public class SeckillOrderConsumer implements RocketMQListener<Map<String, Object
                     productId, skuId, quantity, null, null, null, null
             );
             CreateOrderRequest request = new CreateOrderRequest(
-                    UUID.randomUUID().toString(), List.of(item), null, null, null, null, activityId
+                    UUID.randomUUID().toString(), List.of(item), null, null, null, null, activityId, null
             );
             OrderDTO order = orderService.createOrder(userId, request);
             log.info("Seckill order created: orderId={}, userId={}", order.id(), userId);

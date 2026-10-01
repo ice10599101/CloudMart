@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.StringJoiner;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -65,6 +66,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartFeignClient cartFeignClient;
     private final CouponFeignClient couponFeignClient;
     private final com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
+    private final OrderCouponPolicy couponPolicy;
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
@@ -83,14 +85,27 @@ public class OrderServiceImpl implements OrderService {
     @GlobalTransactional(timeoutMills = 30000, name = "createOrder")
     @Transactional
     public OrderDTO createOrder(Long userId, CreateOrderRequest request) {
-        String idempotentKey = "order:idempotent:" + request.requestId();
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(idempotentKey, "1", Duration.ofMinutes(30));
-        if (Boolean.FALSE.equals(acquired)) {
-            throw new BusinessException("DUPLICATE_REQUEST", "Duplicate order request");
+        try {
+            return doCreateOrder(userId, request);
+        } catch (OrderIdempotentRaceException race) {
+            // 同键并发败者：本事务已回滚（预占已补偿），重放胜者结果
+            return replayWinnerOrConflict(race);
         }
+    }
 
+    private OrderDTO doCreateOrder(Long userId, CreateOrderRequest request) {
         if (request.items() == null || request.items().isEmpty()) {
             throw new BusinessException("ORDER_EMPTY", "订单项不能为空");
+        }
+
+        // T03：幂等以数据库权威（uk(user_id, request_key)）——同键同参重放返回原单，
+        // 同键异参 409；失败回滚后同键可重试（旧 Redis 先占键会把失败后的重试阻塞 30 分钟）
+        String payloadHash = orderPayloadHash(userId, request);
+        Order replayed = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .eq(Order::getRequestKey, request.requestId()));
+        if (replayed != null) {
+            return resolveIdempotentReplay(replayed, payloadHash);
         }
 
         // RISK-01：下单前置风控检查（黑名单/频次规则）——REJECT 拒绝下单，
@@ -102,7 +117,7 @@ public class OrderServiceImpl implements OrderService {
         request = new CreateOrderRequest(request.requestId(),
                 overrideItemsFromProduct(request.items()),
                 request.receiverName(), request.receiverPhone(), request.receiverAddress(),
-                request.couponId(), request.activityId());
+                request.couponId(), request.activityId(), request.quoteId());
 
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
 
@@ -132,8 +147,26 @@ public class OrderServiceImpl implements OrderService {
         order.setPayAmount(totalAmount.subtract(discountAmount).max(BigDecimal.ZERO));
         order.setCouponId(request.couponId());
         order.setActivityId(request.activityId());
+        // T03：幂等三元组落库（uk(user_id,request_key) 兜底并发；quote_id uk 兜底一报价一单）
+        order.setRequestKey(request.requestId());
+        order.setPayloadHash(payloadHash);
+        order.setQuoteId(request.quoteId());
 
-        orderMapper.insert(order);
+        try {
+            orderMapper.insert(order);
+        } catch (org.springframework.dao.DuplicateKeyException race) {
+            Order winner = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                    .eq(Order::getUserId, userId)
+                    .eq(Order::getRequestKey, request.requestId()));
+            if (winner != null) {
+                // 并发同键：胜者已建单——本事务回滚并补偿已预占库存，重放胜者结果
+                throw new OrderIdempotentRaceException(winner.getId(), payloadHash);
+            }
+            if (request.quoteId() != null) {
+                throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已被使用，请重新报价");
+            }
+            throw new BusinessException("DUPLICATE_REQUEST", "重复下单请求");
+        }
 
         // T04/T03：先落订单拿到真实 orderId，再跨服务预占——预占台账 (order_id, sku_id) 必须
         // 绑定真实订单事实（旧实现传 0L，预占不入账本，释放/确认走裸更新兼容分支）
@@ -194,9 +227,16 @@ public class OrderServiceImpl implements OrderService {
         }
 
         try {
-            cartFeignClient.clearCheckedItems(userId);
+            // T03/TRADE-02：只清本单实购 sku 行——旧全清会误删不属于本订单的勾选商品
+            List<Long> orderSkuIds = orderItemMapper.selectList(
+                    new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, order.getId()))
+                    .stream().map(OrderItem::getSkuId).distinct().toList();
+            if (!orderSkuIds.isEmpty()) {
+                cartFeignClient.clearCheckedBySkus(userId,
+                        java.util.Map.of("skuIds", orderSkuIds));
+            }
         } catch (Exception e) {
-            log.warn("清空购物车已选商品失败, userId={}: {}", userId, e.getMessage());
+            log.warn("清理购物车已购行失败, orderId={}: {}", order.getId(), e.getMessage());
         }
 
         redisTemplate.opsForValue().set(
@@ -806,8 +846,72 @@ public class OrderServiceImpl implements OrderService {
         throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
     }
 
+    private Integer toInt(Object value) {
+        return value instanceof Number n ? n.intValue() : null;
+    }
+
+    private BigDecimal toAmount(Object value, Long skuId) {
+        if (value instanceof BigDecimal amount) {
+            return amount;
+        }
+        if (value instanceof Number n) {
+            return BigDecimal.valueOf(n.doubleValue());
+        }
+        throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
+    }
+
     private Long toLongSafely(Object value) {
         return value instanceof Number n ? n.longValue() : null;
+    }
+
+    /** T03：并发同键建单竞争信号——携带胜者订单 ID，由事务边界重放胜者结果 */
+    public static class OrderIdempotentRaceException extends RuntimeException {
+        public final Long winnerOrderId;
+        public final String expectedPayloadHash;
+
+        public OrderIdempotentRaceException(Long winnerOrderId, String expectedPayloadHash) {
+            super("order idempotent race");
+            this.winnerOrderId = winnerOrderId;
+            this.expectedPayloadHash = expectedPayloadHash;
+        }
+    }
+
+    /** T03：规范化请求摘要（userId|sku:qty,...|coupon|activity|receiver|phone|address） */
+    private String orderPayloadHash(Long userId, CreateOrderRequest request) {
+        StringJoiner items = new StringJoiner(",");
+        request.items().stream()
+                .sorted(java.util.Comparator.comparingLong(CreateOrderRequest.OrderItemInput::skuId))
+                .forEach(i -> items.add(i.skuId() + ":" + i.quantity()));
+        String canonical = userId + "|" + items + "|" + request.couponId() + "|" + request.activityId()
+                + "|" + request.receiverName() + "|" + request.receiverPhone() + "|" + request.receiverAddress();
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    /** T03：幂等重放判定——同键同参返回原单；同键异参 409（禁止自动换键重放） */
+    private OrderDTO resolveIdempotentReplay(Order existing, String payloadHash) {
+        if (existing.getPayloadHash() != null && !existing.getPayloadHash().equals(payloadHash)) {
+            throw new BusinessException("IDEMPOTENCY_CONFLICT",
+                    "请求键已绑定不同下单内容，请更换幂等键或核对请求");
+        }
+        List<OrderItem> items = orderItemMapper.selectList(
+                new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, existing.getId()));
+        return orderConverter.toDTO(existing, orderConverter.toItemDTOList(items));
+    }
+
+    /** T03：并发同键败者出口——核对胜者事实后重放其结果（本事务整体回滚） */
+    private OrderDTO replayWinnerOrConflict(OrderIdempotentRaceException race) {
+        Order winner = orderMapper.selectById(race.winnerOrderId);
+        if (winner != null && (race.expectedPayloadHash == null
+                || race.expectedPayloadHash.equals(winner.getPayloadHash()))) {
+            return resolveIdempotentReplay(winner, race.expectedPayloadHash);
+        }
+        throw new BusinessException("IDEMPOTENCY_CONFLICT", "请求键已绑定不同下单内容");
     }
 
     /** T04：预占失败补偿——按真实 orderId 释放，台账驱动 CAS，不会影响其他订单的预占 */
@@ -851,43 +955,14 @@ public class OrderServiceImpl implements OrderService {
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
     }
 
+    /** T03：券校验/折扣计算集中到 {@link OrderCouponPolicy}（与报价同一权威实现） */
     private UserCouponDTO validateAndGetCoupon(Long couponId, Long userId, BigDecimal totalAmount) {
-        ApiResponse<UserCouponDTO> couponResp = couponFeignClient.getCouponById(couponId);
-        if (couponResp == null || !couponResp.success() || couponResp.data() == null) {
-            throw new BusinessException("COUPON_NOT_FOUND", "优惠券不存在");
-        }
-        UserCouponDTO coupon = couponResp.data();
-        if (!coupon.userId().equals(userId)) {
-            throw new BusinessException("COUPON_ACCESS_DENIED", "无权使用此优惠券");
-        }
-        if (!"UNUSED".equals(coupon.status())) {
-            throw new BusinessException("COUPON_ALREADY_USED", "优惠券已使用");
-        }
-        if (coupon.thresholdAmount() != null && totalAmount.compareTo(coupon.thresholdAmount()) < 0) {
-            throw new BusinessException("COUPON_THRESHOLD_NOT_MET", "未达优惠券使用门槛");
-        }
-        return coupon;
+        return couponPolicy.validate(couponId, userId, totalAmount);
     }
 
+    /** T03：折扣计算集中到 {@link OrderCouponPolicy}（COUPON-01 封顶/费率防护同一实现） */
     private BigDecimal calculateDiscount(UserCouponDTO coupon, BigDecimal totalAmount) {
-        // COUPON-01：优惠封顶——任何券的优惠不得超过商品总额（防 payAmount 为负）；
-        // 折扣率必须在 (0,1] 区间（如 0.90 = 9 折），配置异常按无优惠处理并告警
-        BigDecimal discount = BigDecimal.ZERO;
-        if ("AMOUNT_OFF".equals(coupon.templateType()) && coupon.discountAmount() != null) {
-            discount = coupon.discountAmount();
-        } else if ("PERCENT_OFF".equals(coupon.templateType()) && coupon.discountRate() != null) {
-            BigDecimal rate = coupon.discountRate();
-            if (rate.compareTo(BigDecimal.ZERO) <= 0 || rate.compareTo(BigDecimal.ONE) > 0) {
-                log.warn("[COUPON01] 折扣率配置越界，按无优惠处理, couponId={}, rate={}",
-                        coupon.id(), rate);
-                return BigDecimal.ZERO;
-            }
-            discount = totalAmount.subtract(totalAmount.multiply(rate));
-        }
-        if (discount.compareTo(BigDecimal.ZERO) < 0) {
-            discount = BigDecimal.ZERO;
-        }
-        return discount.min(totalAmount);
+        return couponPolicy.calculate(coupon, totalAmount);
     }
 
     private void returnCouponForOrder(Long couponId, Long orderId) {
@@ -992,12 +1067,40 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO createOrderFromQuote(Long userId, Long quoteId, String receiverName,
+    public OrderDTO createOrderFromQuote(Long userId, Long quoteId, Integer expectedQuoteVersion,
+                                         String requestKey, String receiverName,
                                          String receiverPhone, String receiverAddress) {
         // TRADE-01：归属与状态前置校验（他人/不存在一律 404）
         com.cloudmart.order.entity.OrderQuote quote = orderQuoteMapper.selectById(quoteId);
         if (quote == null || !quote.getUserId().equals(userId)) {
             throw new BusinessException("QUOTE_NOT_FOUND", "报价不存在");
+        }
+        // T03：版本一致性——报价创建后不可变，expectedQuoteVersion 不匹配说明用户看到的
+        // 报价已过期或被并发修改，返回明确 409 让前端重新报价（不静默按新金额下单）
+        if (expectedQuoteVersion != null && !expectedQuoteVersion.equals(quote.getVersion())) {
+            throw new BusinessException("QUOTE_STALE", "报价已更新，请重新获取报价后确认");
+        }
+        if ("ACTIVE".equals(quote.getStatus()) && quote.getExpiresAt() != null
+                && quote.getExpiresAt().isBefore(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))) {
+            throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已过期，请重新报价");
+        }
+
+        // T03：可售/价格/优惠复核——报价是快照权威，但现实变化必须显式 STALE（QA09）
+        verifyQuoteFreshness(userId, quote);
+
+        // 幂等键：客户端 X-Idempotency-Key 优先；缺省绑定报价（同报价重试收敛同一单）
+        String effectiveRequestKey = requestKey != null && !requestKey.isBlank()
+                ? requestKey : "quote-" + quoteId;
+        if (effectiveRequestKey.length() > 64) {
+            throw new BusinessException("IDEMPOTENCY_KEY_INVALID", "幂等键过长（<=64）");
+        }
+        // 同键重放：直接返回原单（含幂等异参校验）
+        String payloadHash = quotePayloadHash(userId, quote, receiverName, receiverPhone, receiverAddress);
+        Order replayed = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .eq(Order::getRequestKey, effectiveRequestKey));
+        if (replayed != null) {
+            return resolveIdempotentReplay(replayed, payloadHash);
         }
 
         // CAS 消费报价（与建单同事务：建单失败回滚后报价自动恢复 ACTIVE）；
@@ -1006,8 +1109,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已使用或已过期，请重新报价");
         }
 
-        // 服务端构造下单请求：金额/商品名/图片/属性全部取报价快照，
-        // 客户端在 v2 接口上没有可提交的价格字段
+        // 服务端构造下单请求：金额/商品信息全部取报价快照（freshness 已核），无客户端价格字段
         List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
                 new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
                         .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quoteId));
@@ -1017,20 +1119,73 @@ public class OrderServiceImpl implements OrderService {
                         qi.getProductName(), qi.getSkuImage(), qi.getSkuAttributes(), qi.getPrice()))
                 .toList();
 
-        // requestId 绑定报价：同报价重试收敛为同一幂等意图
-        String requestId = "quote-" + quoteId;
         CreateOrderRequest request = new CreateOrderRequest(
-                requestId, items, receiverName, receiverPhone, receiverAddress,
-                quote.getCouponId(), null);
+                effectiveRequestKey, items, receiverName, receiverPhone,
+                receiverAddress, quote.getCouponId(), null, quote.getId());
 
-        OrderDTO order = selfProvider.getObject().createOrder(userId, request);
-        // 双保险：createOrder 在任何降级路径都不应返回 null；万一返回则明确失败而非 NPE
-        if (order == null) {
-            throw new BusinessException("ORDER_CREATE_FAILED", "订单创建失败，请稍后重试");
+        try {
+            OrderDTO order = selfProvider.getObject().createOrder(userId, request);
+            if (order == null) {
+                throw new BusinessException("ORDER_CREATE_FAILED", "订单创建失败，请稍后重试");
+            }
+            orderQuoteMapper.updateConsumedBy(quoteId, order.id());
+            return order;
+        } catch (OrderIdempotentRaceException race) {
+            // 同键并发败者：重放胜者结果（报价消费同事务回滚，无半消费状态）
+            return replayWinnerOrConflict(race);
         }
+    }
 
-        orderQuoteMapper.updateConsumedBy(quoteId, order.id());
-        return order;
+    /** T03：报价新鲜度复核——价格/上架状态/优惠券重算；任一变化抛 QUOTE_STALE（409） */
+    private void verifyQuoteFreshness(Long userId, com.cloudmart.order.entity.OrderQuote quote) {
+        List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
+                        .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quote.getId()));
+
+        ApiResponse<List<Map<String, Object>>> resp =
+                productFeignClient.getSkusBatch(quoteItems.stream()
+                        .map(com.cloudmart.order.entity.OrderQuoteItem::getSkuId).toList());
+        if (resp == null || !resp.success() || resp.data() == null) {
+            throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法核验报价");
+        }
+        Map<Long, Map<String, Object>> skuMap = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> sku : resp.data()) {
+            if (sku.get("skuId") instanceof Number n) {
+                skuMap.put(n.longValue(), sku);
+            }
+        }
+        for (com.cloudmart.order.entity.OrderQuoteItem item : quoteItems) {
+            Map<String, Object> sku = skuMap.get(item.getSkuId());
+            if (sku == null || !Integer.valueOf(1).equals(toInt(sku.get("status")))) {
+                throw new BusinessException("QUOTE_STALE", "报价中商品已下架: SKU " + item.getSkuId());
+            }
+            BigDecimal currentPrice = toAmount(sku.get("price"), item.getSkuId());
+            if (currentPrice.compareTo(item.getPrice()) != 0) {
+                throw new BusinessException("QUOTE_STALE",
+                        "报价中商品价格已变化: SKU " + item.getSkuId() + "，请重新报价");
+            }
+        }
+        if (quote.getCouponId() != null) {
+            UserCouponDTO coupon = couponPolicy.validate(quote.getCouponId(), userId, quote.getTotalAmount());
+            BigDecimal freshDiscount = couponPolicy.calculate(coupon, quote.getTotalAmount());
+            if (freshDiscount.compareTo(quote.getDiscountAmount()) != 0) {
+                throw new BusinessException("QUOTE_STALE", "优惠券可用状态或折扣已变化，请重新报价");
+            }
+        }
+    }
+
+    /** T03：报价下单的规范化摘要（幂等键域独立于直填下单） */
+    private String quotePayloadHash(Long userId, com.cloudmart.order.entity.OrderQuote quote,
+                                    String receiverName, String receiverPhone, String receiverAddress) {
+        String canonical = "quote|" + userId + "|" + quote.getId() + "|" + quote.getVersion()
+                + "|" + receiverName + "|" + receiverPhone + "|" + receiverAddress;
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 
     @Override

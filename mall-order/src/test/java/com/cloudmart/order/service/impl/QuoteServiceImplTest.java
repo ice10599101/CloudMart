@@ -47,7 +47,8 @@ class QuoteServiceImplTest {
         productFeignClient = mock(ProductFeignClient.class);
         quoteMapper = mock(OrderQuoteMapper.class);
         quoteItemMapper = mock(OrderQuoteItemMapper.class);
-        quoteService = new QuoteServiceImpl(productFeignClient, quoteMapper, quoteItemMapper, 300L);
+        quoteService = new QuoteServiceImpl(productFeignClient, quoteMapper, quoteItemMapper,
+                new OrderCouponPolicy(org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class)), 300L);
     }
 
     private Map<String, Object> sku(long skuId, long productId, String price, int status) {

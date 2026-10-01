@@ -80,10 +80,23 @@ public class CartController {
     }
 
     @DeleteMapping("/checked")
-    @Operation(summary = "删除已选中商品", description = "删除购物车中已选中的商品（结算后调用）")
+    @Operation(summary = "删除已选中商品", description = "删除购物车中已选中的商品（旧全清入口，保留给清空结算）")
     public ApiResponse<Void> clearCheckedItems(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         cartService.clearCheckedItems(userId);
+        return ApiResponse.ok(null);
+    }
+
+    public record ClearCheckedBySkusRequest(@jakarta.validation.constraints.NotEmpty java.util.List<Long> skuIds) {
+    }
+
+    /** T03/TRADE-02：精确清理——下单成功后仅移除本单实购 sku 行 */
+    @DeleteMapping("/checked/skus")
+    @Operation(summary = "按 SKU 精确清理已购行", description = "订单创建成功后调用；只删除本次购买的 skuId，不动其他勾选商品")
+    public ApiResponse<Void> clearCheckedBySkus(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ClearCheckedBySkusRequest request) {
+        cartService.clearCheckedBySkus(userId, request.skuIds());
         return ApiResponse.ok(null);
     }
 }

@@ -26,7 +26,12 @@ public interface OrderService {
      *
      * @throws BusinessException QUOTE_NOT_FOUND / QUOTE_NOT_AVAILABLE
      */
-    OrderDTO createOrderFromQuote(Long userId, Long quoteId, String receiverName,
+        /**
+     * T03：报价下单（快照权威）——expectedQuoteVersion 校验 + 价格/可售/券 QUOTE_STALE 复核
+     * + DB 幂等（X-Idempotency-Key 优先，缺省 quote-{id}）+ 报价 CAS 消费与建单同事务。
+     */
+    OrderDTO createOrderFromQuote(Long userId, Long quoteId, Integer expectedQuoteVersion,
+                                  String requestKey, String receiverName,
                                   String receiverPhone, String receiverAddress);
 
     OrderDTO getOrderById(Long userId, Long orderId);

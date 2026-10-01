@@ -19,5 +19,8 @@ public interface CartService {
 
     void clearCheckedItems(Long userId);
 
+    /** T03/TRADE-02：精确清理本次购买行（按订单实购 skuId 集合），不影响其他勾选商品 */
+    void clearCheckedBySkus(Long userId, java.util.List<Long> skuIds);
+
     void syncToDatabase(Long userId);
 }

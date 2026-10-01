@@ -172,9 +172,10 @@ export default function CheckoutPage() {
         items: items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
         couponId: selectedCoupon?.id,
       })
-      const quoteId = (quoteRes.data?.data as { quoteId?: string } | undefined)?.quoteId
+      const quoteData = (quoteRes.data?.data as { quoteId?: string; version?: number } | undefined) ?? {}
       const res = await orderApi.createFromQuote({
-        quoteId: quoteId as string,
+        quoteId: quoteData.quoteId as string,
+        expectedQuoteVersion: quoteData.version as number,
         receiverName: address.name,
         receiverPhone: address.phone,
         receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,

@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 @Slf4j
 public class CartFeignClientFallbackFactory implements FallbackFactory<CartFeignClient> {
@@ -16,6 +18,13 @@ public class CartFeignClientFallbackFactory implements FallbackFactory<CartFeign
             @Override
             public ApiResponse<Void> clearCheckedItems(Long userId) {
                 log.warn("清空购物车降级跳过, userId={}: {}", userId, cause.getMessage());
+                return ApiResponse.ok(null);
+            }
+
+            @Override
+            public ApiResponse<Void> clearCheckedBySkus(Long userId, Map<String, Object> request) {
+                // T03：精确清理失败仅告警（购物车残留不影响订单事实，用户可手动删）
+                log.warn("精确清理购物车降级跳过, userId={}: {}", userId, cause.getMessage());
                 return ApiResponse.ok(null);
             }
         };

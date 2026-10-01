@@ -76,6 +76,7 @@ class OrderRiskCheckTest {
                 mock(com.cloudmart.order.feign.CartFeignClient.class),
                 mock(com.cloudmart.order.feign.CouponFeignClient.class),
                 mock(com.cloudmart.order.feign.RefundFeignClient.class),
+                new OrderCouponPolicy(org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class)),
                 mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 riskFeignClient,
                 mock(com.cloudmart.order.feign.WmsShippingFeignClient.class),
@@ -92,7 +93,7 @@ class OrderRiskCheckTest {
     private CreateOrderRequest request() {
         return new CreateOrderRequest("req-risk-1",
                 List.of(new CreateOrderRequest.OrderItemInput(1L, 10L, 1, "商品", null, null, new BigDecimal("10.00"))),
-                "张三", "13800138000", "北京市", null, null);
+                "张三", "13800138000", "北京市", null, null, null);
     }
 
     @Test

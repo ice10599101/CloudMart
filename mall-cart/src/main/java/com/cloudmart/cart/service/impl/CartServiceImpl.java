@@ -207,6 +207,18 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
+    public void clearCheckedBySkus(Long userId, java.util.List<Long> skuIds) {
+        // T03：只清本次订单实购的 sku 行（勾选态仍以 DB 为准），并发勾选改动不影响其他商品
+        if (skuIds == null || skuIds.isEmpty()) {
+            return;
+        }
+        java.util.List<Long> distinct = skuIds.stream().distinct().toList();
+        cartItemMapper.deleteCheckedBySkus(userId, distinct);
+        redisTemplate.opsForHash().delete(buildKey(userId),
+                distinct.stream().map(String::valueOf).toArray());
+    }
+
+    @Override
     public void syncToDatabase(Long userId) {
         // CART-01：DB 已是权威——本方法语义变更为「从权威重建缓存」
         //（原"先删后插同步"会在并发下丢行，已废弃；CartSyncTask 调用点保留为缓存预热）

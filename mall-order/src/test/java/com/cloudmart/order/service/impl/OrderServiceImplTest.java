@@ -96,6 +96,7 @@ class OrderServiceImplTest {
         refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, couponFeignClient, refundFeignClient,
+                new OrderCouponPolicy(couponFeignClient),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.RiskFeignClient.class),
                 wmsShippingFeignClient,

@@ -29,14 +29,15 @@ export function getQuoteById(quoteId: string) {
   return request.get<ApiResponse<QuoteResult>>(`/order/quotes/${quoteId}`)
 }
 
-/** TRADE-01：报价下单——无价格字段，金额取报价快照 */
+/** T03：报价下单（唯一下单入口）——无价格字段；expectedQuoteVersion 不一致返回 409 QUOTE_STALE */
 export function createOrderFromQuote(data: {
   quoteId: number | string
+  expectedQuoteVersion: number
   receiverName: string
   receiverPhone: string
   receiverAddress: string
 }) {
-  return request.post<ApiResponse<Order>>('/order/orders/v2', data)
+  return request.post<ApiResponse<Order>>('/order/orders', data)
 }
 
 export function fetchOrders(params: OrderQueryParams) {
