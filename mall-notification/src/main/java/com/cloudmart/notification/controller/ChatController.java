@@ -127,7 +127,7 @@ public class ChatController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "会话ID") @PathVariable("conversationId") Long conversationId,
             @Valid @RequestBody SendMessageRequest request) {
-        MessageDTO dto = chatService.sendMessage(userId, conversationId, request.content(), request.type());
+        MessageDTO dto = chatService.sendMessage(userId, conversationId, request.content(), request.type(), request.clientMessageId());
 
         Map<Long, ChatServiceImpl.UserInfo> userInfoMap =
                 chatServiceImpl.batchGetUsers(Set.of(dto.senderId()));

@@ -24,6 +24,9 @@ public class Message {
 
     private String type;
 
+    /** 客户端消息幂等键（N01：同会话+发送者唯一，重发不重复） */
+    private String clientMessageId;
+
     private Integer isRecalled;
 
     @TableField(fill = FieldFill.INSERT)

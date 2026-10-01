@@ -162,8 +162,8 @@ class ChatServiceImplTest {
 
             assertThat(result).isNotNull();
             verify(messageMapper).insert(any(Message.class));
-            verify(conversationMapper).updateById(conv);
-            assertThat(conv.getUser2UnreadCount()).isEqualTo(2);
+            // N01：未读递增走原子 SQL（side=2 即 user2 收），不再实体读改写
+            verify(conversationMapper).incrementUnreadAndTouch(10L, 2, "hello");
         }
 
         @Test

@@ -15,6 +15,9 @@ public interface ChatService {
 
     MessageDTO sendMessage(Long userId, Long conversationId, String content, String type);
 
+    /** N01：带客户端幂等键的发送（重发返回原消息） */
+    MessageDTO sendMessage(Long userId, Long conversationId, String content, String type, String clientMessageId);
+
     MessageDTO recallMessage(Long userId, Long messageId);
 
     void markConversationRead(Long userId, Long conversationId);

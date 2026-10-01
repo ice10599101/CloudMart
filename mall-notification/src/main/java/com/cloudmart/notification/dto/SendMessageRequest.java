@@ -11,5 +11,8 @@ public record SendMessageRequest(
     String content,
 
     @Schema(description = "消息类型: TEXT/IMAGE/PRODUCT")
-    String type
+    String type,
+
+    @Schema(description = "客户端消息幂等键（重发不产生重复消息）")
+    @Size(max = 64) String clientMessageId
 ) {}

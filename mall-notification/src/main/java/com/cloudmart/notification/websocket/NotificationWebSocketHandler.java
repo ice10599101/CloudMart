@@ -55,7 +55,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         Long userId = extractUserId(session);
         if (userId != null) {
-            sessionManager.removeSession(userId);
+            sessionManager.removeSession(userId, session);
         }
     }
 
@@ -63,7 +63,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         Long userId = extractUserId(session);
         if (userId != null) {
-            sessionManager.removeSession(userId);
+            sessionManager.removeSession(userId, session);
         }
         log.warn("WebSocket transport error for userId={}", userId, exception);
     }

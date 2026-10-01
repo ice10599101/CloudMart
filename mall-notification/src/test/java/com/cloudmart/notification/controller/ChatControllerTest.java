@@ -107,7 +107,7 @@ class ChatControllerTest {
         MessageDTO dto = new MessageDTO(10L, 1L, 1L, "你好", "TEXT", false, FIXED_TIME);
         ChatServiceImpl.UserInfo sender = new ChatServiceImpl.UserInfo(1L, "用户A", "avatar.jpg");
 
-        given(chatService.sendMessage(1L, 1L, "你好", "TEXT")).willReturn(dto);
+        given(chatService.sendMessage(1L, 1L, "你好", "TEXT", null)).willReturn(dto);
         given(chatServiceImpl.batchGetUsers(Set.of(1L))).willReturn(Map.of(1L, sender));
 
         mockMvc.perform(post("/conversations/1/messages")

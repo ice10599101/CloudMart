@@ -26,6 +26,10 @@ public interface NotificationService {
     void sendNotificationToUser(Long userId, String type, String title, String content,
                                 Long bizId, String bizType, Long actorId);
 
+    /** N01：带事件幂等的发送（eventId 唯一去重；重复事件静默跳过） */
+    void sendOrderEventNotification(Long userId, String eventId, String title, String content,
+                                    Long orderId);
+
     void broadcastNotification(String type, String title, String content);
 
     /** 管理端删除指定通知（撤回误发内容）；不存在时抛 NOTIFICATION_NOT_FOUND */

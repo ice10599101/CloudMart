@@ -34,9 +34,12 @@ export function getMessages(conversationId: number, beforeId?: number, pageSize 
 }
 
 export function sendMessage(conversationId: number, content: string, type = 'TEXT') {
+  // N01：客户端幂等键——同键重发返回原消息，不产生重复
+  const clientMessageId = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
   return request.post<ApiResponse<ChatMessage>>(`/notification/conversations/${conversationId}/messages`, {
     content,
     type,
+    clientMessageId,
   })
 }
 

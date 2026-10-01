@@ -144,34 +144,77 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public MessageDTO sendMessage(Long userId, Long conversationId, String content, String type) {
+        return sendMessage(userId, conversationId, content, type, null);
+    }
+
+    /**
+     * N01：发送消息（客户端幂等 + 原子未读 + 提交后推送）。
+     *
+     * @param clientMessageId 客户端消息幂等键（可空；同会话+发送者唯一，重发返回原消息）
+     */
+    @Override
+    @Transactional
+    public MessageDTO sendMessage(Long userId, Long conversationId, String content, String type,
+                                  String clientMessageId) {
         validateConversationAccess(userId, conversationId);
 
         String msgType = (type != null && !type.isBlank()) ? type : "TEXT";
+
+        // N01：客户端幂等——唯一键(conversation, sender, clientMessageId)冲突时重放原消息
+        if (clientMessageId != null && !clientMessageId.isBlank()) {
+            Message existing = messageMapper.selectOne(new LambdaQueryWrapper<Message>()
+                    .eq(Message::getConversationId, conversationId)
+                    .eq(Message::getSenderId, userId)
+                    .eq(Message::getClientMessageId, clientMessageId)
+                    .last("LIMIT 1"));
+            if (existing != null) {
+                return chatConverter.toMessageDTO(existing);
+            }
+        }
 
         Message message = new Message();
         message.setConversationId(conversationId);
         message.setSenderId(userId);
         message.setContent(content);
         message.setType(msgType);
+        message.setClientMessageId(clientMessageId);
         message.setIsRecalled(0);
-        messageMapper.insert(message);
+        try {
+            messageMapper.insert(message);
+        } catch (org.springframework.dao.DuplicateKeyException race) {
+            Message winner = messageMapper.selectOne(new LambdaQueryWrapper<Message>()
+                    .eq(Message::getConversationId, conversationId)
+                    .eq(Message::getSenderId, userId)
+                    .eq(Message::getClientMessageId, clientMessageId)
+                    .last("LIMIT 1"));
+            if (winner != null) {
+                return chatConverter.toMessageDTO(winner);
+            }
+            throw new BusinessException("CHAT_MESSAGE_CONFLICT", "消息发送冲突，请重试");
+        }
 
         Conversation conv = conversationMapper.selectById(conversationId);
         if (conv != null) {
-            conv.setLastMessage(content.length() > 200 ? content.substring(0, 200) : content);
-            conv.setLastMessageTime(LocalDateTime.now());
+            // N01：原子未读递增（实体读改写在并发下丢计数）+ 摘要更新同一 SQL
+            int side = conv.getUser1Id().equals(userId) ? 2 : 1;
+            conversationMapper.incrementUnreadAndTouch(conversationId, side,
+                    content.length() > 200 ? content.substring(0, 200) : content);
+            Long recipientId = side == 2 ? conv.getUser2Id() : conv.getUser1Id();
 
-            Long recipientId;
-            if (conv.getUser1Id().equals(userId)) {
-                conv.setUser2UnreadCount(conv.getUser2UnreadCount() + 1);
-                recipientId = conv.getUser2Id();
+            // N01：事务提交后再推 WebSocket（事务内推送可能在回滚后发出幽灵消息）
+            final Message pushed = message;
+            final Long recv = recipientId;
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                pushChatMessage(recv, pushed, conversationId);
+                            }
+                        });
             } else {
-                conv.setUser1UnreadCount(conv.getUser1UnreadCount() + 1);
-                recipientId = conv.getUser1Id();
+                pushChatMessage(recv, pushed, conversationId);
             }
-            conversationMapper.updateById(conv);
-
-            pushChatMessage(recipientId, message, conversationId);
         }
 
         return chatConverter.toMessageDTO(message);
