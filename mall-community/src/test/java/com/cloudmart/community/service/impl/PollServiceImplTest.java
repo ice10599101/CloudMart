@@ -176,6 +176,8 @@ class PollServiceImplTest {
             when(optionMapper.selectList(any())).thenReturn(List.of(
                     option(1L, "爬山", 0), option(2L, "看电影", 1)));
             when(voteMapper.selectCount(any())).thenReturn(0L);
+            // C03：选票登记成功（uk 判重通过）
+            when(voteMapper.insertBallot("poll-1", VOTER_ID)).thenReturn(1);
 
             pollService.vote("poll-1", VOTER_ID, List.of(1L, 2L));
 

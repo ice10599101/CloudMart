@@ -131,12 +131,23 @@ public class PollServiceImpl implements PollService {
             throw new BusinessException("POLL_ALREADY_VOTED", "已参与过该投票");
         }
 
-        for (Long optionId : distinctOptionIds) {
-            CommunityPollVote vote = new CommunityPollVote();
-            vote.setPollId(pollId);
-            vote.setOptionId(optionId);
-            vote.setUserId(userId);
-            voteMapper.insert(vote);
+        // C03/QA25：选票先行——uk(poll_id,user_id) 判重；并发同用户（即便选项不同）
+        // 只有一个赢家，修复单选并发双选票缺陷
+        if (voteMapper.insertBallot(pollId, userId) == 0) {
+            throw new BusinessException("POLL_ALREADY_VOTED", "已参与过该投票");
+        }
+
+        try {
+            for (Long optionId : distinctOptionIds) {
+                CommunityPollVote vote = new CommunityPollVote();
+                vote.setPollId(pollId);
+                vote.setOptionId(optionId);
+                vote.setUserId(userId);
+                voteMapper.insert(vote);
+            }
+        } catch (org.springframework.dao.DuplicateKeyException optionRace) {
+            // 并发选项明细冲突（同用户同选项）：选票已占，整体回滚按已投处理
+            throw new BusinessException("POLL_ALREADY_VOTED", "已参与过该投票");
         }
         log.info("投票成功: pollId={}, userId={}, optionIds={}", pollId, userId, distinctOptionIds);
     }
