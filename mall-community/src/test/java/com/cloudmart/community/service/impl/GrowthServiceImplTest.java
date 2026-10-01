@@ -111,6 +111,16 @@ class GrowthServiceImplTest {
         return userLevel;
     }
 
+    private UserLevel buildUserLevelWith(int exp) {
+        UserLevel userLevel = new UserLevel();
+        userLevel.setId(1L);
+        userLevel.setUserId(USER_ID);
+        userLevel.setLevel(2);
+        userLevel.setExp(exp);
+        userLevel.setTotalExp((long) exp);
+        return userLevel;
+    }
+
     private LevelConfig buildLevelConfig(int level, int minExp, String title) {
         LevelConfig config = new LevelConfig();
         config.setId((long) level);
@@ -138,30 +148,40 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should check in successfully for first time today")
         void checkIn_firstTimeToday() {
-            when(checkInBitMapService.setBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
-            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(1);
+            // C05：DB 事实先行——insert 成功后再置位 Bitmap
             when(dailyCheckInMapper.insert(any(DailyCheckIn.class))).thenAnswer(invocation -> {
                 DailyCheckIn checkIn = invocation.getArgument(0);
                 checkIn.setId(1L);
                 return 1;
             });
+            when(checkInBitMapService.setBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
+            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(1);
+            when(dailyCheckInMapper.updateById(any(DailyCheckIn.class))).thenReturn(1);
 
             UserLevel userLevel = buildUserLevel();
             when(userLevelMapper.selectOne(any())).thenReturn(userLevel);
+            when(userLevelMapper.incrementExp(eq(USER_ID), anyInt())).thenReturn(1);
             when(levelConfigMapper.selectOne(any())).thenReturn(buildLevelConfig(2, 30, "Rookie"));
 
             growthService.checkIn(USER_ID);
 
             verify(dailyCheckInMapper).insert(any(DailyCheckIn.class));
+            // C05：Bitmap 在 DB 事实之后置位（投影）
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(dailyCheckInMapper, checkInBitMapService);
+            inOrder.verify(dailyCheckInMapper).insert(any(DailyCheckIn.class));
+            inOrder.verify(checkInBitMapService).setBit(eq(USER_ID), any(LocalDate.class));
             verify(expLogMapper).insert(any(ExpLog.class));
-            verify(userLevelMapper).updateById(userLevel);
-            verify(rankingService).addExpToRanking(USER_ID, 10);
+            // C05：经验走原子增量
+            verify(userLevelMapper).incrementExp(eq(USER_ID), anyInt());
+            verify(rankingService).addExpToRanking(eq(USER_ID), anyInt());
         }
 
         @Test
         @DisplayName("should throw when already checked in today")
         void checkIn_alreadyCheckedIn_throwsException() {
-            when(checkInBitMapService.setBit(eq(USER_ID), any(LocalDate.class))).thenReturn(true);
+            // C05：重复签到以 DB uk(user_id, check_in_date) 判定（Bitmap 位已置不再是判据）
+            when(dailyCheckInMapper.insert(any(DailyCheckIn.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_user_date"));
 
             assertThatThrownBy(() -> growthService.checkIn(USER_ID))
                     .isInstanceOf(BusinessException.class)
@@ -170,27 +190,32 @@ class GrowthServiceImplTest {
                         assertThat(be.getCode()).isEqualTo("ALREADY_CHECKED_IN");
                     });
 
-            verify(dailyCheckInMapper, never()).insert(any(DailyCheckIn.class));
+            verify(checkInBitMapService, never()).setBit(eq(USER_ID), any(LocalDate.class));
         }
 
         @Test
         @DisplayName("should calculate continuous days bonus correctly")
         void checkIn_continuousDaysBonus() {
             when(checkInBitMapService.setBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
-            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(6);
             when(dailyCheckInMapper.insert(any(DailyCheckIn.class))).thenAnswer(invocation -> {
                 DailyCheckIn checkIn = invocation.getArgument(0);
                 checkIn.setId(2L);
-                assertThat(checkIn.getContinuousDays()).isEqualTo(6);
-                assertThat(checkIn.getExpReward()).isEqualTo(10 + Math.min(5 * 5, 50));
                 return 1;
             });
-
-            UserLevel userLevel = buildUserLevel();
-            when(userLevelMapper.selectOne(any())).thenReturn(userLevel);
+            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(6);
+            when(dailyCheckInMapper.updateById(any(DailyCheckIn.class))).thenReturn(1);
+            when(userLevelMapper.selectOne(any())).thenReturn(buildUserLevel());
+            when(userLevelMapper.incrementExp(eq(USER_ID), anyInt())).thenReturn(1);
             when(levelConfigMapper.selectOne(any())).thenReturn(buildLevelConfig(2, 30, "Rookie"));
 
             growthService.checkIn(USER_ID);
+
+            // C05：连续天数与奖励在 DB 事实成立、Bitmap 置位后回填到签到行
+            org.mockito.ArgumentCaptor<DailyCheckIn> captor =
+                    org.mockito.ArgumentCaptor.forClass(DailyCheckIn.class);
+            verify(dailyCheckInMapper).updateById(captor.capture());
+            assertThat(captor.getValue().getContinuousDays()).isEqualTo(6);
+            assertThat(captor.getValue().getExpReward()).isEqualTo(10 + Math.min(5 * 5, 50));
         }
     }
 
@@ -226,8 +251,10 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should add exp and update user level")
         void addExp_success() {
-            UserLevel userLevel = buildUserLevel();
-            when(userLevelMapper.selectOne(any())).thenReturn(userLevel);
+            // C05：奖励事实先行 + 原子增量（读改写已废弃）
+            when(userLevelMapper.selectOne(any())).thenReturn(buildUserLevel(),
+                    buildUserLevelWith(110));
+            when(userLevelMapper.incrementExp(eq(USER_ID), eq(60))).thenReturn(1);
             when(levelConfigMapper.selectList(any())).thenReturn(List.of(
                     buildLevelConfig(3, 100, "Advanced"),
                     buildLevelConfig(2, 30, "Rookie"),
@@ -236,10 +263,9 @@ class GrowthServiceImplTest {
 
             growthService.addExp(USER_ID, 60, "POST", 100L, "发布帖子");
 
-            assertThat(userLevel.getExp()).isEqualTo(110);
-            assertThat(userLevel.getTotalExp()).isEqualTo(110L);
-            verify(userLevelMapper).updateById(userLevel);
             verify(expLogMapper).insert(any(ExpLog.class));
+            verify(userLevelMapper).incrementExp(eq(USER_ID), eq(60));
+            verify(userLevelMapper).advanceLevel(eq(USER_ID), eq(3));
             verify(rankingService).addExpToRanking(USER_ID, 60);
         }
 
@@ -252,14 +278,19 @@ class GrowthServiceImplTest {
                 ul.setId(1L);
                 return 1;
             });
+            when(userLevelMapper.incrementExp(eq(USER_ID), eq(10))).thenReturn(1);
+            // 重算阶段 selectOne 返回已有行
+            org.mockito.Mockito.lenient().when(userLevelMapper.selectOne(any()))
+                    .thenReturn(null, buildUserLevelWith(10));
             when(levelConfigMapper.selectList(any())).thenReturn(List.of(
                     buildLevelConfig(1, 0, "Novice")
             ));
 
             growthService.addExp(USER_ID, 10, "COMMENT", 200L, "发表评论");
 
+            // C05 实现路径：首次 getOrCreate 建行；重算 getOrCreate 命中已有行（不再 insert）
             verify(userLevelMapper).insert(any(UserLevel.class));
-            verify(userLevelMapper).updateById(any(UserLevel.class));
+            verify(userLevelMapper).incrementExp(eq(USER_ID), eq(10));
             verify(expLogMapper).insert(any(ExpLog.class));
             verify(rankingService).addExpToRanking(USER_ID, 10);
         }

@@ -61,25 +61,30 @@ public class GrowthServiceImpl implements GrowthService {
     public CheckInResultVO checkIn(Long userId) {
         LocalDate today = LocalDate.now();
 
-        // SETBIT 返回旧值：true 表示已签到（重复签到）
-        boolean alreadyCheckedIn = checkInBitMapService.setBit(userId, today);
-        if (alreadyCheckedIn) {
+        // C05：DB 事实先行——uk(user_id, check_in_date) 判重（并发/重复签到只有一个赢家），
+        // Redis Bitmap 降级为投影（失败不阻断签到，可由管理端重建）
+        DailyCheckIn checkIn = new DailyCheckIn();
+        checkIn.setUserId(userId);
+        checkIn.setCheckInDate(today);
+        try {
+            dailyCheckInMapper.insert(checkIn);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
             throw new BusinessException("ALREADY_CHECKED_IN", "今日已签到");
         }
 
-        // 基于 BitMap 计算连续签到天数（支持跨月）
+        // DB 事实成立后再置位 Bitmap（含今日位，连续天数计算才正确）
+        boolean bitmapAlreadySet = checkInBitMapService.setBit(userId, today);
+        if (bitmapAlreadySet) {
+            // DB/Bitmap 不一致（此前签到失败残留）：以 DB 为准，重建今日位已完成
+            log.warn("签到 Bitmap 与 DB 不一致（位已置而 DB 无事实），已按 DB 收敛, userId={}", userId);
+        }
         int continuousDays = checkInBitMapService.countContinuousDays(userId, today);
 
         int bonus = Math.min((continuousDays - 1) * CONTINUOUS_BONUS_PER_DAY, MAX_CONTINUOUS_BONUS);
         int expReward = BASE_CHECK_IN_EXP + bonus;
-
-        // DB 持久化（管理后台统计依赖）
-        DailyCheckIn checkIn = new DailyCheckIn();
-        checkIn.setUserId(userId);
-        checkIn.setCheckInDate(today);
         checkIn.setContinuousDays(continuousDays);
         checkIn.setExpReward(expReward);
-        dailyCheckInMapper.insert(checkIn);
+        dailyCheckInMapper.updateById(checkIn);
 
         addExp(userId, expReward, "CHECK_IN", checkIn.getId(), "每日签到");
 
@@ -198,27 +203,31 @@ public class GrowthServiceImpl implements GrowthService {
     @Override
     @Transactional
     public void addExp(Long userId, int exp, String source, Long bizId, String description) {
-        UserLevel userLevel = getOrCreateUserLevel(userId);
-
-        int oldLevel = userLevel.getLevel();
-        userLevel.setExp(userLevel.getExp() + exp);
-        userLevel.setTotalExp(userLevel.getTotalExp() + exp);
-
-        int newLevel = calculateLevel(userLevel.getExp());
-        if (newLevel > oldLevel) {
-            userLevel.setLevel(newLevel);
-            log.info("User {} leveled up: {} -> {}, exp={}", userId, oldLevel, newLevel, userLevel.getExp());
-        }
-
-        userLevelMapper.updateById(userLevel);
-
+        // C05：奖励事实先行——uk(user_id, source, biz_id) 判重（并发/重试不双发奖）
         ExpLog expLog = new ExpLog();
         expLog.setUserId(userId);
         expLog.setExpChange(exp);
         expLog.setSource(source);
         expLog.setBizId(bizId);
         expLog.setDescription(description);
-        expLogMapper.insert(expLog);
+        try {
+            expLogMapper.insert(expLog);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            log.info("经验奖励事实已存在（幂等跳过）, userId={}, source={}, bizId={}", userId, source, bizId);
+            return;
+        }
+
+        // C05：原子增量替代实体读改写（并发丢更新缺陷修复）
+        getOrCreateUserLevel(userId);
+        userLevelMapper.incrementExp(userId, exp);
+
+        // 重算等级（基于增量后的权威值；仅升级时条件推进）
+        UserLevel latest = getOrCreateUserLevel(userId);
+        int newLevel = calculateLevel(latest.getExp());
+        if (newLevel > latest.getLevel()) {
+            userLevelMapper.advanceLevel(userId, newLevel);
+            log.info("User {} leveled up: {} -> {}, exp={}", userId, latest.getLevel(), newLevel, latest.getExp());
+        }
 
         try {
             rankingService.addExpToRanking(userId, exp);
