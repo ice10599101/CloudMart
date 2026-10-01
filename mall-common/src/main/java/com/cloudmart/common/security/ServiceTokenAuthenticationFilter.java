@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 服务间调用认证过滤器（SEC-01）：只认 {@link ServiceTokenCodec#HEADER_NAME}
@@ -39,6 +40,10 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final CloudmartSecurityProperties properties;
     private final Clock clock;
+    // 静默跳过分支（密钥不可用/路径未映射）原本 401 且零日志，线上无从排查；
+    // 各告警一次，避免日志风暴的同时保证"为什么没建立 INTERNAL 身份"可观测
+    private final AtomicBoolean warnedValidationUnavailable = new AtomicBoolean(false);
+    private final AtomicBoolean warnedUnmappedPath = new AtomicBoolean(false);
 
     public ServiceTokenAuthenticationFilter(CloudmartSecurityProperties properties, Clock clock) {
         this.properties = properties;
@@ -55,28 +60,43 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
         // 密钥不可用时 fail-closed：拒绝所有服务令牌
         boolean validationAvailable = properties.isServiceTokenValidationAvailable();
 
-        if (requirement != null && token != null && !token.isBlank() && validationAvailable
-                && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(
-                        token, properties.getServiceTokenSecret(), properties.getServiceId(),
-                        null, requirement.scope(),
-                        clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
-                if (!requirement.issuers().contains(claims.issuer())) {
-                    log.warn("[SEC01 REJECT] 服务令牌签发方不在允许列表 path={} issuer={} allowed={}",
-                            request.getRequestURI(), claims.issuer(), requirement.issuers());
-                } else {
-                    UsernamePasswordAuthenticationToken authentication =
-                            UsernamePasswordAuthenticationToken.authenticated(
-                                    claims.issuer(), null, List.of(new SimpleGrantedAuthority(ROLE_INTERNAL)));
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (requirement != null && token != null && !token.isBlank()) {
+            if (!validationAvailable) {
+                if (warnedValidationUnavailable.compareAndSet(false, true)) {
+                    log.warn("[SEC01] 服务令牌验签不可用（密钥未配置或不足{}字符）：path={} 的服务调用将被拒绝"
+                            + "（fail-closed）。请注入 CLOUDMART_SERVICE_TOKEN_SECRET（≥{}字符）并重启本服务。",
+                            ServiceTokenCodec.MIN_SECRET_LENGTH, request.getRequestURI(),
+                            ServiceTokenCodec.MIN_SECRET_LENGTH);
                 }
-            } catch (ServiceTokenException e) {
-                // 拒绝但不中断：受保护端点将得到 401；公开端点保持匿名语义
-                log.warn("[SEC01 REJECT] 服务令牌校验失败 path={} error={} detail={}",
-                        request.getRequestURI(), e.getError(), e.getMessage());
+            } else if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                try {
+                    ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(
+                            token, properties.getServiceTokenSecret(), properties.getServiceId(),
+                            null, requirement.scope(),
+                            clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
+                    if (!requirement.issuers().contains(claims.issuer())) {
+                        log.warn("[SEC01 REJECT] 服务令牌签发方不在允许列表 path={} issuer={} allowed={}",
+                                request.getRequestURI(), claims.issuer(), requirement.issuers());
+                    } else {
+                        UsernamePasswordAuthenticationToken authentication =
+                                UsernamePasswordAuthenticationToken.authenticated(
+                                        claims.issuer(), null, List.of(new SimpleGrantedAuthority(ROLE_INTERNAL)));
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
+                } catch (ServiceTokenException e) {
+                    // 拒绝但不中断：受保护端点将得到 401；公开端点保持匿名语义
+                    log.warn("[SEC01 REJECT] 服务令牌校验失败 path={} error={} detail={}",
+                            request.getRequestURI(), e.getError(), e.getMessage());
+                }
             }
+        } else if (requirement == null && token != null && !token.isBlank()
+                && warnedUnmappedPath.compareAndSet(false, true)) {
+            // 调用方为本服务签名但路径未映射：多为 inbound service-token-paths 与
+            // 调用方 outbound-scopes 配置不对称（或目标服务写错），静默 401 无法定位
+            log.warn("[SEC01] 收到服务令牌但路径未配置校验要求（不建立 INTERNAL 身份）path={}。"
+                    + "请核对本服务 cloudmart.security.service-token-paths 与调用方 outbound-scopes 是否对称。",
+                    request.getRequestURI());
         }
 
         filterChain.doFilter(request, response);

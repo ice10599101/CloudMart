@@ -5,8 +5,11 @@ import com.cloudmart.common.security.AuthRevocationChecker;
 import com.cloudmart.common.security.CloudmartSecurityProperties;
 import com.cloudmart.common.security.RedisAuthRevocationChecker;
 import com.cloudmart.common.security.ServiceTokenAuthenticationFilter;
+import com.cloudmart.common.security.ServiceTokenCodec;
 import com.cloudmart.common.security.ServiceTokenProvider;
 import com.cloudmart.common.security.UserJwtAuthenticationFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -52,6 +55,8 @@ import java.time.Clock;
 @EnableConfigurationProperties(CloudmartSecurityProperties.class)
 public class SecurityAuthAutoConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(SecurityAuthAutoConfiguration.class);
+
     @Bean
     @ConditionalOnMissingBean
     public Clock cloudmartSecurityClock() {
@@ -92,6 +97,30 @@ public class SecurityAuthAutoConfiguration {
     public ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter(
             CloudmartSecurityProperties properties, Clock clock) {
         return new ServiceTokenAuthenticationFilter(properties, clock);
+    }
+
+    /**
+     * SEC-01 启动自检：服务令牌密钥是否真正进入本进程在启动时即见分晓，
+     * 而不是等服务间调用 401 后靠日志反推（密钥长度可安全记录，值绝不落日志）。
+     */
+    @Bean
+    @ConditionalOnProperty(name = "cloudmart.security.service-id")
+    public org.springframework.context.ApplicationListener<
+            org.springframework.boot.context.event.ApplicationReadyEvent>
+            cloudmartSecurityStartupSelfCheck(CloudmartSecurityProperties properties) {
+        return event -> {
+            String serviceId = properties.getServiceId();
+            if (properties.isServiceTokenValidationAvailable()) {
+                log.info("[SEC01] 服务令牌验签已启用 service-id={} 密钥长度={} 受保护路径前缀={} 出站签名目标={}",
+                        serviceId, properties.getServiceTokenSecret().length(),
+                        properties.getServiceTokenPaths().size(), properties.getOutboundScopes().keySet());
+            } else {
+                log.warn("[SEC01] 服务令牌验签不可用（fail-closed）service-id={} service-token-secret 未配置"
+                        + "或不足{}字符：服务间调用将被 401 拒绝。请注入 CLOUDMART_SERVICE_TOKEN_SECRET"
+                        + "（≥{}字符，全站一致）后重启本服务。",
+                        serviceId, ServiceTokenCodec.MIN_SECRET_LENGTH, ServiceTokenCodec.MIN_SECRET_LENGTH);
+            }
+        };
     }
 
     @Bean
