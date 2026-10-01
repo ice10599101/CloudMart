@@ -44,6 +44,9 @@ public class Post {
 
     private Integer status;
 
+    /** 平台处置隐藏标记（C02：作者不可经草稿两步绕过恢复发布） */
+    private Boolean moderationHidden;
+
     private Integer reviewStatus;
 
     private String reviewReason;

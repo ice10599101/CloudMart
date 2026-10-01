@@ -536,9 +536,44 @@ class PostServiceTest {
             verify(communityCacheService).evictPostDetail(POST_ID);
             verify(communityCacheService).evictFeedPosts();
 
+            // C02：updateById 行数校验需打桩
+            when(postMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.community.entity.Post.class)))
+                    .thenReturn(1);
             postService.adminUpdatePostStatus(POST_ID, 2);
             verify(communityCacheService, org.mockito.Mockito.times(2)).evictPostDetail(POST_ID);
             verify(communityCacheService, org.mockito.Mockito.times(2)).evictFeedPosts();
+        }
+
+        @Test
+        @DisplayName("C02/QA24：平台隐藏后作者两步绕过（撤草稿再发布）仍被拒绝")
+        void updatePost_hiddenTwoStepBypass_rejected() {
+            // 平台隐藏帖（status=2 + moderation_hidden=true）
+            Post hidden = buildPublishedPost();
+            hidden.setStatus(2);
+            hidden.setModerationHidden(true);
+            when(postMapper.selectById(POST_ID)).thenReturn(hidden);
+            when(postMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.community.entity.Post.class)))
+                    .thenReturn(1);
+
+            // 第一步：撤回为草稿——允许编辑保留，但处置标记保持
+            when(userEnrichmentService.getSingleUser(org.mockito.ArgumentMatchers.anyLong()))
+                    .thenReturn(new com.cloudmart.community.service.UserEnrichmentService.UserInfo(
+                            OTHER_USER_ID, "author", null, null, null));
+            when(postTagMapper.selectList(any())).thenReturn(List.of());
+            com.cloudmart.community.dto.UpdatePostRequest toDraft =
+                    new com.cloudmart.community.dto.UpdatePostRequest(null, null, null,
+                            null, null, null, null, null, 0);
+            postService.updatePost(USER_ID, POST_ID, toDraft);
+            assertThat(hidden.getModerationHidden()).isTrue();
+
+            // 第二步：草稿再发布——仍被拒绝
+            com.cloudmart.community.dto.UpdatePostRequest republish =
+                    new com.cloudmart.community.dto.UpdatePostRequest(null, null, null,
+                            null, null, null, null, null, 1);
+            assertThatThrownBy(() -> postService.updatePost(USER_ID, POST_ID, republish))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "POST_FORBIDDEN");
+            assertThat(hidden.getStatus()).isEqualTo(0);
         }
 
         @Test

@@ -199,6 +199,17 @@ public class PostServiceImpl implements PostService {
                     && post.getStatus() != 0 && post.getStatus() != 1) {
                 throw new BusinessException("POST_FORBIDDEN", "该帖子已被平台处置，不能重新发布");
             }
+            // C02/QA24：平台隐藏后"先撤草稿再发布"两步绕过同样拒绝——
+            // moderation_hidden 只能由平台恢复发布或申诉通过清除
+            if (request.status() == 1 && Boolean.TRUE.equals(post.getModerationHidden())) {
+                throw new BusinessException("POST_FORBIDDEN",
+                        "该帖子已被平台隐藏，如需恢复请通过申诉流程");
+            }
+            // 作者撤回平台隐藏帖为草稿：允许保留编辑，但处置标记不清除
+            if (request.status() == 0 && post.getStatus() != null
+                    && post.getStatus() != 0 && post.getStatus() != 1) {
+                post.setModerationHidden(true);
+            }
             if (request.status() == 1 && post.getStatus() == 0) {
                 if (post.getContent() != null) {
                     ContentReviewService.ReviewResult reviewResult = contentReviewService.reviewContent(post.getContent());
@@ -585,8 +596,14 @@ public class PostServiceImpl implements PostService {
         if (post == null) {
             throw new BusinessException("POST_NOT_FOUND", "帖子不存在");
         }
+        // C02/QA24：平台隐藏（status=2）置处置标记；恢复发布（status=1）清除——
+        // 作者侧 updatePost 依据该标记拒绝两步绕过
         post.setStatus(status);
-        postMapper.updateById(post);
+        post.setModerationHidden(Integer.valueOf(2).equals(status));
+        int updated = postMapper.updateById(post);
+        if (updated == 0) {
+            throw new BusinessException("POST_STATE_CONFLICT", "帖子状态已变更，请刷新重试");
+        }
         // COM-01：平台处置（隐藏/下架/恢复）同步清退详情与列表缓存
         communityCacheService.evictPostDetail(postId);
         communityCacheService.evictFeedPosts();
