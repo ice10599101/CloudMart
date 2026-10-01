@@ -29,6 +29,18 @@ public class DataExport {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private String content;
 
+    /** 加密导出内容（W04：AES-GCM，AAD 绑定 taskId；明文不落库） */
+    private String contentEnc;
+
+    /** 密文 SHA-256（下载时完整性校验） */
+    private String contentSha256;
+
+    /** 租约持有者（实例+线程；接管时轮换） */
+    private String leaseOwner;
+
+    /** 租约到期（过期可被其他实例接管） */
+    private LocalDateTime leaseUntil;
+
     private LocalDateTime expiresAt;
 
     @TableField(fill = FieldFill.INSERT)
