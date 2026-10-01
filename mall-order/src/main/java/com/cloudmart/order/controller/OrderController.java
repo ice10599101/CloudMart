@@ -5,7 +5,6 @@ import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.order.converter.OrderConverter;
 import com.cloudmart.order.dto.CreateOrderRequest;
 import com.cloudmart.order.dto.OrderDTO;
-import com.cloudmart.order.feign.PaymentFeignClient.PaymentDTO;
 import com.cloudmart.order.service.OrderService;
 import com.cloudmart.order.vo.OrderVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -87,25 +86,10 @@ public class OrderController {
         return ApiResponse.ok(orderConverter.orderDtoToVO(dto));
     }
 
-    @PostMapping("/{orderId}/pay")
-    @Operation(summary = "订单支付", description = "为订单创建支付记录，返回支付信息")
-    public ApiResponse<PaymentDTO> payForOrder(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        return ApiResponse.ok(orderService.payForOrder(userId, orderId));
-    }
-
-    @GetMapping("/{orderId}/payment")
-    @Operation(summary = "查询订单支付信息", description = "根据订单ID查询关联的支付记录")
-    public ApiResponse<PaymentDTO> getPaymentByOrderId(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        return ApiResponse.ok(orderService.getPaymentByOrderId(userId, orderId));
-    }
-
     // SEC-01：payment-success/cancel-notify 属支付服务回调，已迁移至
     // InternalOrderController（/internal/**，mall-payment 服务令牌可达）；
     // ship 属履约动作，统一走 AdminOrderController（mall-admin 服务令牌可达）。
+    // T01：旧 /pay 与 /payment 代理端点已删除——收银台直连 mall-payment /payment-attempts。
 
     @PutMapping("/{orderId}/confirm")
     @Operation(summary = "确认收货", description = "买家确认收货，订单完成，库存扣减从预占转为确认")

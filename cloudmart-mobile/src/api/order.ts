@@ -48,11 +48,8 @@ export const orderApi = {
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
   getDetail: (id: number | string) => request<Order>({ url: `/order/orders/${id}` }),
   cancel: (id: number | string) => request<void>({ url: `/order/orders/${id}/cancel`, method: 'PUT' }),
-  pay: (id: number | string, data: { paymentMethod: string }) =>
-    request<void>({ url: `/order/orders/${id}/pay`, method: 'POST', data }),
   confirm: (id: number | string) => request<void>({ url: `/order/orders/${id}/confirm`, method: 'PUT' }),
   /** 申请退款（refundReason 为 query 参数，契约对齐后端） */
   refund: (id: number | string, refundReason: string) =>
     request<void>({ url: `/order/orders/${id}/refund?refundReason=${encodeURIComponent(refundReason)}`, method: 'POST' }),
-  getPayment: (id: number | string) => request<unknown>({ url: `/order/orders/${id}/payment` }),
 }

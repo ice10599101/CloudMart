@@ -14,7 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 /**
- * 退款消费者（ASYNC-01）：信封事件 + Inbox 幂等消费，业务为订单取消回调。
+ * 退款成功消费者（T02）：REFUND_SUCCEEDED 事件驱动订单推进 REFUNDED。
+ *
+ * <p>LC03：仅消费 v2 信封事件（强制 eventId）——旧格式回退分支已随旧支付链路删除，
+ * 非法形状拒绝消费，不绕过去重。Inbox 幂等：重复/乱序只推进一次
+ * （与审批同步路径经 CAS REFUNDING→REFUNDED 收敛，QA07）。</p>
  */
 @Slf4j
 @Component
@@ -34,27 +38,21 @@ public class PaymentRefundConsumer implements RocketMQListener<Map<String, Objec
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
-        String eventId = (String) message.get("eventId");
-        Long orderId = ((Number) message.get("orderId")).longValue();
-        String event = (String) message.get("event");
-        log.info("收到退款消息, orderId={}, event={}, eventId={}", orderId, event, eventId);
-
-        if (!"PAYMENT_REFUND".equals(event)) {
+        Object eventRaw = message.get("event");
+        String event = eventRaw == null ? null : String.valueOf(eventRaw);
+        if (!"REFUND_SUCCEEDED".equals(event)) {
+            // LC03：非本业务事件（旧 PAYMENT_REFUND 生产者已删除）→ 拒绝，不执行任何业务
+            log.warn("[T02] 非法退款事件形状（event={}），拒绝消费", event);
             return;
         }
-        if (eventId == null || eventId.isBlank()) {
-            log.warn("[ASYNC01] 旧格式退款事件（无 eventId），跳过幂等控制, orderId={}", orderId);
-            orderService.notifyOrderCancel(orderId);
-            return;
-        }
-
         EventEnvelope envelope = PaymentResultConsumer.envelopeOf(message);
+        Long orderId = Long.valueOf(envelope.aggregateId());
         if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
-            log.info("[ASYNC01] 退款事件已消费（幂等跳过） eventId={} orderId={}", eventId, orderId);
+            log.info("[ASYNC01] 退款成功事件已消费（幂等跳过） eventId={} orderId={}", envelope.eventId(), orderId);
             return;
         }
         try {
-            orderService.notifyOrderCancel(orderId);
+            orderService.notifyRefundSucceeded(orderId);
             inboxService.completeConsume(CONSUMER, envelope);
         } catch (Exception e) {
             inboxService.failConsume(CONSUMER, envelope, e.getMessage());

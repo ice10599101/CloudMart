@@ -6,55 +6,14 @@ vi.mock('@/utils/request', () => ({
 
 import request from '@/utils/request'
 import {
-  createPayment, getPaymentByOrderId, simulateCallback, refundPayment,
   createPaymentAttempt, submitMockPaymentCallback, getPaymentAttemptByOrderId,
 } from './payment'
 
-describe('payment API', () => {
+// T01：旧 /payments 链路（createPayment/getPaymentByOrderId/simulateCallback/refundPayment）
+// 已删除，唯一支付 API 为 payment-attempts；旧路径无可执行 handler。
+describe('payment API (attempts only)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('createPayment() calls POST /payment/payments with data', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-
-    await createPayment({ orderId: 1, amount: 99.99, payMethod: 'ALIPAY' })
-
-    expect(request.post).toHaveBeenCalledWith('/payment/payments', { orderId: 1, amount: 99.99, payMethod: 'ALIPAY' })
-  })
-
-  it('createPayment() calls POST /payment/payments without payMethod', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-
-    await createPayment({ orderId: 1, amount: 50 })
-
-    expect(request.post).toHaveBeenCalledWith('/payment/payments', { orderId: 1, amount: 50 })
-  })
-
-  it('getPaymentByOrderId() calls GET /payment/payments/order/:id', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-
-    await getPaymentByOrderId(42)
-
-    expect(request.get).toHaveBeenCalledWith('/payment/payments/order/42')
-  })
-
-  it('simulateCallback() calls POST /payment/payments/callback with data', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-
-    await simulateCallback({ paymentId: 1, status: 'SUCCESS', transactionNo: 'TX123' })
-
-    expect(request.post).toHaveBeenCalledWith('/payment/payments/callback', {
-      paymentId: 1, status: 'SUCCESS', transactionNo: 'TX123',
-    })
-  })
-
-  it('refundPayment() calls POST /payment/payments/:id/refund', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-
-    await refundPayment(1)
-
-    expect(request.post).toHaveBeenCalledWith('/payment/payments/1/refund')
   })
 
   it('createPaymentAttempt() posts orderId + channel aligned with PaymentAttemptController', async () => {
@@ -63,6 +22,16 @@ describe('payment API', () => {
     await createPaymentAttempt({ orderId: 7, channel: 'MOCK' })
 
     expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts', { orderId: 7, channel: 'MOCK' })
+  })
+
+  it('createPaymentAttempt() 不接受客户端金额字段', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    // 金额由服务端按订单权威计算——请求体只有 orderId + channel
+    await createPaymentAttempt({ orderId: '90071992547409931', channel: 'MOCK' })
+
+    const [, body] = vi.mocked(request.post).mock.calls[0]
+    expect(Object.keys(body as object).sort()).toEqual(['channel', 'orderId'])
   })
 
   it('submitMockPaymentCallback() posts signed mock callback payload', async () => {
@@ -86,5 +55,14 @@ describe('payment API', () => {
     await getPaymentAttemptByOrderId(7)
 
     expect(request.get).toHaveBeenCalledWith('/payment/payment-attempts/order/7')
+  })
+
+  it('19 位订单 ID 全链路字符串传输（QA38：无精度损失）', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    const bigOrderId = '90071992547409931'
+    await getPaymentAttemptByOrderId(bigOrderId)
+
+    expect(request.get).toHaveBeenCalledWith(`/payment/payment-attempts/order/${bigOrderId}`)
   })
 })

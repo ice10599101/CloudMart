@@ -397,25 +397,22 @@ export const wishApi = {
     getDataExportContent: (taskId: number | string) =>
         request<Record<string, unknown>>({ url: `/wish/my/export/${taskId}/download` }),
 
-    // ---- 账号注销宽限期（合规 34.2，四AB A1）----
-    sendDeletionCode: () =>
-        request<{ sent: boolean; expiresInSeconds: number; devCode?: string }>({
-            url: '/wish/my/account-deletion/code',
+    // ---- 全账号注销（W03：mall-user 唯一权威；wish 旧入口已删除）----
+    applyAccountDeletion: (reason?: string) =>
+        request<{ status: string; executeAfter: string }>({
+            url: '/user/users/account-deletion',
             method: 'POST',
-        }),
-    applyAccountDeletion: (confirmCode: string, reason?: string) =>
-        request<{ userId: number; executeAfter: string; canCancel: boolean }>({
-            url: '/wish/my/account-deletion',
-            method: 'POST',
-            data: { confirmCode, reason } as unknown as Record<string, unknown>,
+            data: { reason } as unknown as Record<string, unknown>,
         }),
     cancelAccountDeletion: () =>
-        request<{ userId: number; cancelled: boolean; cancelledAt: string }>({
-            url: '/wish/my/account/cancel',
-            method: 'POST',
+        request<{ status: string }>({
+            url: '/user/users/account-deletion',
+            method: 'DELETE',
         }),
     getAccountDeletionStatus: () =>
-        request<{ status: 'PENDING' | 'CANCELED' | 'EXECUTED' } | null>({ url: '/wish/my/account-deletion' }),
+        request<{ status: string; executeAfter?: string; serviceProgress?: string; executedAt?: string }>({
+            url: '/user/users/account-deletion',
+        }),
 
     /** 统一隐私中心聚合视图（对齐 Web N05：单一数据源，AI 授权/导出/注销/默认关闭项） */
     getMyPrivacyOverview: () => request<PrivacyOverview>({ url: '/wish/v2/my/privacy' }),

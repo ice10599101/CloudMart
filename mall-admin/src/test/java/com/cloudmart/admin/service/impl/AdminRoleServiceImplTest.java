@@ -40,6 +40,7 @@ import static org.mockito.Mockito.when;
 class AdminRoleServiceImplTest {
 
     private AdminRoleMapper adminRoleMapper;
+    private com.cloudmart.admin.repository.AdminUserMapper adminUserMapper = org.mockito.Mockito.mock(com.cloudmart.admin.repository.AdminUserMapper.class);
     private AdminRoleMenuMapper adminRoleMenuMapper;
     private AdminRoleDeptMapper adminRoleDeptMapper;
     private AdminUserRoleMapper adminUserRoleMapper;
@@ -65,7 +66,23 @@ class AdminRoleServiceImplTest {
         adminUserRoleMapper = mock(AdminUserRoleMapper.class);
         adminConverter = mock(AdminConverter.class);
         authRevocationFeignClient = mock(AuthRevocationFeignClient.class);
-        adminRoleService = new AdminRoleServiceImpl(adminRoleMapper, adminRoleMenuMapper, adminRoleDeptMapper, adminUserRoleMapper, adminConverter, authRevocationFeignClient);
+        // S03：授权策略挂接同一批 mock（默认非超管操作者上下文缺失→按最严格策略；既有用例如需超管放行在用例内处理）
+        com.cloudmart.admin.service.impl.AdminAuthorizationPolicy authorizationPolicy =
+                new com.cloudmart.admin.service.impl.AdminAuthorizationPolicy(
+                        org.mockito.Mockito.mock(com.cloudmart.admin.service.DataScopeService.class),
+                        adminUserMapper, adminRoleMapper, adminUserRoleMapper, adminRoleMenuMapper);
+        adminRoleService = new AdminRoleServiceImpl(adminRoleMapper, adminRoleMenuMapper, adminRoleDeptMapper, adminUserRoleMapper, adminConverter, authRevocationFeignClient, authorizationPolicy);
+        // 角色 CRUD 机制类用例以超级管理员操作者运行（守卫语义由下方 QA21 专项用例覆盖）
+        com.cloudmart.common.context.AdminSecurityContext.set(new com.cloudmart.common.context.AdminSecurityContext(
+                1L, "super", "admin", java.util.Set.of("*:*:*"), null));
+        // S03：行数校验用例显式打桩（mock 默认 0 行）
+        org.mockito.Mockito.lenient().when(adminRoleMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.admin.entity.AdminRole.class)))
+                .thenReturn(1);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        com.cloudmart.common.context.AdminSecurityContext.clear();
     }
 
     private AdminRole buildRole(Long id, String roleKey) {

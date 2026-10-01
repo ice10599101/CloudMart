@@ -32,19 +32,22 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     private final AdminUserRoleMapper adminUserRoleMapper;
     private final AdminConverter adminConverter;
     private final AuthRevocationFeignClient authRevocationFeignClient;
+    private final AdminAuthorizationPolicy authorizationPolicy;
 
     public AdminRoleServiceImpl(AdminRoleMapper adminRoleMapper,
                                 AdminRoleMenuMapper adminRoleMenuMapper,
                                 AdminRoleDeptMapper adminRoleDeptMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
                                 AdminConverter adminConverter,
-                                AuthRevocationFeignClient authRevocationFeignClient) {
+                                AuthRevocationFeignClient authRevocationFeignClient,
+                                AdminAuthorizationPolicy authorizationPolicy) {
         this.adminRoleMapper = adminRoleMapper;
         this.adminRoleMenuMapper = adminRoleMenuMapper;
         this.adminRoleDeptMapper = adminRoleDeptMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
         this.adminConverter = adminConverter;
         this.authRevocationFeignClient = authRevocationFeignClient;
+        this.authorizationPolicy = authorizationPolicy;
     }
 
     @Override
@@ -67,6 +70,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Transactional
     public void create(AdminRoleRequest request) {
         checkRoleKeyUnique(request.roleKey(), null);
+        // S03 授权上限：普通管理员只能授予自身权限集内的菜单，不能创建 ALL 数据范围角色（QA21 越级授权拒绝）
+        authorizationPolicy.assertGrantableMenus(request.menuIds());
+        authorizationPolicy.assertGrantableDataScope(request.dataScope());
 
         AdminRole role = new AdminRole();
         role.setRoleName(request.roleName());
@@ -89,8 +95,12 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         if (role == null) {
             throw new BusinessException("ROLE_NOT_FOUND", "角色不存在");
         }
-
+        // S03：内置超管角色仅超管可改（改 roleKey/权限集即提权路径）
+        assertBuiltinSuperRoleGuard(role, "修改");
         checkRoleKeyUnique(request.roleKey(), id);
+        // S03 授权上限：同 create——不能授予超出自身的菜单/数据范围
+        authorizationPolicy.assertGrantableMenus(request.menuIds());
+        authorizationPolicy.assertGrantableDataScope(request.dataScope());
 
         role.setRoleName(request.roleName());
         role.setRoleKey(request.roleKey());
@@ -100,7 +110,10 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         role.setDeptCheckStrictly(request.deptCheckStrictly());
         role.setStatus(request.status());
         role.setRemark(request.remark());
-        adminRoleMapper.updateById(role);
+        int updated = adminRoleMapper.updateById(role);
+        if (updated == 0) {
+            throw new BusinessException("ROLE_STATE_CONFLICT", "角色状态已变更，请刷新重试");
+        }
 
         adminRoleMenuMapper.delete(new LambdaQueryWrapper<AdminRoleMenu>().eq(AdminRoleMenu::getRoleId, id));
         adminRoleDeptMapper.delete(new LambdaQueryWrapper<AdminRoleDept>().eq(AdminRoleDept::getRoleId, id));
@@ -118,6 +131,8 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         if (role == null) {
             throw new BusinessException("ROLE_NOT_FOUND", "角色不存在");
         }
+        // S03：内置超管角色无条件保护（任何操作者不得经接口删除）
+        assertBuiltinSuperRoleGuard(role, "删除");
 
         Long userCount = adminUserRoleMapper.selectCount(
                 new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getRoleId, id)
@@ -138,6 +153,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         if (role == null) {
             throw new BusinessException("ROLE_NOT_FOUND", "角色不存在");
         }
+        // S03：内置超管角色仅超管可改菜单集；普通管理员只能授予自身权限集内的菜单（QA21）
+        assertBuiltinSuperRoleGuard(role, "分配菜单");
+        authorizationPolicy.assertGrantableMenus(request.menuIds());
 
         adminRoleMenuMapper.delete(new LambdaQueryWrapper<AdminRoleMenu>().eq(AdminRoleMenu::getRoleId, request.roleId()));
         saveRoleMenus(request.roleId(), request.menuIds());
@@ -207,6 +225,14 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         // 启用无需失效
         if (status != null && status == 1) {
             invalidateRoleHolders(id);
+        }
+    }
+
+    /** S03：内置超管角色保护——非超管操作者一律拒绝（update/assignMenus/delete 通用） */
+    private void assertBuiltinSuperRoleGuard(AdminRole role, String action) {
+        if (AdminAuthorizationPolicy.BUILT_IN_SUPER_ROLE_KEY.equals(role.getRoleKey())
+                && !authorizationPolicy.isSuperAdminOperator()) {
+            throw new BusinessException("FORBIDDEN", "内置超级管理员角色仅超级管理员可" + action);
         }
     }
 

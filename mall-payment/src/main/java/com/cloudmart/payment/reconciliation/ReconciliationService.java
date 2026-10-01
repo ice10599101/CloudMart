@@ -1,25 +1,24 @@
 package com.cloudmart.payment.reconciliation;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.payment.dto.OrderInternalInfoDTO;
-import com.cloudmart.payment.entity.Payment;
+import com.cloudmart.payment.entity.PaymentAttempt;
 import com.cloudmart.payment.feign.OrderFeignClient;
-import com.cloudmart.payment.repository.PaymentMapper;
+import com.cloudmart.payment.repository.PaymentAttemptMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 
 /**
- * 对账服务（OPS-01）：支付 ↔ 订单四方一致性的持久化核对。
+ * 对账服务（OPS-01/T01）：支付尝试 ↔ 订单一致性的持久化核对。
  *
- * <p>核对规则（首期覆盖资金最高风险面）：</p>
+ * <p>唯一真值源为 payment_attempt 台账（旧 payments 表已删除，T01）。
+ * 核对规则（首期覆盖资金最高风险面）：</p>
  * <ul>
  *   <li>PAYMENT_SUCCESS_ORDER_NOT_PAID：支付 SUCCESS 但订单未 PAID——资金已收、
  *       履约未启动，HIGH；</li>
@@ -27,25 +26,26 @@ import java.util.Map;
  *       状态推进无资金凭证，HIGH。</li>
  * </ul>
  *
- * <p>处置语义（方案 §8.4）：人工解决不直接改资金，只登记证据/触发受控流程。
- * 差异按 (run, diff_type, biz_id) 唯一——重复对账不产生重复差异。</p>
+ * <p>扫描语义（T01：按游标遍历全部，不能只取首批）：两个核对方向均按 id 游标
+ * 分页推进，直至扫描窗口耗尽。订单服务不可达的条目跳过不误报（差异必须两侧
+ * 状态可核验才成立）。差异按 (run, diff_type, biz_id) 唯一——重复对账不产生重复差异。</p>
  */
 @Slf4j
 @Service
 public class ReconciliationService {
 
-    private final PaymentMapper paymentMapper;
+    private final PaymentAttemptMapper attemptMapper;
     private final ReconciliationRunMapper runMapper;
     private final ReconciliationDifferenceMapper differenceMapper;
     private final OrderFeignClient orderFeignClient;
     private final int batchSize;
 
-    public ReconciliationService(PaymentMapper paymentMapper,
+    public ReconciliationService(PaymentAttemptMapper attemptMapper,
                                  ReconciliationRunMapper runMapper,
                                  ReconciliationDifferenceMapper differenceMapper,
                                  OrderFeignClient orderFeignClient,
                                  @Value("${ops.reconciliation.batch-size:200}") int batchSize) {
-        this.paymentMapper = paymentMapper;
+        this.attemptMapper = attemptMapper;
         this.runMapper = runMapper;
         this.differenceMapper = differenceMapper;
         this.orderFeignClient = orderFeignClient;
@@ -66,33 +66,46 @@ public class ReconciliationService {
             int diffs = 0;
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
 
-            // 核对一：SUCCESS 支付的订单必须已 PAID+（状态经订单服务权威查询）
-            var payments = paymentMapper.selectList(new QueryWrapper<Payment>()
-                    .eq("status", "SUCCESS")
-                    .ge("created_at", since)
-                    .last("LIMIT " + batchSize));
-            for (Payment payment : payments) {
-                checked++;
-                String orderStatus;
-                try {
-                    ApiResponse<OrderInternalInfoDTO> orderResp =
-                            orderFeignClient.getOrderInfo(payment.getOrderId());
-                    orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
-                            ? orderResp.data().status() : "UNREACHABLE";
-                } catch (Exception queryError) {
-                    // 订单服务不可达：该条跳过不误报（差异必须两侧状态可核验才成立）
-                    log.warn("[OPS01] 订单状态查询失败，跳过该条 paymentId={}: {}",
-                            payment.getId(), queryError.getMessage());
-                    continue;
+            // 核对一：SUCCESS 支付的订单必须已 PAID+（id 游标全量扫描，T01）
+            long lastId = 0;
+            while (true) {
+                List<PaymentAttempt> batch = attemptMapper.selectList(
+                        new LambdaQueryWrapper<PaymentAttempt>()
+                                .eq(PaymentAttempt::getStatus, "SUCCESS")
+                                .ge(PaymentAttempt::getCreatedAt, since)
+                                .gt(PaymentAttempt::getId, lastId)
+                                .orderByAsc(PaymentAttempt::getId)
+                                .last("LIMIT " + batchSize));
+                if (batch.isEmpty()) {
+                    break;
                 }
-                if (isPaidOrBeyond(orderStatus)) {
-                    continue;
+                for (PaymentAttempt attempt : batch) {
+                    lastId = attempt.getId();
+                    checked++;
+                    String orderStatus;
+                    try {
+                        ApiResponse<OrderInternalInfoDTO> orderResp =
+                                orderFeignClient.getOrderInfo(attempt.getOrderId());
+                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
+                                ? orderResp.data().status() : "UNREACHABLE";
+                    } catch (Exception queryError) {
+                        // 订单服务不可达：该条跳过不误报（差异必须两侧状态可核验才成立）
+                        log.warn("[OPS01] 订单状态查询失败，跳过该条 attemptId={}: {}",
+                                attempt.getId(), queryError.getMessage());
+                        continue;
+                    }
+                    if (isPaidOrBeyond(orderStatus)) {
+                        continue;
+                    }
+                    diffs += recordDiff(run.getId(), "PAYMENT_SUCCESS_ORDER_NOT_PAID",
+                            String.valueOf(attempt.getId()), "HIGH",
+                            "支付 SUCCESS 但订单状态: " + orderStatus,
+                            "{\"paymentStatus\":\"SUCCESS\",\"orderStatus\":\"" + orderStatus
+                                    + "\",\"orderId\":" + attempt.getOrderId() + "}");
                 }
-                diffs += recordDiff(run.getId(), "PAYMENT_SUCCESS_ORDER_NOT_PAID",
-                        String.valueOf(payment.getId()), "HIGH",
-                        "支付 SUCCESS 但订单状态: " + orderStatus,
-                        "{\"paymentStatus\":\"SUCCESS\",\"orderStatus\":\"" + orderStatus
-                                + "\",\"orderId\":" + payment.getOrderId() + "}");
+                if (batch.size() < batchSize) {
+                    break;
+                }
             }
 
             // 核对二：PAID/SHIPPED/COMPLETED 订单必须有 SUCCESS 支付记录——
@@ -107,9 +120,9 @@ public class ReconciliationService {
                 }
                 for (OrderInternalInfoDTO order : paidPage.data().records()) {
                     checked++;
-                    Long count = paymentMapper.selectCount(new QueryWrapper<Payment>()
-                            .eq("order_id", order.orderId())
-                            .eq("status", "SUCCESS"));
+                    Long count = attemptMapper.selectCount(new LambdaQueryWrapper<PaymentAttempt>()
+                            .eq(PaymentAttempt::getOrderId, order.orderId())
+                            .eq(PaymentAttempt::getStatus, "SUCCESS"));
                     if (count != null && count > 0) {
                         continue;
                     }
@@ -166,7 +179,7 @@ public class ReconciliationService {
         diff.setEvidence(evidence);
         diff.setResolveStatus("OPEN");
         differenceMapper.insert(diff);
-        log.warn("[OPS01] 对账差异 type={} bizId={} detail={}", type, bizId, detail);
+        log.warn("[OPS01] 对账差异 type={} bizId={} detail={}", type, bizId, diff.getDetail());
         return 1;
     }
 }

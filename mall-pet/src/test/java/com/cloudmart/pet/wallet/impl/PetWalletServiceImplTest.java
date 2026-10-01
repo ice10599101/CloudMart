@@ -23,7 +23,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
 
@@ -158,18 +157,20 @@ class PetWalletServiceImplTest {
     }
 
     @Test
-    @DisplayName("重复请求命中唯一键：返回原流水结果（duplicate=true），无新变更")
+    @DisplayName("P01 重复请求：锁内预检命中即重放原结果，余额 CAS 与流水插入均不发生")
     void duplicate_returnsOriginalResult() {
         stubAccount(account(100, 3, "ACTIVE"));
-        when(transactionMapper.insert(any(PetWalletTransaction.class)))
-                .thenThrow(new DuplicateKeyException("uk"));
-
         PetWalletTransaction existing = new PetWalletTransaction();
         existing.setId(900L);
         existing.setOperationId("pw_abc");
         existing.setUserId(1001L);
+        existing.setCurrency("PET_COIN");
+        existing.setDirection("SPEND");
+        existing.setBizType("PURCHASE");
+        existing.setBizKey("order-1");
         existing.setAmount(30L);
         existing.setStatus("COMMITTED");
+        existing.setRequestHash("hash-1");
         when(transactionMapper.selectOne(any())).thenReturn(existing);
         PetWalletLedger ledger = new PetWalletLedger();
         ledger.setBalanceAfter(70L);
@@ -180,6 +181,116 @@ class PetWalletServiceImplTest {
         assertThat(result.duplicate()).isTrue();
         assertThat(result.balanceAfter()).isEqualTo(70);
         assertThat(result.transactionId()).isEqualTo(900L);
+        verify(accountMapper, never()).update(any(), any());
+        verify(transactionMapper, never()).insert(any(PetWalletTransaction.class));
+        verify(ledgerMapper, never()).insert(any(PetWalletLedger.class));
+    }
+
+    @Test
+    @DisplayName("P01 同 operationId 异额：PET_OPERATION_CONFLICT，且不触碰余额")
+    void duplicate_sameOperationIdDifferentAmount_conflict() {
+        stubAccount(account(100, 3, "ACTIVE"));
+        when(transactionMapper.selectOne(any())).thenReturn(existingTransaction(30L, "hash-1"));
+
+        assertThatThrownBy(() -> service.debit(debit(10)))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_OPERATION_CONFLICT));
+        verify(accountMapper, never()).update(any(), any());
+        verify(transactionMapper, never()).insert(any(PetWalletTransaction.class));
+    }
+
+    @Test
+    @DisplayName("P01 同事实键换 operationId 重放：返回原结果")
+    void duplicate_sameFactDifferentOperationId_replays() {
+        stubAccount(account(100, 3, "ACTIVE"));
+        PetWalletTransaction existing = existingTransaction(30L, "hash-1");
+        existing.setOperationId("pw_other");
+        // 第一次按 operationId 查未命中，第二次按事实键命中
+        when(transactionMapper.selectOne(any())).thenReturn(null, existing);
+        PetWalletLedger ledger = new PetWalletLedger();
+        ledger.setBalanceAfter(70L);
+        when(ledgerMapper.selectOne(any())).thenReturn(ledger);
+
+        PetWalletResult result = service.debit(debit(30));
+
+        assertThat(result.duplicate()).isTrue();
+        assertThat(result.transactionId()).isEqualTo(900L);
+        verify(accountMapper, never()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("P01 operationId 属于其他用户：PET_OPERATION_CONFLICT")
+    void duplicate_operationIdOwnedByOtherUser_conflict() {
+        stubAccount(account(100, 3, "ACTIVE"));
+        PetWalletTransaction existing = existingTransaction(30L, "hash-1");
+        existing.setUserId(2002L);
+        when(transactionMapper.selectOne(any())).thenReturn(existing);
+
+        assertThatThrownBy(() -> service.debit(debit(30)))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_OPERATION_CONFLICT));
+    }
+
+    @Test
+    @DisplayName("P01 冻结账户重放旧请求：先重放返回原结果，不抛 PET_WALLET_FROZEN")
+    void duplicate_onFrozenAccount_replaysOriginalResult() {
+        stubAccount(account(100, 3, "FROZEN"));
+        when(transactionMapper.selectOne(any())).thenReturn(existingTransaction(30L, "hash-1"));
+        PetWalletLedger ledger = new PetWalletLedger();
+        ledger.setBalanceAfter(70L);
+        when(ledgerMapper.selectOne(any())).thenReturn(ledger);
+
+        PetWalletResult result = service.debit(debit(30));
+
+        assertThat(result.duplicate()).isTrue();
+        assertThat(result.balanceAfter()).isEqualTo(70);
+    }
+
+    @Test
+    @DisplayName("P01 余额不足后重放原请求：返回原结果而非 PET_WALLET_INSUFFICIENT")
+    void duplicate_afterInsufficientBalance_replaysOriginalResult() {
+        stubAccount(account(5, 9, "ACTIVE"));
+        when(transactionMapper.selectOne(any())).thenReturn(existingTransaction(30L, "hash-1"));
+        PetWalletLedger ledger = new PetWalletLedger();
+        ledger.setBalanceAfter(70L);
+        when(ledgerMapper.selectOne(any())).thenReturn(ledger);
+
+        PetWalletResult result = service.debit(debit(30));
+
+        assertThat(result.duplicate()).isTrue();
+        assertThat(result.balanceAfter()).isEqualTo(70);
+    }
+
+    @Test
+    @DisplayName("P01 resolveDuplicate：已提交事实重放原结果；未命中抛 PET_REQUEST_IN_PROGRESS")
+    void resolveDuplicate_semantics() {
+        when(transactionMapper.selectOne(any())).thenReturn(existingTransaction(30L, "hash-1"));
+        PetWalletLedger ledger = new PetWalletLedger();
+        ledger.setBalanceAfter(70L);
+        when(ledgerMapper.selectOne(any())).thenReturn(ledger);
+        PetWalletResult replayed = service.resolveDuplicate(debit(30));
+        assertThat(replayed.duplicate()).isTrue();
+        assertThat(replayed.transactionId()).isEqualTo(900L);
+
+        when(transactionMapper.selectOne(any())).thenReturn(null);
+        assertThatThrownBy(() -> service.resolveDuplicate(debit(30)))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_REQUEST_IN_PROGRESS));
+    }
+
+    private PetWalletTransaction existingTransaction(long amount, String requestHash) {
+        PetWalletTransaction existing = new PetWalletTransaction();
+        existing.setId(900L);
+        existing.setOperationId("pw_abc");
+        existing.setUserId(1001L);
+        existing.setCurrency("PET_COIN");
+        existing.setDirection("SPEND");
+        existing.setBizType("PURCHASE");
+        existing.setBizKey("order-1");
+        existing.setAmount(amount);
+        existing.setStatus("COMMITTED");
+        existing.setRequestHash(requestHash);
+        return existing;
     }
 
     @Test
@@ -191,7 +302,7 @@ class PetWalletServiceImplTest {
         earnOriginal.setDirection("EARN");
         earnOriginal.setAmount(50L);
         earnOriginal.setStatus("COMMITTED");
-        when(transactionMapper.selectById(800L)).thenReturn(earnOriginal);
+        when(transactionMapper.selectByIdForUpdate(800L)).thenReturn(earnOriginal);
         assertThatThrownBy(() -> service.refundFull(800L, "pw_r", "客服退款"))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_WALLET_REFUND_INVALID));
@@ -203,7 +314,7 @@ class PetWalletServiceImplTest {
         spendOriginal.setAmount(50L);
         spendOriginal.setStatus("COMMITTED");
         spendOriginal.setRequestHash("h");
-        when(transactionMapper.selectById(900L)).thenReturn(spendOriginal);
+        when(transactionMapper.selectByIdForUpdate(900L)).thenReturn(spendOriginal);
         PetWalletTransaction priorRefund = new PetWalletTransaction();
         priorRefund.setAmount(50L);
         when(transactionMapper.selectList(any())).thenReturn(List.of(priorRefund));

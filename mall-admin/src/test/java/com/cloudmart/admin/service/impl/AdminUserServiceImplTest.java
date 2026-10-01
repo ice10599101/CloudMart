@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,6 +42,9 @@ class AdminUserServiceImplTest {
     private PasswordEncoder passwordEncoder;
     private DataScopeService dataScopeService;
     private AuthRevocationFeignClient authRevocationFeignClient;
+    private AdminAuthorizationPolicy authorizationPolicy;
+    private com.cloudmart.admin.repository.AdminRoleMenuMapper adminRoleMenuMapper =
+            org.mockito.Mockito.mock(com.cloudmart.admin.repository.AdminRoleMenuMapper.class);
     private AdminConverter adminConverter;
     private AdminUserServiceImpl adminUserService;
 
@@ -68,11 +72,17 @@ class AdminUserServiceImplTest {
         dataScopeService = mock(DataScopeService.class);
         adminConverter = mock(AdminConverter.class);
         authRevocationFeignClient = mock(AuthRevocationFeignClient.class);
+        // S03：MyBatis-Plus updateById mock 默认返回 0——行数校验用例显式打桩
+        lenient().when(adminUserMapper.updateById(any(AdminUser.class))).thenReturn(1);
 
+        // S03：授权策略挂接同一批 mock（数据范围语义由既有 dataScopeService 桩驱动）
+        authorizationPolicy = new AdminAuthorizationPolicy(
+                dataScopeService, adminUserMapper, adminRoleMapper, adminUserRoleMapper, adminRoleMenuMapper);
         adminUserService = new AdminUserServiceImpl(
                 adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
                 adminRoleMapper, adminPostMapper, adminDeptMapper,
-                passwordEncoder, dataScopeService, adminConverter, authRevocationFeignClient);
+                passwordEncoder, dataScopeService, adminConverter, authRevocationFeignClient,
+                authorizationPolicy);
     }
 
     private AdminUser buildUser(Long id, String username) {

@@ -79,25 +79,16 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   REFUNDED: 'red',
 }
 
-export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDING' | 'REFUNDED'
-
-export interface Payment {
-  id: number
-  orderId: number
-  paymentNo: string
-  paymentMethod: string
-  amount: number
-  status: PaymentStatus
-  paidAt: string | null
-  createdAt: string
-}
+// T01/F02：支付状态唯一来源为 payment_attempt 台账（12.5 状态机）；
+// 退款进度（REFUNDING/REFUNDED）由 T02 refund_order 契约另行承载
+export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CLOSED' | 'RECONCILING'
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PENDING: '待支付',
   SUCCESS: '支付成功',
   FAILED: '支付失败',
-  REFUNDING: '退款中',
-  REFUNDED: '已退款',
+  CLOSED: '已关闭',
+  RECONCILING: '结果确认中',
 }
 
 export interface Product {

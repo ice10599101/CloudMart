@@ -62,6 +62,12 @@ public class PetPurchaseOrder {
     /** 扣款流水 ID */
     private Long walletTransactionId;
 
+    /** 客户端请求键（P02：uk(user_id,request_key) 兜底防重复建单；重试/接管复用同一订单） */
+    private String requestKey;
+
+    /** 规范请求摘要（P02：与 dedup 行核对，防止业务事实与幂等事实错位） */
+    private String payloadHash;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

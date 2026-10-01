@@ -35,7 +35,7 @@ public class PrivacyCenterController {
 
     private final ConsentService consentService;
     private final DataExportService dataExportService;
-    private final AccountDeletionService accountDeletionService;
+    private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
 
     @GetMapping("/privacy")
     @Operation(summary = "隐私中心聚合视图", description = "AI 授权、导出进度、注销阶段、"
@@ -67,15 +67,17 @@ public class PrivacyCenterController {
         }
         view.put("dataExport", export);
 
-        // 注销阶段（PENDING/EXECUTING/EXECUTED/CANCELED 或 NONE）
-        com.cloudmart.wish.entity.WishAccountDeletion deletion = accountDeletionService.getStatus(userId);
+        // W03：注销阶段以 mall-user 编排为唯一权威（内部服务令牌查询）；查询失败按 NONE 降级
         Map<String, Object> deletionView = new LinkedHashMap<>();
-        if (deletion == null) {
+        try {
+            var deletionResp = userFeignClient.getAccountDeletionStatus(userId);
+            Map<String, Object> remote = deletionResp != null && deletionResp.success()
+                    && deletionResp.data() != null ? deletionResp.data() : Map.of();
+            deletionView.put("status", remote.getOrDefault("status", "NONE"));
+            deletionView.put("executeAfter", remote.getOrDefault("executeAfter", ""));
+            deletionView.put("executedAt", "");
+        } catch (Exception e) {
             deletionView.put("status", "NONE");
-        } else {
-            deletionView.put("status", deletion.getStatus());
-            deletionView.put("executeAfter", deletion.getExecuteAfter());
-            deletionView.put("executedAt", deletion.getExecutedAt());
         }
         view.put("accountDeletion", deletionView);
 

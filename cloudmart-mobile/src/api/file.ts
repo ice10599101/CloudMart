@@ -1,5 +1,4 @@
 import Taro from '@tarojs/taro'
-import request from '@/utils/request'
 
 const IS_WEAPP = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
 const API_BASE = IS_WEAPP ? 'http://localhost:8080' : '/api'
@@ -22,7 +21,7 @@ export const fileApi = {
     return new Promise<{ data: { data: { url: string } } }>((resolve, reject) => {
       const token = Taro.getStorageSync('access_token')
       const uploadTask = Taro.uploadFile({
-        url: `${API_BASE}/file/upload`,
+        url: `${API_BASE}/file/assets`,
         filePath,
         name: 'file',
         header: token ? { Authorization: `Bearer ${token}` } : {},
@@ -43,8 +42,6 @@ export const fileApi = {
       return uploadTask
     })
   },
-  delete: (fileUrl: string) => request({ url: '/file/delete', method: 'DELETE', data: { url: fileUrl } }),
-
   /** FILE-01 资产上传（内容魔数校验，SVG 拒绝）→ 返回 fileId（宠物相册等引用型场景） */
   uploadAsset: (filePath: string, visibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC') => {
     return new Promise<{ data: { data: { fileId: string; url: string; mime: string; fileSize: number } } }>((resolve, reject) => {

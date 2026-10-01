@@ -41,6 +41,15 @@ public class PetRequestDedup {
     /** 状态：PROCESSING/COMPLETED/FAILED */
     private String status;
 
+    /** 租约持有者（P02：实例+线程标识；接管时轮换，旧执行者失效） */
+    private String leaseOwner;
+
+    /** 租约到期时间（UTC；到期前同键返回处理中，到期后可被 CAS 接管） */
+    private LocalDateTime leaseUntil;
+
+    /** 乐观版本（P02：接管/终态 CAS 推进，防旧执行者覆盖新执行者） */
+    private Long version;
+
     /** 终态响应快照 JSON */
     private String responseJson;
 

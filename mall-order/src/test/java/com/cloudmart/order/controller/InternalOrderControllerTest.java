@@ -29,23 +29,7 @@ class InternalOrderControllerTest {
                 .build();
     }
 
-    @Test
-    @DisplayName("POST /internal/orders/payment-success/{orderId} -> 200 且调用服务")
-    void notifyPaymentSuccess_ShouldReturn200() throws Exception {
-        mockMvc.perform(post("/internal/orders/payment-success/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+    // T05：/payment-success/{orderId} 端点已删除（双路径状态推进消除），用例一并移除
 
-        verify(orderService).notifyPaymentSuccess(1L);
-    }
-
-    @Test
-    @DisplayName("POST /internal/orders/cancel-notify/{orderId} -> 200 且调用服务")
-    void notifyOrderCancel_ShouldReturn200() throws Exception {
-        mockMvc.perform(post("/internal/orders/cancel-notify/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(orderService).notifyOrderCancel(1L);
-    }
+    // T05：/cancel-notify/{orderId} 端点已删除（无生产调用方），用例一并移除
 }

@@ -133,13 +133,21 @@ public class AccountDeletionOrchestrationService {
                 .last("LIMIT 1"));
     }
 
-    /** 到期执行扫描（每 10 分钟；多实例经 CAS 认领单执行者）。 */
+    /**
+     * 到期执行扫描（每 10 分钟；多实例经 CAS 认领单执行者）。
+     * W03：扫描 PENDING 到期 + 租约过期的 EXECUTING（进程崩溃遗留）——
+     * 原 scan 只取 PENDING，executeTask 的 stale 接管分支永远取不到任务，
+     * 崩溃后任务永久卡在 EXECUTING（审计确认缺陷）。
+     */
     @Scheduled(fixedDelay = 600_000)
     public void executeDueScan() {
+        LocalDateTime staleBefore = LocalDateTime.now(ZoneId.of("UTC")).minusMinutes(30);
         List<AccountDeletionTask> due = taskMapper.selectList(
                 new LambdaQueryWrapper<AccountDeletionTask>()
-                        .eq(AccountDeletionTask::getStatus, "PENDING")
-                        .le(AccountDeletionTask::getExecuteAfter, LocalDateTime.now(ZoneId.of("UTC")))
+                        .and(w -> w.eq(AccountDeletionTask::getStatus, "PENDING")
+                                .le(AccountDeletionTask::getExecuteAfter, LocalDateTime.now(ZoneId.of("UTC")))
+                                .or(x -> x.eq(AccountDeletionTask::getStatus, "EXECUTING")
+                                        .lt(AccountDeletionTask::getUpdatedAt, staleBefore)))
                         .last("LIMIT 50"));
         for (AccountDeletionTask task : due) {
             executeTask(task);

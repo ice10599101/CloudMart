@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Upload, Button, Table, Popconfirm, Space, Card, Image } from 'antd'
 import { UploadOutlined, DeleteOutlined, FileOutlined, EyeOutlined } from '@ant-design/icons'
-import { uploadFile, deleteFile } from '@/api/admin/business'
+import { uploadFile } from '@/api/admin/business'
+import { deleteFileAsset } from '@/api/file'
 import { useMessage } from '@/utils/useMessage'
 
 interface FileRecord {
   uid: string
   name: string
+  fileId: string | null
   url: string
   size: number
   type: string
@@ -39,6 +41,7 @@ export default function FileUpload() {
     const tempRecord: FileRecord = {
       uid,
       name: file.name,
+      fileId: null,
       url: '',
       size: file.size,
       type: file.type,
@@ -51,11 +54,12 @@ export default function FileUpload() {
 
     try {
       const { data: res } = await uploadFile(formData)
-      const response = res as { success: boolean; data: { url: string; name: string } }
+      // S01：资产响应含 fileId（删除凭 fileId 归属授权，不再按 URL 删除）
+      const response = res as { success: boolean; data: { fileId: string; url: string } }
       setFileList((prev) =>
         prev.map((item) =>
           item.uid === uid
-            ? { ...item, url: response.data.url, name: response.data.name ?? file.name, status: 'done' }
+            ? { ...item, fileId: response.data.fileId, url: response.data.url, name: file.name, status: 'done' }
             : item,
         ),
       )
@@ -71,8 +75,13 @@ export default function FileUpload() {
   }
 
   const handleDelete = async (record: FileRecord) => {
+    if (!record.fileId) {
+      message.error('文件尚未上传完成')
+      return
+    }
     try {
-      await deleteFile(record.url)
+      // S01/LC05：按 fileId 归属授权删除（旧 /file/delete?url= 通道已删除）
+      await deleteFileAsset(record.fileId)
       setFileList((prev) => prev.filter((item) => item.uid !== record.uid))
       message.success('删除成功')
     } catch {

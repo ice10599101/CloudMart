@@ -489,7 +489,8 @@ export function disableExchangeCode(code: string) {
 }
 
 export function uploadFile(data: FormData) {
-  return request.post('/file/upload', data)
+  // S01：唯一资产入口 /file/assets（内容校验+配额+分域存储）
+  return request.post('/file/assets', data)
 }
 
 export function deleteFile(url: string) {

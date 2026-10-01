@@ -14,7 +14,6 @@ import com.cloudmart.order.entity.OrderItem;
 import com.cloudmart.order.feign.CartFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient;
 import com.cloudmart.order.feign.InventoryFeignClient;
-import com.cloudmart.order.feign.PaymentFeignClient;
 import com.cloudmart.common.async.compensation.CompensationTaskService;
 import com.cloudmart.common.async.outbox.OutboxService;
 import tools.jackson.databind.ObjectMapper;
@@ -44,6 +43,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,8 +58,8 @@ class OrderServiceTest {
     private com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private CartFeignClient cartFeignClient;
-    private PaymentFeignClient paymentFeignClient;
     private CouponFeignClient couponFeignClient;
+    private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OrderEventProducer orderEventProducer;
@@ -77,7 +77,6 @@ class OrderServiceTest {
         wmsShippingFeignClient = mock(com.cloudmart.order.feign.WmsShippingFeignClient.class);
         riskFeignClient = mock(com.cloudmart.order.feign.RiskFeignClient.class);
         cartFeignClient = mock(CartFeignClient.class);
-        paymentFeignClient = mock(PaymentFeignClient.class);
         couponFeignClient = mock(CouponFeignClient.class);
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
@@ -85,10 +84,15 @@ class OrderServiceTest {
 
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
+        refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
+        lenient().when(refundFeignClient.createRefund(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                java.util.Map.of("refundNo", "RF100", "status", "SUCCEEDED")));
+
         orderService = new OrderServiceImpl(
                 orderMapper, orderItemMapper, orderConverter,
-                inventoryFeignClient, cartFeignClient, paymentFeignClient,
+                inventoryFeignClient, cartFeignClient,
                 couponFeignClient,
+                refundFeignClient,
                 productFeignClient,
                 riskFeignClient,
                 wmsShippingFeignClient,
@@ -298,55 +302,24 @@ class OrderServiceTest {
     }
 
     @Test
-    void approveRefund_WhenOrderIsRefunding_ShouldRefund() {
+    void approveRefund_ChannelUnavailable_ShouldThrowAndNotRefund() {
         Long orderId = 100L;
-        Long userId = 1L;
-        Long couponId = 50L;
-        Long paymentId = 500L;
 
         Order order = new Order();
         order.setId(orderId);
-        order.setUserId(userId);
+        order.setUserId(1L);
         order.setStatus("REFUNDING");
-        order.setCouponId(couponId);
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setId(10L);
-        orderItem.setOrderId(orderId);
-        orderItem.setSkuId(200L);
-        orderItem.setQuantity(2);
-
-        PaymentFeignClient.PaymentDTO paymentDto = new PaymentFeignClient.PaymentDTO(
-                paymentId, orderId, "PAY123", new BigDecimal("198.00"), "ALIPAY", "PAID",
-                LocalDateTime.now(), LocalDateTime.now(), null
-        );
-
-        OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, couponId, "REFUNDED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
-
         when(orderMapper.selectById(orderId)).thenReturn(order);
-        when(paymentFeignClient.getPaymentByOrderId(orderId)).thenReturn(ApiResponse.ok(paymentDto));
-        when(paymentFeignClient.refund(paymentId)).thenReturn(ApiResponse.ok(paymentDto));
-        when(orderMapper.updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED")).thenReturn(1);
-        when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
-        when(inventoryFeignClient.releaseStock(any(InventoryReleaseRequest.class))).thenReturn(ApiResponse.ok(null));
-        when(couponFeignClient.returnCoupon(any(CouponFeignClient.ReturnCouponRequest.class))).thenReturn(ApiResponse.ok(null));
-        when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of(itemDto));
-        when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(expectedDto);
 
-        OrderDTO result = orderService.approveRefund(orderId);
-
-        assertThat(result).isEqualTo(expectedDto);
-        verify(paymentFeignClient).refund(paymentId);
-        verify(orderMapper).updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED");
-        verify(inventoryFeignClient).releaseStock(any(InventoryReleaseRequest.class));
-        verify(couponFeignClient).returnCoupon(any(CouponFeignClient.ReturnCouponRequest.class));
-        verify(outboxService).record(argThat(evt ->
-                "ORDER_STATUS_CHANGE".equals(evt.eventType())
-                        && evt.aggregateId().equals(String.valueOf(orderId))
-                        && evt.payload().contains("\"oldStatus\":\"REFUNDING\"")
-                        && evt.payload().contains("\"newStatus\":\"REFUNDED\"")
-        ));
+        // T02/QA06：支付服务不可用（拒绝型 fallback 抛 REFUND_SERVICE_UNAVAILABLE）时审批不上推进订单
+        when(refundFeignClient.createRefund(any())).thenThrow(
+                new BusinessException("REFUND_SERVICE_UNAVAILABLE", "退款服务不可用，请稍后重试"));
+        assertThatThrownBy(() -> orderService.approveRefund(orderId))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                        .isEqualTo("REFUND_SERVICE_UNAVAILABLE"));
+        verify(orderMapper, never()).updateStatusToRefunded(anyLong(), anyString(), anyString());
+        verify(outboxService, never()).record(any(EventEnvelope.class));
     }
 
     @Test

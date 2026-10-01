@@ -33,4 +33,13 @@ public interface PaymentAttemptMapper extends BaseMapper<PaymentAttempt> {
 
     @Select("SELECT * FROM payment_attempt WHERE merchant_payment_no = #{merchantPaymentNo}")
     PaymentAttempt findByMerchantPaymentNo(@Param("merchantPaymentNo") String merchantPaymentNo);
+
+    /** T02：按主键加锁读——退款核算"已退+在途"前锁定原支付行，串行化并发退款 */
+    @Select("SELECT * FROM payment_attempt WHERE id = #{id} FOR UPDATE")
+    PaymentAttempt selectByIdForUpdate(@Param("id") Long id);
+
+    /** T02：按订单锁定最近一笔成功支付（订单侧不持有 attemptId 时由本服务权威解析） */
+    @Select("SELECT * FROM payment_attempt WHERE order_id = #{orderId} AND status = 'SUCCESS' "
+            + "ORDER BY id DESC LIMIT 1 FOR UPDATE")
+    PaymentAttempt selectLatestSuccessByOrderForUpdate(@Param("orderId") Long orderId);
 }

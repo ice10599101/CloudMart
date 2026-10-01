@@ -5,7 +5,7 @@ import request from '@/utils/request'
  *
  * 全端收银台统一链路：创建尝试（归属/状态/金额服务端判定）→ 渠道回调（MOCK 为
  * 测试环境代提交）→ 轮询尝试状态（attempts 台账独立于 order 侧支付视图，必须
- * 打 /payment-attempts/order/{id} 真值源）。旧 orderApi.pay 保留为兜底链路。
+ * 打 /payment-attempts/order/{id} 真值源）。T01：旧 orderApi.pay 兜底已删除。
  */
 
 /** MOCK 渠道回调载荷（仅测试环境由创建尝试返回，签名由服务端签发） */

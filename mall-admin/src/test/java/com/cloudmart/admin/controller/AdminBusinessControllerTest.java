@@ -65,7 +65,9 @@ class AdminBusinessControllerTest {
                 mock(RiskFeignClient.class),
                 mock(AiFeignClient.class),
                 brandFeignClient,
-                mock(NotificationQueryFeignClient.class)
+                mock(NotificationQueryFeignClient.class),
+                mock(PaymentReconciliationFeignClient.class),
+                mock(ExchangeCodeFeignClient.class)
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())

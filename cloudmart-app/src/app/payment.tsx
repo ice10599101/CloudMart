@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
+import { paymentApi } from '@/api/payment'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order } from '@/types'
 
@@ -33,7 +34,7 @@ export default function PaymentPage() {
     if (!id) return
     setLoading(true)
     try {
-      const res = await orderApi.getDetail(Number(id))
+      const res = await orderApi.getDetail(id)
       const data = res.data as { data?: Order }
       if (data?.data) {
         setOrder(data.data)
@@ -76,25 +77,26 @@ export default function PaymentPage() {
   }, [])
 
   // FE-03：串行轮询（await 查单→延迟→再查，不重叠）；查询失败退避续查不误报
-  // FAILED（原弱网一次失败即宣判失败）；限次防无限轮询
+  // FAILED（原弱网一次失败即宣判失败）；限次防无限轮询。
+  // T01：真值源为 payment-attempts/order/{id}（ID 保持字符串，禁止 Number(id) 精度损失）
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) clearInterval(pollTimerRef.current)
     let cancelled = false
     const loop = async () => {
       for (let attempt = 0; attempt < 100 && !cancelled; attempt++) {
         try {
-          const res = await orderApi.getPayment(Number(id))
+          const res = await paymentApi.getByOrder(id)
           if (cancelled) return
-          const paymentData = res.data as { data?: { status: string } }
-          const status = paymentData?.data?.status
+          const status = res.data?.data?.status
           if (status === 'SUCCESS') {
             setPaymentStatus('SUCCESS')
             return
           }
-          if (status === 'FAILED') {
+          if (status === 'FAILED' || status === 'CLOSED') {
             setPaymentStatus('FAILED')
             return
           }
+          // PENDING/RECONCILING：继续轮询直到终态
         } catch {
           // 退避：弱网恢复后继续查单，成功状态只能来自查单结果
         }
@@ -119,7 +121,13 @@ export default function PaymentPage() {
         onPress: async () => {
           setPaying(true)
           try {
-            await orderApi.pay(Number(id), { paymentMethod })
+            // T01：唯一支付链路——只提交 orderId + channel，金额服务端判定；
+            // MOCK 渠道（测试环境）代渠道提交签名回调，入账结果以轮询查单为准
+            const res = await paymentApi.createAttempt({ orderId: id, channel: paymentMethod })
+            const mockCallback = res.data?.data?.mockCallback
+            if (mockCallback) {
+              await paymentApi.submitMockCallback(mockCallback)
+            }
             setPaymentStatus('PENDING')
             startPolling()
           } catch {

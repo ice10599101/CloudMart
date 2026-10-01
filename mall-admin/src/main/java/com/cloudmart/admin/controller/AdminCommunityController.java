@@ -54,6 +54,7 @@ public class AdminCommunityController {
 
     @PutMapping("/community/posts/{id}/status")
     @OperLog(title = "帖子管理", businessType = 2)
+    @RequiresPermission("community:post:edit")
     @Operation(summary = "更新帖子状态")
     public ApiResponse<Void> updatePostStatus(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.updatePostStatus(id, data);
@@ -105,6 +106,7 @@ public class AdminCommunityController {
 
     @PostMapping("/community/tags")
     @OperLog(title = "标签管理", businessType = 1)
+    @RequiresPermission("community:tag:write")
     @Operation(summary = "创建标签")
     public ApiResponse<Object> createTag(@RequestBody Map<String, Object> data) {
         return communityFeignClient.createTag(data);
@@ -112,6 +114,7 @@ public class AdminCommunityController {
 
     @PutMapping("/community/tags/{id}")
     @OperLog(title = "标签管理", businessType = 2)
+    @RequiresPermission("community:tag:write")
     @Operation(summary = "更新标签")
     public ApiResponse<Object> updateTag(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.updateTag(id, data);
@@ -119,6 +122,7 @@ public class AdminCommunityController {
 
     @DeleteMapping("/community/tags/{id}")
     @OperLog(title = "标签管理", businessType = 3)
+    @RequiresPermission("community:tag:write")
     @Operation(summary = "删除标签")
     public ApiResponse<Void> deleteTag(@PathVariable Long id) {
         return communityFeignClient.deleteTag(id);
@@ -140,6 +144,7 @@ public class AdminCommunityController {
 
     @PutMapping("/community/reports/{id}/handle")
     @OperLog(title = "举报管理", businessType = 2)
+    @RequiresPermission("community:report:handle")
     @Operation(summary = "处理举报")
     public ApiResponse<Void> handleReport(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.handleReport(id, data);
@@ -153,6 +158,7 @@ public class AdminCommunityController {
 
     @PostMapping("/community/badges")
     @OperLog(title = "徽章管理", businessType = 1)
+    @RequiresPermission("community:badge:write")
     @Operation(summary = "创建徽章")
     public ApiResponse<Object> createBadge(@RequestBody Map<String, Object> data) {
         return communityFeignClient.createBadge(data);
@@ -160,6 +166,7 @@ public class AdminCommunityController {
 
     @PutMapping("/community/badges/{id}")
     @OperLog(title = "徽章管理", businessType = 2)
+    @RequiresPermission("community:badge:write")
     @Operation(summary = "更新徽章")
     public ApiResponse<Object> updateBadge(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.updateBadge(id, data);
@@ -167,6 +174,7 @@ public class AdminCommunityController {
 
     @DeleteMapping("/community/badges/{id}")
     @OperLog(title = "徽章管理", businessType = 3)
+    @RequiresPermission("community:badge:write")
     @Operation(summary = "删除徽章")
     public ApiResponse<Void> deleteBadge(@PathVariable Long id) {
         return communityFeignClient.deleteBadge(id);
@@ -182,6 +190,7 @@ public class AdminCommunityController {
 
     @PostMapping("/community/badges/{id}/grant")
     @OperLog(title = "徽章管理", businessType = 1)
+    @RequiresPermission("community:badge:grant")
     @Operation(summary = "授予徽章")
     public ApiResponse<Void> grantBadge(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.grantBadge(id, data);
@@ -195,6 +204,7 @@ public class AdminCommunityController {
 
     @PostMapping("/community/growth/level-configs")
     @OperLog(title = "成长等级", businessType = 1)
+    @RequiresPermission("community:growth:write")
     @Operation(summary = "创建等级配置")
     public ApiResponse<Object> createLevelConfig(@RequestBody Map<String, Object> data) {
         return communityFeignClient.createLevelConfig(data);
@@ -202,6 +212,7 @@ public class AdminCommunityController {
 
     @PutMapping("/community/growth/level-configs/{id}")
     @OperLog(title = "成长等级", businessType = 2)
+    @RequiresPermission("community:growth:write")
     @Operation(summary = "更新等级配置")
     public ApiResponse<Object> updateLevelConfig(@PathVariable Long id, @RequestBody Map<String, Object> data) {
         return communityFeignClient.updateLevelConfig(id, data);
@@ -209,6 +220,7 @@ public class AdminCommunityController {
 
     @DeleteMapping("/community/growth/level-configs/{id}")
     @OperLog(title = "成长等级", businessType = 3)
+    @RequiresPermission("community:growth:write")
     @Operation(summary = "删除等级配置")
     public ApiResponse<Void> deleteLevelConfig(@PathVariable Long id) {
         return communityFeignClient.deleteLevelConfig(id);
@@ -230,6 +242,7 @@ public class AdminCommunityController {
 
     @PutMapping("/review/posts/{id}/approve")
     @OperLog(title = "帖子管理", businessType = 2)
+    @RequiresPermission("community:post:moderate")
     @Operation(summary = "审核通过帖子")
     public ApiResponse<Void> approvePost(@PathVariable Long id) {
         return communityFeignClient.approvePost(id);
@@ -237,6 +250,7 @@ public class AdminCommunityController {
 
     @PutMapping("/review/posts/{id}/reject")
     @OperLog(title = "帖子管理", businessType = 2)
+    @RequiresPermission("community:post:moderate")
     @Operation(summary = "审核拒绝帖子")
     public ApiResponse<Void> rejectPost(@PathVariable Long id, @RequestBody Map<String, String> data) {
         return communityFeignClient.rejectPost(id, data);

@@ -5,7 +5,6 @@ import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.order.dto.CreateOrderRequest;
 import com.cloudmart.order.dto.OrderDTO;
 import com.cloudmart.order.dto.OrderTodayStatsResponse;
-import com.cloudmart.order.feign.PaymentFeignClient.PaymentDTO;
 
 import java.util.List;
 
@@ -15,9 +14,7 @@ public interface OrderService {
 
     OrderDTO cancelOrder(Long userId, Long orderId);
 
-    void notifyPaymentSuccess(Long orderId);
 
-    void markOrderPaid(Long orderId);
 
     void notifyOrderCancel(Long orderId);
 
@@ -51,12 +48,18 @@ public interface OrderService {
     /** WMS-01 余量：自动收货——发货超 N 天未确认的订单批量确认（mall-job 触发）。 */
     int autoConfirmReceipts(int days);
 
+    /** T02：REFUND_SUCCEEDED 事件驱动的退款推进（Inbox 幂等；CAS REFUNDING → REFUNDED） */
+    void notifyRefundSucceeded(Long orderId);
+
+    /**
+     * T05：支付成功唯一推进入口（支付事件 MQ 消费调用；Inbox + 金额/币种校验 + CAS + 订单
+     * Outbox 同一本地事务）。expectedPayAmount/currency 为支付事件中的渠道事实，
+     * 与订单应付不符时拒绝推进。
+     */
+    void applyPaymentSucceeded(Long orderId, String expectedPayAmount, String currency);
+
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
-
-    PaymentDTO payForOrder(Long userId, Long orderId);
-
-    PaymentDTO getPaymentByOrderId(Long userId, Long orderId);
 
     /**
      * WMS-01 闭环：管理端发货——先在 WMS 建立真实包裹（运单号必填）并出库

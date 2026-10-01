@@ -483,7 +483,7 @@ public class AdminBusinessController {
     @GetMapping("/payments")
     @RequiresPermission("business:payment:list")
     @Operation(summary = "支付列表", description = "分页查询支付记录，支持按状态筛选")
-    public ApiResponse<List<PaymentDTO>> listPayments(
+    public ApiResponse<List<PaymentAttemptDTO>> listPayments(
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
@@ -492,18 +492,11 @@ public class AdminBusinessController {
 
     @GetMapping("/payments/order/{orderId}")
     @RequiresPermission("business:payment:list")
-    @Operation(summary = "查询支付记录", description = "根据订单ID查询支付记录")
-    public ApiResponse<PaymentDTO> getPaymentByOrder(@PathVariable Long orderId) {
+    @Operation(summary = "查询支付尝试", description = "根据订单ID查询最近一次支付尝试（T01：attempt 台账）")
+    public ApiResponse<PaymentAttemptDTO> getPaymentByOrder(@PathVariable Long orderId) {
         return paymentFeignClient.getPaymentByOrderId(orderId);
     }
-
-    @PostMapping("/payments/{paymentId}/refund")
-    @OperLog(title = "支付管理", businessType = 1)
-    @RequiresPermission("business:payment:refund")
-    @Operation(summary = "退款", description = "对已支付订单发起退款")
-    public ApiResponse<PaymentDTO> refundPayment(@PathVariable Long paymentId) {
-        return paymentFeignClient.refund(paymentId);
-    }
+    // T01：旧 /payments/{paymentId}/refund 退款代理已删除——渠道退款事实由 T02 refund_order 契约重建
 
     // ==================== 支付对账（OPS-01） ====================
     // 说明：查询用 business:payment:list；执行/处置用细粒度 business:payment:reconcile

@@ -468,7 +468,12 @@ function EditProfileModal({ open, onClose, onToast }: { open: boolean; onClose: 
     setAvatarUploading(true)
     try {
       const { data: uploadRes } = await uploadFile(file)
+      // S01：头像为 PUBLIC 上传，url 必非空；PRIVATE 无公开 URL 时拒绝设置
       const avatarUrl = uploadRes.data.url
+      if (!avatarUrl) {
+        onToast('上传结果缺少公开地址', 'error')
+        return
+      }
       await updateProfile({ avatar: avatarUrl })
       await fetchProfile()
       onToast('头像更新成功', 'success')

@@ -14,7 +14,6 @@ import com.cloudmart.order.entity.OrderItem;
 import com.cloudmart.order.feign.CartFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient;
 import com.cloudmart.order.feign.InventoryFeignClient;
-import com.cloudmart.order.feign.PaymentFeignClient;
 import com.cloudmart.common.async.compensation.CompensationTaskService;
 import com.cloudmart.common.async.outbox.OutboxService;
 import tools.jackson.databind.ObjectMapper;
@@ -38,6 +37,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -54,13 +54,13 @@ class OrderServiceImplTest {
     private OrderConverter orderConverter;
     private InventoryFeignClient inventoryFeignClient;
     private CartFeignClient cartFeignClient;
-    private PaymentFeignClient paymentFeignClient;
     private CouponFeignClient couponFeignClient;
     private StringRedisTemplate redisTemplate;
     private OrderEventProducer orderEventProducer;
     private OutboxService outboxService;
     private com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private CompensationTaskService compensationTaskService;
+    private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private OrderServiceImpl orderService;
 
     @BeforeAll
@@ -82,7 +82,6 @@ class OrderServiceImplTest {
         orderConverter = mock(OrderConverter.class);
         inventoryFeignClient = mock(InventoryFeignClient.class);
         cartFeignClient = mock(CartFeignClient.class);
-        paymentFeignClient = mock(PaymentFeignClient.class);
         couponFeignClient = mock(CouponFeignClient.class);
         redisTemplate = mock(StringRedisTemplate.class);
         orderEventProducer = mock(OrderEventProducer.class);
@@ -94,8 +93,9 @@ class OrderServiceImplTest {
         outboxService = mock(OutboxService.class);
         compensationTaskService = mock(CompensationTaskService.class);
         wmsShippingFeignClient = mock(com.cloudmart.order.feign.WmsShippingFeignClient.class);
+        refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
-                inventoryFeignClient, cartFeignClient, paymentFeignClient, couponFeignClient,
+                inventoryFeignClient, cartFeignClient, couponFeignClient, refundFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.RiskFeignClient.class),
                 wmsShippingFeignClient,
@@ -451,77 +451,20 @@ class OrderServiceImplTest {
     }
 
     @Nested
-    @DisplayName("payForOrder")
-    class PayForOrderTests {
+    @DisplayName("applyPaymentSucceeded（T05 唯一推进入口）")
+    class ApplyPaymentSucceededTests {
 
         @Test
-        @DisplayName("pending payment order -> creates payment")
-        void payForOrder_PendingPayment_ShouldCreatePayment() {
-            Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-
-            PaymentFeignClient.PaymentDTO paymentDTO = new PaymentFeignClient.PaymentDTO(1L, 1L, "PAY001", new BigDecimal("100.00"), null, "PENDING", null, null, "http://pay.url");
-            when(paymentFeignClient.createPayment(any(PaymentFeignClient.CreatePaymentRequest.class)))
-                    .thenReturn(ApiResponse.ok(paymentDTO));
-
-            PaymentFeignClient.PaymentDTO result = orderService.payForOrder(100L, 1L);
-
-            assertThat(result).isNotNull();
-            assertThat(result.orderId()).isEqualTo(1L);
-        }
-
-        @Test
-        @DisplayName("already paid order -> throws ORDER_STATUS_ERROR")
-        void payForOrder_AlreadyPaid_ShouldThrowBusinessException() {
-            Order order = buildOrder(1L, 100L, "PAID");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-
-            assertThatThrownBy(() -> orderService.payForOrder(100L, 1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_STATUS_ERROR"));
-        }
-
-        @Test
-        @DisplayName("other user's order -> throws ORDER_ACCESS_DENIED")
-        void payForOrder_OtherUser_ShouldThrowBusinessException() {
-            Order order = buildOrder(1L, 200L, "PENDING_PAYMENT");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-
-            assertThatThrownBy(() -> orderService.payForOrder(100L, 1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_ACCESS_DENIED"));
-        }
-
-        @Test
-        @DisplayName("payment creation fails -> throws PAYMENT_CREATE_FAILED")
-        void payForOrder_PaymentFails_ShouldThrowBusinessException() {
-            Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-            when(paymentFeignClient.createPayment(any(PaymentFeignClient.CreatePaymentRequest.class)))
-                    .thenReturn(ApiResponse.ok(null));
-
-            assertThatThrownBy(() -> orderService.payForOrder(100L, 1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("PAYMENT_CREATE_FAILED"));
-        }
-    }
-
-    @Nested
-    @DisplayName("notifyPaymentSuccess")
-    class NotifyPaymentSuccessTests {
-
-        @Test
-        @DisplayName("pending payment order -> updates to PAID")
-        void notifyPaymentSuccess_PendingPayment_ShouldUpdateToPaid() {
+        @DisplayName("待支付订单 + 金额一致 → PAID，发布 ORDER_STATUS_CHANGE + ORDER_PAID（WMS 履约）")
+        void applyPaymentSucceeded_pending_advancesToPaid() {
             Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
             when(orderMapper.selectById(1L)).thenReturn(order);
             when(orderMapper.updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID")).thenReturn(1);
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
 
-            orderService.notifyPaymentSuccess(1L);
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
 
             verify(orderMapper).updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID");
-            // ASYNC-01：支付成功发布两个事件——ORDER_STATUS_CHANGE（通知）+ ORDER_PAID（WMS 拣货）
             org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> envelopeCaptor =
                     org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
             verify(outboxService, org.mockito.Mockito.times(2)).record(envelopeCaptor.capture());
@@ -532,22 +475,50 @@ class OrderServiceImplTest {
         }
 
         @Test
-        @DisplayName("already paid order -> does nothing")
-        void notifyPaymentSuccess_AlreadyPaid_ShouldDoNothing() {
+        @DisplayName("T05：金额与订单应付不一致 → PAYMENT_AMOUNT_MISMATCH，不推进")
+        void applyPaymentSucceeded_amountMismatch_rejected() {
+            Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
+            when(orderMapper.selectById(1L)).thenReturn(order);
+
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, "88.00", "CNY"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("PAYMENT_AMOUNT_MISMATCH"));
+            verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("已推进（PAID）→ 事件重放幂等跳过")
+        void applyPaymentSucceeded_alreadyPaid_idempotentSkip() {
             Order order = buildOrder(1L, 100L, "PAID");
             when(orderMapper.selectById(1L)).thenReturn(order);
 
-            orderService.notifyPaymentSuccess(1L);
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
 
             verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
         }
 
         @Test
-        @DisplayName("order not found -> throws ORDER_NOT_FOUND")
-        void notifyPaymentSuccess_NotFound_ShouldThrowBusinessException() {
+        @DisplayName("QA05：已取消订单收到支付成功 → LATE_PAYMENT_DETECTED 事件，不推进也不静默丢弃")
+        void applyPaymentSucceeded_cancelled_latePaymentDetected() {
+            Order order = buildOrder(1L, 100L, "CANCELLED");
+            when(orderMapper.selectById(1L)).thenReturn(order);
+
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
+
+            verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
+            org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> envelopeCaptor =
+                    org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
+            verify(outboxService).record(envelopeCaptor.capture());
+            assertThat(envelopeCaptor.getValue().eventType()).isEqualTo("LATE_PAYMENT_DETECTED");
+        }
+
+        @Test
+        @DisplayName("订单不存在 → ORDER_NOT_FOUND（明确失败，消费者重试/死信）")
+        void applyPaymentSucceeded_notFound_throws() {
             when(orderMapper.selectById(999L)).thenReturn(null);
 
-            assertThatThrownBy(() -> orderService.notifyPaymentSuccess(999L))
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(999L, "100.00", "CNY"))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_NOT_FOUND"));
         }
@@ -558,31 +529,44 @@ class OrderServiceImplTest {
     class ApproveRefundTests {
 
         @Test
-        @DisplayName("refunding order -> approves refund")
-        void approveRefund_RefundingOrder_ShouldApprove() {
+        @DisplayName("T02：审批提交退款单 → MOCK 渠道同步 SUCCEEDED → 推进 REFUNDED + 释放库存 + 退券")
+        void approveRefund_RefundingOrder_ChannelSucceeded_advances() {
             Order order = buildOrder(1L, 100L, "REFUNDING");
+            order.setCouponId(50L);
             when(orderMapper.selectById(1L)).thenReturn(order);
             when(orderMapper.updateStatusToRefunded(1L, "REFUNDING", "REFUNDED")).thenReturn(1);
 
-            PaymentFeignClient.PaymentDTO paymentDTO = new PaymentFeignClient.PaymentDTO(1L, 1L, "PAY001", new BigDecimal("100.00"), null, "PAID", null, null, null);
-            when(paymentFeignClient.getPaymentByOrderId(1L)).thenReturn(ApiResponse.ok(paymentDTO));
-            when(paymentFeignClient.refund(1L)).thenReturn(ApiResponse.ok(paymentDTO));
+            java.util.Map<String, Object> refundView = java.util.Map.of(
+                    "refundNo", "RF1", "status", "SUCCEEDED", "providerRefundNo", "MOCKRFND1");
+            when(refundFeignClient.createRefund(any())).thenReturn(ApiResponse.ok(refundView));
 
-            OrderItem item = buildOrderItem(1L, 1L);
             Order refundedOrder = buildOrder(1L, 100L, "REFUNDED");
             when(orderMapper.selectById(1L)).thenReturn(order).thenReturn(refundedOrder);
-            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
-
-            OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
-            when(orderConverter.toDTO(refundedOrder, List.of(itemDTO))).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "REFUNDED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+            when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
+            when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, 50L, "REFUNDED", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
 
             OrderDTO result = orderService.approveRefund(1L);
 
             assertThat(result.status()).isEqualTo("REFUNDED");
-            verify(paymentFeignClient).refund(1L);
+            verify(refundFeignClient).createRefund(any());
+            verify(orderMapper).updateStatusToRefunded(1L, "REFUNDING", "REFUNDED");
             verify(outboxService).record(any(EventEnvelope.class));
+        }
+
+        @Test
+        @DisplayName("T02/QA06：退款提交失败 → REFUND_SUBMIT_FAILED，不推进订单")
+        void approveRefund_submitFailed_throwsAndKeepsRefunding() {
+            Order order = buildOrder(1L, 100L, "REFUNDING");
+            when(orderMapper.selectById(1L)).thenReturn(order);
+            when(refundFeignClient.createRefund(any())).thenReturn(ApiResponse.ok(null));
+
+            assertThatThrownBy(() -> orderService.approveRefund(1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("REFUND_SUBMIT_FAILED"));
+            verify(orderMapper, never()).updateStatusToRefunded(anyLong(), anyString(), anyString());
         }
 
         @Test

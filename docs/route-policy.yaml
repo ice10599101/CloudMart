@@ -37,7 +37,7 @@ gateway-public:
   - { method: POST,  path: /api/user/users/register,            subjectType: ANON }
   - { method: POST,  path: /api/user/users/register/code,       subjectType: ANON, note: "注册发码：网关 IP 限流 5/min + 服务层每邮箱 60s 冷却/5 次每小时" }
   - { method: POST,  path: /api/user/users/validate,            subjectType: ANON }
-  - { method: "*",   path: /api/payment/payments/callback,      subjectType: ANON, note: "PAY-01：改造为渠道验签回调" }
+  - { method: POST,  path: /api/payment/payment-attempts/mock-callbacks, subjectType: ANON, note: "T01：MOCK 渠道 HMAC 验签回调（prod 禁用）；真实渠道回调按渠道 adapter 增补" }
   - { method: GET,   path: /files/**,                           subjectType: ANON, note: "mall-file 静态资源（公开 URL）" }
 
 # -----------------------------------------------------------------------------
@@ -45,10 +45,10 @@ gateway-public:
 # -----------------------------------------------------------------------------
 mall-product:
   - { method: GET,    path: /products/search,        subjectType: ANON }
-  - { method: GET,    path: /products/{id},          subjectType: ANON }
+  - { method: GET,    path: "/products/{id}",          subjectType: ANON }
   - { method: GET,    path: /products/skus/batch,    subjectType: ANON }
   - { method: GET,    path: /products,               subjectType: "USER,SERVICE", serviceCaller: "mall-ai,mall-cart,mall-seckill", permission: product:read }
-  - { method: GET,    path: /products/{productId}/reviews, subjectType: "USER,SERVICE", serviceCaller: mall-ai, permission: product:read }
+  - { method: GET,    path: "/products/{productId}/reviews", subjectType: "USER,SERVICE", serviceCaller: mall-ai, permission: product:read }
   - { method: POST,   path: /products/es/reindex,    subjectType: SERVICE, serviceCaller: "mall-admin,mall-ai", permission: product:admin }
   - { method: POST,   path: /products/es/sync/**,    subjectType: SERVICE, serviceCaller: "mall-admin,mall-ai", permission: product:admin }
   - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: mall-admin, permission: product:admin, note: "AdminProduct/AdminCategory/AdminReview/AdminBrand" }
@@ -58,7 +58,7 @@ mall-product:
 # mall-user
 # -----------------------------------------------------------------------------
 mall-user:
-  - { method: PUT,    path: /admin/users/{id}/status, subjectType: SERVICE, serviceCaller: mall-admin, permission: user:admin }
+  - { method: PUT,    path: "/admin/users/{id}/status", subjectType: SERVICE, serviceCaller: mall-admin, permission: user:admin }
   - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: "mall-admin,mall-notification", permission: user:admin, note: "/admin/users 读路径允许 mall-notification" }
   - { method: GET,    path: /users/batch,            subjectType: ANON }
   - { method: GET,    path: /users/search,           subjectType: ANON }
@@ -68,23 +68,24 @@ mall-user:
 # -----------------------------------------------------------------------------
 mall-order:
   - { method: POST,   path: /orders,                        subjectType: USER, ownerCheck: true, note: "TRADE-01/02：报价+幂等" }
-  - { method: PUT,    path: /orders/{orderId}/cancel,       subjectType: USER, ownerCheck: true }
-  - { method: POST,   path: /orders/{orderId}/pay,          subjectType: USER, ownerCheck: true }
-  - { method: PUT,    path: /orders/{orderId}/confirm,      subjectType: USER, ownerCheck: true }
-  - { method: POST,   path: /orders/{orderId}/refund,       subjectType: USER, ownerCheck: true, note: "TRADE-03：转售后单" }
+  - { method: PUT,    path: "/orders/{orderId}/cancel",       subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/orders/{orderId}/pay",          subjectType: USER, ownerCheck: true }
+  - { method: PUT,    path: "/orders/{orderId}/confirm",      subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/orders/{orderId}/refund",       subjectType: USER, ownerCheck: true, note: "TRADE-03：转售后单" }
   - { method: POST,   path: /orders/timeout-cancel,         subjectType: SERVICE, serviceCaller: mall-job, permission: order:jobs }
-  - { method: POST,   path: /internal/orders/payment-success/{orderId}, subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal, note: "TRADE-04：状态 CAS" }
-  - { method: POST,   path: /internal/orders/cancel-notify/{orderId},   subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal }
+  - { method: POST,   path: "/internal/orders/payment-success/{orderId}", subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal, note: "TRADE-04：状态 CAS" }
+  - { method: POST,   path: "/internal/orders/cancel-notify/{orderId}",   subjectType: SERVICE, serviceCaller: mall-payment, permission: order:internal }
   - { method: "*",    path: /admin/**,                      subjectType: SERVICE, serviceCaller: mall-admin, permission: order:admin }
 
 # -----------------------------------------------------------------------------
 # mall-payment
 # -----------------------------------------------------------------------------
 mall-payment:
-  - { method: POST,   path: /payments,                  subjectType: "USER,SERVICE", serviceCaller: mall-order, permission: payment:trade, note: "PAY-01：忽略客户端 amount，校验订单归属" }
-  - { method: GET,    path: /payments/order/{orderId},  subjectType: "USER,SERVICE", serviceCaller: mall-order, permission: payment:trade, ownerCheck: true }
-  - { method: POST,   path: /payments/{paymentId}/refund, subjectType: SERVICE, serviceCaller: mall-order, permission: payment:trade, note: "TRADE-03：退款执行" }
-  - { method: POST,   path: /payments/callback,         subjectType: ANON, note: "PAY-02：渠道签名验证后入账" }
+  - { method: POST,   path: "/internal/refunds",        subjectType: SERVICE, serviceCaller: mall-order, permission: order:refund, note: "T02：内部退款（refundNo 幂等，超退核算）" }
+  - { method: GET,    path: "/internal/refunds/{refundNo}", subjectType: SERVICE, serviceCaller: mall-order, permission: order:refund, note: "T02：渠道退款状态查询" }
+  - { method: POST,   path: "/payment-attempts",        subjectType: USER, ownerCheck: true, note: "T01：只收 orderId+channel，归属/金额服务端判定" }
+  - { method: GET,    path: "/payment-attempts/order/{orderId}", subjectType: USER, ownerCheck: true, note: "T01：收银台轮询真值源" }
+  - { method: POST,   path: "/payment-attempts/mock-callbacks", subjectType: ANON, note: "T01：MOCK 渠道 HMAC 验签回调，prod 禁用" }
   - { method: "*",    path: /admin/**,                  subjectType: SERVICE, serviceCaller: mall-admin, permission: payment:admin }
 
 # -----------------------------------------------------------------------------
@@ -95,7 +96,7 @@ mall-inventory:
   - { method: POST,   path: /internal/inventory/release,  subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
   - { method: POST,   path: /internal/inventory/confirm,  subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
   - { method: POST,   path: /internal/inventory/init,     subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
-  - { method: GET,    path: /internal/inventory/skus/{skuId}, subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
+  - { method: GET,    path: "/internal/inventory/skus/{skuId}", subjectType: SERVICE, serviceCaller: mall-order, permission: inventory:trade }
   - { method: "*",    path: /admin/**,                    subjectType: SERVICE, serviceCaller: mall-admin, permission: inventory:admin }
 
 # -----------------------------------------------------------------------------
@@ -156,16 +157,18 @@ mall-risk:
   - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-auth,mall-order,mall-payment,mall-seckill,mall-user,mall-job", permission: risk:internal, note: "RISK-01：业务接入" }
 
 # -----------------------------------------------------------------------------
-# mall-admin / mall-job / mall-gen / mall-file
+# mall-auth / mall-admin / mall-job / mall-gen / mall-file
+# （S05：mall-auth 只保留一个顶层键，合并发卡方匿名路由与内部令牌撤销路由）
 # -----------------------------------------------------------------------------
 mall-auth:
+  - { method: "*",    path: /**,                 subjectType: ANON, note: "登录/刷新/JWKS（/internal/** 除外）；SEC-02/03：刷新令牌身份域隔离与会话撤销" }
   - { method: POST,   path: /internal/tokens/revoke-subject, subjectType: SERVICE, serviceCaller: "mall-admin,mall-user", permission: admin:auth, note: "SEC-02：踢人/禁用时按主体撤销令牌家族" }
   - { method: POST,   path: /internal/tokens/invalidate-state, subjectType: SERVICE, serviceCaller: "mall-admin,mall-user", permission: admin:auth, note: "SEC-03：禁用/改密硬失效；改权限软失效" }
   - { method: POST,   path: /logout,                subjectType: USER, ownerCheck: true, note: "SEC-03：撤销当前会话+全部刷新家族" }
 
 mall-admin:
   - { method: POST,   path: /auth/validate,             subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
-  - { method: GET,    path: /auth/permissions/{userId}, subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
+  - { method: GET,    path: "/auth/permissions/{userId}", subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
   - { method: POST,   path: /logs/login/record,         subjectType: SERVICE, serviceCaller: mall-auth, permission: admin:auth }
   - { method: "*",    path: /**,                        subjectType: ADMIN, note: "网关 AdminAuthGlobalFilter 强制 X-Admin-Role；拦截器 @RequiresAdmin/@RequiresPermission" }
 
@@ -176,11 +179,7 @@ mall-gen:
   - { method: "*",    path: /**,                 subjectType: ADMIN, note: "开发工具：管理员 JWT；生产建议仅内网入口" }
 
 mall-file:
-  - { method: POST,   path: /upload,             subjectType: "USER,ADMIN", note: "FILE-01：内容校验/配额/归属" }
-  - { method: DELETE, path: /delete,             subjectType: "USER,ADMIN", ownerCheck: true, note: "SEC-01 已要求认证；FILE-01 落实归属" }
-
-# -----------------------------------------------------------------------------
-# mall-auth（发卡方自身）
-# -----------------------------------------------------------------------------
-mall-auth:
-  - { method: "*",    path: /**,                 subjectType: ANON, note: "登录/刷新/JWKS（/internal/** 除外）；SEC-02/03：刷新令牌身份域隔离与会话撤销" }
+  - { method: POST,   path: "/assets",           subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：唯一资产入口（配额+内容校验+可见性分域+归属台账）" }
+  - { method: DELETE, path: "/assets/{id}",      subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：按 fileId 归属授权删除（引用检查+DELETING CAS）" }
+  - { method: GET,    path: "/assets/{id}/download-url", subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：私有附件短期签名授权" }
+  - { method: GET,    path: "/assets/{id}/download",     subjectType: ANON, note: "S01：凭短期 HMAC token 下载（本身即授权凭证）" }

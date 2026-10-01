@@ -23,9 +23,7 @@ export const orderApi = {
   /** TRADE-01：报价下单——无价格字段，金额取报价快照 */
   createFromQuote: (data: { quoteId: number | string; receiverName: string; receiverPhone: string; receiverAddress: string }) =>
     request<Order>({ url: '/order/orders/v2', method: 'POST', data }),
-  getPayment: (id: number) => request<unknown>({ url: `/order/orders/${id}/payment` }),
-  pay: (id: number, data: { paymentMethod: string }) =>
-    request<void>({ url: `/order/orders/${id}/pay`, method: 'POST', data }),
+  // T01：旧支付代理（/pay、/payment）已删除——收银台使用 paymentApi（api/payment.ts）
   cancel: (id: number) => request<void>({ url: `/order/orders/${id}/cancel`, method: 'PUT' }),
   confirmReceive: (id: number) => request<void>({ url: `/order/orders/${id}/confirm`, method: 'PUT' }),
   refund: (id: number, reason: string) =>

@@ -56,6 +56,9 @@ class AdminUserServiceTest {
     private DataScopeService dataScopeService;
     @Mock
     private AuthRevocationFeignClient authRevocationFeignClient;
+    private AdminAuthorizationPolicy authorizationPolicy;
+    private com.cloudmart.admin.repository.AdminRoleMenuMapper adminRoleMenuMapper =
+            org.mockito.Mockito.mock(com.cloudmart.admin.repository.AdminRoleMenuMapper.class);
     @Mock
     private AdminConverter adminConverter;
 
@@ -63,11 +66,14 @@ class AdminUserServiceTest {
 
     @BeforeEach
     void setUp() {
+        authorizationPolicy = new AdminAuthorizationPolicy(
+                dataScopeService, adminUserMapper, adminRoleMapper, adminUserRoleMapper, adminRoleMenuMapper);
         adminUserService = new AdminUserServiceImpl(
                 adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
                 adminRoleMapper, adminPostMapper, adminDeptMapper,
                 passwordEncoder, dataScopeService, adminConverter,
-                authRevocationFeignClient);
+                authRevocationFeignClient,
+                authorizationPolicy);
     }
 
     @Test
@@ -264,7 +270,9 @@ class AdminUserServiceTest {
 
         when(adminUserMapper.selectById(userId)).thenReturn(user);
         when(adminRoleMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(superRole);
-        when(adminUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(superUserRole));
+        org.mockito.Mockito.lenient().when(adminUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(superUserRole));
+        // S03：授权策略以 selectCount 判定内置超管角色
+        org.mockito.Mockito.lenient().when(adminUserRoleMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
 
         assertThatThrownBy(() -> adminUserService.delete(userId))
                 .isInstanceOf(BusinessException.class)

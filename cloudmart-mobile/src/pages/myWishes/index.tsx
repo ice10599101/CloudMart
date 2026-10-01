@@ -137,24 +137,8 @@ export default function MyWishesPage() {
     }
   }
 
-  /** 账号注销（A1 合规）：发送验证码 → editable 弹窗输入 → 申请（30 天宽限期） */
+  /** 全账号注销（W03：mall-user 唯一权威）：确认弹窗 → 申请（30 天宽限期，期间可撤回） */
   const handleDeletion = async () => {
-    try {
-      await wishApi.sendDeletionCode()
-    } catch {
-      Taro.showToast({ title: '验证码发送失败', icon: 'none' })
-      return
-    }
-    // editable/placeholderText 微信端运行时支持，Taro 类型滞后故断言
-    const input = await Taro.showModal({
-      title: '申请注销账号',
-      content: '验证码已发送（30 天宽限期，期间可撤回）。请输入 6 位验证码：',
-      editable: true,
-      placeholderText: '6 位验证码',
-      confirmText: '下一步',
-    } as Taro.showModal.Option & { editable: boolean; placeholderText: string })
-    if (!input.confirm) return
-    const code = ((input as { content?: string }).content || '').trim()
     const applyRes = await Taro.showModal({
       title: '确认申请注销？',
       content: '提交后进入 30 天宽限期，到期将清除心愿等个人数据。是否提交？',
@@ -163,7 +147,7 @@ export default function MyWishesPage() {
     })
     if (!applyRes.confirm) return
     try {
-      const res = await wishApi.applyAccountDeletion(code, undefined)
+      const res = await wishApi.applyAccountDeletion(undefined)
       if (res.data.success) {
         Taro.showToast({ title: '注销申请已提交，30 天内可撤回', icon: 'none' })
       }

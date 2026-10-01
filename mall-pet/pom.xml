@@ -119,6 +119,17 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- P01/QA33-34：钱包账实一致必须在真实 MySQL 上验证（唯一键/行锁行为不能用 H2 或 mock 证明） -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

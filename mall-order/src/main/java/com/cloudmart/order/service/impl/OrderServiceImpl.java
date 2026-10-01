@@ -20,12 +20,9 @@ import com.cloudmart.order.dto.InventoryReleaseRequest;
 import com.cloudmart.order.feign.CartFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient;
 import com.cloudmart.order.feign.InventoryFeignClient;
-import com.cloudmart.order.feign.PaymentFeignClient;
 import com.cloudmart.order.feign.CouponFeignClient.UseCouponRequest;
 import com.cloudmart.order.feign.CouponFeignClient.ReturnCouponRequest;
 import com.cloudmart.order.feign.CouponFeignClient.UserCouponDTO;
-import com.cloudmart.order.feign.PaymentFeignClient.CreatePaymentRequest;
-import com.cloudmart.order.feign.PaymentFeignClient.PaymentDTO;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.compensation.CompensationTaskService;
 import com.cloudmart.common.async.outbox.OutboxService;
@@ -66,8 +63,8 @@ public class OrderServiceImpl implements OrderService {
     private final OrderConverter orderConverter;
     private final InventoryFeignClient inventoryFeignClient;
     private final CartFeignClient cartFeignClient;
-    private final PaymentFeignClient paymentFeignClient;
     private final CouponFeignClient couponFeignClient;
+    private final com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
@@ -108,22 +105,6 @@ public class OrderServiceImpl implements OrderService {
                 request.couponId(), request.activityId());
 
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
-        try {
-            for (CreateOrderRequest.OrderItemInput item : request.items()) {
-                InventoryDeductRequest deductReq = new InventoryDeductRequest(item.skuId(), item.quantity(), 0L);
-                ApiResponse<Boolean> deductResult = inventoryFeignClient.deductStock(deductReq);
-                if (deductResult == null || !Boolean.TRUE.equals(deductResult.data())) {
-                    throw new BusinessException("STOCK_INSUFFICIENT", "商品库存不足: SKU " + item.skuId());
-                }
-                deductedItems.add(item);
-            }
-        } catch (BusinessException e) {
-            compensateDeductedStock(deductedItems);
-            throw e;
-        } catch (Exception e) {
-            compensateDeductedStock(deductedItems);
-            throw new BusinessException("STOCK_DEDUCT_FAILED", "库存扣减失败，请重试");
-        }
 
         Order order = new Order();
         order.setUserId(userId);
@@ -153,6 +134,37 @@ public class OrderServiceImpl implements OrderService {
         order.setActivityId(request.activityId());
 
         orderMapper.insert(order);
+
+        // T04/T03：先落订单拿到真实 orderId，再跨服务预占——预占台账 (order_id, sku_id) 必须
+        // 绑定真实订单事实（旧实现传 0L，预占不入账本，释放/确认走裸更新兼容分支）
+        // SKU 按 ID 升序预占，保证并发订单的加锁顺序一致
+        List<CreateOrderRequest.OrderItemInput> orderedItems = request.items().stream()
+                .sorted(java.util.Comparator.comparingLong(CreateOrderRequest.OrderItemInput::skuId))
+                .toList();
+        List<Long> insufficientSkuIds = new ArrayList<>();
+        try {
+            for (CreateOrderRequest.OrderItemInput item : orderedItems) {
+                InventoryDeductRequest deductReq = new InventoryDeductRequest(
+                        item.skuId(), item.quantity(), order.getId());
+                ApiResponse<Boolean> deductResult = inventoryFeignClient.deductStock(deductReq);
+                if (deductResult == null || !Boolean.TRUE.equals(deductResult.data())) {
+                    // 不中断循环：收集全部缺货 SKU 一次性返回，已成功预占的行随后统一补偿
+                    insufficientSkuIds.add(item.skuId());
+                    continue;
+                }
+                deductedItems.add(item);
+            }
+            if (!insufficientSkuIds.isEmpty()) {
+                throw new BusinessException("STOCK_INSUFFICIENT",
+                        "商品库存不足: SKU " + insufficientSkuIds);
+            }
+        } catch (BusinessException e) {
+            compensateDeductedStock(deductedItems, order.getId());
+            throw e;
+        } catch (Exception e) {
+            compensateDeductedStock(deductedItems, order.getId());
+            throw new BusinessException("STOCK_DEDUCT_FAILED", "库存扣减失败，请重试");
+        }
 
         if (validatedCoupon != null) {
             try {
@@ -240,20 +252,54 @@ public class OrderServiceImpl implements OrderService {
         return orderConverter.toDTO(cancelledOrder, orderConverter.toItemDTOList(items));
     }
 
+    /**
+     * T05：支付成功唯一推进入口（T05 合并原 notifyPaymentSuccess/markOrderPaid 双路径）。
+     * 校验支付事件金额/币种与订单应付一致（渠道事实核对），CAS PENDING_PAYMENT→PAID，
+     * 订单 Outbox（ORDER_STATUS_CHANGE + ORDER_PAID——WMS 拣货单触发）+ 库存确认 + 超时键
+     * 清理同一本地事务；已推进（PAID+）幂等跳过；已取消订单的迟到支付记 LATE_PAYMENT_DETECTED
+     * 供补偿/对账处置，不静默丢弃（QA05）。
+     */
     @Override
     @Transactional
-    public void notifyPaymentSuccess(Long orderId) {
+    public void applyPaymentSucceeded(Long orderId, String expectedPayAmount, String currency) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
-            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
+            // 明确失败：订单不存在是真实异常，由消费者 failConsume 重试/进入死信，不假装成功
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在: " + orderId);
+        }
+        // 金额/币种校验（QA03/金额不匹配拒绝推进）：支付事件为渠道事实，订单应付为权威应付
+        if (expectedPayAmount != null
+                && order.getPayAmount() != null
+                && order.getPayAmount().compareTo(new java.math.BigDecimal(expectedPayAmount)) != 0) {
+            throw new BusinessException("PAYMENT_AMOUNT_MISMATCH",
+                    "支付金额与订单应付不一致, orderId=" + orderId + ", expected=" + order.getPayAmount()
+                            + ", paid=" + expectedPayAmount);
+        }
+        if (currency != null && !"CNY".equals(currency)) {
+            throw new BusinessException("PAYMENT_CURRENCY_MISMATCH",
+                    "支付币种不支持: " + currency + ", orderId=" + orderId);
         }
         if (!"PENDING_PAYMENT".equals(order.getStatus())) {
+            if ("CANCELLED".equals(order.getStatus())) {
+                // QA05：订单取消后收到真实成功支付——进入 LATE_PAYMENT 处置（触发退款核查），不静默丢弃
+                log.error("[T05] 迟到支付：订单已取消但收到支付成功, orderId={}, amount={}",
+                        orderId, expectedPayAmount);
+                outboxService.record(EventEnvelope.of("LATE_PAYMENT_DETECTED", 1,
+                        String.valueOf(orderId), 1, null,
+                        compensationJson(java.util.Map.of(
+                                "orderId", orderId,
+                                "userId", order.getUserId(),
+                                "paidAmount", String.valueOf(expectedPayAmount)))));
+                return;
+            }
+            // PAID 及之后状态：事件重放幂等跳过
+            log.info("支付成功事件幂等跳过（订单状态 {}）, orderId={}", order.getStatus(), orderId);
             return;
         }
 
         int updated = orderMapper.updateStatusIfMatch(orderId, "PENDING_PAYMENT", "PAID");
         if (updated == 0) {
-            log.warn("订单支付状态更新失败，可能已被取消, orderId={}", orderId);
+            log.warn("订单支付状态更新失败（并发变更）, orderId={}", orderId);
             return;
         }
 
@@ -261,41 +307,13 @@ public class OrderServiceImpl implements OrderService {
                 orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
         ));
 
-        // ASYNC-01 断点 3：发布 ORDER_PAID（WMS 按独立 tag 订阅生成拣货单）——
-        // 此前只发 ORDER_STATUS_CHANGE（status-change tag），WMS 订阅的 paid tag
-        // 永远收不到消息，拣货单只能靠手工触发
+        // ASYNC-01 断点 3：ORDER_PAID 与状态变更同事务发出（WMS 按独立 tag 订阅生成拣货单）——
+        // 原 MQ 消费路径 markOrderPaid 缺少本事件，履约断链（T05 缺陷）
         outboxService.record(EventEnvelope.of("ORDER_PAID", 2,
                 String.valueOf(orderId), 1, null,
                 compensationJson(java.util.Map.of(
                         "orderId", orderId,
                         "userId", order.getUserId()))));
-
-        confirmStockDeduct(orderId);
-
-        redisTemplate.delete(ORDER_TIMEOUT_KEY_PREFIX + orderId);
-    }
-
-    @Override
-    @Transactional
-    public void markOrderPaid(Long orderId) {
-        Order order = orderMapper.selectById(orderId);
-        if (order == null) {
-            log.warn("markOrderPaid: 订单不存在, orderId={}", orderId);
-            return;
-        }
-        if (!"PENDING_PAYMENT".equals(order.getStatus())) {
-            return;
-        }
-
-        int updated = orderMapper.updateStatusIfMatch(orderId, "PENDING_PAYMENT", "PAID");
-        if (updated == 0) {
-            log.warn("markOrderPaid: 订单支付状态更新失败，可能已被取消, orderId={}", orderId);
-            return;
-        }
-
-        publishOutboxEvent(new OrderStatusChangeMessage(
-                orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
-        ));
 
         confirmStockDeduct(orderId);
 
@@ -373,44 +391,6 @@ public class OrderServiceImpl implements OrderService {
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, orderId)
         );
         return orderConverter.toDTO(order, orderConverter.toItemDTOList(items));
-    }
-
-    @Override
-    public PaymentDTO payForOrder(Long userId, Long orderId) {
-        Order order = orderMapper.selectById(orderId);
-        if (order == null) {
-            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
-        }
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException("ORDER_ACCESS_DENIED", "无权操作此订单");
-        }
-        if (!"PENDING_PAYMENT".equals(order.getStatus())) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许支付");
-        }
-
-        CreatePaymentRequest paymentReq = new CreatePaymentRequest(orderId, order.getPayAmount(), null);
-        ApiResponse<PaymentDTO> result = paymentFeignClient.createPayment(paymentReq);
-        if (result == null || result.data() == null) {
-            throw new BusinessException("PAYMENT_CREATE_FAILED", "创建支付记录失败");
-        }
-        return result.data();
-    }
-
-    @Override
-    public PaymentDTO getPaymentByOrderId(Long userId, Long orderId) {
-        Order order = orderMapper.selectById(orderId);
-        if (order == null) {
-            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
-        }
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException("ORDER_ACCESS_DENIED", "无权查看此订单支付信息");
-        }
-
-        ApiResponse<PaymentDTO> result = paymentFeignClient.getPaymentByOrderId(orderId);
-        if (result == null || result.data() == null) {
-            throw new BusinessException("PAYMENT_NOT_FOUND", "支付记录不存在");
-        }
-        return result.data();
     }
 
     @Override
@@ -533,27 +513,34 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许审批退款");
         }
 
-        PaymentDTO payment = null;
-        try {
-            ApiResponse<PaymentDTO> paymentResp = paymentFeignClient.getPaymentByOrderId(orderId);
-            if (paymentResp != null && paymentResp.data() != null) {
-                payment = paymentResp.data();
-            }
-        } catch (Exception e) {
-            log.warn("查询支付记录失败, orderId={}: {}", orderId, e.getMessage());
+        // T02：审批经内部退款接口提交渠道退款单（refundNo 稳定 = RF+orderId，审批重复不重复退钱）。
+        // 审批只提交，渠道确认才 SUCCEEDED——返回状态是渠道事实，不是审批结果：
+        //   SUCCEEDED（MOCK 同构同步确认）→ 本事务推进 REFUNDED + 释放库存 + 退券；
+        //   PROCESSING/UNKNOWN → 订单停留 REFUNDING，由 REFUND_SUCCEEDED 事件驱动推进；
+        //   支付服务不可用/渠道未接入 → 明确失败，不改订单状态（QA06）。
+        String refundNo = "RF" + orderId;
+        Map<String, Object> refundRequest = new java.util.HashMap<>();
+        refundRequest.put("refundNo", refundNo);
+        refundRequest.put("orderId", orderId);
+        refundRequest.put("amount", order.getPayAmount());
+        refundRequest.put("currency", "CNY");
+        refundRequest.put("reasonCode", "ORDER_REFUND");
+        ApiResponse<Map<String, Object>> refundResp = refundFeignClient.createRefund(refundRequest);
+        if (refundResp == null || !refundResp.success() || refundResp.data() == null) {
+            throw new BusinessException("REFUND_SUBMIT_FAILED", "退款提交失败，请稍后重试");
         }
-
-        if (payment != null) {
-            try {
-                paymentFeignClient.refund(payment.id());
-            } catch (Exception e) {
-                throw new BusinessException("PAYMENT_REFUND_FAILED", "退款失败: " + e.getMessage());
-            }
+        String refundStatus = String.valueOf(refundResp.data().get("status"));
+        if (!"SUCCEEDED".equals(refundStatus)) {
+            // PROCESSING/UNKNOWN：订单停留 REFUNDING，事件驱动收敛
+            log.info("[T02] 退款处理中, orderId={}, refundNo={}, channelStatus={}", orderId, refundNo, refundStatus);
+            return buildOrderDto(orderId);
         }
 
         int updated = orderMapper.updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED");
         if (updated == 0) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
+            // 已被事件驱动路径推进：审批重放幂等收敛（QA07）
+            log.info("订单已推进为 REFUNDED（事件先行），审批幂等返回, orderId={}", orderId);
+            return buildOrderDto(orderId);
         }
 
         publishOutboxEvent(new OrderStatusChangeMessage(
@@ -566,11 +553,42 @@ public class OrderServiceImpl implements OrderService {
             returnCouponForOrder(order.getCouponId(), orderId);
         }
 
-        Order refundedOrder = orderMapper.selectById(orderId);
+        return buildOrderDto(orderId);
+    }
+
+    /** 组装订单详情 DTO（退款流程复用） */
+    private OrderDTO buildOrderDto(Long orderId) {
+        Order current = orderMapper.selectById(orderId);
         List<OrderItem> items = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, orderId)
         );
-        return orderConverter.toDTO(refundedOrder, orderConverter.toItemDTOList(items));
+        return orderConverter.toDTO(current, orderConverter.toItemDTOList(items));
+    }
+
+    /**
+     * T02：REFUND_SUCCEEDED 事件驱动的退款推进（Inbox 幂等消费）。
+     * CAS REFUNDING → REFUNDED：事件与审批同步推进竞争时只胜出一次（QA07）。
+     */
+    @Override
+    @Transactional
+    public void notifyRefundSucceeded(Long orderId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
+        }
+        int updated = orderMapper.updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED");
+        if (updated == 0) {
+            log.info("退款成功事件幂等跳过（订单非 REFUNDING）, orderId={}, status={}", orderId, order.getStatus());
+            return;
+        }
+        publishOutboxEvent(new OrderStatusChangeMessage(
+                orderId, order.getUserId(), "REFUNDING", "REFUNDED"
+        ));
+        releaseStockForOrder(orderId);
+        if (order.getCouponId() != null) {
+            returnCouponForOrder(order.getCouponId(), orderId);
+        }
+        log.info("[T02] 退款事件驱动订单推进 REFUNDED, orderId={}", orderId);
     }
 
     @Override
@@ -584,14 +602,16 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许拒绝退款");
         }
 
-        String previousStatus = "PAID";
-        int updated = orderMapper.updateStatusRejectRefund(orderId, "REFUNDING", previousStatus, rejectReason);
+        // T02/QA08：恢复退款前履约状态（before_refund_status），不再一律回 PAID；
+        // 0 行 = 状态已变更或缺退款前状态（历史数据需人工核查）
+        String restoredStatus = order.getBeforeRefundStatus() == null ? "PAID" : order.getBeforeRefundStatus();
+        int updated = orderMapper.updateStatusRejectRefund(orderId, "REFUNDING", rejectReason);
         if (updated == 0) {
             throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
         }
 
         publishOutboxEvent(new OrderStatusChangeMessage(
-                orderId, order.getUserId(), "REFUNDING", previousStatus
+                orderId, order.getUserId(), "REFUNDING", restoredStatus
         ));
 
         Order rejectedOrder = orderMapper.selectById(orderId);
@@ -790,17 +810,20 @@ public class OrderServiceImpl implements OrderService {
         return value instanceof Number n ? n.longValue() : null;
     }
 
-    private void compensateDeductedStock(List<CreateOrderRequest.OrderItemInput> deductedItems) {
+    /** T04：预占失败补偿——按真实 orderId 释放，台账驱动 CAS，不会影响其他订单的预占 */
+    private void compensateDeductedStock(List<CreateOrderRequest.OrderItemInput> deductedItems, Long orderId) {
         for (CreateOrderRequest.OrderItemInput item : deductedItems) {
             try {
-                InventoryReleaseRequest releaseReq = new InventoryReleaseRequest(item.skuId(), item.quantity(), 0L);
+                InventoryReleaseRequest releaseReq = new InventoryReleaseRequest(
+                        item.skuId(), item.quantity(), orderId);
                 inventoryFeignClient.releaseStock(releaseReq);
             } catch (Exception ex) {
-                // ASYNC-01：失败登记持久化补偿任务（orderId 未知，以 0 占位并由库存侧按需核对）
-                log.error("补偿释放库存失败, 已登记补偿任务, skuId={}: {}", item.skuId(), ex.getMessage());
+                // ASYNC-01：失败登记持久化补偿任务（orderId+skuId 幂等，重复登记不叠加）
+                log.error("补偿释放库存失败, 已登记补偿任务, orderId={}, skuId={}: {}",
+                        orderId, item.skuId(), ex.getMessage());
                 compensationTaskService.createIfAbsent(
-                        "stock-release-create:" + item.skuId() + ":" + UUID.randomUUID().toString().substring(0, 8),
-                        "stock-release", "0", compensationPayload(0L, item.skuId(), item.quantity()));
+                        "stock-release:" + orderId + ":" + item.skuId(), "stock-release",
+                        String.valueOf(orderId), compensationPayload(orderId, item.skuId(), item.quantity()));
             }
         }
     }
@@ -1012,10 +1035,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public boolean hasOpenOrders(Long userId) {
-        // USER-01：未结 = PENDING_PAYMENT / PAID / SHIPPED（资金或履约未完成）
+        // USER-01/W03：未结 = 资金/履约/售后任一未完成——REFUNDING 退款处理中必须阻塞注销
         Long count = orderMapper.selectCount(new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
-                .in(Order::getStatus, "PENDING_PAYMENT", "PAID", "SHIPPED"));
+                .in(Order::getStatus, "PENDING_PAYMENT", "PAID", "SHIPPED", "REFUNDING"));
         return count != null && count > 0;
     }
 

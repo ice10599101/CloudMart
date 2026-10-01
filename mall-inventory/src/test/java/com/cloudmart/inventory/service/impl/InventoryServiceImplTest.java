@@ -42,6 +42,7 @@ class InventoryServiceImplTest {
     private InventoryMapper inventoryMapper;
     private InventoryLogMapper inventoryLogMapper;
     private InventoryConverter inventoryConverter;
+    private com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper;
     private StringRedisTemplate redisTemplate;
     private DefaultRedisScript<Long> deductInventoryScript;
     private RedissonClient redissonClient;
@@ -59,6 +60,7 @@ class InventoryServiceImplTest {
         inventoryMapper = mock(InventoryMapper.class);
         inventoryLogMapper = mock(InventoryLogMapper.class);
         inventoryConverter = mock(InventoryConverter.class);
+        reservationMapper = mock(com.cloudmart.inventory.repository.InventoryReservationMapper.class);
         redisTemplate = mock(StringRedisTemplate.class);
         deductInventoryScript = mock(DefaultRedisScript.class);
         redissonClient = mock(RedissonClient.class);
@@ -71,10 +73,22 @@ class InventoryServiceImplTest {
 
         inventoryService = new InventoryServiceImpl(
                 inventoryMapper, inventoryLogMapper,
-                org.mockito.Mockito.mock(com.cloudmart.inventory.repository.InventoryReservationMapper.class),
+                reservationMapper,
                 inventoryConverter,
                 redisTemplate, deductInventoryScript, redissonClient, transactionTemplate
         );
+    }
+
+    /** T04：构造一条 RESERVED 台账行（释放/确认按台账数量与状态机迁移） */
+    private com.cloudmart.inventory.entity.InventoryReservation reservation(String status, int quantity) {
+        com.cloudmart.inventory.entity.InventoryReservation row =
+                new com.cloudmart.inventory.entity.InventoryReservation();
+        row.setId(1L);
+        row.setOrderId(ORDER_ID);
+        row.setSkuId(SKU_ID);
+        row.setQuantity(quantity);
+        row.setStatus(status);
+        return row;
     }
 
     private void mockLockAcquired() throws InterruptedException {
@@ -209,10 +223,12 @@ class InventoryServiceImplTest {
         }
 
         @Test
-        @DisplayName("should release stock successfully")
+        @DisplayName("T04 台账驱动：释放按台账数量回补可售库存")
         void releaseStock_success() throws InterruptedException {
             ReleaseRequest request = new ReleaseRequest(SKU_ID, 5, ORDER_ID);
             mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(reservation("RESERVED", 5));
+            when(reservationMapper.releaseReservation(ORDER_ID, SKU_ID)).thenReturn(1);
             when(inventoryMapper.releaseStock(SKU_ID, 5)).thenReturn(1);
             mockExecuteWithoutResult();
 
@@ -225,16 +241,47 @@ class InventoryServiceImplTest {
         }
 
         @Test
-        @DisplayName("should throw when inventory not found for release")
+        @DisplayName("T04 台账驱动：库存行回补失败（预占不足）抛 INVENTORY_NOT_FOUND")
         void releaseStock_notFound_throwsException() throws InterruptedException {
             ReleaseRequest request = new ReleaseRequest(SKU_ID, 5, ORDER_ID);
             mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(reservation("RESERVED", 5));
+            when(reservationMapper.releaseReservation(ORDER_ID, SKU_ID)).thenReturn(1);
             when(inventoryMapper.releaseStock(SKU_ID, 5)).thenReturn(0);
             mockExecuteWithoutResult();
 
             assertThatThrownBy(() -> inventoryService.releaseStock(request))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("INVENTORY_NOT_FOUND"));
+        }
+
+        @Test
+        @DisplayName("T04/LC04：无台账行拒绝裸释放（INVENTORY_RESERVATION_MISSING），不更新库存")
+        void releaseStock_noLedgerRow_rejected() throws InterruptedException {
+            ReleaseRequest request = new ReleaseRequest(SKU_ID, 5, ORDER_ID);
+            mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(null);
+            mockExecuteWithoutResult();
+
+            assertThatThrownBy(() -> inventoryService.releaseStock(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("INVENTORY_RESERVATION_MISSING"));
+            verify(inventoryMapper, never()).releaseStock(anyLong(), anyInt());
+        }
+
+        @Test
+        @DisplayName("T04/LC04：零订单释放被拒绝（INVENTORY_ORDER_REQUIRED）")
+        void releaseStock_zeroOrder_rejected() throws InterruptedException {
+            ReleaseRequest request = new ReleaseRequest(SKU_ID, 5, 0L);
+            mockLockAcquired();
+            mockExecuteWithoutResult();
+
+            assertThatThrownBy(() -> inventoryService.releaseStock(request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("INVENTORY_ORDER_REQUIRED"));
+            verify(inventoryMapper, never()).releaseStock(anyLong(), anyInt());
         }
     }
 
@@ -251,9 +298,11 @@ class InventoryServiceImplTest {
         }
 
         @Test
-        @DisplayName("should confirm deduction successfully")
+        @DisplayName("T04 台账驱动：确认数量以台账为准，状态机迁移成功")
         void confirmDeduct_success() throws InterruptedException {
             mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(reservation("RESERVED", 5));
+            when(reservationMapper.confirmReservation(ORDER_ID, SKU_ID)).thenReturn(1);
             when(inventoryMapper.confirmDeduct(SKU_ID, 5)).thenReturn(1);
             mockExecuteWithoutResult();
 
@@ -265,15 +314,31 @@ class InventoryServiceImplTest {
         }
 
         @Test
-        @DisplayName("should throw when confirm fails due to insufficient reserved stock")
+        @DisplayName("T04 台账驱动：库存行确认失败（预占不足）抛 INVENTORY_CONFIRM_FAILED")
         void confirmDeduct_insufficientReserved_throwsException() throws InterruptedException {
             mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(reservation("RESERVED", 5));
+            when(reservationMapper.confirmReservation(ORDER_ID, SKU_ID)).thenReturn(1);
             when(inventoryMapper.confirmDeduct(SKU_ID, 5)).thenReturn(0);
             mockExecuteWithoutResult();
 
             assertThatThrownBy(() -> inventoryService.confirmDeduct(SKU_ID, 5, ORDER_ID))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("INVENTORY_CONFIRM_FAILED"));
+        }
+
+        @Test
+        @DisplayName("T04/LC04：无台账行拒绝裸确认（INVENTORY_RESERVATION_MISSING），不更新库存")
+        void confirmDeduct_noLedgerRow_rejected() throws InterruptedException {
+            mockLockAcquired();
+            when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(null);
+            mockExecuteWithoutResult();
+
+            assertThatThrownBy(() -> inventoryService.confirmDeduct(SKU_ID, 5, ORDER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("INVENTORY_RESERVATION_MISSING"));
+            verify(inventoryMapper, never()).confirmDeduct(anyLong(), anyInt());
         }
     }
 

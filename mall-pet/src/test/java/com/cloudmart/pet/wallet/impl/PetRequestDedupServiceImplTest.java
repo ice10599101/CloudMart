@@ -121,6 +121,44 @@ class PetRequestDedupServiceImplTest {
     }
 
     @Test
+    @DisplayName("P02 同键处理中且租约未到期：IN_PROGRESS，不接管")
+    void claim_inProgressLeaseValid() {
+        when(dedupMapper.insert(any(PetRequestDedup.class))).thenThrow(new DuplicateKeyException("uk"));
+        PetRequestDedup row = existing("PROCESSING", HASH, null);
+        row.setLeaseUntil(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(300));
+        when(dedupMapper.selectOne(any())).thenReturn(row);
+        when(dedupMapper.update(any(), any())).thenReturn(0);
+
+        assertThat(service.claim(1001L, "PURCHASE", "intent-key-000001", HASH).outcome())
+                .isEqualTo(ClaimResult.Outcome.IN_PROGRESS);
+    }
+
+    @Test
+    @DisplayName("P02 租约到期的 PROCESSING：CAS 接管成功按 NEW 重新执行；败者 IN_PROGRESS")
+    void claim_expiredLease_takeover() {
+        when(dedupMapper.insert(any(PetRequestDedup.class))).thenThrow(new DuplicateKeyException("uk"));
+        PetRequestDedup row = existing("PROCESSING", HASH, null);
+        row.setLeaseUntil(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1));
+        row.setLeaseOwner("dead-instance:1");
+        when(dedupMapper.selectOne(any())).thenReturn(row);
+        when(dedupMapper.update(any(), any())).thenReturn(1, 0);
+
+        assertThat(service.claim(1001L, "PURCHASE", "intent-key-000001", HASH).outcome())
+                .isEqualTo(ClaimResult.Outcome.NEW);
+        assertThat(service.claim(1001L, "PURCHASE", "intent-key-000001", HASH).outcome())
+                .isEqualTo(ClaimResult.Outcome.IN_PROGRESS);
+    }
+
+    @Test
+    @DisplayName("P02 tryTakeover：CAS 命中返回 true，未命中（已终态/租约未到）返回 false")
+    void tryTakeover_casSemantics() {
+        when(dedupMapper.update(any(), any())).thenReturn(1, 0);
+
+        assertThat(service.tryTakeover(1001L, "PURCHASE", "intent-key-000001")).isTrue();
+        assertThat(service.tryTakeover(1001L, "PURCHASE", "intent-key-000001")).isFalse();
+    }
+
+    @Test
     @DisplayName("请求键契约：16..128 ASCII")
     void requestKey_validation() {
         assertThat(PetRequestDedupService.isValidRequestKey(null)).isFalse();

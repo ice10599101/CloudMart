@@ -10,18 +10,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
 /**
- * 订单回调 Feign 客户端（SEC-01）：目标迁移至 mall-order 的
- * /internal/orders/**（服务令牌可达），旧 /orders/{id}/payment-success
- * 用户前缀路径已随身份边界改造移除。
+ * 订单查询 Feign 客户端（SEC-01）：/internal/orders/**（服务令牌可达）。
+ * T05：支付成功回调 Feign 已删除——支付成功经 payment-events MQ 事件驱动订单推进，
+ * 不再保留 HTTP 双路径状态入口。
  */
 @FeignClient(contextId = "paymentOrderFeignClient", name = "mall-order", path = "/internal/orders", fallbackFactory = OrderFeignClientFallbackFactory.class)
 public interface OrderFeignClient {
-
-    @PostMapping("/payment-success/{orderId}")
-    ApiResponse<Void> notifyPaymentSuccess(@PathVariable("orderId") Long orderId);
-
-    @PostMapping("/cancel-notify/{orderId}")
-    ApiResponse<Void> notifyOrderCancel(@PathVariable("orderId") Long orderId);
 
     /** OPS-01：分页获取已推进资金状态的订单（PAID/SHIPPED/COMPLETED），对账核对用 */
     @GetMapping("/paid-orders")

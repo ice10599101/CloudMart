@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: 后端编译与单测（22 个范围内模块）
+    name: 后端全模块编译与单测（24 模块）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,10 +17,11 @@ jobs:
           distribution: temurin
           java-version: '26'
           cache: maven
-      - name: 编译（范围模块，-am 依赖链）
-        run: mvn -B -ntp -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am -DskipTests compile
-      - name: 单元测试（范围模块）
-        run: mvn -B -ntp -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' test
+      - name: 工具链版本（E01 可复现基线）
+        run: chmod +x mvnw && ./mvnw -version
+      # E01：从根 POM 构建全部模块，禁止再维护模块子集清单
+      - name: 全模块单元测试
+        run: ./mvnw -B -ntp test
       - name: 失败摘要（转 annotation 便于远程诊断）
         if: failure()
         run: |
@@ -33,19 +34,72 @@ jobs:
             done
           done
 
+  backend-integration:
+    name: 后端集成测试（Testcontainers / 真实基础设施）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+      # E01：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
+      # 集成测试数量为 0 也视为失败（防止 IT 被静默跳过）
+      - name: 检查集成测试存在
+        run: |
+          count=$(find mall-*/src/test -name '*IntegrationTest.java' | wc -l)
+          echo "IntegrationTest 文件数: $count"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::未发现任何 *IntegrationTest.java，集成测试门禁失效"; exit 1
+          fi
+      # E01：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
+      # mall-wish IT 依赖 docker-compose 的 mysql-it(8307)/redis-it(8380) 专用实例，
+      # mall-ai/mall-product IT 使用 Testcontainers（runner 自带 Docker）
+      - name: 启动 IT 专用基础设施
+        run: docker compose up -d mysql-it redis-it
+      - name: 等待 mysql-it / redis-it 健康
+        run: |
+          for i in $(seq 1 60); do
+            mysql_ok=$(docker inspect --format '{{.State.Health.Status}}' cloudmart-mysql-it 2>/dev/null || echo missing)
+            redis_ok=$(docker inspect --format '{{.State.Health.Status}}' cloudmart-redis-it 2>/dev/null || echo missing)
+            echo "attempt=$i mysql=$mysql_ok redis=$redis_ok"
+            [ "$mysql_ok" = "healthy" ] && [ "$redis_ok" = "healthy" ] && exit 0
+            sleep 5
+          done
+          echo "::error::IT 基础设施未在超时内就绪"; exit 1
+      - name: 集成测试（-Pintegration-test → failsafe verify）
+        run: ./mvnw -B -ntp -Pintegration-test verify
+      - name: 集成测试执行数校验（防止 IT 被静默跳过）
+        run: |
+          total=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')
+          echo "failsafe 实际执行测试数: $total"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::failsafe 未执行任何集成测试"; exit 1
+          fi
+      - name: 失败摘要
+        if: failure()
+        run: |
+          for f in $(find . -name "*.txt" -path "*failsafe-reports*"); do
+            grep -E "Tests run: [0-9]+, Failures: [1-9]|Errors: [1-9]" "$f" | while read -r line; do
+              echo "::error::[$f] $line"
+            done
+          done
+
   frontend:
-    name: 三端类型检查与 Web 单测
+    name: 三端类型检查、单测与生产构建
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - dir: CloudMart-ui
-            cmds: npx tsc --noEmit && npx vitest run
+            cmds: npx tsc --noEmit && npx vitest run --maxWorkers=1 --pool=threads && npm run build
           - dir: cloudmart-app
-            cmds: npx tsc --noEmit
+            cmds: npx tsc --noEmit && npx expo export --platform web
           - dir: cloudmart-mobile
-            cmds: npx tsc --noEmit
+            cmds: npx tsc --noEmit && npm run build:h5 && npm run build:weapp
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -58,9 +112,26 @@ jobs:
       - name: 安装依赖（锁文件严格模式）
         working-directory: ${{ matrix.dir }}
         run: npm ci
-      - name: 校验
+      - name: 校验与生产构建
         working-directory: ${{ matrix.dir }}
         run: ${{ matrix.cmds }}
       - name: 失败摘要
         if: failure()
         run: echo "::error::dir=${{ matrix.dir }} node=$(node --version) npm=$(npm --version) 上一步失败，见上方日志"
+
+  guards:
+    name: 仓库守门（路由策略 + 密钥扫描）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: 路由权限清单 lint（S05：重复键/非法 YAML/必填字段）
+        run: node scripts/ci/route-policy-lint.mjs
+      - name: 密钥泄漏扫描（gitleaks）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

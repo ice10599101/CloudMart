@@ -19,11 +19,23 @@ public interface PetRequestDedupService {
      */
     ClaimResult claim(Long userId, String endpointKey, String requestKey, String payloadHash);
 
-    /** 业务事务提交成功后写入终态响应（独立小事务；成功与业务拒绝均调用） */
+    /**
+     * P02：接管租约到期的 PROCESSING 行（CAS：仅当仍是 PROCESSING 且租约已到期时轮换租约、
+     * 推进版本）。供同键重试与恢复扫描器调用；胜者按 NEW 重新执行，败者返回 false。
+     */
+    boolean tryTakeover(Long userId, String endpointKey, String requestKey);
+
+    /**
+     * 业务成功后写入终态响应（P02：REQUIRED——购买成功路径在业务事务内调用，
+     * 与订单/钱包/资产同一事务提交；业务拒绝路径无事务时自成小事务）。
+     */
     void completeSucceeded(Long userId, String endpointKey, String requestKey,
                            Long bizOrderId, String responseJson);
 
-    /** 未知失败（进程崩溃之外的显式失败路径）；同键下次重试重新执行 */
+    /**
+     * 未知失败（P02：REQUIRED；业务事务已回滚后调用，自成小事务）；
+     * 同键下次重试重新执行。
+     */
     void markFailed(Long userId, String endpointKey, String requestKey, String errorJson);
 
     /** 规范请求摘要：按固定次序序列化后 SHA-256（客户端 requestKey 不进入业务事实摘要） */

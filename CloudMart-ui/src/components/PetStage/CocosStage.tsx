@@ -14,6 +14,9 @@ import {
 import type { BattleRound, GameToHost, HostToGame, PetDisplayState, PetIntentAction } from './bridge'
 import styles from './style.module.css'
 
+/** iframe src 的缓存穿透戳：模块加载时生成一次，页面存续期内稳定（避免父组件重渲染导致 iframe 反复重载） */
+const PET_GAME_FRAME_URL = `${PET_GAME_FRAME_PATH}?v=${Math.random().toString(36).slice(2, 10)}`
+
 /**
  * Cocos 宠物舞台宿主组件（本项目唯一舞台实现）。
  *
@@ -157,7 +160,9 @@ const CocosStage = forwardRef<{ post: (message: HostToGame) => void }, CocosStag
           ref={frameRef}
           title="宠物舞台"
           className={styles.frame}
-          src={PET_GAME_FRAME_PATH}
+          /* 时间戳缓存穿透：pet-game 每次重建后，页面刷新必定拉到最新产物，
+             避免浏览器缓存旧的 index.html/style.css 造成深色底条等问题 */
+          src={PET_GAME_FRAME_URL}
         />
       ) : (
         (fallback ?? (

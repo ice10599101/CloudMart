@@ -33,21 +33,11 @@ public class InternalOrderController {
 
     private final OrderService orderService;
 
-    @PostMapping("/payment-success/{orderId}")
-    @Operation(summary = "支付成功通知", description = "支付服务回调通知订单支付成功")
-    public ApiResponse<Void> notifyPaymentSuccess(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        orderService.notifyPaymentSuccess(orderId);
-        return ApiResponse.ok(null);
-    }
+    // T05：/payment-success/{orderId} HTTP 通知入口已删除——支付成功统一经
+    // payment-events MQ 事件（applyPaymentSucceeded）驱动，消除双路径状态推进。
 
-    @PostMapping("/cancel-notify/{orderId}")
-    @Operation(summary = "订单取消通知", description = "支付服务回调通知订单取消（退款）")
-    public ApiResponse<Void> notifyOrderCancel(
-            @Parameter(description = "订单ID", required = true) @PathVariable("orderId") Long orderId) {
-        orderService.notifyOrderCancel(orderId);
-        return ApiResponse.ok(null);
-    }
+    // T05：/cancel-notify/{orderId} HTTP 端点已删除——支付侧回调生产者随旧支付链路移除；
+    // 订单取消由超时调度/取消事件内部路径触发（notifyOrderCancel 服务方法保留）。
 
     /**
      * SEC-04：订单最小内部信息——支付/履约服务在做对象归属校验（requireOwner）

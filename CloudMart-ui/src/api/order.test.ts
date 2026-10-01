@@ -7,7 +7,6 @@ vi.mock('@/utils/request', () => ({
 import request from '@/utils/request'
 import {
   createOrder, fetchOrders, fetchOrderById, cancelOrder,
-  payForOrder, fetchPaymentByOrderId, simulatePaymentSuccess,
   shipOrder, confirmReceipt, requestRefund,
 } from './order'
 
@@ -49,29 +48,8 @@ describe('order API', () => {
     expect(request.put).toHaveBeenCalledWith('/order/orders/42/cancel')
   })
 
-  it('payForOrder() calls POST /order/orders/:id/pay', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-
-    await payForOrder(42)
-
-    expect(request.post).toHaveBeenCalledWith('/order/orders/42/pay')
-  })
-
-  it('fetchPaymentByOrderId() calls GET /order/orders/:id/payment', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-
-    await fetchPaymentByOrderId(42)
-
-    expect(request.get).toHaveBeenCalledWith('/order/orders/42/payment')
-  })
-
-  it('simulatePaymentSuccess() calls PUT /payment/payments/:id/simulate-success', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-
-    await simulatePaymentSuccess(100)
-
-    expect(request.put).toHaveBeenCalledWith('/payment/payments/100/simulate-success')
-  })
+  // T01：旧订单支付代理用例（payForOrder/fetchPaymentByOrderId/simulatePaymentSuccess）
+  // 已随旧链路删除——收银台用例见 api/payment.test.ts（payment-attempts 契约）
 
   it('shipOrder() calls PUT /order/orders/:id/ship', async () => {
     vi.mocked(request.put).mockResolvedValue({ data: {} } as any)

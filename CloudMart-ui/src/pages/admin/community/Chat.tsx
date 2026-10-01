@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ProColumns } from '@ant-design/pro-components'
-import { Modal, Tag } from 'antd'
+import { Modal, Tag, Input, message } from 'antd'
 import { getChatConversations, getChatMessages } from '@/api/admin/community'
 import { safeProTableRequest } from '@/utils/proTable'
 
@@ -66,25 +66,53 @@ export default function ChatManagement() {
   const [messages, setMessages] = useState<MessageRecord[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
 
-  const fetchMessages = useCallback(async (convId: number) => {
+  // S02：私聊正文读取强制工单上下文（caseId/reason）——后端无此参数直接拒绝，行为入操作审计
+  const fetchMessages = useCallback(async (convId: number, caseId: string, reason: string) => {
     setMessagesLoading(true)
     try {
-      const res = await getChatMessages(convId, { page: 1, pageSize: 50 })
+      const res = await getChatMessages(convId, { page: 1, pageSize: 50, caseId, reason })
       setMessages(res.data.data ?? [])
     } catch {
       setMessages([])
+      message.error('读取失败：请确认具备 chat:content:read 权限且工单信息有效')
     } finally {
       setMessagesLoading(false)
     }
-  }, [])
+  }, [message])
 
   const handleViewMessages = useCallback(
     (record: ConversationRecord) => {
-      setCurrentConversationId(record.id)
-      setMessagesModalOpen(true)
-      fetchMessages(record.id)
+      let caseIdInput = ''
+      let reasonInput = ''
+      Modal.confirm({
+        title: '私聊正文读取登记',
+        icon: null,
+        content: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Input
+              placeholder='工单 ID（必填，如 CASE-100）'
+              onChange={(e) => { caseIdInput = e.target.value }}
+            />
+            <Input.TextArea
+              placeholder='读取理由（必填，将记入操作审计）'
+              onChange={(e) => { reasonInput = e.target.value }}
+            />
+          </div>
+        ),
+        okText: '登记并读取',
+        cancelText: '取消',
+        onOk: () => {
+          if (!caseIdInput.trim() || !reasonInput.trim()) {
+            message.error('工单 ID 与读取理由为必填项')
+            return Promise.reject()
+          }
+          setCurrentConversationId(record.id)
+          setMessagesModalOpen(true)
+          return fetchMessages(record.id, caseIdInput.trim(), reasonInput.trim())
+        },
+      })
     },
-    [fetchMessages],
+    [fetchMessages, message],
   )
 
   const msgColumns: ProColumns<MessageRecord>[] = [

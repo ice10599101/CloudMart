@@ -147,8 +147,9 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
     setUploadingImage(true)
     try {
       const { data: response } = await uploadFile(file)
-      if (response.data?.url) {
-        setPendingImages((prev) => [...prev, response.data.url])
+      const uploadedUrl = response.data?.url
+      if (uploadedUrl) {
+        setPendingImages((prev) => [...prev, uploadedUrl])
       } else if (response.error) {
         message.error(response.error.message || '图片上传失败')
       }

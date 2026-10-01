@@ -8,18 +8,15 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 
 /** 发码 60 秒冷却（与服务端每用户冷却一致，仅 UI 层提示） */
-const SEND_CODE_COOLDOWN_SECONDS = 60
 
 /**
- * 账号注销（合规 34.2 / API 2.13，四AB A1 APP 端）：
- * 发送验证码 → 申请注销（30 天宽限期）→ 撤回。
+ * 全账号注销（W03：mall-user 唯一权威，APP 端）：
+ * 申请注销（30 天宽限期）→ 撤回。统一编排不再走短信验证码链路。
  */
 export default function AccountDeletionScreen() {
   const insets = useSafeAreaInsets()
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
-  const [code, setCode] = useState('')
   const [reason, setReason] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState(false)
   const [countdown, setCountdown] = useState(0)
@@ -36,37 +33,10 @@ export default function AccountDeletionScreen() {
     return () => clearTimeout(timer)
   }, [countdown])
 
-  const handleSend = async () => {
-    setBusy(true)
-    try {
-      const res = await wishApi.sendDeletionCode()
-      if (res.data?.success) {
-        // 后端不假成功：sent=false（频控/通道未配置/发送失败）时如实提示，不进入已发码态
-        const result = res.data.data
-        if (result?.sent) {
-          setCodeSent(true)
-          setCountdown(SEND_CODE_COOLDOWN_SECONDS)
-          alert(result.devCode ? `验证码已发送（开发回显：${result.devCode}）` : '验证码已发送，请查收短信/邮件')
-        } else {
-          alert(result?.message || '验证码发送失败，请稍后重试')
-        }
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '验证码发送失败')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const handleApply = async () => {
-    if (!/^\d{6}$/.test(code)) {
-      alert('请输入 6 位验证码')
-      return
-    }
     setBusy(true)
     try {
-      const res = await wishApi.applyAccountDeletion(code, reason.trim() || undefined)
+      const res = await wishApi.applyAccountDeletion(reason.trim() || undefined)
       if (res.data?.success) {
         setPending(true)
         alert('注销申请已提交，30 天宽限期内可在本页撤回')
@@ -144,49 +114,12 @@ export default function AccountDeletionScreen() {
           </View>
         ) : (
           <View>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={busy || countdown > 0}
-              onPress={handleSend}
-              style={{
-                paddingVertical: Spacing.md,
-                borderRadius: BorderRadius.lg,
-                alignItems: 'center',
-                backgroundColor: 'rgba(0, 212, 255, 0.12)',
-                marginBottom: Spacing.md,
-              }}
-            >
-              <Text style={{ fontSize: FontSize.sm, color: WishColors.accentCyan }}>
-                {countdown > 0
-                  ? `${countdown}s 后重发`
-                  : codeSent
-                    ? '重新发送注销验证码（5 分钟有效）'
-                    : '1. 发送注销验证码'}
-              </Text>
-            </TouchableOpacity>
-            <TextInput
-              value={code}
-              onChangeText={(v) => setCode(v.replace(/[^0-9]/g, ''))}
-              maxLength={6}
-              keyboardType="number-pad"
-              placeholder="2. 输入 6 位验证码"
-              placeholderTextColor={WishColors.textSecondary}
-              style={{
-                borderWidth: 1,
-                borderColor: WishColors.border,
-                borderRadius: BorderRadius.md,
-                padding: Spacing.md,
-                marginBottom: Spacing.sm,
-                fontSize: FontSize.sm,
-                color: WishColors.text,
-              }}
-            />
             <TextInput
               value={reason}
               onChangeText={setReason}
               maxLength={500}
               multiline
-              placeholder="3. 注销原因（可选）"
+              placeholder="注销原因（可选）"
               placeholderTextColor={WishColors.textSecondary}
               style={{
                 borderWidth: 1,
@@ -202,14 +135,14 @@ export default function AccountDeletionScreen() {
             />
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={busy || !codeSent}
+              disabled={busy}
               onPress={handleApply}
               style={{
                 paddingVertical: Spacing.md,
                 borderRadius: BorderRadius.lg,
                 alignItems: 'center',
                 backgroundColor: '#ff4d4f',
-                opacity: busy || !codeSent ? 0.5 : 1,
+                opacity: busy ? 0.5 : 1,
               }}
             >
               <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: '#ffffff' }}>

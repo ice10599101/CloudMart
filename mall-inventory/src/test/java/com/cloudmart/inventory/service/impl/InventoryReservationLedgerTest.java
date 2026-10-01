@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -184,14 +185,15 @@ class InventoryReservationLedgerTest {
     }
 
     @Test
-    @DisplayName("无台账行（排空期兼容路径）仍可释放，SQL 由 reserved 下限兜底")
-    void release_noLedgerRow_legacyPath() {
+    @DisplayName("T04/LC04：无台账行拒绝释放（返回异常并核查），不再裸更新库存行")
+    void release_noLedgerRow_rejected() {
         when(reservationMapper.findByOrderAndSku(ORDER_ID, SKU_ID)).thenReturn(null);
-        when(inventoryMapper.releaseStock(SKU_ID, 2)).thenReturn(1);
 
-        service.releaseStock(new ReleaseRequest(SKU_ID, 2, ORDER_ID));
-
-        verify(inventoryMapper).releaseStock(SKU_ID, 2);
+        assertThatThrownBy(() -> service.releaseStock(new ReleaseRequest(SKU_ID, 2, ORDER_ID)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                        .isEqualTo("INVENTORY_RESERVATION_MISSING"));
+        verify(inventoryMapper, never()).releaseStock(anyLong(), anyInt());
         verify(reservationMapper, never()).releaseReservation(anyLong(), anyLong());
     }
 }

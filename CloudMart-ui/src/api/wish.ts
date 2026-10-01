@@ -1604,23 +1604,19 @@ export interface AccountDeletionStatus {
   executedAt: string | null
 }
 
-export function sendDeletionCode() {
-  return request.post<ApiResponse<{ sent: boolean; expiresInSeconds: number; devCode?: string; message?: string }>>(
-    '/wish/my/account-deletion/code')
-}
-
-export function applyAccountDeletion(confirmCode: string, reason?: string) {
-  return request.post<ApiResponse<{ userId: number; executeAfter: string; canCancel: boolean; cancelDeadline: string }>>(
-    '/wish/my/account-deletion', { confirmCode, reason })
+// W03：全账号注销统一 mall-user 权威入口（wish 旧入口已删除）
+export function applyAccountDeletion(reason?: string) {
+  return request.post<ApiResponse<{ status: string; executeAfter: string }>>(
+    '/user/users/account-deletion', { reason })
 }
 
 export function cancelAccountDeletion() {
-  return request.post<ApiResponse<{ userId: number; cancelled: boolean; cancelledAt: string }>>(
-    '/wish/my/account/cancel')
+  return request.delete<ApiResponse<{ status: string }>>('/user/users/account-deletion')
 }
 
 export function getAccountDeletionStatus() {
-  return request.get<ApiResponse<AccountDeletionStatus | null>>('/wish/my/account-deletion')
+  return request.get<ApiResponse<{ status: string; executeAfter?: string; serviceProgress?: string; executedAt?: string }>>(
+    '/user/users/account-deletion')
 }
 
 // ========== 四AB 审计修复新增端点（progress CAS/checkins/growth 编辑删除/温暖事件/信笺互动/参与者/资产详情/主播自配/品牌池创建） ==========

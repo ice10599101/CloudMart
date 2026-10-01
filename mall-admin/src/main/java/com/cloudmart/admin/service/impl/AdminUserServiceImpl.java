@@ -59,6 +59,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final DataScopeService dataScopeService;
     private final AdminConverter adminConverter;
     private final AuthRevocationFeignClient authRevocationFeignClient;
+    private final AdminAuthorizationPolicy authorizationPolicy;
 
     public AdminUserServiceImpl(AdminUserMapper adminUserMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
@@ -69,7 +70,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                                 PasswordEncoder passwordEncoder,
                                 DataScopeService dataScopeService,
                                 AdminConverter adminConverter,
-                                AuthRevocationFeignClient authRevocationFeignClient) {
+                                AuthRevocationFeignClient authRevocationFeignClient,
+                                AdminAuthorizationPolicy authorizationPolicy) {
         this.adminUserMapper = adminUserMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
         this.adminUserPostMapper = adminUserPostMapper;
@@ -80,6 +82,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         this.dataScopeService = dataScopeService;
         this.adminConverter = adminConverter;
         this.authRevocationFeignClient = authRevocationFeignClient;
+        this.authorizationPolicy = authorizationPolicy;
     }
 
     @Override
@@ -198,11 +201,16 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        // S03：重置密码属提权路径——数据范围 + 超管目标保护（QA21：受限管理员重置范围外/超管被拒绝）
+        authorizationPolicy.assertCanManage(user, "重置密码");
         // SEC-03：重置密码先失效认证状态（硬失效），失败则中止
         authRevocationFeignClient.invalidateState(
                 AuthRevocationFeignClient.adminHardInvalidate(request.userId()));
         user.setPassword(passwordEncoder.encode(request.newPassword()));
-        adminUserMapper.updateById(user);
+        int updated = adminUserMapper.updateById(user);
+        if (updated == 0) {
+            throw new BusinessException("USER_STATE_CONFLICT", "用户状态已变更，请刷新重试");
+        }
     }
 
     @Override
@@ -212,13 +220,24 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }
+        // S03：数据范围 + 超管目标保护（QA21：受限管理员禁用范围外/超管被拒绝）
+        authorizationPolicy.assertCanManage(user, "禁用或启用");
+        boolean disabling = status != null && status != 1;
+        if (disabling) {
+            // 与删除同级保护：内置超管不可禁用；并兜底"至少保留一名可用超管"
+            assertNotBuiltInSuperAdmin(user, "禁用");
+            authorizationPolicy.assertNotLastEnabledSuperAdmin(user, status);
+        }
         // SEC-03：禁用先失效认证状态（硬失效），失败则中止；启用无需失效
-        if (status != null && status != 1) {
+        if (disabling) {
             authRevocationFeignClient.invalidateState(
                     AuthRevocationFeignClient.adminHardInvalidate(id));
         }
         user.setStatus(status);
-        adminUserMapper.updateById(user);
+        int updated = adminUserMapper.updateById(user);
+        if (updated == 0) {
+            throw new BusinessException("USER_STATE_CONFLICT", "用户状态已变更，请刷新重试");
+        }
     }
 
     @Override
@@ -373,37 +392,18 @@ public class AdminUserServiceImpl implements AdminUserService {
      * SEC-03：单条读/写/删除的数据范围校验（getById/update/delete 不走 wrapper 查询，
      * 需要与 {@link #applyDataScope} 同一语义）；越界按资源不存在处理。
      */
+    /** S03：数据范围校验集中到 {@link AdminAuthorizationPolicy}（与角色/授权上限同一权威） */
     private void assertWithinDataScope(AdminUser target) {
-        AdminSecurityContext ctx = AdminSecurityContext.get();
-        if (ctx == null || ctx.isSuperAdmin()) {
-            return;
-        }
-        DataScopeResult dataScope = dataScopeService.resolveDataScope(ctx.userId());
-        // 范围无法解析（管理员无任何角色配置）时按最严格策略：仅本人记录可见
-        boolean within = dataScope == null
-                ? target.getId().equals(ctx.userId())
-                : switch (dataScope.type()) {
-            case ALL -> true;
-            case CUSTOM, DEPT_AND_CHILD -> target.getDeptId() != null
-                    && dataScope.deptIds() != null && dataScope.deptIds().contains(target.getDeptId());
-            case DEPT -> target.getDeptId() != null && target.getDeptId().equals(ctx.deptId());
-            case SELF -> target.getId().equals(ctx.userId());
-        };
-        if (!within) {
-            throw new BusinessException("USER_NOT_FOUND", "用户不存在");
-        }
+        authorizationPolicy.assertWithinDataScope(target);
     }
 
     /** 目标持有内置超管角色（roleKey=admin）时不允许删除/停用 */
     private void assertNotBuiltInSuperAdmin(AdminUser target, String action) {
-        if (hasBuiltInSuperAdminRole(target.getId())) {
-            throw new BusinessException("FORBIDDEN", "内置超级管理员不允许" + action);
-        }
+        authorizationPolicy.assertNotBuiltInSuperAdmin(target, action);
     }
 
     private boolean isSuperAdminOperator() {
-        AdminSecurityContext ctx = AdminSecurityContext.get();
-        return ctx != null && ctx.isSuperAdmin();
+        return authorizationPolicy.isSuperAdminOperator();
     }
 
     private boolean hasBuiltInSuperAdminRole(Long userId) {

@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
+import { fileApi } from '@/api/file'
 import { userApi } from '@/api/user'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import axios from 'axios'
@@ -129,10 +130,8 @@ export default function ProfilePage() {
         name: 'avatar.jpg',
       } as unknown as Blob)
 
-      // 上传地址用 API_BASE（原 window.location 写法在 RN Native 端不可用）
-      const uploadRes = await axios.post(`${API_BASE}/file/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data', Authorization: token ? `Bearer ${token}` : '' },
-      })
+      // S01：唯一资产入口 /file/assets（fileApi.upload 内部已带鉴权与 URL 解析）
+      const uploadRes = await fileApi.upload(formData)
       const avatarUrl = resolveMediaUrl(uploadRes.data?.data?.url)
       if (avatarUrl) {
         await userApi.updateProfile({ avatar: avatarUrl })

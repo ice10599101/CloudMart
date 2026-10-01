@@ -6,7 +6,6 @@ import com.cloudmart.order.converter.OrderConverter;
 import com.cloudmart.order.dto.CreateOrderRequest;
 import com.cloudmart.order.dto.OrderDTO;
 import com.cloudmart.order.dto.OrderItemDTO;
-import com.cloudmart.order.feign.PaymentFeignClient.PaymentDTO;
 import com.cloudmart.order.service.OrderService;
 import com.cloudmart.order.vo.OrderVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -115,23 +114,6 @@ class OrderControllerTest {
                             .header("X-User-Id", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("COMPLETED"));
-        }
-    }
-
-    @Nested
-    @DisplayName("POST /orders/{orderId}/pay")
-    class PayForOrderTests {
-
-        @Test
-        @DisplayName("pay for order -> returns 200 with payment info")
-        void payForOrder_ShouldReturn200() throws Exception {
-            PaymentDTO paymentDTO = new PaymentDTO(1L, 1L, "PAY001", new BigDecimal("100.00"), "MOCK", "PENDING", null, null, "http://pay.url");
-            when(orderService.payForOrder(1L, 1L)).thenReturn(paymentDTO);
-
-            mockMvc.perform(post("/orders/1/pay")
-                            .header("X-User-Id", "1"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.paymentNo").value("PAY001"));
         }
     }
 

@@ -3,9 +3,12 @@ import type { ApiResponse } from '@/types/api'
 import type { AxiosProgressEvent, CancelToken } from 'axios'
 
 export interface FileUploadResult {
-  url: string
-  originalFilename: string
+  fileId: string
+  url: string | null
+  mime: string
   fileSize: number
+  visibility: 'PUBLIC' | 'PRIVATE'
+  status: string
 }
 
 export interface UploadFileOptions {
@@ -13,10 +16,13 @@ export interface UploadFileOptions {
   cancelToken?: CancelToken
 }
 
+// S01/LC05：唯一资产上传统一走 /file/assets（配额+内容校验+可见性分域）；
+// 旧 /file/upload 与 /file/delete 通道已删除，旧 URL 无任何执行入口。
 export function uploadFile(file: File, options?: UploadFileOptions) {
   const formData = new FormData()
   formData.append('file', file)
-  return request.post<ApiResponse<FileUploadResult>>('/file/upload', formData, {
+  formData.append('visibility', 'PUBLIC')
+  return request.post<ApiResponse<FileUploadResult>>('/file/assets', formData, {
     onUploadProgress: (event: AxiosProgressEvent) => {
       if (!options?.onProgress || !event.total) return
       const percent = Math.round((event.loaded / event.total) * 100)
@@ -25,10 +31,6 @@ export function uploadFile(file: File, options?: UploadFileOptions) {
     cancelToken: options?.cancelToken,
     timeout: 60000,
   })
-}
-
-export function deleteFile(url: string) {
-  return request.delete<ApiResponse<void>>('/file/delete', { params: { url } })
 }
 
 // ==================== FILE-01 文件资产（fileId 体系；区别于旧 /file/upload 的 url 体系） ====================

@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types/api'
-import type { Order, CreateOrderRequest, OrderQueryParams, Payment } from '@/types'
+import type { Order, CreateOrderRequest, OrderQueryParams } from '@/types'
 
 export function createOrder(data: CreateOrderRequest) {
   return request.post<ApiResponse<Order>>('/order/orders', data)
@@ -51,18 +51,8 @@ export function cancelOrder(id: number | string) {
   return request.put<ApiResponse<Order>>(`/order/orders/${id}/cancel`)
 }
 
-export function payForOrder(orderId: number | string) {
-  return request.post<ApiResponse<Payment>>(`/order/orders/${orderId}/pay`)
-}
-
-export function fetchPaymentByOrderId(orderId: number) {
-  return request.get<ApiResponse<Payment>>(`/order/orders/${orderId}/payment`)
-}
-
-export function simulatePaymentSuccess(paymentId: number) {
-  return request.put<ApiResponse<Payment>>(`/payment/payments/${paymentId}/simulate-success`)
-}
-
+// T01：旧订单支付代理（/pay、/payment、simulate-success）已删除——
+// 收银台直连 /payment/payment-attempts（见 api/payment.ts）
 export function shipOrder(orderId: number) {
   return request.put<ApiResponse<Order>>(`/order/orders/${orderId}/ship`)
 }

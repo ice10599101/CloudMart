@@ -140,9 +140,11 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: payment:admin
-      - prefix: /payments
+      # T01：旧 /payments（mall-order 服务令牌）已删除——payment-attempts 为用户端点走 JWT
+      # T02：内部退款仅订单服务可达（最长前缀优先于 /internal）
+      - prefix: /internal/refunds
         issuers: [mall-order]
-        scope: payment:trade
+        scope: order:refund
       - prefix: /internal
         issuers: [mall-job]
         scope: payment:jobs

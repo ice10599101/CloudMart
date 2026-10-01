@@ -28,6 +28,8 @@
         <elasticsearch-client.version>9.4.3</elasticsearch-client.version>
         <rocketmq-spring.version>2.3.6</rocketmq-spring.version>
         <testcontainers.version>2.0.5</testcontainers.version>
+        <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.6.0</maven-failsafe-plugin.version>
         <maven.compiler.source>26</maven.compiler.source>
         <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -200,14 +202,26 @@
         <pluginManagement>
             <plugins>
         <!-- ENG-01：UT/IT 分组——*IntegrationTest 需要 ES/DB 等外部资源，
-             默认 mvn test 排除；集成测试用 -Pintegration-test 单独执行 -->
+             默认 mvn test 排除，由 failsafe 在 -Pintegration-test 下执行；
+             插件版本必须显式固定，保证离线/干净环境可解析 -->
         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
+            <version>${maven-surefire-plugin.version}</version>
             <configuration>
                 <excludes>
                     <exclude>**/*IntegrationTest.java</exclude>
                 </excludes>
+            </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>${maven-failsafe-plugin.version}</version>
+            <configuration>
+                <includes>
+                    <include>**/*IntegrationTest.java</include>
+                </includes>
             </configuration>
         </plugin>
                 <plugin>
@@ -324,12 +338,15 @@
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <excludes>
-                <exclude>none</exclude>
-              </excludes>
-            </configuration>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>

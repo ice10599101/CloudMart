@@ -42,7 +42,6 @@ import java.util.Map;
 @Tag(name = "心愿宇宙·定时任务内部", description = "mall-job XXL-Job 定时任务专用（外部不可达）")
 @RequiredArgsConstructor
 public class InternalJobController {
-    private final AccountDeletionService accountDeletionService;
     private final MaintenanceService maintenanceService;
     private final CollectionService collectionService;
     private final com.cloudmart.wish.service.DataExportService dataExportService;
@@ -141,13 +140,8 @@ public class InternalJobController {
     }
 
     /** 账号注销到期执行（每日 02:00；宽限期到期 → 心愿数据清理 + EXECUTED） */
-    @PreAuthorize("hasRole('INTERNAL')")
-    @PostMapping("/account-deletion-scan")
-    @Operation(summary = "注销到期执行", description = "PENDING 且 execute_after 到期 → 清理心愿数据并置 EXECUTED")
-    public ApiResponse<Map<String, Object>> accountDeletionScan() {
-        final int executed = accountDeletionService.executeDue();
-        return ApiResponse.ok(Map.of("executed", executed));
-    }
+    // W03/LC15：/account-deletion-scan 已删除——注销到期执行由 mall-user 编排扫描统一驱动，
+    // wish 不再有独立到期调度；擦除经内部端点 /internal/account-erasure 按需调用。
 
     // ---- Phase 1 运维任务（文档 9.1，四AB P0-4）----
 

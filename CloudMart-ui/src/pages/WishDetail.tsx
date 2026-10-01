@@ -227,8 +227,9 @@ export default function WishDetail() {
     const file = options.file as File
     uploadFile(file)
       .then((res) => {
-        if (res.data.success && res.data.data?.url) {
-          setGrowthMedia((prev) => [...prev, res.data.data.url])
+        const uploadedUrl = res.data.data?.url
+        if (res.data.success && uploadedUrl) {
+          setGrowthMedia((prev) => [...prev, uploadedUrl])
           options.onSuccess(res.data.data)
         } else {
           options.onError()

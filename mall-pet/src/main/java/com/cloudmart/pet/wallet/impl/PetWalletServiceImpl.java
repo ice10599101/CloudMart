@@ -25,13 +25,15 @@ import java.util.List;
 /**
  * 宠物币钱包服务实现（W01）。
  *
- * <p>核心不变量（§5.5）：</p>
+ * <p>核心不变量（§5.5 / P01）：</p>
  * <ul>
  *   <li>SELECT FOR UPDATE 串行化同账户写，条件 UPDATE（balance+version+status）原子扣减，
  *       影响行数=1 才生效（T04：并发扣款无负余额）；</li>
  *   <li>流水 + 账本 + 版本推进同一事务，账本 balance_after=balance_before+delta（T08 整体回滚）；</li>
  *   <li>Math.addExact/subtractExact 溢出即失败（超出范围整个事务失败并告警，不静默截断）；</li>
- *   <li>重复请求命中 uk(user,bizType,bizKey)/uk(operationId) → 返回原结果（T05/T07/T09）。</li>
+ *   <li>P01 幂等：锁内先按 operationId/事实键预检并逐字段比对事实，重放返回原结果且不触碰余额；
+ *       冲突若发生在余额变更后（跨账户 operationId 竞争），DuplicateKeyException 向外传播令整个
+ *       业务事务回滚，调用方在事务边界外用 {@link #resolveDuplicate} 读取已提交原结果。</li>
  * </ul>
  */
 @Service
@@ -90,34 +92,56 @@ public class PetWalletServiceImpl implements PetWalletService {
 
     private PetWalletResult execute(PetWalletCommand command) {
         validate(command);
-        try {
-            return apply(command);
-        } catch (DuplicateKeyException duplicate) {
-            // 唯一键冲突（uk_operationId 或 uk_user_bizType_bizKey）：返回既有流水结果，不做任何变更（T05/T07/T09）
-            PetWalletTransaction existing = findTransaction(command.operationId());
-            if (existing == null) {
-                // 事实键冲突（同业务事实换操作键重放）：按事实返回原结果
-                existing = transactionMapper.selectOne(new LambdaQueryWrapper<PetWalletTransaction>()
-                        .eq(PetWalletTransaction::getUserId, command.userId())
-                        .eq(PetWalletTransaction::getBizType, command.bizType())
-                        .eq(PetWalletTransaction::getBizKey, command.bizKey()));
-            }
-            if (existing == null) {
-                // 冲突但行不可读：并发事务尚未提交
-                throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
-                        "钱包交易处理中，请按原请求查询结果");
-            }
-            if (!existing.getUserId().equals(command.userId())) {
-                throw new BusinessException(PetErrorCodes.PET_OPERATION_CONFLICT, "操作键已存在但归属不同");
-            }
-            PetWalletLedger ledger = ledgerMapper.selectOne(new LambdaQueryWrapper<PetWalletLedger>()
-                    .eq(PetWalletLedger::getTransactionId, existing.getId()));
-            log.info("钱包重复请求命中原结果, operationId={}, userId={}, bizType={}",
-                    command.operationId(), command.userId(), command.bizType());
-            return new PetWalletResult(existing.getId(), existing.getOperationId(),
-                    ledger == null ? 0L : ledger.getBalanceAfter(),
-                    existing.getAmount(), existing.getStatus(), true);
+        return apply(command);
+    }
+
+    /**
+     * P01：账户行锁内的幂等预检——重放或冲突必须在任何余额变更之前识别。
+     *
+     * <p>按 operationId 与业务事实键 (userId,bizType,bizKey) 做当前读（FOR UPDATE 已串行化
+     * 同账户写，先前同账户事务必然已提交或回滚，读到的即最终事实）；完整比对
+     * user/currency/direction/amount/bizType/bizKey/requestHash：全同返回原结果（重放），
+     * 任一不同抛 PET_OPERATION_CONFLICT（异参拒绝），未命中返回 null（全新事实）。</p>
+     */
+    private PetWalletResult findReplayableResult(PetWalletCommand command) {
+        PetWalletTransaction existing = transactionMapper.selectOne(new LambdaQueryWrapper<PetWalletTransaction>()
+                .eq(PetWalletTransaction::getOperationId, command.operationId()));
+        if (existing == null) {
+            existing = transactionMapper.selectOne(new LambdaQueryWrapper<PetWalletTransaction>()
+                    .eq(PetWalletTransaction::getUserId, command.userId())
+                    .eq(PetWalletTransaction::getBizType, command.bizType())
+                    .eq(PetWalletTransaction::getBizKey, command.bizKey()));
         }
+        if (existing == null) {
+            return null;
+        }
+        assertSameFact(existing, command);
+        PetWalletLedger ledger = ledgerMapper.selectOne(new LambdaQueryWrapper<PetWalletLedger>()
+                .eq(PetWalletLedger::getTransactionId, existing.getId()));
+        log.info("钱包重复请求命中原结果, operationId={}, userId={}, bizType={}, bizKey={}",
+                command.operationId(), command.userId(), command.bizType(), command.bizKey());
+        return new PetWalletResult(existing.getId(), existing.getOperationId(),
+                ledger == null ? 0L : ledger.getBalanceAfter(),
+                existing.getAmount(), existing.getStatus(), true);
+    }
+
+    /** P01：重复命中必须逐字段核对事实，禁止只比 userId——同键异额/异向/异事实一律冲突。 */
+    private void assertSameFact(PetWalletTransaction existing, PetWalletCommand command) {
+        boolean sameFact = existing.getUserId() != null && existing.getUserId().equals(command.userId())
+                && CURRENCY_PET_COIN.equals(existing.getCurrency())
+                && existing.getDirection() != null && existing.getDirection().equals(command.direction())
+                && existing.getAmount() != null && existing.getAmount() == command.amount()
+                && existing.getBizType() != null && existing.getBizType().equals(command.bizType())
+                && existing.getBizKey() != null && existing.getBizKey().equals(command.bizKey())
+                && normalizeHash(existing.getRequestHash()).equals(normalizeHash(command.requestHash()));
+        if (!sameFact) {
+            throw new BusinessException(PetErrorCodes.PET_OPERATION_CONFLICT,
+                    "钱包操作键已绑定不同业务事实（幂等异参拒绝）");
+        }
+    }
+
+    private static String normalizeHash(String requestHash) {
+        return requestHash == null ? "" : requestHash;
     }
 
     private void validate(PetWalletCommand command) {
@@ -138,6 +162,12 @@ public class PetWalletServiceImpl implements PetWalletService {
         // FOR UPDATE 串行化同账户并发写（T04）；懒建账户可见并发建账结果
         PetWalletAccount account = getOrCreateAccount(command.userId());
         account = lockAccount(account.getId());
+
+        // P01：锁内预检幂等——重放/冲突在余额变更前识别（含冻结与余额不足场景下的重放）
+        PetWalletResult replayed = findReplayableResult(command);
+        if (replayed != null) {
+            return replayed;
+        }
 
         boolean frozen = "FROZEN".equals(account.getStatus());
         boolean refundLike = DIRECTION_REFUND.equals(command.direction())
@@ -188,6 +218,9 @@ public class PetWalletServiceImpl implements PetWalletService {
         transaction.setRuleVersion(command.ruleVersion());
         transaction.setResultJson(command.resultJson());
         transaction.setCompletedAt(LocalDateTime.now(ZoneOffset.UTC));
+        // P01：此处仍可能因跨账户 operationId 竞争抛 DuplicateKeyException——
+        // 余额变更已发生，唯一安全出路是让整个业务事务回滚（本方法不得捕获），
+        // 由事务边界外的 resolveDuplicate 读取已提交原结果
         transactionMapper.insert(transaction);
 
         PetWalletLedger ledger = new PetWalletLedger();
@@ -212,7 +245,8 @@ public class PetWalletServiceImpl implements PetWalletService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public PetWalletResult refundFull(Long originalTransactionId, String refundOperationId, String operatorReason) {
-        PetWalletTransaction original = transactionMapper.selectById(originalTransactionId);
+        // P01：先锁原交易行再核对累计退款，两个并发退款串行读到彼此的已退金额
+        PetWalletTransaction original = transactionMapper.selectByIdForUpdate(originalTransactionId);
         if (original == null || !STATUS_COMMITTED.equals(original.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_WALLET_REFUND_INVALID, "退款原单不存在或未提交");
         }
@@ -244,6 +278,19 @@ public class PetWalletServiceImpl implements PetWalletService {
     public PetWalletTransaction findTransaction(String operationId) {
         return transactionMapper.selectOne(new LambdaQueryWrapper<PetWalletTransaction>()
                 .eq(PetWalletTransaction::getOperationId, operationId));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public PetWalletResult resolveDuplicate(PetWalletCommand command) {
+        validate(command);
+        PetWalletResult replayed = findReplayableResult(command);
+        if (replayed != null) {
+            return replayed;
+        }
+        // 走到这里说明 insert 冲突的竞争事务尚未提交（或已回滚）：不能假装失败，也不能重放未知结果
+        throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+                "钱包交易处理中，请按原请求查询结果");
     }
 
     private PetWalletAccount lockAccount(Long accountId) {

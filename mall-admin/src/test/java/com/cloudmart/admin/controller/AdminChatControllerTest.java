@@ -62,8 +62,8 @@ class AdminChatControllerTest {
     class ListMessagesTests {
 
         @Test
-        @DisplayName("返回指定会话的消息列表")
-        void listMessages_returnsMessageList() throws Exception {
+        @DisplayName("S02：携带 caseId/reason（工单上下文）读取消息列表")
+        void listMessages_withCaseContext_returnsMessageList() throws Exception {
             List<Map<String, Object>> messages = List.of(
                     Map.of("id", 1, "content", "Hello")
             );
@@ -71,12 +71,27 @@ class AdminChatControllerTest {
 
             mockMvc.perform(get("/chat/conversations/1/messages")
                             .param("page", "1")
-                            .param("pageSize", "20"))
+                            .param("pageSize", "20")
+                            .param("caseId", "CASE-100")
+                            .param("reason", "客诉核查"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data[0].content").value("Hello"));
 
             verify(chatFeignClient).listMessages(1L, 1, 20);
+        }
+
+        @Test
+        @DisplayName("S02：缺少 caseId/reason（无工单上下文）→ 拒绝读取私聊正文")
+        void listMessages_withoutCaseContext_rejected() throws Exception {
+            mockMvc.perform(get("/chat/conversations/1/messages")
+                            .param("page", "1")
+                            .param("pageSize", "20"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("CHAT_READ_CONTEXT_REQUIRED"));
+
+            verify(chatFeignClient, org.mockito.Mockito.never()).listMessages(org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
         }
     }
 

@@ -14,18 +14,6 @@ public class OrderFeignClientFallbackFactory implements FallbackFactory<OrderFei
         log.error("订单服务调用失败: {}", cause.getMessage());
         return new OrderFeignClient() {
             @Override
-            public ApiResponse<Void> notifyPaymentSuccess(Long orderId) {
-                log.error("通知订单支付成功降级, orderId={}: {}", orderId, cause.getMessage());
-                return ApiResponse.ok(null);
-            }
-
-            @Override
-            public ApiResponse<Void> notifyOrderCancel(Long orderId) {
-                log.error("通知订单取消降级, orderId={}: {}", orderId, cause.getMessage());
-                return ApiResponse.ok(null);
-            }
-
-            @Override
             public ApiResponse<OrderFeignClient.PageDTO> listPaidOrders(int page, int size) {
                 // OPS-01：对账数据读不到时返回空页（本轮核对跳过订单侧，差异不误报）
                 return ApiResponse.ok(new OrderFeignClient.PageDTO(java.util.List.of(), 0));

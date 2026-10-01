@@ -95,7 +95,6 @@ import {
   updateWarehouse,
   deleteWarehouse,
   uploadFile,
-  deleteFile,
 } from './business'
 
 describe('admin business API - Product Management', () => {
@@ -709,17 +708,11 @@ describe('admin business API - Brand Management', () => {
 describe('admin business API - File Management', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('uploadFile() calls POST /file/upload without manually setting Content-Type', async () => {
+  it('S01：uploadFile() calls POST /file/assets（唯一资产入口）', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
     const formData = new FormData()
     formData.append('file', new Blob(['test']), 'test.png')
     await uploadFile(formData)
-    expect(request.post).toHaveBeenCalledWith('/file/upload', formData)
-  })
-
-  it('deleteFile() calls DELETE /file/delete with url param', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteFile('https://cdn.example.com/a.png')
-    expect(request.delete).toHaveBeenCalledWith('/file/delete', { params: { url: 'https://cdn.example.com/a.png' } })
+    expect(request.post).toHaveBeenCalledWith('/file/assets', formData)
   })
 })

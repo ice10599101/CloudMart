@@ -80,9 +80,6 @@ export default function PaymentPage() {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollCancelledRef = useRef(false)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // PAY-01：本次收银走的是哪条链路——轮询必须打各自的真值源
-  // （attempts 在 mall-payment payment_attempt 表；旧链路在 order 侧支付视图，互查不到）
-  const pollTargetRef = useRef<'attempt' | 'legacy'>('legacy')
 
   const loadOrder = useCallback(async () => {
     if (!id) return
@@ -100,7 +97,8 @@ export default function PaymentPage() {
   const loadPaymentInfo = useCallback(async () => {
     if (!id) return
     try {
-      const res = await orderApi.getPayment(id)
+      // T01：收银台状态唯一真值源为 payment_attempt 台账（旧 order 侧支付视图已删除）
+      const res = await paymentApi.getByOrder(id)
       setPaymentInfo(res.data?.data as PaymentInfo)
     } catch {
       // payment info may not exist yet
@@ -148,21 +146,16 @@ export default function PaymentPage() {
     const loop = async () => {
       for (let attempt = 0; attempt < 100 && !pollCancelledRef.current; attempt++) {
         try {
-          let status: string | undefined
-          if (pollTargetRef.current === 'attempt') {
-            const res = await paymentApi.getByOrder(id)
-            status = res.data?.data?.status
-          } else {
-            const res = await orderApi.getPayment(id)
-            status = (res.data?.data as PaymentInfo | undefined)?.status
-          }
+          // T01：真值源为 payment-attempts/order/{id}（唯一支付链路）
+          const res = await paymentApi.getByOrder(id)
+          const status = res.data?.data?.status
           if (pollCancelledRef.current) return
           if (status === 'SUCCESS') {
             setPaymentStatus('SUCCESS')
             return
           }
-          if (status && status !== 'PENDING') {
-            // FAILED/EXPIRED 等终态：允许用户重新发起，不误报也不无限轮询
+          if (status === 'FAILED' || status === 'CLOSED') {
+            // 终态失败：允许用户重新发起，不误报也不无限轮询
             setPaymentStatus('FAILED')
             return
           }
@@ -197,19 +190,13 @@ export default function PaymentPage() {
 
         setPaying(true)
         try {
-          // PAY-01：优先走支付尝试流（归属/状态/金额全部服务端判定，客户端金额不参与）；
-          // 尝试端点不可用/渠道未启用时回退旧 orderApi.pay 兜底
-          try {
-            const attemptRes = await paymentApi.createAttempt({ orderId: id, channel: selectedMethod })
-            const mockCallback = attemptRes.data?.data?.mockCallback
-            if (mockCallback) {
-              // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
-              await paymentApi.submitMockCallback(mockCallback)
-            }
-            pollTargetRef.current = 'attempt'
-          } catch {
-            await orderApi.pay(id, { paymentMethod: selectedMethod })
-            pollTargetRef.current = 'legacy'
+          // T01：唯一支付链路（归属/状态/金额全部服务端判定，客户端金额不参与）；
+          // 失败显式报错，不再静默降级旧 orderApi.pay
+          const attemptRes = await paymentApi.createAttempt({ orderId: id, channel: selectedMethod })
+          const mockCallback = attemptRes.data?.data?.mockCallback
+          if (mockCallback) {
+            // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
+            await paymentApi.submitMockCallback(mockCallback)
           }
           setPaymentStatus('PENDING')
           startPolling()

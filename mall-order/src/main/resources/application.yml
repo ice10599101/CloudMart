@@ -161,4 +161,6 @@ cloudmart:
       mall-inventory: inventory:trade
       mall-coupon: coupon:trade
       mall-cart: cart:trade
+      # T02：内部退款仅订单服务可达
+      mall-payment: order:refund
       mall-payment: payment:trade

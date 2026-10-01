@@ -43,6 +43,9 @@ public class Order {
 
     private String refundReason;
 
+    /** 退款前履约状态（T02：PAID/SHIPPED；拒绝退款时恢复，QA08） */
+    private String beforeRefundStatus;
+
     private String refundRejectReason;
 
     private LocalDateTime completedAt;

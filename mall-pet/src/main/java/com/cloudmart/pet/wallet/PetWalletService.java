@@ -33,6 +33,13 @@ public interface PetWalletService {
     /** 按 operationId 查询流水（重复请求返回历史结果快照，不做任何变更） */
     com.cloudmart.pet.entity.PetWalletTransaction findTransaction(String operationId);
 
+    /**
+     * P01 事务边界外的重复结果解析（SUPPORTS/readOnly，禁止加入业务事务）：
+     * 当 credit/debit 因唯一键冲突抛出 DuplicateKeyException 且业务事务已回滚后，
+     * 调用方在本方法读取已提交的原结果；竞争事务尚未提交时抛 PET_REQUEST_IN_PROGRESS。
+     */
+    PetWalletResult resolveDuplicate(PetWalletCommand command);
+
     /** 收支命令（§5.3：客户端只允许意图，不接受金额/余额） */
     record PetWalletCommand(
             Long userId,

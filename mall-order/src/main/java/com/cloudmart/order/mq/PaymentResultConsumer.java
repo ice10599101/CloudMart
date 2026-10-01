@@ -14,15 +14,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 /**
- * 支付结果消费者（ASYNC-01）：信封事件 + Inbox 幂等消费。
+ * 支付结果消费者（T05）：PAYMENT_SUCCEEDED 事件驱动订单推进 PAID 的唯一 MQ 路径。
  *
- * <p>形状判定（ASYNC-01 断点 2）：新格式为事件信封——orderId 在 {@code payload}
- * 内，事件类型在顶层 {@code eventType}（v2 名 PAYMENT_SUCCEEDED / 旧名
- * PAYMENT_SUCCESS 均接受）；旧格式 orderId/event 在顶层。此前消费端按旧形状
- * 直接读顶层 orderId，新消息在解析阶段即 NPE 失败。</p>
+ * <p>LC03：仅消费 v2 信封事件（强制 eventId）——无 eventId 的旧格式回退分支已删除，
+ * 非法形状拒绝消费进入隔离/死信，不绕过去重。</p>
  *
- * <p>begin 的消费记录与 markOrderPaid 的业务变更同一事务——业务回滚则记录一并
- * 回滚，MQ 重投后重试；重复投递命中已处理记录直接跳过。</p>
+ * <p>金额/币种校验（T05）：从事件 payload 提取渠道实付与币种，交由
+ * {@code applyPaymentSucceeded} 与订单应付核对，不一致拒绝推进。</p>
+ *
+ * <p>begin 的消费记录与业务变更同一事务——业务回滚则记录一并回滚，MQ 重投后重试；
+ * 重复投递命中已处理记录直接跳过。</p>
  */
 @Slf4j
 @Component
@@ -42,33 +43,38 @@ public class PaymentResultConsumer implements RocketMQListener<Map<String, Objec
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
-        Long orderId = extractOrderId(message);
         String event = extractEventType(message);
-        String eventId = (String) message.get("eventId");
-        log.info("收到支付结果消息, orderId={}, event={}, eventId={}", orderId, event, eventId);
-
-        if (!"PAYMENT_SUCCESS".equals(event) && !"PAYMENT_SUCCEEDED".equals(event)) {
+        if (!"PAYMENT_SUCCEEDED".equals(event)) {
+            // LC03：旧事件名 PAYMENT_SUCCESS 的生产者已删除，此处仅接受 v2 事件名
             return;
         }
-        // 兼容旧格式消息（无 eventId）：退化为直接处理，不做 Inbox 判重
-        if (eventId == null || eventId.isBlank()) {
-            log.warn("[ASYNC01] 旧格式支付事件（无 eventId），跳过幂等控制, orderId={}", orderId);
-            orderService.markOrderPaid(orderId);
-            return;
-        }
-
         EventEnvelope envelope = envelopeOf(message);
+        Long orderId = extractOrderId(message);
+        String paidAmount = extractPayloadField(message, "amount");
+        String currency = extractPayloadField(message, "currency");
+        log.info("[T05] 收到支付成功事件, orderId={}, amount={}, currency={}, eventId={}",
+                orderId, paidAmount, currency, envelope.eventId());
+
         if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
-            log.info("[ASYNC01] 支付事件已消费（幂等跳过） eventId={} orderId={}", eventId, orderId);
+            log.info("[ASYNC01] 支付事件已消费（幂等跳过） eventId={} orderId={}", envelope.eventId(), orderId);
             return;
         }
         try {
-            orderService.markOrderPaid(orderId);
+            orderService.applyPaymentSucceeded(orderId, paidAmount, currency);
             inboxService.completeConsume(CONSUMER, envelope);
         } catch (Exception e) {
             inboxService.failConsume(CONSUMER, envelope, e.getMessage());
             throw e;
         }
+    }
+
+    /** 提取 payload 内的字符串字段（payload 为嵌套 Map 或 JSON 字符串两种序列化形态） */
+    static String extractPayloadField(Map<String, Object> message, String field) {
+        Object payload = message.get("payload");
+        if (payload instanceof Map<?, ?> payloadMap && payloadMap.get(field) != null) {
+            return String.valueOf(payloadMap.get(field));
+        }
+        return null;
     }
 
     /** 形状判定：新格式 orderId 在 payload 内；旧格式在顶层 */

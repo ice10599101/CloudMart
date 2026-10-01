@@ -60,22 +60,25 @@ class FileAssetServiceTest {
     }
 
     @Test
-    @DisplayName("PNG 魔数与扩展名一致：登记成功，归属/指纹/嗅探 MIME 入库")
-    void record_png_ok() {
-        service.record(42L, "photo.png", "pic/20260928/abc.png", PNG_MAGIC.length, PNG_MAGIC);
+    @DisplayName("S01 校验/登记分离：PNG 校验通过 → persist 可见性一次写定，指纹入库")
+    void validateAndPersist_png_ok() {
+        String mime = service.validateContent(PNG_MAGIC, "photo.png");
+
+        service.persist(42L, "photo.png", "private/pic/20260928/abc.png", PNG_MAGIC.length, mime, "PRIVATE");
 
         ArgumentCaptor<FileAsset> captor = ArgumentCaptor.forClass(FileAsset.class);
         verify(fileAssetMapper).insert(captor.capture());
         assertThat(captor.getValue().getOwnerId()).isEqualTo(42L);
         assertThat(captor.getValue().getMime()).isEqualTo("image/png");
+        assertThat(captor.getValue().getVisibility()).isEqualTo("PRIVATE");
         assertThat(captor.getValue().getStatus()).isEqualTo("READY");
-        assertThat(captor.getValue().getSha256()).hasSize(64);
+        assertThat(captor.getValue().getStorageKey()).startsWith("private/");
     }
 
     @Test
     @DisplayName("SVG 一律拒绝（默认策略，防脚本内联）")
-    void record_svg_rejected() {
-        assertThatThrownBy(() -> service.record(42L, "icon.svg", "pic/x.svg", SVG_TEXT.length, SVG_TEXT))
+    void validateContent_svg_rejected() {
+        assertThatThrownBy(() -> service.validateContent(SVG_TEXT, "icon.svg"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_TYPE_NOT_ALLOWED");
         verify(fileAssetMapper, never()).insert(any(FileAsset.class));
@@ -83,8 +86,8 @@ class FileAssetServiceTest {
 
     @Test
     @DisplayName("扩展名伪装拒绝：声明 .png 实为文本/HTML")
-    void record_disguisedExtension_rejected() {
-        assertThatThrownBy(() -> service.record(42L, "evil.png", "pic/x.png", HTML_TEXT.length, HTML_TEXT))
+    void validateContent_disguisedExtension_rejected() {
+        assertThatThrownBy(() -> service.validateContent(HTML_TEXT, "evil.png"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_TYPE_NOT_ALLOWED");
     }
@@ -94,10 +97,12 @@ class FileAssetServiceTest {
     void authorizeDelete_owner_ok() {
         when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
         when(fileReferenceMapper.selectCount(any())).thenReturn(0L);
+        when(fileAssetMapper.markDeleting(100L)).thenReturn(1);
 
         FileAsset asset = service.authorizeDelete(100L, 42L, false);
 
         assertThat(asset.getId()).isEqualTo(100L);
+        assertThat(asset.getStatus()).isEqualTo("DELETING");
     }
 
     @Test
@@ -114,6 +119,7 @@ class FileAssetServiceTest {
     @DisplayName("无主（LEGACY_UNCLAIMED 类）资产仅管理员可删")
     void authorizeDelete_unclaimed_adminOnly() {
         when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(null));
+        when(fileAssetMapper.markDeleting(100L)).thenReturn(1);
 
         assertThatThrownBy(() -> service.authorizeDelete(100L, 42L, false))
                 .isInstanceOf(BusinessException.class)
@@ -132,6 +138,18 @@ class FileAssetServiceTest {
         assertThatThrownBy(() -> service.authorizeDelete(100L, 42L, false))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_REFERENCED");
+    }
+
+    @Test
+    @DisplayName("S01 竞态关闭：CAS READY→DELETING 0 行（并发删除/已推进）→ FILE_DELETE_CONFLICT")
+    void authorizeDelete_casLost_conflict() {
+        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
+        when(fileReferenceMapper.selectCount(any())).thenReturn(0L);
+        when(fileAssetMapper.markDeleting(100L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.authorizeDelete(100L, 42L, false))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "FILE_DELETE_CONFLICT");
     }
 
     @Test

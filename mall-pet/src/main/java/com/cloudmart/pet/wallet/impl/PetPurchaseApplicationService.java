@@ -22,15 +22,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 宠物币购买应用服务（W01/§5.3 购买事务顺序）。
+ * 宠物币购买应用服务（W01/P02/§5.3 购买事务顺序）。
  *
- * <p>编排（非事务方法）：</p>
+ * <p>编排（非事务方法，本服务是购买意图的事务边界，禁止调用方包在更大的事务里）：</p>
  * <ol>
- *   <li>幂等键格式校验 + 规范 payload 摘要 → dedup.claim（REQUIRES_NEW 占键）；</li>
- *   <li>业务事务（TransactionTemplate）：目录校验/价格快照 → 建订单 → 钱包扣款 →
- *       资产交付 + asset_grant → 订单完成（T04/T06/T08）；</li>
- *   <li>业务事务提交后 dedup 终态落库（REQUIRES_NEW）——成功与业务拒绝均保存终态响应，
- *       未知失败置 FAILED（同键可重试，T07）。</li>
+ *   <li>幂等键格式校验 + 规范 payload 摘要 → dedup.claim（REQUIRES_NEW 占键并持有租约）；</li>
+ *   <li>业务事务（TransactionTemplate）：目录校验/价格快照 → 建订单（携带 requestKey，uk 兜底）→
+ *       钱包扣款 → 资产交付 + asset_grant → 订单完成 → <b>dedup 终态/结果快照</b>
+ *       （P02：与业务事实同一 MySQL 本地事务提交，消除"业务已提交而幂等键残留 PROCESSING"的
+ *       崩溃窗口；T04/T06/T08）；</li>
+ *   <li>业务拒绝（零副作用）与未知失败（业务事务已回滚）的终态由独立小事务保存；
+ *       执行者崩溃残留的 PROCESSING 由同键重试或 {@code PetPurchaseRecoveryService}
+ *       按租约到期接管，对本地业务事实（订单/流水/资产）核对后收敛。</li>
  * </ol>
  *
  * <p>不可重复物品：第二个不同请求键在目录资格判定发现已拥有 → ALREADY_OWNED 零扣款
@@ -40,7 +43,7 @@ import java.util.Map;
 @Slf4j
 public class PetPurchaseApplicationService {
 
-    private static final String ENDPOINT_KEY = "PURCHASE";
+    static final String ENDPOINT_KEY = "PURCHASE";
 
     private final PetRequestDedupService dedupService;
     private final PetWalletService walletService;
@@ -104,11 +107,16 @@ public class PetPurchaseApplicationService {
         }
 
         try {
-            PurchaseResult result = transactionTemplate.execute(status -> doPurchase(
-                    userId, petId, itemType, itemCode, expectedConfigVersion, requestKey));
-            dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey,
-                    result.orderId() == null ? null : Long.valueOf(result.orderId()),
-                    PetJsonUtils.toJson(result));
+            // P02：dedup 终态写入包含在业务事务内——提交即"订单+扣款+资产+幂等事实"四者原子成立，
+            // 不存在"业务已成功、终态回写失败被误标 FAILED 后重试二次交付"的窗口
+            PurchaseResult result = transactionTemplate.execute(status -> {
+                PurchaseResult purchased = doPurchase(
+                        userId, petId, itemType, itemCode, expectedConfigVersion, requestKey);
+                dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey,
+                        purchased.orderId() == null ? null : Long.valueOf(purchased.orderId()),
+                        PetJsonUtils.toJson(purchased));
+                return purchased;
+            });
             return result;
         } catch (PetPurchaseCatalog.AlreadyOwnedException already) {
             // 不可重复物品已拥有：零扣款的明确拒绝，终态响应保存（T06）
@@ -123,7 +131,8 @@ public class PetPurchaseApplicationService {
             dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, null, PetJsonUtils.toJson(rejected));
             throw definite;
         } catch (RuntimeException unknown) {
-            // 非业务异常（基础设施等）：置 FAILED，同键可安全重试
+            // 非业务异常（基础设施等）：业务事务已整体回滚（dedup 终态与业务同事务，一并回滚），
+            // 本地无任何已提交事实，置 FAILED 后同键重试是安全的
             log.error("购买事务未知失败, userId={}, itemType={}, itemCode={}", userId, itemType, itemCode, unknown);
             dedupService.markFailed(userId, ENDPOINT_KEY, requestKey,
                     PetJsonUtils.toJson(Map.of("error", String.valueOf(unknown.getMessage()))));
@@ -158,13 +167,30 @@ public class PetPurchaseApplicationService {
         order.setCurrency("PET_COIN");
         order.setWalletDomain("PET");
         order.setConfigVersion(entry.configVersion());
+        order.setRequestKey(requestKey);
+        order.setPayloadHash(requestHash);
         order.setItemSnapshot(PetJsonUtils.toJson(Map.of(
                 "itemType", itemType, "itemCode", itemCode,
                 "displayName", entry.displayName() == null ? "" : entry.displayName(),
                 "resourceKey", entry.resourceKey() == null ? "" : entry.resourceKey(),
                 "unitPrice", entry.unitPrice())));
         order.setStatus("PROCESSING");
-        orderMapper.insert(order);
+        try {
+            orderMapper.insert(order);
+        } catch (org.springframework.dao.DuplicateKeyException race) {
+            // P02：uk(user_id,request_key) 兜底——同请求键的业务单已存在（接管竞态等路径重入本方法），
+            // 一次认领确定唯一业务 ID：直接按既有订单返回结果，不得另造订单/重复扣款/重复交付
+            PetPurchaseOrder existing = orderMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetPurchaseOrder>()
+                            .eq(PetPurchaseOrder::getUserId, userId)
+                            .eq(PetPurchaseOrder::getRequestKey, requestKey));
+            if (existing != null && "COMPLETED".equals(existing.getStatus())) {
+                log.info("购买订单命中 uk 复用既有单, userId={}, requestKey={}, orderId={}",
+                        userId, requestKey, existing.getId());
+                return rebuildResult(existing, operationId);
+            }
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "购买订单状态异常，请按原请求查询结果");
+        }
 
         // 零价物品：不产生流水，直接发放（免费工作/新手赠品类不在此入口）
         PetWalletResult wallet;
@@ -219,6 +245,31 @@ public class PetPurchaseApplicationService {
 
     private long currentBalance(Long userId) {
         return walletService.getOrCreateAccount(userId).getBalance();
+    }
+
+    /**
+     * P02：从已提交的 COMPLETED 订单事实重建结果（uk 重入路径与恢复扫描器共用语义）。
+     * 交付槽位以 asset_grant(source=ORDER) 实际事实为准，不凭记忆伪造。
+     */
+    List<String> deliveredSlotsOf(PetPurchaseOrder order) {
+        return assetGrantMapper.selectList(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetAssetGrant>()
+                                .eq(PetAssetGrant::getSourceType, "ORDER")
+                                .eq(PetAssetGrant::getSourceId, order.getId()))
+                .stream().map(PetAssetGrant::getRewardSlot).toList();
+    }
+
+    /** 按既有订单事实重建购买结果（不产生任何新事实；余额为当前快照） */
+    PurchaseResult rebuildResult(PetPurchaseOrder order, String operationId) {
+        return new PurchaseResult(String.valueOf(order.getId()), operationId,
+                order.getWalletTransactionId() == null ? null : String.valueOf(order.getWalletTransactionId()),
+                currentBalance(order.getUserId()), order.getItemType(), order.getItemCode(),
+                deliveredSlotsOf(order), true, null);
+    }
+
+    /** 恢复扫描器入口：按订单事实重建结果，操作键由服务端公式从 (userId, requestKey) 推导 */
+    PurchaseResult rebuildResult(Long userId, String requestKey, PetPurchaseOrder order) {
+        return rebuildResult(order, operationIdOf(userId, requestKey));
     }
 
     /** 操作键：pw_ + 64 位摘要（服务器固定格式，§5.3，最长 67 字符；同请求键重试得到同一键） */

@@ -44,7 +44,13 @@ public class PickOrderServiceImpl implements PickOrderService {
         pickOrder.setWarehouseId(request.warehouseId());
         pickOrder.setStatus("PENDING");
         pickOrder.setRemark(request.remark());
-        pickOrderMapper.insert(pickOrder);
+        try {
+            pickOrderMapper.insert(pickOrder);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // T05/QA14：uk(order_id) 兜底——应用层查重与插入之间的并发竞态由 DB 唯一约束收敛，
+            // 重复消费/多实例竞争视为幂等跳过，不产生第二份履约单
+            throw new BusinessException("PICK_ORDER_EXISTS", "该订单已有拣货单");
+        }
         return toDTO(pickOrder);
     }
 

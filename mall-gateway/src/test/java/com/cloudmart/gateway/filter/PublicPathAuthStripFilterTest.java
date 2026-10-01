@@ -63,7 +63,7 @@ class PublicPathAuthStripFilterTest {
     @Test
     @DisplayName("支付回调等身份无关路径：剥离 Authorization")
     void callbackPath_stripsAuthorization() {
-        run(MockServerHttpRequest.post("/api/payment/payments/callback")
+        run(MockServerHttpRequest.post("/api/payment/payment-attempts/mock-callbacks")
                 .header("Authorization", "Bearer token")
                 .build());
         assertThat(exchange.getRequest().getHeaders().getFirst("Authorization")).isNull();

@@ -38,32 +38,33 @@ public class OrderShippedConsumer implements RocketMQListener<Map<String, Object
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
-        Long orderId = extractOrderId(message);
+        // LC03/T05：仅消费 v2 信封事件（强制 eventId）——WMS 生产者全经 Outbox 信封投递，
+        // 无 eventId 的旧格式回退分支已删除，非法形状拒绝消费，不绕过去重
         String eventId = (String) message.get("eventId");
-
-        if (eventId != null && !eventId.isBlank()) {
-            EventEnvelope envelope = new EventEnvelope(
-                    eventId,
-                    (String) message.get("eventType"),
-                    message.get("schemaVersion") == null ? 1 : ((Number) message.get("schemaVersion")).intValue(),
-                    String.valueOf(message.get("aggregateId")),
-                    message.get("aggregateVersion") == null ? 0 : ((Number) message.get("aggregateVersion")).longValue(),
-                    message.get("occurredAt") == null ? 0 : ((Number) message.get("occurredAt")).longValue(),
-                    (String) message.get("requestId"),
-                    null);
-            if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
-                log.info("[WMS01] 发货事件已消费（幂等跳过） eventId={} orderId={}", eventId, orderId);
-                return;
-            }
-            try {
-                advanceToShipped(orderId);
-                inboxService.completeConsume(CONSUMER, envelope);
-            } catch (Exception e) {
-                inboxService.failConsume(CONSUMER, envelope, e.getMessage());
-                throw e;
-            }
-        } else {
+        if (eventId == null || eventId.isBlank()) {
+            log.warn("[LC03] 发货事件缺少 eventId（旧格式），拒绝消费");
+            return;
+        }
+        EventEnvelope envelope = new EventEnvelope(
+                eventId,
+                (String) message.get("eventType"),
+                message.get("schemaVersion") == null ? 1 : ((Number) message.get("schemaVersion")).intValue(),
+                String.valueOf(message.get("aggregateId")),
+                message.get("aggregateVersion") == null ? 0 : ((Number) message.get("aggregateVersion")).longValue(),
+                message.get("occurredAt") == null ? 0 : ((Number) message.get("occurredAt")).longValue(),
+                (String) message.get("requestId"),
+                null);
+        Long orderId = extractOrderId(message);
+        if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
+            log.info("[WMS01] 发货事件已消费（幂等跳过） eventId={} orderId={}", eventId, orderId);
+            return;
+        }
+        try {
             advanceToShipped(orderId);
+            inboxService.completeConsume(CONSUMER, envelope);
+        } catch (Exception e) {
+            inboxService.failConsume(CONSUMER, envelope, e.getMessage());
+            throw e;
         }
     }
 

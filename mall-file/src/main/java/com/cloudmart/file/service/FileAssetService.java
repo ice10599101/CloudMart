@@ -45,22 +45,31 @@ public class FileAssetService {
                 ? new byte[0] : signingSecret.getBytes(StandardCharsets.UTF_8);
     }
 
-    /** 登记上传结果（物理文件已由 FileService 落盘） */
-    public FileAsset record(Long ownerId, String originalName, String storageKey, long sizeBytes, byte[] content) {
+    /**
+     * S01 内容校验（先于落盘执行）：魔数嗅探实际类型并核对扩展名声明；SVG 一律拒绝。
+     *
+     * @return 嗅探得到的 MIME
+     */
+    public String validateContent(byte[] content, String originalName) {
         String sniffedMime = sniffMime(content);
         String declaredExtension = extensionOf(originalName);
         if (!sniffedMimeAllowed(sniffedMime, declaredExtension)) {
             throw new BusinessException("FILE_TYPE_NOT_ALLOWED",
                     "文件内容与扩展名不符或不支持的类型: " + declaredExtension);
         }
+        return sniffedMime;
+    }
+
+    /** 登记上传结果（校验通过、物理文件已按可见性分域落盘后调用；可见性一次写定） */
+    public FileAsset persist(Long ownerId, String originalName, String storageKey, long sizeBytes,
+                             String mime, String visibility) {
         FileAsset asset = new FileAsset();
         asset.setOwnerId(ownerId);
         asset.setOriginalName(sanitizeOriginalName(originalName));
         asset.setStorageKey(storageKey);
-        asset.setMime(sniffedMime);
+        asset.setMime(mime);
         asset.setSizeBytes(sizeBytes);
-        asset.setSha256(sha256Hex(content));
-        asset.setVisibility("PUBLIC");
+        asset.setVisibility("PRIVATE".equalsIgnoreCase(visibility) ? "PRIVATE" : "PUBLIC");
         asset.setStatus("READY");
         fileAssetMapper.insert(asset);
         return asset;
@@ -72,7 +81,7 @@ public class FileAssetService {
      */
     public FileAsset authorizeDelete(Long fileId, Long requesterId, boolean isAdmin) {
         FileAsset asset = fileAssetMapper.selectById(fileId);
-        if (asset == null || "DELETED".equals(asset.getStatus())) {
+        if (asset == null || "DELETED".equals(asset.getStatus()) || "DELETING".equals(asset.getStatus())) {
             throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
         }
         boolean owner = asset.getOwnerId() != null && asset.getOwnerId().equals(requesterId);
@@ -86,6 +95,13 @@ public class FileAssetService {
         if (references != null && references > 0) {
             throw new BusinessException("FILE_REFERENCED", "文件仍被 " + references + " 处业务引用，无法删除");
         }
+        // S01 引用登记协议：CAS READY → DELETING——引用登记方只能对 READY 资产建档，
+        // "查引用后、删除前"新增引用的竞争窗口由此关闭；0 行 = 并发删除/状态已推进
+        int marked = fileAssetMapper.markDeleting(fileId);
+        if (marked == 0) {
+            throw new BusinessException("FILE_DELETE_CONFLICT", "文件删除状态已变更，请刷新重试");
+        }
+        asset.setStatus("DELETING");
         return asset;
     }
 

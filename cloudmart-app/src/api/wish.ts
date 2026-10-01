@@ -383,25 +383,23 @@ export const wishApi = {
     getDataExportContent: (taskId: number | string) =>
         request<Record<string, unknown>>({ url: `/wish/my/export/${taskId}/download` }),
 
-    // ---- 账号注销宽限期（合规 34.2，四AB A1）----
-    sendDeletionCode: () =>
-        request<{ sent: boolean; expiresInSeconds: number; devCode?: string; message?: string }>({
-            url: '/wish/my/account-deletion/code',
+    // ---- 全账号注销（W03：mall-user 唯一权威，30 天宽限期；wish 旧入口已删除）----
+    /** 申请注销：仅需注销原因（统一编排不再走短信验证码链路） */
+    applyAccountDeletion: (reason?: string) =>
+        request<{ status: string; executeAfter: string }>({
+            url: '/user/users/account-deletion',
             method: 'POST',
-        }),
-    applyAccountDeletion: (confirmCode: string, reason?: string) =>
-        request<{ userId: number; executeAfter: string; canCancel: boolean }>({
-            url: '/wish/my/account-deletion',
-            method: 'POST',
-            data: { confirmCode, reason } as unknown as Record<string, unknown>,
+            data: { reason } as unknown as Record<string, unknown>,
         }),
     cancelAccountDeletion: () =>
-        request<{ userId: number; cancelled: boolean; cancelledAt: string }>({
-            url: '/wish/my/account/cancel',
-            method: 'POST',
+        request<{ status: string }>({
+            url: '/user/users/account-deletion',
+            method: 'DELETE',
         }),
     getAccountDeletionStatus: () =>
-        request<{ status: 'PENDING' | 'CANCELED' | 'EXECUTED' } | null>({ url: '/wish/my/account-deletion' }),
+        request<{ status: string; executeAfter?: string; serviceProgress?: string; executedAt?: string }>({
+            url: '/user/users/account-deletion',
+        }),
 
     // ---- 世界树（Sprint 2.1）----
     /** 世界树聚合状态（公开；计数 Redis 缓存 TTL 5min，环境/季节实时） */

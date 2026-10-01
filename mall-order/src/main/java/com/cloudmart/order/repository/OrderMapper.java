@@ -48,7 +48,7 @@ public interface OrderMapper extends BaseMapper<Order> {
                                           @Param("expectedStatus") String expectedStatus,
                                           @Param("targetStatus") String targetStatus);
 
-    @Update("UPDATE orders SET status = #{targetStatus}, refund_reason = #{refundReason}, updated_at = NOW() " +
+    @Update("UPDATE orders SET status = #{targetStatus}, before_refund_status = #{expectedStatus}, refund_reason = #{refundReason}, updated_at = NOW() " +
             "WHERE id = #{orderId} AND status = #{expectedStatus}")
     int updateStatusToRefunding(@Param("orderId") Long orderId,
                                 @Param("expectedStatus") String expectedStatus,
@@ -61,10 +61,10 @@ public interface OrderMapper extends BaseMapper<Order> {
                                @Param("expectedStatus") String expectedStatus,
                                @Param("targetStatus") String targetStatus);
 
-    @Update("UPDATE orders SET status = #{targetStatus}, refund_reject_reason = #{rejectReason}, updated_at = NOW() " +
-            "WHERE id = #{orderId} AND status = #{expectedStatus}")
+    // T02/QA08：恢复退款前履约状态（PAID 或 SHIPPED），不再一律回 PAID
+    @Update("UPDATE orders SET status = before_refund_status, refund_reject_reason = #{rejectReason}, before_refund_status = NULL, updated_at = NOW() " +
+            "WHERE id = #{orderId} AND status = #{expectedStatus} AND before_refund_status IS NOT NULL")
     int updateStatusRejectRefund(@Param("orderId") Long orderId,
                                  @Param("expectedStatus") String expectedStatus,
-                                 @Param("targetStatus") String targetStatus,
                                  @Param("rejectReason") String rejectReason);
 }

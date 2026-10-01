@@ -5,30 +5,30 @@ vi.mock('@/utils/request', () => ({
 }))
 
 import request from '@/utils/request'
-import { uploadFile, deleteFile } from './file'
+import { uploadFile, uploadFileAsset, deleteFileAsset } from './file'
 
-describe('file API', () => {
+// S01/LC05：旧 /file/upload 与 /file/delete 通道已删除——唯一入口 /file/assets，
+// 删除按 fileId（旧 URL 无任何执行入口）。
+describe('file API (assets only)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('uploadFile() calls POST /file/upload with FormData', async () => {
+  it('uploadFile() calls POST /file/assets with PUBLIC visibility', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
     const file = new File(['test content'], 'test.png', { type: 'image/png' })
     await uploadFile(file)
 
     expect(request.post).toHaveBeenCalledWith(
-        '/file/upload',
+        '/file/assets',
         expect.any(FormData),
-        expect.objectContaining({
-          timeout: 60000,
-        })
+        expect.objectContaining({ timeout: 60000 })
     )
 
-    const callArgs = vi.mocked(request.post).mock.calls[0]
-    const formData = callArgs[1] as FormData
+    const formData = vi.mocked(request.post).mock.calls[0][1] as FormData
     expect(formData.get('file')).toBeInstanceOf(File)
+    expect(formData.get('visibility')).toBe('PUBLIC')
   })
 
   it('uploadFile() forwards progress events as percent', async () => {
@@ -45,13 +45,21 @@ describe('file API', () => {
     expect(onProgress).toHaveBeenCalledWith(25)
   })
 
-  it('deleteFile() calls DELETE /file/delete with url param', async () => {
+  it('uploadFileAsset() forwards explicit visibility (PRIVATE 无公开 URL 语义由后端保证)', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    const file = new File(['secret'], 'evidence.pdf', { type: 'application/pdf' })
+    await uploadFileAsset(file, 'PRIVATE')
+
+    const formData = vi.mocked(request.post).mock.calls[0][1] as FormData
+    expect(formData.get('visibility')).toBe('PRIVATE')
+  })
+
+  it('deleteFileAsset() calls DELETE /file/assets/:id', async () => {
     vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
 
-    await deleteFile('https://cdn.example.com/test.png')
+    await deleteFileAsset('42')
 
-    expect(request.delete).toHaveBeenCalledWith('/file/delete', {
-      params: { url: 'https://cdn.example.com/test.png' },
-    })
+    expect(request.delete).toHaveBeenCalledWith('/file/assets/42')
   })
 })
