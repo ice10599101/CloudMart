@@ -24,12 +24,29 @@
 
   <meta name="x5-page-mode" content="app">
 
-  <!-- 法式奶油风：页面底色与宿主舞台卡同色，任何画布适配误差都隐形 -->
+  <!-- 法式奶油风：页面底色与宿主舞台卡同色，任何画布适配误差都隐形。
+       覆盖模板 style.css 的 body#333 深底与 flex 布局（flex-column + height:100%
+       会把 GameDiv 算短，底部露出一条 #333）。 -->
   <style>
     html,
-    body,
-    #GameDiv {
-      background: #FDF6EC;
+    body {
+      background: #FDF6EC !important;
+      height: 100%;
+      /* 画布 CSS 高度按 aspect-ratio 算出小数、引擎取整后会有零点几像素溢出，
+         不禁滚动就会在 iframe 底部出现一条深色横向滚动条 */
+      overflow: hidden !important;
+    }
+
+    body {
+      display: block !important;
+    }
+
+    #GameDiv,
+    #Cocos3dGameContainer,
+    #GameCanvas {
+      background: #FDF6EC !important;
+      width: 100% !important;
+      height: 100% !important;
     }
   </style>
 

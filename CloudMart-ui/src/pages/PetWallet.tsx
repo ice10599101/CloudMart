@@ -1,228 +1,136 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Empty, Segmented, Space, Spin, Tag, Typography } from 'antd'
-import { ReloadOutlined } from '@ant-design/icons'
-import {
-  getPetWallet,
-  listPetWalletTransactions,
-  type PetWalletTransactionVO,
-  type PetWalletVO,
-} from '@/api/pet'
-
-const PAGE_SIZE = 20
-
-const DIRECTION_FILTERS = [
-  { label: '全部', value: '' },
-  { label: '收入', value: 'EARN' },
-  { label: '支出', value: 'SPEND' },
-  { label: '退款', value: 'REFUND' },
-] as const
-
-const BIZ_TYPE_LABELS: Record<string, string> = {
-  PURCHASE: '购买',
-  ACTIVITY_REWARD: '活动奖励',
-  CLAIM_WORK: '打工工资',
-  CLAIM_STUDY: '读书奖励',
-  BATTLE_REWARD: '对战奖励',
-  BOTTLE_REWARD: '捞瓶奖励',
-  QUEST_CLAIM: '任务奖励',
-  QUEST_CHEST: '宝箱奖励',
-  CAREER_CLAIM: '职业工资',
-  CAREER_PROMOTE: '晋升',
-  EVENT_CLAIM: '活动奖励',
-  EVENT_ALT: '活动替代奖励',
-  COOP_REWARD_ALT: '合作奖励',
-  ONBOARDING_GIFT: '新手礼物',
-  EVOLVE: '进化',
-  FURNITURE_BUY: '家具购买',
-  REFUND: '退款',
-  ADJUSTMENT: '调账',
-}
-
-function bizLabel(bizType: string): string {
-  return BIZ_TYPE_LABELS[bizType] ?? bizType
-}
-
-function directionTag(direction: PetWalletTransactionVO['direction']) {
-  if (direction === 'EARN') return <Tag color="green">收入</Tag>
-  if (direction === 'SPEND') return <Tag color="orange">支出</Tag>
-  if (direction === 'REFUND') return <Tag color="blue">退款</Tag>
-  return <Tag>调整</Tag>
-}
-
 /**
- * 宠物币钱包（W03/§7.8）：余额、收支明细、方向筛选、游标加载更多。
- * 查看流水无副作用（不触发领奖）；余额不可用时显示"暂不可用"而非 0；
- * 冻结状态提示原因与可用操作（仍可读账与退款）。
+ * 宠物钱包独立页 · 法式奶油风（/pet/wallet）。
+ *
+ * 与 /pet 首页的"🪙钱包"面板互补：这里是完整收支流水视图（首页面板只看余额）。
+ * 沿用 pet-cream 设计系统（奶油卡、挤出按钮、仪表色）。
  */
-export default function PetWallet() {
-  const [wallet, setWallet] = useState<PetWalletVO | null>(null)
-  const [walletError, setWalletError] = useState(false)
-  const [transactions, setTransactions] = useState<PetWalletTransactionVO[]>([])
-  const [filter, setFilter] = useState<string>('')
-  const [cursor, setCursor] = useState<number | string | null>(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [listError, setListError] = useState(false)
+import { useCallback, useEffect, useState } from 'react'
+import { App, ConfigProvider, Spin, theme as antdTheme } from 'antd'
+import {
+    getPetWallet,
+    listPetWalletTransactions,
+    type PetWalletTransactionVO,
+    type PetWalletVO,
+} from '@/api/pet'
+import {
+    CreamButton,
+    CreamCard,
+    CreamChip,
+    CreamOrnament,
+    STAT_TONE,
+} from '@/components/pet-cream/Cream'
+import styles from './PetWallet.module.css'
 
-  const loadWallet = useCallback(async () => {
-    setWalletError(false)
-    try {
-      const { data: res } = await getPetWallet()
-      if (res.success && res.data) {
-        setWallet(res.data)
-      } else {
-        setWalletError(true)
-      }
-    } catch {
-      setWalletError(true)
-    }
-  }, [])
+const DIRECTION_LABEL: Record<string, string> = {
+    EARN: '收入',
+    SPEND: '支出',
+    REFUND: '退款',
+    ADJUSTMENT: '调整',
+}
 
-  const loadTransactions = useCallback(
-    async (reset: boolean) => {
-      if (reset) {
+const DIRECTION_COLOR: Record<string, string> = {
+    EARN: '#4E9A34',
+    SPEND: '#D98A8A',
+    REFUND: '#5A7CC4',
+    ADJUSTMENT: '#9C8D7E',
+}
+
+export default function PetWalletPage() {
+    const [wallet, setWallet] = useState<PetWalletVO | null>(null)
+    const [flows, setFlows] = useState<PetWalletTransactionVO[] | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    const load = useCallback(async () => {
         setLoading(true)
-        setCursor(null)
-      } else {
-        setLoadingMore(true)
-      }
-      setListError(false)
-      try {
-        const { data: res } = await listPetWalletTransactions({
-          size: PAGE_SIZE,
-          direction: filter || undefined,
-          cursor: reset ? undefined : (cursor ?? undefined),
-        })
-        if (res.success && res.data) {
-          const page = res.data
-          setTransactions((prev) => (reset ? page : [...prev, ...page]))
-          const nextCursor = (res.meta as { nextCursor?: string | null } | undefined)?.nextCursor
-          setCursor(nextCursor ?? null)
-          setHasMore(Boolean(nextCursor))
-        } else {
-          setListError(true)
+        try {
+            const [walletRes, flowRes] = await Promise.all([
+                getPetWallet(),
+                listPetWalletTransactions({ size: 30 }),
+            ])
+            if (walletRes.data.success) {
+                setWallet(walletRes.data.data)
+            }
+            if (flowRes.data.success) {
+                setFlows(flowRes.data.data)
+            }
+        } finally {
+            setLoading(false)
         }
-      } catch {
-        setListError(true)
-      } finally {
-        setLoading(false)
-        setLoadingMore(false)
-      }
-    },
-    [filter, cursor],
-  )
+    }, [])
 
-  useEffect(() => {
-    void loadWallet()
-  }, [loadWallet])
+    useEffect(() => {
+        void load()
+    }, [load])
 
-  useEffect(() => {
-    void loadTransactions(true)
-    // filter 变化时重置列表；cursor 由本回调管理
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter])
+    if (loading) {
+        return (
+            <div className={`${styles.page} ${styles.centered}`}>
+                <Spin size="large" />
+            </div>
+        )
+    }
 
-  const frozen = wallet?.status === 'FROZEN'
+    return (
+        <ConfigProvider
+            theme={{
+                // 站点全局是暗色 antd token，宠物页必须强制回浅色
+                algorithm: antdTheme.defaultAlgorithm,
+                token: { colorPrimary: '#C89B5A', borderRadius: 14 },
+            }}
+        >
+            <div className={styles.page}>
+                <div className={styles.shell}>
+                    <header className={styles.masthead}>
+                        <h1 className={styles.mastheadTitle}>Porte-monnaie</h1>
+                        <p className={styles.mastheadSub}>宠物钱包 · 星光收支</p>
+                        <div className={styles.mastheadRule} />
+                    </header>
 
-  return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 24 }}>
-      <Card style={{ marginBottom: 16 }}>
-        {walletError ? (
-          <Space direction="vertical" style={{ width: '100%' }} align="center">
-            <Typography.Text type="secondary">钱包暂不可用，稍后再试</Typography.Text>
-            <Button icon={<ReloadOutlined />} onClick={() => void loadWallet()}>
-              重试
-            </Button>
-          </Space>
-        ) : !wallet ? (
-          <Spin />
-        ) : (
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
-            <Typography.Text type="secondary">宠物币余额（{wallet.currency}）</Typography.Text>
-            <Space align="baseline" size={12}>
-              <Typography.Title level={2} style={{ margin: 0 }}>
-                {wallet.balance}
-              </Typography.Title>
-              {frozen ? (
-                <Tag color="red">已冻结：暂不能消费，仍可查看与退款，请联系客服</Tag>
-              ) : (
-                <Tag color="gold">正常</Tag>
-              )}
-            </Space>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              宠物币与社区星光相互独立；历史社区星光请前往心愿宇宙的星光记录查看。
-            </Typography.Text>
-          </Space>
-        )}
-      </Card>
+                    <CreamCard variant="arch" label="Solde">
+                        {wallet ? (
+                            <>
+                                <p className={styles.balance}>
+                                    {wallet.balance}
+                                    <span className={styles.balanceUnit}>宠物币</span>
+                                </p>
+                                <div className={styles.metaRow}>
+                                    <CreamChip color={STAT_TONE.energy}>{wallet.currency}</CreamChip>
+                                    <CreamChip color={wallet.status === 'ACTIVE' ? STAT_TONE.energy : STAT_TONE.hp}>
+                                        {wallet.status === 'ACTIVE' ? '账户正常' : '账户冻结'}
+                                    </CreamChip>
+                                    <CreamChip color={STAT_TONE.cleanliness}>
+                                        账户 {wallet.accountId.slice(0, 10)}…
+                                    </CreamChip>
+                                </div>
+                            </>
+                        ) : (
+                            <p className={styles.empty}>钱包服务暂不可用</p>
+                        )}
+                        <div className={styles.renameRow}>
+                            <CreamButton variant="ghost" onClick={() => void load()}>刷新</CreamButton>
+                        </div>
+                    </CreamCard>
 
-      <Card
-        title="收支明细"
-        extra={
-          <Segmented
-            size="small"
-            options={DIRECTION_FILTERS.map((f) => ({ label: f.label, value: f.value }))}
-            value={filter}
-            onChange={(value) => setFilter(String(value))}
-          />
-        }
-      >
-        {listError ? (
-          <Empty description="明细加载失败">
-            <Button onClick={() => void loadTransactions(true)}>重试</Button>
-          </Empty>
-        ) : loading ? (
-          <div style={{ textAlign: 'center', padding: 32 }}>
-            <Spin />
-          </div>
-        ) : transactions.length === 0 ? (
-          <Empty description="还没有收支记录" />
-        ) : (
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            {transactions.map((tx) => (
-              <div
-                key={tx.transactionId}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <Space direction="vertical" size={0}>
-                  <Space size={8}>
-                    {directionTag(tx.direction)}
-                    <Typography.Text>{bizLabel(tx.bizType)}</Typography.Text>
-                  </Space>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {new Date(tx.occurredAt).toLocaleString()}
-                  </Typography.Text>
-                </Space>
-                <Typography.Text
-                  strong
-                  type={tx.direction === 'SPEND' ? 'danger' : 'success'}
-                  style={{ fontSize: 16 }}
-                >
-                  {tx.direction === 'SPEND' ? '-' : '+'}
-                  {tx.amount}
-                </Typography.Text>
-              </div>
-            ))}
-            {hasMore && (
-              <Button
-                block
-                loading={loadingMore}
-                onClick={() => {
-                  void loadTransactions(false)
-                }}
-              >
-                加载更多
-              </Button>
-            )}
-            {!hasMore && transactions.length > 0 && (
-              <Typography.Text type="secondary" style={{ textAlign: 'center', fontSize: 12 }}>
-                没有更多了
-              </Typography.Text>
-            )}
-          </Space>
-        )}
-      </Card>
-    </div>
-  )
+                    <CreamCard variant="menu" label="Historique" title="收支流水">
+                        {!flows || flows.length === 0 ? (
+                            <p className={styles.empty}>还没有收支记录</p>
+                        ) : flows.map(item => (
+                            <div key={item.transactionId} className={styles.panelRow}>
+                                <div className={styles.panelMain}>
+                                    <p className={styles.panelTitle}>{item.bizType}</p>
+                                    <p className={styles.panelDesc}>{item.occurredAt}</p>
+                                </div>
+                                <CreamChip color={DIRECTION_COLOR[item.direction] ?? '#9C8D7E'}>
+                                    {DIRECTION_LABEL[item.direction] ?? item.direction}
+                                </CreamChip>
+                                <span className={styles.amount}>{item.amount}</span>
+                            </div>
+                        ))}
+                    </CreamCard>
+
+                    <CreamOrnament>❦</CreamOrnament>
+                </div>
+            </div>
+        </ConfigProvider>
+    )
 }

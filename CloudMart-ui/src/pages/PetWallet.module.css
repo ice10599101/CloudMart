@@ -1,0 +1,118 @@
+/* 宠物钱包独立页 · 法式奶油风版面（与 PetCream 同源） */
+
+.page {
+  min-height: 100vh;
+  padding: 24px 20px 48px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #FDF6EC 0%, #F7EADA 100%);
+  color: #4A3F35;
+}
+
+.shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.masthead {
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
+.mastheadTitle {
+  font-family: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin: 0;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.mastheadSub {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #A97C50;
+  margin: 4px 0 10px;
+}
+
+.mastheadRule {
+  height: 4px;
+  border-top: 1px solid rgba(200, 155, 90, 0.55);
+  border-bottom: 1px solid rgba(231, 220, 203, 0.9);
+}
+
+.balance {
+  font-size: 40px;
+  margin: 6px 0 10px;
+  color: #4A3F35;
+  font-variant-numeric: tabular-nums;
+}
+
+.balanceUnit {
+  font-size: 15px;
+  color: #7A6A5C;
+  margin-left: 10px;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.renameRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.panelRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed #E7DCCB;
+}
+
+.panelRow:last-child {
+  border-bottom: none;
+}
+
+.panelMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.panelTitle {
+  font-size: 14px;
+  color: #4A3F35;
+  margin: 0 0 2px;
+}
+
+.panelDesc {
+  font-size: 12px;
+  color: #7A6A5C;
+  margin: 0;
+}
+
+.amount {
+  font-size: 15px;
+  color: #4A3F35;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.empty {
+  font-size: 13px;
+  color: #7A6A5C;
+  margin: 6px 0;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}

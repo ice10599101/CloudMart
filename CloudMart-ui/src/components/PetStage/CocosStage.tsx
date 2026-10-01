@@ -160,6 +160,7 @@ const CocosStage = forwardRef<{ post: (message: HostToGame) => void }, CocosStag
           ref={frameRef}
           title="宠物舞台"
           className={styles.frame}
+          scrolling="no"
           /* 时间戳缓存穿透：pet-game 每次重建后，页面刷新必定拉到最新产物，
              避免浏览器缓存旧的 index.html/style.css 造成深色底条等问题 */
           src={PET_GAME_FRAME_URL}

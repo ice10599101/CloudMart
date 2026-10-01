@@ -1,0 +1,344 @@
+/* 家园面板 · 法式奶油风（组件级样式：只给 HomeBoard 引用，勿挪到页面级 css module）
+ * 立体语言同 cream.module.css：承托件带挤出底边 + 暖调投影，凹陷件（地板/空格）走玻璃内阴影。 */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  font-size: 13px;
+  color: var(--mocha);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.tab:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(169, 124, 80, 0.3);
+}
+
+.tabActive {
+  color: var(--espresso);
+  font-weight: 500;
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+}
+
+/* 概要条：舒适度 / 来访 / 点赞 / 今日回家礼 */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--mocha);
+  margin-bottom: 12px;
+}
+
+.summaryValue {
+  color: var(--espresso);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 房间地板：凹陷的浅橡木地台，格子浮在上面 */
+.room {
+  padding: 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #F2E3CE 0%, #E7D5B8 100%);
+  box-shadow: var(--glass), var(--z1);
+}
+
+.roomGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 76px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  border: 1px dashed rgba(169, 124, 80, 0.5);
+  background: rgba(255, 253, 248, 0.55);
+  box-shadow: inset 0 2px 4px rgba(74, 63, 53, 0.1);
+  color: var(--mocha-light);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 摆放模式下：空格子变成可落点， brass 高亮 */
+.cellTarget {
+  border-color: var(--brass-400);
+  border-style: solid;
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: 0 0 0 2px rgba(200, 155, 90, 0.22), inset 0 2px 4px rgba(74, 63, 53, 0.08);
+}
+
+/* 已摆放：实体小卡，带挤出边 */
+.cellFilled {
+  border-style: solid;
+  border-color: rgba(200, 155, 90, 0.55);
+  background: linear-gradient(180deg, #FFFDF8, #F7EADA);
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.35), var(--z1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: var(--espresso);
+}
+
+.cellIcon {
+  font-size: 26px;
+  filter: drop-shadow(0 2px 2px rgba(74, 63, 53, 0.18));
+  line-height: 1.1;
+}
+
+.cellName {
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellPlus {
+  font-size: 20px;
+  opacity: 0.5;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+
+.hintStrong {
+  color: var(--brass-600);
+}
+
+.block {
+  margin-top: 18px;
+}
+
+.blockTitle {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+  letter-spacing: 0.3px;
+}
+
+.blockDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0 0 8px;
+}
+
+/* 通用行：家具/商城/邻居列表 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--cream-line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowActive {
+  background: rgba(200, 155, 90, 0.12);
+  border-radius: var(--r-md);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.rowIcon {
+  flex: none;
+  width: 30px;
+  text-align: center;
+  font-size: 22px;
+  filter: drop-shadow(0 2px 2px rgba(74, 63, 53, 0.14));
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+}
+
+.rowDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0;
+}
+
+.price {
+  flex: none;
+  font-size: 13px;
+  color: var(--brass-600);
+  white-space: nowrap;
+}
+
+/* 墙纸地板：色板式选择 */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.35);
+  font-size: 13px;
+  color: var(--espresso);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.swatch:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(169, 124, 80, 0.35);
+}
+
+.swatchActive {
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.55), 0 0 0 2px rgba(200, 155, 90, 0.2);
+  font-weight: 500;
+}
+
+.swatchIcon {
+  font-size: 16px;
+}
+
+/* 设置 */
+.settingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--cream-line);
+}
+
+.inputRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.input {
+  background: #FFFDF8 !important;
+  border: 1px solid rgba(200, 155, 90, 0.45) !important;
+  border-radius: var(--r-pill) !important;
+  color: var(--espresso) !important;
+  height: 44px;
+  box-shadow: var(--glass);
+}
+
+.input::placeholder {
+  color: var(--mocha-light);
+}
+
+.input:focus {
+  border-color: var(--brass-400) !important;
+  box-shadow: 0 0 0 3px rgba(200, 155, 90, 0.15) !important;
+}
+
+/* 串门：他人房间名片 */
+.visitCard {
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
+  box-shadow: var(--z1), var(--edge);
+}
+
+.visitName {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--espresso);
+  margin: 0 0 4px;
+}
+
+.visitMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+.visitWelcome {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--mocha);
+  margin: 8px 0 0;
+}
+
+.visitGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.visitCell {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 4px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(200, 155, 90, 0.4);
+  background: rgba(255, 253, 248, 0.7);
+  box-shadow: inset 0 2px 4px rgba(74, 63, 53, 0.08);
+  font-size: 11px;
+  color: var(--mocha);
+}
+
+.visitActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.empty {
+  padding: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mocha);
+}
+
+@media (max-width: 480px) {
+  .visitGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

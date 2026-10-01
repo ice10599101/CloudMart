@@ -5,6 +5,7 @@ import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.Wish;
 import com.cloudmart.wish.enums.AuditStatus;
 import com.cloudmart.wish.enums.AuditStrategy;
+import com.cloudmart.wish.enums.WishStatus;
 import com.cloudmart.wish.enums.WishVisibility;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +23,10 @@ import org.springframework.stereotype.Component;
  *       解密只能在授权判定之后发生；</li>
  *   <li>公开可读谓词唯一：未删除 + PUBLIC + isVisible + 状态允许 + 审核允许
  *       （LAZY 的 PENDING 可先展示，STRICT 的 PENDING 不公开，
- *       REJECTED/AUTO_HIDDEN 始终不公开）。</li>
+ *       REJECTED/AUTO_HIDDEN 始终不公开）；</li>
+ *   <li>W02 状态矩阵（方案默认语义）：ACTIVE/OVERDUE/FULFILLING 按公开范围展示；
+ *       FULFILLED 按原范围阅读、新增互动由开关决定；ARCHIVED 仅本人查看且停止新增互动；
+ *       DRAFT 对普通用户不可见（作者经草稿域访问）。作者本人始终可读（DIARY 语义不变）。</li>
  * </ul>
  */
 @Component
@@ -44,6 +48,12 @@ public class WishAccessPolicy {
             return false;
         }
         if (!Boolean.TRUE.equals(wish.getIsVisible())) {
+            return false;
+        }
+        // W02 状态矩阵：DRAFT/ARCHIVED 对非作者不可见（归档仅本人查看）；
+        // 其余状态（ACTIVE/OVERDUE/FULFILLING/FULFILLED）按原公开范围阅读
+        WishStatus status = wish.getStatus();
+        if (status == WishStatus.DRAFT || status == WishStatus.ARCHIVED) {
             return false;
         }
         AuditStatus audit = wish.getAuditStatus();
@@ -97,10 +107,17 @@ public class WishAccessPolicy {
 
     /**
      * 是否可互动（点亮/同求/祝福/收藏/送礼/评论等新增互动）：
-     * 必须公共可见——私密资源不可被互动，被下架/驳回后停止新增互动与消费。
+     * 必须公共可见——私密资源不可被互动，被下架/驳回后停止新增互动与消费；
+     * W02 状态矩阵：ARCHIVED 仅本人查看且停止新增互动；FULFILLED 按原范围阅读、
+     * 新增互动默认停止（方案默认语义：COMPLETED 允许阅读，互动由开关决定——
+     * 现无互动开关字段，默认关闭；产品放开时在此接入开关）。
      */
     public boolean canInteract(Wish wish, Long viewerId) {
-        return viewerId != null && isPublicReadable(wish);
+        if (viewerId == null || !isPublicReadable(wish)) {
+            return false;
+        }
+        WishStatus status = wish.getStatus();
+        return status != WishStatus.ARCHIVED && status != WishStatus.FULFILLED;
     }
 
     /** 要求可互动；不满足时统一 404 语义。 */

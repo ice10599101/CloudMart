@@ -265,10 +265,11 @@
   background: var(--cream-line);
 }
 
-/* ---------- 立体舞台：透视地台 + 画框 ---------- */
+/* ---------- 立体舞台：画框 + 地台 ----------
+ * 注意：舞台卡不做 3D 倾斜（rotateX 会把整个 3D 画面带歪），
+ * 立体感由画框描边、奶油渐变和地台暖影承担。 */
 .stage {
   position: relative;
-  perspective: 1200px;
   padding: 18px 0 34px;
 }
 
@@ -279,8 +280,6 @@
   background: linear-gradient(180deg, #FFFDF9, var(--cream-100));
   box-shadow: var(--z3), var(--edge);
   overflow: hidden;
-  transform: rotateX(3deg);
-  transform-origin: 50% 100%;
 }
 
 .stageInner {

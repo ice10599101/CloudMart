@@ -1,17 +1,15 @@
 .stage {
   position: relative;
   width: 100%;
-  min-height: 480px;
-  border-radius: var(--border-radius-lg, 20px);
-  overflow: hidden;
-  background: var(--color-bg-sider, #18223a);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 6%);
+  /* 法式奶油风：舞台比例由宿主 stageInner（aspect 960/548）统一约束，
+     这里不再自设 min-height/深色底——iframe 高度必须跟随容器，否则错位缝隙会露出底色 */
+  background: transparent;
 }
 
 .frame {
   display: block;
   width: 100%;
-  height: 560px;
+  height: 100%;
   border: none;
 }
 
@@ -40,7 +38,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 12, 24, 60%);
+  /* 法式奶油风：半透明奶油遮罩（旧版为深色 rgba(8,12,24)） */
+  background: rgba(253, 246, 236, 82%);
   z-index: 10;
   cursor: pointer;
 }
@@ -54,8 +53,10 @@
   max-width: 90%;
   padding: 24px 28px;
   border-radius: 18px;
-  background: rgba(10, 16, 32, 92%);
-  color: #fff;
+  background: #FFFDF9;
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  box-shadow: 0 14px 32px rgba(74, 63, 53, 0.14);
+  color: #4A3F35;
   text-align: center;
 }
 
@@ -90,12 +91,6 @@
 
 .battleClose:hover {
   background: #5a7ac8;
-}
-
-@media (max-width: 720px) {
-  .frame {
-    height: 420px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
