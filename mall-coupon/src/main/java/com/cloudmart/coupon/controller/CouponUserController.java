@@ -80,6 +80,15 @@ public class CouponUserController {
         return ApiResponse.ok(null);
     }
 
+    /** T06：支付成功核销确认（RESERVED→USED；仅 mall-order 服务令牌） */
+    @PostMapping("/confirm")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "核销确认", description = "支付成功后将 RESERVED 置为 USED（同订单幂等；内部调用）")
+    public ApiResponse<Void> confirmCoupon(@Valid @RequestBody UseCouponRequest request) {
+        couponService.confirmCoupon(request.userCouponId(), request.orderId());
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/return")
     @PreAuthorize("hasRole('INTERNAL')") // SEC-01：退券仅限 mall-order 服务令牌
     @Operation(summary = "退还优惠券", description = "退还已使用的优惠券，取消订单时调用（内部调用）")

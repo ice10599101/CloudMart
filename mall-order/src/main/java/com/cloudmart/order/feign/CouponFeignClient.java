@@ -15,6 +15,10 @@ public interface CouponFeignClient {
     @PostMapping("/use")
     ApiResponse<Void> useCoupon(@RequestBody UseCouponRequest request);
 
+    /** T06：支付成功核销确认（RESERVED→USED） */
+    @PostMapping("/user-coupons/confirm")
+    ApiResponse<Void> confirmCoupon(@RequestBody UseCouponRequest request);
+
     @PostMapping("/return")
     ApiResponse<Void> returnCoupon(@RequestBody ReturnCouponRequest request);
 

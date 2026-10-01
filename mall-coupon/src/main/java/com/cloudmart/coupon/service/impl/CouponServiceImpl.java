@@ -304,13 +304,11 @@ public class CouponServiceImpl implements CouponService {
         if (userCoupon == null) {
             throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
         }
-        // COUPON-01：同订单重试幂等——已 USED 且绑定同一订单时返回成功
-        //（订单创建失败重试会再次调 useCoupon，此前抛状态异常导致重试永远失败）
-        if ("USED".equals(userCoupon.getStatus())) {
-            if (orderId.equals(userCoupon.getOrderId())) {
-                return;
-            }
-            throw new BusinessException("COUPON_STATUS_ERROR", "优惠券已被其他订单使用");
+        // T06：下单 = 占券（UNUSED→RESERVED，绑定订单）；支付成功 confirm 转 USED。
+        // 同订单重试幂等（RESERVED/USED + 同订单均直接成功——订单创建失败重试会再调 useCoupon）
+        if (orderId.equals(userCoupon.getOrderId())
+                && ("RESERVED".equals(userCoupon.getStatus()) || "USED".equals(userCoupon.getStatus()))) {
+            return;
         }
         if (!"UNUSED".equals(userCoupon.getStatus())) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态不允许使用");
@@ -320,7 +318,29 @@ public class CouponServiceImpl implements CouponService {
         }
 
         int updated = userCouponMapper.updateStatusIfMatch(
-                userCouponId, "UNUSED", "USED", orderId, LocalDateTime.now());
+                userCouponId, "UNUSED", "RESERVED", orderId, null);
+        if (updated == 0) {
+            // 两订单抢一券最多一个成功（QA15）
+            throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态已变更，请刷新重试");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void confirmCoupon(Long userCouponId, Long orderId) {
+        UserCoupon userCoupon = userCouponMapper.selectById(userCouponId);
+        if (userCoupon == null) {
+            throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
+        }
+        // T06：支付成功 → RESERVED/USED(同订单) → USED（幂等，重复支付事件不重复核销）
+        if ("USED".equals(userCoupon.getStatus()) && orderId.equals(userCoupon.getOrderId())) {
+            return;
+        }
+        if (!"RESERVED".equals(userCoupon.getStatus()) || !orderId.equals(userCoupon.getOrderId())) {
+            throw new BusinessException("COUPON_STATUS_ERROR", "优惠券不在本订单的预留状态");
+        }
+        int updated = userCouponMapper.updateStatusIfMatch(
+                userCouponId, "RESERVED", "USED", orderId, LocalDateTime.now());
         if (updated == 0) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态已变更，请刷新重试");
         }
@@ -333,12 +353,12 @@ public class CouponServiceImpl implements CouponService {
         if (userCoupon == null) {
             throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
         }
-        // COUPON-01：重放幂等——已 UNUSED（此前退券已成功）直接返回成功；
-        // 退券方向安全（券回到可用态，不存在重复资金效果）
+        // COUPON-01/T06：重放幂等——已 UNUSED（此前退券已成功）直接返回成功；
+        // RESERVED（未支付取消）与 USED（退款）均可退，同订单校验 + 状态 CAS 保证只执行一次
         if ("UNUSED".equals(userCoupon.getStatus())) {
             return;
         }
-        if (!"USED".equals(userCoupon.getStatus())) {
+        if (!"RESERVED".equals(userCoupon.getStatus()) && !"USED".equals(userCoupon.getStatus())) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态不允许退还");
         }
         if (!orderId.equals(userCoupon.getOrderId())) {
@@ -346,7 +366,7 @@ public class CouponServiceImpl implements CouponService {
         }
 
         int updated = userCouponMapper.returnCouponIfMatch(
-                userCouponId, "USED", "UNUSED", orderId);
+                userCouponId, userCoupon.getStatus(), "UNUSED", orderId);
         if (updated == 0) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态已变更，请刷新重试");
         }
@@ -409,11 +429,20 @@ public class CouponServiceImpl implements CouponService {
     }
 
     public UserCouponDTO claimCouponFallback(Long userId, Long templateId, Throwable throwable) {
-        log.warn("claimCoupon fallback triggered, userId={}, templateId={}: {}", userId, templateId, throwable.getMessage());
-        return null;
+        // T06：业务语义原样透传；限流/降级 fail-closed 抛可识别异常（禁止 success+null 假成功）
+        if (throwable instanceof BusinessException be) {
+            throw be;
+        }
+        log.warn("claimCoupon fallback(降级), userId={}, templateId={}: {}", userId, templateId, throwable.getMessage());
+        throw new BusinessException("COUPON_SERVICE_DEGRADED", "优惠券服务繁忙，请稍后重试");
     }
 
     public void useCouponFallback(Long userCouponId, Long orderId, Throwable throwable) {
-        log.warn("useCoupon fallback triggered, userCouponId={}, orderId={}: {}", userCouponId, orderId, throwable.getMessage());
+        // T06：变更型 fallback 禁止伪装成功——业务异常透传，限流/降级抛可识别异常（订单侧感知失败）
+        if (throwable instanceof BusinessException be) {
+            throw be;
+        }
+        log.warn("useCoupon fallback(降级), userCouponId={}, orderId={}: {}", userCouponId, orderId, throwable.getMessage());
+        throw new BusinessException("COUPON_SERVICE_DEGRADED", "优惠券服务繁忙，请稍后重试");
     }
 }

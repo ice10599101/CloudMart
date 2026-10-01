@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -274,15 +275,33 @@ class CouponServiceImplTest {
             userCoupon.setExpiredAt(LocalDateTime.now().plusDays(7));
 
             when(userCouponMapper.selectById(USER_COUPON_ID)).thenReturn(userCoupon);
+            // T06：下单占券 UNUSED→RESERVED
             when(userCouponMapper.updateStatusIfMatch(
-                    eq(USER_COUPON_ID), eq("UNUSED"), eq("USED"), eq(ORDER_ID), any(LocalDateTime.class)
+                    eq(USER_COUPON_ID), eq("UNUSED"), eq("RESERVED"), eq(ORDER_ID), isNull()
             )).thenReturn(1);
 
             couponService.useCoupon(USER_COUPON_ID, ORDER_ID);
 
             verify(userCouponMapper).updateStatusIfMatch(
-                    eq(USER_COUPON_ID), eq("UNUSED"), eq("USED"), eq(ORDER_ID), any(LocalDateTime.class)
+                    eq(USER_COUPON_ID), eq("UNUSED"), eq("RESERVED"), eq(ORDER_ID), isNull()
             );
+        }
+
+        @Test
+        @DisplayName("T06：同订单 RESERVED 重放幂等成功（订单创建重试）")
+        void useCoupon_reservedSameOrder_idempotent() {
+            UserCoupon userCoupon = new UserCoupon();
+            userCoupon.setId(USER_COUPON_ID);
+            userCoupon.setUserId(USER_ID);
+            userCoupon.setStatus("RESERVED");
+            userCoupon.setOrderId(ORDER_ID);
+
+            when(userCouponMapper.selectById(USER_COUPON_ID)).thenReturn(userCoupon);
+
+            couponService.useCoupon(USER_COUPON_ID, ORDER_ID);
+
+            verify(userCouponMapper, never()).updateStatusIfMatch(
+                    anyLong(), anyString(), anyString(), anyLong(), any());
         }
 
         @Test

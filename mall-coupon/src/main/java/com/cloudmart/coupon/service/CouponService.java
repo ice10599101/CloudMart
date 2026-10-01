@@ -30,6 +30,9 @@ public interface CouponService {
 
     void useCoupon(Long userCouponId, Long orderId);
 
+    /** T06：支付成功核销（RESERVED→USED；同订单幂等） */
+    void confirmCoupon(Long userCouponId, Long orderId);
+
     void returnCoupon(Long userCouponId, Long orderId);
 
     int expireBatch();

@@ -112,6 +112,7 @@ mall-cart:
 mall-coupon:
   - { method: POST,   path: /user-coupons/claim,    subjectType: USER, note: "COUPON-01：领取限额原子化" }
   - { method: POST,   path: /user-coupons/use,      subjectType: SERVICE, serviceCaller: mall-order, permission: coupon:trade }
+  - { method: POST,   path: /user-coupons/confirm,  subjectType: SERVICE, serviceCaller: mall-order, permission: coupon:trade, note: "T06：支付成功核销确认 RESERVED→USED" }
   - { method: POST,   path: /user-coupons/return,   subjectType: SERVICE, serviceCaller: mall-order, permission: coupon:trade }
   - { method: POST,   path: /coupons/expire-batch,  subjectType: SERVICE, serviceCaller: mall-job, permission: coupon:jobs, note: "旧匿名写入口已封闭" }
   - { method: "*",    path: /admin/**,              subjectType: SERVICE, serviceCaller: mall-admin, permission: coupon:admin }

@@ -343,6 +343,22 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
+        // T06：支付成功 → 券 RESERVED→USED 核销确认；失败登记补偿任务重试（券核销最终一致）
+        if (order.getCouponId() != null) {
+            try {
+                couponFeignClient.confirmCoupon(new com.cloudmart.order.feign.CouponFeignClient.UseCouponRequest(
+                        order.getCouponId(), orderId));
+            } catch (Exception confirmEx) {
+                log.error("优惠券核销确认失败，登记补偿, orderId={}, couponId={}: {}",
+                        orderId, order.getCouponId(), confirmEx.getMessage());
+                compensationTaskService.createIfAbsent(
+                        "coupon-confirm:" + orderId + ":" + order.getCouponId(), "coupon-confirm",
+                        String.valueOf(orderId),
+                        compensationJson(java.util.Map.of(
+                                "orderId", orderId, "userCouponId", order.getCouponId())));
+            }
+        }
+
         publishOutboxEvent(new OrderStatusChangeMessage(
                 orderId, order.getUserId(), "PENDING_PAYMENT", "PAID"
         ));
