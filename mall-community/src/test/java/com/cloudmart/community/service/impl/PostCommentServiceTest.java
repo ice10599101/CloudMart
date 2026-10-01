@@ -72,7 +72,8 @@ class PostCommentServiceTest {
         postCommentService = new PostCommentServiceImpl(
                 postCommentMapper, postMapper,
                 communityEventProducer, growthService, userEnrichmentService,
-                contentReviewService, likeService
+                contentReviewService, likeService,
+                new com.cloudmart.community.policy.ContentAccessPolicy()
         );
     }
 
@@ -245,6 +246,7 @@ class PostCommentServiceTest {
             Page<PostComment> topPage = new Page<>(1, 10, 1);
             topPage.setRecords(List.of(topComment));
 
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPublishedPost());
             when(postCommentMapper.selectPage(any(Page.class), any())).thenReturn(topPage);
             when(postCommentMapper.selectList(any())).thenReturn(List.of());
             when(userEnrichmentService.batchGetUsers(any()))
@@ -266,6 +268,7 @@ class PostCommentServiceTest {
             Page<PostComment> topPage = new Page<>(1, 10, 1);
             topPage.setRecords(List.of(topComment));
 
+            when(postMapper.selectById(POST_ID)).thenReturn(buildPublishedPost());
             when(postCommentMapper.selectPage(any(Page.class), any())).thenReturn(topPage);
             when(postCommentMapper.selectList(any())).thenReturn(List.of());
             when(userEnrichmentService.batchGetUsers(any()))

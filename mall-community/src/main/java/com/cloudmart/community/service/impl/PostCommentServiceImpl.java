@@ -41,6 +41,7 @@ public class PostCommentServiceImpl implements PostCommentService {
     private final UserEnrichmentService userEnrichmentService;
     private final ContentReviewService contentReviewService;
     private final LikeService likeService;
+    private final com.cloudmart.community.policy.ContentAccessPolicy contentAccessPolicy;
 
     public PostCommentServiceImpl(PostCommentMapper postCommentMapper,
                                   PostMapper postMapper,
@@ -48,7 +49,8 @@ public class PostCommentServiceImpl implements PostCommentService {
                                   GrowthService growthService,
                                   UserEnrichmentService userEnrichmentService,
                                   ContentReviewService contentReviewService,
-                                  LikeService likeService) {
+                                  LikeService likeService,
+                                  com.cloudmart.community.policy.ContentAccessPolicy contentAccessPolicy) {
         this.postCommentMapper = postCommentMapper;
         this.postMapper = postMapper;
         this.communityEventProducer = communityEventProducer;
@@ -56,14 +58,29 @@ public class PostCommentServiceImpl implements PostCommentService {
         this.userEnrichmentService = userEnrichmentService;
         this.contentReviewService = contentReviewService;
         this.likeService = likeService;
+        this.contentAccessPolicy = contentAccessPolicy;
     }
 
     @Override
     @Transactional
     public PostCommentVO createComment(Long userId, Long postId, CreateCommentRequest request) {
         Post post = postMapper.selectById(postId);
-        if (post == null) {
-            throw new BusinessException("POST_NOT_FOUND", "帖子不存在");
+        // C01：宿主可读——隐藏/删除/草稿/驳回帖子的评论同步收敛
+        contentAccessPolicy.requirePostReadable(post);
+
+        // C01：parentId 必须属于同帖；replyToUserId 必须为线程参与者（父楼作者或宿主作者）
+        if (request.parentId() != null) {
+            PostComment parent = postCommentMapper.selectById(request.parentId());
+            if (parent == null || !postId.equals(parent.getPostId())) {
+                throw new BusinessException("COMMENT_NOT_FOUND", "回复的评论不存在");
+            }
+            if (request.replyToUserId() != null) {
+                boolean threadParticipant = parent.getUserId().equals(request.replyToUserId())
+                        || post.getUserId().equals(request.replyToUserId());
+                if (!threadParticipant) {
+                    throw new BusinessException("COMMENT_REPLY_INVALID", "回复对象不属于该评论线程");
+                }
+            }
         }
 
         ContentReviewService.ReviewResult reviewResult = contentReviewService.reviewContent(request.content());
@@ -105,6 +122,8 @@ public class PostCommentServiceImpl implements PostCommentService {
 
     @Override
     public Page<PostCommentVO> getComments(Long postId, int page, int size, Long currentUserId) {
+        // C01：宿主不可读（隐藏/删除）时评论列表同样拒绝，不能只保护详情页
+        contentAccessPolicy.requirePostReadable(postMapper.selectById(postId));
         LambdaQueryWrapper<PostComment> topWrapper = new LambdaQueryWrapper<PostComment>()
                 .eq(PostComment::getPostId, postId)
                 .eq(PostComment::getStatus, 0)
