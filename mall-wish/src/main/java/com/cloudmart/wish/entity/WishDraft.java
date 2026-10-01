@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,6 +46,11 @@ public class WishDraft {
     /** 发布后的心愿 ID（同事务唯一关联保障发布幂等） */
     private Long publishedWishId;
 
+    /** 状态（W01：DRAFT/PUBLISHING/PUBLISHED；发布 CAS 状态机） */
+    private String status;
+
+    /** 乐观锁（W01：@Version + 乐观锁插件，updateById 自动 CAS） */
+    @Version
     private Integer version;
 
     @TableLogic

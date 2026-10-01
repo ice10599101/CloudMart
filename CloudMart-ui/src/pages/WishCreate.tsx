@@ -194,6 +194,32 @@ export default function WishCreate() {
         draftVersionRef.current = res.data.data.version
         message.success('草稿已保存（可在「我的草稿」中继续编辑）')
       }
+    } catch (err) {
+      // W01/QA27：两设备并发保存 → 409 WISH_VERSION_CONFLICT（含服务端版本）。
+      // 本地内容不丢弃：提供「重新载入」或「保留本地副本」两种选择
+      const code = (err as { code?: string })?.code
+      if (code === 'WISH_VERSION_CONFLICT') {
+        Modal.confirm({
+          title: '草稿已被其他端修改',
+          content: '本地内容未覆盖服务端。可选择重新载入最新草稿（覆盖本地编辑），或保留本地内容自行处理。',
+          okText: '重新载入最新草稿',
+          cancelText: '保留本地内容',
+          onOk: async () => {
+            const list = await listMyWishDrafts()
+            const latest = (list.data.data ?? []).find((d) => d.clientDraftId === draftKeyRef.current)
+            if (latest) {
+              draftVersionRef.current = latest.version
+              form.setFieldsValue({
+                title: latest.title,
+                description: latest.description,
+                categoryId: latest.categoryId,
+                visibility: latest.visibility,
+              })
+              message.success('已载入服务端最新草稿')
+            }
+          },
+        })
+      }
     } finally {
       setDraftSaving(false)
     }
