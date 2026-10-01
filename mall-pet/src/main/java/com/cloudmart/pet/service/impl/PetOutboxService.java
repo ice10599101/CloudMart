@@ -35,16 +35,19 @@ public class PetOutboxService {
     private final PetEventProducer eventProducer;
     private final com.cloudmart.pet.config.PetMetrics metrics;
     private final org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider;
+    private final com.cloudmart.pet.repository.PetMapper petMapper;
 
     private com.cloudmart.pet.repository.PetDiaryEntryMapper petDiaryEntryMapper;
 
     public PetOutboxService(PetOutboxEventMapper outboxMapper, PetEventProducer eventProducer,
                             com.cloudmart.pet.config.PetMetrics metrics,
-                            org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider) {
+                            org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.repository.PetDiaryEntryMapper> diaryMapperProvider,
+                            com.cloudmart.pet.repository.PetMapper petMapper) {
         this.outboxMapper = outboxMapper;
         this.eventProducer = eventProducer;
         this.metrics = metrics;
         this.diaryMapperProvider = diaryMapperProvider;
+        this.petMapper = petMapper;
         this.petDiaryEntryMapper = null;
     }
 
@@ -95,6 +98,30 @@ public class PetOutboxService {
         PetEventProducer.PetEventMessage payload = PetJsonUtils.parse(event.getPayload(),
                 new com.fasterxml.jackson.core.type.TypeReference<PetEventProducer.PetEventMessage>() {
                 });
+        // 需求：用户自定义主人称呼——事件类通知（挑战/留言/赛季奖励等）在投递前统一替换
+        // 文案中的「主人」为收件人设置的称呼（宠物口吻漏斗之外的收口点，覆盖全部 PET 事件）。
+        // 查询失败/无宠时 Fail-Open 保留原文案。
+        if (payload.userId() != null) {
+            try {
+                com.cloudmart.pet.entity.Pet addressPet = petMapper.selectOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.Pet>()
+                                .eq(com.cloudmart.pet.entity.Pet::getUserId, Long.valueOf(payload.userId()))
+                                .eq(com.cloudmart.pet.entity.Pet::getIsActive, true)
+                                .last("LIMIT 1"));
+                if (addressPet != null) {
+                    String address = PetServiceImpl.ownerTitleOf(addressPet);
+                    if (!"主人".equals(address)) {
+                        payload = new PetEventProducer.PetEventMessage(payload.eventId(), payload.userId(),
+                                payload.reminderType(),
+                                payload.title() == null ? null : payload.title().replace("主人", address),
+                                payload.content() == null ? null : payload.content().replace("主人", address),
+                                payload.bizId(), payload.bizType());
+                    }
+                }
+            } catch (Exception replaceError) {
+                // 称呼替换为展示增强：失败按原文案投递（不阻断事件投递主链路）
+            }
+        }
         boolean sent = eventProducer.tryPublish(event.getEventType(), payload);
         // N02：业务事实事件同步生成成长日记（eventId 复用，天然去重）
         try {

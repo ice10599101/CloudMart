@@ -264,6 +264,8 @@ export default function PetPage() {
   const [shareCard, setShareCard] = useState<PetShareCard | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileName, setProfileName] = useState('')
+  // 主人称呼（宠物怎么叫主人）草稿
+  const [profileOwnerTitle, setProfileOwnerTitle] = useState('')
   const [profileColor, setProfileColor] = useState(PET_COLORS[0])
   const [profileAccessory, setProfileAccessory] = useState('none')
   const [privacyBusy, setPrivacyBusy] = useState(false)
@@ -559,6 +561,7 @@ export default function PetPage() {
   const openProfile = useCallback(() => {
     if (!pet) return
     setProfileName(pet.name)
+    setProfileOwnerTitle(pet.ownerTitle ?? '主人')
     const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
     setProfileColor(appearance?.color ?? PET_COLORS[0])
     setProfileAccessory(appearance?.accessory ?? 'none')
@@ -686,12 +689,17 @@ export default function PetPage() {
   const saveProfile = async () => {
     if (!pet) return
     const wantRename = profileName.trim() && profileName.trim() !== pet.name
+    const wantTitle = profileOwnerTitle.trim() && profileOwnerTitle.trim() !== (pet.ownerTitle ?? '主人')
     try {
       const { data: appearanceRes } = await petApi.updateAppearance({ color: profileColor, accessory: profileAccessory })
       if (appearanceRes.success && appearanceRes.data) setPet(appearanceRes.data)
       if (wantRename) {
         const { data: renameRes } = await petApi.renamePet({ name: profileName.trim() })
         if (renameRes.success && renameRes.data) setPet(renameRes.data)
+      }
+      if (wantTitle) {
+        const { data: titleRes } = await petApi.setOwnerTitle(profileOwnerTitle.trim())
+        if (titleRes.success && titleRes.data) setPet(titleRes.data)
       }
       setProfileOpen(false)
       refresh()
@@ -1681,6 +1689,13 @@ export default function PetPage() {
               maxlength={12}
               placeholder="宠物名（30 天可改一次）"
               onInput={(e) => setProfileName(e.detail.value)}
+            />
+            <Input
+              className={styles.nameInput}
+              value={profileOwnerTitle}
+              maxlength={12}
+              placeholder="宠物怎么叫你（默认「主人」）"
+              onInput={(e) => setProfileOwnerTitle(e.detail.value)}
             />
             <View className={styles.optionRow}>
               {ACCESSORIES.map((item) => (

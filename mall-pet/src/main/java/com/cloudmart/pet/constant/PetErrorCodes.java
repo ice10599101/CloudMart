@@ -26,6 +26,8 @@ public final class PetErrorCodes {
     public static final String PET_SKIN_SPECIES_MISMATCH = "PET_SKIN_SPECIES_MISMATCH";
     /** 宠物名命中敏感词（内容安全，P0-1） */
     public static final String PET_NAME_SENSITIVE = "PET_NAME_SENSITIVE";
+    /** 主人称呼命中敏感词（内容安全） */
+    public static final String PET_OWNER_TITLE_SENSITIVE = "PET_OWNER_TITLE_SENSITIVE";
     /** 留言/UGC 内容命中敏感词（内容安全，P0-1） */
     public static final String PET_CONTENT_SENSITIVE = "PET_CONTENT_SENSITIVE";
 

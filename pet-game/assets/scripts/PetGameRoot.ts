@@ -135,15 +135,15 @@ function resolveFruitKey(urlSpecies: string | null, petSpecies: string | null): 
 /**
  * 相机机位。
  *
- * v8：房间布置变多（法式线条/花瓶/碟架/玩具），机位整体拉远升高，
- * 让"完整的家"入画：后墙从踢脚线到顶线、地毯全貌、柜与窝都可见。
- * 竖屏另给一组：竖屏可视横向范围窄，沿用横屏机位会让角色横向顶边。
+ * v9：房间内容齐备 + 页面拉宽（16:10 舞台更宽），机位再拉远到能收进"完整的家"：
+ * 后墙从踢脚线到顶线、两侧家具、地毯全貌；两侧近景墙体自然形成画框。
+ * 竖屏另给一组：竖屏横向窄，同距离下再抬高一点。
  */
 const CAMERA_SHOT = {
-    room: { pos: [1.5, 2.0, 5.6], target: [0, 0.95, -0.1] },
-    portrait: { pos: [2.3, 2.0, 6.7], target: [0, 0.9, -0.1] },
-    front: { pos: [0, 1.35, 4.7], target: [0, 0.95, 0] },
-    q34: { pos: [-2.7, 1.6, 4.3], target: [0, 0.85, 0.1] },
+    room: { pos: [1.15, 2.25, 7.0], target: [0, 1.05, -0.2] },
+    portrait: { pos: [1.9, 2.3, 7.6], target: [0, 0.95, -0.1] },
+    front: { pos: [0, 1.6, 6.2], target: [0, 1.05, -0.1] },
+    q34: { pos: [-3.0, 1.9, 5.6], target: [0, 1.0, 0.1] },
 } as const
 
 /** 纯色背景（?plain=1 验收模式：去掉房间，只留角色自证轮廓与材质） */
@@ -349,7 +349,8 @@ export class PetGameRoot extends Component {
             }
             names.push(c.constructor.name + extra)
         }
-        console.log(`[pet-probe] ${'  '.repeat(depth)}${node.name} layer=${node.layer} [${names.join('+') || '-'}]`)
+        console.log(`[pet-probe] ${'  '.repeat(depth)}${node.name} layer=${node.layer} ` +
+            `wp=${node.worldPosition.toString()} s=${node.scale.toString()} [${names.join('+') || '-'}]`)
         for (const child of node.children) {
             this.dumpTree(child, depth + 1)
         }
@@ -569,7 +570,8 @@ export class PetGameRoot extends Component {
             const shot = CAMERA_SHOT[this.shot as keyof typeof CAMERA_SHOT] || CAMERA_SHOT.room
             cameraNode.setPosition(shot.pos[0], shot.pos[1], shot.pos[2])
             cameraNode.lookAt(new Vec3(shot.target[0], shot.target[1], shot.target[2]), new Vec3(0, 1, 0))
-            this.camera3d.clearColor = this.plain ? PLAIN_BG : new Color(0x6E, 0x5A, 0x66, 255)
+            // 清屏色 = 奶油底：任何画布/容器比例误差都隐形成奶油色，而不是深蓝条
+            this.camera3d.clearColor = this.plain ? PLAIN_BG : new Color(0xFD, 0xF6, 0xEC, 255)
         }
     }
 

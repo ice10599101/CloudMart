@@ -246,6 +246,34 @@ public class PetServiceImpl implements PetService {
 
     @Override
     @Transactional
+    public PetVO setOwnerTitle(Long userId, String ownerTitle) {
+        Pet pet = requireOwnedPet(userId);
+        // blank = 重置默认；其余经内容安全校验（称呼会进入 AI prompt 与提醒文案，必须过滤）
+        String title = ownerTitle == null || ownerTitle.isBlank()
+                ? "主人" : ownerTitle.strip();
+        if (!"主人".equals(title)) {
+            if (title.length() > 12) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "称呼最多 12 个字");
+            }
+            safetyService.check(title).ifPresent(hit -> {
+                throw new BusinessException(PetErrorCodes.PET_OWNER_TITLE_SENSITIVE,
+                        "这个称呼不太合适，换一个吧");
+            });
+        }
+        // 条件更新（owner+id），乐观锁版本随 @Version 前进
+        int updated = petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .set(Pet::getOwnerTitle, title)
+                .eq(Pet::getId, pet.getId())
+                .eq(Pet::getUserId, userId));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
+        }
+        pet.setOwnerTitle(title);
+        return toVo(pet, feedRemainingToday(userId));
+    }
+
+    @Override
+    @Transactional
     public PetVO updateAppearance(Long userId, UpdateAppearanceRequest request) {
         Pet pet = requireOwnedPet(userId);
         pet.setAppearance(PetJsonUtils.toJson(Map.of("color", request.color(), "accessory", request.accessory())));
@@ -363,7 +391,14 @@ public class PetServiceImpl implements PetService {
                 pet.getTodayCompanionSeconds() != null ? pet.getTodayCompanionSeconds() : 0,
                 pet.getCompanionDays() != null ? pet.getCompanionDays() : 0,
                 pet.getCompanionStreak() != null ? pet.getCompanionStreak() : 0,
-                pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()));
+                pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()),
+                ownerTitleOf(pet));
+    }
+
+    /** 主人称呼（宠物对主人的叫法；未设置回落「主人」） */
+    static String ownerTitleOf(Pet pet) {
+        return pet.getOwnerTitle() != null && !pet.getOwnerTitle().isBlank()
+                ? pet.getOwnerTitle() : "主人";
     }
 
     private int intimacyOf(Pet pet) {

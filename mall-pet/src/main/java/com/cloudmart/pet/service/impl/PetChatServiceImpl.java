@@ -25,6 +25,8 @@ import com.cloudmart.pet.service.PetChatService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetChatMessageVO;
+
+import static com.cloudmart.pet.service.impl.PetServiceImpl.ownerTitleOf;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -396,7 +398,7 @@ public class PetChatServiceImpl implements PetChatService {
                         .append("：").append(truncate(msg.getContent(), 80)).append('\n');
             }
         }
-        sb.append("主人这次说：").append(message);
+        sb.append(ownerTitleOf(pet)).append("这次说：").append(message);
         return sb.toString();
     }
 
@@ -526,7 +528,8 @@ public class PetChatServiceImpl implements PetChatService {
                 pet.getCareerCode(),
                 careerCfg != null ? careerCfg.getName() : null,
                 phraseOf(personality, pet.getName()),
-                intimacyLevel, intimacyName);
+                intimacyLevel, intimacyName,
+                com.cloudmart.pet.service.impl.PetServiceImpl.ownerTitleOf(pet));
     }
 
     /** 性格 → 行为描述（与 buildSystemPrompt 同表；新性格必须两处同步） */

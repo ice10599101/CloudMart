@@ -24,10 +24,19 @@
 
   <meta name="x5-page-mode" content="app">
 
+  <!-- 法式奶油风：页面底色与宿主舞台卡同色，任何画布适配误差都隐形 -->
+  <style>
+    html,
+    body,
+    #GameDiv {
+      background: #FDF6EC;
+    }
+  </style>
+
   <link rel="stylesheet" type="text/css" href="style.css"/>
 
 </head>
-<body>
+<body style="background:#FDF6EC">
   <div id="GameDiv" cc_exact_fit_screen="true">
       <div id="Cocos3dGameContainer">
         <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="99"></canvas>

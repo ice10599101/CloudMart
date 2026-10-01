@@ -66,6 +66,8 @@ export interface PetInfo {
   careerCode: string | null
   careerName: string | null
   careerTier: number | null
+  /** 主人称呼（宠物怎么叫主人） */
+  ownerTitle?: string
 }
 
 export interface PetActivityItem {
@@ -200,6 +202,11 @@ export interface PetPublicCard {
 /** 我的宠物（未领养 404 PET_NOT_FOUND） */
 export function getMyPet() {
   return request.get<ApiResponse<PetInfo>>('/pet/me')
+}
+
+/** 设置主人称呼（宠物怎么叫主人，1~12 字；blank 重置默认「主人」） */
+export function setOwnerTitle(ownerTitle: string) {
+  return request.put<ApiResponse<PetInfo>>('/pet/owner-title', { ownerTitle })
 }
 
 /** 领养宠物（重复领养 409 PET_ALREADY_EXISTS；种类/性格/外观白名单校验 400） */

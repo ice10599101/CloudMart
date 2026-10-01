@@ -64,6 +64,19 @@ public class PetController {
         return ApiResponse.ok(petService.renamePet(userId, request));
     }
 
+    /** 主人称呼设置请求体 */
+    public record OwnerTitleRequest(String ownerTitle) {
+    }
+
+    @PutMapping("/owner-title")
+    @Operation(summary = "设置主人称呼", description = "宠物怎么叫主人（1~12 字，blank 重置默认「主人」）；"
+            + "命中敏感词 400 PET_OWNER_TITLE_SENSITIVE；AI 聊天与提醒文案即时使用")
+    public ApiResponse<PetVO> setOwnerTitle(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.RequestBody OwnerTitleRequest request) {
+        return ApiResponse.ok(petService.setOwnerTitle(userId, request.ownerTitle()));
+    }
+
     @PutMapping("/appearance")
     @Operation(summary = "修改外观", description = "颜色/配饰白名单；一期免费")
     public ApiResponse<PetVO> updateAppearance(

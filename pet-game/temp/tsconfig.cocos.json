@@ -9,8 +9,8 @@
     "strictPropertyInitialization": false,
     "types": [
       "./temp/declarations/cc",
-      "./temp/declarations/jsb",
       "./temp/declarations/cc.custom-macro",
+      "./temp/declarations/jsb",
       "./temp/declarations/cc.env"
     ],
     "paths": {

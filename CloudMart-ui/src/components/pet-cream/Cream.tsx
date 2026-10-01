@@ -5,6 +5,7 @@
  * 舞台件用透视地台把 3D 宠物"坐"进纸面——与 Cocos 里的水果宠物保持同一套体积语言。
  */
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import styles from './cream.module.css'
 
 /** 五果主题色（与 Cocos FRUIT_SPECS 果体主色同源；旧动物码为迁移过渡期兼容） */
@@ -167,6 +168,31 @@ export function CreamChip(props: CreamChipProps) {
 /** 法式花饰分隔线 */
 export function CreamOrnament({ children }: { children: ReactNode }) {
     return <div className={styles.ornament}>{children}</div>
+}
+
+/**
+ * 奶油风弹层面板。
+ *
+ * ⚠️ 必须 createPortal 到 body：站点布局的某个祖先带 transform，会让 position:fixed
+ * 退化成相对该祖先定位——弹层"居中"到整页高度的中部，视口里只能看到它的底边。
+ */
+export function CreamSheet({ title, onClose, children }: {
+    title: string
+    onClose: () => void
+    children: ReactNode
+}) {
+    return createPortal(
+        <div className={styles.sheetOverlay} role="dialog" aria-label={title} onClick={onClose}>
+            <div className={styles.sheet} onClick={event => event.stopPropagation()}>
+                <div className={styles.sheetHead}>
+                    <h3 className={styles.title}>{title}</h3>
+                    <button type="button" className={styles.sheetClose} onClick={onClose} aria-label="关闭">×</button>
+                </div>
+                <div className={styles.sheetBody}>{children}</div>
+            </div>
+        </div>,
+        document.body,
+    )
 }
 
 /** 立体舞台：透视画框 + 地台暖影，承载 Cocos 3D 宠物 */

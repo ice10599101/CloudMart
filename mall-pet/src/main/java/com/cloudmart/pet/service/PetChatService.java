@@ -29,6 +29,7 @@ public interface PetChatService {
     /** 宠物人设摘要 VO（F8） */
     record PetPersonaVO(String name, String personality, String personalityText,
                         String careerCode, String careerName, String phrase,
-                        int intimacyLevel, String intimacyLevelName) {
+                        int intimacyLevel, String intimacyLevelName,
+                        String ownerTitle) {
     }
 }

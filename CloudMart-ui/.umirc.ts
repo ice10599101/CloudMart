@@ -91,9 +91,8 @@ export default defineConfig({
         { path: '/wish/leaderboard', component: '@/pages/Leaderboard' },
         { path: '/wish/map', component: '@/pages/WishMap' },
         { path: '/wish/drift-bottle', component: '@/pages/DriftBottle' },
-        { path: '/pet', component: '@/pages/PetHome' },
-        // 法式奶油风新版（并行验证）：面板全部迁入后替换 /pet 的 component
-        { path: '/pet-cream', component: '@/pages/PetCream' },
+        // 宠物家园（法式奶油风版；面板从旧版 PetHome 逐个迁入，迁完删除 PetHome.tsx）
+        { path: '/pet', component: '@/pages/PetCream' },
         { path: '/pet/wallet', component: '@/pages/PetWallet' },
         { path: '/wish/notification-prefs', component: '@/pages/WishNotificationPrefs' },
         { path: '/wish/privacy', component: '@/pages/WishPrivacyCenter' },

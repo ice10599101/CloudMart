@@ -55,6 +55,7 @@ public record PetVO(
         @Schema(description = "连续陪伴天数") Integer companionStreak,
         @Schema(description = "当前职业编码（null = 未入职）") String careerCode,
         @Schema(description = "当前职业名（null = 未入职）") String careerName,
-        @Schema(description = "当前职业阶段（1/2/3）") Integer careerTier
+        @Schema(description = "当前职业阶段（1/2/3）") Integer careerTier,
+        @Schema(description = "主人称呼（宠物对主人的叫法，默认主人）") String ownerTitle
 ) {
 }

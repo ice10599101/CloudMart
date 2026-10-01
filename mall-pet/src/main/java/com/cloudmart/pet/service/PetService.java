@@ -34,6 +34,12 @@ public interface PetService {
     /** 改名（30 天冷却） */
     PetVO renamePet(Long userId, RenamePetRequest request);
 
+    /**
+     * 设置主人称呼（宠物怎么叫主人，1~12 字；blank 重置为默认「主人」）。
+     * 用户自定义文本经内容安全校验后生效，AI 聊天/提醒文案随即使用。
+     */
+    PetVO setOwnerTitle(Long userId, String ownerTitle);
+
     /** 修改外观（颜色/配饰白名单；自定义外观会卸下当前皮肤） */
     PetVO updateAppearance(Long userId, UpdateAppearanceRequest request);
 

@@ -326,6 +326,8 @@ export default function PetScreen() {
   const [profileName, setProfileName] = useState('')
   const [profileColor, setProfileColor] = useState(PET_COLORS[0])
   const [profileAccessory, setProfileAccessory] = useState('none')
+  // 主人称呼（宠物怎么叫主人）草稿
+  const [profileOwnerTitle, setProfileOwnerTitle] = useState('')
   const [privacyBusy, setPrivacyBusy] = useState(false)
 
   // 分享卡片（文案服务端生成）
@@ -564,6 +566,7 @@ export default function PetScreen() {
   const openProfile = useCallback(() => {
     if (!pet) return
     setProfileName(pet.name)
+    setProfileOwnerTitle(pet.ownerTitle ?? '主人')
     const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
     setProfileColor(appearance?.color ?? PET_COLORS[0])
     setProfileAccessory(appearance?.accessory ?? 'none')
@@ -641,12 +644,17 @@ export default function PetScreen() {
   const saveProfile = async () => {
     if (!pet) return
     const wantRename = profileName.trim() && profileName.trim() !== pet.name
+    const wantTitle = profileOwnerTitle.trim() && profileOwnerTitle.trim() !== (pet.ownerTitle ?? '主人')
     try {
       const { data: appearanceRes } = await petApi.updateAppearance({ color: profileColor, accessory: profileAccessory })
       if (appearanceRes.success && appearanceRes.data) setPet(appearanceRes.data)
       if (wantRename) {
         const { data: renameRes } = await petApi.renamePet({ name: profileName.trim() })
         if (renameRes.success && renameRes.data) setPet(renameRes.data)
+      }
+      if (wantTitle) {
+        const { data: titleRes } = await petApi.setOwnerTitle(profileOwnerTitle.trim())
+        if (titleRes.success && titleRes.data) setPet(titleRes.data)
       }
       setProfileOpen(false)
       const latest = await petApi.getMyPet()
@@ -1685,6 +1693,17 @@ export default function PetScreen() {
               onChangeText={setProfileName}
               maxLength={12}
               placeholder="宠物名（30 天可改一次）"
+              placeholderTextColor={colors.textTertiary}
+              style={{
+                paddingHorizontal: Spacing.md, paddingVertical: 10, borderRadius: BorderRadius.md,
+                borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.bgContainer,
+              }}
+            />
+            <TextInput
+              value={profileOwnerTitle}
+              onChangeText={setProfileOwnerTitle}
+              maxLength={12}
+              placeholder="宠物怎么叫你（默认「主人」）"
               placeholderTextColor={colors.textTertiary}
               style={{
                 paddingHorizontal: Spacing.md, paddingVertical: 10, borderRadius: BorderRadius.md,

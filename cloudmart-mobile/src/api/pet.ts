@@ -61,6 +61,8 @@ export interface PetInfo {
   careerCode: string | null
   careerName: string | null
   careerTier: number | null
+  /** 主人称呼（宠物怎么叫主人） */
+  ownerTitle?: string
 }
 
 export interface PetActivityItem {
@@ -477,6 +479,10 @@ export const petApi = {
   /** 改名（30 天一次 409 PET_RENAME_COOLDOWN） */
   renamePet: (data: { name: string }) =>
     request<PetInfo>({ url: '/pet/name', method: 'PUT', data }),
+
+  /** 主人称呼设置：宠物怎么叫主人（1~12 字，blank 重置默认「主人」） */
+  setOwnerTitle: (ownerTitle: string) =>
+    request<PetInfo>({ url: '/pet/owner-title', method: 'PUT', data: { ownerTitle } }),
 
   /** 基础互动（数值/限频/经验全部服务端结算） */
   feed: () => request<PetInfo>({ url: '/pet/feed', method: 'POST' }),

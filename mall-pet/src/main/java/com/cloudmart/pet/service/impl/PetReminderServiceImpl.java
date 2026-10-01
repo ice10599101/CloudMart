@@ -155,7 +155,7 @@ public class PetReminderServiceImpl implements PetReminderService {
                 .orderByDesc(PetActivity::getId)
                 .last("LIMIT 1"));
         if (bottle != null && tryAcquireTrigger(userId, today, "BOTTLE_READY", bottle.getId())) {
-            publish(userId, "PET_BOTTLE_CAUGHT",
+            publish(pet,  "PET_BOTTLE_CAUGHT",
                     "主人！我捞到漂流瓶啦！",
                     pet.getName() + "：" + "我回来啦！快去看看我捞到了什么好东西～", bottle.getId());
         }
@@ -164,7 +164,7 @@ public class PetReminderServiceImpl implements PetReminderService {
         PetContextService.PetContext context = contextService.buildContext(userId, pet);
         int total = context.newComments() + context.newLikes() + context.newFollows() + context.newCollects();
         if (total > 0 && tryAcquireTrigger(userId, today, "COMMUNITY_DIGEST", 0L)) {
-            publish(userId, "PET_COMMUNITY_DIGEST",
+            publish(pet,  "PET_COMMUNITY_DIGEST",
                     "主人在社区好受欢迎呀！",
                     pet.getName() + "：" + "主人主人！你的帖子收到了 " + context.newLikes() + " 个赞、"
                             + context.newComments() + " 条评论，还有 " + context.newFollows()
@@ -175,7 +175,7 @@ public class PetReminderServiceImpl implements PetReminderService {
         // 3. 私信提醒（原文档 §28.3；P0）
         long unreadChat = unreadChatCount(userId);
         if (unreadChat > 0 && tryAcquireTrigger(userId, today, "PET_MESSAGE", 0L)) {
-            publish(userId, "PET_MESSAGE",
+            publish(pet,  "PET_MESSAGE",
                     "主人，你有一条新的消息",
                     pet.getName() + "：" + "有 " + unreadChat + " 条私信还没看哦，快去消息页看看吧！", null);
         }
@@ -185,7 +185,7 @@ public class PetReminderServiceImpl implements PetReminderService {
 
         // 5. 长时间未陪伴（原文档 §33 LONG_TIME_ABSENT）：上次访问超过 24h
         if (isLongAbsent(userId) && tryAcquireTrigger(userId, today, "LONG_ABSENT", 0L)) {
-            publish(userId, "PET_LONG_ABSENT",
+            publish(pet,  "PET_LONG_ABSENT",
                     "主人，你好久没来看我啦",
                     pet.getName() + "：" + "主人～我已经等了你一整天了，肚子和心情都需要你照顾呀！", pet.getId());
         }
@@ -196,7 +196,7 @@ public class PetReminderServiceImpl implements PetReminderService {
         // 7. 饿了（每日一次）
         if (pet.getHunger() < properties.getInteraction().getHungryRemindThreshold()
                 && tryAcquireTrigger(userId, today, "PET_HUNGRY", 0L)) {
-            publish(userId, "PET_HUNGRY",
+            publish(pet,  "PET_HUNGRY",
                     "我的肚子咕咕叫啦…",
                     pet.getName() + "：" + "主人，我的肚子有点饿…可以喂喂我吗？", pet.getId());
         }
@@ -207,7 +207,7 @@ public class PetReminderServiceImpl implements PetReminderService {
                     pet.getCreatedAt().atZone(java.time.ZoneId.of("UTC")).toLocalDate(),
                     java.time.LocalDate.now(java.time.ZoneId.of("UTC")));
             if (com.cloudmart.pet.controller.PetAnniversaryController.isMilestoneDay(adoptionDays)) {
-                publish(userId, "PET_ANNIVERSARY",
+                publish(pet,  "PET_ANNIVERSARY",
                         "今天是特别的日子！",
                         pet.getName() + "：" + "主人！今天是我们相遇的第 " + adoptionDays + " 天，谢谢你一直陪着我！",
                         pet.getId());
@@ -216,7 +216,7 @@ public class PetReminderServiceImpl implements PetReminderService {
 
         // 8. 每日问候（每日一次）
         if (tryAcquireTrigger(userId, today, "DAILY_GREETING", 0L)) {
-            publish(userId, "PET_DAILY_GREETING",
+            publish(pet,  "PET_DAILY_GREETING",
                     dailyGreetingTitle(now),
                     pet.getName() + "：" + dailyGreetingText(now, pet), pet.getId());
         }
@@ -233,7 +233,7 @@ public class PetReminderServiceImpl implements PetReminderService {
                     .findFirst()
                     .ifPresent(event -> {
                         if (tryAcquireTrigger(userId, today, "PET_EVENT_READY", 0L)) {
-                            publish(userId, "PET_EVENT_READY",
+                            publish(pet,  "PET_EVENT_READY",
                                     "活动达成啦！",
                                     pet.getName() + "：「" + event.name() + "」已经完成啦，快去领奖励吧！", null);
                         }
@@ -267,7 +267,7 @@ public class PetReminderServiceImpl implements PetReminderService {
                 boolean endingSoon = !untilEnd.isNegative() && untilEnd.compareTo(ACTIVITY_ENDING_WINDOW) <= 0;
                 if (endingSoon && tryAcquireTrigger(userId, today, "ACTIVITY_ENDING", activity.id())) {
                     long minutes = Math.max(1, untilEnd.toMinutes());
-                    publish(userId, "PET_ACTIVITY_ENDING",
+                    publish(pet,  "PET_ACTIVITY_ENDING",
                             "社区活动还有 " + (minutes >= 60 ? (minutes / 60) + " 小时" : minutes + " 分钟") + "就结束啦",
                             pet.getName() + "：" + "「" + activity.title() + "」马上就要结束了，抓紧时间参加哦！", activity.id());
                     return;
@@ -306,13 +306,24 @@ public class PetReminderServiceImpl implements PetReminderService {
         }
     }
 
-    private void publish(Long userId, String reminderType, String title, String content, Long bizId) {
-        if (!tryConsumeDailyQuota(userId)) {
+    /** 主人称呼（宠物对主人的叫法；未设置回落「主人」）——提醒文案统一替换入口 */
+    private static String ownerAddress(Pet pet) {
+        return PetServiceImpl.ownerTitleOf(pet);
+    }
+
+    private void publish(Pet pet, String reminderType, String title, String content, Long bizId) {
+        if (!tryConsumeDailyQuota(pet.getUserId())) {
             return;
         }
+        // 需求：用户自定义称呼——宠物口吻文案中的「主人」统一替换为用户设置的称呼
+        String address = ownerAddress(pet);
+        if (!"主人".equals(address)) {
+            title = title.replace("主人", address);
+            content = content.replace("主人", address);
+        }
         eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_PROACTIVE, new PetEventProducer.PetEventMessage(
-                "PROACTIVE:" + userId + ":" + reminderType + ":" + bizId,
-                String.valueOf(userId), reminderType, title, content, String.valueOf(bizId), reminderType));
+                "PROACTIVE:" + pet.getUserId() + ":" + reminderType + ":" + bizId,
+                String.valueOf(pet.getUserId()), reminderType, title, content, String.valueOf(bizId), reminderType));
     }
 
     /** 最小间隔（默认 60s）：SETNX 抢占，防止刷新页面连发 */

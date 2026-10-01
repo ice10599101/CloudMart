@@ -285,8 +285,10 @@
 
 .stageInner {
   position: relative;
-  aspect-ratio: 16 / 10;
-  min-height: 260px;
+  /* 必须与 Cocos 设计分辨率 960×548 同比例：画布按宽度适配，
+     卡片比例不一致就会在底部露出一条 iframe 深色底 */
+  aspect-ratio: 960 / 548;
+  min-height: 240px;
 }
 
 .stageInner > * {
@@ -308,12 +310,50 @@
 }
 
 /* ---------- 弹层 ---------- */
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(74, 63, 53, 0.38);
+  display: grid;
+  place-items: center;
+  z-index: 1200;
+  padding: 18px;
+}
+
 .sheet {
+  width: min(640px, 94vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--r-lg);
   overflow: hidden;
   background: linear-gradient(180deg, #FFFDF9, var(--cream-100));
   border: 1px solid rgba(200, 155, 90, 0.45);
   box-shadow: var(--z3);
+  padding: 18px 20px;
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cream-line);
+}
+
+.sheetClose {
+  border: none;
+  background: none;
+  font-size: 24px;
+  color: var(--mocha);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.sheetBody {
+  padding-top: 14px;
+  overflow-y: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

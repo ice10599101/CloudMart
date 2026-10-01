@@ -49,6 +49,9 @@ public class Pet {
     /** 性格：LIVELY/GENTLE/TSUNDERE/SIMPLE/COOL/CHATTERBOX（决定 AI 说话风格） */
     private String personality;
 
+    /** 主人称呼（宠物对主人的叫法，1~12 字，默认「主人」；AI 聊天/提醒文案使用） */
+    private String ownerTitle;
+
     /** 当前职业编码（pet_career_config.code，NULL = 未入职；见三期宠物职业） */
     private String careerCode;
 

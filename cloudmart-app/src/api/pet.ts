@@ -12,6 +12,8 @@ export type PetActivityType = 'WORK' | 'STUDY' | 'BOTTLE_FISHING' | 'REST'
 
 /** 我的宠物（懒更新结算后的权威状态） */
 export interface PetInfo {
+  /** 主人称呼（宠物怎么叫主人） */
+  ownerTitle?: string
   petId: number | string
   userId: number | string
   name: string
@@ -418,6 +420,10 @@ export const petApi = {
   /** 改名（30 天一次 409 PET_RENAME_COOLDOWN） */
   renamePet: (data: { name: string }) =>
     request<PetInfo>({ url: '/pet/name', method: 'PUT', data: data as unknown as Record<string, unknown> }),
+
+  /** 主人称呼设置：宠物怎么叫主人（1~12 字，blank 重置默认「主人」） */
+  setOwnerTitle: (ownerTitle: string) =>
+    request<PetInfo>({ url: '/pet/owner-title', method: 'PUT', data: { ownerTitle } }),
 
   /** 基础互动（数值/限频/经验全部服务端结算） */
   feed: () => request<PetInfo>({ url: '/pet/feed', method: 'POST' }),
