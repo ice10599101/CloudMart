@@ -30,6 +30,10 @@ public interface NotificationService {
     void sendOrderEventNotification(Long userId, String eventId, String title, String content,
                                     Long orderId);
 
+    /** W05：心愿域事件通知（eventId 唯一去重；重复投递静默跳过） */
+    void sendWishEventNotification(Long userId, String eventId, String type, String title,
+                                   String content, Long bizId, String bizType);
+
     void broadcastNotification(String type, String title, String content);
 
     /** 管理端删除指定通知（撤回误发内容）；不存在时抛 NOTIFICATION_NOT_FOUND */

@@ -8,7 +8,6 @@ import com.cloudmart.wish.dto.CreateCapsuleRequest;
 import com.cloudmart.wish.entity.TimeCapsule;
 import com.cloudmart.wish.entity.WishUserStat;
 import com.cloudmart.wish.enums.CapsuleStatus;
-import com.cloudmart.wish.mq.CapsuleEventProducer;
 import com.cloudmart.wish.repository.TimeCapsuleMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.UserStatService;
@@ -31,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -48,7 +49,8 @@ class CapsuleServiceImplTest {
     @Mock
     private UserStatService userStatService;
     @Mock
-    private CapsuleEventProducer capsuleEventProducer;
+    private com.cloudmart.wish.service.impl.WishOutboxService wishOutboxService;
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private WishContentSanitizer contentSanitizer;
     private CapsuleServiceImpl capsuleService;
@@ -68,9 +70,19 @@ class CapsuleServiceImplTest {
     @BeforeEach
     void setUp() {
         contentSanitizer = new WishContentSanitizer(List.of());
+        // wishOutboxService 已是 @Mock
+        transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class)) {
+            @Override
+            public <T> T execute(org.springframework.transaction.support.TransactionCallback<T> action) {
+                // 测试直接执行回调（无真实事务）
+                return action.doInTransaction(
+                        new org.springframework.transaction.support.SimpleTransactionStatus());
+            }
+        };
         capsuleService = new CapsuleServiceImpl(
                 timeCapsuleMapper, wishUserStatMapper, userStatService,
-                capsuleEventProducer, contentSanitizer);
+                wishOutboxService, transactionTemplate, contentSanitizer);
     }
 
     private TimeCapsule buildCapsule(CapsuleStatus status, LocalDateTime openAt) {
@@ -415,8 +427,8 @@ class CapsuleServiceImplTest {
 
             assertThat(result.scanned()).isZero();
             assertThat(result.available()).isZero();
-            verify(capsuleEventProducer, never())
-                    .publishCapsuleAvailable(anyLong(), anyLong(), any());
+            verify(wishOutboxService, never())
+                    .publish(anyString(), anyLong(), anyLong(), anyString(), any());
         }
 
         @Test
@@ -434,10 +446,11 @@ class CapsuleServiceImplTest {
 
             assertThat(result.scanned()).isEqualTo(2);
             assertThat(result.available()).isEqualTo(1);
-            verify(capsuleEventProducer, times(1))
-                    .publishCapsuleAvailable(3001L, USER_ID, c1.getTitle());
-            verify(capsuleEventProducer, never())
-                    .publishCapsuleAvailable(3002L, USER_ID, c2.getTitle());
+            // W05：CAS 赢家同事务登记 Outbox 事件；败者（CAS 失败）不登记
+            verify(wishOutboxService, times(1))
+                    .publish(eq("CAPSULE"), eq(3001L), eq(1L), eq("CAPSULE_AVAILABLE"), any());
+            verify(wishOutboxService, never())
+                    .publish(eq("CAPSULE"), eq(3002L), anyLong(), anyString(), any());
         }
 
         @Test
@@ -459,8 +472,9 @@ class CapsuleServiceImplTest {
             assertThat(result.scanned()).isEqualTo(500);
             assertThat(result.available()).isEqualTo(500);
             verify(timeCapsuleMapper, times(2)).selectList(any());
-            verify(capsuleEventProducer, times(500))
-                    .publishCapsuleAvailable(anyLong(), anyLong(), any());
+            // W05：500 个 CAS 赢家各登记一条 Outbox 事件
+            verify(wishOutboxService, times(500))
+                    .publish(eq("CAPSULE"), anyLong(), eq(1L), eq("CAPSULE_AVAILABLE"), any());
         }
     }
 

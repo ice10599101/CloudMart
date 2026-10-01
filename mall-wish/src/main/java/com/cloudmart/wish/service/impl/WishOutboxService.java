@@ -59,6 +59,10 @@ public class WishOutboxService {
                         String eventType, Map<String, Object> payload) {
         WishOutboxEvent event = new WishOutboxEvent();
         event.setEventId(UUID.randomUUID().toString());
+        // W05：eventId 注入 payload——消费端以 eventId 做通知去重（payload 为投递体）
+        if (payload != null) {
+            payload.put("eventId", event.getEventId());
+        }
         event.setAggregateType(aggregateType);
         event.setAggregateId(aggregateId);
         event.setAggregateVersion(aggregateVersion);
@@ -155,6 +159,7 @@ public class WishOutboxService {
             case "HelpedRecorded" -> RocketMQConfig.WISH_TAG_STAT_SYNC;
             case "WishFulfilled" -> RocketMQConfig.WISH_TAG_FULFILLED;
             case "WishModerated" -> RocketMQConfig.WISH_TAG_AUDITED;
+            case "CAPSULE_AVAILABLE" -> RocketMQConfig.WISH_TAG_CAPSULE_AVAILABLE;
             default -> camelToTag(eventType);
         };
     }

@@ -19,6 +19,15 @@ import java.io.Serializable;
  * 重复展示，不产生用户侧副作用（站内信多条可见属可接受降级，
  * 管理端推送记录按 capsuleId 可核对）。</p>
  */
+/**
+ * 心愿域事件消费者（W05：时间胶囊到期待开启推送）。
+ *
+ * <p>生产端经 WishOutbox 中继投递（eventId 注入 payload，退避重试直至成功/DEAD）。
+ * 消费端：eventId 唯一去重（notifications.uk_notification_event）——重复投递不产生
+ * 重复站内通知；失败重抛触发 MQ 重试（原 catch 吞异常缺陷修复）。</p>
+ */
+import java.util.Map;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -27,25 +36,31 @@ import java.io.Serializable;
         consumerGroup = RocketMQConfig.CG_NOTIFICATION_WISH_EVENT,
         selectorExpression = RocketMQConfig.WISH_TAG_CAPSULE_AVAILABLE
 )
-public class WishEventConsumer implements RocketMQListener<WishEventConsumer.CapsuleAvailableMessage> {
+public class WishEventConsumer implements RocketMQListener<Map<String, Object>> {
 
     private final NotificationService notificationService;
 
     @Override
-    public void onMessage(CapsuleAvailableMessage message) {
-        try {
-            String title = "时间胶囊到期啦";
-            String content = "你封存的《" + (message.title() != null ? message.title() : "时间胶囊") + "》已到开启时间，来拆开这份过去的礼物吧";
-            notificationService.sendNotificationToUser(
-                    message.userId(), "CAPSULE_AVAILABLE", title, content, message.capsuleId(), "CAPSULE"
-            );
-            log.info("Capsule available notification sent: capsuleId={}, userId={}",
-                    message.capsuleId(), message.userId());
-        } catch (Exception e) {
-            log.error("Failed to send capsule available notification: capsuleId={}", message.capsuleId(), e);
+    public void onMessage(Map<String, Object> message) {
+        String eventId = (String) message.get("eventId");
+        if (eventId == null || eventId.isBlank()) {
+            log.warn("[W05] 胶囊事件缺少 eventId，拒绝消费");
+            return;
         }
-    }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) message.get("payload");
+        if (payload == null) {
+            payload = message;
+        }
+        Long capsuleId = ((Number) payload.get("capsuleId")).longValue();
+        Long userId = ((Number) payload.get("userId")).longValue();
+        Object titleObj = payload.get("title");
+        String title = titleObj == null ? null : String.valueOf(titleObj);
 
-    /** 胶囊到期待开启事件消息（与 mall-wish CapsuleEventProducer 对齐）。 */
-    public record CapsuleAvailableMessage(Long capsuleId, Long userId, String title) implements Serializable {}
+        String content = "你封存的《" + (title != null ? title : "时间胶囊") + "》已到开启时间，来拆开这份过去的礼物吧";
+        notificationService.sendWishEventNotification(
+                userId, eventId, "CAPSULE_AVAILABLE", "时间胶囊到期啦", content, capsuleId, "CAPSULE");
+        log.info("Capsule available notification sent: capsuleId={}, userId={}, eventId={}",
+                capsuleId, userId, eventId);
+    }
 }

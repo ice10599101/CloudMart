@@ -8,7 +8,6 @@ import com.cloudmart.wish.dto.CreateCapsuleRequest;
 import com.cloudmart.wish.entity.TimeCapsule;
 import com.cloudmart.wish.entity.WishUserStat;
 import com.cloudmart.wish.enums.CapsuleStatus;
-import com.cloudmart.wish.mq.CapsuleEventProducer;
 import com.cloudmart.wish.repository.TimeCapsuleMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.CapsuleService;
@@ -60,7 +59,8 @@ public class CapsuleServiceImpl implements CapsuleService {
     private final TimeCapsuleMapper timeCapsuleMapper;
     private final WishUserStatMapper wishUserStatMapper;
     private final UserStatService userStatService;
-    private final CapsuleEventProducer capsuleEventProducer;
+    private final com.cloudmart.wish.service.impl.WishOutboxService wishOutboxService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final WishContentSanitizer contentSanitizer;
 
     @Override
@@ -193,15 +193,26 @@ public class CapsuleServiceImpl implements CapsuleService {
             }
             scannedTotal += batch.size();
             for (TimeCapsule capsule : batch) {
-                // 逐条 CAS 独立提交（无外层事务）：流转成功才发通知 → 重复扫描天然去重
-                int affected = timeCapsuleMapper.update(null,
-                        new LambdaUpdateWrapper<TimeCapsule>()
-                                .eq(TimeCapsule::getId, capsule.getId())
-                                .eq(TimeCapsule::getStatus, CapsuleStatus.SEALED)
-                                .set(TimeCapsule::getStatus, CapsuleStatus.AVAILABLE));
-                if (affected == 1) {
+                // W05：CAS 流转 + Outbox 登记同一本地事务——提交即"状态+事件"原子成立；
+                // 投递由 WishOutboxService 中继按退避重试，发送失败不再永久丢通知
+                Boolean won = transactionTemplate.execute(status -> {
+                    int affected = timeCapsuleMapper.update(null,
+                            new LambdaUpdateWrapper<TimeCapsule>()
+                                    .eq(TimeCapsule::getId, capsule.getId())
+                                    .eq(TimeCapsule::getStatus, CapsuleStatus.SEALED)
+                                    .set(TimeCapsule::getStatus, CapsuleStatus.AVAILABLE));
+                    if (affected != 1) {
+                        return false;
+                    }
+                    wishOutboxService.publish("CAPSULE", capsule.getId(), 1, "CAPSULE_AVAILABLE",
+                            java.util.Map.of(
+                                    "capsuleId", capsule.getId(),
+                                    "userId", capsule.getUserId(),
+                                    "title", capsule.getTitle() == null ? "" : capsule.getTitle()));
+                    return true;
+                });
+                if (Boolean.TRUE.equals(won)) {
                     availableTotal++;
-                    capsuleEventProducer.publishCapsuleAvailable(capsule.getId(), capsule.getUserId(), capsule.getTitle());
                 }
             }
             if (batch.size() < SCAN_BATCH_SIZE) {
