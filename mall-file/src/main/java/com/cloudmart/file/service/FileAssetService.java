@@ -62,17 +62,23 @@ public class FileAssetService {
 
     /** 登记上传结果（校验通过、物理文件已按可见性分域落盘后调用；可见性一次写定） */
     public FileAsset persist(Long ownerId, String originalName, String storageKey, long sizeBytes,
-                             String mime, String visibility) {
+                             String mime, String sha256, String visibility) {
         FileAsset asset = new FileAsset();
         asset.setOwnerId(ownerId);
         asset.setOriginalName(sanitizeOriginalName(originalName));
         asset.setStorageKey(storageKey);
         asset.setMime(mime);
         asset.setSizeBytes(sizeBytes);
+        asset.setSha256(sha256);
         asset.setVisibility("PRIVATE".equalsIgnoreCase(visibility) ? "PRIVATE" : "PUBLIC");
         asset.setStatus("READY");
         fileAssetMapper.insert(asset);
         return asset;
+    }
+
+    /** 内容指纹（sha256 列 NOT NULL；内容已由控制器单次读取复用） */
+    public String sha256Hex(byte[] content) {
+        return sha256HexOf(content);
     }
 
     /**
@@ -246,7 +252,7 @@ public class FileAssetService {
         return cleaned.isEmpty() ? "file" : cleaned.substring(0, Math.min(cleaned.length(), 255));
     }
 
-    private String sha256Hex(byte[] content) {
+    private String sha256HexOf(byte[] content) {
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(content));

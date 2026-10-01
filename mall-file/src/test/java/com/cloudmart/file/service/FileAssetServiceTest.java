@@ -63,8 +63,9 @@ class FileAssetServiceTest {
     @DisplayName("S01 校验/登记分离：PNG 校验通过 → persist 可见性一次写定，指纹入库")
     void validateAndPersist_png_ok() {
         String mime = service.validateContent(PNG_MAGIC, "photo.png");
+        String sha = service.sha256Hex(PNG_MAGIC);
 
-        service.persist(42L, "photo.png", "private/pic/20260928/abc.png", PNG_MAGIC.length, mime, "PRIVATE");
+        service.persist(42L, "photo.png", "private/pic/20260928/abc.png", PNG_MAGIC.length, mime, sha, "PRIVATE");
 
         ArgumentCaptor<FileAsset> captor = ArgumentCaptor.forClass(FileAsset.class);
         verify(fileAssetMapper).insert(captor.capture());
@@ -72,6 +73,7 @@ class FileAssetServiceTest {
         assertThat(captor.getValue().getMime()).isEqualTo("image/png");
         assertThat(captor.getValue().getVisibility()).isEqualTo("PRIVATE");
         assertThat(captor.getValue().getStatus()).isEqualTo("READY");
+        assertThat(captor.getValue().getSha256()).hasSize(64);
         assertThat(captor.getValue().getStorageKey()).startsWith("private/");
     }
 

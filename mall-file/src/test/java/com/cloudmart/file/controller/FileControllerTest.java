@@ -42,6 +42,8 @@ class FileControllerTest {
 
     @BeforeEach
     void setUp() {
+        // persist 需 sha256 参数；mock 默认返回 null 会绕过 anyString() 匹配
+        given(fileAssetService.sha256Hex(any())).willReturn("a".repeat(64));
         mockMvc = MockMvcBuilders.standaloneSetup(new FileController(fileService, uploadQuotaService,
                 fileAssetService))
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -69,7 +71,7 @@ class FileControllerTest {
         given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
         given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261001/a.jpg");
         given(fileService.publicUrlOf("public/pic/20261001/a.jpg")).willReturn("/files/pic/20261001/a.jpg");
-        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString()))
+        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
                 .willReturn(asset(42L, "PUBLIC"));
 
         mockMvc.perform(multipart("/assets").file(imageFile())
@@ -92,7 +94,7 @@ class FileControllerTest {
         given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
         given(fileService.store(any(), anyString(), anyString())).willReturn("private/pic/20261001/a.jpg");
         given(fileService.publicUrlOf("private/pic/20261001/a.jpg")).willReturn(null);
-        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString()))
+        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
                 .willReturn(asset(43L, "PRIVATE"));
 
         mockMvc.perform(multipart("/assets").file(imageFile())
@@ -153,7 +155,7 @@ class FileControllerTest {
             given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
             given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261001/b.jpg");
             given(fileService.publicUrlOf(anyString())).willReturn("/files/pic/20261001/b.jpg");
-            given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString()))
+            given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
                     .willReturn(asset(44L, "PUBLIC"));
 
             mockMvc.perform(multipart("/assets").file(imageFile())

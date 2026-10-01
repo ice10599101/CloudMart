@@ -95,11 +95,12 @@ public class FileController {
             }
             // 校验先行（先于任何落盘）：魔数与扩展名一致，SVG 拒绝
             String mime = fileAssetService.validateContent(content, file.getOriginalFilename());
+            String sha256 = fileAssetService.sha256Hex(content);
             // 可见性分域落盘（public/ 或 private/）
             storageKey = fileService.store(content, file.getOriginalFilename(), visibility);
             // 台账登记（可见性一次写定）→ 发布
             FileAsset asset = fileAssetService.persist(ownerId, file.getOriginalFilename(),
-                    storageKey, file.getSize(), mime, visibility);
+                    storageKey, file.getSize(), mime, sha256, visibility);
             String publicUrl = fileService.publicUrlOf(storageKey);
             return ApiResponse.ok(new AssetUploadResponse(
                     String.valueOf(asset.getId()), publicUrl, asset.getMime(),
