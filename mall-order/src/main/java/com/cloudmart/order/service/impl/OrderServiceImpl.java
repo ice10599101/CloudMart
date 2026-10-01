@@ -1110,8 +1110,23 @@ public class OrderServiceImpl implements OrderService {
         if (effectiveRequestKey.length() > 64) {
             throw new BusinessException("IDEMPOTENCY_KEY_INVALID", "幂等键过长（<=64）");
         }
-        // 同键重放：直接返回原单（含幂等异参校验）
-        String payloadHash = quotePayloadHash(userId, quote, receiverName, receiverPhone, receiverAddress);
+
+        // 服务端构造下单请求：金额/商品信息全部取报价快照（freshness 已核），无客户端价格字段
+        List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
+                        .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quoteId));
+        List<CreateOrderRequest.OrderItemInput> items = quoteItems.stream()
+                .map(qi -> new CreateOrderRequest.OrderItemInput(
+                        qi.getProductId(), qi.getSkuId(), qi.getQuantity(),
+                        qi.getProductName(), qi.getSkuImage(), qi.getSkuAttributes(), qi.getPrice()))
+                .toList();
+        CreateOrderRequest request = new CreateOrderRequest(
+                effectiveRequestKey, items, receiverName, receiverPhone,
+                receiverAddress, quote.getCouponId(), null, quote.getId());
+
+        // 同键重放：与 createOrder 使用同一 orderPayloadHash 公式（共享 request_key 命名空间，
+        // 两个公式会在重放比对时必然失配——QA10 缺陷修复）；同键同参返回原单，异参 409
+        String payloadHash = orderPayloadHash(userId, request);
         Order replayed = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
                 .eq(Order::getRequestKey, effectiveRequestKey));
@@ -1124,20 +1139,6 @@ public class OrderServiceImpl implements OrderService {
         if (orderQuoteMapper.consume(quoteId, 0L) == 0) {
             throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已使用或已过期，请重新报价");
         }
-
-        // 服务端构造下单请求：金额/商品信息全部取报价快照（freshness 已核），无客户端价格字段
-        List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
-                new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
-                        .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quoteId));
-        List<CreateOrderRequest.OrderItemInput> items = quoteItems.stream()
-                .map(qi -> new CreateOrderRequest.OrderItemInput(
-                        qi.getProductId(), qi.getSkuId(), qi.getQuantity(),
-                        qi.getProductName(), qi.getSkuImage(), qi.getSkuAttributes(), qi.getPrice()))
-                .toList();
-
-        CreateOrderRequest request = new CreateOrderRequest(
-                effectiveRequestKey, items, receiverName, receiverPhone,
-                receiverAddress, quote.getCouponId(), null, quote.getId());
 
         try {
             OrderDTO order = selfProvider.getObject().createOrder(userId, request);
@@ -1190,19 +1191,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    /** T03：报价下单的规范化摘要（幂等键域独立于直填下单） */
-    private String quotePayloadHash(Long userId, com.cloudmart.order.entity.OrderQuote quote,
-                                    String receiverName, String receiverPhone, String receiverAddress) {
-        String canonical = "quote|" + userId + "|" + quote.getId() + "|" + quote.getVersion()
-                + "|" + receiverName + "|" + receiverPhone + "|" + receiverAddress;
-        try {
-            return java.util.HexFormat.of().formatHex(
-                    java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
-    }
 
     @Override
     public boolean hasOpenOrders(Long userId) {
