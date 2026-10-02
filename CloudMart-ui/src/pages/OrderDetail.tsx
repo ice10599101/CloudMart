@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Spin, Modal, Input } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import { Spin, Modal, Input, Button } from 'antd'
 import { message } from '@/utils/appMessage'
 import {
   EnvironmentOutlined,
@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { fetchOrderById, cancelOrder, confirmReceipt, requestRefund } from '@/api/order'
+import { applyAfterSale, cancelAfterSale, getAfterSaleDetail, type AfterSaleCase } from '@/api/afterSale'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'
 
 const cssVars = {
@@ -160,6 +161,33 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true)
   const [refundModalOpen, setRefundModalOpen] = useState(false)
   const [refundReason, setRefundReason] = useState('')
+  // T11：售后案件（PAID/SHIPPED 可申请；进度时间线展示）
+  const [afterSaleModalOpen, setAfterSaleModalOpen] = useState(false)
+  const [afterSaleType, setAfterSaleType] = useState<'REFUND_ONLY' | 'RETURN_REFUND'>('REFUND_ONLY')
+  const [afterSaleReason, setAfterSaleReason] = useState('')
+  const [afterSaleCase, setAfterSaleCase] = useState<AfterSaleCase | null>(null)
+  const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
+
+  const submitAfterSale = useCallback(async () => {
+    if (!order || !afterSaleReason.trim()) {
+      message.warning('请填写售后原因')
+      return
+    }
+    setAfterSaleSubmitting(true)
+    try {
+      const { data: res } = await applyAfterSale(order.id, {
+        type: afterSaleType,
+        reason: afterSaleReason.trim(),
+      })
+      setAfterSaleCase(res.data)
+      message.success('售后申请已提交，等待商家受理')
+      setAfterSaleModalOpen(false)
+    } catch {
+      message.error('售后申请失败')
+    } finally {
+      setAfterSaleSubmitting(false)
+    }
+  }, [order, afterSaleType, afterSaleReason])
 
   const loadOrder = async () => {
     if (!id) return
@@ -336,6 +364,12 @@ export default function OrderDetail() {
                 )}
                 {order.status === 'PAID' && (
                   <ActionButton label="申请退款" onClick={() => setRefundModalOpen(true)} variant="danger" />
+                )}
+                {(order.status === 'PAID' || order.status === 'SHIPPED') && (
+                  <ActionButton
+                    label="申请售后"
+                    onClick={() => setAfterSaleModalOpen(true)}
+                  />
                 )}
                 {order.status === 'COMPLETED' && (
                   <ActionButton label="再次购买" onClick={() => history.push('/products')} variant="primary" />
@@ -636,6 +670,68 @@ export default function OrderDetail() {
             borderRadius: 8,
           }}
         />
+      </Modal>
+
+      {/* T11：申请售后 Modal（类型+原因；进度在提交后展示） */}
+      <Modal
+        open={afterSaleModalOpen}
+        title="申请售后"
+        onCancel={() => setAfterSaleModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setAfterSaleModalOpen(false)}>
+            取消
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={afterSaleSubmitting}
+            onClick={submitAfterSale}
+            disabled={!afterSaleReason.trim()}
+          >
+            提交申请
+          </Button>,
+        ]}
+      >
+        {afterSaleCase ? (
+          <div>
+            <p>申请已提交（案件号 {afterSaleCase.caseNo}），等待商家受理。</p>
+            {afterSaleCase.timeline?.map((e) => (
+              <p key={e.createdAt} style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                {e.createdAt} · {e.action}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后类型</div>
+              <select
+                value={afterSaleType}
+                onChange={(e) => setAfterSaleType(e.target.value as 'REFUND_ONLY' | 'RETURN_REFUND')}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-container)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <option value="REFUND_ONLY">仅退款（未发货/与商家协商）</option>
+                {order?.status === 'SHIPPED' && <option value="RETURN_REFUND">退货退款（按商品项）</option>}
+              </select>
+            </div>
+            <div>
+              <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后原因</div>
+              <Input.TextArea
+                rows={4}
+                value={afterSaleReason}
+                onChange={(e) => setAfterSaleReason(e.target.value)}
+                placeholder="请描述售后原因"
+              />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
