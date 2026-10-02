@@ -91,6 +91,12 @@ export class PetGameBridge {
 
     private hostHandler: ((message: HostToGame) => void) | null = null;
     private readonly onMessage = (event: MessageEvent): void => {
+        // P05：来源校验——message 通道仅服务 Web iframe 场景，pet-game 与宿主
+        // 同源静态部署，origin 必须等于本窗口 origin；跨源投递一律丢弃
+        //（App/RN 宿主走 __petHostMessage 注入、小程序走 wx 通道，均不经本监听）
+        if (event.origin !== window.location.origin) {
+            return;
+        }
         this.dispatch(event.data);
     };
 
@@ -163,10 +169,11 @@ export class PetGameBridge {
             }
             return;
         }
-        // Web iframe（FE-05/T34：仅在真实 iframe 内发送，目标 origin 收紧为 document.origin——
-        // 同源加载宿主与游戏，document.origin 即宿主 origin；顶层窗口直接打开时不发送）
+        // Web iframe（仅在真实 iframe 内发送）。targetOrigin 用 '*'：
+        // 宿主源随端而异（Taro 舞台=同源、Expo Web=独立源），收紧会在异源宿主下被浏览器丢弃；
+        // 安全边界在宿主侧（宿主只接受白名单 origin 的消息）。
         if (window.parent && window.parent !== window) {
-            window.parent.postMessage(message, document.origin);
+            window.parent.postMessage(message, '*');
         }
     }
 }
