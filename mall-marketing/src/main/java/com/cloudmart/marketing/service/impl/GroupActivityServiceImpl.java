@@ -391,6 +391,11 @@ public class GroupActivityServiceImpl implements GroupActivityService {
     }
 
     public GroupOrderDTO joinGroupFallback(Long userId, JoinGroupRequest request, Throwable throwable) {
+        // Sentinel fallback 对业务异常同样触发：业务语义（重复参团/组已满/活动归属不符）
+        // 必须原样透传给前端，只有系统异常才降级为统一文案
+        if (throwable instanceof BusinessException be) {
+            throw be;
+        }
         log.warn("joinGroup fallback triggered, userId={}, activityId={}: {}", userId, request.activityId(), throwable.getMessage());
         throw new BusinessException("GROUP_JOIN_FAILED", "参团请求繁忙，请稍后重试");
     }
