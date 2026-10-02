@@ -120,7 +120,9 @@ public class FileAssetService {
         }
         long expiresAt = now.plusSeconds(600).getEpochSecond();
         String token = sign(fileId, expiresAt);
-        return "/file/assets/" + fileId + "/download?token=" + token + "&expires=" + expiresAt;
+        // 网关完整路径（/api/file/** StripPrefix=2 → 本服务 /assets/{id}/download）：
+        // 客户端拿到即可直接 GET，不需要自行拼接网关前缀
+        return "/api/file/assets/" + fileId + "/download?token=" + token + "&expires=" + expiresAt;
     }
 
     /** 校验下载签名（静态资源通道之外的一次性授权下载）；签名密钥未配置时拒绝（fail-closed） */

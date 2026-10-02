@@ -160,7 +160,7 @@ class FileAssetServiceTest {
         when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
 
         String path = service.buildDownloadPath(100L, 42L, false, Instant.now());
-        assertThat(path).contains("/file/assets/100/download").contains("token=").contains("expires=");
+        assertThat(path).contains("/api/file/assets/100/download").contains("token=").contains("expires=");
 
         assertThatThrownBy(() -> service.buildDownloadPath(100L, 99L, false, Instant.now()))
                 .isInstanceOf(BusinessException.class)
