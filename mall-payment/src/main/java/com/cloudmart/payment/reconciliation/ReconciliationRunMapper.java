@@ -14,8 +14,9 @@ public interface ReconciliationRunMapper extends BaseMapper<ReconciliationRun> {
     ReconciliationRun findByDateAndScope(@Param("businessDate") java.time.LocalDate businessDate,
                                          @Param("scope") String scope);
 
-    /** FAILED 运行重试认领（CAS）：仅当仍处于 FAILED 时重置为 RUNNING 并清空上次中断的统计，防并发双认领 */
-    @Update("UPDATE reconciliation_run SET status = 'RUNNING', total_checked = NULL, total_diff = NULL, "
+    /** FAILED 运行重试认领（CAS）：仅当仍处于 FAILED 时重置为 RUNNING 并清零上次中断的统计，防并发双认领。
+     * total_checked/total_diff 列 NOT NULL，置 0（本次尚未核对）而非 NULL。 */
+    @Update("UPDATE reconciliation_run SET status = 'RUNNING', total_checked = 0, total_diff = 0, "
             + "started_at = NOW(), finished_at = NULL WHERE id = #{id} AND status = 'FAILED'")
     int claimFailedRun(@Param("id") Long id);
 }

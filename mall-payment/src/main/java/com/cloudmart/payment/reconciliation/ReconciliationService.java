@@ -79,8 +79,9 @@ public class ReconciliationService {
             differenceMapper.delete(new LambdaQueryWrapper<ReconciliationDifference>()
                     .eq(ReconciliationDifference::getRunId, existing.getId()));
             existing.setStatus("RUNNING");
-            existing.setTotalChecked(null);
-            existing.setTotalDiff(null);
+            // 列 NOT NULL：重置为 0（本次尚未核对），与 claimFailedRun 的 SQL 保持同语义
+            existing.setTotalChecked(0);
+            existing.setTotalDiff(0);
             existing.setStartedAt(LocalDateTime.now());
             existing.setFinishedAt(null);
             return new RunLease(existing, true);
