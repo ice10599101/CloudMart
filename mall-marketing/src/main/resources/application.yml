@@ -118,5 +118,5 @@ cloudmart:
         issuers: [mall-job]
         scope: marketing:jobs
       - prefix: /internal
-        issuers: [mall-job]
-        scope: marketing:jobs
+        issuers: [mall-job, mall-order]
+        scope: marketing:internal

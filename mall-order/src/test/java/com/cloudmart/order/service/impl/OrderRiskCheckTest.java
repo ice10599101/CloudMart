@@ -81,6 +81,7 @@ class OrderRiskCheckTest {
                 riskFeignClient,
                 mock(com.cloudmart.order.feign.WmsShippingFeignClient.class),
                 mock(com.cloudmart.order.feign.SeckillFeignClient.class),
+                mock(com.cloudmart.order.feign.MarketingFeignClient.class),
                 redisTemplate,
                 mock(com.cloudmart.order.mq.OrderEventProducer.class),
                 mock(com.cloudmart.common.async.outbox.OutboxService.class),
@@ -94,7 +95,7 @@ class OrderRiskCheckTest {
     private CreateOrderRequest request() {
         return new CreateOrderRequest("req-risk-1",
                 List.of(new CreateOrderRequest.OrderItemInput(1L, 10L, 1, "商品", null, null, new BigDecimal("10.00"))),
-                "张三", "13800138000", "北京市", null, null, null, null);
+                "张三", "13800138000", "北京市", null, null, null, null, null);
     }
 
     @Test

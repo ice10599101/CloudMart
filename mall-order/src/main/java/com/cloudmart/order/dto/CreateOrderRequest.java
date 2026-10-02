@@ -23,7 +23,12 @@ public record CreateOrderRequest(
      * 订单以此回查 mall-seckill 冻结快照计价（活动报价权威），并作为
      * 结果回写事件的关联键。
      */
-    String seckillRequestId
+    String seckillRequestId,
+    /**
+     * T10：拼团组 ID（成团建单必填；普通/报价下单为 null）。
+     * 订单以此回查 mall-marketing 成团快照计价（拼团价权威）。
+     */
+    Long groupOrderId
 ) {
     public record OrderItemInput(
         Long productId,

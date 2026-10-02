@@ -164,3 +164,5 @@ cloudmart:
       mall-payment: order:refund
       # T09：秒杀订单建单前回查冻结报价快照（活动报价权威）
       mall-seckill: seckill:internal
+      # T10：拼团成团订单建单前回查成团快照（拼团价权威）
+      mall-marketing: marketing:internal

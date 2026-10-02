@@ -77,4 +77,15 @@ public class GroupActivityController {
         IPage<GroupOrderVO> voPage = dtoPage.convert(marketingConverter::groupOrderDtoToVO);
         return ApiResponse.ok(voPage);
     }
+
+    /**
+     * T10：拼团超时处理（mall-job 定时触发，服务令牌可达）——CAS 批量过期
+     * 并释放成员预留权益（失败团不产生退款事实）。
+     */
+    @Operation(summary = "拼团超时处理", description = "CAS 过期到期未成团的组并释放预留权益（mall-job 触发）")
+    @PostMapping("/expiration")
+    public ApiResponse<Integer> handleExpiration() {
+        groupActivityService.handleGroupExpiration();
+        return ApiResponse.ok(null);
+    }
 }

@@ -6,12 +6,10 @@ package com.cloudmart.marketing.config;
  * <p>映射关系：
  * <ul>
  *   <li>{@code marketing.events} exchange → {@code marketing-events} topic</li>
- *   <li>routing key {@code marketing.group.success} → tag {@code group-success}</li>
- *   <li>routing key {@code marketing.group.expired} → tag {@code group-expired}</li>
- *   <li>原 {@code marketing.group.expired} queue（自消费）→ consumer group {@code marketing-group-expired-cg}</li>
+ *   <li>成团事件 Outbox 发布 → tag {@code group-success}</li>
  * </ul>
- * 注意：{@code group-expired} 同时被 mall-marketing 与 mall-payment 消费，
- * 两个服务使用不同的 ConsumerGroup 以实现各自独立消费。
+ * 注意：T10 起 group-expired 消息已废弃——"成团后建单付款"模式下失败团
+ * 释放预留权益（不产生退款事实），payment 侧退款消费者已随旧链路删除。
  */
 public final class RocketMQConfig {
 
@@ -21,7 +19,4 @@ public final class RocketMQConfig {
     public static final String MARKETING_TOPIC = "marketing-events";
 
     public static final String MARKETING_TAG_GROUP_SUCCESS = "group-success";
-    public static final String MARKETING_TAG_GROUP_EXPIRED = "group-expired";
-
-    public static final String CG_MARKETING_GROUP_EXPIRED = "marketing-group-expired-cg";
 }

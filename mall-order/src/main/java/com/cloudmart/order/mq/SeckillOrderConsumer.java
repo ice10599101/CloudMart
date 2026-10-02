@@ -64,7 +64,7 @@ public class SeckillOrderConsumer implements RocketMQListener<Map<String, Object
                     declaredPrice != null ? declaredPrice : BigDecimal.ONE
             );
             CreateOrderRequest request = new CreateOrderRequest(
-                    requestId, List.of(item), null, null, null, null, activityId, null, requestId
+                    requestId, List.of(item), null, null, null, null, activityId, null, requestId, null
             );
             OrderDTO order = orderService.createOrder(userId, request);
             // SUCCESS 结果事件由 createOrder 与订单同事务登记（Outbox），此处不再重复发送

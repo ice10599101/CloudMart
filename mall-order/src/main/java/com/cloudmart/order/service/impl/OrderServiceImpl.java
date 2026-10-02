@@ -71,6 +71,7 @@ public class OrderServiceImpl implements OrderService {
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private final com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
+    private final com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -117,14 +118,17 @@ public class OrderServiceImpl implements OrderService {
         // 一律覆盖为商品服务权威值（T07：篡改 price/productId/skuId 不能改变服务端应付价）
         // T09：秒杀订单例外——价格权威切换为 mall-seckill 冻结快照（活动报价），
         // 主体/SKU/状态逐项校验，秒杀价与普通价不混用
+        // T10：拼团成团订单例外——价格权威切换为 mall-marketing 成团快照（拼团价）
         if (request.seckillRequestId() != null) {
             request = applySeckillQuote(userId, request);
+        } else if (request.groupOrderId() != null) {
+            request = applyGroupQuote(userId, request);
         } else {
             request = new CreateOrderRequest(request.requestId(),
                     overrideItemsFromProduct(request.items()),
                     request.receiverName(), request.receiverPhone(), request.receiverAddress(),
                     request.couponId(), request.activityId(), request.quoteId(),
-                    request.seckillRequestId());
+                    request.seckillRequestId(), request.groupOrderId());
         }
 
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
@@ -917,7 +921,7 @@ public class OrderServiceImpl implements OrderService {
         return new CreateOrderRequest(request.requestId(), items,
                 request.receiverName(), request.receiverPhone(), request.receiverAddress(),
                 request.couponId(), request.activityId(), request.quoteId(),
-                request.seckillRequestId());
+                request.seckillRequestId(), request.groupOrderId());
     }
 
     /** T09：秒杀结果回写事件（稳定 eventId="seckill-result-{requestId}"，Outbox/Inbox 双端幂等） */
@@ -928,6 +932,45 @@ public class OrderServiceImpl implements OrderService {
                 + "}";
         return new EventEnvelope("seckill-result-" + requestId, "SECKILL_RESULT", 1,
                 requestId, 1, System.currentTimeMillis(), requestId, payload);
+    }
+
+    /**
+     * T10：拼团成团订单引用活动报价——向 mall-marketing 回查成团快照，校验
+     * 成团状态/成员归属/SKU 数量后以快照 groupPrice 覆盖订单项价格（商品权威
+     * 信息照常覆盖）。快照不可用/非成员一律拒绝（fail-closed），绝不按普通价建单。
+     */
+    private CreateOrderRequest applyGroupQuote(Long userId, CreateOrderRequest request) {
+        com.cloudmart.common.api.ApiResponse<com.cloudmart.order.dto.GroupQuoteDTO> quoteResp =
+                marketingFeignClient.getGroupQuote(request.groupOrderId());
+        if (quoteResp == null || !quoteResp.success() || quoteResp.data() == null) {
+            throw new BusinessException("GROUP_QUOTE_NOT_FOUND", "拼团组未成团或不存在，不能建单");
+        }
+        com.cloudmart.order.dto.GroupQuoteDTO quote = quoteResp.data();
+        if (!quote.memberUserIds().contains(userId)) {
+            throw new BusinessException("GROUP_QUOTE_FORBIDDEN", "当前用户不是该拼团组成员");
+        }
+        if (request.items().size() != 1) {
+            throw new BusinessException("GROUP_QUOTE_INVALID", "拼团订单只能包含一个订单项");
+        }
+        CreateOrderRequest.OrderItemInput item = request.items().get(0);
+        if (!quote.skuId().equals(item.skuId()) || !Integer.valueOf(1).equals(item.quantity())) {
+            throw new BusinessException("GROUP_QUOTE_INVALID", "拼团请求与订单项不一致");
+        }
+        if (request.activityId() != null && !quote.activityId().equals(request.activityId())) {
+            throw new BusinessException("GROUP_QUOTE_INVALID", "拼团组与活动不一致");
+        }
+
+        List<CreateOrderRequest.OrderItemInput> enriched = overrideItemsFromProduct(request.items());
+        List<CreateOrderRequest.OrderItemInput> items = enriched.stream()
+                .map(i -> i.skuId().equals(quote.skuId())
+                        ? new CreateOrderRequest.OrderItemInput(i.productId(), i.skuId(), i.quantity(),
+                                i.productName(), i.skuImage(), i.skuAttributes(), quote.groupPrice())
+                        : i)
+                .toList();
+        return new CreateOrderRequest(request.requestId(), items,
+                request.receiverName(), request.receiverPhone(), request.receiverAddress(),
+                request.couponId(), request.activityId(), request.quoteId(),
+                request.seckillRequestId(), request.groupOrderId());
     }
 
     private Integer toInt(Object value) {
@@ -1190,7 +1233,7 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
         CreateOrderRequest request = new CreateOrderRequest(
                 effectiveRequestKey, items, receiverName, receiverPhone,
-                receiverAddress, quote.getCouponId(), null, quote.getId(), null);
+                receiverAddress, quote.getCouponId(), null, quote.getId(), null, null);
 
         // 同键重放：与 createOrder 使用同一 orderPayloadHash 公式（共享 request_key 命名空间，
         // 两个公式会在重放比对时必然失配——QA10 缺陷修复）；同键同参返回原单，异参 409

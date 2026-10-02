@@ -63,6 +63,7 @@ class OrderServiceTest {
     private CouponFeignClient couponFeignClient;
     private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
+    private com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OrderEventProducer orderEventProducer;
@@ -89,6 +90,7 @@ class OrderServiceTest {
 
         refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
         seckillFeignClient = mock(com.cloudmart.order.feign.SeckillFeignClient.class);
+        marketingFeignClient = mock(com.cloudmart.order.feign.MarketingFeignClient.class);
         lenient().when(refundFeignClient.createRefund(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
                 java.util.Map.of("refundNo", "RF100", "status", "SUCCEEDED")));
 
@@ -102,6 +104,7 @@ class OrderServiceTest {
                 riskFeignClient,
                 wmsShippingFeignClient,
                 seckillFeignClient,
+                marketingFeignClient,
                 redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -336,7 +339,7 @@ class OrderServiceTest {
                 300L, 200L, 2, "商品A", "img.jpg", "红色", new BigDecimal("99.00")
         );
         CreateOrderRequest request = new CreateOrderRequest(
-                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null, null, null
+                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null, null, null, null
         );
 
         // RISK-01：风控放行
@@ -396,7 +399,7 @@ class OrderServiceTest {
                 300L, 200L, 2, null, null, null, new BigDecimal("99.00")
         );
         CreateOrderRequest request = new CreateOrderRequest(
-                "req-seckill-1", List.of(itemInput), "张三", "13800138000", "地址", null, 2001L, null, "req-seckill-1"
+                "req-seckill-1", List.of(itemInput), "张三", "13800138000", "地址", null, 2001L, null, "req-seckill-1", null
         );
 
         when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
@@ -468,7 +471,7 @@ class OrderServiceTest {
                 300L, 200L, 1, null, null, null, new BigDecimal("9.90")
         );
         CreateOrderRequest request = new CreateOrderRequest(
-                "req-seckill-2", List.of(itemInput), null, null, null, null, 2001L, null, "req-seckill-2"
+                "req-seckill-2", List.of(itemInput), null, null, null, null, 2001L, null, "req-seckill-2", null
         );
 
         when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
@@ -481,5 +484,87 @@ class OrderServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> org.assertj.core.api.Assertions.assertThat(((BusinessException) ex).getCode())
                         .isEqualTo("SECKILL_QUOTE_NOT_PENDING"));
+    }
+
+    @Test
+    @DisplayName("T10：拼团成团订单以成团快照计价（拼团价权威），非成员拒绝")
+    void createOrder_WithGroupOrder_ShouldUseGroupPrice() {
+        CreateOrderRequest.OrderItemInput itemInput = new CreateOrderRequest.OrderItemInput(
+                300L, 200L, 1, null, null, null, new BigDecimal("99.00")
+        );
+        CreateOrderRequest request = new CreateOrderRequest(
+                "group-3001-1", List.of(itemInput), null, null, null, null, 2001L, null, null, 3001L
+        );
+
+        when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
+
+        // T10：成团快照——拼团价 9.90（普通价 99.00 不得参与），成员含 userId=1
+        com.cloudmart.order.dto.GroupQuoteDTO quote = new com.cloudmart.order.dto.GroupQuoteDTO(
+                3001L, 2001L, 300L, 200L, new BigDecimal("9.90"), List.of(1L, 2L, 3L));
+        when(marketingFeignClient.getGroupQuote(3001L)).thenReturn(ApiResponse.ok(quote));
+
+        // 商品权威信息照常覆盖（价格随后被快照覆盖）
+        Map<String, Object> authoritativeSku = new HashMap<>();
+        authoritativeSku.put("skuId", 200L);
+        authoritativeSku.put("productId", 300L);
+        authoritativeSku.put("productName", "商品A");
+        authoritativeSku.put("image", "img.jpg");
+        authoritativeSku.put("attributes", "红色");
+        authoritativeSku.put("price", new BigDecimal("99.00"));
+        authoritativeSku.put("status", 1);
+        when(productFeignClient.getSkusBatch(List.of(200L)))
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setId(10L);
+        orderItem.setOrderId(1L);
+        orderItem.setSkuId(200L);
+        orderItem.setQuantity(1);
+
+        OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("9.90"), 1);
+        OrderDTO expectedDto = new OrderDTO(1L, "ORD124", new BigDecimal("9.90"), new BigDecimal("9.90"), BigDecimal.ZERO, null, "PENDING_PAYMENT", null, null, null, null, null, null, null, List.of(itemDto), null, null);
+
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(inventoryFeignClient.deductStock(any(InventoryDeductRequest.class))).thenReturn(ApiResponse.ok(true));
+        when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
+            Order o = invocation.getArgument(0);
+            o.setId(1L);
+            return 1;
+        });
+        when(orderItemMapper.insert(any(OrderItem.class))).thenReturn(1);
+        when(cartFeignClient.clearCheckedItems(1L)).thenReturn(ApiResponse.ok(null));
+        when(orderEventProducer.sendOrderTimeoutCheck(anyString())).thenReturn(true);
+        when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
+        when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of(itemDto));
+        when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(expectedDto);
+
+        OrderDTO result = orderService.createOrder(1L, request);
+
+        assertThat(result).isEqualTo(expectedDto);
+        ArgumentCaptor<OrderItem> itemCaptor = ArgumentCaptor.forClass(OrderItem.class);
+        verify(orderItemMapper).insert(itemCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(itemCaptor.getValue().getPrice())
+                .isEqualByComparingTo("9.90");
+    }
+
+    @Test
+    @DisplayName("T10：非拼团组成员 → GROUP_QUOTE_FORBIDDEN 拒绝建单")
+    void createOrder_WithNonMember_ShouldReject() {
+        CreateOrderRequest.OrderItemInput itemInput = new CreateOrderRequest.OrderItemInput(
+                300L, 200L, 1, null, null, null, new BigDecimal("9.90")
+        );
+        CreateOrderRequest request = new CreateOrderRequest(
+                "group-3001-999", List.of(itemInput), null, null, null, null, 2001L, null, null, 3001L
+        );
+
+        when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
+        com.cloudmart.order.dto.GroupQuoteDTO quote = new com.cloudmart.order.dto.GroupQuoteDTO(
+                3001L, 2001L, 300L, 200L, new BigDecimal("9.90"), List.of(1L, 2L, 3L));
+        when(marketingFeignClient.getGroupQuote(3001L)).thenReturn(ApiResponse.ok(quote));
+
+        assertThatThrownBy(() -> orderService.createOrder(999L, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> org.assertj.core.api.Assertions.assertThat(((BusinessException) ex).getCode())
+                        .isEqualTo("GROUP_QUOTE_FORBIDDEN"));
     }
 }
