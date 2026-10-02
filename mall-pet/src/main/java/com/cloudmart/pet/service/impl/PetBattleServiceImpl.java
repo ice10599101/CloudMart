@@ -205,8 +205,6 @@ public class PetBattleServiceImpl implements PetBattleService {
         return toVo(battle, userId, null);
     }
 
-    @Override
-    @Transactional
     /**
      * P04：出战/工作互斥——参战宠物处于打工/学习进行中时禁止开战
      * （挑战创建与应战两侧同样生效，防"PENDING 期间开工"的窗口）。
@@ -223,6 +221,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         }
     }
 
+    @Override
+    @Transactional
     public PetBattleVO accept(Long userId, Long battleId) {
         PetBattle battle = requireBattle(battleId);
         if (!userId.equals(battle.getDefenderUserId())) {
@@ -236,6 +236,11 @@ public class PetBattleServiceImpl implements PetBattleService {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_BATTLE_ALREADY_HANDLED, "这场挑战已经被处理过啦");
         }
+
+        // P04：互斥复检——PENDING 期间任一方开始打工/学习，应战时拒绝（挑战作废，
+        // 由"已被处理"语义兜底；发起/应战两侧与创建时同样生效）
+        assertNotBusyWithActivity(battle.getAttackerUserId(), battle.getAttackerPetId(), "出战");
+        assertNotBusyWithActivity(userId, battle.getDefenderPetId(), "应战");
 
         PetBattleEngine.Fighter attacker = PetJsonUtils.parse(battle.getAttackerSnapshot(),
                 new com.fasterxml.jackson.core.type.TypeReference<>() {
