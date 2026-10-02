@@ -55,22 +55,11 @@ jobs:
             echo "::error::未发现任何 *IntegrationTest.java，集成测试门禁失效"; exit 1
           fi
       # E01：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
-      # mall-wish IT 依赖 docker-compose 的 mysql-it(8307)/redis-it(8380) 专用实例，
-      # mall-ai/mall-product IT 使用 Testcontainers（runner 自带 Docker）
-      - name: 启动 IT 专用基础设施
-        run: docker compose up -d mysql-it redis-it
-      - name: 等待 mysql-it / redis-it 健康
-        run: |
-          for i in $(seq 1 60); do
-            mysql_ok=$(docker inspect --format '{{.State.Health.Status}}' cloudmart-mysql-it 2>/dev/null || echo missing)
-            redis_ok=$(docker inspect --format '{{.State.Health.Status}}' cloudmart-redis-it 2>/dev/null || echo missing)
-            echo "attempt=$i mysql=$mysql_ok redis=$redis_ok"
-            [ "$mysql_ok" = "healthy" ] && [ "$redis_ok" = "healthy" ] && exit 0
-            sleep 5
-          done
-          echo "::error::IT 基础设施未在超时内就绪"; exit 1
-      - name: 集成测试（-Pintegration-test → failsafe verify）
-        run: ./mvnw -B -ntp -Pintegration-test verify
+      # 其余模块 IT 均为 Testcontainers 自给自足（runner 自带 Docker）。
+      # mall-wish IT 依赖远程 IT 容器（mysql-it 8307 / redis-it 8380，B23 显式授权环境），
+      # CI runner 不持有其授权，排除该模块——wish IT 仅在授权环境以 -Dwish.it.enabled=true 执行
+      - name: 集成测试（-Pintegration-test → failsafe verify；mall-wish 除外）
+        run: ./mvnw -B -ntp -Pintegration-test verify -pl '!mall-wish'
       - name: 集成测试执行数校验（防止 IT 被静默跳过）
         run: |
           total=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')

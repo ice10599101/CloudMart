@@ -59,19 +59,53 @@ public class ReconciliationService {
     private final com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper;
     private final com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient;
 
-    /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
-    public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
-        LocalDate businessDate = LocalDate.now();
-        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "PAYMENT_ORDER");
+    /** FAILED 重试的运行租约：execute=false 时 run 为应直接返回的既有运行（DONE/RUNNING 幂等） */
+    private record RunLease(ReconciliationRun run, boolean execute) {}
+
+    /**
+     * 幂等进入对账运行：DONE/RUNNING 返回既有运行（当日不重扫，防调度与手动并发双跑）；
+     * FAILED 复用 uk(business_date,scope) 约束下的同一运行行 CAS 认领重置（当日可重试），
+     * 并清理上次中断留下的半程差异（重扫后全量重建，不残留过期证据）。
+     */
+    private RunLease beginRun(LocalDate businessDate, String scope, String logTag) {
+        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, scope);
+        if (existing != null && "FAILED".equals(existing.getStatus())) {
+            log.warn("[{}] 本业务日 {} 对账上次 FAILED（run={}），CAS 认领重置重试", logTag, scope, existing.getId());
+            if (runMapper.claimFailedRun(existing.getId()) == 0) {
+                // 并发下已被其他线程认领：视同 RUNNING，幂等返回
+                log.info("[{}] 本业务日 {} 对账已被并发执行认领（run={}），幂等返回", logTag, scope, existing.getId());
+                return new RunLease(runMapper.selectById(existing.getId()), false);
+            }
+            differenceMapper.delete(new LambdaQueryWrapper<ReconciliationDifference>()
+                    .eq(ReconciliationDifference::getRunId, existing.getId()));
+            existing.setStatus("RUNNING");
+            existing.setTotalChecked(null);
+            existing.setTotalDiff(null);
+            existing.setStartedAt(LocalDateTime.now());
+            existing.setFinishedAt(null);
+            return new RunLease(existing, true);
+        }
         if (existing != null) {
-            log.info("[OPS01] 本业务日 PAYMENT_ORDER 对账已执行（幂等返回既有运行 run={}）", existing.getId());
-            return existing;
+            log.info("[{}] 本业务日 {} 对账已执行（status={}，幂等返回既有运行 run={}）",
+                    logTag, scope, existing.getStatus(), existing.getId());
+            return new RunLease(existing, false);
         }
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
-        run.setScope("PAYMENT_ORDER");
+        run.setScope(scope);
         run.setStatus("RUNNING");
         runMapper.insert(run);
+        return new RunLease(run, true);
+    }
+
+    /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
+    public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
+        LocalDate businessDate = LocalDate.now();
+        RunLease lease = beginRun(businessDate, "PAYMENT_ORDER", "OPS01");
+        if (!lease.execute()) {
+            return lease.run();
+        }
+        ReconciliationRun run = lease.run();
 
         try {
             int checked = 0;
@@ -174,16 +208,11 @@ public class ReconciliationService {
      */
     public ReconciliationRun runRefundReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
-        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "REFUND");
-        if (existing != null) {
-            log.info("[T11] 本业务日 REFUND 对账已执行（幂等返回既有运行 run={}）", existing.getId());
-            return existing;
+        RunLease lease = beginRun(businessDate, "REFUND", "T11");
+        if (!lease.execute()) {
+            return lease.run();
         }
-        ReconciliationRun run = new ReconciliationRun();
-        run.setBusinessDate(businessDate);
-        run.setScope("REFUND");
-        run.setStatus("RUNNING");
-        runMapper.insert(run);
+        ReconciliationRun run = lease.run();
 
         try {
             int checked = 0;
@@ -288,16 +317,11 @@ public class ReconciliationService {
      */
     public ReconciliationRun runInventoryReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
-        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "INVENTORY");
-        if (existing != null) {
-            log.info("[T11] 本业务日 INVENTORY 对账已执行（幂等返回既有运行 run={}）", existing.getId());
-            return existing;
+        RunLease lease = beginRun(businessDate, "INVENTORY", "T11");
+        if (!lease.execute()) {
+            return lease.run();
         }
-        ReconciliationRun run = new ReconciliationRun();
-        run.setBusinessDate(businessDate);
-        run.setScope("INVENTORY");
-        run.setStatus("RUNNING");
-        runMapper.insert(run);
+        ReconciliationRun run = lease.run();
 
         try {
             int checked = 0;

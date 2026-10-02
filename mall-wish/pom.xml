@@ -155,7 +155,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- B23：UT/IT 分组——it/ 目录由 failsafe 显式执行，不混入默认 mvn test -->
+            <!-- B23：UT/IT 分组——it/ 目录由 surefire 排除，不混入默认 mvn test -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -166,6 +166,9 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!-- ENG-01：failsafe 执行绑定跟随根 POM 的 -Pintegration-test profile，
+                 此处只声明 include 模式（含 WishCollectionIT）——普通 install 不再执行 IT，
+                 避免 B23 守卫在无授权环境抛错导致构建失败 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
@@ -176,14 +179,6 @@
                         <include>**/it/*IT.java</include>
                     </includes>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

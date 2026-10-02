@@ -152,4 +152,70 @@ class ReconciliationServiceTest {
         assertThat(run.getTotalDiff()).isZero();
         verify(differenceMapper, never()).insert(any(ReconciliationDifference.class));
     }
+
+    @Test
+    @DisplayName("本业务日已 DONE → 幂等返回既有运行，不重扫")
+    void reconcile_doneRun_idempotentReturn() {
+        ReconciliationRun done = new ReconciliationRun();
+        done.setId(7L);
+        done.setBusinessDate(java.time.LocalDate.now());
+        done.setScope("PAYMENT_ORDER");
+        done.setStatus("DONE");
+        when(runMapper.findByDateAndScope(any(), any())).thenReturn(done);
+
+        ReconciliationRun run = service.runPaymentOrderReconciliation(7);
+
+        assertThat(run.getId()).isEqualTo(7L);
+        assertThat(run.getStatus()).isEqualTo("DONE");
+        verify(attemptMapper, never()).selectList(any());
+        verify(runMapper, never()).insert(any(ReconciliationRun.class));
+    }
+
+    @Test
+    @DisplayName("本业务日上次 FAILED → CAS 认领重置重试（复用运行行并清理半程差异）")
+    void reconcile_failedRun_claimedAndRetried() {
+        ReconciliationRun failed = new ReconciliationRun();
+        failed.setId(9L);
+        failed.setBusinessDate(java.time.LocalDate.now());
+        failed.setScope("PAYMENT_ORDER");
+        failed.setStatus("FAILED");
+        when(runMapper.findByDateAndScope(any(), any())).thenReturn(failed);
+        when(runMapper.claimFailedRun(9L)).thenReturn(1);
+        when(attemptMapper.selectList(any())).thenReturn(
+                List.of(successAttempt(1L, ORDER_ID)));
+        when(orderFeignClient.getOrderInfo(ORDER_ID)).thenReturn(
+                ApiResponse.ok(new OrderInternalInfoDTO(ORDER_ID, USER_ID, "PAID", new BigDecimal("88.00"))));
+        when(orderFeignClient.listPaidOrders(anyInt(), anyInt())).thenReturn(
+                ApiResponse.ok(new OrderFeignClient.PageDTO(List.of(), 0)));
+        when(attemptMapper.selectCount(any())).thenReturn(1L);
+
+        ReconciliationRun run = service.runPaymentOrderReconciliation(7);
+
+        // 复用 uk(business_date,scope) 约束下的同一运行行重扫并完成
+        assertThat(run.getId()).isEqualTo(9L);
+        assertThat(run.getStatus()).isEqualTo("DONE");
+        assertThat(run.getTotalDiff()).isZero();
+        verify(runMapper).claimFailedRun(9L);
+        verify(runMapper, never()).insert(any(ReconciliationRun.class));
+        verify(differenceMapper).delete(any());
+    }
+
+    @Test
+    @DisplayName("FAILED 运行被并发认领（CAS=0）→ 幂等返回不重扫")
+    void reconcile_failedRunConcurrentlyClaimed_idempotentReturn() {
+        ReconciliationRun failed = new ReconciliationRun();
+        failed.setId(9L);
+        failed.setBusinessDate(java.time.LocalDate.now());
+        failed.setScope("PAYMENT_ORDER");
+        failed.setStatus("FAILED");
+        when(runMapper.findByDateAndScope(any(), any())).thenReturn(failed);
+        when(runMapper.claimFailedRun(9L)).thenReturn(0);
+        when(runMapper.selectById(9L)).thenReturn(failed);
+
+        ReconciliationRun run = service.runPaymentOrderReconciliation(7);
+
+        assertThat(run.getId()).isEqualTo(9L);
+        verify(attemptMapper, never()).selectList(any());
+        verify(differenceMapper, never()).delete(any());
+    }
 }
