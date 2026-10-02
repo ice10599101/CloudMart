@@ -286,6 +286,35 @@ public class AdminBusinessController {
         return orderFeignClient.cancelOrder(orderId);
     }
 
+    @GetMapping("/orders/after-sale")
+    @RequiresPermission("business:order:refund")
+    @Operation(summary = "售后案件分页", description = "T11：按状态/订单筛选售后案件")
+    public ApiResponse<Object> listAfterSaleCases(
+            @RequestParam(value = "page", defaultValue = "1") long page,
+            @RequestParam(value = "pageSize", defaultValue = "20") long pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "orderId", required = false) Long orderId) {
+        return orderFeignClient.pageAfterSaleCases(page, pageSize, status, orderId);
+    }
+
+    @PostMapping("/orders/after-sale/{caseId}/approve")
+    @RequiresPermission("business:order:refund")
+    @OperLog(title = "售后案件", businessType = 2)
+    @Operation(summary = "受理售后", description = "T11：批准金额+关联退款单（T02），PENDING→APPROVED")
+    public ApiResponse<Object> approveAfterSaleCase(@PathVariable Long caseId,
+                                                    @RequestBody Map<String, Object> body) {
+        return orderFeignClient.approveAfterSaleCase(caseId, body);
+    }
+
+    @PostMapping("/orders/after-sale/{caseId}/reject")
+    @RequiresPermission("business:order:refund")
+    @OperLog(title = "售后案件", businessType = 2)
+    @Operation(summary = "拒绝售后", description = "T11：PENDING→REJECTED 留原因")
+    public ApiResponse<Object> rejectAfterSaleCase(@PathVariable Long caseId,
+                                                   @RequestBody Map<String, Object> body) {
+        return orderFeignClient.rejectAfterSaleCase(caseId, body);
+    }
+
     @PutMapping("/orders/{orderId}/refund/approve")
     @OperLog(title = "订单管理", businessType = 2)
     @RequiresPermission("business:order:refund")

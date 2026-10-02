@@ -28,6 +28,21 @@ public interface OrderFeignClient {
     @PutMapping("/{orderId}/cancel")
     ApiResponse<Object> cancelOrder(@PathVariable("orderId") Long orderId);
 
+    // T11：售后案件运营端
+    @GetMapping("/after-sale")
+    ApiResponse<Object> pageAfterSaleCases(@RequestParam("page") long page,
+                                           @RequestParam("pageSize") long pageSize,
+                                           @RequestParam(value = "status", required = false) String status,
+                                           @RequestParam(value = "orderId", required = false) Long orderId);
+
+    @PostMapping("/after-sale/{caseId}/approve")
+    ApiResponse<Object> approveAfterSaleCase(@PathVariable("caseId") Long caseId,
+                                             @RequestBody Map<String, Object> body);
+
+    @PostMapping("/after-sale/{caseId}/reject")
+    ApiResponse<Object> rejectAfterSaleCase(@PathVariable("caseId") Long caseId,
+                                            @RequestBody Map<String, Object> body);
+
     @PutMapping("/{orderId}/approve-refund")
     ApiResponse<Object> approveRefund(@PathVariable("orderId") Long orderId);
 

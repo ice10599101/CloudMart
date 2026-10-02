@@ -72,6 +72,7 @@ public class OrderServiceImpl implements OrderService {
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private final com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
     private final com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient;
+    private final com.cloudmart.order.service.AfterSaleCaseService afterSaleCaseService;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -1390,6 +1391,11 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
         return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
+    }
+
+    @Override
+    public void onAfterSaleRefundCompleted(String refundNo) {
+        afterSaleCaseService.onRefundCompleted(refundNo);
     }
 
     @Override

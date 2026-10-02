@@ -102,6 +102,7 @@ class OrderServiceImplTest {
                 wmsShippingFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.SeckillFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.MarketingFeignClient.class),
+                mock(com.cloudmart.order.service.AfterSaleCaseService.class),
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),

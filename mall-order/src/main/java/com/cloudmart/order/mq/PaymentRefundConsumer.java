@@ -53,6 +53,12 @@ public class PaymentRefundConsumer implements RocketMQListener<Map<String, Objec
         }
         try {
             orderService.notifyRefundSucceeded(orderId);
+            // T11：售后案件回填（refundNo 关联；无关联案件时幂等无操作）
+            Object refundNoRaw = ((Map<?, ?>) message.get("payload")) == null ? null
+                    : ((java.util.Map<?, ?>) message.get("payload")).get("refundNo");
+            if (refundNoRaw != null) {
+                orderService.onAfterSaleRefundCompleted(String.valueOf(refundNoRaw));
+            }
             inboxService.completeConsume(CONSUMER, envelope);
         } catch (Exception e) {
             inboxService.failConsume(CONSUMER, envelope, e.getMessage());

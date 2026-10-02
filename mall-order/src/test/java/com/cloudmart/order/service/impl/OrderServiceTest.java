@@ -68,6 +68,7 @@ class OrderServiceTest {
     private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
     private com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient;
+    private com.cloudmart.order.service.AfterSaleCaseService afterSaleCaseService = org.mockito.Mockito.mock(com.cloudmart.order.service.AfterSaleCaseService.class);
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OrderEventProducer orderEventProducer;
@@ -115,6 +116,7 @@ class OrderServiceTest {
                 wmsShippingFeignClient,
                 seckillFeignClient,
                 marketingFeignClient,
+                afterSaleCaseService,
                 redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
