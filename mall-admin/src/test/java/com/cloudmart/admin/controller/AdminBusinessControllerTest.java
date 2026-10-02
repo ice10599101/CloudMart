@@ -57,6 +57,7 @@ class AdminBusinessControllerTest {
                 mock(NotificationFeignClient.class),
                 seckillActivityFeignClient,
                 seckillProductFeignClient,
+                mock(SeckillRequestFeignClient.class),
                 mock(CartFeignClient.class),
                 mock(ReviewFeignClient.class),
                 mock(MarketingFeignClient.class),
