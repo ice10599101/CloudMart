@@ -371,6 +371,36 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 
+    @Override
+    public java.util.List<com.cloudmart.inventory.dto.ReservationScanDTO> scanReservationsForReconciliation(
+            java.time.LocalDateTime since, long lastId, int limit) {
+        // T11：台账行按订单聚合——每订单取一行（id 最小行代表创建时间/数量合计另算）
+        java.util.List<com.cloudmart.inventory.entity.InventoryReservation> rows = reservationMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.inventory.entity.InventoryReservation>()
+                        .ge(com.cloudmart.inventory.entity.InventoryReservation::getCreatedAt, since)
+                        .gt(com.cloudmart.inventory.entity.InventoryReservation::getId, lastId)
+                        .orderByAsc(com.cloudmart.inventory.entity.InventoryReservation::getId)
+                        .last("LIMIT " + limit));
+        // 按 orderId 聚合（LinkedHashMap 保序）：status 优先级 RESERVED>CONFIRMED>RELEASED
+        java.util.Map<Long, com.cloudmart.inventory.dto.ReservationScanDTO> byOrder = new java.util.LinkedHashMap<>();
+        for (com.cloudmart.inventory.entity.InventoryReservation row : rows) {
+            com.cloudmart.inventory.dto.ReservationScanDTO existing = byOrder.get(row.getOrderId());
+            int qty = row.getQuantity() == null ? 0 : row.getQuantity();
+            if (existing == null) {
+                byOrder.put(row.getOrderId(), new com.cloudmart.inventory.dto.ReservationScanDTO(
+                        row.getOrderId(), row.getStatus(), qty, row.getCreatedAt()));
+            } else {
+                int mergedQty = existing.quantity() + qty;
+                String mergedStatus = "RESERVED".equals(existing.status()) || "RESERVED".equals(row.getStatus())
+                        ? "RESERVED" : ("CONFIRMED".equals(existing.status()) || "CONFIRMED".equals(row.getStatus())
+                        ? "CONFIRMED" : existing.status());
+                byOrder.put(row.getOrderId(), new com.cloudmart.inventory.dto.ReservationScanDTO(
+                        existing.orderId(), mergedStatus, mergedQty, existing.createdAt()));
+            }
+        }
+        return new java.util.ArrayList<>(byOrder.values());
+    }
+
     private void doInitStock(Long skuId, Long productId, Integer stock) {
         Inventory existing = inventoryMapper.selectOne(
                 new LambdaQueryWrapper<Inventory>().eq(Inventory::getSkuId, skuId)

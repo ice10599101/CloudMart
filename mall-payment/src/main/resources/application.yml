@@ -150,3 +150,5 @@ cloudmart:
         scope: payment:jobs
     outbound-scopes:
       mall-order: order:internal
+      # T11：库存层对账（预占台账 vs 订单状态）
+      mall-inventory: inventory:trade

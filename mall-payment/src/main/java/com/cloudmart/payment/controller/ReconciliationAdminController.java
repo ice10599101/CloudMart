@@ -74,6 +74,9 @@ public class ReconciliationAdminController {
         if ("REFUND".equalsIgnoreCase(scope)) {
             return ApiResponse.ok(reconciliationService.runRefundReconciliation(scanDays));
         }
+        if ("INVENTORY".equalsIgnoreCase(scope)) {
+            return ApiResponse.ok(reconciliationService.runInventoryReconciliation(scanDays));
+        }
         return ApiResponse.ok(reconciliationService.runPaymentOrderReconciliation(scanDays));
     }
 

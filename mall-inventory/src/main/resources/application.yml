@@ -140,5 +140,5 @@ cloudmart:
         issuers: [mall-product]
         scope: inventory:admin
       - prefix: /internal
-        issuers: [mall-order]
+        issuers: [mall-order, mall-payment]
         scope: inventory:trade

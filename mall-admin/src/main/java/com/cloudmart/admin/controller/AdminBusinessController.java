@@ -568,7 +568,7 @@ public class AdminBusinessController {
     @PostMapping("/payments/reconciliation/runs/execute")
     @OperLog(title = "支付对账执行", businessType = 1)
     @RequiresPermission("business:payment:reconcile")
-    @Operation(summary = "执行一次对账", description = "T11：scope=PAYMENT_ORDER/REFUND；scanDays 扫描最近 N 天")
+    @Operation(summary = "执行一次对账", description = "T11：scope=PAYMENT_ORDER/REFUND/INVENTORY；scanDays 扫描最近 N 天")
     public ApiResponse<Object> executeReconciliationRun(
             @RequestParam(value = "scanDays", defaultValue = "7") int scanDays,
             @RequestParam(value = "scope", defaultValue = "PAYMENT_ORDER") String scope) {

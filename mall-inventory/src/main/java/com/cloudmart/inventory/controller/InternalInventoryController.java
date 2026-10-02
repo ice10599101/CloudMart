@@ -2,6 +2,7 @@ package com.cloudmart.inventory.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.inventory.dto.DeductRequest;
+import com.cloudmart.inventory.dto.ReservationScanDTO;
 import com.cloudmart.inventory.dto.ReleaseRequest;
 import com.cloudmart.inventory.entity.InventoryReservation;
 import com.cloudmart.inventory.repository.InventoryReservationMapper;
@@ -96,6 +97,19 @@ public class InternalInventoryController {
             released++;
         }
         return ApiResponse.ok(Map.of("orderId", orderId, "released", released));
+    }
+
+    /**
+     * T11：预占台账对账扫描——某时间后创建的预占，id 游标全量（跨服务对账用，
+     * 返回 (orderId,status) 聚合视图）。scope=inventory 时 mall-payment 对账服务调用。
+     */
+    @GetMapping("/reservations/reconcile-scan")
+    @Operation(summary = "预占台账对账扫描", description = "since 之后创建、id>lastId 的预占订单级聚合")
+    public ApiResponse<java.util.List<ReservationScanDTO>> reconcileScan(
+            @org.springframework.web.bind.annotation.RequestParam("since") java.time.LocalDateTime since,
+            @org.springframework.web.bind.annotation.RequestParam("lastId") long lastId,
+            @org.springframework.web.bind.annotation.RequestParam("limit") int limit) {
+        return ApiResponse.ok(inventoryService.scanReservationsForReconciliation(since, lastId, Math.min(limit, 500)));
     }
 
     @GetMapping("/reservations/{orderId}")

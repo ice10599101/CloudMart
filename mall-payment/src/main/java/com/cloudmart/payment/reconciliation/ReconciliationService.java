@@ -45,16 +45,19 @@ public class ReconciliationService {
                                  ReconciliationDifferenceMapper differenceMapper,
                                  OrderFeignClient orderFeignClient,
                                  com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper,
+                                 com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient,
                                  @Value("${ops.reconciliation.batch-size:200}") int batchSize) {
         this.attemptMapper = attemptMapper;
         this.runMapper = runMapper;
         this.differenceMapper = differenceMapper;
         this.orderFeignClient = orderFeignClient;
         this.refundOrderMapper = refundOrderMapper;
+        this.inventoryReconFeignClient = inventoryReconFeignClient;
         this.batchSize = batchSize;
     }
 
     private final com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper;
+    private final com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient;
 
     /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
     public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
@@ -261,6 +264,102 @@ public class ReconciliationService {
             run.setFinishedAt(java.time.LocalDateTime.now());
             runMapper.updateById(run);
             log.error("[T11] 退款对账执行失败 run={}", run.getId(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * T11：库存层对账——预占台账与订单状态双向核对：
+     *   ① 台账 RESERVED 且预占创建超 24h → 订单必须非 CLOSED/非已取消
+     *      （台账滞留=确认/释放事件丢失，HIGH；订单不存在=MEDIUM）；
+     *   ② 台账 RELEASED/CONFIRMED 但订单 CANCELLED/REFUNDED 与 CONFIRMED 矛盾
+     *      （CONFIRMED+取消订单=资金货两失风险，HIGH）。
+     * 台账查询失败 fail-closed 跳过该批（不误报），差异唯一键防重。
+     */
+    public ReconciliationRun runInventoryReconciliation(int scanDays) {
+        LocalDate businessDate = LocalDate.now();
+        ReconciliationRun run = new ReconciliationRun();
+        run.setBusinessDate(businessDate);
+        run.setScope("INVENTORY");
+        run.setStatus("RUNNING");
+        runMapper.insert(run);
+
+        try {
+            int checked = 0;
+            int diffs = 0;
+            LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
+            long lastId = 0;
+            while (true) {
+                java.util.List<com.cloudmart.payment.dto.ReservationScanDTO> batch;
+                try {
+                    ApiResponse<java.util.List<com.cloudmart.payment.dto.ReservationScanDTO>> scanResp =
+                            inventoryReconFeignClient.scanReservations(since, lastId, batchSize);
+                    batch = scanResp != null && scanResp.success() && scanResp.data() != null
+                            ? scanResp.data() : java.util.List.of();
+                } catch (Exception e) {
+                    log.warn("[T11] 库存台账扫描不可用，INVENTORY 层顺延: {}", e.getMessage());
+                    break;
+                }
+                if (batch == null || batch.isEmpty()) {
+                    break;
+                }
+                for (com.cloudmart.payment.dto.ReservationScanDTO row : batch) {
+                    lastId = Math.max(lastId, row.orderId() == null ? lastId : row.orderId());
+                    checked++;
+                    String orderStatus;
+                    try {
+                        ApiResponse<OrderInternalInfoDTO> orderResp =
+                                orderFeignClient.getOrderInfo(row.orderId());
+                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
+                                ? orderResp.data().status() : "UNREACHABLE";
+                    } catch (Exception queryError) {
+                        log.warn("[T11] 库存对账订单查询失败，跳过 orderId={}: {}",
+                                row.orderId(), queryError.getMessage());
+                        continue;
+                    }
+                    if ("UNREACHABLE".equals(orderStatus)) {
+                        continue;
+                    }
+                    if ("RESERVED".equals(row.status()) && !row.createdAt().isBefore(LocalDateTime.now().minusHours(24))) {
+                        continue; // 24h 内的新预占：正常在途
+                    }
+                    boolean orderGone = "CANCELLED".equals(orderStatus) || "REFUNDED".equals(orderStatus);
+                    if ("RESERVED".equals(row.status()) && orderGone) {
+                        diffs += recordDiff(run.getId(), "RESERVATION_STUCK_ORDER_CLOSED",
+                                String.valueOf(row.orderId()), "HIGH",
+                                "预占滞留 RESERVED 但订单 " + orderStatus,
+                                "{\"reservationStatus\":\"RESERVED\",\"orderStatus\":\"" + orderStatus
+                                        + "\",\"orderId\":" + row.orderId() + "}");
+                        continue;
+                    }
+                    if ("RESERVED".equals(row.status()) && orderStatus.equals("UNREACHABLE")) {
+                        continue;
+                    }
+                    if ("CONFIRMED".equals(row.status()) && orderGone) {
+                        diffs += recordDiff(run.getId(), "RESERVATION_CONFIRMED_ORDER_CANCELLED",
+                                String.valueOf(row.orderId()), "HIGH",
+                                "台账 CONFIRMED 但订单 " + orderStatus + "（资金货两失风险）",
+                                "{\"reservationStatus\":\"CONFIRMED\",\"orderStatus\":\"" + orderStatus
+                                        + "\",\"orderId\":" + row.orderId() + "}");
+                    }
+                }
+                if (batch.size() < batchSize) {
+                    break;
+                }
+            }
+
+            run.setTotalChecked(checked);
+            run.setTotalDiff(diffs);
+            run.setStatus("DONE");
+            run.setFinishedAt(LocalDateTime.now());
+            runMapper.updateById(run);
+            log.info("[T11] 库存对账完成 run={} checked={} diffs={}", run.getId(), checked, diffs);
+            return run;
+        } catch (Exception e) {
+            run.setStatus("FAILED");
+            run.setFinishedAt(LocalDateTime.now());
+            runMapper.updateById(run);
+            log.error("[T11] 库存对账执行失败 run={}", run.getId(), e);
             throw e;
         }
     }

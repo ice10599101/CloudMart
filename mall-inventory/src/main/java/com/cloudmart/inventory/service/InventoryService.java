@@ -17,5 +17,8 @@ public interface InventoryService {
 
     void confirmDeduct(Long skuId, Integer quantity, Long orderId);
 
+    java.util.List<com.cloudmart.inventory.dto.ReservationScanDTO> scanReservationsForReconciliation(
+            java.time.LocalDateTime since, long lastId, int limit);
+
     void initStock(Long skuId, Long productId, Integer stock);
 }
