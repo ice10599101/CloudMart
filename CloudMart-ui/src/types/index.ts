@@ -258,6 +258,10 @@ export interface SeckillResult {
   orderId: number | null
   status: SeckillResultStatus
   message: string
+  /** T09：请求 ID（提交时生成，凭此查询最终结果；刷新后继续查原请求） */
+  requestId: string | null
+  /** T09：结果状态查询地址（网关路径） */
+  statusUrl: string | null
 }
 
 export interface ShippingAddress {

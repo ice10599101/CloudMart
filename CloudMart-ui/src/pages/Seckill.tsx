@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { listActivities, listProductsByActivity, executeSeckill, getSeckillResult } from '@/api/seckill'
+import { listActivities, listProductsByActivity, executeSeckill, getSeckillResultByRequest } from '@/api/seckill'
 import type { SeckillActivity, SeckillProduct, SeckillResult, SeckillActivityStatus } from '@/types'
 
 const STATUS_MAP: Record<SeckillActivityStatus, { label: string; color: string }> = {
@@ -108,6 +108,15 @@ function SeckillProductCard({
   const [result, setResult] = useState<SeckillResult | null>(null)
   const [showResult, setShowResult] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // T09：排队中请求凭 requestId 轮询（刷新/重进页面继续查原请求，只有终态失败可重新发起）
+  const pendingKey = `seckill:pending:${activityId}:${product.id}`
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(pendingKey)
+    } catch {
+      return null
+    }
+  })
 
   const soldPercent = product.totalStock > 0
     ? Math.round(((product.totalStock - product.availableStock) / product.totalStock) * 100)
@@ -118,6 +127,46 @@ function SeckillProductCard({
   const isEnded = activityStatus === 'ENDED'
   const isSoldOut = product.availableStock <= 0
 
+  const startPolling = (requestId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(async () => {
+      try {
+        const { data: pollRes } = await getSeckillResultByRequest(requestId)
+        const pollResult = pollRes.data
+        setResult(pollResult)
+        if (pollResult.status !== 'PENDING') {
+          if (pollRef.current) clearInterval(pollRef.current)
+          try {
+            sessionStorage.removeItem(pendingKey)
+          } catch {
+            // ignore
+          }
+          setPendingRequestId(null)
+          if (pollResult.status === 'SUCCESS') {
+            onSeckillSuccess(pollResult)
+            onToast('抢购成功！', 'success')
+          } else {
+            onToast(pollResult.message || '抢购失败', 'error')
+          }
+          setShowResult(true)
+        }
+      } catch {
+        // 单次轮询失败容忍，下一轮重试
+      }
+    }, 2000)
+  }
+
+  // 刷新/重进页面：存在排队中的请求则恢复轮询
+  useEffect(() => {
+    if (pendingRequestId) {
+      startPolling(pendingRequestId)
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRequestId])
+
   const handleSeckill = async () => {
     setSeckilling(true)
     setResult(null)
@@ -126,26 +175,14 @@ function SeckillProductCard({
       const seckillResult = res.data
       setResult(seckillResult)
 
-      if (seckillResult.status === 'PENDING') {
-        pollRef.current = setInterval(async () => {
-          try {
-            const { data: pollRes } = await getSeckillResult(activityId, product.id)
-            const pollResult = pollRes.data
-            setResult(pollResult)
-            if (pollResult.status !== 'PENDING') {
-              if (pollRef.current) clearInterval(pollRef.current)
-              if (pollResult.status === 'SUCCESS') {
-                onSeckillSuccess(pollResult)
-                onToast('抢购成功！', 'success')
-              } else {
-                onToast(pollResult.message || '抢购失败', 'error')
-              }
-              setShowResult(true)
-            }
-          } catch {
-            if (pollRef.current) clearInterval(pollRef.current)
-          }
-        }, 2000)
+      if (seckillResult.status === 'PENDING' && seckillResult.requestId) {
+        try {
+          sessionStorage.setItem(pendingKey, seckillResult.requestId)
+        } catch {
+          // 存储不可用时仅当前会话轮询
+        }
+        setPendingRequestId(seckillResult.requestId)
+        startPolling(seckillResult.requestId)
       } else if (seckillResult.status === 'SUCCESS') {
         onSeckillSuccess(seckillResult)
         onToast('抢购成功！', 'success')
@@ -161,21 +198,15 @@ function SeckillProductCard({
     }
   }
 
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
-  }, [])
-
   const getButtonText = () => {
     if (isUpcoming) return '即将开始'
     if (isEnded || isSoldOut) return '已售罄'
     if (seckilling) return '抢购中...'
-    if (result?.status === 'PENDING') return '排队中...'
+    if (result?.status === 'PENDING' || pendingRequestId) return '排队中...'
     return '立即抢购'
   }
 
-  const isButtonDisabled = isUpcoming || isEnded || isSoldOut || seckilling || result?.status === 'PENDING'
+  const isButtonDisabled = isUpcoming || isEnded || isSoldOut || seckilling || result?.status === 'PENDING' || !!pendingRequestId
 
   return (
     <>

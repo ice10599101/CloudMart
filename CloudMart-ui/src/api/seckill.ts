@@ -21,3 +21,8 @@ export function executeSeckill(activityId: number, seckillProductId: number) {
 export function getSeckillResult(activityId: number, seckillProductId: number) {
   return request.get<ApiResponse<SeckillResult>>('/seckill/result', { params: { activityId, seckillProductId } })
 }
+
+/** T09：按请求 ID 查询秒杀结果（归属校验只能查本人请求） */
+export function getSeckillResultByRequest(requestId: string) {
+  return request.get<ApiResponse<SeckillResult>>(`/seckill/requests/${requestId}`)
+}

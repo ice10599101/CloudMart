@@ -52,10 +52,14 @@ describe('chat API', () => {
 
     await sendMessage(1, 'Hello!', 'TEXT')
 
-    expect(request.post).toHaveBeenCalledWith('/notification/conversations/1/messages', {
-      content: 'Hello!',
-      type: 'TEXT',
-    })
+    expect(request.post).toHaveBeenCalledWith(
+      '/notification/conversations/1/messages',
+      expect.objectContaining({
+        content: 'Hello!',
+        type: 'TEXT',
+        clientMessageId: expect.any(String),
+      }),
+    )
   })
 
   it('sendMessage() defaults type to TEXT', async () => {
@@ -63,10 +67,14 @@ describe('chat API', () => {
 
     await sendMessage(1, 'Hi')
 
-    expect(request.post).toHaveBeenCalledWith('/notification/conversations/1/messages', {
-      content: 'Hi',
-      type: 'TEXT',
-    })
+    expect(request.post).toHaveBeenCalledWith(
+      '/notification/conversations/1/messages',
+      expect.objectContaining({
+        content: 'Hi',
+        type: 'TEXT',
+        clientMessageId: expect.any(String),
+      }),
+    )
   })
 
   it('createConversation() calls POST /notification/conversations', async () => {
