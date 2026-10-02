@@ -78,6 +78,27 @@ jobs:
           if [ "$total" -eq 0 ]; then
             echo "::error::failsafe 未执行任何集成测试"; exit 1
           fi
+      # E01：迁移干净建库验证——全新 MySQL 逐模块 Flyway migrate（可恢复性核心验证）
+      - name: 迁移干净建库验证（全部模块 V1..Vn 从零执行）
+        run: |
+          docker run -d --name clean-db -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=clean_check             -p 33061:3306 mysql:9.4.0
+          for i in $(seq 1 30); do
+            docker exec clean-db mysqladmin ping -uroot -proot --silent && break
+            sleep 2
+          done
+          failed=0
+          for dir in mall-*/src/main/resources/db/migration; do
+            module=$(echo "$dir" | cut -d/ -f1)
+            echo "::group::Flyway migrate: $module"
+            if ./mvnw -B -ntp -q org.flywaydb:flyway-maven-plugin:11.14.1:migrate               -Dflyway.url="jdbc:mysql://127.0.0.1:33061/clean_check?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"               -Dflyway.user=root -Dflyway.password=root               -Dflyway.locations="filesystem:$PWD/$dir"; then
+              echo "OK: $module"
+            else
+              echo "::error::迁移失败: $module"; failed=1
+            fi
+            echo "::endgroup::"
+          done
+          docker rm -f clean-db >/dev/null 2>&1 || true
+          exit $failed
       - name: 失败摘要
         if: failure()
         run: |
