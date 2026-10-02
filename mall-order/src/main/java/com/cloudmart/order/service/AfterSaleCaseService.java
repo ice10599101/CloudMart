@@ -36,4 +36,10 @@ public interface AfterSaleCaseService {
      * 内部：订单是否存在未结售后案件（PENDING/APPROVED）——注销/重新申请校验用。
      */
     ApiResponse<Boolean> hasOpenCase(Long orderId);
+
+    /** T11：查订单下 APPROVED 且尚未关联退款单的案件（approveRefund 时回填关联） */
+    com.cloudmart.order.entity.AfterSaleCase findApprovedWithoutRefundNo(Long orderId);
+
+    /** T11：回填退款单号（APPROVED 状态 CAS） */
+    void bindRefundNo(Long caseId, String refundNo);
 }

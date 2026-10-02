@@ -23,10 +23,15 @@ public interface OrderMapper extends BaseMapper<Order> {
     List<Long> findCompletedOrderIdsWithSku(@Param("userId") Long userId,
                                             @Param("skuId") Long skuId);
 
-    /** WMS-01 余量：自动收货——SHIPPED 且发货超 N 天的订单 ID（分批处理用） */
-    @Select("SELECT id FROM orders WHERE status = 'SHIPPED' "
-            + "AND shipped_at <= DATE_SUB(NOW(), INTERVAL #{days} DAY) "
-            + "ORDER BY id LIMIT #{limit}")
+    /**
+     * WMS-01 余量：自动收货——SHIPPED 且发货超 N 天的订单 ID（分批处理用）。
+     * T11：有未结售后案件（PENDING/APPROVED）的订单排除——处理中售后不得被自动完成。
+     */
+    @Select("SELECT o.id FROM orders o WHERE o.status = 'SHIPPED' "
+            + "AND o.shipped_at <= DATE_SUB(NOW(), INTERVAL #{days} DAY) "
+            + "AND NOT EXISTS (SELECT 1 FROM after_sale_case c "
+            + "  WHERE c.order_id = o.id AND c.status IN ('PENDING','APPROVED')) "
+            + "ORDER BY o.id LIMIT #{limit}")
     List<Long> findAutoConfirmableOrderIds(@Param("days") int days,
                                            @Param("limit") int limit);
 

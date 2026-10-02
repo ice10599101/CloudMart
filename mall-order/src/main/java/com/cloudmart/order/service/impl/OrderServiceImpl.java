@@ -595,6 +595,13 @@ public class OrderServiceImpl implements OrderService {
         //   PROCESSING/UNKNOWN → 订单停留 REFUNDING，由 REFUND_SUCCEEDED 事件驱动推进；
         //   支付服务不可用/渠道未接入 → 明确失败，不改订单状态（QA06）。
         String refundNo = "RF" + orderId;
+        // T11：受理阶段未回填 refundNo 的售后案件在此关联（案件 APPROVED + 本单），
+        // 使 REFUND_SUCCEEDED→onRefundCompleted 能按 refundNo 命中回填 REFUNDED
+        com.cloudmart.order.entity.AfterSaleCase pendingCase = afterSaleCaseService
+                .findApprovedWithoutRefundNo(orderId);
+        if (pendingCase != null) {
+            afterSaleCaseService.bindRefundNo(pendingCase.getId(), refundNo);
+        }
         Map<String, Object> refundRequest = new java.util.HashMap<>();
         refundRequest.put("refundNo", refundNo);
         refundRequest.put("orderId", orderId);

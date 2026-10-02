@@ -180,6 +180,30 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     }
 
     @Override
+    public com.cloudmart.order.entity.AfterSaleCase findApprovedWithoutRefundNo(Long orderId) {
+        return caseMapper.selectOne(new LambdaQueryWrapper<AfterSaleCase>()
+                .eq(AfterSaleCase::getOrderId, orderId)
+                .eq(AfterSaleCase::getStatus, AfterSaleCase.STATUS_APPROVED)
+                .isNull(AfterSaleCase::getRefundNo)
+                .orderByAsc(AfterSaleCase::getId)
+                .last("LIMIT 1"));
+    }
+
+    @Override
+    @Transactional
+    public void bindRefundNo(Long caseId, String refundNo) {
+        AfterSaleCase entity = requireCase(caseId);
+        int updated = caseMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AfterSaleCase>()
+                .set(AfterSaleCase::getRefundNo, refundNo)
+                .eq(AfterSaleCase::getId, caseId)
+                .eq(AfterSaleCase::getStatus, AfterSaleCase.STATUS_APPROVED)
+                .isNull(AfterSaleCase::getRefundNo));
+        if (updated > 0) {
+            appendEvent(caseId, "BIND_REFUND", "system", "{\"refundNo\":\"" + refundNo + "\"}");
+        }
+    }
+
+    @Override
     public ApiResponse<Boolean> hasOpenCase(Long orderId) {
         Long open = caseMapper.selectCount(new LambdaQueryWrapper<AfterSaleCase>()
                 .eq(AfterSaleCase::getOrderId, orderId)
