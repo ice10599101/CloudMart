@@ -53,6 +53,7 @@ public class OrderOutboxDelivery implements OutboxDelivery {
         return switch (eventType) {
             case "ORDER_STATUS_CHANGE" -> RocketMQConfig.ORDER_TAG_STATUS_CHANGE;
             case "ORDER_PAID" -> RocketMQConfig.ORDER_TAG_PAID;
+            case "SECKILL_RESULT" -> RocketMQConfig.ORDER_TAG_SECKILL_RESULT;
             default -> throw new IllegalArgumentException("未知的订单事件类型: " + eventType);
         };
     }

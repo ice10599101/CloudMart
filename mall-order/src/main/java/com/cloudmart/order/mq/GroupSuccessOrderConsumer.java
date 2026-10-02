@@ -43,7 +43,7 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
                         productId, skuId, 1, null, null, null, null
                 );
                 CreateOrderRequest request = new CreateOrderRequest(
-                        UUID.randomUUID().toString(), List.of(item), null, null, null, null, activityId, null
+                        UUID.randomUUID().toString(), List.of(item), null, null, null, null, activityId, null, null
                 );
                 OrderDTO order = orderService.createOrder(userId, request);
                 log.info("Group buy order created: orderId={}, userId={}", order.id(), userId);

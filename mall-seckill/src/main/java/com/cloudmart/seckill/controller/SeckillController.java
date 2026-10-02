@@ -37,12 +37,22 @@ public class SeckillController {
     }
 
     @GetMapping("/result")
-    @Operation(summary = "查询秒杀结果", description = "查询用户秒杀抢购结果")
+    @Operation(summary = "查询秒杀结果", description = "按用户+活动+商品查询秒杀结果（DB 事实，Redis 投影可重建）")
     public ApiResponse<SeckillResultVO> getSeckillResult(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "活动ID") @RequestParam Long activityId,
             @Parameter(description = "秒杀商品ID") @RequestParam Long seckillProductId) {
         SeckillResultDTO dto = seckillExecuteService.getSeckillResult(userId, activityId, seckillProductId);
+        return ApiResponse.ok(seckillConverter.resultDtoToVO(dto));
+    }
+
+    @GetMapping("/requests/{requestId}")
+    @Operation(summary = "按请求ID查询秒杀结果", description = "T09：执行秒杀返回的 requestId 与 statusUrl 指向本端点；"
+            + "刷新/轮询继续查原请求，归属校验只能查本人请求")
+    public ApiResponse<SeckillResultVO> getSeckillResultByRequest(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "请求ID", required = true) @PathVariable("requestId") String requestId) {
+        SeckillResultDTO dto = seckillExecuteService.getSeckillResultByRequest(userId, requestId);
         return ApiResponse.ok(seckillConverter.resultDtoToVO(dto));
     }
 }

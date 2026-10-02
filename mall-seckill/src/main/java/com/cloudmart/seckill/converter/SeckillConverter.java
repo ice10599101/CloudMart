@@ -68,6 +68,6 @@ public interface SeckillConverter {
     default SeckillResultVO resultDtoToVO(SeckillResultDTO dto) {
         boolean success = "SUCCESS".equals(dto.status());
         String orderNo = dto.orderId() != null ? String.valueOf(dto.orderId()) : null;
-        return new SeckillResultVO(success, orderNo, dto.message());
+        return new SeckillResultVO(dto.requestId(), dto.status(), success, orderNo, dto.message(), dto.statusUrl());
     }
 }

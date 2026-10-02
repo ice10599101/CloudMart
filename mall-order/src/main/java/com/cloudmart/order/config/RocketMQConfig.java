@@ -34,6 +34,8 @@ public final class RocketMQConfig {
     public static final String PAYMENT_TAG_REFUND = "refund";
     public static final String MARKETING_TAG_GROUP_SUCCESS = "group-success";
     public static final String SECKILL_TAG_ORDER = "order";
+    /** T09：秒杀结果回写事件（order Outbox 发布，mall-seckill Inbox 消费落终态） */
+    public static final String ORDER_TAG_SECKILL_RESULT = "seckill-result";
 
     public static final String CG_ORDER_TIMEOUT = "order-timeout-cg";
     public static final String CG_ORDER_PAYMENT_RESULT = "order-payment-result-cg";

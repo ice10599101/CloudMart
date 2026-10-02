@@ -128,3 +128,5 @@ cloudmart:
         scope: seckill:internal
     outbound-scopes:
       mall-product: product:read
+      # T09：恢复任务按请求事实对账（查询订单是否已建）
+      mall-order: order:internal

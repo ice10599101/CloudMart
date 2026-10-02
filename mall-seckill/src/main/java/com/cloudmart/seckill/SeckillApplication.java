@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableFeignClients
-@MapperScan("com.cloudmart.seckill.repository")
+@MapperScan({"com.cloudmart.seckill.repository", "com.cloudmart.common.async.mapper"})
 @Import(GlobalExceptionHandler.class)
 public class SeckillApplication {
 

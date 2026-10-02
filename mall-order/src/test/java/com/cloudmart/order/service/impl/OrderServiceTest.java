@@ -23,6 +23,7 @@ import com.cloudmart.order.mq.OrderStatusChangeMessage;
 import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -45,6 +46,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +62,7 @@ class OrderServiceTest {
     private CartFeignClient cartFeignClient;
     private CouponFeignClient couponFeignClient;
     private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
+    private com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OrderEventProducer orderEventProducer;
@@ -85,6 +88,7 @@ class OrderServiceTest {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
+        seckillFeignClient = mock(com.cloudmart.order.feign.SeckillFeignClient.class);
         lenient().when(refundFeignClient.createRefund(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
                 java.util.Map.of("refundNo", "RF100", "status", "SUCCEEDED")));
 
@@ -97,6 +101,7 @@ class OrderServiceTest {
                 productFeignClient,
                 riskFeignClient,
                 wmsShippingFeignClient,
+                seckillFeignClient,
                 redisTemplate, orderEventProducer,
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -331,7 +336,7 @@ class OrderServiceTest {
                 300L, 200L, 2, "商品A", "img.jpg", "红色", new BigDecimal("99.00")
         );
         CreateOrderRequest request = new CreateOrderRequest(
-                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null, null
+                "req-001", List.of(itemInput), "张三", "13800138000", "地址", null, null, null, null
         );
 
         // RISK-01：风控放行
@@ -380,5 +385,101 @@ class OrderServiceTest {
         verify(orderItemMapper).insert(any(OrderItem.class));
         verify(valueOperations).set(eq("order:timeout:1"), eq("1"), eq(Duration.ofMinutes(15)));
         verify(orderEventProducer).sendOrderTimeoutCheck(anyString());
+    }
+
+    @Test
+    @DisplayName("T09：秒杀订单以冻结快照计价（活动报价权威），成功事件与订单同事务登记")
+    void createOrder_WithSeckillRequest_ShouldUseSnapshotPriceAndRecordResultEvent() {
+        Long userId = 1L;
+
+        CreateOrderRequest.OrderItemInput itemInput = new CreateOrderRequest.OrderItemInput(
+                300L, 200L, 2, null, null, null, new BigDecimal("99.00")
+        );
+        CreateOrderRequest request = new CreateOrderRequest(
+                "req-seckill-1", List.of(itemInput), "张三", "13800138000", "地址", null, 2001L, null, "req-seckill-1"
+        );
+
+        when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
+
+        // T09：报价回查——快照价 9.90（普通价 99.00 不得参与）
+        com.cloudmart.order.dto.SeckillQuoteDTO quote = new com.cloudmart.order.dto.SeckillQuoteDTO(
+                "req-seckill-1", 1L, 2001L, 300L, 200L, 2, new BigDecimal("9.90"), "PENDING", null);
+        when(seckillFeignClient.getSeckillQuote("req-seckill-1")).thenReturn(ApiResponse.ok(quote));
+
+        // 商品权威信息照常覆盖（价格随后被快照覆盖）
+        Map<String, Object> authoritativeSku = new HashMap<>();
+        authoritativeSku.put("skuId", 200L);
+        authoritativeSku.put("productId", 300L);
+        authoritativeSku.put("productName", "商品A");
+        authoritativeSku.put("image", "img.jpg");
+        authoritativeSku.put("attributes", "红色");
+        authoritativeSku.put("price", new BigDecimal("99.00"));
+        authoritativeSku.put("status", 1);
+        when(productFeignClient.getSkusBatch(List.of(200L)))
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setId(10L);
+        orderItem.setOrderId(1L);
+        orderItem.setSkuId(200L);
+        orderItem.setQuantity(2);
+
+        OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("9.90"), 2);
+        OrderDTO expectedDto = new OrderDTO(1L, "ORD123", new BigDecimal("19.80"), new BigDecimal("19.80"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(inventoryFeignClient.deductStock(any(InventoryDeductRequest.class))).thenReturn(ApiResponse.ok(true));
+        when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
+            Order o = invocation.getArgument(0);
+            o.setId(1L);
+            return 1;
+        });
+        when(orderItemMapper.insert(any(OrderItem.class))).thenReturn(1);
+        when(cartFeignClient.clearCheckedItems(userId)).thenReturn(ApiResponse.ok(null));
+        when(orderEventProducer.sendOrderTimeoutCheck(anyString())).thenReturn(true);
+        when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
+        when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of(itemDto));
+        when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(expectedDto);
+
+        OrderDTO result = orderService.createOrder(userId, request);
+
+        assertThat(result).isEqualTo(expectedDto);
+
+        // 订单项价格 = 冻结快照价（秒杀价与普通价不混用）
+        ArgumentCaptor<OrderItem> itemCaptor = ArgumentCaptor.forClass(OrderItem.class);
+        verify(orderItemMapper).insert(itemCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(itemCaptor.getValue().getPrice())
+                .isEqualByComparingTo("9.90");
+
+        // SUCCESS 结果事件与订单同事务登记（稳定 eventId 幂等）
+        ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> eventCaptor =
+                ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
+        verify(outboxService).record(eventCaptor.capture());
+        com.cloudmart.common.async.EventEnvelope envelope = eventCaptor.getValue();
+        org.assertj.core.api.Assertions.assertThat(envelope.eventType()).isEqualTo("SECKILL_RESULT");
+        org.assertj.core.api.Assertions.assertThat(envelope.eventId()).isEqualTo("seckill-result-req-seckill-1");
+        org.assertj.core.api.Assertions.assertThat(envelope.payload()).contains("\"orderId\":1");
+    }
+
+    @Test
+    @DisplayName("T09：报价快照非 PENDING → 拒绝建单（重放/超时释放后的迟到消费被挡住）")
+    void createOrder_WithSettledSeckillRequest_ShouldReject() {
+        CreateOrderRequest.OrderItemInput itemInput = new CreateOrderRequest.OrderItemInput(
+                300L, 200L, 1, null, null, null, new BigDecimal("9.90")
+        );
+        CreateOrderRequest request = new CreateOrderRequest(
+                "req-seckill-2", List.of(itemInput), null, null, null, null, 2001L, null, "req-seckill-2"
+        );
+
+        when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
+
+        com.cloudmart.order.dto.SeckillQuoteDTO quote = new com.cloudmart.order.dto.SeckillQuoteDTO(
+                "req-seckill-2", 1L, 2001L, 300L, 200L, 1, new BigDecimal("9.90"), "FAILED", null);
+        when(seckillFeignClient.getSeckillQuote("req-seckill-2")).thenReturn(ApiResponse.ok(quote));
+
+        assertThatThrownBy(() -> orderService.createOrder(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> org.assertj.core.api.Assertions.assertThat(((BusinessException) ex).getCode())
+                        .isEqualTo("SECKILL_QUOTE_NOT_PENDING"));
     }
 }

@@ -37,14 +37,15 @@ class SeckillControllerTest {
     }
 
     @Test
-    @DisplayName("执行秒杀 - 成功返回信封格式")
+    @DisplayName("执行秒杀 - 成功返回信封格式（含 requestId 与 statusUrl）")
     void executeSeckill_ShouldReturn200WithEnvelope() throws Exception {
-        SeckillResultDTO dto = new SeckillResultDTO("SUCCESS", 1001L, "秒杀成功");
+        SeckillResultDTO dto = SeckillResultDTO.of("PENDING", null, "排队中，请稍候", "req-0001");
         SeckillExecuteRequest request = new SeckillExecuteRequest(1L, 10L);
 
         given(seckillExecuteService.executeSeckill(eq(1L), Mockito.any(SeckillExecuteRequest.class))).willReturn(dto);
 
-        SeckillResultVO vo = new SeckillResultVO(true, "ORD1001", "秒杀成功");
+        SeckillResultVO vo = new SeckillResultVO("req-0001", "PENDING", false, null, "排队中，请稍候",
+                "/api/seckill/requests/req-0001");
         given(seckillConverter.resultDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/execute")
@@ -53,18 +54,21 @@ class SeckillControllerTest {
                         .content("{\"activityId\":1,\"seckillProductId\":10}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.success").value(true))
-                .andExpect(jsonPath("$.data.message").value("秒杀成功"));
+                .andExpect(jsonPath("$.data.requestId").value("req-0001"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.statusUrl").value("/api/seckill/requests/req-0001"))
+                .andExpect(jsonPath("$.data.message").value("排队中，请稍候"));
     }
 
     @Test
     @DisplayName("查询秒杀结果 - 成功返回信封格式")
     void getSeckillResult_ShouldReturn200WithEnvelope() throws Exception {
-        SeckillResultDTO dto = new SeckillResultDTO("SUCCESS", 1001L, "秒杀成功");
+        SeckillResultDTO dto = SeckillResultDTO.of("SUCCESS", 1001L, "秒杀成功", "req-0001");
 
         given(seckillExecuteService.getSeckillResult(1L, 1L, 10L)).willReturn(dto);
 
-        SeckillResultVO vo = new SeckillResultVO(true, "ORD1001", "秒杀成功");
+        SeckillResultVO vo = new SeckillResultVO("req-0001", "SUCCESS", true, "1001", "秒杀成功",
+                "/api/seckill/requests/req-0001");
         given(seckillConverter.resultDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/result")
@@ -73,7 +77,26 @@ class SeckillControllerTest {
                         .param("seckillProductId", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.success").value(true));
+                .andExpect(jsonPath("$.data.success").value(true))
+                .andExpect(jsonPath("$.data.orderNo").value("1001"));
+    }
+
+    @Test
+    @DisplayName("按请求ID查询秒杀结果 - 返回请求状态")
+    void getSeckillResultByRequest_ShouldReturn200() throws Exception {
+        SeckillResultDTO dto = SeckillResultDTO.of("PENDING", null, "排队中，请稍候", "req-0002");
+        given(seckillExecuteService.getSeckillResultByRequest(1L, "req-0002")).willReturn(dto);
+
+        SeckillResultVO vo = new SeckillResultVO("req-0002", "PENDING", false, null, "排队中，请稍候",
+                "/api/seckill/requests/req-0002");
+        given(seckillConverter.resultDtoToVO(dto)).willReturn(vo);
+
+        mockMvc.perform(get("/requests/req-0002")
+                        .header("X-User-Id", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.requestId").value("req-0002"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
 
     @Test

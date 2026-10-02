@@ -70,6 +70,7 @@ public class OrderServiceImpl implements OrderService {
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
+    private final com.cloudmart.order.feign.SeckillFeignClient seckillFeignClient;
     private final StringRedisTemplate redisTemplate;
     private final OrderEventProducer orderEventProducer;
     private final OutboxService outboxService;
@@ -114,10 +115,17 @@ public class OrderServiceImpl implements OrderService {
 
         // TRADE-01：旧结算入口的价格丢弃适配——客户端声明的价格/商品名/图片/属性
         // 一律覆盖为商品服务权威值（T07：篡改 price/productId/skuId 不能改变服务端应付价）
-        request = new CreateOrderRequest(request.requestId(),
-                overrideItemsFromProduct(request.items()),
-                request.receiverName(), request.receiverPhone(), request.receiverAddress(),
-                request.couponId(), request.activityId(), request.quoteId());
+        // T09：秒杀订单例外——价格权威切换为 mall-seckill 冻结快照（活动报价），
+        // 主体/SKU/状态逐项校验，秒杀价与普通价不混用
+        if (request.seckillRequestId() != null) {
+            request = applySeckillQuote(userId, request);
+        } else {
+            request = new CreateOrderRequest(request.requestId(),
+                    overrideItemsFromProduct(request.items()),
+                    request.receiverName(), request.receiverPhone(), request.receiverAddress(),
+                    request.couponId(), request.activityId(), request.quoteId(),
+                    request.seckillRequestId());
+        }
 
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
 
@@ -224,6 +232,13 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setPrice(item.price());
             orderItem.setQuantity(item.quantity());
             orderItemMapper.insert(orderItem);
+        }
+
+        // T09 结果回写闭环：SUCCESS 事件与订单同事务登记（Outbox）——业务提交则事件
+        // 必然可见，杜绝"订单已建、秒杀永远排队"；重放路径以稳定 eventId 幂等去重
+        if (request.seckillRequestId() != null) {
+            outboxService.record(seckillResultEvent(request.seckillRequestId(), true,
+                    order.getId(), null));
         }
 
         try {
@@ -862,6 +877,59 @@ public class OrderServiceImpl implements OrderService {
         throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
     }
 
+    /**
+     * T09：秒杀订单引用活动报价——向 mall-seckill 回查冻结快照，校验通过后
+     * 以快照 seckillPrice 覆盖订单项价格（商品权威信息照常覆盖）。
+     * 快照不可用/主体不符/已结算一律拒绝（fail-closed），绝不按普通价建单。
+     */
+    private CreateOrderRequest applySeckillQuote(Long userId, CreateOrderRequest request) {
+        com.cloudmart.common.api.ApiResponse<com.cloudmart.order.dto.SeckillQuoteDTO> quoteResp =
+                seckillFeignClient.getSeckillQuote(request.seckillRequestId());
+        if (quoteResp == null || !quoteResp.success() || quoteResp.data() == null) {
+            throw new BusinessException("SECKILL_QUOTE_NOT_FOUND", "秒杀请求不存在或已失效");
+        }
+        com.cloudmart.order.dto.SeckillQuoteDTO quote = quoteResp.data();
+        if (!userId.equals(quote.userId())) {
+            throw new BusinessException("SECKILL_QUOTE_FORBIDDEN", "秒杀请求不属于当前用户");
+        }
+        if (!"PENDING".equals(quote.status())) {
+            // 已 SUCCESS/FAILED 的请求不允许再建单：重放与超时释放后的迟到消费都被挡住
+            throw new BusinessException("SECKILL_QUOTE_NOT_PENDING", "秒杀请求已结算，不能重复建单");
+        }
+        if (request.items().size() != 1) {
+            throw new BusinessException("SECKILL_QUOTE_INVALID", "秒杀订单只能包含一个订单项");
+        }
+        CreateOrderRequest.OrderItemInput item = request.items().get(0);
+        if (!quote.skuId().equals(item.skuId()) || !quote.quantity().equals(item.quantity())) {
+            throw new BusinessException("SECKILL_QUOTE_INVALID", "秒杀请求与订单项不一致");
+        }
+        if (request.activityId() != null && !quote.activityId().equals(request.activityId())) {
+            throw new BusinessException("SECKILL_QUOTE_INVALID", "秒杀请求与活动不一致");
+        }
+
+        List<CreateOrderRequest.OrderItemInput> enriched = overrideItemsFromProduct(request.items());
+        List<CreateOrderRequest.OrderItemInput> items = enriched.stream()
+                .map(i -> i.skuId().equals(quote.skuId())
+                        ? new CreateOrderRequest.OrderItemInput(i.productId(), i.skuId(), i.quantity(),
+                                i.productName(), i.skuImage(), i.skuAttributes(), quote.seckillPrice())
+                        : i)
+                .toList();
+        return new CreateOrderRequest(request.requestId(), items,
+                request.receiverName(), request.receiverPhone(), request.receiverAddress(),
+                request.couponId(), request.activityId(), request.quoteId(),
+                request.seckillRequestId());
+    }
+
+    /** T09：秒杀结果回写事件（稳定 eventId="seckill-result-{requestId}"，Outbox/Inbox 双端幂等） */
+    private EventEnvelope seckillResultEvent(String requestId, boolean success, Long orderId, String reason) {
+        String payload = "{\"requestId\":\"" + requestId + "\",\"success\":" + success
+                + (orderId == null ? "" : ",\"orderId\":" + orderId)
+                + (reason == null ? "" : ",\"reason\":\"" + reason.replace("\"", "'") + "\"")
+                + "}";
+        return new EventEnvelope("seckill-result-" + requestId, "SECKILL_RESULT", 1,
+                requestId, 1, System.currentTimeMillis(), requestId, payload);
+    }
+
     private Integer toInt(Object value) {
         return value instanceof Number n ? n.intValue() : null;
     }
@@ -1122,7 +1190,7 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
         CreateOrderRequest request = new CreateOrderRequest(
                 effectiveRequestKey, items, receiverName, receiverPhone,
-                receiverAddress, quote.getCouponId(), null, quote.getId());
+                receiverAddress, quote.getCouponId(), null, quote.getId(), null);
 
         // 同键重放：与 createOrder 使用同一 orderPayloadHash 公式（共享 request_key 命名空间，
         // 两个公式会在重放比对时必然失配——QA10 缺陷修复）；同键同参返回原单，异参 409
@@ -1255,5 +1323,13 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
         return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
+    }
+
+    @Override
+    public Long findOrderIdByRequestId(String requestId) {
+        Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getRequestKey, requestId)
+                .last("LIMIT 1"));
+        return order == null ? null : order.getId();
     }
 }

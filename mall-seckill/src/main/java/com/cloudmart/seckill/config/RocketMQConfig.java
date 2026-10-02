@@ -16,4 +16,9 @@ public final class RocketMQConfig {
 
     public static final String SECKILL_TOPIC = "seckill-events";
     public static final String SECKILL_TAG_ORDER = "order";
+
+    /** T09：订单侧结果回写事件（order-events Outbox 发布，本服务 Inbox 消费落终态） */
+    public static final String ORDER_TOPIC = "order-events";
+    public static final String ORDER_TAG_SECKILL_RESULT = "seckill-result";
+    public static final String CG_SECKILL_RESULT = "cg-seckill-result";
 }

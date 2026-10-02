@@ -89,4 +89,12 @@ public class InternalOrderController {
             @Parameter(description = "SKU ID", required = true) @org.springframework.web.bind.annotation.RequestParam("skuId") Long skuId) {
         return ApiResponse.ok(orderService.findCompletedOrderIdsWithSku(userId, skuId));
     }
+
+    /** T09：秒杀恢复对账——按 requestId（订单 request_key）查订单是否已建 */
+    @GetMapping("/by-request/{requestId}")
+    @Operation(summary = "按请求键查订单", description = "requestId 即订单 request_key；存在返回订单 ID，不存在返回 null")
+    public ApiResponse<Long> findByRequestId(
+            @Parameter(description = "请求ID", required = true) @PathVariable("requestId") String requestId) {
+        return ApiResponse.ok(orderService.findOrderIdByRequestId(requestId));
+    }
 }

@@ -66,6 +66,9 @@ public interface OrderService {
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
 
+    /** T09：按 requestId（订单 request_key）查订单 ID；不存在返回 null（秒杀恢复对账用） */
+    Long findOrderIdByRequestId(String requestId);
+
     /**
      * WMS-01 闭环：管理端发货——先在 WMS 建立真实包裹（运单号必填）并出库
      * （WMS 发布 ORDER_SHIPPED 事件），再 CAS 推进订单 PAID → SHIPPED
