@@ -21,6 +21,7 @@ import com.cloudmart.admin.feign.ProductFeignClient;
 import com.cloudmart.admin.feign.ReviewFeignClient;
 import com.cloudmart.admin.feign.RiskFeignClient;
 import com.cloudmart.admin.feign.SeckillActivityFeignClient;
+import com.cloudmart.admin.feign.SeckillRequestFeignClient;
 import com.cloudmart.admin.feign.SeckillProductFeignClient;
 import com.cloudmart.admin.feign.WmsFeignClient;
 import com.cloudmart.common.annotation.OperLog;
@@ -49,6 +50,7 @@ public class AdminBusinessController {
     private final NotificationQueryFeignClient notificationQueryFeignClient;
     private final SeckillActivityFeignClient seckillActivityFeignClient;
     private final SeckillProductFeignClient seckillProductFeignClient;
+    private final SeckillRequestFeignClient seckillRequestFeignClient;
     private final CartFeignClient cartFeignClient;
     private final ReviewFeignClient reviewFeignClient;
     private final MarketingFeignClient marketingFeignClient;
@@ -70,6 +72,7 @@ public class AdminBusinessController {
                                    NotificationFeignClient notificationFeignClient,
                                    SeckillActivityFeignClient seckillActivityFeignClient,
                                    SeckillProductFeignClient seckillProductFeignClient,
+                                   SeckillRequestFeignClient seckillRequestFeignClient,
                                    CartFeignClient cartFeignClient,
                                    ReviewFeignClient reviewFeignClient,
                                    MarketingFeignClient marketingFeignClient,
@@ -92,6 +95,7 @@ public class AdminBusinessController {
         this.notificationQueryFeignClient = notificationQueryFeignClient;
         this.seckillActivityFeignClient = seckillActivityFeignClient;
         this.seckillProductFeignClient = seckillProductFeignClient;
+        this.seckillRequestFeignClient = seckillRequestFeignClient;
         this.cartFeignClient = cartFeignClient;
         this.reviewFeignClient = reviewFeignClient;
         this.marketingFeignClient = marketingFeignClient;
@@ -618,6 +622,19 @@ public class AdminBusinessController {
     @Operation(summary = "删除秒杀活动", description = "删除秒杀活动")
     public ApiResponse<Void> deleteSeckillActivity(@PathVariable Long id) {
         return seckillActivityFeignClient.deleteActivity(id);
+    }
+
+    @GetMapping("/seckill/requests")
+    @RequiresPermission("business:seckill:list")
+    @Operation(summary = "秒杀请求运营查询", description = "T09：按状态/活动/用户筛选秒杀请求事实；"
+            + "PENDING 停留过久或 FAILED 集中出现需关注（消息投递或结果回写异常）")
+    public ApiResponse<Map<String, Object>> listSeckillRequests(
+            @RequestParam(value = "page", defaultValue = "1") long page,
+            @RequestParam(value = "pageSize", defaultValue = "20") long pageSize,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "activityId", required = false) Long activityId,
+            @RequestParam(value = "userId", required = false) Long userId) {
+        return seckillRequestFeignClient.pageRequests(page, pageSize, status, activityId, userId);
     }
 
     // ==================== 秒杀商品 ====================
