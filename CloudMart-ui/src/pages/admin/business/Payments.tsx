@@ -99,6 +99,7 @@ export default function Payments() {
   const diffActionRef = useRef<ActionType>(null)
   const [executeOpen, setExecuteOpen] = useState(false)
   const [scanDays, setScanDays] = useState(7)
+  const [reconScope, setReconScope] = useState<'PAYMENT_ORDER' | 'REFUND' | 'INVENTORY'>('PAYMENT_ORDER')
   const [executing, setExecuting] = useState(false)
   const [diffRun, setDiffRun] = useState<ReconciliationRunRecord | null>(null)
   const [resolveTarget, setResolveTarget] = useState<ReconciliationDiffRecord | null>(null)
@@ -109,7 +110,7 @@ export default function Payments() {
   const handleExecuteRecon = async () => {
     setExecuting(true)
     try {
-      await executeReconciliationRun(scanDays)
+      await executeReconciliationRun(scanDays, reconScope)
       message.success('对账执行完成')
       setExecuteOpen(false)
       reconActionRef.current?.reload()
@@ -226,7 +227,7 @@ export default function Payments() {
   const reconColumns: ProColumns<ReconciliationRunRecord>[] = [
     { title: '运行ID', dataIndex: 'id', width: 80, search: false },
     { title: '业务日期', dataIndex: 'businessDate', width: 110, search: false },
-    { title: '范围', dataIndex: 'scope', width: 100, search: false },
+    { title: '范围', dataIndex: 'scope', width: 120, search: false },
     { title: '核对笔数', dataIndex: 'totalChecked', width: 90, search: false },
     {
       title: '差异数',
@@ -237,7 +238,17 @@ export default function Payments() {
         <span style={{ color: record.totalDiff > 0 ? '#FF4D4F' : undefined }}>{record.totalDiff}</span>
       ),
     },
-    { title: '状态', dataIndex: 'status', width: 100, search: false },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 100,
+      search: false,
+      render: (_, record) => (
+        <Tag color={record.status === 'DONE' ? 'green' : record.status === 'RUNNING' ? 'blue' : 'red'}>
+          {record.status}
+        </Tag>
+      ),
+    },
     { title: '开始时间', dataIndex: 'startedAt', width: 170, valueType: 'dateTime', search: false },
     { title: '结束时间', dataIndex: 'finishedAt', width: 170, valueType: 'dateTime', search: false },
     {
@@ -440,10 +451,25 @@ export default function Payments() {
         okText="开始执行"
         width={420}
       >
-        <Space align="center">
-          <span>扫描最近</span>
-          <InputNumber value={scanDays} onChange={(v) => setScanDays(v ?? 7)} min={1} max={90} precision={0} />
-          <span>天的 SUCCESS 支付（1~90 天）</span>
+        <Space direction="vertical">
+          <Space align="center">
+            <span>对账层级</span>
+            <Select
+              value={reconScope}
+              onChange={(v) => setReconScope(v)}
+              style={{ width: 200 }}
+              options={[
+                { value: 'PAYMENT_ORDER', label: '支付↔订单（PAYMENT_ORDER）' },
+                { value: 'REFUND', label: '退款↔订单（REFUND）' },
+                { value: 'INVENTORY', label: '预占↔订单（INVENTORY）' },
+              ]}
+            />
+          </Space>
+          <Space align="center">
+            <span>扫描最近</span>
+            <InputNumber value={scanDays} onChange={(v) => setScanDays(v ?? 7)} min={1} max={90} precision={0} />
+            <span>天（1~90 天）</span>
+          </Space>
         </Space>
       </Modal>
 

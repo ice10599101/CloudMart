@@ -454,10 +454,13 @@ export function listReconciliationDifferences(runId: number | string, params: { 
   return request.get(`/admin/business/payments/reconciliation/runs/${runId}/differences`, { params })
 }
 
-/** 执行一次对账（scanDays：扫描最近 N 天的 SUCCESS 支付） */
-export function executeReconciliationRun(scanDays: number) {
+/** 执行一次对账（scope：PAYMENT_ORDER 支付↔订单 / REFUND 退款↔订单 / INVENTORY 预占↔订单；scanDays：扫描最近 N 天） */
+export function executeReconciliationRun(
+  scanDays: number,
+  scope: 'PAYMENT_ORDER' | 'REFUND' | 'INVENTORY' = 'PAYMENT_ORDER',
+) {
   return request.post('/admin/business/payments/reconciliation/runs/execute', undefined, {
-    params: { scanDays },
+    params: { scanDays, scope },
   })
 }
 

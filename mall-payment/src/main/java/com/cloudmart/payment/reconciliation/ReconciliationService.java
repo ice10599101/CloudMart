@@ -95,8 +95,10 @@ public class ReconciliationService {
         run.setBusinessDate(businessDate);
         run.setScope(scope);
         run.setStatus("RUNNING");
-        // started_at 库有默认值，但执行响应直接返回实体——补齐时间语义，避免响应缺时间戳
+        // 时间统一取应用时钟：DB 默认值是 UTC 而应用是东八区，混用会导致
+        // 同一行 started_at 与 finished_at 相差 8 小时（线上 run3 实测）
         run.setStartedAt(LocalDateTime.now());
+        run.setCreatedAt(LocalDateTime.now());
         runMapper.insert(run);
         return new RunLease(run, true);
     }
