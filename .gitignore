@@ -98,3 +98,21 @@ file-*.json
 file-*-id.txt
 file-a-url.txt
 .qa-*
+
+# 验收/调试临时产物：登录凭证与请求样本，禁止入库（曾误传远程，已清理）
+/admin-*.json
+/admin-token*.txt
+/user-*-login.json
+/user-*-token.txt
+/qa-admin*.json
+/qa-admin*.txt
+/qa-role-id.txt
+/qa-user-ids.txt
+/qa-attach.*
+/qa-dl2.bin
+/order*.json
+/products.json
+/quote.json
+/refund-*.json
+/mock-cb.json
+/tools_ui_audit.py

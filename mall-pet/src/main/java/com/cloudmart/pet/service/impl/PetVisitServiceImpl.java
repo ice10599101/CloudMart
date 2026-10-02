@@ -103,17 +103,11 @@ public class PetVisitServiceImpl implements PetVisitService {
     @Override
     public List<PetVisitVO> neighbors(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        List<Pet> neighbors = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                .ne(Pet::getUserId, userId)
-                .eq(Pet::getIsPublic, true)
-                .between(Pet::getLevel, Math.max(1, pet.getLevel() - 10), pet.getLevel() + 10)
-                .last("ORDER BY RAND() LIMIT " + NEIGHBOR_LIMIT));
+        List<Pet> neighbors = PetCandidateSampler.sample(petMapper, userId, NEIGHBOR_LIMIT,
+                Math.max(1, pet.getLevel() - 10), pet.getLevel() + 10, null);
         if (neighbors.isEmpty()) {
-            // 等级段内没有邻居时放宽（保证新服/新用户也能串门）
-            neighbors = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                    .ne(Pet::getUserId, userId)
-                    .eq(Pet::getIsPublic, true)
-                    .last("ORDER BY RAND() LIMIT " + NEIGHBOR_LIMIT));
+            // 等级段内没有邻居时放宽（保证新服/新用户也能串门；P04：兜底走主键采样）
+            neighbors = PetCandidateSampler.sample(petMapper, userId, NEIGHBOR_LIMIT, null, null, null);
         }
         Map<Long, String> nicknames = resolveNicknames(neighbors.stream().map(Pet::getUserId).toList());
         List<PetVisitVO> result = new ArrayList<>(neighbors.size());

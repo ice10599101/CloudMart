@@ -132,16 +132,11 @@ public class PetRelationServiceImpl implements PetRelationService {
         Set<Long> busyPetIds = all.stream()
                 .map(relation -> counterpartPetIdOf(relation, pet.getId()))
                 .collect(Collectors.toSet());
-        List<Pet> candidates = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                .ne(Pet::getUserId, userId)
-                .eq(Pet::getIsPublic, true)
-                .between(Pet::getLevel, Math.max(1, pet.getLevel() - 10), pet.getLevel() + 10)
-                .last("ORDER BY RAND() LIMIT " + CANDIDATE_LIMIT));
+        List<Pet> candidates = PetCandidateSampler.sample(petMapper, userId, CANDIDATE_LIMIT,
+                Math.max(1, pet.getLevel() - 10), pet.getLevel() + 10, null);
         if (candidates.isEmpty()) {
-            candidates = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                    .ne(Pet::getUserId, userId)
-                    .eq(Pet::getIsPublic, true)
-                    .last("ORDER BY RAND() LIMIT " + CANDIDATE_LIMIT));
+            // 等级段无人时放宽（P04：兜底同样走主键采样，不再全表 RAND）
+            candidates = PetCandidateSampler.sample(petMapper, userId, CANDIDATE_LIMIT, null, null, null);
         }
         Map<Long, String> candidateNicknames = resolveNicknames(candidates.stream().map(Pet::getUserId).toList());
         List<PetRelationVO> candidateVos = candidates.stream()

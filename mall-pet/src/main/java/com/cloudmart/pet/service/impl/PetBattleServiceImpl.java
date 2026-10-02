@@ -133,11 +133,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         // 等级段对手不足时放宽等级补齐
         if (rivals.size() < OPPONENT_LIMIT) {
             List<Long> pickedIds = rivals.stream().map(Pet::getId).toList();
-            List<Pet> fallback = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                    .ne(Pet::getUserId, userId)
-                    .eq(Pet::getIsPublic, true)
-                    .notIn(!pickedIds.isEmpty(), Pet::getId, pickedIds)
-                    .last("ORDER BY RAND() LIMIT " + (OPPONENT_LIMIT - rivals.size())));
+            List<Pet> fallback = PetCandidateSampler.sample(petMapper, userId,
+                    OPPONENT_LIMIT - rivals.size(), null, null, pickedIds);
             rivals.addAll(fallback);
         }
         Map<Long, String> nicknames = resolveNicknames(rivals.stream().map(Pet::getUserId).toList());
