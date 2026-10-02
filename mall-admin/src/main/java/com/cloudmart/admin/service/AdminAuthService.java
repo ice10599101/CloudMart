@@ -47,37 +47,28 @@ public class AdminAuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * S04：凭据校验——规范化用户名经唯一索引定位（uk(username)），单行查询；
+     * 全用户加载与哈希前缀诊断日志已移除（扩大暴露面与查询成本）。
+     * 失败统一文案，不区分"用户不存在/密码错误"。
+     */
     public AdminUser validateCredentials(String username, String password) {
-        log.info("validateCredentials called with username={}", username);
-
-        List<AdminUser> allUsers = adminUserMapper.selectList(null);
-        for (AdminUser u : allUsers) {
-            log.info("DB user: id={}, username={}, status={}, deletedAt={}, passwordPrefix={}",
-                    u.getId(), u.getUsername(), u.getStatus(), u.getDeletedAt(),
-                    u.getPassword() != null ? u.getPassword().substring(0, Math.min(7, u.getPassword().length())) : "NULL");
-        }
-
         AdminUser adminUser = adminUserMapper.selectOne(
                 new LambdaQueryWrapper<AdminUser>()
-                        .eq(AdminUser::getUsername, username)
+                        .eq(AdminUser::getUsername, username == null ? "" : username.trim())
                         .eq(AdminUser::getStatus, 1)
         );
 
         if (adminUser == null) {
-            log.warn("validateCredentials: no user found with username={} and status=1", username);
+            log.warn("validateCredentials: 账号不存在或已停用");
             throw new BusinessException("AUTH_FAILED", "用户名或密码错误");
         }
-
-        log.info("validateCredentials: found user id={}, username={}, status={}, passwordPrefix={}",
-                adminUser.getId(), adminUser.getUsername(), adminUser.getStatus(),
-                adminUser.getPassword() != null ? adminUser.getPassword().substring(0, Math.min(7, adminUser.getPassword().length())) : "NULL");
 
         if (!passwordEncoder.matches(password, adminUser.getPassword())) {
-            log.warn("validateCredentials: password mismatch for username={}", username);
+            log.warn("validateCredentials: 凭据校验失败 userId={}", adminUser.getId());
             throw new BusinessException("AUTH_FAILED", "用户名或密码错误");
         }
 
-        log.info("validateCredentials: authentication successful for username={}", username);
         return adminUser;
     }
 
@@ -89,6 +80,7 @@ public class AdminAuthService {
         return adminUser;
     }
 
+    /** S04：仅 activeRole（status=1）参与超管判定——禁用角色不得恢复特权 */
     public boolean checkSuperAdmin(Long userId) {
         List<AdminUserRole> userRoles = adminUserRoleMapper.selectList(
                 new LambdaQueryWrapper<AdminUserRole>()
@@ -97,11 +89,15 @@ public class AdminAuthService {
 
         for (AdminUserRole userRole : userRoles) {
             AdminRole role = adminRoleMapper.selectById(userRole.getRoleId());
-            if (role != null && "admin".equals(role.getRoleKey())) {
+            if (role != null && isActive(role) && "admin".equals(role.getRoleKey())) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isActive(AdminRole role) {
+        return role.getStatus() != null && role.getStatus() == 1;
     }
 
     public Set<String> getPermissionsByUserId(Long userId) {
@@ -114,6 +110,11 @@ public class AdminAuthService {
         Set<Long> menuIds = new HashSet<>();
 
         for (AdminUserRole userRole : userRoles) {
+            AdminRole role = adminRoleMapper.selectById(userRole.getRoleId());
+            // S04：禁用角色的菜单权限不参与解析（刷新后不再获得禁用角色权限）
+            if (role == null || !isActive(role)) {
+                continue;
+            }
             List<AdminRoleMenu> roleMenus = adminRoleMenuMapper.selectList(
                     new LambdaQueryWrapper<AdminRoleMenu>()
                             .eq(AdminRoleMenu::getRoleId, userRole.getRoleId())

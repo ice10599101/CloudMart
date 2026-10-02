@@ -221,9 +221,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
         role.setStatus(status);
         adminRoleMapper.updateById(role);
 
-        // SEC-03：停用角色 → 持有者软失效（旧令牌立即失效，刷新后不再获得该角色权限）；
-        // 启用无需失效
-        if (status != null && status == 1) {
+        // SEC-03/S04：停用角色（status=0）→ 持有者软失效（旧令牌立即失效，刷新后
+        // 不再获得该角色权限）；启用无需失效。原条件写反（启用才失效）已修正。
+        if (status != null && status == 0) {
             invalidateRoleHolders(id);
         }
     }
