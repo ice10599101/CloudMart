@@ -163,3 +163,5 @@ cloudmart:
       mall-seckill: seckill:internal
       # T10：拼团成团订单建单前回查成团快照（拼团价权威）
       mall-marketing: marketing:internal
+      # T09/T10：系统建单（秒杀/拼团消费者）取用户默认收货地址
+      mall-user: user:internal

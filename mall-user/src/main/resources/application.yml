@@ -131,7 +131,7 @@ cloudmart:
         scope: user:admin
       # SEC-04：内部端点——mall-auth 凭据验证 / wish 等服务聚合注销进度
       - prefix: /internal/users
-        issuers: [mall-auth]
+        issuers: [mall-auth, mall-order]
         scope: user:internal
       - prefix: /users/account-deletion/status
         issuers: [mall-wish]

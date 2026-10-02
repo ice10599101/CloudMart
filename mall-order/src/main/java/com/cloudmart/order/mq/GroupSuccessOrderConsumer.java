@@ -38,6 +38,7 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
 
     private final OrderService orderService;
     private final OutboxService outboxService;
+    private final com.cloudmart.order.feign.UserAddressFeignClient userAddressFeignClient;
 
     @Override
     public void onMessage(Map<String, Object> message) {
@@ -74,11 +75,22 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
             // 稳定成员订单键：group-{groupOrderId}-{userId}
             String requestKey = "group-" + groupOrderId + "-" + userId;
             try {
+                // T10：系统单收货人（同秒杀）——无默认地址按业务失败登记事件后继续其余成员
+                String[] receiver;
+                try {
+                    receiver = resolveDefaultReceiver(userId, requestKey);
+                } catch (BusinessException e) {
+                    log.warn("[T10] 成团建单业务失败 requestKey={} code={} reason={}",
+                            requestKey, e.getCode(), e.getMessage());
+                    outboxService.record(groupOrderFailedEvent(groupOrderId, userId, e.getMessage()));
+                    continue;
+                }
                 CreateOrderRequest.OrderItemInput item = new CreateOrderRequest.OrderItemInput(
                         productId, skuId, 1, null, null, null, BigDecimal.ONE
                 );
                 CreateOrderRequest request = new CreateOrderRequest(
-                        requestKey, List.of(item), null, null, null, null, activityId, null, null, groupOrderId
+                        requestKey, List.of(item), receiver[0], receiver[1], receiver[2], null,
+                        activityId, null, null, groupOrderId
                 );
                 OrderDTO order = orderService.createOrder(userId, request);
                 log.info("[T10] 成团订单就绪 requestKey={} orderId={} userId={}",
@@ -96,6 +108,17 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
             // 非 BusinessException：重抛 → MQ 重试 → 死信（运营处置）；
             // 稳定 requestKey 保证重试不会重复建单
         }
+    }
+
+    /** 系统单收货人解析（同秒杀）：无默认地址抛 ADDRESS_REQUIRED */
+    private String[] resolveDefaultReceiver(Long userId, String requestKey) {
+        var resp = userAddressFeignClient.getDefaultAddress(userId);
+        if (resp == null || !resp.success() || resp.data() == null) {
+            throw new BusinessException("ADDRESS_REQUIRED", "请先设置收货地址");
+        }
+        var addr = resp.data();
+        log.info("[T10] 系统单收货人已解析 requestKey={} userId={} addressId={}", requestKey, userId, addr.id());
+        return new String[]{addr.receiverName(), addr.phone(), addr.fullAddress()};
     }
 
     /** 建单失败事件（稳定 eventId，运营处置依据） */

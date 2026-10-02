@@ -33,13 +33,15 @@ class InternalUserControllerTest {
     private MockMvc mockMvc;
 
     private final UserService userService = Mockito.mock(UserService.class);
+    private final com.cloudmart.user.service.AddressService addressService =
+            Mockito.mock(com.cloudmart.user.service.AddressService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 1, 1, 0, 0);
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new InternalUserController(userService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new InternalUserController(userService, addressService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -28,13 +28,18 @@ class GroupSuccessOrderConsumerTest {
 
     private OrderService orderService;
     private OutboxService outboxService;
+    private com.cloudmart.order.feign.UserAddressFeignClient userAddressFeignClient;
     private GroupSuccessOrderConsumer consumer;
 
     @BeforeEach
     void setUp() {
         orderService = mock(OrderService.class);
         outboxService = mock(OutboxService.class);
-        consumer = new GroupSuccessOrderConsumer(orderService, outboxService);
+        userAddressFeignClient = mock(com.cloudmart.order.feign.UserAddressFeignClient.class);
+        when(userAddressFeignClient.getDefaultAddress(any())).thenReturn(
+                com.cloudmart.common.api.ApiResponse.ok(new com.cloudmart.order.dto.UserDefaultAddressDTO(
+                        1L, "张三", "13800138000", "测试省", "测试市", "测试区", "测试路1号", true)));
+        consumer = new GroupSuccessOrderConsumer(orderService, outboxService, userAddressFeignClient);
     }
 
     private Map<String, Object> message(String eventId) {
@@ -68,6 +73,9 @@ class GroupSuccessOrderConsumerTest {
         assertThat(sent.get(2).requestId()).isEqualTo("group-3001-1003");
         assertThat(sent.get(0).groupOrderId()).isEqualTo(3001L);
         assertThat(sent.get(0).activityId()).isEqualTo(2001L);
+        // T10：系统单必须携带收货人（默认地址解析）
+        assertThat(sent.get(0).receiverName()).isEqualTo("张三");
+        assertThat(sent.get(0).receiverAddress()).isEqualTo("测试省测试市测试区测试路1号");
         verify(outboxService, never()).record(any());
     }
 

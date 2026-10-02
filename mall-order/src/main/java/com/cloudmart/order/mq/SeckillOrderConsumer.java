@@ -37,6 +37,7 @@ public class SeckillOrderConsumer implements RocketMQListener<Map<String, Object
 
     private final OrderService orderService;
     private final OutboxService outboxService;
+    private final com.cloudmart.order.feign.UserAddressFeignClient userAddressFeignClient;
 
     @Override
     public void onMessage(Map<String, Object> message) {
@@ -58,13 +59,17 @@ public class SeckillOrderConsumer implements RocketMQListener<Map<String, Object
                 requestId, userId, activityId, skuId);
 
         try {
+            // T09：系统单必须携带收货人（orders.receiver_* NOT NULL）——取用户默认地址，
+            // 无默认地址 → 业务失败事件（秒杀侧落 FAILED 释放占用，用户设置地址后可重新发起）
+            var receiver = resolveDefaultReceiver(userId, requestId);
+
             // 价格仅作占位：createOrder 内部以 mall-seckill 冻结快照校验并覆盖（活动报价权威）
             CreateOrderRequest.OrderItemInput item = new CreateOrderRequest.OrderItemInput(
                     productId, skuId, quantity, null, null, null,
                     declaredPrice != null ? declaredPrice : BigDecimal.ONE
             );
             CreateOrderRequest request = new CreateOrderRequest(
-                    requestId, List.of(item), null, null, null, null, activityId, null, requestId, null
+                    requestId, List.of(item), receiver[0], receiver[1], receiver[2], null, activityId, null, requestId, null
             );
             OrderDTO order = orderService.createOrder(userId, request);
             // SUCCESS 结果事件由 createOrder 与订单同事务登记（Outbox），此处不再重复发送
@@ -77,6 +82,17 @@ public class SeckillOrderConsumer implements RocketMQListener<Map<String, Object
         }
         // 非 BusinessException：重抛 → MQ 重试 → 重试耗尽死信（运营处置）；
         // 订单 request_key 幂等保证重试不会重复建单
+    }
+
+    /** 系统单收货人解析：无默认地址抛 ADDRESS_REQUIRED（业务失败事件 → 秒杀侧 FAILED） */
+    private String[] resolveDefaultReceiver(Long userId, String requestId) {
+        var resp = userAddressFeignClient.getDefaultAddress(userId);
+        if (resp == null || !resp.success() || resp.data() == null) {
+            throw new BusinessException("ADDRESS_REQUIRED", "请先设置收货地址");
+        }
+        var addr = resp.data();
+        log.info("[T09] 系统单收货人已解析 requestId={} userId={} addressId={}", requestId, userId, addr.id());
+        return new String[]{addr.receiverName(), addr.phone(), addr.fullAddress()};
     }
 
     /** 稳定 eventId：重试/重复发布幂等去重 */

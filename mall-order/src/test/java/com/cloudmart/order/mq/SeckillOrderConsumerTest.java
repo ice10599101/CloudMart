@@ -22,6 +22,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * T09 秒杀下单消费者测试：requestId 贯穿（订单 request_key 即 requestId），
@@ -31,13 +32,18 @@ class SeckillOrderConsumerTest {
 
     private OrderService orderService;
     private OutboxService outboxService;
+    private com.cloudmart.order.feign.UserAddressFeignClient userAddressFeignClient;
     private SeckillOrderConsumer consumer;
 
     @BeforeEach
     void setUp() {
         orderService = mock(OrderService.class);
         outboxService = mock(OutboxService.class);
-        consumer = new SeckillOrderConsumer(orderService, outboxService);
+        userAddressFeignClient = mock(com.cloudmart.order.feign.UserAddressFeignClient.class);
+        when(userAddressFeignClient.getDefaultAddress(any())).thenReturn(
+                com.cloudmart.common.api.ApiResponse.ok(new com.cloudmart.order.dto.UserDefaultAddressDTO(
+                        1L, "张三", "13800138000", "测试省", "测试市", "测试区", "测试路1号", true)));
+        consumer = new SeckillOrderConsumer(orderService, outboxService, userAddressFeignClient);
     }
 
     private Map<String, Object> message(String requestId) {
