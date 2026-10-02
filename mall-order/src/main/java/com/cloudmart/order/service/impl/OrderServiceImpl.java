@@ -1347,10 +1347,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public java.util.Map.Entry<java.util.List<com.cloudmart.order.dto.OrderInternalInfoDTO>, Long>
             listPaidOrdersForReconciliation(int page, int size) {
-        // OPS-01：对账核对——已推进资金状态的订单分页（PAID/SHIPPED/COMPLETED）
+        // OPS-01/T11：对账核对——已推进资金状态的订单分页（PAID/SHIPPED/COMPLETED/REFUNDED，
+        // REFUNDED 供退款层核对"订单 REFUNDED 必须有 SUCCEEDED 退款单"）
         Page<Order> result = orderMapper.selectPage(new Page<>(page, size),
                 new LambdaQueryWrapper<Order>()
-                        .in(Order::getStatus, "PAID", "SHIPPED", "COMPLETED")
+                        .in(Order::getStatus, "PAID", "SHIPPED", "COMPLETED", "REFUNDED")
                         .orderByAsc(Order::getId));
         var records = result.getRecords().stream()
                 .map(o -> new com.cloudmart.order.dto.OrderInternalInfoDTO(

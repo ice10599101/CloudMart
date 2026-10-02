@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 @FeignClient(contextId = "paymentOrderFeignClient", name = "mall-order", path = "/internal/orders", fallbackFactory = OrderFeignClientFallbackFactory.class)
 public interface OrderFeignClient {
 
-    /** OPS-01：分页获取已推进资金状态的订单（PAID/SHIPPED/COMPLETED），对账核对用 */
+    /** OPS-01/T11：分页获取已推进资金状态的订单（PAID/SHIPPED/COMPLETED/REFUNDED），对账核对用 */
     @GetMapping("/paid-orders")
     ApiResponse<PageDTO> listPaidOrders(@org.springframework.web.bind.annotation.RequestParam("page") int page,
                                         @org.springframework.web.bind.annotation.RequestParam("size") int size);
