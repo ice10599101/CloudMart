@@ -19,6 +19,7 @@ public interface ShippingAddressConverter {
     List<ShippingAddressDTO> toDTOList(List<ShippingAddress> entities);
 
     @Mapping(target = "isDefault", expression = "java(entity.getIsDefault() != null && entity.getIsDefault() == 1)")
+    @Mapping(target = "phone", source = "receiverPhone")
     ShippingAddressVO toVO(ShippingAddress entity);
 
     List<ShippingAddressVO> toVOList(List<ShippingAddress> entities);
