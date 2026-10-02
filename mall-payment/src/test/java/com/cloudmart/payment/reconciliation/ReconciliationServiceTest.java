@@ -45,7 +45,8 @@ class ReconciliationServiceTest {
         differenceMapper = mock(ReconciliationDifferenceMapper.class);
         orderFeignClient = mock(OrderFeignClient.class);
         service = new ReconciliationService(attemptMapper, runMapper, differenceMapper,
-                orderFeignClient, 200);
+                orderFeignClient,
+                org.mockito.Mockito.mock(com.cloudmart.payment.repository.RefundOrderMapper.class), 200);
     }
 
     private PaymentAttempt successAttempt(Long attemptId, Long orderId) {

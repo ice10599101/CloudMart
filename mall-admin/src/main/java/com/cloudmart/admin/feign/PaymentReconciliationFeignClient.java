@@ -34,7 +34,9 @@ public interface PaymentReconciliationFeignClient {
                                         @RequestParam("size") int size);
 
     @PostMapping("/runs/execute")
-    ApiResponse<Object> executeRun(@RequestParam("scanDays") int scanDays);
+    ApiResponse<Object> executeRun(@RequestParam("scanDays") int scanDays,
+                                   @org.springframework.web.bind.annotation.RequestParam("scope")
+                                   @org.springframework.lang.NonNull String scope);
 
     @PostMapping("/differences/{diffId}/resolve")
     ApiResponse<Void> resolveDifference(@PathVariable("diffId") Long diffId,

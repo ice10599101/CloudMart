@@ -65,10 +65,15 @@ public class ReconciliationAdminController {
     }
 
     @PostMapping("/runs/execute")
-    @Operation(summary = "执行一次对账", description = "scanDays：扫描最近 N 天的 SUCCESS 支付")
+    @Operation(summary = "执行一次对账", description = "T11：scope=PAYMENT_ORDER（支付↔订单）/ REFUND（退款↔订单）；scanDays 扫描最近 N 天")
     public ApiResponse<ReconciliationRun> execute(
             @Parameter(description = "扫描天数") @RequestParam(value = "scanDays", defaultValue = "7")
-            int scanDays) {
+            int scanDays,
+            @Parameter(description = "对账层级") @RequestParam(value = "scope", defaultValue = "PAYMENT_ORDER")
+            String scope) {
+        if ("REFUND".equalsIgnoreCase(scope)) {
+            return ApiResponse.ok(reconciliationService.runRefundReconciliation(scanDays));
+        }
         return ApiResponse.ok(reconciliationService.runPaymentOrderReconciliation(scanDays));
     }
 

@@ -55,6 +55,14 @@ public interface RefundOrderMapper extends BaseMapper<RefundOrder> {
     int markFailed(@Param("refundNo") String refundNo,
                    @Param("errorCode") String errorCode);
 
+    /** T11：退款层对账扫描——某时间后创建的退款单，id 游标全量（对账分批用） */
+    @org.apache.ibatis.annotations.Select("SELECT * FROM refund_order "
+            + "WHERE created_at >= #{since} AND id > #{lastId} "
+            + "ORDER BY id LIMIT #{limit}")
+    java.util.List<RefundOrder> scanForReconciliation(@org.apache.ibatis.annotations.Param("since") java.time.LocalDateTime since,
+                                                      @org.apache.ibatis.annotations.Param("lastId") long lastId,
+                                                      @org.apache.ibatis.annotations.Param("limit") int limit);
+
     @Select("SELECT * FROM refund_order WHERE refund_no = #{refundNo}")
     RefundOrder findByRefundNo(@Param("refundNo") String refundNo);
 

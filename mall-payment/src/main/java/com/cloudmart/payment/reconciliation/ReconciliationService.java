@@ -44,13 +44,17 @@ public class ReconciliationService {
                                  ReconciliationRunMapper runMapper,
                                  ReconciliationDifferenceMapper differenceMapper,
                                  OrderFeignClient orderFeignClient,
+                                 com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper,
                                  @Value("${ops.reconciliation.batch-size:200}") int batchSize) {
         this.attemptMapper = attemptMapper;
         this.runMapper = runMapper;
         this.differenceMapper = differenceMapper;
         this.orderFeignClient = orderFeignClient;
+        this.refundOrderMapper = refundOrderMapper;
         this.batchSize = batchSize;
     }
+
+    private final com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper;
 
     /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
     public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
@@ -150,6 +154,113 @@ public class ReconciliationService {
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
             log.error("[OPS01] 对账执行失败 run={}", run.getId(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * T11：退款层对账—— refund_order 台账（SUCCEEDED）与订单状态双向核对：
+     *   ① 退款单 SUCCEEDED → 订单必须 REFUNDED（未推进=事件丢失，HIGH）；
+     *   ② 订单 REFUNDED → 必须存在 SUCCEEDED 退款单（无台账=资金事实缺失，HIGH）。
+     * 渠道（provider）层流水首期 MOCK 同构同步确认，真实渠道接入后补渠道层核对。
+     */
+    public ReconciliationRun runRefundReconciliation(int scanDays) {
+        LocalDate businessDate = LocalDate.now();
+        ReconciliationRun run = new ReconciliationRun();
+        run.setBusinessDate(businessDate);
+        run.setScope("REFUND");
+        run.setStatus("RUNNING");
+        runMapper.insert(run);
+
+        try {
+            int checked = 0;
+            int diffs = 0;
+            LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
+
+            // ① 退款单 SUCCEEDED → 订单 REFUNDED
+            long lastId = 0;
+            while (true) {
+                List<com.cloudmart.payment.entity.RefundOrder> batch =
+                        refundOrderMapper.scanForReconciliation(since, lastId, batchSize);
+                if (batch.isEmpty()) {
+                    break;
+                }
+                for (com.cloudmart.payment.entity.RefundOrder refund : batch) {
+                    lastId = refund.getId();
+                    if (!"SUCCEEDED".equals(refund.getStatus())) {
+                        continue;
+                    }
+                    checked++;
+                    String orderStatus;
+                    try {
+                        ApiResponse<OrderInternalInfoDTO> orderResp =
+                                orderFeignClient.getOrderInfo(refund.getOrderId());
+                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
+                                ? orderResp.data().status() : "UNREACHABLE";
+                    } catch (Exception queryError) {
+                        log.warn("[T11] 退款对账订单查询失败，跳过 refundNo={}: {}",
+                                refund.getRefundNo(), queryError.getMessage());
+                        continue;
+                    }
+                    if ("REFUNDED".equals(orderStatus)) {
+                        continue;
+                    }
+                    diffs += recordDiff(run.getId(), "REFUND_SUCCEEDED_ORDER_NOT_REFUNDED",
+                            refund.getRefundNo(), "HIGH",
+                            "退款 SUCCEEDED 但订单状态: " + orderStatus,
+                            "{\"refundNo\":\"" + refund.getRefundNo()
+                                    + "\",\"orderStatus\":\"" + orderStatus
+                                    + "\",\"orderId\":" + refund.getOrderId() + "}");
+                }
+                if (batch.size() < batchSize) {
+                    break;
+                }
+            }
+
+            // ② REFUNDED 订单 → 必须有 SUCCEEDED 退款单（订单侧经分页内部端点）
+            int page = 1;
+            while (true) {
+                ApiResponse<OrderFeignClient.PageDTO> paidPage = orderFeignClient
+                        .listPaidOrders(page, batchSize);
+                if (paidPage == null || !paidPage.success() || paidPage.data() == null
+                        || paidPage.data().records().isEmpty()) {
+                    break;
+                }
+                for (OrderInternalInfoDTO order : paidPage.data().records()) {
+                    if (!"REFUNDED".equals(order.status())) {
+                        continue;
+                    }
+                    checked++;
+                    Long succeeded = refundOrderMapper.selectCount(
+                            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.payment.entity.RefundOrder>()
+                                    .eq(com.cloudmart.payment.entity.RefundOrder::getOrderId, order.orderId())
+                                    .eq(com.cloudmart.payment.entity.RefundOrder::getStatus, "SUCCEEDED"));
+                    if (succeeded != null && succeeded > 0) {
+                        continue;
+                    }
+                    diffs += recordDiff(run.getId(), "ORDER_REFUNDED_NO_SUCCEEDED_REFUND",
+                            String.valueOf(order.orderId()), "HIGH",
+                            "订单 REFUNDED 但无 SUCCEEDED 退款单",
+                            "{\"orderStatus\":\"REFUNDED\",\"orderId\":" + order.orderId() + "}");
+                }
+                if (paidPage.data().records().size() < batchSize) {
+                    break;
+                }
+                page++;
+            }
+
+            run.setTotalChecked(checked);
+            run.setTotalDiff(diffs);
+            run.setStatus("DONE");
+            run.setFinishedAt(java.time.LocalDateTime.now());
+            runMapper.updateById(run);
+            log.info("[T11] 退款对账完成 run={} checked={} diffs={}", run.getId(), checked, diffs);
+            return run;
+        } catch (Exception e) {
+            run.setStatus("FAILED");
+            run.setFinishedAt(java.time.LocalDateTime.now());
+            runMapper.updateById(run);
+            log.error("[T11] 退款对账执行失败 run={}", run.getId(), e);
             throw e;
         }
     }
