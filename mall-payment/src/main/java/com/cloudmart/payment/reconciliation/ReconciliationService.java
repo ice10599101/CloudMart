@@ -94,6 +94,8 @@ public class ReconciliationService {
         run.setBusinessDate(businessDate);
         run.setScope(scope);
         run.setStatus("RUNNING");
+        // started_at 库有默认值，但执行响应直接返回实体——补齐时间语义，避免响应缺时间戳
+        run.setStartedAt(LocalDateTime.now());
         runMapper.insert(run);
         return new RunLease(run, true);
     }
@@ -329,17 +331,17 @@ public class ReconciliationService {
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
             long lastId = 0;
             while (true) {
-                java.util.List<com.cloudmart.payment.dto.ReservationScanDTO> batch;
-                try {
-                    ApiResponse<java.util.List<com.cloudmart.payment.dto.ReservationScanDTO>> scanResp =
-                            inventoryReconFeignClient.scanReservations(since, lastId, batchSize);
-                    batch = scanResp != null && scanResp.success() && scanResp.data() != null
-                            ? scanResp.data() : java.util.List.of();
-                } catch (Exception e) {
-                    log.warn("[T11] 库存台账扫描不可用，INVENTORY 层顺延: {}", e.getMessage());
-                    break;
+                // 台账扫描失败必须显式 FAIL（run=FAILED），不得按空批顺延——
+                // "扫不到"与"没有可核对的行"对运营是两个不同的事实，静默 0 会掩盖调用链故障
+                ApiResponse<java.util.List<com.cloudmart.payment.dto.ReservationScanDTO>> scanResp =
+                        inventoryReconFeignClient.scanReservations(since, lastId, batchSize);
+                if (scanResp == null || !scanResp.success() || scanResp.data() == null) {
+                    throw new IllegalStateException("[T11] 库存台账扫描返回失败信封: "
+                            + (scanResp == null || scanResp.error() == null ? "null"
+                            : scanResp.error().code() + " " + scanResp.error().message()));
                 }
-                if (batch == null || batch.isEmpty()) {
+                java.util.List<com.cloudmart.payment.dto.ReservationScanDTO> batch = scanResp.data();
+                if (batch.isEmpty()) {
                     break;
                 }
                 for (com.cloudmart.payment.dto.ReservationScanDTO row : batch) {

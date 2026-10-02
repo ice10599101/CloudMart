@@ -14,8 +14,10 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,6 +39,7 @@ class ReconciliationServiceTest {
     private ReconciliationRunMapper runMapper;
     private ReconciliationDifferenceMapper differenceMapper;
     private OrderFeignClient orderFeignClient;
+    private com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient;
 
     @BeforeEach
     void setUp() {
@@ -44,10 +47,11 @@ class ReconciliationServiceTest {
         runMapper = mock(ReconciliationRunMapper.class);
         differenceMapper = mock(ReconciliationDifferenceMapper.class);
         orderFeignClient = mock(OrderFeignClient.class);
+        inventoryReconFeignClient = mock(com.cloudmart.payment.feign.InventoryReconFeignClient.class);
         service = new ReconciliationService(attemptMapper, runMapper, differenceMapper,
                 orderFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.payment.repository.RefundOrderMapper.class),
-                org.mockito.Mockito.mock(com.cloudmart.payment.feign.InventoryReconFeignClient.class), 200);
+                inventoryReconFeignClient, 200);
     }
 
     private PaymentAttempt successAttempt(Long attemptId, Long orderId) {
@@ -217,5 +221,55 @@ class ReconciliationServiceTest {
         assertThat(run.getId()).isEqualTo(9L);
         verify(attemptMapper, never()).selectList(any());
         verify(differenceMapper, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("库存台账扫描抛异常 → run 显式 FAILED 并上抛（不得静默记 0）")
+    void inventoryScanUnavailable_failsRun() {
+        when(inventoryReconFeignClient.scanReservations(any(), anyLong(), anyInt()))
+                .thenThrow(new RuntimeException("connection refused"));
+
+        assertThatThrownBy(() -> service.runInventoryReconciliation(7))
+                .isInstanceOf(RuntimeException.class);
+
+        ArgumentCaptor<ReconciliationRun> captor = ArgumentCaptor.forClass(ReconciliationRun.class);
+        verify(runMapper, org.mockito.Mockito.atLeastOnce()).updateById(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    @DisplayName("库存台账扫描返回失败信封 → run 显式 FAILED 并上抛")
+    void inventoryScanErrorEnvelope_failsRun() {
+        when(inventoryReconFeignClient.scanReservations(any(), anyLong(), anyInt())).thenReturn(
+                ApiResponse.fail("INVENTORY_RECON_UNAVAILABLE", "库存预占台账暂不可用"));
+
+        assertThatThrownBy(() -> service.runInventoryReconciliation(7))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("INVENTORY_RECON_UNAVAILABLE");
+
+        ArgumentCaptor<ReconciliationRun> captor = ArgumentCaptor.forClass(ReconciliationRun.class);
+        verify(runMapper, org.mockito.Mockito.atLeastOnce()).updateById(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    @DisplayName("台账 RESERVED 滞留超 24h 且订单已取消 → 记 HIGH 差异")
+    void inventoryScan_stuckReservationOrderCancelled_recordsDiff() {
+        when(inventoryReconFeignClient.scanReservations(any(), anyLong(), anyInt())).thenReturn(
+                ApiResponse.ok(List.of(new com.cloudmart.payment.dto.ReservationScanDTO(
+                        ORDER_ID, "RESERVED", 2, java.time.LocalDateTime.now().minusHours(48)))));
+        when(orderFeignClient.getOrderInfo(ORDER_ID)).thenReturn(
+                ApiResponse.ok(new OrderInternalInfoDTO(ORDER_ID, USER_ID, "CANCELLED", new BigDecimal("88.00"))));
+        when(differenceMapper.selectCount(any())).thenReturn(0L);
+
+        ReconciliationRun run = service.runInventoryReconciliation(7);
+
+        assertThat(run.getStatus()).isEqualTo("DONE");
+        assertThat(run.getTotalChecked()).isEqualTo(1);
+        assertThat(run.getTotalDiff()).isEqualTo(1);
+        ArgumentCaptor<ReconciliationDifference> captor =
+                ArgumentCaptor.forClass(ReconciliationDifference.class);
+        verify(differenceMapper).insert(captor.capture());
+        assertThat(captor.getValue().getDiffType()).isEqualTo("RESERVATION_STUCK_ORDER_CLOSED");
     }
 }
