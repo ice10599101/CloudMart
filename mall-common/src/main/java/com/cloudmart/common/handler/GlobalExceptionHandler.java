@@ -101,6 +101,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail("METHOD_NOT_ALLOWED", "请求方法不支持: " + ex.getMethod());
     }
 
+    /** Spring Security 方法级授权拒绝：统一 403 语义（不得落入 500） */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ApiResponse<Void> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return ApiResponse.fail("FORBIDDEN", "无权执行该操作");
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleException(Exception ex) {

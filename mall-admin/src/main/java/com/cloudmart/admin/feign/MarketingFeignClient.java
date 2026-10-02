@@ -12,27 +12,27 @@ public interface MarketingFeignClient {
 
     // ==================== 拼团活动 ====================
 
-    @GetMapping("/group/activities")
+    @GetMapping("/admin/marketing/group/activities")
     ApiResponse<Object> listGroupActivities(@RequestParam(value = "status", required = false) String status,
                                             @RequestParam("page") Integer page,
                                             @RequestParam("size") Integer size);
 
-    @PostMapping("/group/activities")
+    @PostMapping("/admin/marketing/group/activities")
     ApiResponse<GroupActivityDTO> createGroupActivity(@RequestBody CreateGroupActivityRequest request);
 
-    @PutMapping("/group/activities/{id}")
+    @PutMapping("/admin/marketing/group/activities/{id}")
     ApiResponse<Object> updateGroupActivity(@PathVariable("id") Long id, @RequestBody Map<String, Object> body);
 
-    @PutMapping("/group/activities/{id}/enable")
+    @PutMapping("/admin/marketing/group/activities/{id}/enable")
     ApiResponse<GroupActivityDTO> enableGroupActivity(@PathVariable("id") Long id);
 
-    @PutMapping("/group/activities/{id}/disable")
+    @PutMapping("/admin/marketing/group/activities/{id}/disable")
     ApiResponse<GroupActivityDTO> disableGroupActivity(@PathVariable("id") Long id);
 
-    @DeleteMapping("/group/activities/{id}")
+    @DeleteMapping("/admin/marketing/group/activities/{id}")
     ApiResponse<Void> deleteGroupActivity(@PathVariable("id") Long id);
 
-    @GetMapping("/group/orders")
+    @GetMapping("/admin/marketing/group/orders")
     ApiResponse<Object> listGroupOrders(@RequestParam(value = "activityId", required = false) Long activityId,
                                         @RequestParam(value = "status", required = false) String status,
                                         @RequestParam("page") Integer page,
@@ -40,26 +40,26 @@ public interface MarketingFeignClient {
 
     // ==================== 阶梯满减 ====================
 
-    @GetMapping("/tiered/promotions")
+    @GetMapping("/admin/marketing/tiered/promotions")
     ApiResponse<Object> listTieredPromotions(@RequestParam(value = "status", required = false) String status,
                                              @RequestParam("page") Integer page,
                                              @RequestParam("size") Integer size);
 
-    @PostMapping("/tiered/promotions")
+    @PostMapping("/admin/marketing/tiered/promotions")
     ApiResponse<TieredPromotionDTO> createTieredPromotion(@RequestBody CreateTieredPromotionRequest request);
 
-    @PutMapping("/tiered/promotions/{id}")
+    @PutMapping("/admin/marketing/tiered/promotions/{id}")
     ApiResponse<Object> updateTieredPromotion(@PathVariable("id") Long id, @RequestBody Map<String, Object> body);
 
-    @PutMapping("/tiered/promotions/{id}/enable")
+    @PutMapping("/admin/marketing/tiered/promotions/{id}/enable")
     ApiResponse<TieredPromotionDTO> enableTieredPromotion(@PathVariable("id") Long id);
 
-    @PutMapping("/tiered/promotions/{id}/disable")
+    @PutMapping("/admin/marketing/tiered/promotions/{id}/disable")
     ApiResponse<TieredPromotionDTO> disableTieredPromotion(@PathVariable("id") Long id);
 
-    @GetMapping("/tiered/promotions/{id}")
+    @GetMapping("/admin/marketing/tiered/promotions/{id}")
     ApiResponse<TieredPromotionDTO> getTieredPromotion(@PathVariable("id") Long id);
 
-    @DeleteMapping("/tiered/promotions/{id}")
+    @DeleteMapping("/admin/marketing/tiered/promotions/{id}")
     ApiResponse<Void> deleteTieredPromotion(@PathVariable("id") Long id);
 }
