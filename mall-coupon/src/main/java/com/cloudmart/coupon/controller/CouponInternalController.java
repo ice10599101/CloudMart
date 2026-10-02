@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/coupons")
-@Tag(name = "优惠券内部接口", description = "供 XXL-JOB 等内部系统调用的优惠券接口")
+@RequestMapping("/internal/coupons")
+@Tag(name = "优惠券内部接口", description = "供 XXL-JOB 等内部系统调用的优惠券接口（E02：统一 /internal 路由）")
 public class CouponInternalController {
 
     private final CouponService couponService;

@@ -143,9 +143,6 @@ cloudmart:
     clock-skew-seconds: 30
     service-token-ttl-seconds: 60
     service-token-paths:
-      - prefix: /orders/timeout-cancel
-        issuers: [mall-job]
-        scope: order:jobs
       - prefix: /admin
         issuers: [mall-admin]
         scope: order:admin

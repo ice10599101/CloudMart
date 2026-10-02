@@ -133,7 +133,8 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: coupon:admin
-      - prefix: /coupons/expire-batch
+      # E02：批量过期统一 /internal 路由（最长前缀优先于 /internal）
+      - prefix: /internal/coupons/expire-batch
         issuers: [mall-job]
         scope: coupon:jobs
       - prefix: /user-coupons

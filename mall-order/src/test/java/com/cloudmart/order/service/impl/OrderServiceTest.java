@@ -22,6 +22,10 @@ import com.cloudmart.order.mq.OrderEventProducer;
 import com.cloudmart.order.mq.OrderStatusChangeMessage;
 import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,6 +74,12 @@ class OrderServiceTest {
     private OutboxService outboxService = mock(OutboxService.class);
     private CompensationTaskService compensationTaskService = mock(CompensationTaskService.class);
     private OrderServiceImpl orderService;
+
+    @BeforeAll
+    static void initEntityMeta() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Order.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -566,5 +576,43 @@ class OrderServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> org.assertj.core.api.Assertions.assertThat(((BusinessException) ex).getCode())
                         .isEqualTo("GROUP_QUOTE_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("E02：超时订单批量兜底扫描——逐单 CAS 取消并只计实际取消数")
+    void cancelTimeoutOrders_ShouldScanAndCountOnlyCancelled() {
+        Order dueA = new Order();
+        dueA.setOrderNo("ORD-A");
+        dueA.setUserId(1L);
+        dueA.setStatus("PENDING_PAYMENT");
+        dueA.setCreatedAt(LocalDateTime.now().minusMinutes(20));
+        Order dueB = new Order();
+        dueB.setOrderNo("ORD-B");
+        dueB.setUserId(1L);
+        dueB.setStatus("PENDING_PAYMENT");
+        dueB.setCreatedAt(LocalDateTime.now().minusMinutes(20));
+
+        when(orderMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(dueA, dueB));
+
+        // A：仍 PENDING_PAYMENT → CAS 取消成功
+        Order paidA = new Order();
+        paidA.setId(7001L);
+        paidA.setOrderNo("ORD-A");
+        paidA.setUserId(1L);
+        paidA.setStatus("PENDING_PAYMENT");
+        paidA.setCouponId(null);
+        when(orderMapper.selectOne(any(LambdaQueryWrapper.class)))
+                .thenReturn(paidA)                              // cancelTimeoutOrder 查 A
+                .thenReturn(new Order() {{ setOrderNo("ORD-A"); setStatus("CANCELLED"); }})  // 计数重查 A
+                .thenReturn(new Order() {{ setOrderNo("ORD-B"); setStatus("PAID"); }})       // cancelTimeoutOrder 查 B（已支付，状态守卫跳过）
+                .thenReturn(new Order() {{ setOrderNo("ORD-B"); setStatus("PAID"); }});      // 计数重查 B
+
+        when(orderMapper.updateStatusIfMatch(any(), eq("PENDING_PAYMENT"), eq("CANCELLED"))).thenReturn(1);
+        when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        int cancelled = orderService.cancelTimeoutOrders(15, 200);
+
+        org.assertj.core.api.Assertions.assertThat(cancelled).isEqualTo(1);
+        verify(orderMapper, org.mockito.Mockito.times(1)).updateStatusIfMatch(any(), eq("PENDING_PAYMENT"), eq("CANCELLED"));
     }
 }

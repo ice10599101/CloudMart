@@ -90,6 +90,17 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.findCompletedOrderIdsWithSku(userId, skuId));
     }
 
+    /** E02：超时订单批量兜底扫描（mall-job 定时触发；延迟消息丢失的恢复入口） */
+    @PostMapping("/timeout-scan")
+    @Operation(summary = "超时订单批量扫描", description = "timeoutMinutes/batchSize 可配；返回本轮取消数（mall-job 触发）")
+    public ApiResponse<Integer> timeoutScan(
+            @org.springframework.web.bind.annotation.RequestParam(value = "timeoutMinutes", defaultValue = "15")
+            @Parameter(description = "超时分钟数") int timeoutMinutes,
+            @org.springframework.web.bind.annotation.RequestParam(value = "batchSize", defaultValue = "200")
+            @Parameter(description = "单批上限") int batchSize) {
+        return ApiResponse.ok(orderService.cancelTimeoutOrders(timeoutMinutes, Math.min(batchSize, 500)));
+    }
+
     /** T09：秒杀恢复对账——按 requestId（订单 request_key）查订单是否已建 */
     @GetMapping("/by-request/{requestId}")
     @Operation(summary = "按请求键查订单", description = "requestId 即订单 request_key；存在返回订单 ID，不存在返回 null")

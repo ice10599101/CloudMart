@@ -56,7 +56,8 @@ public class BusinessJobHandler {
     }
 
     /**
-     * 拼团超时处理：扫描超时未成团的拼团组并触发退款。
+     * 拼团超时处理：CAS 过期到期未成团的拼团组并释放成员预留权益
+     * （T10"成团后建单付款"模式：失败团不产生退款事实）。
      * 由 XXL-JOB 调度中心每 5 分钟触发一次。
      */
     @XxlJob("groupExpirationHandler")
@@ -64,9 +65,9 @@ public class BusinessJobHandler {
         log.info("XXL-JOB: 开始执行拼团超时处理...");
         try {
             restClient.post()
-                    .uri("http://mall-marketing/marketing/group/expiration")
+                    .uri("http://mall-marketing/internal/marketing/group/expiration")
                     .header(ServiceTokenCodec.HEADER_NAME,
-                            serviceTokenProvider.sign("mall-marketing", "marketing:jobs"))
+                            serviceTokenProvider.sign("mall-marketing", "marketing:internal"))
                     .retrieve()
                     .body(Map.class);
             log.info("XXL-JOB: 拼团超时处理完成");
@@ -77,23 +78,24 @@ public class BusinessJobHandler {
     }
 
     /**
-     * 订单超时取消：扫描超时未支付的订单并自动取消。
+     * 订单超时取消兜底扫描（E02）：延迟消息丢失/Redis 投影丢失时按订单表
+     * 扫描超时未支付订单逐单取消（CAS 幂等）。
      * 由 XXL-JOB 调度中心每 1 分钟触发一次。
      */
     @XxlJob("orderTimeoutCancelHandler")
     public void orderTimeoutCancelHandler() {
-        log.info("XXL-JOB: 开始执行订单超时取消...");
+        log.info("XXL-JOB: 开始执行订单超时取消兜底扫描...");
         try {
             restClient.post()
-                    .uri("http://mall-order/orders/timeout-cancel")
+                    .uri("http://mall-order/internal/orders/timeout-scan?timeoutMinutes=15&batchSize=200")
                     .header(ServiceTokenCodec.HEADER_NAME,
-                            serviceTokenProvider.sign("mall-order", "order:jobs"))
+                            serviceTokenProvider.sign("mall-order", "order:internal"))
                     .retrieve()
                     .body(Map.class);
-            log.info("XXL-JOB: 订单超时取消完成");
+            log.info("XXL-JOB: 订单超时取消兜底扫描完成");
         } catch (Exception e) {
-            log.error("XXL-JOB: 订单超时取消失败: {}", e.getMessage());
-            throw new RuntimeException("订单超时取消失败", e);
+            log.error("XXL-JOB: 订单超时取消兜底扫描失败: {}", e.getMessage());
+            throw new RuntimeException("订单超时取消兜底扫描失败", e);
         }
     }
 
@@ -105,7 +107,7 @@ public class BusinessJobHandler {
         log.info("XXL-JOB: 开始执行优惠券过期处理...");
         try {
             restClient.post()
-                    .uri("http://mall-coupon/coupons/expire-batch")
+                    .uri("http://mall-coupon/internal/coupons/expire-batch")
                     .header(ServiceTokenCodec.HEADER_NAME,
                             serviceTokenProvider.sign("mall-coupon", "coupon:jobs"))
                     .retrieve()

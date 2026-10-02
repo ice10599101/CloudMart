@@ -1135,6 +1135,30 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    public int cancelTimeoutOrders(int timeoutMinutes, int batchSize) {
+        LocalDateTime deadline = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        List<Order> dueOrders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, "PENDING_PAYMENT")
+                .le(Order::getCreatedAt, deadline)
+                .select(Order::getOrderNo)
+                .last("LIMIT " + Math.max(1, batchSize)));
+        int cancelled = 0;
+        for (Order due : dueOrders) {
+            // cancelTimeoutOrder 内部 CAS：已被并发取消/已支付的单无副作用；
+            // 返回值为观测指标，业务事实以订单状态机为准
+            cancelTimeoutOrder(due.getOrderNo());
+            if ("CANCELLED".equals(orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                    .eq(Order::getOrderNo, due.getOrderNo())
+                    .select(Order::getStatus)).getStatus())) {
+                cancelled++;
+            }
+        }
+        if (!dueOrders.isEmpty()) {
+            log.info("[E02] 超时订单兜底扫描完成 scanned={} cancelled={}", dueOrders.size(), cancelled);
+        }
+        return cancelled;
+    }
+
     public void cancelTimeoutOrder(String orderNo) {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>().eq(Order::getOrderNo, orderNo)

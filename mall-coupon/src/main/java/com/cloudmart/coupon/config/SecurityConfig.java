@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/error", "/actuator/**", "/doc.html", "/webjars/**",
                         "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/coupon-templates").permitAll()
-                .requestMatchers(HttpMethod.POST, "/coupons/expire-batch").permitAll()
+                // E02：/internal/coupons/expire-batch 经服务令牌强校验（不再 permitAll）
                 .anyRequest().authenticated()
             )
             .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, authException) -> JsonAuthenticationEntryPoint.writeUnauthorized(request, response)));

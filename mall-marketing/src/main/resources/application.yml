@@ -114,9 +114,6 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: marketing:admin
-      - prefix: /marketing/group/expiration
-        issuers: [mall-job]
-        scope: marketing:jobs
       - prefix: /internal
         issuers: [mall-job, mall-order]
         scope: marketing:internal

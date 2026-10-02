@@ -88,6 +88,17 @@ public interface OrderService {
 
     void cancelTimeoutOrder(String orderNo);
 
+    /**
+     * E02：超时订单批量兜底扫描（mall-job 定时触发）——延迟消息丢失/Redis
+     * 投影丢失时的恢复入口：扫描超时未支付订单逐单走 cancelTimeoutOrder
+     * （CAS 保护，重复扫描无副作用）。
+     *
+     * @param timeoutMinutes 超时分钟数（与下单超时一致，默认 15）
+     * @param batchSize      单批上限
+     * @return 本轮实际取消的订单数
+     */
+    int cancelTimeoutOrders(int timeoutMinutes, int batchSize);
+
     ApiResponse<List<OrderDTO>> listAllOrders(String status, Long userId, String orderNo, int page, int size);
 
     OrderDTO getAdminOrderById(Long orderId);

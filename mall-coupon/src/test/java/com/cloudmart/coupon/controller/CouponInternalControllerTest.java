@@ -31,7 +31,7 @@ class CouponInternalControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /coupons/expire-batch")
+    @DisplayName("POST /internal/coupons/expire-batch")
     class ExpireBatchTests {
 
         @Test
@@ -39,7 +39,7 @@ class CouponInternalControllerTest {
         void expireBatch_ShouldReturnSuccessEnvelope() throws Exception {
             given(couponService.expireBatch()).willReturn(15);
 
-            mockMvc.perform(post("/coupons/expire-batch"))
+            mockMvc.perform(post("/internal/coupons/expire-batch"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data").value(15));
@@ -50,7 +50,7 @@ class CouponInternalControllerTest {
         void expireBatch_WhenNoExpiredCoupons_ShouldReturnZero() throws Exception {
             given(couponService.expireBatch()).willReturn(0);
 
-            mockMvc.perform(post("/coupons/expire-batch"))
+            mockMvc.perform(post("/internal/coupons/expire-batch"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data").value(0));
@@ -62,7 +62,7 @@ class CouponInternalControllerTest {
             willThrow(new BusinessException("COUPON_EXPIRE_FAILED", "批量过期处理失败"))
                     .given(couponService).expireBatch();
 
-            mockMvc.perform(post("/coupons/expire-batch"))
+            mockMvc.perform(post("/internal/coupons/expire-batch"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.error.code").value("COUPON_EXPIRE_FAILED"));

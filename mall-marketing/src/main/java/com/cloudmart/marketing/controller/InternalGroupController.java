@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,13 +35,16 @@ public class InternalGroupController {
     private final GroupOrderMapper groupOrderMapper;
     private final GroupActivityMapper activityMapper;
     private final GroupMemberMapper memberMapper;
+    private final com.cloudmart.marketing.service.GroupActivityService groupActivityService;
 
     public InternalGroupController(GroupOrderMapper groupOrderMapper,
                                    GroupActivityMapper activityMapper,
-                                   GroupMemberMapper memberMapper) {
+                                   GroupMemberMapper memberMapper,
+                                   com.cloudmart.marketing.service.GroupActivityService groupActivityService) {
         this.groupOrderMapper = groupOrderMapper;
         this.activityMapper = activityMapper;
         this.memberMapper = memberMapper;
+        this.groupActivityService = groupActivityService;
     }
 
     /**
@@ -72,5 +76,13 @@ public class InternalGroupController {
     /** 成团快照（内部） */
     public record GroupQuoteDTO(Long groupOrderId, Long activityId, Long productId, Long skuId,
                                 BigDecimal groupPrice, List<Long> memberUserIds) {
+    }
+
+    /** E02：拼团超时处理（mall-job 定时触发）——CAS 过期并释放成员预留权益 */
+    @PostMapping("/expiration")
+    @Operation(summary = "拼团超时处理", description = "CAS 过期到期未成团的组并释放预留权益（mall-job 触发）")
+    public ApiResponse<Void> expiration() {
+        groupActivityService.handleGroupExpiration();
+        return ApiResponse.ok(null);
     }
 }
