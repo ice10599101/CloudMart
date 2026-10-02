@@ -62,6 +62,11 @@ public class ReconciliationService {
     /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
     public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
+        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "PAYMENT_ORDER");
+        if (existing != null) {
+            log.info("[OPS01] 本业务日 PAYMENT_ORDER 对账已执行（幂等返回既有运行 run={}）", existing.getId());
+            return existing;
+        }
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
         run.setScope("PAYMENT_ORDER");
@@ -169,6 +174,11 @@ public class ReconciliationService {
      */
     public ReconciliationRun runRefundReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
+        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "REFUND");
+        if (existing != null) {
+            log.info("[T11] 本业务日 REFUND 对账已执行（幂等返回既有运行 run={}）", existing.getId());
+            return existing;
+        }
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
         run.setScope("REFUND");
@@ -278,6 +288,11 @@ public class ReconciliationService {
      */
     public ReconciliationRun runInventoryReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
+        ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, "INVENTORY");
+        if (existing != null) {
+            log.info("[T11] 本业务日 INVENTORY 对账已执行（幂等返回既有运行 run={}）", existing.getId());
+            return existing;
+        }
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
         run.setScope("INVENTORY");
