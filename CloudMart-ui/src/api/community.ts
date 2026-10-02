@@ -65,6 +65,8 @@ export interface PostComment {
   likeCount: number
   isLiked: boolean
   replies: PostComment[]
+  /** C04：线程回复总数（列表首页仅带有限预览，超出走 getCommentReplies） */
+  replyCount?: number
   createdAt: string
 }
 
@@ -208,6 +210,13 @@ export function sharePost(postId: number, channel = 'LINK') {
 
 export function getPostComments(postId: number | string, page = 1, size = 20) {
   return request.get<ApiResponse<PostComment[]>>(`/community/posts/${postId}/comments`, { params: { page, size } })
+}
+
+/** C04：评论线程回复独立分页（列表首页仅带每线程有限预览） */
+export function getCommentReplies(postId: number | string, commentId: number | string, page = 1, size = 10) {
+  return request.get<ApiResponse<PostComment[]>>(`/community/posts/${postId}/comments/${commentId}/replies`, {
+    params: { page, size },
+  })
 }
 
 export function createComment(postId: number | string, data: { content: string; parentId?: number | string; replyToUserId?: number | string }) {

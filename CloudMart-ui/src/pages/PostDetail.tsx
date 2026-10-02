@@ -43,6 +43,7 @@ import {
   deletePost,
   searchUsers,
   recordBrowseHistory,
+  getCommentReplies,
 } from '@/api/community'
 import type { Post, PostComment, SearchUserResult } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
@@ -264,6 +265,7 @@ function CommentItem({
   isOwnComment,
   onDelete,
   currentUserId,
+  onLoadMoreReplies,
 }: {
   comment: PostComment
   commentLikedIds: Set<number>
@@ -273,6 +275,8 @@ function CommentItem({
   isOwnComment: boolean
   onDelete: (commentId: number) => void
   currentUserId: number | undefined
+  /** C04：加载该线程剩余回复（列表首页仅带有限预览） */
+  onLoadMoreReplies?: (commentId: number) => Promise<void>
 }) {
   const isLiked = commentLikedIds.has(comment.id)
 
@@ -412,6 +416,22 @@ function CommentItem({
                   currentUserId={currentUserId}
                 />
               ))}
+              {onLoadMoreReplies && (comment.replyCount ?? 0) > comment.replies.length && (
+                <button
+                  type="button"
+                  onClick={() => onLoadMoreReplies(comment.id)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--color-primary)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    padding: '4px 0 0',
+                  }}
+                >
+                  查看全部 {comment.replyCount} 条回复
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -613,6 +633,20 @@ export default function PostDetail() {
       } : prev)
     }
   }, [post, collected, isAuthenticated])
+
+  // C04：加载线程剩余回复（首页仅预览前 3 条），合并进对应评论
+  const handleLoadMoreReplies = useCallback(async (commentId: number) => {
+    if (!id) return
+    try {
+      const { data: res } = await getCommentReplies(id, commentId, 1, 100)
+      const replies = res.data ?? []
+      setComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, replies } : c)),
+      )
+    } catch {
+      message.error('回复加载失败')
+    }
+  }, [id])
 
   const handleToggleCommentLike = useCallback(async (commentId: number) => {
     if (!isAuthenticated) {
@@ -1175,6 +1209,7 @@ export default function PostDetail() {
                   isOwnComment={comment.userId === currentUser?.id}
                   onDelete={handleDeleteComment}
                   currentUserId={currentUser?.id}
+                  onLoadMoreReplies={handleLoadMoreReplies}
                 />
               ))}
             </div>
