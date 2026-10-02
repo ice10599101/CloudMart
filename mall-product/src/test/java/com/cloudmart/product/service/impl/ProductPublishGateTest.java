@@ -105,6 +105,7 @@ class ProductPublishGateTest {
     @DisplayName("价格非法的 SKU（≤0）拒绝发布")
     void createProduct_invalidPrice_rejected() {
         CreateSkuRequest badSku = new CreateSkuRequest(
+                null,
                 "SKU-1", "红", BigDecimal.ZERO, null, 10, null);
         CreateProductRequest request = new CreateProductRequest(
                 "商品", "desc", 5L, "Brand", null, List.of(badSku));
@@ -118,8 +119,10 @@ class ProductPublishGateTest {
     @DisplayName("每个 SKU 都建立库存档案；建档失败抛异常使发布回滚")
     void createProduct_inventoryInit_perSkuAndFailClosed() {
         CreateSkuRequest sku1 = new CreateSkuRequest(
+                null,
                 "SKU-1", "红", new BigDecimal("10.00"), null, 50, null);
         CreateSkuRequest sku2 = new CreateSkuRequest(
+                null,
                 "SKU-2", "蓝", new BigDecimal("12.00"), null, 30, null);
         CreateProductRequest request = new CreateProductRequest(
                 "商品", "desc", 5L, "Brand", null, List.of(sku1, sku2));
@@ -144,6 +147,7 @@ class ProductPublishGateTest {
                 .when(inventoryInitFeignClient).initStock(anyLong(), anyLong(), anyInt());
 
         CreateSkuRequest sku = new CreateSkuRequest(
+                null,
                 "SKU-1", "红", new BigDecimal("10.00"), null, 50, null);
         CreateProductRequest request = new CreateProductRequest(
                 "商品", "desc", 5L, "Brand", null, List.of(sku));

@@ -269,26 +269,71 @@ public class ProductServiceImpl implements ProductService {
 
         productMapper.updateById(product);
 
+        // T08：SKU 身份稳定——增量更新替代全删重建（历史订单/购物车/营销活动按 skuId
+        // 引用，重建会使 ID 全变导致库存档案悬空、引用失效）：
+        //   请求项带 id → 更新既有 SKU（显式编辑即重新上架）；无 id → 新增（建档库存）；
+        //   数据库存在但请求缺失 → 软停用（status=0，不物理删除，购买被 SKU_OFF_SALE 拦截）；
+        //   带的 id 不属于本商品 → 拒绝（禁止跨商品重新分配已使用 ID）。
         List<ProductSku> skus;
         if (request.skus() != null) {
-            productSkuMapper.delete(
+            List<ProductSku> existing = productSkuMapper.selectList(
                     new LambdaQueryWrapper<ProductSku>().eq(ProductSku::getProductId, id)
             );
+            Map<Long, ProductSku> existingById = existing.stream()
+                    .collect(java.util.stream.Collectors.toMap(ProductSku::getId, java.util.function.Function.identity()));
 
             skus = new ArrayList<>();
             for (CreateSkuRequest skuReq : request.skus()) {
-                ProductSku sku = new ProductSku();
-                sku.setProductId(id);
-                sku.setSkuCode(skuReq.skuCode());
-                sku.setAttributes(skuReq.attributes());
-                sku.setPrice(skuReq.price());
-                sku.setOriginalPrice(skuReq.originalPrice());
-                sku.setStock(skuReq.stock());
-                sku.setImage(skuReq.image());
-                sku.setStatus(1);
-                productSkuMapper.insert(sku);
+                ProductSku sku;
+                if (skuReq.id() != null) {
+                    sku = existingById.get(skuReq.id());
+                    if (sku == null) {
+                        throw new BusinessException("PRODUCT_SKU_NOT_FOUND",
+                                "SKU 不存在或不属于该商品: " + skuReq.id());
+                    }
+                    sku.setSkuCode(skuReq.skuCode());
+                    sku.setAttributes(skuReq.attributes());
+                    sku.setPrice(skuReq.price());
+                    sku.setOriginalPrice(skuReq.originalPrice());
+                    sku.setStock(skuReq.stock());
+                    sku.setImage(skuReq.image());
+                    sku.setStatus(1);
+                    productSkuMapper.updateById(sku);
+                } else {
+                    sku = new ProductSku();
+                    sku.setProductId(id);
+                    sku.setSkuCode(skuReq.skuCode());
+                    sku.setAttributes(skuReq.attributes());
+                    sku.setPrice(skuReq.price());
+                    sku.setOriginalPrice(skuReq.originalPrice());
+                    sku.setStock(skuReq.stock());
+                    sku.setImage(skuReq.image());
+                    sku.setStatus(1);
+                    productSkuMapper.insert(sku);
+                    // T08：新 SKU 初始化库存建档（幂等；失败随 @Transactional 回滚，
+                    // 防止出现无库存档案的可售 SKU）
+                    try {
+                        inventoryInitFeignClient.initStock(sku.getId(), id,
+                                sku.getStock() != null ? sku.getStock() : 0);
+                    } catch (BusinessException e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new BusinessException("INVENTORY_INIT_FAILED", "库存建档失败: SKU " + sku.getId());
+                    }
+                }
                 skus.add(sku);
             }
+
+            for (ProductSku sku : existing) {
+                if (skus.stream().noneMatch(s -> s.getId().equals(sku.getId())) && sku.getStatus() != null && sku.getStatus() == 1) {
+                    sku.setStatus(0);
+                    productSkuMapper.updateById(sku);
+                }
+            }
+
+            skus = productSkuMapper.selectList(
+                    new LambdaQueryWrapper<ProductSku>().eq(ProductSku::getProductId, id)
+            );
         } else {
             skus = productSkuMapper.selectList(
                     new LambdaQueryWrapper<ProductSku>().eq(ProductSku::getProductId, id)
