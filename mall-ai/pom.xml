@@ -40,8 +40,8 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
         <!-- AI 对话/评论摘要/向量检索：走 Spring AI OpenAI 兼容协议，
              默认指向智谱开放平台 GLM 系列；切换其他 OpenAI 兼容服务商仅改配置 -->
