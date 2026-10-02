@@ -27,7 +27,7 @@ public interface AuthRevocationFeignClient {
         return Map.of("subjectType", "ADMIN", "subjectId", String.valueOf(adminUserId));
     }
 
-    @PostMapping("/invalidate-state")
+    @PostMapping("/internal/tokens/invalidate-state")
     ApiResponse<Void> invalidateState(@RequestBody Map<String, Object> request);
 
     /** 便捷构造：认证状态硬失效（版本递增 + 撤销全部刷新令牌家族） */
