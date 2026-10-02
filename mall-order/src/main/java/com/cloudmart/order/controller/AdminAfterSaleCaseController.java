@@ -37,6 +37,17 @@ public class AdminAfterSaleCaseController {
 
     public record RejectRequest(String rejectReason) {}
 
+    public record InspectRequest(String result, String note) {}
+
+    @PostMapping("/{caseId}/inspection")
+    @Operation(summary = "质检结果录入", description = "T11：人工质检 PASSED/REJECTED（需已登记退货运单）")
+    public ApiResponse<Void> inspection(
+            @Parameter(description = "案件ID", required = true) @PathVariable Long caseId,
+            @RequestBody InspectRequest request) {
+        afterSaleCaseService.recordInspection(operatorId(), caseId, request.result(), request.note());
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/{caseId}/approve")
     @Operation(summary = "受理售后", description = "PENDING→APPROVED，冻结批准金额并关联退款单")
     public ApiResponse<AfterSaleCaseVO> approve(

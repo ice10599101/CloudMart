@@ -39,6 +39,10 @@ public interface OrderFeignClient {
     ApiResponse<Object> approveAfterSaleCase(@PathVariable("caseId") Long caseId,
                                              @RequestBody Map<String, Object> body);
 
+    @PostMapping("/after-sale/{caseId}/inspection")
+    ApiResponse<Object> inspectAfterSaleCase(@PathVariable("caseId") Long caseId,
+                                             @RequestBody Map<String, Object> body);
+
     @PostMapping("/after-sale/{caseId}/reject")
     ApiResponse<Object> rejectAfterSaleCase(@PathVariable("caseId") Long caseId,
                                             @RequestBody Map<String, Object> body);

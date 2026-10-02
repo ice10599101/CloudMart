@@ -63,6 +63,18 @@ public class AfterSaleCase {
 
     private LocalDateTime handledAt;
 
+    private String returnCarrier;
+
+    private String returnTrackingNo;
+
+    private LocalDateTime returnShippedAt;
+
+    private String inspectResult;
+
+    private String inspectNote;
+
+    private LocalDateTime inspectedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

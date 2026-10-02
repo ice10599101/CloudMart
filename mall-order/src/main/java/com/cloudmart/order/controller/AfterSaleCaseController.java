@@ -54,6 +54,22 @@ public class AfterSaleCaseController {
         return ApiResponse.ok(null);
     }
 
+    public record ReturnShippingRequest(String carrier, String trackingNo) {}
+
+    @PostMapping("/after-sale/{caseId}/return-shipping")
+    @Operation(summary = "登记退货运单", description = "T11：RETURN_REFUND 且 APPROVED；承运商+单号唯一")
+    public ApiResponse<Void> registerReturnShipping(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "案件ID", required = true) @PathVariable Long caseId,
+            @RequestBody ReturnShippingRequest request) {
+        if (request.carrier() == null || request.carrier().isBlank()
+                || request.trackingNo() == null || request.trackingNo().isBlank()) {
+            throw new BusinessException("VALIDATION_ERROR", "承运商与运单号必填");
+        }
+        afterSaleCaseService.registerReturnShipping(userId, caseId, request.carrier(), request.trackingNo());
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/after-sale/{caseId}")
     @Operation(summary = "售后案件详情", description = "含时间线（归属校验，只能查本人案件）")
     public ApiResponse<AfterSaleCaseVO> detail(

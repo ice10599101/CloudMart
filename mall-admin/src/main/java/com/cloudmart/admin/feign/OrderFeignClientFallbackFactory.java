@@ -27,6 +27,11 @@ public class OrderFeignClientFallbackFactory implements FallbackFactory<OrderFei
             }
 
             @Override
+            public ApiResponse<Object> inspectAfterSaleCase(Long caseId, Map<String, Object> body) {
+                throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，请稍后重试");
+            }
+
+            @Override
             public ApiResponse<Object> rejectAfterSaleCase(Long caseId, Map<String, Object> body) {
                 throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，请稍后重试");
             }

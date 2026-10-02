@@ -29,6 +29,21 @@ public interface AfterSaleCaseMapper extends BaseMapper<AfterSaleCase> {
     int reject(@Param("caseId") Long caseId, @Param("rejectReason") String rejectReason,
                @Param("adminId") Long adminId);
 
+    /** T11：登记退货运单（APPROVED 状态、运单唯一键兜底重复登记） */
+    @Update("UPDATE after_sale_case SET return_carrier = #{carrier}, return_tracking_no = #{trackingNo}, "
+            + "return_shipped_at = NOW(3) WHERE id = #{caseId} AND status = 'APPROVED' "
+            + "AND type = 'RETURN_REFUND' AND return_tracking_no IS NULL")
+    int registerReturnShipping(@Param("caseId") Long caseId,
+                               @Param("carrier") String carrier,
+                               @Param("trackingNo") String trackingNo);
+
+    /** T11：人工质检结果录入（PASSED 才允许继续退款；REJECTED 留备注） */
+    @Update("UPDATE after_sale_case SET inspect_result = #{result}, inspect_note = #{note}, "
+            + "inspected_at = NOW(3) WHERE id = #{caseId} AND status = 'APPROVED' "
+            + "AND return_tracking_no IS NOT NULL AND inspect_result IS NULL")
+    int recordInspection(@Param("caseId") Long caseId, @Param("result") String result,
+                         @Param("note") String note);
+
     /** CAS APPROVED → REFUNDED（T02 退款完成事件回填；重复回填无害） */
     @Update("UPDATE after_sale_case SET status = 'REFUNDED' "
             + "WHERE refund_no = #{refundNo} AND status = 'APPROVED'")

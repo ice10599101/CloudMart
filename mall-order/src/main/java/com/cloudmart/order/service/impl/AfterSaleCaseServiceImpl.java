@@ -180,6 +180,36 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     }
 
     @Override
+    @Transactional
+    public void registerReturnShipping(Long userId, Long caseId, String carrier, String trackingNo) {
+        AfterSaleCase entity = requireCase(caseId);
+        if (!entity.getUserId().equals(userId)) {
+            throw new BusinessException("ORDER_ACCESS_DENIED", "无权操作该案件");
+        }
+        if (caseMapper.registerReturnShipping(caseId, carrier, trackingNo) == 0) {
+            throw new BusinessException("AFTER_SALE_STATUS_ERROR", "当前状态无法登记退货，或运单已登记");
+        }
+        appendEvent(caseId, "RETURN_SHIPPED", "user:" + userId,
+                    "{\"carrier\":\"" + carrier + "\",\"trackingNo\":\"" + trackingNo + "\"}");
+        log.info("[T11] 退货运单已登记 caseNo={} carrier={} trackingNo={}",
+                 entity.getCaseNo(), carrier, trackingNo);
+    }
+
+    @Override
+    @Transactional
+    public void recordInspection(Long adminId, Long caseId, String result, String note) {
+        if (!"PASSED".equals(result) && !"REJECTED".equals(result)) {
+            throw new BusinessException("AFTER_SALE_INSPECT_INVALID", "质检结果非法（PASSED/REJECTED）");
+        }
+        if (caseMapper.recordInspection(caseId, result, note) == 0) {
+            throw new BusinessException("AFTER_SALE_STATUS_ERROR", "当前状态无法录入质检（需已登记运单且未质检）");
+        }
+        appendEvent(caseId, "INSPECTED", "admin:" + adminId,
+                    "{\"result\":\"" + result + "\"}");
+        log.info("[T11] 售后质检录入 caseId={} result={} by admin:{}", caseId, result, adminId);
+    }
+
+    @Override
     public com.cloudmart.order.entity.AfterSaleCase findApprovedWithoutRefundNo(Long orderId) {
         return caseMapper.selectOne(new LambdaQueryWrapper<AfterSaleCase>()
                 .eq(AfterSaleCase::getOrderId, orderId)

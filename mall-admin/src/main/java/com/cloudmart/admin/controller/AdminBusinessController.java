@@ -306,6 +306,15 @@ public class AdminBusinessController {
         return orderFeignClient.approveAfterSaleCase(caseId, body);
     }
 
+    @PostMapping("/orders/after-sale/{caseId}/inspection")
+    @RequiresPermission("business:order:refund")
+    @OperLog(title = "售后案件", businessType = 2)
+    @Operation(summary = "质检结果录入", description = "T11：人工质检 PASSED/REJECTED")
+    public ApiResponse<Object> inspectAfterSaleCase(@PathVariable Long caseId,
+                                                    @RequestBody Map<String, Object> body) {
+        return orderFeignClient.inspectAfterSaleCase(caseId, body);
+    }
+
     @PostMapping("/orders/after-sale/{caseId}/reject")
     @RequiresPermission("business:order:refund")
     @OperLog(title = "售后案件", businessType = 2)

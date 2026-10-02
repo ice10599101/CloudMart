@@ -37,6 +37,12 @@ public interface AfterSaleCaseService {
      */
     ApiResponse<Boolean> hasOpenCase(Long orderId);
 
+    /** T11 切片二：用户登记退货运单（RETURN_REFUND 且 APPROVED；运单唯一） */
+    void registerReturnShipping(Long userId, Long caseId, String carrier, String trackingNo);
+
+    /** T11 切片二：质检结果录入（人工；PASSED/REJECTED） */
+    void recordInspection(Long adminId, Long caseId, String result, String note);
+
     /** T11：查订单下 APPROVED 且尚未关联退款单的案件（approveRefund 时回填关联） */
     com.cloudmart.order.entity.AfterSaleCase findApprovedWithoutRefundNo(Long orderId);
 
