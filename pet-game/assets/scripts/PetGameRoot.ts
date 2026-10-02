@@ -172,10 +172,11 @@ export class PetGameRoot extends Component {
     private tapCooldownAt = 0
     private tapCombo = 0
     private tapComboAt = 0
-    /** 防刷：滚动窗口内前 N 次点击才发 intent 结算，之后只播特效（窗口 4 小时） */
-    private rewardTapTimes: number[] = []
-    private static readonly REWARD_WINDOW_MS = 4 * 60 * 60 * 1000
-    private static readonly REWARD_MAX_PER_WINDOW = 3
+    /** 防刷：固定 4 小时周期（自然时间对齐 0/4/8/16/20 点边界），每周期无论怎么摸只结算前 3 次 */
+    private rewardPeriodKey = -1
+    private rewardUsedInPeriod = 0
+    private static readonly REWARD_PERIOD_MS = 4 * 60 * 60 * 1000
+    private static readonly REWARD_MAX_PER_PERIOD = 3
     private petAnim: SkeletalAnimation | Animation | null = null
     /** 最近一次下发的状态：模型加载是异步的，到位后要用它补播正确的动画 */
     private pendingPet: PetDisplayState | null = null
@@ -488,11 +489,14 @@ export class PetGameRoot extends Component {
                 .start()
             this.effects && this.effects.stars(this.headWorld, 10)
         }
-        // 防刷：10 分钟滚动窗口内前 3 次才发 intent 结算奖励，之后只保留互动特效
-        const cutoff = now - PetGameRoot.REWARD_WINDOW_MS
-        this.rewardTapTimes = this.rewardTapTimes.filter((ts) => ts > cutoff)
-        if (this.rewardTapTimes.length < PetGameRoot.REWARD_MAX_PER_WINDOW) {
-            this.rewardTapTimes.push(now)
+        // 防刷：固定 4 小时周期内前 3 次才发 intent 结算，周期切换自动重置，之后只保留互动特效
+        const period = Math.floor(now / PetGameRoot.REWARD_PERIOD_MS)
+        if (period !== this.rewardPeriodKey) {
+            this.rewardPeriodKey = period
+            this.rewardUsedInPeriod = 0
+        }
+        if (this.rewardUsedInPeriod < PetGameRoot.REWARD_MAX_PER_PERIOD) {
+            this.rewardUsedInPeriod += 1
             this.bridge.send({ source: 'pet-game', type: 'intent', action: 'play' })
         }
     }
