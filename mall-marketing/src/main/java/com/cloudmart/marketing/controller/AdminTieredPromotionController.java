@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import java.util.Map;
 @Tag(name = "阶梯满减管理", description = "阶梯满减管理端接口")
 @RestController
 @RequestMapping("/admin/marketing/tiered")
+@PreAuthorize("hasRole('INTERNAL')")
 public class AdminTieredPromotionController {
 
     private final TieredPromotionService tieredPromotionService;

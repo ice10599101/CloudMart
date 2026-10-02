@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ import java.util.Map;
 @Tag(name = "拼团活动管理", description = "拼团活动管理端接口")
 @RestController
 @RequestMapping("/admin/marketing/group")
+@PreAuthorize("hasRole('INTERNAL')")
 public class AdminGroupActivityController {
 
     private final GroupActivityService groupActivityService;
