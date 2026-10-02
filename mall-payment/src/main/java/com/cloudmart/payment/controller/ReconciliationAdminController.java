@@ -65,19 +65,26 @@ public class ReconciliationAdminController {
     }
 
     @PostMapping("/runs/execute")
-    @Operation(summary = "执行一次对账", description = "T11：scope=PAYMENT_ORDER（支付↔订单）/ REFUND（退款↔订单）；scanDays 扫描最近 N 天")
+    @Operation(summary = "执行一次对账", description = "T11：scope=PAYMENT_ORDER（支付↔订单）/ REFUND（退款↔订单）/ INVENTORY（预占↔订单）；失败时返回 FAILED + 根因")
     public ApiResponse<ReconciliationRun> execute(
             @Parameter(description = "扫描天数") @RequestParam(value = "scanDays", defaultValue = "7")
             int scanDays,
             @Parameter(description = "对账层级") @RequestParam(value = "scope", defaultValue = "PAYMENT_ORDER")
             String scope) {
-        if ("REFUND".equalsIgnoreCase(scope)) {
-            return ApiResponse.ok(reconciliationService.runRefundReconciliation(scanDays));
+        try {
+            if ("REFUND".equalsIgnoreCase(scope)) {
+                return ApiResponse.ok(reconciliationService.runRefundReconciliation(scanDays));
+            }
+            if ("INVENTORY".equalsIgnoreCase(scope)) {
+                return ApiResponse.ok(reconciliationService.runInventoryReconciliation(scanDays));
+            }
+            return ApiResponse.ok(reconciliationService.runPaymentOrderReconciliation(scanDays));
+        } catch (Exception e) {
+            // 对账失败必须可远程诊断：FAILED 运行记录已由服务层落库，
+            // 这里把根因透传（避免 500 掩盖真实原因）
+            return ApiResponse.fail("RECON_EXECUTION_FAILED",
+                    "对账执行失败: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
-        if ("INVENTORY".equalsIgnoreCase(scope)) {
-            return ApiResponse.ok(reconciliationService.runInventoryReconciliation(scanDays));
-        }
-        return ApiResponse.ok(reconciliationService.runPaymentOrderReconciliation(scanDays));
     }
 
     public record ResolveRequest(
