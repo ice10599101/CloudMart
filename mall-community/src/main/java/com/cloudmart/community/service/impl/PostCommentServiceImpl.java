@@ -120,6 +120,9 @@ public class PostCommentServiceImpl implements PostCommentService {
         return buildCommentVO(comment, userMap, false);
     }
 
+    /** C04：评论列表每线程回复预览条数（超出走独立分页端点） */
+    static final int REPLY_PREVIEW_SIZE = 3;
+
     @Override
     public Page<PostCommentVO> getComments(Long postId, int page, int size, Long currentUserId) {
         // C01：宿主不可读（隐藏/删除）时评论列表同样拒绝，不能只保护详情页
@@ -133,8 +136,12 @@ public class PostCommentServiceImpl implements PostCommentService {
 
         Page<PostComment> topPage = postCommentMapper.selectPage(new Page<>(page, size), topWrapper);
 
-        // 一次性查询所有顶级评论的回复，避免 N+1
+        // C04：回复一次 IN 查询按线程分组（消除逐根评论查询的 N+1），
+        // 首页仅返回每线程有限预览；线程总数一次 GROUP BY 统计，
+        // 超出预览的部分走 /comments/{id}/replies 独立分页端点
+        List<Long> topIds = topPage.getRecords().stream().map(PostComment::getId).toList();
         Map<Long, List<PostComment>> repliesMap = new java.util.HashMap<>();
+        Map<Long, Integer> replyCounts = new java.util.HashMap<>();
         Set<Long> userIds = new HashSet<>();
         Set<Long> allCommentIds = new HashSet<>();
         for (PostComment top : topPage.getRecords()) {
@@ -143,19 +150,28 @@ public class PostCommentServiceImpl implements PostCommentService {
             if (top.getReplyToUserId() != null) {
                 userIds.add(top.getReplyToUserId());
             }
-            List<PostComment> replies = postCommentMapper.selectList(
+        }
+        if (!topIds.isEmpty()) {
+            List<PostComment> allReplies = postCommentMapper.selectList(
                     new LambdaQueryWrapper<PostComment>()
-                            .eq(PostComment::getParentId, top.getId())
+                            .in(PostComment::getParentId, topIds)
                             .eq(PostComment::getStatus, 0)
                             .eq(PostComment::getReviewStatus, 1)
                             .orderByAsc(PostComment::getCreatedAt)
             );
-            repliesMap.put(top.getId(), replies);
-            for (PostComment reply : replies) {
+            for (PostComment reply : allReplies) {
                 userIds.add(reply.getUserId());
                 allCommentIds.add(reply.getId());
                 if (reply.getReplyToUserId() != null) {
                     userIds.add(reply.getReplyToUserId());
+                }
+                repliesMap.computeIfAbsent(reply.getParentId(), k -> new java.util.ArrayList<>()).add(reply);
+            }
+            for (java.util.Map<String, Object> row : postCommentMapper.countRepliesByParentIds(topIds)) {
+                Object pid = row.get("parentId");
+                Object cnt = row.get("cnt");
+                if (pid != null && cnt != null) {
+                    replyCounts.put(((Number) pid).longValue(), ((Number) cnt).intValue());
                 }
             }
         }
@@ -168,21 +184,65 @@ public class PostCommentServiceImpl implements PostCommentService {
 
         List<PostCommentVO> voList = topPage.getRecords().stream()
                 .map(comment -> {
-                    List<PostComment> replies = repliesMap.getOrDefault(comment.getId(), List.of());
+                    List<PostComment> allReplies = repliesMap.getOrDefault(comment.getId(), List.of());
                     boolean commentIsLiked = likedMap.getOrDefault(comment.getId(), false);
                     PostCommentVO vo = buildCommentVO(comment, userMap, commentIsLiked);
-                    List<PostCommentVO> replyVOs = replies.stream()
+                    // C04：每线程仅返回有限预览，无界加载（万级回复全量入内存）被禁止
+                    List<PostComment> preview = allReplies.size() > REPLY_PREVIEW_SIZE
+                            ? allReplies.subList(0, REPLY_PREVIEW_SIZE) : allReplies;
+                    List<PostCommentVO> replyVOs = preview.stream()
                             .map(reply -> buildCommentVO(reply, userMap, likedMap.getOrDefault(reply.getId(), false)))
                             .toList();
                     return new PostCommentVO(
                             vo.id(), vo.postId(), vo.userId(), vo.authorNickname(), vo.authorAvatar(),
                             vo.parentId(), vo.replyToUserId(), vo.replyToNickname(), vo.content(),
-                            vo.likeCount(), vo.status(), vo.isLiked(), replyVOs, vo.createdAt()
+                            vo.likeCount(), vo.status(), vo.isLiked(), replyVOs,
+                            replyCounts.getOrDefault(comment.getId(), 0), vo.createdAt()
                     );
                 })
                 .toList();
 
         Page<PostCommentVO> resultPage = new Page<>(topPage.getCurrent(), topPage.getSize(), topPage.getTotal());
+        resultPage.setRecords(voList);
+        return resultPage;
+    }
+
+    /** C04：评论线程回复独立分页（宿主可读校验 + 批量用户/点赞，语义与列表页一致） */
+    @Override
+    public Page<PostCommentVO> getReplies(Long postId, Long commentId, int page, int size, Long currentUserId) {
+        contentAccessPolicy.requirePostReadable(postMapper.selectById(postId));
+        PostComment parent = postCommentMapper.selectById(commentId);
+        if (parent == null || !postId.equals(parent.getPostId()) || parent.getParentId() != null) {
+            // 只允许按顶级评论拉取其回复（防跨帖/嵌套线程探测）
+            throw new BusinessException("COMMENT_NOT_FOUND", "评论不存在");
+        }
+
+        LambdaQueryWrapper<PostComment> wrapper = new LambdaQueryWrapper<PostComment>()
+                .eq(PostComment::getParentId, commentId)
+                .eq(PostComment::getStatus, 0)
+                .eq(PostComment::getReviewStatus, 1)
+                .orderByAsc(PostComment::getCreatedAt);
+        Page<PostComment> replyPage = postCommentMapper.selectPage(new Page<>(page, size), wrapper);
+
+        Set<Long> userIds = new HashSet<>();
+        Set<Long> replyIds = new HashSet<>();
+        for (PostComment reply : replyPage.getRecords()) {
+            userIds.add(reply.getUserId());
+            replyIds.add(reply.getId());
+            if (reply.getReplyToUserId() != null) {
+                userIds.add(reply.getReplyToUserId());
+            }
+        }
+        Map<Long, UserInfo> userMap = userEnrichmentService.batchGetUsers(userIds);
+        Map<Long, Boolean> likedMap = (currentUserId != null && !replyIds.isEmpty())
+                ? likeService.batchIsLiked(currentUserId, "COMMENT", List.copyOf(replyIds))
+                : Map.of();
+
+        List<PostCommentVO> voList = replyPage.getRecords().stream()
+                .map(reply -> buildCommentVO(reply, userMap, likedMap.getOrDefault(reply.getId(), false)))
+                .toList();
+
+        Page<PostCommentVO> resultPage = new Page<>(replyPage.getCurrent(), replyPage.getSize(), replyPage.getTotal());
         resultPage.setRecords(voList);
         return resultPage;
     }
@@ -355,6 +415,7 @@ public class PostCommentServiceImpl implements PostCommentService {
                 comment.getStatus(),
                 isLiked,
                 Collections.emptyList(),
+                null,
                 comment.getCreatedAt()
         );
     }

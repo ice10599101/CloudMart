@@ -11,6 +11,11 @@ public interface PostCommentService {
 
     Page<PostCommentVO> getComments(Long postId, int page, int size, Long currentUserId);
 
+    /**
+     * C04：评论线程回复独立分页（列表首页只带有限预览，查看全部回复走此端点）。
+     */
+    Page<PostCommentVO> getReplies(Long postId, Long commentId, int page, int size, Long currentUserId);
+
     Page<CommentVO> getMyComments(Long userId, int page, int size);
 
     void deleteComment(Long userId, Long commentId);

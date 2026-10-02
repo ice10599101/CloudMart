@@ -17,5 +17,7 @@ public record PostCommentVO(
     Integer status,
     Boolean isLiked,
     List<PostCommentVO> replies,
+    /** C04：该评论线程的回复总数（首页仅返回有限预览，超出走 replies 分页端点） */
+    Integer replyCount,
     LocalDateTime createdAt
 ) {}

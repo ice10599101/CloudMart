@@ -45,7 +45,7 @@ class PostCommentControllerTest {
         return new PostCommentVO(
                 1L, 100L, 1L, "测试用户", "https://avatar.example.com/1.png",
                 null, null, null, "测试评论", 5, 1, true,
-                List.of(), LocalDateTime.now());
+                List.of(), 0, LocalDateTime.now());
     }
 
     @Test

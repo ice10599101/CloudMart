@@ -45,6 +45,18 @@ public class PostCommentController {
         return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
     }
 
+    @GetMapping("/{commentId}/replies")
+    @Operation(summary = "回复分页", description = "C04：评论线程回复独立分页（列表首页仅带每线程有限预览）")
+    public ApiResponse<List<PostCommentVO>> getReplies(
+            @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long userId,
+            @Parameter(description = "帖子ID", required = true) @PathVariable Long postId,
+            @Parameter(description = "评论ID", required = true) @PathVariable Long commentId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
+        Page<PostCommentVO> result = postCommentService.getReplies(postId, commentId, page, size, userId);
+        return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
+    }
+
     @DeleteMapping("/{commentId}")
     @Operation(summary = "删除评论", description = "用户删除自己的评论")
     public ApiResponse<Void> deleteComment(
