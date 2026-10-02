@@ -47,12 +47,24 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
             log.warn("[T10] 成团消息缺少 eventId（旧形状），拒绝消费 keys={}", message.get("KEYS"));
             return;
         }
-        Long groupOrderId = ((Number) message.get("groupOrderId")).longValue();
-        Long activityId = ((Number) message.get("activityId")).longValue();
-        Long productId = ((Number) message.get("productId")).longValue();
-        Long skuId = ((Number) message.get("skuId")).longValue();
+        // Outbox 信封形状：业务字段在嵌套 payload 中（与 MarketingOutboxDelivery 对称）
         @SuppressWarnings("unchecked")
-        List<Number> memberUserIds = (List<Number>) message.get("memberUserIds");
+        Map<String, Object> payload = (Map<String, Object>) message.get("payload");
+        if (payload == null) {
+            log.warn("[T10] 成团事件缺少 payload eventId={}", eventId);
+            return;
+        }
+        Object groupOrderIdObj = payload.get("groupOrderId");
+        if (groupOrderIdObj == null) {
+            log.warn("[T10] 成团事件缺少 groupOrderId eventId={}", eventId);
+            return;
+        }
+        Long groupOrderId = ((Number) groupOrderIdObj).longValue();
+        Long activityId = ((Number) payload.get("activityId")).longValue();
+        Long productId = ((Number) payload.get("productId")).longValue();
+        Long skuId = ((Number) payload.get("skuId")).longValue();
+        @SuppressWarnings("unchecked")
+        List<Number> memberUserIds = (List<Number>) payload.get("memberUserIds");
 
         log.info("[T10] 处理成团建单 eventId={} groupOrderId={} skuId={} members={}",
                 eventId, groupOrderId, skuId, memberUserIds.size());

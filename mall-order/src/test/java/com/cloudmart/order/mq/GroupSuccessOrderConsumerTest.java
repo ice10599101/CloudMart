@@ -38,13 +38,16 @@ class GroupSuccessOrderConsumerTest {
     }
 
     private Map<String, Object> message(String eventId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("groupOrderId", 3001L);
+        payload.put("activityId", 2001L);
+        payload.put("productId", 4001L);
+        payload.put("skuId", 5001L);
+        payload.put("memberUserIds", List.of(1001L, 1002L, 1003L));
         Map<String, Object> message = new HashMap<>();
         message.put("eventId", eventId);
-        message.put("groupOrderId", 3001L);
-        message.put("activityId", 2001L);
-        message.put("productId", 4001L);
-        message.put("skuId", 5001L);
-        message.put("memberUserIds", List.of(1001L, 1002L, 1003L));
+        message.put("eventType", "GROUP_SUCCESS");
+        message.put("payload", payload);
         return message;
     }
 
