@@ -9,12 +9,15 @@ import {
     director,
     EffectAsset,
     instantiate,
+    Input,
+    EventTouch,
     Layers,
     Material,
     Node,
     Prefab,
     SkeletalAnimation,
     Texture2D,
+    tween,
     UITransform,
     Vec3,
     Vec4,
@@ -141,7 +144,8 @@ function resolveFruitKey(urlSpecies: string | null, petSpecies: string | null): 
  */
 const CAMERA_SHOT = {
     room: { pos: [1.15, 2.25, 7.0], target: [0, 1.05, -0.2] },
-    portrait: { pos: [1.9, 2.3, 7.6], target: [0, 0.95, -0.1] },
+    // 竖屏拉远：手机 web-view 竖屏可视横宽窄，z=10.5 才能收进完整的家（后墙+两侧家具+地毯）
+    portrait: { pos: [2.0, 2.6, 10.5], target: [0, 1.15, -0.2] },
     front: { pos: [0, 1.6, 6.2], target: [0, 1.05, -0.1] },
     q34: { pos: [-3.0, 1.9, 5.6], target: [0, 1.0, 0.1] },
 } as const
@@ -165,6 +169,13 @@ export class PetGameRoot extends Component {
 
     /** 宠物节点（模型异步加载完成前为 null） */
     private petNode: Node | null = null
+    private tapCooldownAt = 0
+    private tapCombo = 0
+    private tapComboAt = 0
+    /** 防刷：滚动窗口内前 N 次点击才发 intent 结算，之后只播特效（窗口 4 小时） */
+    private rewardTapTimes: number[] = []
+    private static readonly REWARD_WINDOW_MS = 4 * 60 * 60 * 1000
+    private static readonly REWARD_MAX_PER_WINDOW = 3
     private petAnim: SkeletalAnimation | Animation | null = null
     /** 最近一次下发的状态：模型加载是异步的，到位后要用它补播正确的动画 */
     private pendingPet: PetDisplayState | null = null
@@ -188,6 +199,9 @@ export class PetGameRoot extends Component {
     private roomTime = 0
 
     start(): void {
+        // 关闭引擎调试统计面板（CLI debug 构建默认开启；正式观感不需要 FPS/Draw call 悬浮框）
+        const engine = this.ccRuntime as unknown as { director?: { setDisplayStats?: (v: boolean) => void } }
+        engine.director?.setDisplayStats?.(false)
         const params = new URLSearchParams(window.location.search)
         this.plain = params.get('plain') === '1'
         this.probing = params.get('probe') === '1'
@@ -250,6 +264,9 @@ export class PetGameRoot extends Component {
         // 果种解析：URL ?species=（预览强制）→ 宿主下发的 species 槽位 → 默认草莓
         this.fruit = FRUIT_SPECS[resolveFruitKey(this.urlSpecies, this.pendingPet?.species ?? null)]
         const spec = this.fruit
+        // 点击宠物本体 → 开心动画 + 通知宿主互动（B06 互动入口的 3D 直触形式）
+        input.on(Input.EventType.TOUCH_END, this.onStageTap, this)
+
         resources.load(spec.path, Prefab, (error, prefab) => {
             if (error || !prefab) {
                 console.warn('[pet-game] 宠物模型加载失败，场景保持无角色状态', error)
@@ -421,6 +438,65 @@ export class PetGameRoot extends Component {
         visit(node)
     }
 
+    /** 摸头反应文案池（连击越深，措辞越亲昵） */
+    private static readonly TAP_LINES = [
+        '嘿嘿～', '再摸摸～', '好舒服～', '（蹭蹭你的手）', '最喜欢你啦', '呼噜呼噜…',
+    ]
+
+    /**
+     * 点击宠物本体：屏幕触点 → 相机射线 → 与宠物包围球求交（手写向量数学，零物理依赖）。
+     * 连击设计：2.5s 内连续命中递增 combo——反应文案随层数变化，3 层起加星星，
+     * 5 连触发彩蛋（开心到转圈圈）；combo 封顶 8。每次命中都通知宿主执行玩耍互动（服务端权威计次）。
+     */
+    private onStageTap = (event: EventTouch): void => {
+        if (!this.camera3d || !this.petNode) return
+        const now = Date.now()
+        if (now - this.tapCooldownAt < 900) return
+        this.tapCooldownAt = now
+        const combo = now - this.tapComboAt < 2500 ? Math.min(8, this.tapCombo + 1) : 1
+        this.tapCombo = combo
+        this.tapComboAt = now
+        const ui = event.getUILocation()
+        const ray = this.camera3d.screenPointToRay(ui.x, ui.y)
+        const wp = this.petNode.worldPosition
+        const centerY = wp.y + this.fruit.height * 0.45
+        const radius = this.fruit.height * 0.66
+        const ox = ray.o.x - wp.x
+        const oy = ray.o.y - centerY
+        const oz = ray.o.z - wp.z
+        const t = -(ox * ray.d.x + oy * ray.d.y + oz * ray.d.z)
+        if (t <= 0) return
+        const px = ox + ray.d.x * t
+        const py = oy + ray.d.y * t
+        const pz = oz + ray.d.z * t
+        if (px * px + py * py + pz * pz > radius * radius) return
+        this.playClip('Happy', false)
+        const lines = PetGameRoot.TAP_LINES
+        const line = lines[Math.min(combo - 1, lines.length - 1)]
+        this.effects && this.effects.floatText(this.headWorld, line, new Color(255, 250, 240, 255), 20)
+        this.effects && this.effects.sparkle(this.headWorld, 3 + combo)
+        if (combo >= 3) {
+            this.effects && this.effects.stars(this.headWorld, combo)
+        }
+        if (combo === 5) {
+            // 彩蛋：开心到转圈圈（Y 轴整圈后自然复位，两次 by 各半圈）
+            const node = this.petNode
+            tween(node)
+                .by(0.42, { eulerAngles: new Vec3(0, 180, 0) })
+                .by(0.42, { eulerAngles: new Vec3(0, 180, 0) })
+                .call(() => { node.eulerAngles = new Vec3(0, 0, 0) })
+                .start()
+            this.effects && this.effects.stars(this.headWorld, 10)
+        }
+        // 防刷：10 分钟滚动窗口内前 3 次才发 intent 结算奖励，之后只保留互动特效
+        const cutoff = now - PetGameRoot.REWARD_WINDOW_MS
+        this.rewardTapTimes = this.rewardTapTimes.filter((ts) => ts > cutoff)
+        if (this.rewardTapTimes.length < PetGameRoot.REWARD_MAX_PER_WINDOW) {
+            this.rewardTapTimes.push(now)
+            this.bridge.send({ source: 'pet-game', type: 'intent', action: 'play' })
+        }
+    }
+
     /** 播片：名字不存在时静默回落（模型可能还没带上该剪辑，不能因此崩掉整场） */
     private playClip(name: string, loop: boolean): void {
         const anim = this.petAnim
@@ -550,6 +626,7 @@ export class PetGameRoot extends Component {
     }
 
     onDestroy(): void {
+        input.off(Input.EventType.TOUCH_END, this.onStageTap, this)
         this.bridge.dispose()
     }
 

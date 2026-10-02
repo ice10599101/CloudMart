@@ -82,7 +82,7 @@ export default function PetWalletPage() {
                 <div className={styles.shell}>
                     <header className={styles.masthead}>
                         <h1 className={styles.mastheadTitle}>Porte-monnaie</h1>
-                        <p className={styles.mastheadSub}>宠物钱包 · 星光收支</p>
+                        <p className={styles.mastheadSub}>宠物钱包 · 宠物币收支</p>
                         <div className={styles.mastheadRule} />
                     </header>
 

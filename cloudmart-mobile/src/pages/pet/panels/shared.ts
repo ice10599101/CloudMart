@@ -13,5 +13,5 @@ export const CARE_ERROR_HINT: Record<string, string> = {
   PET_EVENT_NOT_FINISHED: '活动还没完成哦',
   PET_EVENT_ALREADY_CLAIMED: '奖励已经领过啦',
   PET_EVENT_ENDED: '活动已经结束啦',
-  WISH_STARLIGHT_INSUFFICIENT: '星光不够啦，让宠物去打工赚点吧',
+  WISH_STARLIGHT_INSUFFICIENT: "宠物币不够啦，让宠物去打工赚点吧",
 }

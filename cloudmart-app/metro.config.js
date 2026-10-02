@@ -29,6 +29,16 @@ const config = getDefaultConfig(__dirname)
 // 默认 assetExts 不含 wasm，`expo export --platform web` 会报 Unable to resolve module
 config.resolver.assetExts.push('wasm')
 
+// Web 端 WebView 适配：react-native-webview 在 react-native-web 下无实现，
+// web 平台解析到官方适配包 react-native-web-webview（需 npm i react-native-web-webview）；
+// native 平台不受影响（仍用原生 WebView，桥接照常）。
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && moduleName === 'react-native-webview') {
+    return context.resolveRequest(context, 'react-native-web-webview', 'web')
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 // Proxy /api requests to backend gateway in web dev mode
 config.server = config.server || {}
 config.server.enhanceMiddleware = (middleware) => {

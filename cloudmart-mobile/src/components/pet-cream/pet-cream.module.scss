@@ -1,0 +1,531 @@
+/* Petit Crème · Taro 组件库样式（法式奶油风，与 Web cream.module.css 同源）
+ * 尺寸基准：H5 下 px 会经 rem 放大 ~1.37 倍，本文件数值 ≈ Web px × 1.1（不要再乘 2）。
+ * 立体语言：承托件带挤出底边与暖调投影，凹陷件走玻璃内阴影，弹层走 fixed 视口层。 */
+
+/* ---------- 卡片 ---------- */
+.card {
+  position: relative;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  box-shadow: 0 2px 4px rgba(74, 63, 53, 0.07), 0 8px 18px rgba(74, 63, 53, 0.08);
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(200, 155, 90, 0.35);
+}
+
+/* 拱形卡：宠物身份、舞台标题等主视觉 */
+.cardArch {
+  border-radius: 120px 120px 20px 20px;
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  padding: 30px 30px 18px;
+}
+
+/* 双线餐牌卡：法式餐牌质感 */
+.cardMenu::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px solid rgba(231, 220, 203, 0.9);
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.title {
+  font-size: 19px;
+  font-weight: 600;
+  color: #4A3F35;
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #7A6A5C;
+}
+
+.ribbon {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ribbon::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200, 155, 90, 0.5), rgba(200, 155, 90, 0));
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: #A97C50;
+  text-transform: uppercase;
+}
+
+/* ---------- 按钮：挤出厚度 + 按下回弹 ---------- */
+.btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1px solid #C89B5A;
+  background: linear-gradient(180deg, #FFFDF8 0%, #F2E3CE 100%);
+  font-size: 14px;
+  font-weight: 500;
+  color: #4A3F35;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 0 rgba(169, 124, 80, 0.55),
+    0 6px 14px rgba(74, 63, 53, 0.12);
+}
+
+.btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 0 rgba(169, 124, 80, 0.55);
+}
+
+.btn::after {
+  border: none;
+}
+
+.btnGhost {
+  background: transparent;
+  box-shadow: none;
+  border-color: rgba(200, 155, 90, 0.55);
+  color: #7A6A5C;
+}
+
+.btnBlock {
+  width: 100%;
+}
+
+/* ---------- 标签 ---------- */
+.chip {
+  display: inline-flex;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* ---------- 状态条：玻璃内凹轨道 ---------- */
+.statRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.statName {
+  width: 62px;
+  font-size: 12px;
+  color: #7A6A5C;
+}
+
+.statTrack {
+  flex: 1;
+  height: 12px;
+  border-radius: 999px;
+  background: #F2E3CE;
+  box-shadow: inset 0 2px 4px rgba(74, 63, 53, 0.16), inset 0 -1px 0 rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.statCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.statCellName {
+  font-size: 12px;
+  color: #7A6A5C;
+}
+
+.statCellTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: #F2E3CE;
+  box-shadow: inset 0 2px 4px rgba(74, 63, 53, 0.16), inset 0 -1px 0 rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.statCellValue {
+  font-size: 12px;
+  color: #4A3F35;
+}
+
+.statFill {
+  border-radius: 999px;
+  box-shadow: inset 0 -3px 0 rgba(74, 63, 53, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* ---------- 花饰分隔线 ---------- */
+.ornament {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  color: #DBC49B;
+  font-size: 14px;
+}
+
+.ornament::before,
+.ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #E7DCCB;
+}
+
+/* ---------- 招牌页头 ---------- */
+.masthead {
+  align-items: center;
+  padding: 6px 0 2px;
+}
+
+.mastheadTitle {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #4A3F35;
+}
+
+.mastheadSub {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #A97C50;
+  margin-top: 4px;
+}
+
+.mastheadRule {
+  width: 220px;
+  height: 2px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(200, 155, 90, 0.55);
+  border-bottom: 1px solid rgba(231, 220, 203, 0.9);
+}
+
+/* ---------- 分组功能宫格 ---------- */
+.menuGroup {
+  margin-bottom: 16px;
+}
+
+.menuGroupLabel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.menuGroupLabel::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200, 155, 90, 0.45), rgba(200, 155, 90, 0));
+}
+
+.menuGroupTitle {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: #A97C50;
+  text-transform: uppercase;
+}
+
+.menuGroupTitle::before {
+  content: '❀ ';
+  color: #DBC49B;
+}
+
+.menuGroupHint {
+  font-size: 11px;
+  color: #9C8D7E;
+}
+
+.menuGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.menuItem {
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 6px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(200, 155, 90, 0.4);
+  background: linear-gradient(180deg, #FFFDF8 0%, #F7EADA 100%);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.35), 0 2px 6px rgba(74, 63, 53, 0.08);
+}
+
+.menuItem:active {
+  transform: scale(0.96);
+}
+
+.menuItemEmoji {
+  font-size: 24px;
+}
+
+.menuItemLabel {
+  font-size: 13px;
+  color: #4A3F35;
+}
+
+/* ---------- 弹层：全屏奶油层（面板内容按整页宽度呈现） ---------- */
+.sheetOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #FDF6EC;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 0;
+}
+
+.sheet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 16px 24px;
+}
+
+.sheetHead {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #E7DCCB;
+}
+
+.sheetTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4A3F35;
+}
+
+.sheetTitle::before {
+  content: '❀ ';
+  color: #DBC49B;
+  font-size: 16px;
+}
+
+.sheetClose {
+  font-size: 24px;
+  color: #7A6A5C;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.sheetBody {
+  flex: 1;
+  min-height: 0;
+  padding-top: 12px;
+}
+
+/* ---------- 弹层内 Taro Button 布局重置（仅结构；颜色仍由 miniBtn/miniBtnGhost 决定） ----------
+ * Taro H5 Button（taro-button-core 自定义元素）默认 width:100%，会挤扁弹性行里的文字。 */
+.sheetBody :global(taro-button-core) {
+  width: auto !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 18px !important;
+  line-height: 1.4 !important;
+  font-size: 13px !important;
+}
+
+/* ---------- 页签胶囊：统一盒尺寸（View 实现，无 Taro Button 默认样式干扰） ---------- */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 155, 90, 0.55);
+  background: transparent;
+  font-size: 13px;
+  color: #7A6A5C;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab:active {
+  transform: translateY(1px);
+}
+
+.tabActive {
+  background: #C89B5A;
+  border-color: #C89B5A;
+  color: #FFFDF8;
+  font-weight: 500;
+}
+
+/* ---------- 自绘开关（Taro H5 Switch 不吃 color 且默认巨大） ---------- */
+.toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #D9CFC0;
+  box-shadow: inset 0 1px 3px rgba(74, 63, 53, 0.2);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: #C89B5A;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #FFFDF8;
+  box-shadow: 0 1px 3px rgba(74, 63, 53, 0.25);
+}
+
+.toggleOn .toggleKnob {
+  left: 20px;
+}
+
+/* ---------- 页面级辅助（状态网格 / 头像 / 按钮行） ---------- */
+.statsGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.statsGrid > .statCell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.metaRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #FFFDF8, #F2E3CE);
+  box-shadow: 0 6px 14px rgba(74, 63, 53, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.95);
+}
+
+.actionsRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actionsRow > .btn {
+  flex: 1 1 40%;
+}
+
+/* 舞台入口：小胶囊 */
+.stageEntry {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 155, 90, 0.55);
+  background: transparent;
+  font-size: 13px;
+  color: #7A6A5C;
+}
+
+/* 禁用/未解锁态：仅颜色修饰，结构由 .tab 基础类提供 */
+.lockedTab {
+  background: #F2E3CE;
+  border-color: #F2E3CE;
+  color: #9C8D7E;
+}
+
+/* ---------- 任务进度条 ---------- */
+.questProgressRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.questTrack {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #F2E3CE;
+  box-shadow: inset 0 1px 2px rgba(74, 63, 53, 0.14);
+  overflow: hidden;
+}
+
+.questFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #C89B5A, #E0A45C);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.questProgressText {
+  font-size: 10px;
+  color: #9C8D7E;
+  flex-shrink: 0;
+}
+
+/* ---------- 奖励徽章 ---------- */
+.rewardRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rewardChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(224, 164, 92, 0.14);
+  color: #A97C50;
+  font-size: 11px;
+  white-space: nowrap;
+}

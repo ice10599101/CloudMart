@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Input, Text, View } from '@tarojs/components'
 import {
   petApi,
+  petCompanionApi,
   type PetFriendFeedItem,
   type PetFriendPanel,
   PetInfo,
@@ -11,10 +12,11 @@ import {
 } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
 import styles from '../index.module.scss'
+import cream from '@/components/pet-cream/pet-cream.module.scss'
 
 /** 社交面板（三期）：关系/好友/留言墙/动态四个子 Tab（P2-4 拆出；F3 增加动态） */
 export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
-  const [tab, setTab] = useState<'relation' | 'friend' | 'wall' | 'feed'>('relation')
+  const [tab, setTab] = useState<'relation' | 'friend' | 'wall' | 'feed' | 'safety'>('relation')
   const [feed, setFeed] = useState<PetFriendFeedItem[] | null>(null)
   const [feedLoadingMore, setFeedLoadingMore] = useState(false)
   const [relations, setRelations] = useState<PetRelationPanel | null>(null)
@@ -25,6 +27,14 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
   const [replyInput, setReplyInput] = useState('')
   const [tip, setTip] = useState<string | null>(null)
   const [pending, setPending] = useState<string | null>(null)
+  // F3 动态未读数（页签角标；打开动态页签即自动推进水位）
+  const [feedUnread, setFeedUnread] = useState(0)
+  // B14 屏蔽与举报（名单接口只返回 userId 数组；举报 targetType 白名单 WALL_MESSAGE/BOTTLE_CONTENT/NICKNAME）
+  const [blocks, setBlocks] = useState<number[]>([])
+  const [blockInput, setBlockInput] = useState('')
+  const [reportType, setReportType] = useState('WALL_MESSAGE')
+  const [reportTargetId, setReportTargetId] = useState('')
+  const [reportReason, setReportReason] = useState('')
 
   const loadActive = useCallback(async () => {
     try {
@@ -45,6 +55,11 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
         }
         // 打开即推进已读水位（幂等，失败静默）
         void petApi.markFriendFeedRead().catch(() => undefined)
+      } else if (tab === 'safety') {
+        const { data: res } = await petCompanionApi.listBlocks()
+        if (res.success) {
+          setBlocks(res.data || [])
+        }
       } else {
         const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
         if (res.success && res.data) {
@@ -59,6 +74,13 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
   useEffect(() => {
     void loadActive()
   }, [loadActive])
+
+  // 动态未读数（进面板拉一次；打开动态页签会自动推进水位）
+  useEffect(() => {
+    petApi.getFriendFeedUnread().then(({ data: res }) => {
+      if (res.success) setFeedUnread(Number(res.data ?? 0))
+    }).catch(() => undefined)
+  }, [])
 
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
@@ -76,22 +98,56 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
     }
   }
 
+  /** B14 拉黑：幂等；屏蔽后双向限制新增互动 */
+  const doBlock = async () => {
+    const target = blockInput.trim()
+    if (!target) {
+      setTip('先填要拉黑的用户 ID')
+      return
+    }
+    await run('block', () => petCompanionApi.blockUser(target), '已拉黑')
+    setBlockInput('')
+  }
+
+  const doUnblock = async (userId: number) => {
+    await run(`unblock-${userId}`, () => petCompanionApi.unblockUser(userId), '已解除拉黑')
+  }
+
+  /** B14 举报：进入管理员处理队列 */
+  const doReport = async () => {
+    const targetId = reportTargetId.trim()
+    const reason = reportReason.trim()
+    if (!targetId || !reason) {
+      setTip('目标 ID 和理由都要填')
+      return
+    }
+    await run('report', () => petCompanionApi.reportTarget({ targetType: reportType, targetId, reason }), '已提交，管理员会处理')
+    setReportTargetId('')
+    setReportReason('')
+  }
+
+  /** N06 邀请好友协作（双方各贡献满 3 个业务日即可完成领奖） */
+  const inviteCooperation = async (userId: number) => {
+    await run(`coop-${userId}`, () => petApi.createCooperation(userId), '协作邀请已发出')
+  }
+
   return (
     <View>
-      <View className={styles.actionRow}>
+      <View className={cream.metaRow}>
         {([
           ['relation', '💞 关系'],
           ['friend', '🫂 好友'],
           ['wall', '📝 留言墙'],
-          ['feed', '📣 动态'],
+          ['feed', feedUnread > 0 ? `📣 动态(${feedUnread})` : '📣 动态'],
+          ['safety', '🛡️ 安全'],
         ] as Array<[typeof tab, string]>).map(([key, label]) => (
-          <Button
+          <View
             key={key}
-            className={tab === key ? styles.miniBtn : styles.miniBtnGhost}
+            className={`${cream.tab} ${tab === key ? cream.tabActive : ""}`}
             onClick={() => setTab(key)}
           >
-            {label}
-          </Button>
+            <Text>{label}</Text>
+          </View>
         ))}
       </View>
       {tip && <Text className={styles.tip}>{tip}</Text>}
@@ -254,6 +310,13 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                   }
                 >
                   去互访
+                </Button>
+                <Button
+                  className={styles.miniBtnGhost}
+                  disabled={pending === `coop-${item.userId}`}
+                  onClick={() => inviteCooperation(item.userId)}
+                >
+                  邀请协作
                 </Button>
                 <Button
                   className={styles.miniBtnGhost}
@@ -425,8 +488,85 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
           )}
         </View>
       )}
+      {tab === 'safety' && (
+        <View>
+          <Text className={styles.sectionTitle}>屏蔽名单</Text>
+          <Text className={styles.jobMeta}>屏蔽后双方不能新增拜访收益、挑战、留言与好友申请</Text>
+          <View className={styles.jobList}>
+            {blocks.length === 0 ? (
+              <Text className={styles.tip}>名单是空的</Text>
+            ) : blocks.map((userId) => (
+              <View key={userId} className={styles.jobCard}>
+                <View className={styles.jobInfo}>
+                  <Text className={styles.jobName}>用户 #{userId}</Text>
+                </View>
+                <Button
+                  className={styles.miniBtnGhost}
+                  disabled={pending === `unblock-${userId}`}
+                  onClick={() => doUnblock(userId)}
+                >
+                  解除
+                </Button>
+              </View>
+            ))}
+          </View>
+          <View className={styles.actionRow}>
+            <Input
+              className={styles.nameInput}
+              value={blockInput}
+              onInput={(e) => setBlockInput(e.detail.value)}
+              placeholder="要拉黑的用户 ID"
+              type="number"
+            />
+            <Button
+              className={styles.miniBtn}
+              disabled={pending === 'block'}
+              onClick={() => void doBlock()}
+            >
+              拉黑
+            </Button>
+          </View>
+
+          <Text className={styles.sectionTitle}>举报</Text>
+          <Text className={styles.jobMeta}>进入管理员处理队列；类型：留言墙内容 / 漂流瓶内容 / 昵称</Text>
+          <View className={styles.actionRow}>
+            {[
+              ['WALL_MESSAGE', '留言墙内容'],
+              ['BOTTLE_CONTENT', '漂流瓶内容'],
+              ['NICKNAME', '昵称'],
+            ].map(([value, label]) => (
+              <Button
+                key={value}
+                className={reportType === value ? styles.miniBtn : styles.miniBtnGhost}
+                onClick={() => setReportType(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </View>
+          <Input
+            className={styles.nameInput}
+            value={reportTargetId}
+            onInput={(e) => setReportTargetId(e.detail.value)}
+            placeholder="目标 ID（留言 / 瓶子 / 用户）"
+          />
+          <Input
+            className={styles.nameInput}
+            value={reportReason}
+            onInput={(e) => setReportReason(e.detail.value)}
+            placeholder="理由（200 字内）"
+            maxlength={200}
+          />
+          <Button
+            className={styles.miniBtn}
+            disabled={pending === 'report'}
+            onClick={() => void doReport()}
+          >
+            提交举报
+          </Button>
+        </View>
+      )}
     </View>
   )
 }
 
-/** 家园面板：房间布置 / 家具商城 / 拜访与设置 */

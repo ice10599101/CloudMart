@@ -83,6 +83,7 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetQuotaService quotaService;
     private final PetRankingCache rankingCache;
     private final PetFriendFeedService friendFeedService;
+    private final com.cloudmart.pet.repository.PetActivityMapper activityMapper;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBattleServiceImpl(PetService petService,
@@ -102,7 +103,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 com.cloudmart.pet.service.PetUserBlockService userBlockService,
                                 PetQuotaService quotaService,
                                 PetRankingCache rankingCache,
-                                PetFriendFeedService friendFeedService) {
+                                PetFriendFeedService friendFeedService,
+                                com.cloudmart.pet.repository.PetActivityMapper activityMapper) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -121,6 +123,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.quotaService = quotaService;
         this.rankingCache = rankingCache;
         this.friendFeedService = friendFeedService;
+        this.activityMapper = activityMapper;
     }
 
     @Override
@@ -152,6 +155,8 @@ public class PetBattleServiceImpl implements PetBattleService {
         if (stateService.isWeak(attacker)) {
             throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了上不了战场，先喂点东西吧");
         }
+        // P04：出战/工作互斥——攻击者打工/学习中不能发起挑战
+        assertNotBusyWithActivity(userId, attacker.getId(), "出战");
         PetBattleMode mode = parseMode(request.mode());
 
         if (mode == PetBattleMode.PVE) {
@@ -202,6 +207,22 @@ public class PetBattleServiceImpl implements PetBattleService {
 
     @Override
     @Transactional
+    /**
+     * P04：出战/工作互斥——参战宠物处于打工/学习进行中时禁止开战
+     * （挑战创建与应战两侧同样生效，防"PENDING 期间开工"的窗口）。
+     */
+    private void assertNotBusyWithActivity(Long userId, Long petId, String role) {
+        Long busy = activityMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetActivity>()
+                .eq(com.cloudmart.pet.entity.PetActivity::getUserId, userId)
+                .eq(com.cloudmart.pet.entity.PetActivity::getPetId, petId)
+                .eq(com.cloudmart.pet.entity.PetActivity::getStatus,
+                        com.cloudmart.pet.enums.PetActivityStatus.IN_PROGRESS.name()));
+        if (busy > 0) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
+                    "宠物正在打工/学习中，无法" + role);
+        }
+    }
+
     public PetBattleVO accept(Long userId, Long battleId) {
         PetBattle battle = requireBattle(battleId);
         if (!userId.equals(battle.getDefenderUserId())) {

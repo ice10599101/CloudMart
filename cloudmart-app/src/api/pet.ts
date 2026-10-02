@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // ========== 社区宠物（契约对齐 mall-pet，Web/App/小程序三端同构；实施文档 §4） ==========
 // 数值全部服务端计算：客户端只发意图（POST /pet/feed 等），不携带任何数值字段
 
-export type PetSpecies = 'CAT' | 'DOG' | 'RABBIT' | 'FOX' | 'PANDA'
+export type PetSpecies = 'STRAWBERRY' | 'ORANGE' | 'WATERMELON' | 'BLUEBERRY' | 'DRAGONFRUIT'
 /** 宠物性别（领养时选择；服务端对未传默认 MALE） */
 export type PetGender = 'MALE' | 'FEMALE'
 export type PetPersonality = 'LIVELY' | 'GENTLE' | 'TSUNDERE' | 'SIMPLE' | 'COOL' | 'CHATTERBOX'
@@ -256,7 +256,7 @@ export interface PetSummary {
   isActive: boolean
 }
 
-export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK'
+export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK' | 'FURNITURE' | 'FOOD'
 
 /** 商城商品（装备/皮肤/技能书统一结构） */
 export interface PetShopItem {
@@ -699,6 +699,98 @@ export const petApi = {
   /** 点赞/取消点赞留言 */
   likeWallMessage: (messageId: number) =>
     request<PetWallLike>({ url: `/pet/wall/messages/${messageId}/like`, method: 'POST' }),
+
+  // ==================== 契约补齐（对齐 CloudMart-ui / 后端，2026-10 对账缺口） ====================
+
+  /** F1 喂养道具：消耗背包食物恢复状态（效果服务端权威，默认不占免费次数） */
+  feedItem: (itemCode: string) =>
+    request<PetInfo>({ url: '/pet/feed-item', method: 'POST', data: { itemCode } }),
+
+  /** B06 动作可执行性：按钮禁用与文案依据（服务端权威） */
+  getActions: (petId: number | string) =>
+    request<PetActionItem[]>({ url: `/pet/pets/${petId}/actions` }),
+
+  /** B09 限时活动（与常驻 /pet/events 是两套体系） */
+  listActivities: () => request<PetActivityRow[]>({ url: '/pet/activities' }),
+  claimActivity: (activityId: number | string) =>
+    request<void>({ url: `/pet/activities/${activityId}/claim`, method: 'POST' }),
+
+  /** B08 待应战：面板从 listBattleHistory 过滤 PENDING+DEFENDER 渲染，专用查询冗余已移除 */
+
+  /** B15 一键领取全部已完成任务 */
+  claimAllDailyQuests: () => request<void>({ url: '/pet/daily-quests/claim-all', method: 'POST' }),
+
+  /** B05 停止陪伴会话（结算有效窗口内未计入时间；幂等） */
+  stopCompanion: () => request<void>({ url: '/pet/companion/stop', method: 'POST' }),
+
+  /** F8 人设卡：与注入 AI prompt 的身份信息同源 */
+  getChatPersona: () => request<PetPersona>({ url: '/pet/chat/persona' }),
+
+  /** B14 屏蔽：名单只返回 userId 数组（最小化暴露）；屏蔽后双向限制新增互动 */
+  listBlocks: () => request<number[]>({ url: '/pet/blocks' }),
+  blockUser: (blockedUserId: number | string) =>
+    request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'POST' }),
+  unblockUser: (blockedUserId: number | string) =>
+    request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'DELETE' }),
+
+  /** F3 好友动态（游标分页 beforeId = 上一页最后一条） */
+  listFriendFeed: (params?: { beforeId?: number | string; size?: number }) =>
+    request<PetFriendFeedItem[]>({ url: `/pet/friends/feed${buildQuery(params)}` }),
+  getFriendFeedUnreadCount: () => request<number>({ url: '/pet/friends/feed/unread-count' }),
+  markFriendFeedRead: () => request<void>({ url: '/pet/friends/feed/read', method: 'POST' }),
+
+  /** B12 装备替换预览：后端收 itemCode（装备编码），不是 itemId */
+  previewEquip: (itemCode: string) =>
+    request<PetEquipPreview>({ url: `/pet/inventory/equip-preview${buildQuery({ itemCode })}` }),
+
+  /** F7 纪念日：领养天数/连续陪伴/里程碑（纯计算端点，无新表） */
+  getAnniversaries: () => request<PetAnniversary>({ url: '/pet/me/anniversaries' }),
+
+  /** N04 对局历史（offset 分页 page/size，size 上限 50；展示投影 VO） */
+  listMinigameRounds: (page = 1, size = 10) =>
+    request<PetMinigameRoundItem[]>({ url: `/pet/minigames${buildQuery({ page, size })}` }),
+
+  /** B19 通知偏好：仅影响日常 proactive 问候 */
+  getNotifyPrefs: () => request<PetNotifyPref>({ url: '/pet/notify-settings' }),
+  updateNotifyPrefs: (data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) =>
+    request<PetNotifyPref>({ url: '/pet/notify-settings', method: 'PUT', data }),
+
+  /** N01 新手引导：完成由领域事件驱动，客户端只能查看/跳过（幂等） */
+  getOnboarding: () => request<PetOnboardingProgress>({ url: '/pet/onboarding' }),
+  skipOnboarding: () => request<void>({ url: '/pet/onboarding/skip', method: 'POST' }),
+
+  /** N02 成长日记（游标分页；他人仅见 PUBLIC 条目） */
+  listDiary: (petId: number | string, params?: { cursor?: number | string; pageSize?: number }) =>
+    request<PetDiaryPage>({ url: `/pet/pets/${petId}/diary${buildQuery(params)}` }),
+
+  /** N02 相册：上传（fileId 为 mall-file 授权引用）/删除；无列表接口，资产随日记展示 */
+  uploadAlbumAsset: (petId: number | string, fileId: string, diaryEntryId?: number | string) =>
+    request<PetAlbumAsset>({ url: `/pet/pets/${petId}/album`, method: 'POST', data: { fileId, diaryEntryId } }),
+  deleteAlbumAsset: (petId: number | string, assetId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/album/${assetId}`, method: 'DELETE' }),
+
+  /** N03 结构化记忆：USER 编辑优先于 AUTO 抽取 */
+  listMemories: (petId: number | string) =>
+    request<PetMemory[]>({ url: `/pet/pets/${petId}/memories` }),
+  editMemory: (petId: number | string, memoryId: number | string, data: { memoryValue: string; importance?: number }) =>
+    request<PetMemory>({ url: `/pet/pets/${petId}/memories/${memoryId}`, method: 'PUT', data }),
+  deleteMemory: (petId: number | string, memoryId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/memories/${memoryId}`, method: 'DELETE' }),
+  clearMemories: (petId: number | string) =>
+    request<void>({ url: `/pet/pets/${petId}/memories`, method: 'DELETE' }),
+  setMemorySettings: (petId: number | string, data: { extract: boolean; use: boolean }) =>
+    request<void>({ url: `/pet/pets/${petId}/memory-settings`, method: 'PUT', data }),
+
+  /** B19 提醒全部已读 */
+  markAllRemindersRead: () => request<void>({ url: '/pet/reminders/read-all', method: 'PUT' }),
+
+  /** B14 举报：targetType 白名单 WALL_MESSAGE/BOTTLE_CONTENT/NICKNAME，进入管理员处理队列 */
+  reportTarget: (data: { targetType: string; targetId: number | string; reason: string }) =>
+    request<void>({ url: '/pet/reports', method: 'POST', data }),
+
+  /** F2 赛季排行：无进行中赛季 season=null；历届为结算快照名次 */
+  getSeasonRanking: () => request<PetSeasonRanking>({ url: '/pet/rankings/season' }),
+  getSeasonHistory: () => request<PetSeasonHistoryItem[]>({ url: '/pet/rankings/season/history' }),
 }
 
 // ==================== 三期类型（与服务端 VO 对齐） ====================
@@ -1038,4 +1130,188 @@ export interface PetWallLike {
   liked: boolean
   newlyLiked: boolean
   message: string
+}
+
+// ==================== 契约补齐（对齐 CloudMart-ui / 后端 VO，2026-10 对账） ====================
+
+/** 动作可执行性（B06，契约对齐后端 PetActionVO） */
+export interface PetActionItem {
+  action: string
+  allowed: boolean
+  reasonCode: string | null
+  reasonText: string | null
+  nextAvailableAt: string | null
+  rewardRemainingToday: number | null
+}
+
+/** 限时活动行（PetActivityVO 的前端收敛） */
+export interface PetActivityRow {
+  activityId: number | string
+  petName: string | null
+  activityType: string
+  configName: string | null
+  status: string
+  remainingSeconds: number
+  canClaim: boolean
+  claimedAt: string | null
+}
+
+/** 好友动态条目（升级 / 打工完成 / 读书完成 / 对战获胜） */
+export interface PetFriendFeedItem {
+  feedId: number
+  actorUserId: number
+  actorPetId: number
+  eventType: string
+  text: string
+  petName: string | null
+  createdAt: string | null
+}
+
+/** 装备替换预览的属性快照（hp/maxHp/strength/intelligence/agility/charm） */
+export interface PetEquipStats {
+  hp: number
+  maxHp: number
+  strength: number
+  intelligence: number
+  agility: number
+  charm: number
+}
+
+/** 装备替换预览（B12，契约对齐后端 PetEquipPreviewVO） */
+export interface PetEquipPreview {
+  itemCode: string
+  base: PetEquipStats
+  current: PetEquipStats
+  after: PetEquipStats
+  delta: PetEquipStats
+}
+
+/** 纪念日里程碑（key 如 100_DAYS / ANNIVERSARY_1；daysToGo 负数表示已过） */
+export interface PetMilestone {
+  key: string
+  title: string
+  daysToGo: number
+}
+
+/** 宠物纪念日（纯计算端点：领养天数 / 连续陪伴 / 当前与下一个里程碑） */
+export interface PetAnniversary {
+  adoptionDays: number
+  companionStreak: number
+  currentMilestone: PetMilestone | null
+  nextMilestone: PetMilestone | null
+}
+
+/** 小游戏对局历史项（契约对齐后端 PetMinigameRoundVO；内部字段不出域） */
+export interface PetMinigameRoundItem {
+  roundId: number | string
+  gameType: string
+  status: string
+  ruleVersion: string
+  startedAt: string | null
+  deadlineAt: string | null
+  successCount: number
+  rewardEligible: boolean
+}
+
+/** 宠物人设卡（F8）：与注入 AI prompt 的身份信息同源 */
+export interface PetPersona {
+  name: string
+  personality: string
+  personalityText: string
+  careerCode: string | null
+  careerName: string | null
+  phrase: string | null
+  intimacyLevel: number
+  intimacyLevelName: string | null
+  ownerTitle: string | null
+}
+
+/** 新手引导进度（N01） */
+export interface PetOnboardingProgress {
+  currentStep: number
+  totalSteps: number
+  skippable: boolean
+  completed: boolean
+}
+
+/** 通知偏好（B19） */
+export interface PetNotifyPref {
+  id: number
+  userId: number
+  muteDailyGreeting: boolean
+  dailyGreetingEnabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** 成长日记条目（N02；type 为领域事件类型） */
+export interface PetDiaryEntry {
+  id: number
+  petId: number
+  type: string
+  content: string
+  visibility: 'PUBLIC' | 'PRIVATE'
+  assetIds: number[] | null
+  createdAt: string
+}
+
+/** 日记游标分页信封（后端 Map：items/nextCursor/hasMore） */
+export interface PetDiaryPage {
+  items: PetDiaryEntry[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+/** 相册资源（fileId 为 mall-file 授权引用；每用户 100 张） */
+export interface PetAlbumAsset {
+  id: number
+  userId: number
+  petId: number
+  diaryEntryId: number | null
+  fileId: string
+  auditStatus: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 结构化记忆（N03；USER 编辑优先于 AUTO 抽取） */
+export interface PetMemory {
+  id: number
+  userId: number
+  petId: number
+  memoryType: 'FAVORITE' | 'HABIT' | 'FACT'
+  memoryKey: string
+  memoryValue: string
+  importance: number
+  confidence: number
+  source: 'AUTO' | 'USER'
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** 赛季信息（F2） */
+export interface PetSeasonInfo {
+  seasonId: number | string
+  name: string
+  startsAt: string | null
+  endsAt: string | null
+  status: string
+}
+
+/** 赛季排行榜（Top50 复用等级榜口径） */
+export interface PetSeasonRanking {
+  season: PetSeasonInfo | null
+  top50: PetRankingItem[]
+  myRank: number | null
+  myLevel: number | null
+}
+
+/** 历届名次条目（已结算赛季快照） */
+export interface PetSeasonHistoryItem {
+  seasonId: number | string
+  seasonName: string
+  endedAt: string | null
+  rankNo: number
+  level: number
 }

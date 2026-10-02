@@ -1,0 +1,277 @@
+/* 玩法面板 · 法式奶油风（组件级样式：只给 PlayBoard 引用）
+ * 接球小游戏是"看序列 + 卡时间窗"的玩法：序列条是提示，命中靠服务端时窗校验。 */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  font-size: 13px;
+  color: var(--mocha);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tabActive {
+  color: var(--espresso);
+  font-weight: 500;
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+}
+
+.block {
+  margin-top: 18px;
+}
+
+.blockTitle {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+  letter-spacing: 0.3px;
+}
+
+.blockDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+/* 接球：序列条 + 三个落点 */
+.gameCard {
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF9, #F7EADA);
+  box-shadow: var(--z1), var(--edge);
+}
+
+.gameHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+.timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--brass-600);
+}
+
+.gameStrip {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.gameCell {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  border: 1px dashed rgba(169, 124, 80, 0.45);
+  background: rgba(255, 253, 248, 0.6);
+  font-size: 16px;
+  color: var(--mocha-light);
+}
+
+.gameCellDone {
+  border-style: solid;
+  border-color: rgba(126, 146, 112, 0.6);
+  background: rgba(156, 175, 136, 0.18);
+  color: var(--sage-500);
+}
+
+.gameCellNow {
+  border-style: solid;
+  border-color: var(--brass-400);
+  background: linear-gradient(180deg, #FFFDF8, #F2E3CE);
+  box-shadow: 0 0 0 2px rgba(200, 155, 90, 0.22);
+  color: var(--espresso);
+}
+
+.gameSlots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.slotBtn {
+  min-height: 52px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(200, 155, 90, 0.5);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.35), var(--z1);
+  font-size: 15px;
+  color: var(--espresso);
+  cursor: pointer;
+}
+
+.slotBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(169, 124, 80, 0.35);
+}
+
+.slotBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gameMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--mocha);
+  margin-top: 12px;
+}
+
+.resultCard {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: rgba(255, 253, 248, 0.9);
+  font-size: 13px;
+  color: var(--espresso);
+}
+
+/* 通用行 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--cream-line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowIcon {
+  flex: none;
+  width: 30px;
+  text-align: center;
+  font-size: 20px;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+}
+
+.rowDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0;
+}
+
+.rowActions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+/* 图鉴网格 */
+.gridCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.collectCard {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  background: linear-gradient(180deg, #FFFDF9, #FDF6EC);
+  box-shadow: var(--z1);
+  font-size: 13px;
+  color: var(--espresso);
+}
+
+.collectLocked {
+  background: rgba(242, 227, 206, 0.6);
+  color: var(--mocha);
+  box-shadow: none;
+}
+
+.collectMeta {
+  display: block;
+  font-size: 11px;
+  color: var(--mocha);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pick {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  font-size: 13px;
+  color: var(--mocha);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pickActive {
+  color: var(--espresso);
+  font-weight: 500;
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+.note {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+.empty {
+  padding: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mocha);
+}

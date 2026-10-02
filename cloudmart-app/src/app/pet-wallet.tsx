@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { petApi } from '@/api/pet'
 import type { PetWalletTransactionVO, PetWalletVO } from '@/api/pet'
+import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -128,7 +129,7 @@ export default function PetWalletScreen() {
             {new Date(item.occurredAt).toLocaleString('zh-CN')}
           </Text>
         </View>
-        <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: spend ? '#ff6b6b' : '#52c41a' }}>
+        <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: spend ? PetCreamSemantic.danger : PetCreamSemantic.success }}>
           {spend ? '-' : '+'}{item.amount}
         </Text>
       </View>
@@ -160,14 +161,14 @@ export default function PetWalletScreen() {
         <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>
           宠物币余额（{wallet?.currency ?? 'PET_COIN'}）
         </Text>
-        <Text style={{ fontSize: 32, fontWeight: '700', color: '#facc15', marginTop: 4 }}>{balanceText}</Text>
+        <Text style={{ fontSize: 32, fontWeight: '700', color: PetCreamTheme.primary, marginTop: 4 }}>{balanceText}</Text>
         {wallet?.status === 'FROZEN' && (
-          <Text style={{ fontSize: FontSize.xs, color: '#f87171', marginTop: 4 }}>
+          <Text style={{ fontSize: FontSize.xs, color: PetCreamSemantic.danger, marginTop: 4 }}>
             已冻结：暂不能消费，仍可查看与退款，请联系客服
           </Text>
         )}
         <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 4 }}>
-          宠物币与社区星光相互独立；历史社区星光请到星光流水查看
+          宠物币是宠物模块独立货币；社区活动请到对应页面查看
         </Text>
       </View>
 

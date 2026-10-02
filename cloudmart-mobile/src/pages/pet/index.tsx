@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text, Input, Button, ScrollView, Switch } from '@tarojs/components'
+import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import {
   petApi, petCompanionApi,
@@ -29,11 +29,18 @@ import {
   type PetVisitNeighbor,
   type PetIntimacyInfo,
   type PetOnboardingProgress,
+  type PetActionItem,
+  type PetEquipPreview,
 } from '@/api/pet'
 import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { PET_CREAM_STYLE, PET_CREAM_STAT_TONE, PET_CREAM_EXT_STYLE } from '@/styles/petCream'
+import { PET_STAGE_URL } from '@/api/pet'
+import { CreamToggle } from '@/components/pet-cream'
+import { CreamCard, CreamButton, CreamChip, CreamStatBar, CreamMasthead, CreamSheet } from '@/components/pet-cream'
+import cream from '@/components/pet-cream/pet-cream.module.scss'
 import styles from './index.module.scss'
 // P2-4：独立面板组件拆分（行为不变，见各 panels 文件）
 import { CARE_ERROR_HINT } from './panels/shared'
@@ -53,11 +60,11 @@ import { MemoryPanel } from './panels/MemoryPanel'
  */
 
 const SPECIES_OPTIONS = [
-  { value: 'CAT', emoji: '🐱', label: '橘猫' },
-  { value: 'DOG', emoji: '🐶', label: '柴犬' },
-  { value: 'RABBIT', emoji: '🐰', label: '兔子' },
-  { value: 'FOX', emoji: '🦊', label: '小狐狸' },
-  { value: 'PANDA', emoji: '🐼', label: '熊猫' },
+  { value: 'STRAWBERRY', emoji: '🍓', label: '草莓' },
+  { value: 'ORANGE', emoji: '🍊', label: '橘子' },
+  { value: 'WATERMELON', emoji: '🍉', label: '西瓜' },
+  { value: 'BLUEBERRY', emoji: '🫐', label: '蓝莓' },
+  { value: 'DRAGONFRUIT', emoji: '🐉', label: '火龙果' },
 ] as const
 
 /** 领养可选性别（与服务端 PetGender 一致） */
@@ -75,7 +82,13 @@ const PERSONALITY_OPTIONS = [
   { value: 'CHATTERBOX', label: '话痨' },
 ] as const
 
-const SPECIES_EMOJI: Record<string, string> = { CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }
+const SPECIES_EMOJI: Record<string, string> = {
+  STRAWBERRY: '🍓',
+  ORANGE: '🍊',
+  WATERMELON: '🍉',
+  BLUEBERRY: '🫐',
+  DRAGONFRUIT: '🐉',
+}
 const STATUS_LABEL: Record<string, string> = {
   IDLE: '悠闲中', WORKING: '打工中', STUDYING: '读书中', FISHING: '捞瓶中', RESTING: '休息中',
   WEAK: '饿坏了！快喂食', SICK: '不开心病了，多陪陪它',
@@ -93,6 +106,11 @@ const ACCESSORIES = [
 const PRIORITY_LABEL: Record<string, string> = { P0: '重要', P1: '普通', P2: '低' }
 const SLOT_LABEL: Record<string, string> = { HAT: '帽子', NECKLACE: '项圈', SCARF: '围巾', BACKPACK: '背包' }
 const ITEM_TYPE_LABEL: Record<string, string> = { EQUIPMENT: '装备', SKIN: '皮肤', SKILL_BOOK: '技能书' }
+/** B06 动作可执行性的展示名（action 码 → 中文） */
+const ACTION_LABEL: Record<string, string> = {
+  FEED: '喂食', PLAY: '玩耍', CLEAN: '清洁', REST: '休息',
+  WORK: '打工', STUDY: '读书', BOTTLE: '捞瓶', BATTLE: '对战',
+}
 const EVENT_TYPE_LABEL: Record<string, string> = {
   BOTTLE: '捞瓶', BATTLE: '对战胜场', WORK: '打工', STUDY: '读书', FEED: '喂食', PLAY: '玩耍', VISIT: '串门',
 }
@@ -129,20 +147,30 @@ type PanelKey =
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
   | 'daily' | 'social' | 'memory'
 
-const PANELS: Array<{ key: PanelKey; label: string }> = [
-  { key: 'home', label: '🏠 家园' },
-  { key: 'care', label: '🎒 养成' },
-  { key: 'daily', label: '✅ 任务' },
-  { key: 'social', label: '🤝 社交' },
-  { key: 'work', label: '💼 打工' },
-  { key: 'study', label: '📚 读书' },
-  { key: 'bottle', label: '🍾 捞瓶' },
-  { key: 'battle', label: '⚔️ 对战' },
-  { key: 'chat', label: '💬 聊天' },
-  { key: 'achievements', label: '🏆 成就' },
-  { key: 'rankings', label: '📊 排行' },
-  { key: 'reminders', label: '🔔 提醒' },
-  { key: 'memory', label: '📖 回忆' },
+const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
+  { key: 'home', label: '家园', emoji: '🏠' },
+  { key: 'memory', label: '记忆', emoji: '🧠' },
+  { key: 'daily', label: '任务', emoji: '✅' },
+  { key: 'work', label: '打工', emoji: '💼' },
+  { key: 'study', label: '读书', emoji: '📚' },
+  { key: 'bottle', label: '捞瓶', emoji: '🍾' },
+  { key: 'battle', label: '对战', emoji: '⚔️' },
+  { key: 'care', label: '养成', emoji: '🎒' },
+  { key: 'social', label: '社交', emoji: '🤝' },
+  { key: 'chat', label: '聊天', emoji: '💬' },
+  { key: 'achievements', label: '成就', emoji: '🏆' },
+  { key: 'rankings', label: '榜单', emoji: '🥇' },
+  { key: 'reminders', label: '提醒', emoji: '🔔' },
+]
+
+const PANEL_TITLE = Object.fromEntries(PANELS.map((item) => [item.key, item.label])) as Record<PanelKey, string>
+
+/** 功能宫格分组（对齐 Web 端 PANEL_GROUPS：La Maison / Croissance / Les Amis / Archives） */
+const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
+  { label: 'La Maison', hint: '小家与记忆', keys: ['home', 'memory'] },
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'work', 'study', 'bottle', 'battle', 'care'] },
+  { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
+  { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
 
 interface BattleRound {
@@ -229,9 +257,9 @@ export default function PetPage() {
   const [pet, setPet] = useState<PetInfo | null>(null)
   // P1-6：互动请求进行中锁——快速连点只发 1 个请求（服务端配额原子扣减，但每次点击都会真实消耗）
   const [acting, setActing] = useState(false)
-  const [panel, setPanel] = useState<PanelKey>('home')
+  const [panel, setPanel] = useState<PanelKey | null>('home')
   const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
-  const [adoptSpecies, setAdoptSpecies] = useState('CAT')
+  const [adoptSpecies, setAdoptSpecies] = useState('STRAWBERRY')
   const [adoptGender, setAdoptGender] = useState('MALE')
   const [adoptPersonality, setAdoptPersonality] = useState('LIVELY')
   const [adoptName, setAdoptName] = useState('')
@@ -284,6 +312,10 @@ export default function PetPage() {
   const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
   const [myPets, setMyPets] = useState<PetSummary[]>([])
   const [careMessage, setCareMessage] = useState<string | null>(null)
+  // B06 动作可执行性（随主宠刷新；拉取失败按"不可知"隐藏，不打断主流程）
+  const [actions, setActions] = useState<PetActionItem[]>([])
+  // B12 装备替换预览（按行切换显示替换增量；只读不写入）
+  const [equipPreview, setEquipPreview] = useState<PetEquipPreview | null>(null)
   // 对战回合流水回放浮层（服务端计算，客户端只播放）
   const [roundsView, setRoundsView] = useState<{ rounds: BattleRound[]; won: boolean } | null>(null)
   // 聊天历史分页（cursor）
@@ -417,6 +449,38 @@ export default function PetPage() {
     }
   }, [pet?.petId, loadIntimacy])
 
+  /** B06 动作可执行性：喂食/玩耍等当前能否执行与原因，随主宠刷新 */
+  const loadActions = useCallback(async () => {
+    if (!pet) return
+    try {
+      const { data: res } = await petCompanionApi.getActions(pet.petId)
+      if (res.success) setActions(res.data)
+    } catch {
+      // 辅助信息：失败时清空（不显示 chips），由下一次 refresh 重试
+      setActions([])
+    }
+  }, [pet?.petId])
+
+  useEffect(() => {
+    if (pet) {
+      void loadActions()
+    }
+  }, [pet?.petId, loadActions])
+
+  /** B12 装备替换预览：同码再点收起 */
+  const toggleEquipPreview = useCallback(async (itemCode: string) => {
+    if (equipPreview?.itemCode === itemCode) {
+      setEquipPreview(null)
+      return
+    }
+    try {
+      const { data: res } = await petCompanionApi.previewEquip(itemCode)
+      if (res.success) setEquipPreview(res.data)
+    } catch {
+      toast('预览未成功，稍后再试')
+    }
+  }, [equipPreview?.itemCode])
+
   const refresh = useCallback(async () => {
     try {
       const { data: res } = await petApi.getMyPet()
@@ -524,7 +588,7 @@ export default function PetPage() {
   }, [loadPanelData])
 
   useEffect(() => {
-    if (pet) loadPanelDataIfStale(panel)
+    if (pet && panel) loadPanelDataIfStale(panel)
   }, [panel, pet, loadPanelDataIfStale])
 
   // 提醒未读角标
@@ -546,7 +610,7 @@ export default function PetPage() {
     if (Number.isNaN(target) || target > Date.now()) return
     const timer = setTimeout(() => {
       refresh()
-      loadPanelData(panel)
+      panel && loadPanelData(panel)
     }, 1500)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -807,7 +871,7 @@ export default function PetPage() {
 
   if (!currentUser && !loading) {
     return (
-      <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+      <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE, ...PET_CREAM_EXT_STYLE }}>
         <CustomNavBar title="我的宠物" />
         <View className={styles.empty} style={{ paddingTop: statusBarHeight + navBarHeight }}>
           <Text className={styles.emptyEmoji}>🐾</Text>
@@ -820,7 +884,7 @@ export default function PetPage() {
 
   if (loading) {
     return (
-      <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+      <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE, ...PET_CREAM_EXT_STYLE }}>
         <CustomNavBar title="我的宠物" />
         <View className={styles.empty}><Text>加载中…</Text></View>
       </View>
@@ -830,7 +894,7 @@ export default function PetPage() {
   // 领养向导
   if (noPet || !pet) {
     return (
-      <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+      <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE, ...PET_CREAM_EXT_STYLE }}>
         <CustomNavBar title="我的宠物" />
         <ScrollView scrollY className={styles.adoptScroll} style={{ paddingTop: statusBarHeight + navBarHeight }}>
           <Text className={styles.adoptTitle}>🐾 领养一只属于你的宠物</Text>
@@ -909,13 +973,18 @@ export default function PetPage() {
   }
 
   return (
-    <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+    <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE, ...PET_CREAM_EXT_STYLE }}>
       <CustomNavBar title="我的宠物" />
       <ScrollView scrollY className={styles.body} style={{ paddingTop: statusBarHeight + navBarHeight }}>
-        {/* 头部卡片 */}
-        <View className={styles.heroCard}>
+        {/* 招牌页头 */}
+        <CreamMasthead title="Le Petit Jardin" subtitle="宠物小花园 · 五果相伴" />
+
+        {/* Ma Maison：身份卡 + 舞台入口（拱形主视觉） */}
+        <CreamCard variant="arch" label="Ma Maison">
           <View className={styles.heroRow}>
-            <Text className={styles.heroEmoji}>{SPECIES_EMOJI[pet.species] || '🐾'}</Text>
+            <View className={cream.avatar}>
+              <Text className={styles.heroEmoji}>{SPECIES_EMOJI[pet.species] || '🐾'}</Text>
+            </View>
             <View className={styles.heroInfo}>
               <Text className={styles.heroName}>
                 {pet.name}
@@ -924,36 +993,47 @@ export default function PetPage() {
                 </Text>
                 {' · Lv.'}{pet.level}
               </Text>
-              <Text className={styles.heroStatus}>
-                {STATUS_LABEL[pet.status]} · {GROWTH_STAGE_LABEL[pet.growthStage] ?? pet.growthStage}
-              </Text>
+              <View className={cream.metaRow}>
+                <CreamChip color="#C89B5A">{STATUS_LABEL[pet.status]}</CreamChip>
+                <CreamChip color="#E0A45C">{GROWTH_STAGE_LABEL[pet.growthStage] ?? pet.growthStage}</CreamChip>
+              </View>
               <Text className={styles.heroStatus}>
                 💪{pet.strength} 🧠{pet.intelligence} 🌀{pet.agility} 💖{pet.charm}
                 {pet.feedRemainingToday != null ? ` · 今日可喂食 ${pet.feedRemainingToday} 次` : ''}
               </Text>
             </View>
-            <View className={styles.stageEntry} onClick={openStage}>
-              <Text className={styles.stageEntryText}>进入舞台</Text>
+          </View>
+          <View className={cream.stageEntry} onClick={openStage}>
+            <Text>进入 3D 舞台（完整互动）</Text>
+          </View>
+          {process.env.TARO_ENV === 'h5' && (
+            <View className={styles.stageEmbed}>
+              <iframe src={PET_STAGE_URL} title="3D 舞台" className={styles.stageIframe} />
             </View>
+          )}
+        </CreamCard>
+
+        {/* État：状态仪表 + 动作可用性 + 亲密度 */}
+        <CreamCard variant="menu" label="État" title="状态">
+          <View className={cream.statsGrid}>
+            <CreamStatBar variant="cell" name="生命" value={pet.hp} max={pet.maxHp} color={PET_CREAM_STAT_TONE.hp} />
+            <CreamStatBar variant="cell" name="饱食" value={pet.hunger} max={100} color={PET_CREAM_STAT_TONE.hunger} />
+            <CreamStatBar variant="cell" name="心情" value={pet.happiness} max={100} color={PET_CREAM_STAT_TONE.happiness} />
+            <CreamStatBar variant="cell" name="精力" value={pet.energy} max={100} color={PET_CREAM_STAT_TONE.energy} />
+            <CreamStatBar variant="cell" name="清洁" value={pet.cleanliness} max={100} color={PET_CREAM_STAT_TONE.cleanliness} />
           </View>
-          <View className={styles.bars}>
-            {[
-              { label: '❤️ 生命', value: pet.hp, max: pet.maxHp, color: '#ff6c6c' },
-              { label: '🍖 饱食', value: pet.hunger, max: 100, color: '#ffb258' },
-              { label: '💗 心情', value: pet.happiness, max: 100, color: '#ff69b4' },
-              { label: '⚡ 精力', value: pet.energy, max: 100, color: '#62d88a' },
-              { label: '🧼 清洁', value: pet.cleanliness, max: 100, color: '#60beff' },
-            ].map((row) => (
-              <View key={row.label} className={styles.barRow}>
-                <Text className={styles.barLabel}>{row.label}</Text>
-                <View className={styles.barTrack}>
-                  <View className={styles.barFill} style={{ width: `${Math.min(100, (row.value / row.max) * 100)}%`, background: row.color }} />
-                </View>
-                <Text className={styles.barValue}>{row.value}/{row.max}</Text>
-              </View>
-            ))}
-          </View>
-          {/* 三期：亲密度与陪伴（服务端权威，前端只展示；陪伴时长由心跳累计） */}
+          {actions.length > 0 && (
+            <View className={styles.actionChips}>
+              {actions.map((item) => (
+                <Text key={item.action} className={item.allowed ? styles.actionChipOk : styles.actionChipNo}>
+                  {ACTION_LABEL[item.action] ?? item.action}
+                  {item.allowed
+                    ? (item.rewardRemainingToday != null ? ` · 余${item.rewardRemainingToday}` : '')
+                    : ` · ${item.reasonText ?? '暂不可'}`}
+                </Text>
+              ))}
+            </View>
+          )}
           <Text className={styles.jobMeta}>
             💞 亲密度 {intimacy ? `${intimacy.intimacy}（${intimacy.levelName}）` : `${pet.intimacy}（${pet.intimacyLevelName}）`}
             {intimacy && intimacy.nextLevelAt !== null ? ` · 还差 ${intimacy.toNext}` : ''}
@@ -961,35 +1041,19 @@ export default function PetPage() {
             {` · 已陪伴 ${Math.floor((intimacy?.companionSeconds ?? pet.companionSeconds) / 3600)} 小时`}
             {intimacy ? `（今日 ${Math.round(intimacy.todayCompanionSeconds / 60)} 分钟，连续 ${intimacy.companionStreak} 天）` : ''}
           </Text>
-          {/* 互动按钮 */}
-          <View className={styles.actionRow}>
-            <Button
-              className={styles.actionBtn}
-              disabled={acting}
-              onClick={() => runInteraction('feed')}
-              onLongPress={() => void openFoodPicker()}
-            >
-              🍖 喂食
-            </Button>
-            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('play')}>🎾 玩耍</Button>
-            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('clean')}>🫧 清洁</Button>
-            <Button className={styles.actionBtn} disabled={acting} onClick={() => runInteraction('rest')}>💤 休息</Button>
-          </View>
-          <View className={styles.actionRow}>
-            <Button className={styles.actionBtn} onClick={openProfile}>🎀 档案</Button>
-            <Button
-              className={styles.actionBtn}
-              onClick={() => Taro.navigateTo({ url: '/pages/petWallet/index' })}
-            >
-              🪙 宠物币
-            </Button>
-            <Button
-              className={styles.actionBtn}
-              onClick={() => Taro.navigateTo({ url: '/pages/petPlay/index' })}
-            >
-              🎮 玩法
-            </Button>
-          </View>
+        </CreamCard>
+
+        {/* 养成动作（喂食长按可选背包食物） */}
+        <View className={cream.actionsRow}>
+          <CreamButton disabled={acting} onClick={() => runInteraction('feed')} onLongPress={() => void openFoodPicker()}>🍖 喂食</CreamButton>
+          <CreamButton disabled={acting} onClick={() => runInteraction('play')}>🎾 玩耍</CreamButton>
+          <CreamButton disabled={acting} onClick={() => runInteraction('clean')}>🫧 清洁</CreamButton>
+          <CreamButton disabled={acting} onClick={() => runInteraction('rest')}>💤 休息</CreamButton>
+        </View>
+        <View className={cream.actionsRow}>
+          <CreamButton variant="ghost" onClick={openProfile}>🎀 档案</CreamButton>
+          <CreamButton variant="ghost" onClick={() => Taro.navigateTo({ url: '/pages/petWallet/index' })}>🪙 宠物币</CreamButton>
+          <CreamButton variant="ghost" onClick={() => Taro.navigateTo({ url: '/pages/petPlay/index' })}>🎮 玩法</CreamButton>
         </View>
 
         {/* P2-4：陪伴心跳连续失败提示条（成功一次自动消失） */}
@@ -1022,7 +1086,7 @@ export default function PetPage() {
                   } else {
                     await openBottleResult()
                   }
-                  loadPanelData(panel)
+                  panel && loadPanelData(panel)
                   refresh()
                 } catch (error) {
                   toast(friendlyError(error))
@@ -1036,42 +1100,56 @@ export default function PetPage() {
           </View>
         )}
 
-        {/* 面板切换 */}
-        <ScrollView scrollX className={styles.panelTabs} enhanced showScrollbar={false}>
-          <View className={styles.panelTabsInner}>
-            {onboarding && !onboarding.completed && (
-              <View className={styles.onboardingBanner}>
-                <Text className={styles.onboardingText}>
-                  🧭 新手引导 {onboarding.currentStep}/{onboarding.totalSteps} 步
-                </Text>
-                {onboarding.skippable && (
-                  <Button
-                    size='mini'
-                    className={styles.miniBtnGhost}
-                    onClick={() =>
-                      petCompanionApi.skipOnboarding().then(() => {
-                        setOnboarding({ ...onboarding, completed: true })
-                        Taro.showToast({ title: '已跳过引导', icon: 'none' })
-                      })
-                    }
-                  >
-                    跳过
-                  </Button>
-                )}
-              </View>
-            )}
-            {PANELS.map((item) => (
-              <View
-                key={item.key}
-                className={`${styles.panelTab} ${panel === item.key ? styles.panelTabActive : ''}`}
-                onClick={() => setPanel(item.key)}
+        {/* 新手引导（未完成时横幅） */}
+        {onboarding && !onboarding.completed && (
+          <View className={styles.onboardingBanner}>
+            <Text className={styles.onboardingText}>
+              🧭 新手引导 {onboarding.currentStep}/{onboarding.totalSteps} 步
+            </Text>
+            {onboarding.skippable && (
+              <Button
+                size='mini'
+                className={styles.miniBtnGhost}
+                onClick={() =>
+                  petCompanionApi.skipOnboarding().then(() => {
+                    setOnboarding({ ...onboarding, completed: true })
+                    Taro.showToast({ title: '已跳过引导', icon: 'none' })
+                  })
+                }
               >
-                <Text>{item.label}{item.key === 'reminders' && reminderUnread > 0 ? ` (${reminderUnread})` : ''}</Text>
-              </View>
-            ))}
+                跳过
+              </Button>
+            )}
           </View>
-        </ScrollView>
+        )}
 
+        {/* 功能宫格（分组，对齐 Web 端） */}
+        {MENU_GROUPS.map((group) => (
+          <View key={group.label} className={cream.menuGroup}>
+            <View className={cream.menuGroupLabel}>
+              <Text className={cream.menuGroupTitle}>{group.label}</Text>
+              <Text className={cream.menuGroupHint}>{group.hint}</Text>
+            </View>
+            <View className={cream.menuGrid}>
+              {group.keys.map((key) => {
+                const meta = PANELS.find((item) => item.key === key)
+                if (!meta) return null
+                return (
+                  <View key={key} className={cream.menuItem} onClick={() => setPanel(key)}>
+                    <Text className={cream.menuItemEmoji}>{meta.emoji}</Text>
+                    <Text className={cream.menuItemLabel}>
+                      {meta.label}{key === 'reminders' && reminderUnread > 0 ? `(${reminderUnread})` : ''}
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+          </View>
+        ))}
+
+        {/* 面板弹层：面板内容装进奶油视口层 */}
+        {panel && (
+        <CreamSheet title={PANEL_TITLE[panel]} onClose={() => setPanel(null)}>
         <View className={styles.panelBody}>
           {panel === 'daily' && <DailyQuestPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
@@ -1081,13 +1159,13 @@ export default function PetPage() {
               {/* 三期：家园（房间布置 / 家具 / 拜访） */}
               <HomePanel onRefresh={refresh} />
               <Text className={styles.tip}>🍖 饱食和清洁随时间下降，记得回来照顾它</Text>
-              <Text className={styles.tip}>💼 打工赚星光，📚 读书涨智力</Text>
+              <Text className={styles.tip}>💼 打工赚宠物币，📚 读书涨智力</Text>
               <Text className={styles.tip}>🍾 宠物会定时帮你捞社区漂流瓶并主动提醒</Text>
               <Text className={styles.tip}>⚔️ 对战由服务端计算，输了也有经验</Text>
               <Text className={styles.tip}>💬 和它聊聊天，它会记住你的喜好哦</Text>
               <View className={styles.modalRow}>
                 <Text className={styles.modalLabel}>在个人主页展示宠物</Text>
-                <Switch checked={pet.isPublic} disabled={privacyBusy} onChange={(e) => void togglePrivacy(e.detail.value)} />
+                <CreamToggle on={pet.isPublic} disabled={privacyBusy} onChange={() => void togglePrivacy(!pet.isPublic)} />
               </View>
               <Text className={styles.tip}>关闭后不会进入宠物榜单，其他用户也看不到它</Text>
               <Text className={styles.sectionTitle}>宠物动态卡片</Text>
@@ -1111,7 +1189,11 @@ export default function PetPage() {
                 <View key={String(job.configId)} className={styles.jobCard}>
                   <View className={styles.jobInfo}>
                     <Text className={styles.jobName}>{job.name}</Text>
-                    <Text className={styles.jobMeta}>⏱ {Math.round(job.durationSeconds / 60)} 分钟 · ⚡-{job.energyCost} · ✨+{job.expReward} · ⭐+{job.currencyReward}</Text>
+                    <Text className={styles.jobMeta}>⏱ {Math.round(job.durationSeconds / 60)} 分钟 · ⚡-{job.energyCost}</Text>
+                    <View className={cream.rewardRow}>
+                      <Text className={cream.rewardChip}>{`经验 +${job.expReward}`}</Text>
+                      <Text className={cream.rewardChip}>{`宠物币 +${job.currencyReward}`}</Text>
+                    </View>
                   </View>
                   {job.eligible ? (
                     <Button className={styles.miniBtn} onClick={async () => {
@@ -1142,7 +1224,11 @@ export default function PetPage() {
                 <View key={String(study.configId)} className={styles.jobCard}>
                   <View className={styles.jobInfo}>
                     <Text className={styles.jobName}>{study.name}</Text>
-                    <Text className={styles.jobMeta}>⏱ {Math.round(study.durationSeconds / 60)} 分钟 · ✨+{study.expReward} · 🧠+{study.intelligenceReward}</Text>
+                    <Text className={styles.jobMeta}>⏱ {Math.round(study.durationSeconds / 60)} 分钟</Text>
+                    <View className={cream.rewardRow}>
+                      <Text className={cream.rewardChip}>{`经验 +${study.expReward}`}</Text>
+                      <Text className={cream.rewardChip}>{`智力 +${study.intelligenceReward}`}</Text>
+                    </View>
                   </View>
                   {study.eligible ? (
                     <Button className={styles.miniBtn} onClick={async () => {
@@ -1341,11 +1427,11 @@ export default function PetPage() {
                   )}
                 </View>
               )}
-              <View className={styles.rankTabs}>
+              <View className={cream.metaRow}>
                 {RANKING_TABS.map((tab) => (
                   <View
                     key={tab.key}
-                    className={`${styles.panelTab} ${rankingType === tab.key ? styles.panelTabActive : ''}`}
+                    className={`${cream.tab} ${rankingType === tab.key ? cream.tabActive : ""}`}
                     onClick={() => setRankingType(tab.key)}
                   >
                     <Text>{tab.label}</Text>
@@ -1399,11 +1485,11 @@ export default function PetPage() {
 
           {panel === 'care' && (
             <View className={styles.carePanel}>
-              <View className={styles.careTabs}>
+              <View className={cream.metaRow}>
                 {CARE_TABS.map((tab) => (
                   <View
                     key={tab.key}
-                    className={`${styles.panelTab} ${careTab === tab.key ? styles.panelTabActive : ''}`}
+                    className={`${cream.tab} ${careTab === tab.key ? cream.tabActive : ""}`}
                     onClick={() => setCareTab(tab.key)}
                   >
                     <Text>{tab.label}</Text>
@@ -1415,7 +1501,7 @@ export default function PetPage() {
               {careTab === 'shop' && (
                 <View>
                   <Text className={styles.tip}>
-                    ✨ 星光余额：{shopBalance === null ? '暂不可用' : shopBalance}
+                    🪙 宠物币余额：{shopBalance === null ? '暂不可用' : shopBalance}
                   </Text>
                   {shopItems.map((item) => (
                     <View key={`${item.itemType}-${item.code}`} className={styles.careCard}>
@@ -1458,16 +1544,38 @@ export default function PetPage() {
                       </Text>
                       <View className={styles.careActions}>
                         {item.itemType === 'EQUIPMENT' && (item.equipped ? (
-                          <Button className={styles.miniBtnGhost} onClick={() => runCare(`unequip-${item.slot}`, () => petApi.unequipItem(item.slot ?? ''), '已卸下')}>卸下</Button>
+                          <>
+                            <Button className={styles.miniBtnGhost} onClick={() => runCare(`unequip-${item.slot}`, () => petApi.unequipItem(item.slot ?? ''), '已卸下')}>卸下</Button>
+                            <Button className={styles.miniBtnGhost} onClick={() => void toggleEquipPreview(item.code)}>
+                              {equipPreview?.itemCode === item.code ? '收起预览' : '预览'}
+                            </Button>
+                          </>
                         ) : (
-                          <Button className={styles.miniBtn} onClick={() => runCare(`equip-${item.code}`, () => petApi.equipItem(item.code), '已穿戴')}>穿戴</Button>
+                          <>
+                            <Button className={styles.miniBtn} onClick={() => runCare(`equip-${item.code}`, () => petApi.equipItem(item.code), '已穿戴')}>穿戴</Button>
+                            <Button className={styles.miniBtnGhost} onClick={() => void toggleEquipPreview(item.code)}>
+                              {equipPreview?.itemCode === item.code ? '收起预览' : '预览'}
+                            </Button>
+                          </>
                         ))}
                         {item.itemType === 'SKIN' && (item.equipped ? (
                           <Button className={styles.miniBtnGhost} onClick={() => runCare('remove-skin', () => petApi.removeSkin(), '已换回原生外观')}>卸下</Button>
                         ) : (
                           <Button className={styles.miniBtn} onClick={() => runCare(`skin-${item.code}`, () => petApi.wearSkin(item.code), '已穿上新皮肤')}>穿戴</Button>
                         ))}
+                        {item.itemType === 'FOOD' && (
+                          <Button className={styles.miniBtn} onClick={() => runCare(`feed-${item.code}`, () => petApi.feedItem(item.code), '吃掉了，状态好多了')}>喂食</Button>
+                        )}
                       </View>
+                      {item.itemType === 'EQUIPMENT' && equipPreview?.itemCode === item.code && (
+                        <Text className={styles.careMeta}>
+                          替换后 HP {equipPreview.after.maxHp}（{equipPreview.delta.maxHp >= 0 ? '+' : ''}{equipPreview.delta.maxHp}）
+                          · 力 {equipPreview.after.strength}（{equipPreview.delta.strength >= 0 ? '+' : ''}{equipPreview.delta.strength}）
+                          · 智 {equipPreview.after.intelligence}（{equipPreview.delta.intelligence >= 0 ? '+' : ''}{equipPreview.delta.intelligence}）
+                          · 敏 {equipPreview.after.agility}（{equipPreview.delta.agility >= 0 ? '+' : ''}{equipPreview.delta.agility}）
+                          · 魅 {equipPreview.after.charm}（{equipPreview.delta.charm >= 0 ? '+' : ''}{equipPreview.delta.charm}）
+                        </Text>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -1654,6 +1762,8 @@ export default function PetPage() {
             </View>
           )}
         </View>
+        </CreamSheet>
+        )}
       </ScrollView>
 
       {/* 对战回合流水回放（服务端计算，客户端只展示；Cocos 舞台另有动画演出） */}
@@ -1683,6 +1793,7 @@ export default function PetPage() {
         <View className={styles.modalMask} onClick={() => setProfileOpen(false)}>
           <View className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <Text className={styles.modalTitle}>宠物档案</Text>
+            <Text className={styles.modalLabel}>昵称</Text>
             <Input
               className={styles.nameInput}
               value={profileName}
@@ -1690,6 +1801,7 @@ export default function PetPage() {
               placeholder="宠物名（30 天可改一次）"
               onInput={(e) => setProfileName(e.detail.value)}
             />
+            <Text className={styles.modalLabel}>它怎么叫你</Text>
             <Input
               className={styles.nameInput}
               value={profileOwnerTitle}
@@ -1729,11 +1841,11 @@ export default function PetPage() {
             )}
             <View className={styles.modalRow}>
               <Text className={styles.modalLabel}>在个人主页展示宠物</Text>
-              <Switch checked={pet.isPublic} disabled={privacyBusy} onChange={(e) => void togglePrivacy(e.detail.value)} />
+              <CreamToggle on={pet.isPublic} disabled={privacyBusy} onChange={() => void togglePrivacy(!pet.isPublic)} />
             </View>
             <View className={styles.modalActions}>
-              <Button className={`${styles.miniBtnGhost} ${styles.modalAction}`} onClick={() => setProfileOpen(false)}>取消</Button>
-              <Button className={`${styles.primaryBtn} ${styles.modalAction}`} onClick={saveProfile}>保存</Button>
+              <CreamButton variant="ghost" style={{ flex: 1 }} onClick={() => setProfileOpen(false)}>取消</CreamButton>
+              <CreamButton style={{ flex: 1 }} onClick={saveProfile}>保存</CreamButton>
             </View>
           </View>
         </View>

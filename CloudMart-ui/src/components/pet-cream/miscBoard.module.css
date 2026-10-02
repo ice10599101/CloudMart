@@ -1,0 +1,247 @@
+/* 收尾面板 · 法式奶油风（组件级样式：只给 MiscBoard 引用）
+ * 分享卡片走"便签"质感：奶油纸 + 挤出边；战报用双栏比分条。 */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  font-size: 13px;
+  color: var(--mocha);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tabActive {
+  color: var(--espresso);
+  font-weight: 500;
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+}
+
+.block {
+  margin-top: 18px;
+}
+
+.blockTitle {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+  letter-spacing: 0.3px;
+}
+
+.blockDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+/* 纪念日 */
+.annCard {
+  padding: 16px 18px;
+  border-radius: 120px 120px var(--r-lg) var(--r-lg);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
+  box-shadow: var(--z2), var(--edge);
+  text-align: center;
+}
+
+.annDays {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  color: var(--espresso);
+  margin: 0;
+}
+
+.annLabel {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 4px 0 0;
+}
+
+.milestoneRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--cream-line);
+}
+
+.milestoneRow:last-child {
+  border-bottom: none;
+}
+
+/* 分享卡片：奶油便签 */
+.shareCard {
+  padding: 16px 18px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(200, 155, 90, 0.5);
+  background: linear-gradient(180deg, #FFFDF8, #F7EADA);
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.35), var(--z1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.shareTitle {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--espresso);
+  margin: 0 0 6px;
+}
+
+.shareContent {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--espresso);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.shareHighlight {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(200, 155, 90, 0.14);
+  font-size: 13px;
+  color: var(--brass-600);
+}
+
+/* 战报 */
+.battleHead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 0;
+  font-size: 15px;
+  color: var(--espresso);
+}
+
+.battleVs {
+  font-size: 12px;
+  color: var(--brass-600);
+}
+
+.battleMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--mocha);
+}
+
+/* 通用行 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--cream-line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--espresso);
+  margin: 0 0 2px;
+}
+
+.rowDesc {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 0;
+}
+
+.rowActions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pick {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  font-size: 13px;
+  color: var(--mocha);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pickActive {
+  color: var(--espresso);
+  font-weight: 500;
+  border-color: var(--brass-400);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+}
+
+.inputRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.input {
+  background: #FFFDF8 !important;
+  border: 1px solid rgba(200, 155, 90, 0.45) !important;
+  border-radius: var(--r-pill) !important;
+  color: var(--espresso) !important;
+  height: 44px;
+  box-shadow: var(--glass);
+}
+
+.input::placeholder {
+  color: var(--mocha-light);
+}
+
+.input:focus {
+  border-color: var(--brass-400) !important;
+  box-shadow: 0 0 0 3px rgba(200, 155, 90, 0.15) !important;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--mocha);
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+.empty {
+  padding: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mocha);
+}

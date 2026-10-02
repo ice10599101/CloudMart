@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { petApi } from '@/api/pet'
-import type { PetInfo } from '@/api/pet'
+import { petApi, petCompanionApi } from '@/api/pet'
+import { PET_CREAM_STYLE } from '@/styles/petCream'
+import type { PetInfo, PetMinigameRoundItem, PetActivityRow } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -31,6 +32,10 @@ export default function PetPlayPage() {
   const [digest, setDigest] = useState<{ throughAt: string; offlineHours: number; finishedTasks: number; claimableTasks: number; visits: number; milestones: number } | null>(null)
   const [coops, setCoops] = useState<Array<Record<string, unknown>>>([])
   const [collection, setCollection] = useState<{ total: number; unlocked: number } | null>(null)
+  // N04 对局历史（最近 10 局，offset 分页第一页）
+  const [history, setHistory] = useState<PetMinigameRoundItem[]>([])
+  // B09 限时活动（与常驻 /pet/events 是两套体系；结束后 72 小时内可领奖）
+  const [activities, setActivities] = useState<PetActivityRow[]>([])
 
   const loadAll = useCallback(async () => {
     const petRes = await petApi.getMyPet()
@@ -47,6 +52,10 @@ export default function PetPlayPage() {
     if (collRes.data.success && collRes.data.data) {
       setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
     }
+    const histRes = await petCompanionApi.listMinigameRounds(1, 10)
+    if (histRes.data.success && histRes.data.data) setHistory(histRes.data.data)
+    const actRes = await petCompanionApi.listActivities()
+    if (actRes.data.success && actRes.data.data) setActivities(actRes.data.data)
   }, [])
 
   useEffect(() => {
@@ -91,6 +100,9 @@ export default function PetPlayPage() {
         ? `完成！经验+${r.reward.exp} 亲密度+${r.reward.intimacy} 心情+${r.reward.happiness}`
         : '本局未达标（需接住 3 个），无收益')
       setRound(null)
+      // 结算后刷新对局历史
+      const histRes = await petCompanionApi.listMinigameRounds(1, 10)
+      if (histRes.data.success && histRes.data.data) setHistory(histRes.data.data)
     }
   }
 
@@ -124,8 +136,16 @@ export default function PetPlayPage() {
     void loadAll()
   }
 
+  const claimActivity = async (activityId: number | string) => {
+    const res = await petCompanionApi.claimActivity(activityId)
+    if (res.data.success) {
+      Taro.showToast({ title: '已领取', icon: 'success' })
+      void loadAll()
+    }
+  }
+
   return (
-    <View className={styles.page} style={{ paddingTop: statusBarHeight + navBarHeight }}>
+    <View className={styles.page} style={{ ...PET_CREAM_STYLE, paddingTop: statusBarHeight + navBarHeight }}>
       <CustomNavBar title="玩法中心" back />
       <ScrollView scrollY className={styles.list}>
 
@@ -145,6 +165,17 @@ export default function PetPlayPage() {
             </View>
           )}
           {mgResult ? <Text className={styles.meta}>{mgResult}</Text> : null}
+          {history.length > 0 && (
+            <View className={styles.col}>
+              <Text className={styles.cardTitle}>最近对局</Text>
+              {history.map((item) => (
+                <Text key={String(item.roundId)} className={styles.meta}>
+                  #{String(item.roundId)} · 接住 {item.successCount}/10 · {item.rewardEligible ? '有收益' : '训练局'}
+                  {item.startedAt ? ` · ${item.startedAt.slice(5, 16).replace('T', ' ')}` : ''}
+                </Text>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* N05 托管 */}
@@ -197,6 +228,24 @@ export default function PetPlayPage() {
           <Text className={styles.cardTitle}>📖 收藏图鉴</Text>
           <Text className={styles.meta}>{collection ? `已解锁 ${collection.unlocked}/${collection.total}` : '加载中…'}</Text>
         </View>
+
+        {/* B09 限时活动 */}
+        {activities.length > 0 && (
+          <View className={styles.card}>
+            <Text className={styles.cardTitle}>🎈 限时活动</Text>
+            {activities.map((item) => (
+              <View key={String(item.activityId)} className={styles.coopRow}>
+                <Text className={styles.meta}>
+                  {item.configName ?? item.activityType}
+                  {' · '}{item.status === 'COMPLETED' ? '可领取' : item.status === 'ACTIVE' ? `进行中（剩余 ${Math.ceil(item.remainingSeconds / 60)} 分钟）` : item.status === 'CLAIMED' ? '已领取' : '已过期'}
+                </Text>
+                {item.canClaim && (
+                  <Button size='mini' type='primary' onClick={() => void claimActivity(item.activityId)}>领取</Button>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         {!isLoggedIn && <View className={styles.card}><Text className={styles.meta}>请先登录</Text></View>}
       </ScrollView>

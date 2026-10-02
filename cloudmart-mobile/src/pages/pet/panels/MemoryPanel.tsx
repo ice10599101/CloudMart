@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Image, Switch, Text, Textarea, View } from '@tarojs/components'
+import { Button, Image, Text, Textarea, View } from '@tarojs/components'
 import { petCompanionApi, type PetDiaryEntry, type PetMemory, type PetNotifyPref } from '@/api/pet'
 import { fileApi } from '@/api/file'
 import styles from '../index.module.scss'
+import { CreamToggle } from '@/components/pet-cream'
 
 /**
  * 回忆面板（N01/N02/N03/B19 对齐 Web 端 PetMemoryPanel）：
@@ -338,12 +339,11 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
         <View>
           <View className={styles.prefRow}>
             <Text>日常问候</Text>
-            <Switch
-              checked={prefs?.dailyGreetingEnabled ?? true}
-              onChange={(event) => {
-                const checked = event.detail.value
+            <CreamToggle
+              on={prefs?.dailyGreetingEnabled ?? true}
+              onChange={(next) => {
                 petCompanionApi
-                  .updateNotifyPrefs({ muteDailyGreeting: prefs?.muteDailyGreeting ?? false, dailyGreetingEnabled: checked })
+                  .updateNotifyPrefs({ muteDailyGreeting: prefs?.muteDailyGreeting ?? false, dailyGreetingEnabled: next })
                   .then(() => {
                     Taro.showToast({ title: '已更新', icon: 'success' })
                     loadPrefs()
@@ -354,12 +354,11 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
           </View>
           <View className={styles.prefRow}>
             <Text>免打扰</Text>
-            <Switch
-              checked={prefs?.muteDailyGreeting ?? false}
-              onChange={(event) => {
-                const checked = event.detail.value
+            <CreamToggle
+              on={prefs?.muteDailyGreeting ?? false}
+              onChange={(next) => {
                 petCompanionApi
-                  .updateNotifyPrefs({ muteDailyGreeting: checked, dailyGreetingEnabled: prefs?.dailyGreetingEnabled ?? true })
+                  .updateNotifyPrefs({ muteDailyGreeting: next, dailyGreetingEnabled: prefs?.dailyGreetingEnabled ?? true })
                   .then(() => {
                     Taro.showToast({ title: '已更新', icon: 'success' })
                     loadPrefs()

@@ -17,8 +17,13 @@ function readLocalEnv(key: string): string | undefined {
 const API_HOST = process.env.TARO_APP_API_HOST
   || readLocalEnv('TARO_APP_API_HOST')
   || 'http://127.0.0.1'
-const GATEWAY_TARGET = `${API_HOST}:8090`
-console.log(`[taro config] H5 proxy target = ${GATEWAY_TARGET}`)
+// .env 的 API_HOST 可能已含端口（如 http://129.204.152.168:8090）——此时不再拼接
+const GATEWAY_TARGET = /:\d+(\/|$)/.test(API_HOST) ? API_HOST.replace(/\/+$/, '') : `${API_HOST}:8090`
+// Cocos 舞台产物所在源：CloudMart-ui 的 public/pet-game（umi dev 默认 8000）
+const WEB_UI_TARGET = process.env.TARO_APP_WEB_UI_ORIGIN
+  || readLocalEnv('TARO_APP_WEB_UI_ORIGIN')
+  || 'http://localhost:8000'
+console.log(`[taro config] H5 proxy target = ${GATEWAY_TARGET} | stage = ${WEB_UI_TARGET}`)
 
 export default {
   logger: {
@@ -51,6 +56,11 @@ export default {
         // 本地 files 静态文件（服务器本地存储）：经网关 /files/** 转发到 mall-file
         '/files': {
           target: GATEWAY_TARGET,
+          changeOrigin: true,
+        },
+        // Cocos 舞台产物：CloudMart-ui public/pet-game（同源代理，桥接 postMessage 不受跨域限制）
+        '/pet-game': {
+          target: WEB_UI_TARGET,
           changeOrigin: true,
         },
       },

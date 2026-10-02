@@ -3,6 +3,7 @@ import { View, Text, WebView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { PET_CREAM_STYLE } from '@/styles/petCream'
 import { PET_STAGE_URL, petApi, type PetInfo } from '@/api/pet'
 import styles from './index.module.scss'
 
@@ -152,14 +153,14 @@ export default function PetStagePage() {
 
   if (isWeapp) {
     return (
-      <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+      <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE }}>
         <WebView src={PET_STAGE_URL} />
       </View>
     )
   }
 
   return (
-    <View className={`${styles.page} ${dataTheme}`} style={themeStyle}>
+    <View className={`${styles.page} ${dataTheme}`} style={{ ...themeStyle, ...PET_CREAM_STYLE }}>
       <CustomNavBar title="宠物舞台" />
       <View className={styles.body} style={{ paddingTop: statusBarHeight + navBarHeight }}>
         <iframe

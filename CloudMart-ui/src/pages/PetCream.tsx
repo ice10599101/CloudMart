@@ -2,8 +2,15 @@
  * 宠物家园 · 法式奶油风（/pet 正式版）。
  *
  * 版面：招牌页头 → "家"卡片（身份条 + 3D 舞台）→ 状态仪表 → 养成动作 → 功能菜单 → 设置。
- * 功能面板以 CreamSheet 弹层承载，逐个从旧版 PetHome 迁入（迁完删除 PetHome.tsx）。
- * 本期已迁：每日任务 / 成就 / 提醒 / 排行榜 / 钱包。养成四动作与多宠物、领养向导为页面内建。
+ * 功能面板以 CreamSheet 弹层承载，逐个从旧版 PetHome 迁入（旧页已删）。
+ * 已迁：家园（房间布置/家具铺/墙纸地板/设置/串门）、社交（好友/邻居/关系/留言墙）、
+ * 陪伴（亲密度/陪伴会话/日记相册/记忆/通知偏好/新手引导）、玩法（接球/寄养/协作/图鉴/离线摘要）、
+ * 更多（纪念日/分享卡片/战报详情/限时活动/屏蔽举报）；外观修改在设置卡、卸下装备/皮肤与
+ * 装备预览在背包面板、一键领任务在任务面板。
+ * 每日任务、打工读书、职业、捞瓶、对战、聊天、商城、背包、技能进化、事件、成就、提醒、排行、钱包。
+ * 家园/社交/陪伴/玩法体量较大（多子页签），独立为 components/pet-cream/ 下的
+ * HomeBoard.tsx / SocialBoard.tsx / CompanionBoard.tsx / PlayBoard.tsx。
+ * 功能菜单按 PANEL_GROUPS 分段（La Maison / Croissance / Les Jeux / Le Marché / Les Amis / Archives）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { App, ConfigProvider, Input, Spin, theme as antdTheme } from 'antd'
@@ -20,12 +27,19 @@ import {
     claimPetEvent,
     claimPetStudy,
     claimPetWork,
+    claimAllDailyQuests,
     cleanPet,
     createPet,
     declinePetBattle,
     equipPetItem,
     evolvePet,
     feedPet,
+    feedPetItem,
+    getPetActions,
+    getPetChatPersona,
+    getPetReminderUnreadCount,
+    getPetSeasonHistory,
+    getPetSeasonRanking,
     getMyPet,
     getPetBottleStatus,
     getPetCareer,
@@ -50,10 +64,14 @@ import {
     markAllPetRemindersRead,
     playWithPet,
     promotePetCareer,
+    removePetSkin,
     renamePet,
+    previewPetEquip,
     setOwnerTitle,
     restPet,
     sendPetChat,
+    unequipPetItem,
+    updateAppearance,
     startPetBottle,
     startPetCareerWork,
     startPetStudy,
@@ -65,7 +83,9 @@ import {
     type PetBottleStatus,
     type PetCareerPanel,
     type PetChatMessage,
+    type PetActionItem,
     type PetDailyQuestPanel,
+    type PetEquipPreview,
     type PetEventItem,
     type PetEvolutionStatus,
     type PetInfo,
@@ -75,13 +95,22 @@ import {
     type PetOpponent,
     type PetRankingType,
     type PetReminder,
+    type PetPersona,
+    type PetSeasonHistoryItem,
+    type PetSeasonRanking,
     type PetSkillItem,
     type PetSpecies,
     type PetStudyItem,
     type PetSummary,
     type PetWalletVO,
 } from '@/api/pet'
+import { checkIn, getCheckInStatus, type CheckInResult } from '@/api/growth'
 import PetStage, { type PetDisplayState, type PetIntentAction } from '@/components/PetStage'
+import HomeBoard from '@/components/pet-cream/HomeBoard'
+import SocialBoard from '@/components/pet-cream/SocialBoard'
+import CompanionBoard from '@/components/pet-cream/CompanionBoard'
+import PlayBoard from '@/components/pet-cream/PlayBoard'
+import MiscBoard from '@/components/pet-cream/MiscBoard'
 import {
     CreamButton,
     CreamCard,
@@ -107,7 +136,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_SPEECH: Record<string, string> = {
     IDLE: '主人，陪我玩一会嘛～',
-    WORKING: '我正在打工赚星光呢！',
+    WORKING: '我正在打工赚宠物币呢！',
     STUDYING: '嘘——我在读书，别打扰我～',
     FISHING: '我去海边看看有没有漂流瓶！',
     RESTING: '呼…让我睡一小会儿…',
@@ -132,26 +161,91 @@ const CARE_LABEL: Record<CareAction, string> = {
     rest: '休息',
 }
 
-/** 功能面板注册表：只登记已迁入奶油风的面板，其余随批次补充 */
+/** 动作可执行性 chips 的文案映射（数据结构用 api 的 PetActionItem，契约对齐 PetActionVO） */
+
+const ACTION_LABEL: Record<string, string> = {
+    FEED: '喂食',
+    PLAY: '玩耍',
+    CLEAN: '清洁',
+    REST: '休息',
+    WORK: '打工',
+    STUDY: '读书',
+    BOTTLE: '捞瓶',
+    BATTLE: '对战',
+}
+
+/** 外观可选项（与后端 UpdateAppearanceRequest 的 @Pattern 白名单一致） */const APPEARANCE_COLORS: Array<{ value: string; label: string }> = [
+    { value: 'orange', label: '橘' },
+    { value: 'gray', label: '灰' },
+    { value: 'white', label: '白' },
+    { value: 'brown', label: '棕' },
+    { value: 'pink', label: '粉' },
+]
+
+const APPEARANCE_ACCESSORIES: Array<{ value: string; label: string }> = [
+    { value: 'none', label: '无配饰' },
+    { value: 'bell', label: '铃铛' },
+    { value: 'bowtie', label: '领结' },
+    { value: 'glasses', label: '眼镜' },
+    { value: 'scarf', label: '围巾' },
+]
+
+/** appearance 字段是 JSON（{"color","accessory"}），解析失败回退默认 */
+function parseAppearance(raw: string | undefined): { color: string; accessory: string } {
+    const fallback = { color: 'orange', accessory: 'none' }
+    if (!raw) {
+        return fallback
+    }
+    try {
+        const parsed = JSON.parse(raw) as { color?: string; accessory?: string }
+        return {
+            color: parsed.color ?? fallback.color,
+            accessory: parsed.accessory ?? fallback.accessory,
+        }
+    } catch {
+        return fallback
+    }
+}
+
+/**
+ * 功能面板注册表：只登记已迁入奶油风的面板，其余随批次补充。
+ * group 决定功能菜单里的分组（入口已 17 个，平铺宫格读不出结构，故按域分段）。
+ */
 type PanelKey = 'quests' | 'activities' | 'career' | 'bottle' | 'achievements'
     | 'reminders' | 'rankings' | 'wallet' | 'battle' | 'shop' | 'inventory' | 'skills'
-    | 'events' | 'chat'
+    | 'events' | 'chat' | 'home' | 'social' | 'companion' | 'play' | 'misc'
 
-const PANELS: Array<{ key: PanelKey; emoji: string; label: string; title: string }> = [
-    { key: 'quests', emoji: '📋', label: '任务', title: '每日任务' },
-    { key: 'activities', emoji: '💼', label: '打工·读书', title: '打工 · 读书' },
-    { key: 'career', emoji: '👔', label: '职业', title: '职业生涯' },
-    { key: 'bottle', emoji: '🍾', label: '捞瓶', title: '漂流瓶' },
-    { key: 'battle', emoji: '⚔️', label: '对战', title: '对战' },
-    { key: 'chat', emoji: '💬', label: '聊天', title: '和它聊聊' },
-    { key: 'shop', emoji: '🛍️', label: '商城', title: '商城' },
-    { key: 'inventory', emoji: '🎒', label: '背包', title: '背包' },
-    { key: 'skills', emoji: '✨', label: '技能·进化', title: '技能 · 进化' },
-    { key: 'events', emoji: '🎈', label: '事件', title: '活动事件' },
-    { key: 'achievements', emoji: '🏆', label: '成就', title: '成就' },
-    { key: 'reminders', emoji: '🔔', label: '提醒', title: '提醒' },
-    { key: 'rankings', emoji: '📊', label: '排行', title: '排行榜' },
-    { key: 'wallet', emoji: '🪙', label: '钱包', title: '钱包' },
+type PanelGroup = 'maison' | 'croissance' | 'jeux' | 'marche' | 'amis' | 'archives'
+
+const PANEL_GROUPS: Array<{ key: PanelGroup; label: string; hint: string }> = [
+    { key: 'maison', label: 'La Maison', hint: '小家与陪伴' },
+    { key: 'croissance', label: 'Croissance', hint: '养成' },
+    { key: 'jeux', label: 'Les Jeux', hint: '玩法' },
+    { key: 'marche', label: 'Le Marché', hint: '集市' },
+    { key: 'amis', label: 'Les Amis', hint: '往来' },
+    { key: 'archives', label: 'Archives', hint: '记录' },
+]
+
+const PANELS: Array<{ key: PanelKey; emoji: string; label: string; title: string; group: PanelGroup }> = [
+    { key: 'home', emoji: '🏠', label: '家园', title: '我的家园', group: 'maison' },
+    { key: 'companion', emoji: '🫶', label: '陪伴', title: '陪伴', group: 'maison' },
+    { key: 'quests', emoji: '📋', label: '任务', title: '每日任务', group: 'croissance' },
+    { key: 'activities', emoji: '💼', label: '打工·读书', title: '打工 · 读书', group: 'croissance' },
+    { key: 'career', emoji: '👔', label: '职业', title: '职业生涯', group: 'croissance' },
+    { key: 'bottle', emoji: '🍾', label: '捞瓶', title: '漂流瓶', group: 'croissance' },
+    { key: 'battle', emoji: '⚔️', label: '对战', title: '对战', group: 'croissance' },
+    { key: 'skills', emoji: '✨', label: '技能·进化', title: '技能 · 进化', group: 'croissance' },
+    { key: 'play', emoji: '🎪', label: '玩法', title: '玩法', group: 'jeux' },
+    { key: 'shop', emoji: '🛍️', label: '商城', title: '商城', group: 'marche' },
+    { key: 'inventory', emoji: '🎒', label: '背包', title: '背包', group: 'marche' },
+    { key: 'events', emoji: '🎈', label: '事件', title: '活动事件', group: 'marche' },
+    { key: 'social', emoji: '👫', label: '社交', title: '社交', group: 'amis' },
+    { key: 'chat', emoji: '💬', label: '聊天', title: '和它聊聊', group: 'amis' },
+    { key: 'achievements', emoji: '🏆', label: '成就', title: '成就', group: 'archives' },
+    { key: 'reminders', emoji: '🔔', label: '提醒', title: '提醒', group: 'archives' },
+    { key: 'rankings', emoji: '📊', label: '排行', title: '排行榜', group: 'archives' },
+    { key: 'wallet', emoji: '🪙', label: '钱包', title: '钱包', group: 'archives' },
+    { key: 'misc', emoji: '🗂️', label: '更多', title: '更多', group: 'archives' },
 ]
 
 const RARITY_LABEL: Record<string, string> = {
@@ -179,6 +273,30 @@ function QuestsPanel({ onChanged }: { onChanged: () => void }) {
     const { message } = App.useApp()
     const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
+    const [checkedIn, setCheckedIn] = useState<boolean | null>(null)
+    const [checkinInfo, setCheckinInfo] = useState<CheckInResult | null>(null)
+
+    useEffect(() => {
+        getCheckInStatus().then(({ data: res }) => {
+            if (res.success) setCheckedIn(Boolean(res.data))
+        }).catch(() => setCheckedIn(null))
+    }, [])
+
+    const doCheckIn = useCallback(async () => {
+        setBusy('checkin')
+        try {
+            const { data: res } = await checkIn()
+            if (res.success && res.data) {
+                setCheckedIn(true)
+                setCheckinInfo(res.data)
+                message.success(`签到成功 · 连续 ${res.data.continuousDays} 天`)
+            } else {
+                message.warning(res.error?.message ?? '签到未成功')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [message])
 
     const load = useCallback(async () => {
         const { data: res } = await getPetDailyQuests()
@@ -209,30 +327,79 @@ function QuestsPanel({ onChanged }: { onChanged: () => void }) {
         }
     }, [load, message, onChanged])
 
+    /** 一键领取：把所有可领的奖励一次收掉（宝箱由服务端规则判定，不可领时不给按钮） */
+    const claimAll = useCallback(async () => {
+        setBusy('all')
+        try {
+            const { data: res } = await claimAllDailyQuests()
+            if (res.success) {
+                message.success('可领的都收好了')
+                await load()
+                onChanged()
+            } else {
+                message.warning(res.error?.message ?? '没有可领取的奖励')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [load, message, onChanged])
+
     if (!panel) {
         return <Spin />
     }
+    const anyClaimable = panel.quests.some(quest => quest.claimable) || panel.chestClaimable
     return (
         <div>
-            <p className={styles.panelDesc}>
-                {panel.questDate} · 已完成 {panel.completedCount}/{panel.totalCount} ·
-                已领 {panel.claimedCount}
-            </p>
+            <div className={styles.footerRow}>
+                <p className={styles.panelDesc}>
+                    {panel.questDate} · 已完成 {panel.completedCount}/{panel.totalCount} ·
+                    已领 {panel.claimedCount}
+                </p>
+                {anyClaimable ? (
+                    <CreamButton variant="ghost" loading={busy === 'all'}
+                        onClick={() => void claimAll()}>一键领取</CreamButton>
+                ) : null}
+            </div>
+            <div className={styles.panelRow} style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 20 }}>🎂</span>
+                <div className={styles.panelMain}>
+                    <p className={styles.panelTitle}>每日签到</p>
+                    <p className={styles.panelDesc}>
+                        {checkedIn === null ? '加载中…'
+                            : checkedIn
+                                ? `今日已签到${checkinInfo ? ` · 连续 ${checkinInfo.continuousDays} 天 · 经验 +${checkinInfo.expReward}` : ''}`
+                                : '今天还没签到，连续签到经验更多'}
+                    </p>
+                </div>
+                <CreamButton
+                    variant={checkedIn ? 'ghost' : 'primary'}
+                    disabled={!!checkedIn || busy === 'checkin'}
+                    loading={busy === 'checkin'}
+                    onClick={() => void doCheckIn()}
+                >
+                    {checkedIn ? '已签到' : '签到'}
+                </CreamButton>
+            </div>
             <div style={{ marginTop: 10 }}>
-                {panel.quests.map(quest => (
+                {panel.quests.map(quest => {
+                    const percent = quest.targetValue > 0
+                        ? Math.min(100, Math.round((quest.progress / quest.targetValue) * 100)) : 0
+                    return (
                     <div key={quest.code} className={styles.panelRow}>
                         <span style={{ fontSize: 20 }}>{quest.icon}</span>
                         <div className={styles.panelMain}>
-                            <p className={styles.panelTitle}>
-                                {quest.name}
-                                <span style={{ color: 'var(--mocha-light)', marginLeft: 8, fontSize: 12 }}>
-                                    {quest.progress}/{quest.targetValue}
-                                </span>
-                            </p>
-                            <p className={styles.panelDesc}>
-                                {quest.description} · {quest.statusLabel} ·
-                                exp+{quest.expReward} 币+{quest.currencyReward}
-                            </p>
+                            <p className={styles.panelTitle}>{quest.name}</p>
+                            <p className={styles.panelDesc}>{quest.description}</p>
+                            <div className={styles.questProgressRow}>
+                                <div className={styles.questTrack}>
+                                    <div className={styles.questFill} style={{ width: `${percent}%` }} />
+                                </div>
+                                <span className={styles.questProgressText}>{`${quest.progress}/${quest.targetValue}`}</span>
+                            </div>
+                            <div className={styles.rewardRow}>
+                                <span className={styles.rewardChip}>{`经验 +${quest.expReward}`}</span>
+                                <span className={styles.rewardChip}>{`宠物币 +${quest.currencyReward}`}</span>
+                            </div>
                         </div>
                         {quest.claimable ? (
                             <CreamButton variant="ghost" loading={busy === quest.code}
@@ -241,7 +408,8 @@ function QuestsPanel({ onChanged }: { onChanged: () => void }) {
                             <CreamChip color={STAT_TONE.cleanliness}>{quest.statusLabel}</CreamChip>
                         )}
                     </div>
-                ))}
+                    )
+                })}
             </div>
             <div className={styles.renameRow}>
                 {panel.chestClaimed ? (
@@ -298,11 +466,16 @@ function AchievementsPanel() {
 
 function RemindersPanel() {
     const [list, setList] = useState<PetReminder[] | null>(null)
+    const [unread, setUnread] = useState<number | null>(null)
 
     const load = useCallback(async () => {
         const { data: res } = await listPetReminders()
         if (res.success) {
             setList(res.data)
+        }
+        const { data: unreadRes } = await getPetReminderUnreadCount()
+        if (unreadRes.success) {
+            setUnread(unreadRes.data)
         }
     }, [])
 
@@ -322,7 +495,10 @@ function RemindersPanel() {
     }
     return (
         <div>
-            <div className={styles.renameRow}>
+            <div className={styles.footerRow}>
+                <p className={styles.panelDesc}>
+                    未读 {unread === null ? '—' : unread} 条（入口角标与此一致）
+                </p>
                 <CreamButton variant="ghost" onClick={() => void readAll()}>全部标为已读</CreamButton>
             </div>
             <div style={{ marginTop: 8 }}>
@@ -350,20 +526,36 @@ function RemindersPanel() {
 
 // ---------------- 面板：排行榜 ----------------
 
-const RANK_TABS: Array<{ type: PetRankingType; label: string }> = [
+const RANK_TABS: Array<{ type: PetRankingType | 'SEASON'; label: string }> = [
     { type: 'LEVEL', label: '等级' },
     { type: 'BATTLE_WIN', label: '对战' },
     { type: 'BOTTLE', label: '捞瓶' },
+    { type: 'SEASON', label: '赛季' },
 ]
 
 function RankingsPanel() {
-    const [type, setType] = useState<PetRankingType>('LEVEL')
+    const [type, setType] = useState<PetRankingType | 'SEASON'>('LEVEL')
     const [result, setResult] = useState<{ top20: Array<{
         rank: number; petId: number | string; name: string; species: PetSpecies
         level: number; value: number; ownerNickname: string; isMe: boolean
     }>; myValue: number | null; myRank: number | null } | null>(null)
+    const [season, setSeason] = useState<PetSeasonRanking | null>(null)
+    const [seasonHistory, setSeasonHistory] = useState<PetSeasonHistoryItem[] | null>(null)
 
-    const load = useCallback(async (t: PetRankingType) => {
+    const load = useCallback(async (t: PetRankingType | 'SEASON') => {
+        if (t === 'SEASON') {
+            const [{ data: seasonRes }, { data: historyRes }] = await Promise.all([
+                getPetSeasonRanking(),
+                getPetSeasonHistory(),
+            ])
+            if (seasonRes.success) {
+                setSeason(seasonRes.data)
+            }
+            if (historyRes.success) {
+                setSeasonHistory(historyRes.data)
+            }
+            return
+        }
         const { data: res } = await getPetRankings(t)
         if (res.success) {
             setResult(res.data)
@@ -374,6 +566,66 @@ function RankingsPanel() {
         void load(type)
     }, [load, type])
 
+    if (type === 'SEASON') {
+        return (
+            <div>
+                <div className={styles.petRow}>
+                    {RANK_TABS.map(tab => (
+                        <button
+                            key={tab.type}
+                            type="button"
+                            className={`${styles.petChip} ${type === tab.type ? styles.petChipActive : ''}`}
+                            onClick={() => setType(tab.type)}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+                {!season ? (
+                    <div style={{ paddingTop: 12 }}><Spin /></div>
+                ) : season.season === null ? (
+                    <p className={styles.panelDesc}>当前没有进行中的赛季，开赛后这里会亮起来</p>
+                ) : (
+                    <div style={{ paddingTop: 10 }}>
+                        <p className={styles.panelDesc}>
+                            {season.season.name} · {season.season.startsAt?.slice(5, 10)} ~ {season.season.endsAt?.slice(5, 10)} ·
+                            我的等级 {season.myLevel ?? '—'} · 名次 {season.myRank ?? '未上榜'}
+                        </p>
+                        {season.top50.map(item => (
+                            <div key={String(item.petId)} className={`${styles.panelRow} ${item.isMe ? styles.rankMe : ''}`}>
+                                <span className={`${styles.rankBadge} ${item.rank <= 3 ? styles.rankBadgeTop : ''}`}>
+                                    {item.rank}
+                                </span>
+                                <div className={styles.panelMain}>
+                                    <p className={styles.panelTitle}>
+                                        {SPECIES_EMOJI[item.species] ?? '🐾'} {item.name}
+                                    </p>
+                                    <p className={styles.panelDesc}>{item.ownerNickname} · Lv.{item.level}</p>
+                                </div>
+                                <span style={{ fontSize: 13, color: 'var(--espresso)' }}>{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {seasonHistory && seasonHistory.length > 0 ? (
+                    <div style={{ paddingTop: 12 }}>
+                        <p className={styles.panelTitle}>历届我的名次</p>
+                        {seasonHistory.map(item => (
+                            <div key={String(item.seasonId)} className={styles.panelRow}>
+                                <span className={styles.rankBadge}>{item.rankNo}</span>
+                                <div className={styles.panelMain}>
+                                    <p className={styles.panelTitle}>{item.seasonName}</p>
+                                    <p className={styles.panelDesc}>
+                                        结算于 {item.endedAt?.slice(0, 10) ?? '—'} · 等级 {item.level}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
+        )
+    }
     return (
         <div>
             <div className={styles.petRow}>
@@ -734,9 +986,29 @@ interface PendingBattle {
     mode: string
 }
 
+/** 对战回合流水回放（rounds 为服务端返回的 JSON 字符串） */
+function View_replayRounds({ raw }: { raw: string }) {
+    let rounds: Array<{ round: number; actorName: string; action: string; damage: number; critical: boolean; dodged: boolean; targetName: string; targetRemainingHp: number }> = []
+    try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) rounds = parsed
+    } catch { /* 解析失败按空处理 */ }
+    if (rounds.length === 0) return <p className={styles.panelDesc}>回放数据缺失</p>
+    return (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {rounds.map((r, index) => (
+                <p key={`${r.round}-${index}`} className={styles.panelDesc} style={{ margin: 0 }}>
+                    {`第 ${r.round} 回合：${r.actorName}${r.action === 'skill' ? ' 使用技能' : ''}${r.dodged ? ' 被闪避' : ` 造成 ${r.damage} 点伤害`}${r.critical ? '（暴击）' : ''} → ${r.targetName} 剩余 ${r.targetRemainingHp}`}
+                </p>
+            ))}
+        </div>
+    )
+}
+
 function BattlePanel({ myPetId, onChanged }: { myPetId: number | string; onChanged: () => void }) {
     const { message } = App.useApp()
     const [tab, setTab] = useState<'opponents' | 'pending' | 'history'>('opponents')
+    const [replayId, setReplayId] = useState<string | number | null>(null)
     const [opponents, setOpponents] = useState<PetOpponent[] | null>(null)
     const [pending, setPending] = useState<PendingBattle[] | null>(null)
     const [history, setHistory] = useState<PetBattleItem[] | null>(null)
@@ -853,16 +1125,25 @@ function BattlePanel({ myPetId, onChanged }: { myPetId: number | string; onChang
                 ) : (history ?? []).map(item => {
                     const win = item.winnerPetId !== null && item.winnerPetId === myPetId
                     return (
-                        <div key={String(item.battleId)} className={styles.panelRow}>
+                        <div key={String(item.battleId)} className={styles.panelRow} style={{ flexWrap: 'wrap' }}>
                             <div className={styles.panelMain}>
                                 <p className={styles.panelTitle}>
                                     {item.attackerPetName ?? '?'} VS {item.defenderPetName ?? '?'}
                                 </p>
                                 <p className={styles.panelDesc}>{item.mode === 'PVE' ? '野外切磋' : '友谊切磋'}</p>
                             </div>
+                            {item.status === 'FINISHED' && item.rounds ? (
+                                <CreamButton variant="ghost"
+                                    onClick={() => setReplayId(replayId === item.battleId ? null : item.battleId)}>
+                                    {replayId === item.battleId ? '收起回放' : '回放'}
+                                </CreamButton>
+                            ) : null}
                             <CreamChip color={win ? STAT_TONE.energy : STAT_TONE.cleanliness}>
                                 {item.status === 'FINISHED' ? (win ? '获胜' : '惜败') : '已取消'}
                             </CreamChip>
+                            {replayId === item.battleId && item.rounds ? (
+                                <View_replayRounds raw={item.rounds} />
+                            ) : null}
                         </div>
                     )
                 }) : null}
@@ -914,7 +1195,7 @@ function ShopPanel({ onChanged }: { onChanged: () => void }) {
     return (
         <div>
             <p className={styles.panelDesc}>
-                星光余额：{shop.balance === null ? '服务暂不可用' : shop.balance} · 共 {shop.items.length} 件在售
+                宠物币余额：{shop.balance === null ? '服务暂不可用' : shop.balance} · 共 {shop.items.length} 件在售
             </p>
             <div style={{ paddingTop: 8 }}>
                 {shop.items.map(item => (
@@ -945,6 +1226,8 @@ function InventoryPanel({ onChanged }: { onChanged: () => void }) {
     const { message } = App.useApp()
     const [list, setList] = useState<PetInventoryItem[] | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
+    /** 装备替换预览（B12）：按行内「预览」触发，展示替换增量 */
+    const [preview, setPreview] = useState<PetEquipPreview | null>(null)
 
     const load = useCallback(async () => {
         const { data: res } = await listPetInventory()
@@ -973,6 +1256,55 @@ function InventoryPanel({ onChanged }: { onChanged: () => void }) {
         }
     }, [message, onChanged])
 
+    /** 卸下：装备按槽位、皮肤整只卸（都会改变属性/外观，需回写宠物状态） */
+    const takeOff = useCallback(async (item: PetInventoryItem) => {
+        setBusy(item.code)
+        try {
+            const run = item.itemType === 'SKIN'
+                ? () => removePetSkin()
+                : () => unequipPetItem(item.slot ?? '')
+            const { data: res } = await run()
+            if (res.success) {
+                message.success(`${item.name} 已卸下`)
+                onChanged()
+            } else {
+                message.warning(res.error?.message ?? '卸下未成功')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [message, onChanged])
+
+    const showPreview = useCallback(async (item: PetInventoryItem) => {
+        setBusy(`preview:${item.code}`)
+        try {
+            const { data: res } = await previewPetEquip(item.code)
+            if (res.success) {
+                setPreview(prev => (prev?.itemCode === item.code ? null : res.data))
+            } else {
+                message.warning(res.error?.message ?? '预览未成功')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [message])
+
+    /** 喂养道具（F1）：食物堆叠入包，喂食直接消耗（效果服务端权威，不占免费次数） */
+    const feedFood = useCallback(async (item: PetInventoryItem) => {
+        setBusy(item.code)
+        try {
+            const { data: res } = await feedPetItem(item.code)
+            if (res.success) {
+                message.success(`${item.name} 吃掉了，状态好多了`)
+                onChanged()
+            } else {
+                message.warning(res.error?.message ?? '喂食未成功')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [message, onChanged])
+
     if (!list) {
         return <Spin />
     }
@@ -981,24 +1313,51 @@ function InventoryPanel({ onChanged }: { onChanged: () => void }) {
             {list.length === 0 ? (
                 <p className={styles.panelDesc}>背包空空，去商城逛逛吧</p>
             ) : list.map(item => (
-                <div key={item.code} className={styles.panelRow}>
-                    <span style={{ fontSize: 20 }}>{item.icon}</span>
-                    <div className={styles.panelMain}>
-                        <p className={styles.panelTitle}>
-                            {item.name}
-                            <CreamChip color={RARITY_COLOR[item.rarity] ?? '#9C8D7E'}>
-                                {RARITY_LABEL[item.rarity] ?? item.rarity}
-                            </CreamChip>
-                        </p>
-                        <p className={styles.panelDesc}>
-                            {item.description || item.effect || item.itemType}
-                        </p>
+                <div key={item.code}>
+                    <div className={styles.panelRow}>
+                        <span style={{ fontSize: 20 }}>{item.icon}</span>
+                        <div className={styles.panelMain}>
+                            <p className={styles.panelTitle}>
+                                {item.name}
+                                <CreamChip color={RARITY_COLOR[item.rarity] ?? '#9C8D7E'}>
+                                    {RARITY_LABEL[item.rarity] ?? item.rarity}
+                                </CreamChip>
+                                {item.equipped ? <CreamChip color="#7E9270">使用中</CreamChip> : null}
+                            </p>
+                            <p className={styles.panelDesc}>
+                                {item.description || item.effect || item.itemType}
+                            </p>
+                        </div>
+                        {item.itemType === 'FOOD' ? (
+                            <CreamButton variant="ghost" loading={busy === item.code}
+                                onClick={() => void feedFood(item)}>喂食</CreamButton>
+                        ) : item.itemType === 'EQUIPMENT' || item.itemType === 'SKIN' ? (
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {item.equipped ? (
+                                    <CreamButton variant="ghost" loading={busy === item.code}
+                                        onClick={() => void takeOff(item)}>卸下</CreamButton>
+                                ) : (
+                                    <CreamButton variant="ghost" loading={busy === item.code}
+                                        onClick={() => void use(item)}>
+                                        {item.itemType === 'SKIN' ? '穿戴' : '装备'}
+                                    </CreamButton>
+                                )}
+                                {item.itemType === 'EQUIPMENT' ? (
+                                    <CreamButton variant="ghost" loading={busy === `preview:${item.code}`}
+                                        onClick={() => void showPreview(item)}>预览</CreamButton>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
-                    {item.itemType === 'EQUIPMENT' || item.itemType === 'SKIN' ? (
-                        <CreamButton variant="ghost" loading={busy === item.code}
-                            onClick={() => void use(item)}>
-                            {item.itemType === 'SKIN' ? '穿戴' : '装备'}
-                        </CreamButton>
+                    {preview && preview.itemCode === item.code ? (
+                        <p className={styles.panelDesc} style={{ paddingBottom: 8 }}>
+                            替换后：HP {preview.after.maxHp}（{preview.delta.maxHp >= 0 ? '+' : ''}
+                            {preview.delta.maxHp}）· 力 {preview.after.strength}（{preview.delta.strength >= 0 ? '+' : ''}
+                            {preview.delta.strength}）· 智 {preview.after.intelligence}（{preview.delta.intelligence >= 0 ? '+' : ''}
+                            {preview.delta.intelligence}）· 敏 {preview.after.agility}（{preview.delta.agility >= 0 ? '+' : ''}
+                            {preview.delta.agility}）· 魅 {preview.after.charm}（{preview.delta.charm >= 0 ? '+' : ''}
+                            {preview.delta.charm}）
+                        </p>
                     ) : null}
                 </div>
             ))}
@@ -1071,7 +1430,7 @@ function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChanged: () 
             {evo.nextCode ? (
                 <>
                     <p className={styles.panelDesc}>
-                        下一形态：{evo.nextName} · 需 Lv.{evo.requiredLevel} · 星光 {evo.costStarlight}
+                        下一形态：{evo.nextName} · 需 Lv.{evo.requiredLevel} · 宠物币 {evo.costStarlight}
                     </p>
                     <div className={styles.renameRow}>
                         <CreamButton block loading={busy === 'evolve'} disabled={petLevel < (evo.requiredLevel ?? 0)}
@@ -1186,6 +1545,8 @@ function ChatPanel({ petName }: { petName: string }) {
     const [messages, setMessages] = useState<PetChatMessage[] | null>(null)
     const [draft, setDraft] = useState('')
     const [busy, setBusy] = useState(false)
+    const [persona, setPersona] = useState<PetPersona | null>(null)
+    const [showPersona, setShowPersona] = useState(false)
     const bodyRef = useRef<HTMLDivElement | null>(null)
 
     const load = useCallback(async () => {
@@ -1198,6 +1559,15 @@ function ChatPanel({ petName }: { petName: string }) {
     useEffect(() => {
         void load()
     }, [load])
+
+    /** 人设卡按需加载：与注入 AI prompt 的身份信息同源（F8） */
+    const loadPersona = useCallback(async () => {
+        const { data: res } = await getPetChatPersona()
+        if (res.success) {
+            setPersona(res.data)
+            setShowPersona(true)
+        }
+    }, [])
 
     useEffect(() => {
         const el = bodyRef.current
@@ -1231,6 +1601,24 @@ function ChatPanel({ petName }: { petName: string }) {
     }
     return (
         <div>
+            <div className={styles.footerRow}>
+                <p className={styles.panelDesc}>
+                    {persona
+                        ? `${persona.name} · ${persona.personalityText} · ${persona.careerName ?? '无业游民'} · ${persona.intimacyLevelName ?? `亲密度 Lv.${persona.intimacyLevel}`}`
+                        : '它的性格、职业和口头禅，都和聊天时它"想"的一样'}
+                </p>
+                <CreamButton variant="ghost" onClick={() => (showPersona ? setShowPersona(false) : void loadPersona())}>
+                    {showPersona ? '收起人设卡' : '看它的人设卡'}
+                </CreamButton>
+            </div>
+            {showPersona && persona ? (
+                <div className={styles.footerRow} style={{ paddingTop: 8 }}>
+                    <p className={styles.panelDesc}>
+                        {persona.ownerTitle ? `它叫你「${persona.ownerTitle}」` : '它还没学会怎么叫你'}
+                        {persona.phrase ? ` · 口头禅：“${persona.phrase}”` : ''}
+                    </p>
+                </div>
+            ) : null}
             <div ref={bodyRef} className={styles.chatBody}>
                 {messages.map(item => (
                     <div key={String(item.messageId)} className={styles.bubbleRow}>
@@ -1272,12 +1660,23 @@ export default function PetCreamPage() {
     const [adoptName, setAdoptName] = useState('')
     const [adoptSpecies, setAdoptSpecies] = useState<PetSpecies>('STRAWBERRY')
     const [activePanel, setActivePanel] = useState<PanelKey | null>(null)
+    /** 外观草稿（颜色/配饰），初始值来自 pet.appearance（服务端 JSON），保存后随宠物回写 */
+    const [appearanceDraft, setAppearanceDraft] = useState<{ color: string; accessory: string } | null>(null)
+    /** 动作可执行性（B06）：刷新随宠物一起拉取 */
+    const [actions, setActions] = useState<PetActionItem[] | null>(null)
 
     const load = useCallback(async () => {
         setLoading(true)
         try {
             const { data: mine } = await getMyPet()
             setPet(mine.success ? mine.data : null)
+            if (mine.success) {
+                // 动作可执行性（B06）：喂食/玩耍等当前能否执行与不可执行原因，随宠物一起刷新
+                const { data: actionsRes } = await getPetActions(mine.data.petId)
+                if (actionsRes.success) {
+                    setActions(actionsRes.data ?? [])
+                }
+            }
             const { data: list } = await listMyPets()
             if (list.success) {
                 setPets(list.data)
@@ -1292,6 +1691,25 @@ export default function PetCreamPage() {
     useEffect(() => {
         void load()
     }, [load])
+
+    /** 外观草稿随宠物就位（切宠物/刷新后以服务端值为准） */
+    useEffect(() => {
+        if (pet && appearanceDraft === null) {
+            setAppearanceDraft(parseAppearance(pet.appearance))
+        }
+    }, [appearanceDraft, pet])
+
+    /** 保存外观：后端会同时卸下穿戴中的皮肤（避免"皮肤标记"与实际外观不一致） */
+    const submitAppearance = useCallback(async () => {
+        if (!appearanceDraft) {
+            return
+        }
+        const { data: res } = await updateAppearance(appearanceDraft)
+        if (res.success) {
+            setPet(res.data)
+            message.success('外观已更新，穿戴中的皮肤已卸下')
+        }
+    }, [appearanceDraft, message])
 
     const display = useMemo<PetDisplayState | null>(() => {
         if (!pet) {
@@ -1338,6 +1756,8 @@ export default function PetCreamPage() {
             return
         }
         const mapped: Partial<Record<PetIntentAction, PanelKey>> = {
+            openRoom: 'home',
+            openSocial: 'social',
             openDaily: 'quests',
             openAchievements: 'achievements',
             openRankings: 'rankings',
@@ -1515,6 +1935,20 @@ export default function PetCreamPage() {
                                 <CreamStatBar variant="cell" name="精力" value={pet.energy} max={100} color={STAT_TONE.energy} />
                                 <CreamStatBar variant="cell" name="清洁" value={pet.cleanliness} max={100} color={STAT_TONE.cleanliness} />
                             </div>
+                            {actions && actions.length > 0 ? (
+                                <div className={styles.petRow} style={{ marginTop: 12 }}>
+                                    {actions.map(item => (
+                                        <span key={item.action} title={item.reasonText ?? ''}>
+                                            <CreamChip color={item.allowed ? STAT_TONE.energy : STAT_TONE.cleanliness}>
+                                                {ACTION_LABEL[item.action] ?? item.action}
+                                                {item.allowed
+                                                    ? (item.rewardRemainingToday !== null ? ` · 余${item.rewardRemainingToday}` : '')
+                                                    : ' · 暂不可'}
+                                            </CreamChip>
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
                         </CreamCard>
 
                         <div className={styles.actions}>
@@ -1531,19 +1965,33 @@ export default function PetCreamPage() {
                         </div>
 
                         <CreamCard variant="menu" label="Menu" title="功能面板">
-                            <div className={styles.menuGrid}>
-                                {PANELS.map(item => (
-                                    <button
-                                        key={item.key}
-                                        type="button"
-                                        className={styles.menuItem}
-                                        onClick={() => setActivePanel(item.key)}
-                                    >
-                                        <span className={styles.menuItemEmoji}>{item.emoji}</span>
-                                        <span>{item.label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                            {PANEL_GROUPS.map(group => {
+                                const items = PANELS.filter(item => item.group === group.key)
+                                if (items.length === 0) {
+                                    return null
+                                }
+                                return (
+                                    <div key={group.key} className={styles.menuGroup}>
+                                        <div className={styles.menuGroupLabel}>
+                                            <span className={styles.menuGroupTitle}>{group.label}</span>
+                                            <span className={styles.menuGroupHint}>{group.hint}</span>
+                                        </div>
+                                        <div className={styles.menuGrid}>
+                                            {items.map(item => (
+                                                <button
+                                                    key={item.key}
+                                                    type="button"
+                                                    className={styles.menuItem}
+                                                    onClick={() => setActivePanel(item.key)}
+                                                >
+                                                    <span className={styles.menuItemEmoji}>{item.emoji}</span>
+                                                    <span>{item.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </CreamCard>
 
                         {pets.length > 1 ? (
@@ -1569,6 +2017,45 @@ export default function PetCreamPage() {
                                 <CreamButton variant="ghost" onClick={() => void togglePrivacy(!pet.isPublic)}>
                                     {pet.isPublic ? '设为隐藏' : '设为公开'}
                                 </CreamButton>
+                            </div>
+                            <p className={styles.panelTitle} style={{ marginTop: 14 }}>外观</p>
+                            <p className={styles.panelDesc}>
+                                当前：{(appearanceDraft && APPEARANCE_COLORS.find(c => c.value === appearanceDraft.color)?.label) ?? '—'} ·
+                                {(appearanceDraft && APPEARANCE_ACCESSORIES.find(a => a.value === appearanceDraft.accessory)?.label) ?? '—'}
+                                （保存会卸下穿戴中的皮肤）
+                            </p>
+                            <div className={styles.petRow}>
+                                {APPEARANCE_COLORS.map(item => (
+                                    <button
+                                        key={item.value}
+                                        type="button"
+                                        className={`${styles.petChip} ${appearanceDraft?.color === item.value ? styles.petChipActive : ''}`}
+                                        onClick={() => setAppearanceDraft(prev => ({
+                                            color: item.value,
+                                            accessory: prev?.accessory ?? 'none',
+                                        }))}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className={styles.petRow}>
+                                {APPEARANCE_ACCESSORIES.map(item => (
+                                    <button
+                                        key={item.value}
+                                        type="button"
+                                        className={`${styles.petChip} ${appearanceDraft?.accessory === item.value ? styles.petChipActive : ''}`}
+                                        onClick={() => setAppearanceDraft(prev => ({
+                                            color: prev?.color ?? 'orange',
+                                            accessory: item.value,
+                                        }))}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className={styles.renameRow}>
+                                <CreamButton variant="ghost" onClick={() => void submitAppearance()}>保存外观</CreamButton>
                             </div>
                             <div className={styles.renameRow}>
                                 <Input
@@ -1599,6 +2086,17 @@ export default function PetCreamPage() {
 
             {activePanel && activePanelMeta ? (
                 <CreamSheet title={activePanelMeta.title} onClose={() => setActivePanel(null)}>
+                    {activePanel === 'home' ? <HomeBoard onChanged={() => void load()} /> : null}
+                    {activePanel === 'social' && pet ? (
+                        <SocialBoard myPetId={pet.petId} onChanged={() => void load()} />
+                    ) : null}
+                    {activePanel === 'companion' && pet ? (
+                        <CompanionBoard myPetId={pet.petId} onChanged={() => void load()} />
+                    ) : null}
+                    {activePanel === 'play' && pet ? (
+                        <PlayBoard myPetId={pet.petId} onChanged={() => void load()} />
+                    ) : null}
+                    {activePanel === 'misc' ? <MiscBoard onChanged={() => void load()} /> : null}
                     {activePanel === 'quests' ? <QuestsPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'activities' ? <ActivitiesPanel petStatus={pet?.status ?? 'IDLE'} onChanged={() => void load()} /> : null}
                     {activePanel === 'career' ? <CareerPanel onChanged={() => void load()} /> : null}

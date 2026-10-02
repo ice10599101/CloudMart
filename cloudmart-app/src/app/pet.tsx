@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Platform,
   Alert,
+  Image,
   Modal,
   ScrollView,
   Switch,
@@ -15,6 +17,8 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as Clipboard from 'expo-clipboard'
 import { useTheme } from '@/hooks/use-theme-context'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
+import { CreamCard, CreamButton, CreamChip, CreamStatBar, CreamMasthead, CreamMenuGrid, CreamPanel, petCreamStyles } from '@/components/pet-cream'
 import { notificationApi } from '@/api/notification'
 import {
   petApi,
@@ -45,7 +49,22 @@ import {
   type PetIntimacyInfo,
   type PetRelationPanel,
   type PetWallPage,
+  type PetActionItem,
+  type PetEquipPreview,
+  type PetAnniversary,
+  type PetPersona,
+  type PetFriendFeedItem,
+  type PetDiaryPage,
+  type PetMemory,
+  type PetSeasonRanking,
+  type PetSeasonHistoryItem,
+  type PetNotifyPref,
+  type PetOnboardingProgress,
 } from '@/api/pet'
+import { growthApi } from '@/api/growth'
+import type { CheckInStatus } from '@/types'
+import { fileApi } from '@/api/file'
+import * as ImagePicker from 'expo-image-picker'
 import { useAuthStore } from '@/store/auth'
 
 /**
@@ -56,7 +75,13 @@ import { useAuthStore } from '@/store/auth'
  * 数值全部服务端结算，游戏只发意图、不做任何业务计算。
  */
 
-const SPECIES_EMOJI: Record<string, string> = { CAT: '🐱', DOG: '🐶', RABBIT: '🐰', FOX: '🦊', PANDA: '🐼' }
+const SPECIES_EMOJI: Record<string, string> = {
+  STRAWBERRY: '🍓',
+  ORANGE: '🍊',
+  WATERMELON: '🍉',
+  BLUEBERRY: '🫐',
+  DRAGONFRUIT: '🐉',
+}
 const PERSONALITY_LABEL: Record<string, string> = {
   LIVELY: '活泼', GENTLE: '温柔', TSUNDERE: '傲娇', SIMPLE: '憨厚', COOL: '高冷', CHATTERBOX: '话痨',
 }
@@ -79,7 +104,7 @@ const RARITY_LABEL: Record<string, string> = {
 
 type PanelKey =
   | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
-  | 'chat' | 'achievements' | 'rankings' | 'reminders'
+  | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'companion'
 
 /** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物 + 三期职业） */
 type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'career' | 'pets'
@@ -115,7 +140,13 @@ const CARE_ERROR_HINT: Record<string, string> = {
   PET_EVENT_NOT_FINISHED: '活动还没完成哦',
   PET_EVENT_ALREADY_CLAIMED: '奖励已经领过啦',
   PET_EVENT_ENDED: '活动已经结束啦',
-  WISH_STARLIGHT_INSUFFICIENT: '星光不够啦，让宠物去打工赚点吧',
+  WISH_STARLIGHT_INSUFFICIENT: '宠物币不够啦，让宠物去打工赚点吧',
+}
+
+/** B06 动作可执行性的展示名（action 码 → 中文） */
+const ACTION_LABEL: Record<string, string> = {
+  FEED: '喂食', PLAY: '玩耍', CLEAN: '清洁', REST: '休息',
+  WORK: '打工', STUDY: '读书', BOTTLE: '捞瓶', BATTLE: '对战',
 }
 
 const PANELS: { key: PanelKey; label: string; emoji: string }[] = [
@@ -131,6 +162,18 @@ const PANELS: { key: PanelKey; label: string; emoji: string }[] = [
   { key: 'achievements', label: '成就', emoji: '🏆' },
   { key: 'rankings', label: '榜单', emoji: '🥇' },
   { key: 'reminders', label: '提醒', emoji: '🔔' },
+  { key: 'companion', label: '陪伴', emoji: '🫶' },
+]
+
+const PANEL_TITLE = Object.fromEntries(PANELS.map((item) => [item.key, item.label])) as Record<PanelKey, string>
+const PANEL_ITEM = Object.fromEntries(PANELS.map((item) => [item.key, item])) as unknown as Record<PanelKey, { emoji: string; label: string }>
+
+/** 分组宫格（对齐 Web/Taro：La Maison / Croissance / Les Amis / Archives） */
+const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
+  { label: 'La Maison', hint: '小家与陪伴', keys: ['home', 'companion'] },
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'work', 'study', 'bottle', 'battle', 'care'] },
+  { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
+  { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
 
 const RANKING_TABS: { key: PetRankingType; label: string }[] = [
@@ -199,31 +242,9 @@ function parseResult<T>(raw: string | null | undefined): T | null {
   }
 }
 
-interface BarProps {
-  label: string
-  value: number
-  max: number
-  color: string
-}
-
-function StateBar({ label, value, max, color }: BarProps) {
-  const colors = useTheme()
-  const ratio = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-      <Text style={{ width: 64, fontSize: FontSize.xs, color: colors.textSecondary }}>{label}</Text>
-      <View style={{ flex: 1, height: 8, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' }}>
-        <View style={{ width: `${ratio * 100}%`, height: '100%', borderRadius: 999, backgroundColor: color }} />
-      </View>
-      <Text style={{ width: 56, fontSize: FontSize.xs, color: colors.textTertiary, textAlign: 'right' }}>
-        {value}/{max}
-      </Text>
-    </View>
-  )
-}
 
 function ChipButton({ label, onPress, disabled, primary }: { label: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
-  const colors = useTheme()
+  const colors = { ...useTheme(), ...PetCreamTheme }
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -269,7 +290,7 @@ function useCountdown(finishedAt: string | null): number {
 }
 
 export default function PetScreen() {
-  const colors = useTheme()
+  const colors = { ...useTheme(), ...PetCreamTheme }
   const params = useLocalSearchParams<{ intent?: string }>()
   const gameUrl = process.env.EXPO_PUBLIC_PET_GAME_URL
   const webRef = useRef<WebView>(null)
@@ -280,8 +301,9 @@ export default function PetScreen() {
   const [noPet, setNoPet] = useState(false)
   const [gameReady, setGameReady] = useState(false)
   const [gameFailed, setGameFailed] = useState(!gameUrl)
-  const [panel, setPanel] = useState<PanelKey>('home')
-  const [adoptSpecies, setAdoptSpecies] = useState('CAT')
+  const stageFrameRef = useRef<any>(null)
+  const [panel, setPanel] = useState<PanelKey | null>(null)
+  const [adoptSpecies, setAdoptSpecies] = useState('STRAWBERRY')
   const [adoptGender, setAdoptGender] = useState('MALE')
   const [adoptPersonality, setAdoptPersonality] = useState('LIVELY')
   const [adoptColor, setAdoptColor] = useState('orange')
@@ -298,9 +320,21 @@ export default function PetScreen() {
   const [chatInput, setChatInput] = useState('')
   const [rankings, setRankings] = useState<PetRankingResult | null>(null)
   const [rankingType, setRankingType] = useState<PetRankingType>('LEVEL')
+  // F2 赛季排行（懒加载：切到"赛季"时拉取一次）
+  const [showSeason, setShowSeason] = useState(false)
+  const [season, setSeason] = useState<PetSeasonRanking | null>(null)
+  const [seasonHistory, setSeasonHistory] = useState<PetSeasonHistoryItem[]>([])
   const [reminders, setReminders] = useState<PetReminder[]>([])
   const [reminderUnread, setReminderUnread] = useState(0)
   const [intimacy, setIntimacy] = useState<PetIntimacyInfo | null>(null)
+  // B06 动作可执行性（辅助展示：失败清空，不打断主流程）
+  const [actions, setActions] = useState<PetActionItem[]>([])
+  // 喂食食物选择器（长按喂食弹出；对齐 Taro 端 openFoodPicker）
+  const [foodPickerOpen, setFoodPickerOpen] = useState(false)
+  const [foodOptions, setFoodOptions] = useState<PetInventoryItem[] | null>(null)
+  const [foodBusy, setFoodBusy] = useState<string | null>(null)
+
+  const [equipPreview, setEquipPreview] = useState<PetEquipPreview | null>(null)
   const [stageBubble, setStageBubble] = useState<string | null>(null)
 
   // 养成面板（商城/背包/技能/进化/活动/串门/多宠物）
@@ -337,18 +371,48 @@ export default function PetScreen() {
   const [battleOverlay, setBattleOverlay] = useState<{ rounds: BattleRound[]; won: boolean } | null>(null)
   const [roundIndex, setRoundIndex] = useState(0)
 
+  const stageOrigin = gameUrl ? gameUrl.split('/').slice(0, 3).join('/') : ''
+  /** 气泡 3.2s 自动消失（互动反馈可见化；Expo Web 上 Alert 是空操作，必须页面内反馈） */
+  const showBubbleTimed = useCallback((content: string) => {
+    setStageBubble(content)
+    setTimeout(() => setStageBubble((current) => (current === content ? null : current)), 3200)
+  }, [])
+
   const postToGame = useCallback((message: HostToGame) => {
+    if (Platform.OS === 'web') {
+      // Web：向舞台 iframe 的 contentWindow 发消息（targetOrigin 收紧为游戏源）
+      const frame = stageFrameRef.current?.contentWindow
+      if (frame && stageOrigin) {
+        frame.postMessage(JSON.stringify(message), stageOrigin)
+      }
+      return
+    }
     webRef.current?.injectJavaScript(
       `window.__petHostMessage && window.__petHostMessage(${JSON.stringify(JSON.stringify(message))}); true;`,
     )
-  }, [])
+  }, [stageOrigin])
 
-  const syncStage = useCallback((next: PetInfo) => {
-    postToGame({ source: 'pet-host', type: 'petState', pet: toDisplayState(next) })
+  // Web：init/petState 重试器——游戏加载后 __petHostMessage 才挂载，且旧产物 ready 回不来，
+  // 按次数重试确保游戏拿到当前宠物数据（收到游戏消息即停）
+  const webSyncStage = useCallback((next: PetInfo) => {
+    let tries = 0
+    const timer = setInterval(() => {
+      tries += 1
+      if (tries > 8) { clearInterval(timer); return }
+      postToGame({ source: 'pet-host', type: 'init', pet: toDisplayState(next) })
+    }, 1200)
   }, [postToGame])
 
+  const syncStage = useCallback((next: PetInfo) => {
+    if (Platform.OS === 'web') {
+      webSyncStage(next)
+      return
+    }
+    postToGame({ source: 'pet-host', type: 'petState', pet: toDisplayState(next) })
+  }, [postToGame, webSyncStage])
+
   const showBubble = useCallback((content: string) => {
-    setStageBubble(content)
+    showBubbleTimed(content)
     postToGame({ source: 'pet-host', type: 'chatBubble', content })
   }, [postToGame])
 
@@ -375,6 +439,50 @@ export default function PetScreen() {
     }
     refresh()
   }, [isLoggedIn, refresh])
+
+  // B06 动作可执行性：随主宠刷新（喂食/玩耍等当前能否执行与原因）
+  useEffect(() => {
+    if (!pet) return
+    void (async () => {
+      try {
+        const { data: res } = await petApi.getActions(pet.petId)
+        if (res.success) setActions(res.data)
+      } catch {
+        setActions([])
+      }
+    })()
+  }, [pet?.petId])
+
+  // F2 赛季排行：切到"赛季"且未加载时拉取（无进行中赛季 season=null）
+  useEffect(() => {
+    if (panel !== 'rankings' || !showSeason || season) return
+    void (async () => {
+      try {
+        const [{ data: sr }, { data: sh }] = await Promise.all([
+          petApi.getSeasonRanking(),
+          petApi.getSeasonHistory(),
+        ])
+        if (sr.success && sr.data) setSeason(sr.data)
+        if (sh.success) setSeasonHistory(sh.data ?? [])
+      } catch {
+        // 展示型数据：忽略
+      }
+    })()
+  }, [panel, season, showSeason])
+
+  /** B12 装备替换预览：同码再点收起（只读不写入） */
+  const toggleEquipPreview = useCallback(async (itemCode: string) => {
+    if (equipPreview?.itemCode === itemCode) {
+      setEquipPreview(null)
+      return
+    }
+    try {
+      const { data: res } = await petApi.previewEquip(itemCode)
+      if (res.success) setEquipPreview(res.data)
+    } catch {
+      Alert.alert('暂时不能预览', '请稍后再试')
+    }
+  }, [equipPreview?.itemCode])
 
   // 三期：亲密度概览（展示型数据，失败保持原值）+ 陪伴心跳（App 在前台时每 60 秒上报一次）
   useEffect(() => {
@@ -412,7 +520,9 @@ export default function PetScreen() {
 
   useEffect(() => {
     if (!gameUrl) return
-    const timer = setTimeout(() => setGameFailed((f) => !gameReady), 2500)
+    // Web：iframe 是否可见由自身决定，不自动降级（桥接失败只影响数据同步，不影响画面）
+    if (Platform.OS === 'web') return
+    const timer = setTimeout(() => setGameFailed((f) => !gameReady), 12000)
     return () => clearTimeout(timer)
   }, [gameUrl, gameReady])
 
@@ -538,7 +648,7 @@ export default function PetScreen() {
   }, [rankingType, careTab, loadCareData])
 
   useEffect(() => {
-    if (pet) loadPanelData(panel)
+    if (pet && panel) loadPanelData(panel)
   }, [panel, pet, loadPanelData])
 
   const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
@@ -555,13 +665,56 @@ export default function PetScreen() {
           syncStage(res.data)
           postToGame({ source: 'pet-host', type: 'actionResult', action, ok: true })
         }
+      } else {
+        // 业务失败（精力不足/次数用尽等）：气泡可见反馈
+        showBubbleTimed(res.error?.message ?? '现在不行哦')
       }
-    } catch {
+    } catch (error) {
+      const err = error as { code?: string; message?: string }
+      if (err.code === 'UNAUTHORIZED') {
+        showBubbleTimed('请先登录再和它互动哦')
+        router.push('/login')
+        return
+      }
+      showBubbleTimed(err.message ?? '现在不行哦，稍后再试')
       if (gameReady) {
         postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: '现在不行哦' })
       }
     }
   }
+
+  const openFoodPicker = useCallback(async () => {
+    if (!pet) return
+    setFoodPickerOpen(true)
+    setFoodOptions(null)
+    try {
+      const { data: res } = await petApi.listInventory()
+      if (res.success && res.data) {
+        const foods = res.data.filter((it) => it.itemType === 'FOOD' && (it.quantity ?? 0) > 0)
+        setFoodOptions(foods)
+        if (foods.length === 0) {
+          setTimeout(() => { setStageBubble('背包里没有食物，去商城买一点吧'); setFoodPickerOpen(false) }, 400)
+        }
+      }
+    } catch { /* 拦截器已提示 */ }
+  }, [pet])
+
+  const feedFood = useCallback(async (code: string) => {
+    setFoodBusy(code)
+    try {
+      const { data: res } = await petApi.feedItem(code)
+      if (res.success && res.data) {
+        setPet(res.data)
+        setFoodPickerOpen(false)
+        if (gameReady) {
+          syncStage(res.data)
+          postToGame({ source: 'pet-host', type: 'actionResult', action: 'feed', ok: true })
+        }
+      }
+    } catch { /* 拦截器已提示 */ } finally {
+      setFoodBusy(null)
+    }
+  }, [gameReady, postToGame, syncStage])
 
   const openProfile = useCallback(() => {
     if (!pet) return
@@ -604,7 +757,7 @@ export default function PetScreen() {
     if (!activityKey || activeRemaining > 0) return
     const target = Date.parse(activityKey.length === 19 ? `${activityKey}Z` : activityKey)
     if (Number.isNaN(target) || target > Date.now()) return
-    const timer = setTimeout(() => { refresh(); loadPanelData(panel) }, 1500)
+    const timer = setTimeout(() => { refresh(); if (panel) loadPanelData(panel) }, 1500)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityKey, activeRemaining])
@@ -685,6 +838,7 @@ export default function PetScreen() {
     try {
       const message = JSON.parse(event.nativeEvent.data)
       if (message?.source !== 'pet-game') return
+      setGameFailed(false)
       if (message.type === 'ready') {
         setGameReady(true)
         if (pet) postToGame({ source: 'pet-host', type: 'init', pet: toDisplayState(pet) })
@@ -725,6 +879,22 @@ export default function PetScreen() {
     setRoundIndex(0)
     setBattleOverlay({ rounds, won })
   }, [gameReady, postToGame])
+
+  // Web：舞台 iframe → 宿主消息桥（游戏 postMessage 到 parent，这里统一转发给解析器）
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !gameUrl) return
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== stageOrigin) return
+      try {
+        const raw = typeof event.data === 'string' ? event.data : JSON.stringify(event.data)
+        setGameFailed(false)
+        onWebViewMessage({ nativeEvent: { data: raw } } as any)
+      } catch { /* 非本游戏消息 */ }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [gameUrl, stageOrigin, onWebViewMessage])
+
 
   const battleRespond = async (battle: PetBattleItem, accept: boolean) => {
     try {
@@ -816,11 +986,11 @@ export default function PetScreen() {
   const barRows = useMemo(() => {
     if (!pet) return []
     return [
-      { label: '❤️ 生命', value: pet.hp, max: pet.maxHp, color: '#ff6c6c' },
-      { label: '🍖 饱食', value: pet.hunger, max: 100, color: '#ffb258' },
-      { label: '💗 心情', value: pet.happiness, max: 100, color: '#ff69b4' },
-      { label: '⚡ 精力', value: pet.energy, max: 100, color: '#62d88a' },
-      { label: '🧼 清洁', value: pet.cleanliness, max: 100, color: '#60beff' },
+      { label: '❤️ 生命', value: pet.hp, max: pet.maxHp, color: PetCreamSemantic.statHp },
+      { label: '🍖 饱食', value: pet.hunger, max: 100, color: PetCreamSemantic.statHunger },
+      { label: '💗 心情', value: pet.happiness, max: 100, color: PetCreamSemantic.statHappiness },
+      { label: '⚡ 精力', value: pet.energy, max: 100, color: PetCreamSemantic.statEnergy },
+      { label: '🧼 清洁', value: pet.cleanliness, max: 100, color: PetCreamSemantic.statClean },
     ]
   }, [pet])
 
@@ -943,17 +1113,32 @@ export default function PetScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bgBase }} contentContainerStyle={{ padding: Spacing.md, paddingBottom: 48 }}>
+      {/* 招牌页头 */}
+      <CreamMasthead title="Le Petit Jardin" subtitle="宠物小花园 · 五果相伴" />
       {/* Cocos 舞台（未部署 Fail-Open 原生降级） */}
-      <View style={{ height: 320, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.md, backgroundColor: '#18223a' }}>
+      <View style={{ height: 320, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.md, backgroundColor: PetCreamTheme.bgPage }}>
         {gameUrl && !gameFailed
           ? (
-            <WebView
-              ref={webRef}
-              source={{ uri: gameUrl }}
-              onMessage={onWebViewMessage}
-              scrollEnabled={false}
-              style={{ flex: 1, backgroundColor: 'transparent' }}
-            />
+            Platform.OS === 'web'
+              ? (
+                // @ts-ignore —— react-native 的 JSX 命名空间不含 DOM 元素
+                <iframe
+                  ref={stageFrameRef}
+                  name="pet-stage-iframe"
+                  src={gameUrl}
+                  title="3D 舞台"
+                  style={{ flex: 1, width: '100%', border: 'none', backgroundColor: 'transparent' }}
+                />
+              )
+              : (
+                <WebView
+                  ref={webRef}
+                  source={{ uri: gameUrl }}
+                  onMessage={onWebViewMessage}
+                  scrollEnabled={false}
+                  style={{ flex: 1, backgroundColor: 'transparent' }}
+                />
+              )
           )
           : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -973,11 +1158,12 @@ export default function PetScreen() {
         )}
       </View>
 
-      {/* 头部信息 */}
+      {/* Ma Maison：身份卡（拱形主视觉） */}
+      <CreamCard variant="arch" label="Ma Maison" style={{ marginBottom: Spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: colors.text }}>
           {SPECIES_EMOJI[pet.species]} {pet.name}
-          <Text style={{ color: pet.gender === 'FEMALE' ? '#FF6E9C' : '#4FA3E3', fontSize: FontSize.sm }}>
+          <Text style={{ color: pet.gender === 'FEMALE' ? PetCreamSemantic.genderFemale : PetCreamSemantic.genderMale, fontSize: FontSize.sm }}>
             {pet.gender === 'FEMALE' ? ' ♀' : ' ♂'}
           </Text>
           {' '}· Lv.{pet.level}
@@ -995,10 +1181,33 @@ export default function PetScreen() {
           <Text style={{ fontSize: FontSize.xs, color: colors.textTertiary }}>今日可喂食 {pet.feedRemainingToday} 次</Text>
         )}
       </View>
+      </CreamCard>
 
-      {/* 状态条 */}
-      <View style={{ marginTop: Spacing.md, gap: 8 }}>
-        {barRows.map((row) => <StateBar key={row.label} {...row} />)}
+      {/* État：状态仪表 */}
+      <CreamCard label="État" title="状态">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {barRows.map((row) => <CreamStatBar key={row.label} name={row.label} value={row.value} max={row.max} color={row.color} />)}
+        {actions.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs }}>
+            {actions.map((item) => (
+              <View
+                key={item.action}
+                style={{
+                  paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1,
+                  borderColor: item.allowed ? colors.border : colors.border,
+                  backgroundColor: item.allowed ? 'rgba(98, 216, 138, 0.12)' : colors.bgBase,
+                }}
+              >
+                <Text style={{ fontSize: 10, color: item.allowed ? PetCreamSemantic.success : colors.textTertiary }}>
+                  {ACTION_LABEL[item.action] ?? item.action}
+                  {item.allowed
+                    ? (item.rewardRemainingToday != null ? ` · 余${item.rewardRemainingToday}` : '')
+                    : ` · ${item.reasonText ?? '暂不可'}`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
         {/* 三期：亲密度与陪伴（服务端权威，前端只展示） */}
         <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, marginTop: 4 }}>
           💞 亲密度 {intimacy ? `${intimacy.intimacy}（${intimacy.levelName}）` : `${pet.intimacy}（${pet.intimacyLevelName}）`}
@@ -1008,6 +1217,7 @@ export default function PetScreen() {
           {intimacy ? `（今日 ${Math.round(intimacy.todayCompanionSeconds / 60)} 分钟，连续 ${intimacy.companionStreak} 天）` : ''}
         </Text>
       </View>
+      </CreamCard>
 
       {/* 进行中任务倒计时（按服务端 finishedAt） */}
       {pet.activityType && activeRemaining > 0 && (
@@ -1034,7 +1244,7 @@ export default function PetScreen() {
                 else if (pet.claimableActivityType === 'STUDY') await petApi.claimStudy()
                 else await openBottleResult()
                 refresh()
-                loadPanelData(panel)
+                if (panel) loadPanelData(panel)
               } catch { /* 已领取 409 */ }
             }}
           />
@@ -1043,7 +1253,7 @@ export default function PetScreen() {
 
       {/* 互动按钮（Cocos 意图与原生按钮共用同一 API） */}
       <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' }}>
-        <ChipButton label="🍖 喂食" primary onPress={() => runInteraction('feed')} />
+        <CreamButton onPress={() => runInteraction('feed')} onLongPress={() => void openFoodPicker()}>🍖 喂食</CreamButton>
         <ChipButton label="🎾 玩耍" primary onPress={() => runInteraction('play')} />
         <ChipButton label="🫧 清洁" primary onPress={() => runInteraction('clean')} />
         <ChipButton label="💤 休息" primary onPress={() => runInteraction('rest')} />
@@ -1051,27 +1261,18 @@ export default function PetScreen() {
       </View>
 
       {/* 面板切换 */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.md }}>
-        {PANELS.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            onPress={() => setPanel(item.key)}
-            style={{
-              paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
-              backgroundColor: panel === item.key ? colors.primary : colors.bgContainer,
-              borderWidth: 1, borderColor: panel === item.key ? colors.primary : colors.border,
-            }}
-          >
-            <Text style={{ color: panel === item.key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>
-              {item.emoji} {item.label}
-              {item.key === 'reminders' && reminderUnread > 0 ? ` (${reminderUnread})` : ''}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* 分组功能宫格 */}
+      <CreamMenuGrid
+        groups={MENU_GROUPS}
+        items={PANEL_ITEM}
+        active={panel}
+        badgeOf={(key) => (key === 'reminders' ? reminderUnread : 0)}
+        onSelect={(key) => setPanel(key as PanelKey)}
+      />
 
-      {/* 面板内容 */}
-      <View style={{ marginTop: Spacing.md, backgroundColor: colors.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md, borderWidth: 1, borderColor: colors.border }}>
+      {/* 面板层（全屏奶油） */}
+      <CreamPanel title={panel ? PANEL_TITLE[panel] : ''} visible={panel != null} onClose={() => setPanel(null)}>
+      <View style={{ gap: Spacing.sm }}>
         {panel === 'daily' && <DailyQuestPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
         {panel === 'home' && (
@@ -1079,7 +1280,7 @@ export default function PetScreen() {
             <HomePanel onRefresh={refresh} />
             <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>养成小贴士</Text>
             <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>🍖 饱食和清洁随时间下降，记得回来照顾它</Text>
-            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>💼 打工赚星光，📚 读书涨智力</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>💼 打工赚宠物币，📚 读书涨智力</Text>
             <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>🍾 宠物会定时帮你捞社区漂流瓶并主动提醒</Text>
             <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>⚔️ 对战由服务端计算，输了也有经验</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm }}>
@@ -1103,23 +1304,29 @@ export default function PetScreen() {
         {panel === 'work' && (
           <View style={{ gap: Spacing.sm }}>
             {jobs.map((job) => (
-              <View key={String(job.configId)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{job.name}</Text>
-                  <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
-                    ⏱ {Math.round(job.durationSeconds / 60)} 分钟 · ⚡-{job.energyCost} · ✨+{job.expReward} · ⭐+{job.currencyReward}
-                  </Text>
-                </View>
-                {job.eligible
-                  ? (
-                    <ChipButton label="接单" primary onPress={async () => {
+              <View key={String(job.configId)} style={petCreamStyles.questCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{job.name}</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                      {`⏱ ${Math.round(job.durationSeconds / 60)} 分钟 · ⚡-${job.energyCost}`}
+                    </Text>
+                    <View style={petCreamStyles.rewardRow}>
+                      <Text style={petCreamStyles.rewardChip}>{`经验 +${job.expReward}`}</Text>
+                      <Text style={petCreamStyles.rewardChip}>{`宠物币 +${job.currencyReward}`}</Text>
+                    </View>
+                  </View>
+                  {job.eligible ? (
+                    <CreamButton onPress={async () => {
                       try {
                         const { data: res } = await petApi.startWork(job.configId)
-                        if (res.success) { refresh(); loadPanelData('work') }
+                        if (res.success) { refresh(); if (panel) loadPanelData(panel) }
                       } catch { /* 拦截器已提示 */ }
-                    }} />
-                  )
-                  : <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>Lv.{job.requiredLevel} 解锁</Text>}
+                    }}>接单</CreamButton>
+                  ) : (
+                    <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, flexShrink: 0 }}>{`Lv.${job.requiredLevel} 解锁`}</Text>
+                  )}
+                </View>
               </View>
             ))}
             {pet.claimableActivityType === 'WORK' && (
@@ -1136,23 +1343,29 @@ export default function PetScreen() {
         {panel === 'study' && (
           <View style={{ gap: Spacing.sm }}>
             {studies.map((study) => (
-              <View key={String(study.configId)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{study.name}</Text>
-                  <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
-                    ⏱ {Math.round(study.durationSeconds / 60)} 分钟 · ✨+{study.expReward} · 🧠+{study.intelligenceReward}
-                  </Text>
-                </View>
-                {study.eligible
-                  ? (
-                    <ChipButton label="上课" primary onPress={async () => {
+              <View key={String(study.configId)} style={petCreamStyles.questCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{study.name}</Text>
+                    <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                      {`⏱ ${Math.round(study.durationSeconds / 60)} 分钟`}
+                    </Text>
+                    <View style={petCreamStyles.rewardRow}>
+                      <Text style={petCreamStyles.rewardChip}>{`经验 +${study.expReward}`}</Text>
+                      <Text style={petCreamStyles.rewardChip}>{`智力 +${study.intelligenceReward}`}</Text>
+                    </View>
+                  </View>
+                  {study.eligible ? (
+                    <CreamButton onPress={async () => {
                       try {
                         const { data: res } = await petApi.startStudy(study.configId)
                         if (res.success) { refresh(); loadPanelData('study') }
                       } catch { /* 拦截器已提示 */ }
-                    }} />
-                  )
-                  : <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>Lv.{study.requiredLevel} 解锁</Text>}
+                    }}>上课</CreamButton>
+                  ) : (
+                    <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, flexShrink: 0 }}>{`Lv.${study.requiredLevel} 解锁`}</Text>
+                  )}
+                </View>
               </View>
             ))}
             {pet.claimableActivityType === 'STUDY' && (
@@ -1167,14 +1380,12 @@ export default function PetScreen() {
         )}
 
         {panel === 'bottle' && bottle && (
-          <View style={{ gap: Spacing.sm }}>
+          <View style={petCreamStyles.questCard}>
             <Text style={{ color: colors.text, fontSize: FontSize.sm }}>🌊 {bottle.unlockedArea} · 估算成功率 {Math.round(bottle.estimatedSuccessRate * 100)}%</Text>
             {bottle.fishing
               ? <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>🐾 捞瓶中…剩余 {formatClock(bottleRemaining)}</Text>
               : (
-                <ChipButton
-                  label={bottle.canClaim ? '查看捞瓶结果' : bottle.cooldownRemainingSeconds > 0 ? `冷却中 ${Math.ceil(bottle.cooldownRemainingSeconds / 60)} 分钟` : '让宠物去捞漂流瓶'}
-                  primary={!bottle.canClaim && bottle.cooldownRemainingSeconds <= 0}
+                <CreamButton
                   disabled={bottle.cooldownRemainingSeconds > 0 && !bottle.canClaim}
                   onPress={async () => {
                     try {
@@ -1189,7 +1400,9 @@ export default function PetScreen() {
                       }
                     } catch { /* 拦截器已提示 */ }
                   }}
-                />
+                >
+                  {bottle.canClaim ? '查看捞瓶结果' : bottle.cooldownRemainingSeconds > 0 ? `冷却中 ${Math.ceil(bottle.cooldownRemainingSeconds / 60)} 分钟` : '让宠物去捞漂流瓶'}
+                </CreamButton>
               )}
             {bottle.lastOutcome === 'EMPTY' && (
               <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>这次空手而归啦，休息一下再试试～</Text>
@@ -1203,13 +1416,13 @@ export default function PetScreen() {
         {panel === 'battle' && (
           <View style={{ gap: Spacing.md }}>
             {history.filter((battle) => battle.status === 'PENDING' && battle.role === 'DEFENDER').map((battle) => (
-              <View key={String(battle.battleId)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ color: colors.text, fontSize: FontSize.sm }}>
+              <View key={String(battle.battleId)} style={[petCreamStyles.questCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                <Text style={{ color: colors.text, fontSize: FontSize.sm, flex: 1 }}>
                   ⚔️ 收到 {battle.attackerPetName ?? `宠物 #${battle.attackerPetId}`} 的挑战
                 </Text>
-                <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
-                  <ChipButton label="应战" primary onPress={() => battleRespond(battle, true)} />
-                  <ChipButton label="婉拒" onPress={() => battleRespond(battle, false)} />
+                <View style={petCreamStyles.rowActions}>
+                  <CreamButton onPress={() => battleRespond(battle, true)}>应战</CreamButton>
+                  <CreamButton variant="ghost" onPress={() => battleRespond(battle, false)}>婉拒</CreamButton>
                 </View>
               </View>
             ))}
@@ -1226,7 +1439,7 @@ export default function PetScreen() {
                       refresh()
                     } catch { /* 拦截器已提示 */ }
                   }}
-                  style={{ width: 104, alignItems: 'center', padding: Spacing.sm, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: colors.border }}
+                  style={petCreamStyles.tile}
                 >
                   <Text style={{ fontSize: 30 }}>{SPECIES_EMOJI[opponent.species] || '🐾'}</Text>
                   <Text style={{ color: colors.text, fontSize: FontSize.xs }}>{opponent.name}</Text>
@@ -1241,7 +1454,7 @@ export default function PetScreen() {
                   const { data: res } = await petApi.getBattleDetail(battle.battleId).catch(() => ({ data: { success: false, data: null as PetBattleItem | null } }))
                   if (res.success && res.data) presentBattle(res.data)
                 }}
-                style={{ flexDirection: 'row', justifyContent: 'space-between' }}
+                style={[petCreamStyles.questCard, { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }]}
               >
                 <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
                   {battle.status === 'FINISHED'
@@ -1266,15 +1479,9 @@ export default function PetScreen() {
               {chatMessages.map((item) => (
                 <View
                   key={String(item.messageId)}
-                  style={{
-                    alignSelf: item.role === 'USER' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    padding: 10,
-                    borderRadius: BorderRadius.lg,
-                    backgroundColor: item.role === 'USER' ? colors.primary : colors.bgBase,
-                  }}
+                  style={item.role === 'USER' ? petCreamStyles.bubbleMine : petCreamStyles.bubblePet}
                 >
-                  <Text style={{ color: item.role === 'USER' ? '#fff' : colors.text, fontSize: FontSize.sm }}>{item.content}</Text>
+                  <Text style={item.role === 'USER' ? petCreamStyles.bubbleMineText : petCreamStyles.bubblePetText}>{item.content}</Text>
                   {!item.isAiReply && item.role === 'PET' && (
                     <Text style={{ color: colors.textTertiary, fontSize: 10, marginTop: 2 }}>模板回复</Text>
                   )}
@@ -1293,7 +1500,7 @@ export default function PetScreen() {
                   borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.bgBase,
                 }}
               />
-              <ChipButton label="发送" primary onPress={sendChat} />
+              <CreamButton onPress={sendChat}>发送</CreamButton>
             </View>
           </View>
         )}
@@ -1321,10 +1528,10 @@ export default function PetScreen() {
               onPress={() => router.push('/pet-play')}
               style={{
                 alignItems: 'center', paddingVertical: 10, borderRadius: BorderRadius.lg,
-                borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.4)', backgroundColor: 'rgba(250, 204, 21, 0.08)',
+                borderWidth: 1, borderColor: PetCreamSemantic.brassSoftBorder, backgroundColor: PetCreamSemantic.brassSoftBg,
               }}
             >
-              <Text style={{ color: '#facc15', fontSize: FontSize.sm, fontWeight: '600' }}>🪙 宠物币钱包</Text>
+              <Text style={{ color: PetCreamTheme.primary, fontSize: FontSize.sm, fontWeight: '600' }}>🪙 宠物币钱包</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1340,7 +1547,7 @@ export default function PetScreen() {
             {careTab === 'shop' && (
               <View style={{ gap: Spacing.sm }}>
                 <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
-                  ✨ 星光余额：{shopBalance === null ? '暂不可用' : shopBalance}
+                  🪙 宠物币余额：{shopBalance === null ? '暂不可用' : shopBalance}
                 </Text>
                 {shopItems.map((item) => (
                   <View key={`${item.itemType}-${item.code}`} style={{
@@ -1390,9 +1597,17 @@ export default function PetScreen() {
                     <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.xs }}>
                       {item.itemType === 'EQUIPMENT' && (
                         item.equipped ? (
-                          <ChipButton label="卸下" onPress={() => runCare(`unequip-${item.slot}`, () => petApi.unequipItem(item.slot ?? ''), '已卸下')} />
+                          <>
+                            <ChipButton label="卸下" onPress={() => runCare(`unequip-${item.slot}`, () => petApi.unequipItem(item.slot ?? ''), '已卸下')} />
+                            <ChipButton label={equipPreview?.itemCode === item.code ? '收起预览' : '预览'}
+                              onPress={() => void toggleEquipPreview(item.code)} />
+                          </>
                         ) : (
-                          <ChipButton label="穿戴" primary onPress={() => runCare(`equip-${item.code}`, () => petApi.equipItem(item.code), '已穿戴')} />
+                          <>
+                            <ChipButton label="穿戴" primary onPress={() => runCare(`equip-${item.code}`, () => petApi.equipItem(item.code), '已穿戴')} />
+                            <ChipButton label={equipPreview?.itemCode === item.code ? '收起预览' : '预览'}
+                              onPress={() => void toggleEquipPreview(item.code)} />
+                          </>
                         )
                       )}
                       {item.itemType === 'SKIN' && (
@@ -1402,7 +1617,19 @@ export default function PetScreen() {
                           <ChipButton label="穿戴" primary onPress={() => runCare(`skin-${item.code}`, () => petApi.wearSkin(item.code), '已穿上新皮肤')} />
                         )
                       )}
+                      {item.itemType === 'FOOD' && (
+                        <ChipButton label="喂食" primary onPress={() => runCare(`feed-${item.code}`, () => petApi.feedItem(item.code), '吃掉了，状态好多了')} />
+                      )}
                     </View>
+                    {item.itemType === 'EQUIPMENT' && equipPreview?.itemCode === item.code && (
+                      <Text style={{ color: colors.textSecondary, fontSize: 10 }}>
+                        替换后 HP {equipPreview.after.maxHp}（{equipPreview.delta.maxHp >= 0 ? '+' : ''}{equipPreview.delta.maxHp}）
+                        · 力 {equipPreview.after.strength}（{equipPreview.delta.strength >= 0 ? '+' : ''}{equipPreview.delta.strength}）
+                        · 智 {equipPreview.after.intelligence}（{equipPreview.delta.intelligence >= 0 ? '+' : ''}{equipPreview.delta.intelligence}）
+                        · 敏 {equipPreview.after.agility}（{equipPreview.delta.agility >= 0 ? '+' : ''}{equipPreview.delta.agility}）
+                        · 魅 {equipPreview.after.charm}（{equipPreview.delta.charm >= 0 ? '+' : ''}{equipPreview.delta.charm}）
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>
@@ -1581,29 +1808,85 @@ export default function PetScreen() {
                   <Text style={{ color: rankingType === tab.key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>{tab.label}</Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                onPress={() => setShowSeason((prev) => !prev)}
+                style={{
+                  paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999,
+                  backgroundColor: showSeason ? colors.primary : colors.bgBase,
+                  borderWidth: 1, borderColor: showSeason ? colors.primary : colors.border,
+                }}
+              >
+                <Text style={{ color: showSeason ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>赛季</Text>
+              </TouchableOpacity>
             </View>
-            {rankings?.top20.map((item) => (
-              <View key={String(item.petId)} style={{
-                flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-                padding: Spacing.sm, borderRadius: BorderRadius.md,
-                backgroundColor: item.isMe ? 'rgba(255,214,102,0.25)' : colors.bgBase,
-              }}>
-                <Text style={{ width: 36, fontWeight: '700', color: colors.text }}>
-                  {item.rank <= 3 ? ['🥇', '🥈', '🥉'][item.rank - 1] : `#${item.rank}`}
-                </Text>
-                <Text style={{ flex: 1, color: colors.text, fontSize: FontSize.sm }}>
-                  {SPECIES_EMOJI[item.species] || '🐾'} {item.name}
-                  <Text style={{ color: colors.textTertiary, fontSize: 10 }}> @{item.ownerNickname}</Text>
-                </Text>
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                  {rankingType === 'LEVEL' ? `Lv.${item.value}` : item.value}
-                </Text>
-              </View>
-            ))}
-            {rankings?.myRank != null && (
-              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
-                我的成绩：{rankings.myValue} · 全服第 {rankings.myRank} 名
-              </Text>
+            {showSeason ? (
+              !season ? <ActivityIndicator color={colors.primary} /> : (
+                <View style={{ gap: Spacing.sm }}>
+                  {season.season === null ? (
+                    <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                      当前没有进行中的赛季，开赛后这里会亮起来
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                        {`${season.season.name} · ${season.season.startsAt?.slice(5, 10)} ~ ${season.season.endsAt?.slice(5, 10)} · 我的等级 ${season.myLevel ?? '—'} · 名次 ${season.myRank ?? '未上榜'}`}
+                      </Text>
+                      {season.top50.map((item) => (
+                        <View key={String(item.petId)} style={{
+                          flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+                          padding: Spacing.sm, borderRadius: BorderRadius.md,
+                          backgroundColor: item.isMe ? PetCreamSemantic.meHighlight : colors.bgBase,
+                        }}>
+                          <Text style={{ width: 36, fontWeight: '700', color: colors.text }}>
+                            {item.rank <= 3 ? ['🥇', '🥈', '🥉'][item.rank - 1] : `#${item.rank}`}
+                          </Text>
+                          <Text style={{ flex: 1, color: colors.text, fontSize: FontSize.sm }}>
+                            {SPECIES_EMOJI[item.species] || '🐾'} {item.name}
+                            <Text style={{ color: colors.textTertiary, fontSize: 10 }}> @{item.ownerNickname}</Text>
+                          </Text>
+                          <Text style={{ color: colors.primary, fontWeight: '600' }}>Lv.{item.level}</Text>
+                        </View>
+                      ))}
+                      {seasonHistory.length > 0 && (
+                        <View style={{ gap: Spacing.xs }}>
+                          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>历届我的名次</Text>
+                          {seasonHistory.map((item) => (
+                            <Text key={String(item.seasonId)} style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                              {`${item.seasonName} · 第 ${item.rankNo} 名 · Lv.${item.level}${item.endedAt ? ` · 结算 ${item.endedAt.slice(0, 10)}` : ''}`}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              )
+            ) : (
+              <>
+                {rankings?.top20.map((item) => (
+                  <View key={String(item.petId)} style={[petCreamStyles.questCard, {
+                    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+                    paddingVertical: 10,
+                    backgroundColor: item.isMe ? PetCreamSemantic.meHighlight : '#FFFDF8',
+                  }]}>
+                    <Text style={{ width: 36, fontWeight: '700', color: colors.text }}>
+                      {item.rank <= 3 ? ['🥇', '🥈', '🥉'][item.rank - 1] : `#${item.rank}`}
+                    </Text>
+                    <Text style={{ flex: 1, color: colors.text, fontSize: FontSize.sm }}>
+                      {SPECIES_EMOJI[item.species] || '🐾'} {item.name}
+                      <Text style={{ color: colors.textTertiary, fontSize: 10 }}> @{item.ownerNickname}</Text>
+                    </Text>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                      {rankingType === 'LEVEL' ? `Lv.${item.value}` : item.value}
+                    </Text>
+                  </View>
+                ))}
+                {rankings?.myRank != null && (
+                  <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                    我的成绩：{rankings.myValue} · 全服第 {rankings.myRank} 名
+                  </Text>
+                )}
+              </>
             )}
           </View>
         )}
@@ -1625,7 +1908,7 @@ export default function PetScreen() {
                 onPress={() => markReminderRead(item)}
                 style={{
                   padding: Spacing.sm, borderRadius: BorderRadius.md, gap: 4,
-                  backgroundColor: item.isRead ? colors.bgBase : 'rgba(255,214,102,0.18)',
+                  backgroundColor: item.isRead ? colors.bgBase : PetCreamSemantic.unreadHighlight,
                   borderWidth: 1, borderColor: colors.border,
                 }}
               >
@@ -1634,7 +1917,7 @@ export default function PetScreen() {
                   <Text style={{
                     fontSize: 10, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
                     color: item.priority === 'P0' ? '#fff' : colors.textTertiary,
-                    backgroundColor: item.priority === 'P0' ? '#ff6c6c' : item.priority === 'P1' ? colors.primary : colors.border,
+                    backgroundColor: item.priority === 'P0' ? PetCreamSemantic.danger : item.priority === 'P1' ? colors.primary : colors.border,
                   }}>
                     {PRIORITY_LABEL[item.priority ?? 'P2']}
                   </Text>
@@ -1645,6 +1928,10 @@ export default function PetScreen() {
           </View>
         )}
 
+        {panel === 'companion' && pet && (
+          <CompanionPanel petId={pet.petId} onRefresh={refresh} />
+        )}
+
         {panel === 'achievements' && (
           <View style={{ gap: Spacing.sm }}>
             <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>🫧 宠物动态</Text>
@@ -1652,9 +1939,7 @@ export default function PetScreen() {
               <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有动态，去陪它玩一会吧～</Text>
             ) : (
               reminders.slice(0, 5).map((item) => (
-                <View key={String(item.notificationId)} style={{
-                  padding: Spacing.sm, borderRadius: BorderRadius.md, backgroundColor: colors.bgBase, gap: 2,
-                }}>
+                <View key={String(item.notificationId)} style={petCreamStyles.questCard}>
                   <Text style={{ color: colors.text, fontSize: FontSize.xs, fontWeight: '600' }}>{item.title}</Text>
                   <Text style={{ color: colors.textSecondary, fontSize: 10 }}>{item.content}</Text>
                 </View>
@@ -1665,10 +1950,9 @@ export default function PetScreen() {
             {achievements.map((item) => (
               <View
                 key={String(item.achievementId)}
-                style={{
-                  width: '47%', alignItems: 'center', padding: Spacing.sm, borderRadius: BorderRadius.lg,
-                  borderWidth: 1, borderColor: colors.border, opacity: item.achieved ? 1 : 0.45,
-                }}
+                style={[petCreamStyles.questCard, {
+                  width: '47%', alignItems: 'center', opacity: item.achieved ? 1 : 0.45,
+                }]}
               >
                 <Text style={{ fontSize: 30 }}>{item.icon}</Text>
                 <Text style={{ color: colors.text, fontSize: FontSize.xs, fontWeight: '600' }}>{item.name}</Text>
@@ -1682,6 +1966,43 @@ export default function PetScreen() {
           </View>
         )}
       </View>
+      </CreamPanel>
+
+      {/* 喂食食物选择器（长按喂食弹出；背包 FOOD 项） */}
+      <Modal visible={foodPickerOpen} transparent animationType="slide" onRequestClose={() => setFoodPickerOpen(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          <View style={{ backgroundColor: colors.bgBase, borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl, padding: Spacing.lg, gap: Spacing.sm, maxHeight: '60%' }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.lg, fontWeight: '700' }}>🍖 选一份食物</Text>
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              {foodOptions === null ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                foodOptions.map((item) => (
+                  <TouchableOpacity
+                    key={item.code}
+                    disabled={foodBusy === item.code}
+                    onPress={() => void feedFood(item.code)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm,
+                      padding: Spacing.sm, marginBottom: Spacing.xs, borderRadius: BorderRadius.md,
+                      borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)', backgroundColor: '#FFFDF8',
+                      opacity: foodBusy === item.code ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontSize: FontSize.sm, flex: 1 }}>
+                      {item.icon} {item.name} <Text style={{ color: colors.textTertiary, fontSize: 10 }}>×{item.quantity ?? 0}</Text>
+                    </Text>
+                    <Text style={{ color: PetCreamTheme.primary, fontSize: FontSize.sm, fontWeight: '600' }}>
+                      {foodBusy === item.code ? '喂食中…' : '喂食'}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+            <ChipButton label="关闭" onPress={() => setFoodPickerOpen(false)} />
+          </View>
+        </View>
+      </Modal>
 
       {/* 档案弹窗：改名 30 天冷却 + 外观 + 主页公开 */}
       <Modal visible={profileOpen} transparent animationType="slide" onRequestClose={() => setProfileOpen(false)}>
@@ -1834,7 +2155,7 @@ export default function PetScreen() {
 
 /** 职业面板：入职 / 职业工作 / 晋升 / 工作历史（挂在「养成 → 职业」页签） */
 function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
-  const colors = useTheme()
+  const colors = { ...useTheme(), ...PetCreamTheme }
   const [panel, setPanel] = useState<PetCareerPanel | null>(null)
   const [pending, setPending] = useState<string | null>(null)
 
@@ -1876,6 +2197,7 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
 
   return (
     <View style={{ gap: Spacing.sm }}>
+      <View style={petCreamStyles.questCard}>
       <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
         {panel.careerCode
           ? `当前职业：${panel.icon ?? ''} ${panel.careerName}（${panel.careerLine} · ${panel.tier} 阶）· 已工作 ${panel.workCount} 次`
@@ -1907,10 +2229,11 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
           />
         </View>
       )}
+      </View>
       {panel.careers.map((career) => (
         <View
           key={career.code}
-          style={{ padding: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: colors.border, gap: 2 }}
+          style={petCreamStyles.questCard}
         >
           <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
             {career.icon} {career.name} · {career.careerLine} {career.tier} 阶
@@ -1919,10 +2242,12 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
             {career.description}
           </Text>
           <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
-            Lv.{career.requiredLevel} · {Math.round(career.durationSeconds / 60)} 分钟 · 精力 {career.energyCost} · 经验+
-            {career.expReward} ✨+{career.currencyReward}
-            {career.workCount > 0 ? ` · 已工作 ${career.workCount} 次` : ''}
+            {`Lv.${career.requiredLevel} · ${Math.round(career.durationSeconds / 60)} 分钟 · 精力 ${career.energyCost}${career.workCount > 0 ? ` · 已工作 ${career.workCount} 次` : ''}`}
           </Text>
+          <View style={petCreamStyles.rewardRow}>
+            <Text style={petCreamStyles.rewardChip}>{`经验 +${career.expReward}`}</Text>
+            <Text style={petCreamStyles.rewardChip}>{`宠物币 +${career.currencyReward}`}</Text>
+          </View>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
             {career.current ? (
               <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>在职</Text>
@@ -1948,9 +2273,10 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
 
 /** 每日任务面板：进度 + 领奖 + 全清宝箱 */
 function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
-  const colors = useTheme()
+  const colors = { ...useTheme(), ...PetCreamTheme }
   const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
   const [pending, setPending] = useState<string | null>(null)
+  const [checkin, setCheckin] = useState<CheckInStatus | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -1966,6 +2292,31 @@ function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    growthApi.getCheckInStatus().then(({ data: res }) => {
+      if (res.success && res.data) setCheckin(res.data)
+    }).catch(() => undefined)
+  }, [])
+
+  const doCheckin = useCallback(async () => {
+    setPending('checkin')
+    try {
+      const { data: res } = await growthApi.checkIn()
+      if (res.success && res.data) {
+        setCheckin(res.data)
+        Alert.alert('成功', `签到成功 · 连续 ${res.data.continuousDays} 天`)
+        await load()
+      } else {
+        Alert.alert('提示', res.error?.message ?? '今日已签到')
+      }
+    } catch (error) {
+      Alert.alert('暂时不能这么做', CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '签到未成功')
+    } finally {
+      setPending(null)
+    }
+  }, [load])
+
 
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
@@ -1989,44 +2340,81 @@ function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
 
   return (
     <View style={{ gap: Spacing.sm }}>
-      <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
-        今日进度 {panel.claimedCount}/{panel.totalCount} · 全清宝箱 经验+{panel.chestExp} ✨+{panel.chestCurrency}
-      </Text>
-      {panel.quests.map((quest) => (
-        <View
-          key={quest.code}
-          style={{ padding: Spacing.sm, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: colors.border, gap: 2 }}
-        >
-          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
-            {quest.icon} {quest.name}
-          </Text>
-          <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
-            {quest.description} · 进度 {Math.min(quest.progress, quest.targetValue)}/{quest.targetValue} · 经验+
-            {quest.expReward} ✨+{quest.currencyReward}
-          </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-            {quest.status === 'CLAIMED' ? (
-              <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>已领取</Text>
-            ) : (
-              <ChipButton
-                label={quest.claimable ? '领取奖励' : quest.statusLabel}
-                primary
-                disabled={!quest.claimable || pending === `quest-${quest.code}`}
-                onPress={() => run(`quest-${quest.code}`, () => petApi.claimDailyQuest(quest.code), '奖励到手啦！')}
-              />
-            )}
+      <View style={petCreamStyles.questCard}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>🎂 每日签到</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+              {checkin
+                ? checkin.isCheckedIn
+                  ? `今日已签到 · 连续 ${checkin.continuousDays} 天 · 经验 +${checkin.todayExp}`
+                  : '今天还没签到，连续签到经验更多'
+                : '签到状态加载中…'}
+            </Text>
           </View>
+          <CreamButton
+            variant={checkin?.isCheckedIn ? 'ghost' : 'primary'}
+            disabled={!!checkin?.isCheckedIn || pending === 'checkin'}
+            onPress={() => void doCheckin()}
+          >
+            {checkin?.isCheckedIn ? '已签到' : '签到'}
+          </CreamButton>
         </View>
-      ))}
+      </View>
+      <View style={petCreamStyles.summaryRow}>
+        <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs, flex: 1 }}>
+          {`今日进度 ${panel.claimedCount}/${panel.totalCount} · 全清宝箱 经验+${panel.chestExp} 宠物币+${panel.chestCurrency}`}
+        </Text>
+        {(panel.quests.some((quest) => quest.claimable) || panel.chestClaimable) && (
+          <CreamButton disabled={pending === 'claim-all'} onPress={() => run('claim-all', () => petApi.claimAllDailyQuests(), '可领的都收好了！')}>
+            一键领取
+          </CreamButton>
+        )}
+      </View>
+      {panel.quests.map((quest) => {
+        const percent = quest.targetValue > 0 ? Math.min(100, Math.round((quest.progress / quest.targetValue) * 100)) : 0
+        return (
+          <View key={quest.code} style={petCreamStyles.questCard}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+              {quest.icon} {quest.name}
+            </Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{quest.description}</Text>
+            <View style={petCreamStyles.questProgressRow}>
+              <View style={petCreamStyles.questTrack}>
+                <View style={[petCreamStyles.questFill, { width: `${percent}%` }]} />
+              </View>
+              <Text style={petCreamStyles.questProgressText}>{`${Math.min(quest.progress, quest.targetValue)}/${quest.targetValue}`}</Text>
+            </View>
+            <View style={petCreamStyles.rewardRow}>
+              <Text style={petCreamStyles.rewardChip}>{`经验 +${quest.expReward}`}</Text>
+              <Text style={petCreamStyles.rewardChip}>{`宠物币 +${quest.currencyReward}`}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              {quest.status === 'CLAIMED' ? (
+                <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>已领取</Text>
+              ) : (
+                <CreamButton
+                  variant={quest.claimable ? 'primary' : 'ghost'}
+                  disabled={!quest.claimable || pending === `quest-${quest.code}`}
+                  onPress={() => run(`quest-${quest.code}`, () => petApi.claimDailyQuest(quest.code), '奖励到手啦！')}
+                >
+                  {quest.claimable ? '领取奖励' : quest.statusLabel}
+                </CreamButton>
+              )}
+            </View>
+          </View>
+        )
+      })}
       {panel.chestClaimed ? (
         <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>宝箱已领取</Text>
       ) : (
-        <ChipButton
-          label={panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
-          primary
+        <CreamButton
+          variant={panel.chestClaimable ? 'primary' : 'ghost'}
           disabled={!panel.chestClaimable || pending === 'chest'}
           onPress={() => run('chest', () => petApi.claimDailyQuestChest(), '宝箱开啦！')}
-        />
+        >
+          {panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
+        </CreamButton>
       )}
     </View>
   )
@@ -2034,8 +2422,8 @@ function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
 
 /** 社交面板：宠物关系 / 好友互访 / 留言墙 */
 function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }) {
-  const colors = useTheme()
-  const [tab, setTab] = useState<'relation' | 'friend' | 'wall'>('relation')
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [tab, setTab] = useState<'relation' | 'friend' | 'wall' | 'safety'>('relation')
   const [relations, setRelations] = useState<PetRelationPanel | null>(null)
   const [friends, setFriends] = useState<PetFriendPanel | null>(null)
   const [wall, setWall] = useState<PetWallPage | null>(null)
@@ -2044,6 +2432,12 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
   const [replyInput, setReplyInput] = useState('')
   const [tip, setTip] = useState<string | null>(null)
   const [pending, setPending] = useState<string | null>(null)
+  // B14 屏蔽与举报（名单接口只返回 userId 数组；举报 targetType 白名单 WALL_MESSAGE/BOTTLE_CONTENT/NICKNAME）
+  const [blocks, setBlocks] = useState<number[]>([])
+  const [blockInput, setBlockInput] = useState('')
+  const [reportType, setReportType] = useState('WALL_MESSAGE')
+  const [reportTargetId, setReportTargetId] = useState('')
+  const [reportReason, setReportReason] = useState('')
 
   const loadActive = useCallback(async () => {
     try {
@@ -2057,11 +2451,14 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
         if (res.success && res.data) {
           setFriends(res.data)
         }
-      } else {
+      } else if (tab === 'wall') {
         const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
         if (res.success && res.data) {
           setWall(res.data)
         }
+      } else if (tab === 'safety') {
+        const { data: res } = await petApi.listBlocks()
+        if (res.success) setBlocks(res.data ?? [])
       }
     } catch {
       // 拦截器已提示
@@ -2071,6 +2468,32 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
   useEffect(() => {
     void loadActive()
   }, [loadActive])
+
+  const doBlock = async () => {
+    const target = blockInput.trim()
+    if (!target) {
+      setTip('先填要拉黑的用户 ID')
+      return
+    }
+    await run('block', () => petApi.blockUser(target), '已拉黑')
+    setBlockInput('')
+  }
+
+  const doUnblock = async (userId: number) => {
+    await run(`unblock-${userId}`, () => petApi.unblockUser(userId), '已解除拉黑')
+  }
+
+  const doReport = async () => {
+    const targetId = reportTargetId.trim()
+    const reason = reportReason.trim()
+    if (!targetId || !reason) {
+      setTip('目标 ID 和理由都要填')
+      return
+    }
+    await run('report', () => petApi.reportTarget({ targetType: reportType, targetId, reason }), '已提交，管理员会处理')
+    setReportTargetId('')
+    setReportReason('')
+  }
 
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
@@ -2090,10 +2513,11 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
 
   const cardStyle = {
     padding: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 2,
+    borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8',
+    gap: 4,
   }
 
   return (
@@ -2103,6 +2527,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
           ['relation', '💞 关系'],
           ['friend', '🫂 好友'],
           ['wall', '📝 留言墙'],
+          ['safety', '🛡️ 安全'],
         ] as [typeof tab, string][]).map(([key, label]) => (
           <TouchableOpacity
             key={key}
@@ -2265,6 +2690,11 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
                   }
                 />
                 <ChipButton
+                  label="邀请协作"
+                  disabled={pending === `coop-${item.userId}`}
+                  onPress={() => run(`coop-${item.userId}`, () => petApi.createCooperation(item.userId), '协作邀请已发出')}
+                />
+                <ChipButton
                   label="删除"
                   disabled={pending === `fd-${item.userId}`}
                   onPress={() => run(`fd-${item.userId}`, () => petApi.removeFriend(item.userId), '已删除好友')}
@@ -2380,13 +2810,77 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
           ))}
         </View>
       )}
+      {tab === 'safety' && (
+        <View style={{ gap: Spacing.sm }}>
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>屏蔽名单</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>屏蔽后双方不能新增拜访收益、挑战、留言与好友申请</Text>
+            {blocks.length === 0 ? (
+              <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>名单是空的</Text>
+            ) : blocks.map((userId) => (
+              <View key={userId} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{`用户 #${userId}`}</Text>
+                <ChipButton label="解除" disabled={pending === `unblock-${userId}`} onPress={() => void doUnblock(userId)} />
+              </View>
+            ))}
+            <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+              <TextInput
+                value={blockInput}
+                onChangeText={setBlockInput}
+                placeholder="用户 ID"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="numeric"
+                style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs }}
+              />
+              <ChipButton label="拉黑" disabled={pending === 'block'} onPress={() => void doBlock()} />
+            </View>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>举报</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>进入管理员处理队列；类型：留言墙内容 / 漂流瓶内容 / 昵称</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {([['WALL_MESSAGE', '留言墙内容'], ['BOTTLE_CONTENT', '漂流瓶内容'], ['NICKNAME', '昵称']] as [string, string][]).map(([value, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setReportType(value)}
+                  style={{
+                    paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
+                    backgroundColor: reportType === value ? colors.primary : colors.bgBase,
+                    borderWidth: 1, borderColor: reportType === value ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, color: reportType === value ? '#fff' : colors.textSecondary }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              value={reportTargetId}
+              onChangeText={setReportTargetId}
+              placeholder="目标 ID（留言 / 瓶子 / 用户）"
+              placeholderTextColor={colors.textTertiary}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs }}
+            />
+            <TextInput
+              value={reportReason}
+              onChangeText={setReportReason}
+              placeholder="理由（200 字内）"
+              placeholderTextColor={colors.textTertiary}
+              maxLength={200}
+              multiline
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs, minHeight: 60 }}
+            />
+            <ChipButton label="提交举报" primary disabled={pending === 'report'} onPress={() => void doReport()} />
+          </View>
+        </View>
+      )}
     </View>
   )
 }
 
 /** 家园面板：房间布置 / 家具商城 / 邻里拜访与设置 */
 function HomePanel({ onRefresh }: { onRefresh: () => void }) {
-  const colors = useTheme()
+  const colors = { ...useTheme(), ...PetCreamTheme }
   const [home, setHome] = useState<PetHome | null>(null)
   const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
   const [pending, setPending] = useState<string | null>(null)
@@ -2448,10 +2942,11 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
 
   const cardStyle = {
     padding: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 2,
+    borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8',
+    gap: 4,
   }
   const themeOptions = home.shop.filter((item) => item.owned)
 
@@ -2637,6 +3132,503 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
               </View>
             </View>
           ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
+// ==================== 陪伴面板（方案 B：纪念日/人设卡/好友动态/日记·相册/记忆/引导与通知） ====================
+
+type CompanionTab = 'anniversary' | 'persona' | 'feed' | 'diary' | 'memory' | 'settings'
+
+const COMPANION_TABS: { key: CompanionTab; label: string }[] = [
+  { key: 'anniversary', label: '纪念日' },
+  { key: 'persona', label: '人设卡' },
+  { key: 'feed', label: '动态' },
+  { key: 'diary', label: '日记·相册' },
+  { key: 'memory', label: '记忆' },
+  { key: 'settings', label: '引导·通知' },
+]
+
+const MEMORY_TYPE_LABEL: Record<string, string> = { FAVORITE: '喜好', HABIT: '习惯', FACT: '事实' }
+const IMPORTANCE_OPTIONS = [1, 2, 3, 4, 5]
+const FEED_EVENT_LABEL: Record<string, string> = {
+  LEVEL_UP: '升级', WORK_COMPLETED: '打工完成', STUDY_COMPLETED: '读书完成', BATTLE_WIN: '对战获胜',
+}
+
+function fmtCompanionSeconds(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  if (h > 0) return `${h} 小时 ${m} 分`
+  return m > 0 ? `${m} 分钟` : `${total} 秒`
+}
+
+function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefresh: () => void }) {
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [tab, setTab] = useState<CompanionTab>('anniversary')
+  const [pending, setPending] = useState<string | null>(null)
+  const [ann, setAnn] = useState<PetAnniversary | null>(null)
+  const [persona, setPersona] = useState<PetPersona | null>(null)
+  const [feed, setFeed] = useState<PetFriendFeedItem[]>([])
+  const [feedUnread, setFeedUnread] = useState(0)
+  const [diary, setDiary] = useState<PetDiaryPage | null>(null)
+  const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
+  const [assets, setAssets] = useState<{ id: number; url: string; diaryEntryId: number | null }[]>([])
+  const [memories, setMemories] = useState<PetMemory[]>([])
+  const [editId, setEditId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [editImportance, setEditImportance] = useState(3)
+  // 记忆开关草稿：服务端无读取端点，默认取库表默认值 1/1（界面已注明）
+  const [extractDraft, setExtractDraft] = useState(true)
+  const [useDraft, setUseDraft] = useState(true)
+  const [onboarding, setOnboarding] = useState<PetOnboardingProgress | null>(null)
+  const [pref, setPref] = useState<PetNotifyPref | null>(null)
+
+  const run = useCallback(async <T,>(
+    key: string,
+    task: () => Promise<{ data: { success: boolean; data?: T; error?: { message?: string } } }>,
+  ): Promise<{ success: boolean; data?: T } | null> => {
+    setPending(key)
+    try {
+      const { data: res } = await task()
+      if (!res.success) {
+        Alert.alert('暂时不能这么做', res.error?.message ?? '请稍后再试')
+      }
+      return res
+    } finally {
+      setPending(null)
+    }
+  }, [])
+
+  const loadAnn = useCallback(async () => {
+    const { data: res } = await petApi.getAnniversaries()
+    if (res.success) setAnn(res.data)
+  }, [])
+
+  const loadPersona = useCallback(async () => {
+    const { data: res } = await petApi.getChatPersona()
+    if (res.success) setPersona(res.data)
+  }, [])
+
+  const loadFeed = useCallback(async () => {
+    try {
+      const [{ data: list }, { data: unread }] = await Promise.all([
+        petApi.listFriendFeed({ size: 20 }),
+        petApi.getFriendFeedUnreadCount(),
+      ])
+      if (list.success) setFeed(list.data ?? [])
+      if (unread.success) setFeedUnread(Number(unread.data ?? 0))
+    } catch {
+      // 展示型数据：忽略
+    }
+  }, [])
+
+  const loadDiary = useCallback(async (reset: boolean) => {
+    const { data: res } = await petApi.listDiary(petId, {
+      cursor: reset ? undefined : (diaryCursor ?? undefined),
+      pageSize: 20,
+    })
+    if (res.success && res.data) {
+      setDiary((prev) => reset
+        ? res.data
+        : { items: [...(prev?.items ?? []), ...res.data.items], nextCursor: res.data.nextCursor, hasMore: res.data.hasMore })
+      setDiaryCursor(res.data.nextCursor)
+    }
+  }, [diaryCursor, petId])
+
+  const loadMemories = useCallback(async () => {
+    const { data: res } = await petApi.listMemories(petId)
+    if (res.success) setMemories(res.data ?? [])
+  }, [petId])
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const [{ data: prefRes }, { data: onboardingRes }] = await Promise.all([
+        petApi.getNotifyPrefs(),
+        petApi.getOnboarding(),
+      ])
+      if (prefRes.success && prefRes.data) setPref(prefRes.data)
+      if (onboardingRes.success && onboardingRes.data) setOnboarding(onboardingRes.data)
+    } catch {
+      // 展示型数据：忽略
+    }
+  }, [])
+
+  useEffect(() => {
+    // 各页签懒加载：切换到对应页签时拉取一次（数据量小，不做缓存失效）
+    if (tab === 'anniversary' && !ann) void loadAnn()
+    if (tab === 'persona' && !persona) void loadPersona()
+    if (tab === 'feed') void loadFeed()
+    if (tab === 'diary' && !diary) void loadDiary(true)
+    if (tab === 'memory') void loadMemories()
+    if (tab === 'settings') void loadSettings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  const readFeed = useCallback(async () => {
+    const res = await run('feed', () => petApi.markFriendFeedRead())
+    if (res?.success) setFeedUnread(0)
+  }, [run])
+
+  const uploadPhoto = useCallback(async (diaryEntryId?: number) => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('需要相册权限', '请在系统设置里允许访问相册')
+      return
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
+    if (picked.canceled || !picked.assets?.[0]) return
+    const asset = picked.assets[0]
+    setPending('album')
+    try {
+      const form = new FormData()
+      // RN FormData：以 uri 引用本地图片，随 multipart 上传
+      form.append('file', { uri: asset.uri, name: 'album.jpg', type: 'image/jpeg' } as unknown as Blob)
+      const { data: up } = await fileApi.upload(form)
+      if (!up.success || !up.data) {
+        Alert.alert('上传未成功', up.error?.message ?? '请稍后再试')
+        return
+      }
+      const res = await run('album', () => petApi.uploadAlbumAsset(petId, up.data!.fileId, diaryEntryId))
+      if (res?.success && res.data) {
+        setAssets((prev) => [{ id: Number(res.data!.id), url: up.data!.url ?? asset.uri, diaryEntryId: res.data!.diaryEntryId }, ...prev])
+        Alert.alert('成功', '照片已存入相册')
+      }
+    } catch {
+      Alert.alert('上传未成功', '请稍后再试')
+    } finally {
+      setPending(null)
+    }
+  }, [petId, run])
+
+  const removeAsset = useCallback(async (assetId: number) => {
+    const res = await run(`album-del:${assetId}`, () => petApi.deleteAlbumAsset(petId, assetId))
+    if (res?.success) setAssets((prev) => prev.filter((item) => item.id !== assetId))
+  }, [petId, run])
+
+  const saveMemory = useCallback(async (memory: PetMemory) => {
+    const value = editValue.trim()
+    if (!value) {
+      Alert.alert('提示', '记忆内容不能为空')
+      return
+    }
+    const res = await run(`memory:${memory.id}`,
+      () => petApi.editMemory(petId, memory.id, { memoryValue: value, importance: editImportance }))
+    if (res?.success) {
+      setEditId(null)
+      void loadMemories()
+    }
+  }, [editImportance, editValue, loadMemories, petId, run])
+
+  const removeMemory = useCallback(async (memoryId: number) => {
+    const res = await run(`memory-del:${memoryId}`, () => petApi.deleteMemory(petId, memoryId))
+    if (res?.success) void loadMemories()
+  }, [loadMemories, petId, run])
+
+  const clearAllMemories = useCallback(() => {
+    Alert.alert('清空全部记忆？', '所有结构化记忆会被移除（含自动抽取的），且不可恢复。', [
+      { text: '再想想', style: 'cancel' },
+      {
+        text: '清空',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            const res = await run('memory-clear', () => petApi.clearMemories(petId))
+            if (res?.success) void loadMemories()
+          })()
+        },
+      },
+    ])
+  }, [loadMemories, petId, run])
+
+  const toggleMemorySetting = useCallback(async (extract: boolean, use: boolean) => {
+    const res = await run('memory-setting', () => petApi.setMemorySettings(petId, { extract, use }))
+    if (res?.success) Alert.alert('成功', '记忆设置已更新')
+  }, [petId, run])
+
+  const togglePref = useCallback(async (next: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) => {
+    const res = await run('pref', () => petApi.updateNotifyPrefs(next))
+    if (res?.success && res.data) setPref(res.data)
+  }, [run])
+
+  const skipOnboarding = useCallback(async () => {
+    const res = await run('onboarding', () => petApi.skipOnboarding())
+    if (res?.success) {
+      const { data: onboardingRes } = await petApi.getOnboarding()
+      if (onboardingRes.success && onboardingRes.data) setOnboarding(onboardingRes.data)
+      onRefresh()
+    }
+  }, [onRefresh, run])
+
+  const milestoneText = (daysToGo: number): string => {
+    if (daysToGo === 0) return '就是今天！'
+    return daysToGo > 0 ? `还有 ${daysToGo} 天` : `已达成 ${-daysToGo} 天`
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8', gap: 4,
+  } as const
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        {COMPANION_TABS.map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            onPress={() => setTab(item.key)}
+            style={{
+              paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999,
+              backgroundColor: tab === item.key ? colors.primary : colors.bgBase,
+              borderWidth: 1, borderColor: tab === item.key ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ color: tab === item.key ? '#fff' : colors.textSecondary, fontSize: FontSize.xs }}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {tab === 'anniversary' && (
+        !ann ? <ActivityIndicator color={colors.primary} /> : (
+          <View style={{ gap: Spacing.sm }}>
+            <View style={[cardStyle, { alignItems: 'center', paddingVertical: Spacing.md }]}>
+              <Text style={{ fontSize: 26, color: colors.text, fontWeight: '600' }}>
+                {`${ann.adoptionDays} 天`}
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                {`领养至今 · 连续陪伴 ${ann.companionStreak} 天`}
+              </Text>
+            </View>
+            <View style={cardStyle}>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                {`当前里程碑：${ann.currentMilestone ? `${ann.currentMilestone.title}（${milestoneText(ann.currentMilestone.daysToGo)}）` : '暂无'}`}
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                {`下一个：${ann.nextMilestone ? `${ann.nextMilestone.title}（${milestoneText(ann.nextMilestone.daysToGo)}）` : '全部达成'}`}
+              </Text>
+            </View>
+          </View>
+        )
+      )}
+
+      {tab === 'persona' && (
+        !persona ? <ActivityIndicator color={colors.primary} /> : (
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{`${persona.name} 的人设卡`}</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{persona.personalityText}</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+              {`职业：${persona.careerName ?? '无业游民'} · 亲密度：${persona.intimacyLevelName ?? `Lv.${persona.intimacyLevel}`}`}
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+              {`${persona.ownerTitle ? `它叫你「${persona.ownerTitle}」` : '它还没学会怎么叫你'}${persona.phrase ? ` · 口头禅：“${persona.phrase}”` : ''}`}
+            </Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>与注入 AI 的身份信息同源（F8）</Text>
+          </View>
+        )
+      )}
+
+      {tab === 'feed' && (
+        <View style={{ gap: Spacing.xs }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{`未读 ${feedUnread} 条`}</Text>
+            {feedUnread > 0 && <ChipButton label="标记已读" onPress={() => void readFeed()} />}
+          </View>
+          {feed.length === 0 ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>暂无动态</Text>
+          ) : feed.map((item) => (
+            <View key={item.feedId} style={cardStyle}>
+              <Text style={{ color: colors.primary, fontSize: 10 }}>
+                {FEED_EVENT_LABEL[item.eventType] ?? item.eventType}
+              </Text>
+              <Text style={{ color: colors.text, fontSize: FontSize.xs }}>{item.text}</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                {item.createdAt ? item.createdAt.slice(5, 16).replace('T', ' ') : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {tab === 'diary' && (
+        <View style={{ gap: Spacing.sm }}>
+          <View style={{ gap: Spacing.xs }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>成长日记</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>由宠物的大事自动生成，客户端不能代写</Text>
+            {(diary?.items.length ?? 0) === 0 ? (
+              <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有日记，陪它做点什么吧</Text>
+            ) : diary!.items.map((entry) => (
+              <View key={entry.id} style={cardStyle}>
+                <Text style={{ color: colors.primary, fontSize: 10 }}>
+                  {`${entry.type}${entry.visibility !== 'PUBLIC' ? ' · 仅自己可见' : ''}${entry.assetIds?.length ? ` · 含 ${entry.assetIds.length} 张照片` : ''} · ${entry.createdAt.slice(5, 16).replace('T', ' ')}`}
+                </Text>
+                <Text style={{ color: colors.text, fontSize: FontSize.xs, lineHeight: 18 }}>{entry.content}</Text>
+              </View>
+            ))}
+            {diary?.hasMore && (
+              <ChipButton label="加载更多" onPress={() => void loadDiary(false)} />
+            )}
+          </View>
+
+          <View style={{ gap: Spacing.xs }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>相册</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+              每只宠物 100 张；服务端暂无相册列表接口，这里只显示本次上传的
+            </Text>
+            <ChipButton
+              label={pending === 'album' ? '上传中…' : '上传照片'}
+              disabled={pending === 'album'}
+              onPress={() => void uploadPhoto()}
+            />
+            {assets.length > 0 && assets.map((item) => (
+              <View key={item.id} style={[cardStyle, { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }]}>
+                <Image
+                  source={{ uri: item.url }}
+                  style={{ width: 64, height: 64, borderRadius: BorderRadius.sm, backgroundColor: colors.bgBase }}
+                />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                    {item.diaryEntryId ? `日记 #${item.diaryEntryId}` : '未挂日记'}
+                  </Text>
+                  <ChipButton label="删除" onPress={() => void removeAsset(item.id)} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {tab === 'memory' && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+            {`共 ${memories.length} 条 · USER 编辑优先于 AUTO 抽取`}
+          </Text>
+          {memories.length === 0 ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有记忆，多陪它聊聊就会慢慢积累</Text>
+          ) : memories.map((item) => (
+            <View key={item.id} style={cardStyle}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{item.memoryKey}</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                  {`${MEMORY_TYPE_LABEL[item.memoryType] ?? item.memoryType} · ${item.source === 'USER' ? '我写的' : '自动抽取'} · 重要度 ${item.importance}`}
+                </Text>
+              </View>
+              {editId === item.id ? (
+                <View style={{ gap: Spacing.xs }}>
+                  <TextInput
+                    value={editValue}
+                    onChangeText={setEditValue}
+                    maxLength={200}
+                    placeholder="记忆内容"
+                    placeholderTextColor={colors.textTertiary}
+                    style={{
+                      borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm,
+                      color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs,
+                    }}
+                  />
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {IMPORTANCE_OPTIONS.map((value) => (
+                      <TouchableOpacity
+                        key={value}
+                        onPress={() => setEditImportance(value)}
+                        style={{
+                          paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
+                          backgroundColor: editImportance === value ? colors.primary : colors.bgBase,
+                          borderWidth: 1, borderColor: editImportance === value ? colors.primary : colors.border,
+                        }}
+                      >
+                        <Text style={{ fontSize: 10, color: editImportance === value ? '#fff' : colors.textSecondary }}>
+                          {`重要度 ${value}`}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                    <ChipButton label="保存" primary disabled={pending === `memory:${item.id}`} onPress={() => void saveMemory(item)} />
+                    <ChipButton label="取消" onPress={() => setEditId(null)} />
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text style={{ color: colors.text, fontSize: FontSize.xs, lineHeight: 18 }}>{item.memoryValue}</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                    {`置信度 ${item.confidence} · 更新于 ${item.updatedAt.slice(5, 16).replace('T', ' ')}`}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                    <ChipButton label="编辑" onPress={() => { setEditId(item.id); setEditValue(item.memoryValue); setEditImportance(item.importance) }} />
+                    <ChipButton label="删除" disabled={pending === `memory-del:${item.id}`} onPress={() => void removeMemory(item.id)} />
+                  </View>
+                </>
+              )}
+            </View>
+          ))}
+
+          {memories.length > 0 && (
+            <ChipButton label="清空全部记忆" disabled={pending === 'memory-clear'} onPress={clearAllMemories} />
+          )}
+
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>记忆开关</Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+              两开关相互独立（默认都开启）；服务端没有查询端点，保存后即以本次设置为准
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>自动抽取</Text>
+              <Switch value={extractDraft} onValueChange={setExtractDraft} />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>注入上下文</Text>
+              <Switch value={useDraft} onValueChange={setUseDraft} />
+            </View>
+            <ChipButton label="保存记忆开关" primary disabled={pending === 'memory-setting'} onPress={() => void toggleMemorySetting(extractDraft, useDraft)} />
+          </View>
+        </View>
+      )}
+
+      {tab === 'settings' && (
+        <View style={{ gap: Spacing.sm }}>
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>通知偏好</Text>
+            {pref ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                    {`每日问候（${pref.dailyGreetingEnabled ? '已开启' : '已关闭'}）`}
+                  </Text>
+                  <Switch
+                    value={pref.dailyGreetingEnabled}
+                    onValueChange={(value) => void togglePref({ muteDailyGreeting: pref.muteDailyGreeting, dailyGreetingEnabled: value })}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                    {`免打扰（${pref.muteDailyGreeting ? '已开启' : '正常提醒'}）`}
+                  </Text>
+                  <Switch
+                    value={pref.muteDailyGreeting}
+                    onValueChange={(value) => void togglePref({ muteDailyGreeting: value, dailyGreetingEnabled: pref.dailyGreetingEnabled })}
+                  />
+                </View>
+              </>
+            ) : <ActivityIndicator color={colors.primary} />}
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>新手引导</Text>
+            {onboarding ? (
+              <>
+                <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                  {`进度 ${onboarding.currentStep}/${onboarding.totalSteps}${onboarding.completed ? ' · 已完成' : ''}`}
+                </Text>
+                <ChipButton
+                  label="跳过引导"
+                  disabled={!onboarding.skippable || onboarding.completed || pending === 'onboarding'}
+                  onPress={() => void skipOnboarding()}
+                />
+              </>
+            ) : <ActivityIndicator color={colors.primary} />}
+          </View>
         </View>
       )}
     </View>

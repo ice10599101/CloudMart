@@ -49,9 +49,14 @@ const API_HOST = process.env.TARO_APP_API_HOST
   || readRootEnv('EXPO_PUBLIC_API_HOST')
   || 'http://127.0.0.1'
 
-// 诊断日志：dev 终端直接可见本次构建烘焙进前端的 API 基址，
-// 用于分辨「值没进构建」还是「devtools 缓存旧 bundle」
-console.log(`[taro config] API_HOST = ${API_HOST}`)
+// 舞台产物源（pet-game 在 CloudMart-ui/public/pet-game，umi dev :8000 服务出）。
+// 小程序 web-view 必须绝对地址：默认取本机局域网 IP（开发工具勾选"不校验合法域名"即可加载 http）；
+// 可用 TARO_APP_STAGE_ORIGIN / .env 同名键覆盖。
+const STAGE_ORIGIN = process.env.TARO_APP_STAGE_ORIGIN
+  || readLocalEnv('TARO_APP_STAGE_ORIGIN')
+  || 'http://192.168.1.59:8000'
+
+console.log(`[taro config] API_HOST = ${API_HOST} | STAGE_ORIGIN = ${STAGE_ORIGIN}`)
 
 export default defineConfig<'vite'>(async (merge) => {
   const baseConfig: UserConfigExport<'vite'> = {
@@ -71,6 +76,7 @@ export default defineConfig<'vite'>(async (merge) => {
     // H5 -> dist/h5, 小程序 -> dist/weapp
     defineConstants: {
       'process.env.TARO_APP_API_HOST': `"${API_HOST}"`,
+      'process.env.TARO_APP_STAGE_ORIGIN': `"${STAGE_ORIGIN}"`,
     },
     copy: {
       patterns: [

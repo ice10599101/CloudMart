@@ -164,6 +164,23 @@ export interface PetChatMessage {
   createdAt: string | null
 }
 
+/** 宠物人设卡（F8）：与注入 AI prompt 的身份信息同源 */
+export interface PetPersona {
+  name: string
+  personality: string
+  personalityText: string
+  careerCode: string | null
+  careerName: string | null
+  phrase: string | null
+  intimacyLevel: number
+  intimacyLevelName: string | null
+  ownerTitle: string | null
+}
+
+export function getPetChatPersona() {
+  return request.get<ApiResponse<PetPersona>>('/pet/chat/persona')
+}
+
 export interface PetReminder {
   notificationId: number | string
   reminderType: string
@@ -233,6 +250,11 @@ export function updatePetPrivacy(data: { isPublic: boolean }) {
 export function feedPet() {
   return request.post<ApiResponse<PetInfo>>('/pet/feed')
 }
+
+/** 喂养道具（F1）：消耗背包里的 FOOD 恢复状态（效果服务端权威，不占免费次数） */
+export function feedPetItem(itemCode: string) {
+  return request.post<ApiResponse<PetInfo>>('/pet/feed-item', { itemCode })
+}
 export function playWithPet() {
   return request.post<ApiResponse<PetInfo>>('/pet/play')
 }
@@ -253,7 +275,7 @@ export function startPetWork(configId: number | string) {
   return request.post<ApiResponse<PetActivityItem>>('/pet/work/start', { configId })
 }
 
-/** 领取打工奖励（CAS 幂等：重复领取 409；星光服务降级 503 可重试） */
+/** 领取打工奖励（CAS 幂等：重复领取 409；宠物币服务降级 503 可重试） */
 export function claimPetWork() {
   return request.post<ApiResponse<PetActivityItem>>('/pet/work/claim')
 }
@@ -366,6 +388,40 @@ export function getPetRankings(type: PetRankingType) {
   return request.get<ApiResponse<PetRankingResult>>('/pet/rankings', { params: { type } })
 }
 
+/** 赛季信息 */
+export interface PetSeasonInfo {
+  seasonId: number | string
+  name: string
+  startsAt: string | null
+  endsAt: string | null
+  status: string
+}
+
+/** 赛季排行榜（F2）：当前 ACTIVE 赛季 + Top50 + 我的实时名次；无进行中赛季 season=null */
+export interface PetSeasonRanking {
+  season: PetSeasonInfo | null
+  top50: PetRankingItem[]
+  myRank: number | null
+  myLevel: number | null
+}
+
+export function getPetSeasonRanking() {
+  return request.get<ApiResponse<PetSeasonRanking>>('/pet/rankings/season')
+}
+
+/** 历届名次条目（已结算赛季快照） */
+export interface PetSeasonHistoryItem {
+  seasonId: number | string
+  seasonName: string
+  endedAt: string | null
+  rankNo: number
+  level: number
+}
+
+export function getPetSeasonHistory() {
+  return request.get<ApiResponse<PetSeasonHistoryItem[]>>('/pet/rankings/season/history')
+}
+
 /** 宠物动态分享卡片（文案服务端生成，前端复制后跳转发帖页；原文档 §36） */
 export function getPetShareCard(type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY') {
   return request.get<ApiResponse<PetShareCard>>('/pet/share/card', { params: { type } })
@@ -404,7 +460,7 @@ export interface PetSummary {
   isActive: boolean
 }
 
-export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK'
+export type PetItemType = 'EQUIPMENT' | 'SKIN' | 'SKILL_BOOK' | 'FURNITURE' | 'FOOD'
 
 /** 商城商品（装备/皮肤/技能书统一结构，字段按 itemType 取舍） */
 export interface PetShopItem {
@@ -436,7 +492,7 @@ export interface PetShopItem {
 }
 
 export interface PetShopResult {
-  /** 星光余额（null=余额服务降级，前端隐藏） */
+  /** 宠物币余额（null=余额服务降级，前端隐藏） */
   balance: number | null
   currency: 'PET_COIN' | 'STARLIGHT'
   items: PetShopItem[]
@@ -562,12 +618,12 @@ export function activatePet(petId: number | string) {
   return request.post<ApiResponse<PetSummary>>(`/pet/pets/${petId}/activate`)
 }
 
-/** 宠物商城（装备/皮肤/技能书 + 星光余额） */
+/** 宠物商城（装备/皮肤/技能书 + 宠物币余额） */
 export function getPetShop() {
   return request.get<ApiResponse<PetShopResult>>('/pet/shop')
 }
 
-/** 购买物品（先入包再扣星光；余额不足 402；重复购买 409 PET_ITEM_ALREADY_OWNED） */
+/** 购买物品（先入包再扣宠物币；余额不足 402；重复购买 409 PET_ITEM_ALREADY_OWNED） */
 export function buyPetItem(data: { itemType: PetItemType; itemCode: string }) {
   return request.post<ApiResponse<PetInventoryItem>>('/pet/shop/buy', data)
 }
@@ -612,7 +668,7 @@ export function getPetEvolution() {
   return request.get<ApiResponse<PetEvolutionStatus>>('/pet/evolution')
 }
 
-/** 执行进化（等级不足/已满阶 409；星光不足 402） */
+/** 执行进化（等级不足/已满阶 409；宠物币不足 402） */
 export function evolvePet() {
   return request.post<ApiResponse<PetEvolutionStatus>>('/pet/evolution/evolve')
 }
@@ -957,7 +1013,7 @@ export function claimPetCareerWork() {
   return request.post<ApiResponse<PetActivityItem>>('/pet/career/work/claim')
 }
 
-/** 晋升（次数/等级/星光三条件；最高阶 409 PET_CAREER_MAX_TIER） */
+/** 晋升（次数/等级/宠物币三条件；最高阶 409 PET_CAREER_MAX_TIER） */
 export function promotePetCareer() {
   return request.post<ApiResponse<PetCareerItem>>('/pet/career/promote')
 }
@@ -1007,7 +1063,7 @@ export function getPetHome() {
   return request.get<ApiResponse<PetHome>>('/pet/home')
 }
 
-/** 购买家具（先入包再扣星光） */
+/** 购买家具（先入包再扣宠物币） */
 export function buyPetFurniture(furnitureCode: string) {
   return request.post<ApiResponse<PetInventoryItem>>('/pet/home/furniture/buy', { furnitureCode })
 }
@@ -1070,6 +1126,32 @@ export function removePetFriend(userId: number) {
 /** 好友互访（每日上限；双方受益） */
 export function visitPetFriend(userId: number) {
   return request.post<ApiResponse<PetFriendVisitResult>>(`/pet/friends/${userId}/visit`)
+}
+
+/** 好友动态条目（升级 / 打工完成 / 读书完成 / 对战获胜） */
+export interface PetFriendFeedItem {
+  feedId: number
+  actorUserId: number
+  actorPetId: number
+  eventType: string
+  text: string
+  petName: string | null
+  createdAt: string | null
+}
+
+/** 好友动态（游标分页：beforeId = 上一页最后一条） */
+export function listPetFriendFeed(params: { beforeId?: number | string; size?: number } = {}) {
+  return request.get<ApiResponse<PetFriendFeedItem[]>>('/pet/friends/feed', { params })
+}
+
+/** 好友动态未读数（100 封顶） */
+export function getPetFriendFeedUnreadCount() {
+  return request.get<ApiResponse<number>>('/pet/friends/feed/unread-count')
+}
+
+/** 标记好友动态已读（水位只前进） */
+export function markPetFriendFeedRead() {
+  return request.post<ApiResponse<void>>('/pet/friends/feed/read')
 }
 
 /** 留言墙分页 */
@@ -1382,10 +1464,33 @@ export function stopCompanionSession() {
   return request.post<ApiResponse<Record<string, unknown>>>('/pet/companion/stop')
 }
 
-/** 装备预览（换装生效前查看属性变化） */
-export function previewPetEquip(itemId: number | string) {
-  return request.get<ApiResponse<Record<string, unknown>>>('/pet/inventory/equip-preview', {
-    params: { itemId },
+/** 装备替换预览的属性快照（hp/maxHp/strength/intelligence/agility/charm） */
+export interface PetEquipStats {
+  hp: number
+  maxHp: number
+  strength: number
+  intelligence: number
+  agility: number
+  charm: number
+}
+
+/** 装备替换预览（服务端复算，无写入） */
+export interface PetEquipPreview {
+  itemCode: string
+  base: PetEquipStats
+  current: PetEquipStats
+  after: PetEquipStats
+  delta: PetEquipStats
+}
+
+/**
+ * 装备替换预览（B12）。
+ * 注意：后端收的是 `itemCode`（@RequestParam("itemCode")），不是 itemId——
+ * 早期版本误传 itemId 会直接校验失败，这里按接口契约传编码。
+ */
+export function previewPetEquip(itemCode: string) {
+  return request.get<ApiResponse<PetEquipPreview>>('/pet/inventory/equip-preview', {
+    params: { itemCode },
   })
 }
 
@@ -1402,15 +1507,38 @@ export function claimPetActivity(activityId: number | string) {
 }
 
 /** 小游戏历史回合（结果/收益回顾） */
-export function listMinigameRounds(cursor?: number | string, pageSize = 20) {
-  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/pet/minigames', {
-    params: { cursor, pageSize },
+/** 小游戏对局历史项（契约对齐后端 PetMinigameRoundVO：roundId/gameType/status/ruleVersion/…） */
+export interface PetMinigameRoundItem {
+  roundId: number | string
+  gameType: string
+  status: string
+  ruleVersion: string
+  startedAt: string | null
+  deadlineAt: string | null
+  successCount: number
+  rewardEligible: boolean
+}
+
+/** 对局历史（N04，offset 分页：后端收 page/size，size 上限 50） */
+export function listMinigameRounds(page = 1, size = 10) {
+  return request.get<ApiResponse<PetMinigameRoundItem[]>>('/pet/minigames', {
+    params: { page, size },
   })
+}
+
+/** 动作可执行性（B06，契约对齐后端 PetActionVO） */
+export interface PetActionItem {
+  action: string
+  allowed: boolean
+  reasonCode: string | null
+  reasonText: string | null
+  nextAvailableAt: string | null
+  rewardRemainingToday: number | null
 }
 
 /** 当前宠物可用互动目录（长按食物背包等入口的动态项） */
 export function getPetActions(petId: number | string) {
-  return request.get<ApiResponse<Array<Record<string, unknown>>>>(`/pet/pets/${petId}/actions`)
+  return request.get<ApiResponse<PetActionItem[]>>(`/pet/pets/${petId}/actions`)
 }
 
 /** 拉黑用户（幂等；屏蔽后双方不能新增拜访收益/挑战/留言/申请） */
@@ -1426,4 +1554,25 @@ export function reportPetTarget(data: { targetType: string; targetId: number | s
 /** 全部宠物提醒标记已读 */
 export function markAllPetRemindersRead() {
   return request.put<ApiResponse<void>>('/pet/reminders/read-all')
+}
+
+// ==================== 纪念日 / 分享卡片补口 ====================
+
+/** 纪念日里程碑（key 如 100_DAYS / ANNIVERSARY_1；daysToGo 负数表示已过） */
+export interface PetMilestone {
+  key: string
+  title: string
+  daysToGo: number
+}
+
+/** 宠物纪念日（纯计算端点：领养天数 / 连续陪伴 / 当前与下一个里程碑） */
+export interface PetAnniversary {
+  adoptionDays: number
+  companionStreak: number
+  currentMilestone: PetMilestone | null
+  nextMilestone: PetMilestone | null
+}
+
+export function getPetAnniversaries() {
+  return request.get<ApiResponse<PetAnniversary>>('/pet/me/anniversaries')
 }

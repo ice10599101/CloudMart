@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Input, Switch, Text, View } from '@tarojs/components'
+import { Button, Input, Text, View } from '@tarojs/components'
 import { petApi, type PetHome, PetVisitNeighbor } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
+import { CreamToggle } from '@/components/pet-cream'
 import styles from '../index.module.scss'
+import cream from '@/components/pet-cream/pet-cream.module.scss'
 
 /** 家园面板（三期）：房间/家具商城/邻居串门（P2-4 自 index.tsx 拆出，行为不变） */
 export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
@@ -78,9 +80,13 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
           ['shop', '🛒 家具'],
           ['visit', '🚪 拜访'],
         ] as Array<[typeof tab, string]>).map(([key, label]) => (
-          <Button key={key} className={tab === key ? styles.miniBtn : styles.miniBtnGhost} onClick={() => setTab(key)}>
-            {label}
-          </Button>
+          <View
+            key={key}
+            className={`${cream.tab} ${tab === key ? cream.tabActive : ""}`}
+            onClick={() => setTab(key)}
+          >
+            <Text>{label}</Text>
+          </View>
         ))}
       </View>
       {tip && <Text className={styles.tip}>{tip}</Text>}
@@ -202,10 +208,10 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
         <View>
           <View className={styles.actionRow}>
             <Text className={styles.jobMeta}>允许来访</Text>
-            <Switch
-              checked={home.isPublic}
-              onChange={(event) =>
-                run('settings', () => petApi.updateRoomSettings({ isPublic: event.detail.value }), '设置已更新')
+            <CreamToggle
+              on={home.isPublic}
+              onChange={(next) =>
+                run('settings', () => petApi.updateRoomSettings({ isPublic: next }), '设置已更新')
               }
             />
             <Input

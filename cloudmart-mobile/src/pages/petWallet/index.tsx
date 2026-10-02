@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { PET_CREAM_STYLE } from '@/styles/petCream'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { petApi } from '@/api/pet'
 import type { PetWalletTransactionVO, PetWalletVO } from '@/api/pet'
@@ -119,7 +120,7 @@ export default function PetWalletPage() {
       : '加载中...'
 
   return (
-    <View className={styles.page} style={{ paddingTop: statusBarHeight + navBarHeight }}>
+    <View className={styles.page} style={{ ...PET_CREAM_STYLE, paddingTop: statusBarHeight + navBarHeight }}>
       <CustomNavBar title="宠物币钱包" back />
       <View className={styles.balanceCard}>
         <Text className={styles.balanceLabel}>宠物币余额（{wallet?.currency ?? 'PET_COIN'}）</Text>
@@ -128,7 +129,7 @@ export default function PetWalletPage() {
           <Text className={styles.balanceHint}>已冻结：暂不能消费，仍可查看与退款，请联系客服</Text>
         )}
         <Text className={styles.balanceHint}>
-          宠物币与社区星光相互独立；历史社区星光请到星光流水查看
+          宠物币是宠物模块独立货币；社区活动请到对应页面查看
         </Text>
       </View>
       <ScrollView className={styles.list} scrollY onScrollToLower={handleLoadMore}>
@@ -155,7 +156,7 @@ export default function PetWalletPage() {
                 </View>
                 <Text
                   className={styles.logDelta}
-                  style={{ color: spend ? '#ff6b6b' : '#52c41a' }}
+                  style={{ color: spend ? 'var(--pet-danger, #D98A8A)' : 'var(--color-success, #9CAF88)' }}
                 >
                   {spend ? '-' : '+'}{tx.amount}
                 </Text>

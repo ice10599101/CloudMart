@@ -3,10 +3,14 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'rea
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { petApi } from '@/api/pet'
-import type { PetInfo } from '@/api/pet'
+import type { PetInfo, PetMinigameRoundItem, PetActivityRow } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import { WishColors } from '@/constants/wish-theme'
+import { WishColors as BaseWishColors } from '@/constants/wish-theme'
+import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
+
+/** 法式奶油皮肤：覆写愿望主题的视觉键（本页专用；accentCyan 是本页主按钮色，一并转黄铜） */
+const WishColors = { ...BaseWishColors, ...PetCreamTheme, accentCyan: PetCreamTheme.primary }
 
 const CATCH_WINDOWS = 10
 
@@ -62,6 +66,11 @@ export default function PetPlayScreen() {
   const [digest, setDigest] = useState<DigestState | null>(null)
   const [coops, setCoops] = useState<Record<string, unknown>[]>([])
   const [collection, setCollection] = useState<{ total: number; unlocked: number } | null>(null)
+  // B09 限时活动（与常驻 /pet/events 是两套体系）
+  const [activities, setActivities] = useState<PetActivityRow[]>([])
+  const [pending, setPending] = useState<string | null>(null)
+  // N04 对局历史（最近 10 局）
+  const [history, setHistory] = useState<PetMinigameRoundItem[]>([])
 
   const loadAll = useCallback(async () => {
     const petRes = await petApi.getMyPet()
@@ -76,7 +85,24 @@ export default function PetPlayScreen() {
     if (collRes.data?.success && collRes.data.data) {
       setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
     }
+    const histRes = await petApi.listMinigameRounds(1, 10)
+    if (histRes.data?.success && histRes.data.data) setHistory(histRes.data.data)
+    const actRes = await petApi.listActivities()
+    if (actRes.data?.success && actRes.data.data) setActivities(actRes.data.data)
   }, [])
+
+  const claimActivity = async (activityId: number | string) => {
+    setPending(`activity-${activityId}`)
+    try {
+      const res = await petApi.claimActivity(activityId)
+      if (res.data?.success) {
+        const actRes = await petApi.listActivities()
+        if (actRes.data?.success && actRes.data.data) setActivities(actRes.data.data)
+      }
+    } finally {
+      setPending(null)
+    }
+  }
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/login')
@@ -123,6 +149,9 @@ export default function PetPlayScreen() {
           : '本局未达标（需接住 3 个），无收益',
       )
       setRound(null)
+      // 结算后刷新对局历史
+      const histRes = await petApi.listMinigameRounds(1, 10)
+      if (histRes.data?.success && histRes.data.data) setHistory(histRes.data.data)
     }
   }
 
@@ -164,7 +193,7 @@ export default function PetPlayScreen() {
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <Text style={{ fontSize: FontSize.xs, color: primary ? '#001529' : WishColors.textSecondary }}>{label}</Text>
+      <Text style={{ fontSize: FontSize.xs, color: primary ? '#FFFDF8' : WishColors.textSecondary }}>{label}</Text>
     </TouchableOpacity>
   )
 
@@ -192,6 +221,19 @@ export default function PetPlayScreen() {
                 {btn('右→', () => void catchSlot('RIGHT'), false, remaining === 0)}
                 {btn('提前结束', () => void settleRound())}
               </View>
+            </View>
+          )}
+          {mgResult ? (
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>{mgResult}</Text>
+          ) : null}
+          {history.length > 0 && (
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: WishColors.text }}>最近对局</Text>
+              {history.map((item) => (
+                <Text key={String(item.roundId)} style={{ fontSize: 10, color: WishColors.textSecondary }}>
+                  {`#${String(item.roundId)} · 接住 ${item.successCount}/10 · ${item.rewardEligible ? '有收益' : '训练局'}${item.startedAt ? ` · ${item.startedAt.slice(5, 16).replace('T', ' ')}` : ''}`}
+                </Text>
+              ))}
             </View>
           )}
           {mgResult ? <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>{mgResult}</Text> : null}
@@ -247,6 +289,25 @@ export default function PetPlayScreen() {
             {collection ? `已解锁 ${collection.unlocked}/${collection.total}` : '加载中…'}
           </Text>
         </Card>
+
+        {/* B09 限时活动（与常驻 /pet/events 是两套体系；结束后 72 小时内可领奖） */}
+        {activities.length > 0 && (
+          <Card title="🎈 限时活动">
+            {activities.map((item) => (
+              <View key={String(item.activityId)} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <Text style={{ flex: 1, fontSize: FontSize.xs, color: WishColors.textSecondary }}>
+                  {item.configName ?? item.activityType}
+                  {' · '}{item.status === 'COMPLETED' ? '可领取' : item.status === 'ACTIVE' ? `进行中（剩余 ${Math.ceil(item.remainingSeconds / 60)} 分钟）` : item.status === 'CLAIMED' ? '已领取' : '已过期'}
+                </Text>
+                {item.canClaim && (
+                  <TouchableOpacity disabled={pending === `activity-${item.activityId}`} onPress={() => void claimActivity(item.activityId)}>
+                    <Text style={{ fontSize: FontSize.xs, color: WishColors.primary }}>领取</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </Card>
+        )}
 
         <ActivityIndicator style={{ marginTop: Spacing.md }} color={WishColors.accentCyan} />
       </ScrollView>

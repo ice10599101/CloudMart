@@ -3,7 +3,8 @@ import request from '@/utils/request'
 // ========== 社区宠物（契约对齐 mall-pet，与 Web/App 端同构；实施文档 §5） ==========
 // 数值全部服务端计算：客户端只发意图（POST /pet/feed 等），不携带任何数值字段
 
-export type PetSpecies = 'CAT' | 'DOG' | 'RABBIT' | 'FOX' | 'PANDA'
+/** 宠物种类（V28 水果化后服务端只收五果码；对齐 CloudMart-ui 同名契约） */
+export type PetSpecies = 'STRAWBERRY' | 'ORANGE' | 'WATERMELON' | 'BLUEBERRY' | 'DRAGONFRUIT'
 /** 宠物性别（领养时选择；服务端对未传默认 MALE） */
 export type PetGender = 'MALE' | 'FEMALE'
 export type PetPersonality = 'LIVELY' | 'GENTLE' | 'TSUNDERE' | 'SIMPLE' | 'COOL' | 'CHATTERBOX'
@@ -458,15 +459,21 @@ export interface PetVisitResult {
   pet: PetInfo
 }
 
-/** 舞台产物所在网关源（缺协议前缀时按网关 http 端口补齐，避免被当相对路径） */
+/** 舞台产物所在源：显式覆盖 > H5 同源（走 dev 代理，桥接同源）> 网关 */
 function resolveStageOrigin(): string {
+  const override = process.env.TARO_APP_STAGE_ORIGIN?.trim()
+  if (override) return override.replace(/\/+$/, '')
+  if (process.env.TARO_ENV === 'h5') return ''
   const raw = (process.env.TARO_APP_API_HOST || 'http://127.0.0.1:8090').trim()
   if (/^https?:\/\//i.test(raw)) return raw.replace(/\/+$/, '')
   return `http://${raw}`
 }
 
-/** Cocos 舞台页地址（pet-game web-mobile 构建产物；部署在网关同源静态目录） */
-export const PET_STAGE_URL = `${resolveStageOrigin()}/pet-game/index.html`
+/** Cocos 舞台页地址（pet-game web-mobile 构建产物；H5 dev 经 /pet-game 代理同源加载）。
+ *  ?v= 产物版本号：产物文件名固定无 hash，web-view/浏览器会缓存旧 js——
+ *  每次重新构建 pet-game 后手动递增此值以击穿缓存。 */
+const PET_STAGE_VERSION = 'v20261002_1'
+export const PET_STAGE_URL = `${resolveStageOrigin()}/pet-game/index.html?${PET_STAGE_VERSION}`
 
 export const petApi = {
   /** 我的宠物（未领养 404 PET_NOT_FOUND） */
@@ -1257,21 +1264,77 @@ export const petCompanionApi = {
   reportTarget: (data: { targetType: string; targetId: number | string; reason: string }) =>
     request<void>({ url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
-  listPendingBattles: () => request<Array<Record<string, unknown>>>({ url: '/pet/battle/pending' }),
   claimAllDailyQuests: () =>
     request<Array<Record<string, unknown>>>({ url: '/pet/daily-quests/claim-all', method: 'POST' }),
   stopCompanion: () =>
     request<Record<string, unknown>>({ url: '/pet/companion/stop', method: 'POST' }),
-  previewEquip: (itemId: number | string) =>
-    request<Record<string, unknown>>({ url: `/pet/inventory/equip-preview?itemId=${itemId}` }),
-  listActivities: () => request<Array<Record<string, unknown>>>({ url: '/pet/activities' }),
+  /** B12 装备替换预览：后端收 itemCode（装备编码），不是 itemId */
+  previewEquip: (itemCode: string) =>
+    request<PetEquipPreview>({ url: `/pet/inventory/equip-preview?itemCode=${itemCode}` }),
+  listActivities: () => request<PetActivityRow[]>({ url: '/pet/activities' }),
   claimActivity: (activityId: number | string) =>
     request<Record<string, unknown>>({ url: `/pet/activities/${activityId}/claim`, method: 'POST' }),
-  listMinigameRounds: (cursor?: number | string, pageSize = 20) =>
-    request<Array<Record<string, unknown>>>({
-      url: `/pet/minigames?pageSize=${pageSize}${cursor ? `&cursor=${cursor}` : ''}`,
+  /** N04 对局历史：后端收 page/size（offset 分页，size 上限 50），返回展示投影 VO */
+  listMinigameRounds: (page = 1, size = 10) =>
+    request<PetMinigameRoundItem[]>({
+      url: `/pet/minigames?page=${page}&size=${size}`,
     }),
   getActions: (petId: number | string) =>
-    request<Array<Record<string, unknown>>>({ url: `/pet/pets/${petId}/actions` }),
+    request<PetActionItem[]>({ url: `/pet/pets/${petId}/actions` }),
   markAllRemindersRead: () => request<void>({ url: '/pet/reminders/read-all', method: 'PUT' }),
+}
+
+// ==================== 契约补齐（对齐 CloudMart-ui / 后端 VO） ====================
+
+/** 装备替换预览的属性快照（hp/maxHp/strength/intelligence/agility/charm） */
+export interface PetEquipStats {
+  hp: number
+  maxHp: number
+  strength: number
+  intelligence: number
+  agility: number
+  charm: number
+}
+
+/** 装备替换预览（B12，契约对齐后端 PetEquipPreviewVO） */
+export interface PetEquipPreview {
+  itemCode: string
+  base: PetEquipStats
+  current: PetEquipStats
+  after: PetEquipStats
+  delta: PetEquipStats
+}
+
+/** 小游戏对局历史项（契约对齐后端 PetMinigameRoundVO；roundId 为键，内部字段不出域） */
+export interface PetMinigameRoundItem {
+  roundId: number | string
+  gameType: string
+  status: string
+  ruleVersion: string
+  startedAt: string | null
+  deadlineAt: string | null
+  successCount: number
+  rewardEligible: boolean
+}
+
+/** 动作可执行性（B06，契约对齐后端 PetActionVO） */
+export interface PetActionItem {
+  action: string
+  allowed: boolean
+  reasonCode: string | null
+  reasonText: string | null
+  nextAvailableAt: string | null
+  rewardRemainingToday: number | null
+}
+
+/** 限时活动行（契约对齐后端 PetActivityVO 的展示子集） */
+export interface PetActivityRow {
+  activityId: number | string
+  petName: string | null
+  activityType: string
+  configName: string | null
+  status: string
+  remainingSeconds: number
+  canClaim: boolean
+  claimedAt: string | null
 }

@@ -1,6 +1,8 @@
 .page {
   min-height: 100vh;
-  background: var(--color-bg-base);
+  background-color: #FDF6EC;
+  background-image: radial-gradient(rgba(200, 155, 90, 0.12) 1.5px, transparent 1.6px);
+  background-size: 22px 22px;
 }
 
 .empty {
@@ -99,12 +101,14 @@
 }
 
 .nameInput {
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 12px;
+  height: 34px;
+  line-height: 34px;
+  font-size: 14px;
+  padding: 0 12px;
+  border-radius: 10px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-container);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   color: var(--color-text-primary);
 }
 
@@ -126,13 +130,6 @@
   height: calc(100vh - 120px);
   padding: 12px 16px 48px;
   box-sizing: border-box;
-}
-
-.heroCard {
-  background: var(--color-bg-container);
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 12px;
 }
 
 .heroRow {
@@ -159,12 +156,12 @@
 
 /* 性别符号：雄蓝 / 雌粉（与 Web 端保持一致） */
 .genderMale {
-  color: #4fa3e3;
+  color: var(--pet-gender-male, #A8BDD0);
   font-weight: 800;
 }
 
 .genderFemale {
-  color: #ff6e9c;
+  color: var(--pet-gender-female, #E8B4B8);
   font-weight: 800;
 }
 
@@ -180,110 +177,15 @@
   margin-top: 2px;
 }
 
-.stageEntry {
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--color-primary);
-}
-
-.stageEntryText {
-  color: #fff;
-  font-size: 12px;
-}
-
-.bars {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.barRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.barLabel {
-  width: 66px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.barTrack {
-  flex: 1;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--color-fill-secondary, rgba(127, 127, 127, 0.15));
-  overflow: hidden;
-}
-
-.barFill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.barValue {
-  width: 54px;
-  text-align: right;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
 .actionRow {
   display: flex;
   gap: 8px;
   margin-top: 14px;
 }
 
-.actionBtn {
-  flex: 1;
-  font-size: 13px;
-  padding: 6px 0;
-  border-radius: 10px;
-  background: var(--color-fill-tertiary, rgba(127, 127, 127, 0.12));
-  color: var(--color-text-primary);
-  border: none;
-  line-height: 1.8;
-}
-
-.actionBtn::after {
-  border: none;
-}
-
 /* P1-6：互动请求进行中的禁用态（防连点） */
-.actionBtn:disabled {
-  opacity: 0.5;
-}
 
 /* 面板 */
-.panelTabs {
-  white-space: nowrap;
-  margin-bottom: 12px;
-}
-
-.panelTabsInner {
-  display: inline-flex;
-  gap: 8px;
-  padding: 2px;
-}
-
-.panelTab {
-  display: inline-block;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-container);
-}
-
-.panelTabActive {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: var(--color-primary-fade, rgba(0, 150, 255, 0.08));
-}
 
 .panelBody {
   background: var(--color-bg-container);
@@ -320,13 +222,32 @@
 }
 
 .jobCard {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 4px rgba(74, 63, 53, 0.06),
+    0 6px 14px rgba(74, 63, 53, 0.07);
+  overflow: hidden;
+}
+
+.jobCard::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  border: 1px solid rgba(231, 220, 203, 0.85);
   border-radius: 12px;
-  border: 1px solid var(--color-border);
+  pointer-events: none;
 }
 
 .jobInfo {
@@ -348,10 +269,16 @@
   margin-top: 4px;
 }
 
+.miniBtn:active {
+  transform: translateY(2px);
+}
+
 .miniBtn {
   font-size: 12px;
   padding: 0 16px;
   line-height: 2.2;
+  flex-shrink: 0;
+  white-space: nowrap;
   border-radius: 999px;
   background: var(--color-primary);
   color: #fff;
@@ -362,10 +289,16 @@
   border: none;
 }
 
+.miniBtnGhost:active {
+  transform: translateY(2px);
+}
+
 .miniBtnGhost {
   font-size: 12px;
   padding: 0 16px;
   line-height: 2.2;
+  flex-shrink: 0;
+  white-space: nowrap;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
@@ -377,8 +310,11 @@
 }
 
 .locked {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
+  background: var(--color-fill-secondary, #F2E3CE);
+  border-radius: 999px;
+  padding: 0 18px;
 }
 
 /* 捞瓶 */
@@ -386,6 +322,28 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  box-shadow: 0 2px 4px rgba(74, 63, 53, 0.06), 0 6px 14px rgba(74, 63, 53, 0.07);
+}
+
+/* 舞台内嵌（H5 首屏观赏位；小程序走独立舞台页） */
+.stageEmbed {
+  height: 176px;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(200, 155, 90, 0.4);
+  background: #FDF6EC;
+}
+
+.stageIframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 /* 对战 */
@@ -398,10 +356,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 214, 102, 0.15);
+  padding: 10px 14px;
+  border-radius: 16px;
   margin-bottom: 8px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  box-shadow: 0 2px 4px rgba(74, 63, 53, 0.06), 0 6px 14px rgba(74, 63, 53, 0.07);
 }
 
 .pendingBtns {
@@ -422,8 +382,14 @@
   align-items: center;
   gap: 4px;
   padding: 12px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #FFFDF8;
+  border: 1px solid rgba(200, 155, 90, 0.4);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+}
+
+.opponentCard:active {
+  transform: scale(0.96);
 }
 
 .opponentEmoji {
@@ -464,22 +430,25 @@
 .chatPet {
   max-width: 82%;
   padding: 8px 14px;
-  border-radius: 14px;
   font-size: 13px;
+  box-shadow: 0 2px 6px rgba(74, 63, 53, 0.08);
 }
 
 .chatMine {
   align-self: flex-end;
-  background: var(--color-primary);
+  background: linear-gradient(180deg, #C89B5A, #B78A4E);
+  border-radius: 14px 14px 4px 14px;
 }
 
 .chatMine .chatText {
-  color: #fff;
+  color: #FFFDF8;
 }
 
 .chatPet {
   align-self: flex-start;
-  background: var(--color-fill-tertiary, rgba(127, 127, 127, 0.12));
+  background: #FFFDF8;
+  border: 1px solid rgba(200, 155, 90, 0.4);
+  border-radius: 14px 14px 14px 4px;
 }
 
 .chatPet .chatText {
@@ -517,8 +486,9 @@
   align-items: center;
   gap: 4px;
   padding: 12px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #FFFDF8;
+  border: 1px solid rgba(200, 155, 90, 0.4);
   box-sizing: border-box;
 }
 
@@ -544,20 +514,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .barFill {
-    transition: none;
   }
-}
 
 .rankList {
   display: flex;
   flex-direction: column;
-}
-
-.rankTabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
 }
 
 /* 进行中任务倒计时 */
@@ -565,10 +526,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  background: var(--color-primary-fade, rgba(0, 150, 255, 0.08));
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  box-shadow: 0 2px 4px rgba(74, 63, 53, 0.06), 0 6px 14px rgba(74, 63, 53, 0.07);
   margin-bottom: 10px;
 }
 
@@ -604,8 +566,10 @@
 
 .modalCard {
   width: 100%;
-  background: var(--color-bg-container);
-  border-radius: 18px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.45);
+  border-radius: 24px 24px 20px 20px;
+  box-shadow: 0 12px 32px rgba(74, 63, 53, 0.18);
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -664,22 +628,29 @@
 
 .modalAction {
   flex: 1;
+  min-height: 40px;
+  line-height: 40px;
+  text-align: center;
+  border-radius: 999px;
+  font-size: 13px;
 }
 
 /* 提醒 */
 .reminderCard {
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  padding: 10px 14px;
+  border-radius: 14px;
   margin-bottom: 8px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.28);
 }
 
 .reminderRead {
-  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+  opacity: 0.75;
 }
 
 .reminderUnread {
-  background: rgba(255, 214, 102, 0.18);
+  background: linear-gradient(180deg, #FFFDF9 0%, #F7E8D2 100%);
+  border: 1px solid rgba(200, 155, 90, 0.55);
 }
 
 .reminderTitleRow {
@@ -704,8 +675,8 @@
 }
 
 .priorityP0 {
-  background: #ff6c6c;
-  border-color: #ff6c6c;
+  background: var(--pet-danger, #D98A8A);
+  border-color: var(--pet-danger, #D98A8A);
   color: #fff;
 }
 
@@ -728,9 +699,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.28);
   margin-bottom: 6px;
 }
 
@@ -756,9 +728,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--color-fill-quaternary, rgba(127, 127, 127, 0.08));
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.28);
   margin-bottom: 6px;
 }
 
@@ -791,21 +764,35 @@
   gap: 12px;
 }
 
-.careTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .careCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px;
+  padding: 12px 14px;
+  padding-right: 150px;
+  min-height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 4px rgba(74, 63, 53, 0.06),
+    0 6px 14px rgba(74, 63, 53, 0.07);
   margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.careCard::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  border: 1px solid rgba(231, 220, 203, 0.85);
   border-radius: 12px;
-  border: 1px solid var(--color-border, #eee);
-  background: var(--color-bg-container, #fff);
+  pointer-events: none;
 }
 
 .careTitle {
@@ -820,10 +807,14 @@
 }
 
 .careActions {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .chatTag {
@@ -937,10 +928,12 @@
 }
 
 .memoryCard {
-  background: var(--color-bg-card, rgba(255, 255, 255, 0.06));
-  border-radius: 16rpx;
-  padding: 20rpx;
-  margin-bottom: 14rpx;
+  background: linear-gradient(180deg, #FFFDF9 0%, #F9EFE1 100%);
+  border: 1px solid rgba(200, 155, 90, 0.35);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 4px rgba(74, 63, 53, 0.06);
 }
 
 .memoryCardHead {
@@ -952,7 +945,7 @@
 
 .memoryPublic {
   font-size: 20rpx;
-  color: #52c41a;
+  color: var(--color-success, #9CAF88);
 }
 
 .memoryPrivate {
@@ -992,7 +985,7 @@
   right: 8rpx;
   bottom: 8rpx;
   font-size: 20rpx;
-  color: #ff6b6b;
+  color: var(--pet-danger, #D98A8A);
   background: rgba(0, 0, 0, 0.45);
   border-radius: 8rpx;
   padding: 4rpx 12rpx;
@@ -1042,4 +1035,30 @@
   padding: 20rpx 0;
   border-bottom: 1rpx solid var(--color-border, rgba(255, 255, 255, 0.08));
   font-size: 26rpx;
+}
+
+/* B06 动作可执行性 chips（跟随主题变量，浅色/暗色都成立） */
+.actionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actionChipOk,
+.actionChipNo {
+  font-size: 20px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border, rgba(169, 124, 80, 0.4));
+}
+
+.actionChipOk {
+  color: var(--color-success, #62d88a);
+  background: var(--color-success-bg, rgba(98, 216, 138, 0.12));
+}
+
+.actionChipNo {
+  color: var(--color-text-secondary, #999);
+  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
 }

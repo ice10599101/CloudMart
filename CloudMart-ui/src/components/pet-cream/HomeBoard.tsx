@@ -127,8 +127,9 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
         }
     }, [message, onChanged, placingCode])
 
-    const removeAt = useCallback(async (posX: number, posY: number) => {
-        setBusy(`remove:${posX}:${posY}`)
+    /** busyKey：列表里的「卸下」按家具编码占位（背包项的 posX/posY 为 null，无法按格子匹配） */
+    const removeAt = useCallback(async (posX: number, posY: number, busyKey?: string) => {
+        setBusy(busyKey ?? `remove:${posX}:${posY}`)
         try {
             const { data: res } = await removePetFurniture(posX, posY)
             if (res.success) {
@@ -148,7 +149,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
         if (!target || target.posX === null || target.posY === null) {
             return
         }
-        await removeAt(target.posX, target.posY)
+        await removeAt(target.posX, target.posY, `removeCode:${code}`)
     }, [home, removeAt])
 
     const buy = useCallback(async (item: PetHomeItem) => {
@@ -368,7 +369,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
                                     {placed ? (
                                         <CreamButton
                                             variant="ghost"
-                                            loading={busy === `remove:${item.posX ?? ''}:${item.posY ?? ''}`}
+                                            loading={busy === `removeCode:${item.code}`}
                                             onClick={() => void removeByCode(item.code)}
                                         >
                                             卸下
