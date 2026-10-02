@@ -66,6 +66,9 @@ public interface OrderService {
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
 
+    /** T11 切片二 C：系统代批退款（售后质检通过自动流转；approveRefund 同逻辑无操作者限制） */
+    OrderDTO approveRefundSystem(Long orderId);
+
     /** T11：售后案件退款完成回填（payment refund 事件消费者调用，按 refundNo 幂等） */
     void onAfterSaleRefundCompleted(String refundNo);
 

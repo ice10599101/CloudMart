@@ -29,6 +29,10 @@ public class PaymentOutboxDelivery implements OutboxDelivery {
 
     @Override
     public String destination(EventEnvelope envelope) {
+        // T11：售后事件发往 order-events（mall-order 消费驱动自动退款流转）
+        if ("AFTER_SALE_INSPECT_PASSED".equals(envelope.eventType())) {
+            return RocketMQConfig.ORDER_TOPIC + ":" + RocketMQConfig.TAG_AFTER_SALE;
+        }
         return RocketMQConfig.PAYMENT_TOPIC + ":" + tagFor(envelope.eventType());
     }
 

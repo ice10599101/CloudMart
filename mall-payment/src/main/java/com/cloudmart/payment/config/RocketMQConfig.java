@@ -13,7 +13,11 @@ public final class RocketMQConfig {
     }
 
     public static final String PAYMENT_TOPIC = "payment-events";
+    /** T11：售后事件发布到订单主题（mall-order 消费） */
+    public static final String ORDER_TOPIC = "order-events";
 
     public static final String PAYMENT_TAG_RESULT = "result";
     public static final String PAYMENT_TAG_REFUND = "refund";
+    /** T11：售后质检通过事件（order-events topic，mall-order 消费驱动自动退款） */
+    public static final String TAG_AFTER_SALE = "after-sale";
 }

@@ -580,6 +580,13 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    public OrderDTO approveRefundSystem(Long orderId) {
+        // T11 切片二 C：质检 PASSED 自动流转——系统代批（无管理员操作者，审批语义相同）
+        return approveRefund(orderId);
+    }
+
+    @Override
+    @Transactional
     public OrderDTO approveRefund(Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {

@@ -44,6 +44,7 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     private final AfterSaleCaseEventMapper eventMapper;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
+    private final com.cloudmart.common.async.outbox.OutboxService outboxService;
 
     @Override
     @Transactional
@@ -206,6 +207,17 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         }
         appendEvent(caseId, "INSPECTED", "admin:" + adminId,
                     "{\"result\":\"" + result + "\"}");
+        // T11 切片二 C：质检 PASSED → 自动退款流转（Outbox 事件驱动本服务消费者，
+        // 系统代发 requestRefund + approveRefund 免人工二次操作；REJECTED 保持
+        // APPROVED 等待运营与用户协商）
+        if ("PASSED".equals(result)) {
+            AfterSaleCase entity = requireCase(caseId);
+            outboxService.record(com.cloudmart.common.async.EventEnvelope.of(
+                    "AFTER_SALE_INSPECT_PASSED", 1, entity.getCaseNo(), 1, null,
+                    "{\"caseId\":" + caseId + ",\"caseNo\":\"" + entity.getCaseNo()
+                            + "\",\"orderId\":" + entity.getOrderId()
+                            + ",\"userId\":" + entity.getUserId() + "}"));
+        }
         log.info("[T11] 售后质检录入 caseId={} result={} by admin:{}", caseId, result, adminId);
     }
 

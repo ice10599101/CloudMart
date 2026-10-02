@@ -42,6 +42,9 @@ public final class RocketMQConfig {
     public static final String CG_ORDER_PAYMENT_REFUND = "order-payment-refund-cg";
     public static final String CG_ORDER_GROUP_SUCCESS = "order-group-success-cg";
     public static final String CG_ORDER_SECKILL = "order-seckill-cg";
+    /** T11：售后事件（payment Outbox 发往 order-events 的 after-sale tag） */
+    public static final String TAG_AFTER_SALE = "after-sale";
+    public static final String CG_ORDER_AFTER_SALE = "order-after-sale-cg";
 
     /** RocketMQ 4.x delayLevel=16 对应 10 分钟，与原 RabbitMQ TTL 600000ms 一致。 */
     public static final int DELAY_LEVEL_ORDER_TIMEOUT = 16;
