@@ -44,7 +44,7 @@ public interface SeckillRequestMapper extends BaseMapper<SeckillRequest> {
      *
      * @return 0 = 状态已不是 FAILED（他方先行）
      */
-    @Update("UPDATE seckill_request SET request_id = #{newRequestId}, status = 'PENDING', "
+    @Update("UPDATE seckill_request SET request_id = #{requestId}, status = 'PENDING', "
             + "seckill_price = #{seckillPrice}, quantity = #{quantity}, sku_id = #{skuId}, "
             + "order_id = NULL, fail_reason = NULL, send_attempts = 0, next_retry_at = #{nextRetryAt} "
             + "WHERE id = #{id} AND status = 'FAILED'")
