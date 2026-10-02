@@ -294,7 +294,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         intimacyService.gain(pet, PetIntimacySource.WORK);
         int levelups = stateService.grantExp(pet, expReward);
         // B01：本地奖励已生效；星光结果未知不回滚
-        Integer credited = null;
+        Long credited = null;
         if (currencyReward > 0) {
             PetOperationService.WalletSettlement settlement = economyService.earn(
                     userId, activity.getPetId(), "CAREER_CLAIM", activity.getId(),

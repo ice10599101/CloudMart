@@ -374,7 +374,7 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
     }
 
     /** 余额查询：展示型数据 Fail-Open（null=前端隐藏余额，不阻断商城浏览） */
-    private Integer balanceQuietly(Long userId) {
+    private Long balanceQuietly(Long userId) {
         try {
             return economyService.balanceOf(userId);
         } catch (Exception e) {

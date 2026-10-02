@@ -89,7 +89,7 @@ public class PetOperationService {
      * @param duplicate    是否重复请求命中原结果
      * @param lastError    失败/未知原因
      */
-    public record WalletSettlement(String status, int credited, Integer balanceAfter,
+    public record WalletSettlement(String status, long credited, Long balanceAfter,
                                    boolean duplicate, String lastError) {
 
         public boolean isCompleted() {
@@ -207,8 +207,9 @@ public class PetOperationService {
                         ? wishFeignClient.spendStarlightIdempotent(userId, amount, bizRefId, operationId).data()
                         : wishFeignClient.earnStarlightIdempotent(userId, amount, bizRefId, operationId).data());
                 return new WalletSettlement("COMPLETED",
-                        vo == null || vo.creditedAmount() == null ? 0 : vo.creditedAmount(),
-                        vo == null ? null : vo.balanceAfter(), vo != null && vo.duplicate(), null);
+                        vo == null || vo.creditedAmount() == null ? 0L : vo.creditedAmount().longValue(),
+                        vo == null ? null : vo.balanceAfter() == null ? null : vo.balanceAfter().longValue(),
+                        vo != null && vo.duplicate(), null);
             } catch (BusinessException e) {
                 throw e;
             } catch (Exception e) {
@@ -260,8 +261,9 @@ public class PetOperationService {
             }
             operationStore.markCompleted(operation, PetJsonUtils.toJson(result));
             return new WalletSettlement("COMPLETED",
-                    result.creditedAmount() == null ? 0 : result.creditedAmount(),
-                    result.balanceAfter(), result.duplicate(), null);
+                    result.creditedAmount() == null ? 0L : result.creditedAmount().longValue(),
+                    result.balanceAfter() == null ? null : result.balanceAfter().longValue(),
+                    result.duplicate(), null);
         } catch (BusinessException e) {
             if (!isDefiniteRejection(e)) {
                 // 服务不可用/降级（TX-02）：结果未知，交恢复任务收敛，不当业务失败
@@ -309,8 +311,9 @@ public class PetOperationService {
                 return null;
             }
             return new WalletSettlement("COMPLETED",
-                    result.creditedAmount() == null ? 0 : result.creditedAmount(),
-                    result.balanceAfter(), true, null);
+                    result.creditedAmount() == null ? 0L : result.creditedAmount().longValue(),
+                    result.balanceAfter() == null ? null : result.balanceAfter().longValue(),
+                    true, null);
         } catch (Exception e) {
             log.error("操作结果快照解析失败, operationId={}", operation.getOperationId(), e);
             return null;

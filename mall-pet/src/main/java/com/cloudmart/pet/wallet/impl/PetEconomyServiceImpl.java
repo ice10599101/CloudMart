@@ -110,22 +110,24 @@ public class PetEconomyServiceImpl implements PetEconomyService {
         PetWalletResult result = spend ? walletService.debit(command) : walletService.credit(command);
         log.info("宠物币收支提交(PET), operationId={}, userId={}, bizType={}, bizKey={}, amount={}, duplicate={}",
                 operationId, userId, bizType, bizKey, amount, result.duplicate());
-        return new WalletSettlement("COMPLETED", (int) result.amount(),
-                (int) result.balanceAfter(), result.duplicate(), null);
+        // P03：PET 币域 long 贯通，禁止 (int) 强转窄化隐藏高余额溢出
+        return new WalletSettlement("COMPLETED", result.amount(),
+                result.balanceAfter(), result.duplicate(), null);
     }
 
     @Override
-    public Integer balanceOf(Long userId) {
+    public Long balanceOf(Long userId) {
         return switch (mode()) {
-            case PET -> walletService.getOrCreateAccount(userId).getBalance().intValue();
+            case PET -> walletService.getOrCreateAccount(userId).getBalance();
             case LEGACY -> starlightBalanceQuietly(userId);
             case PAUSED -> null;
         };
     }
 
-    private Integer starlightBalanceQuietly(Long userId) {
+    private Long starlightBalanceQuietly(Long userId) {
         try {
-            return wishFeignClient.starlightBalance(userId).data();
+            Integer starlight = wishFeignClient.starlightBalance(userId).data();
+            return starlight == null ? null : starlight.longValue();
         } catch (Exception e) {
             // 展示型数据 Fail-Open：null=前端隐藏余额，不阻断浏览
             return null;
@@ -139,12 +141,14 @@ public class PetEconomyServiceImpl implements PetEconomyService {
 
     @Override
     public Mode mode() {
+        // P03：PET_COIN 独立钱包为唯一正账本——null/blank/非法配置一律 PET
+        //（LEGACY 仅作为显式配置的存量回退通道，不再作为任何缺省值）
         String raw = properties.getWalletMode();
         try {
-            return Mode.valueOf(raw == null || raw.isBlank() ? "LEGACY" : raw.trim().toUpperCase());
+            return Mode.valueOf(raw == null || raw.isBlank() ? "PET" : raw.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            log.error("pet.wallet.mode 配置非法: {}，回退 LEGACY（fail-safe：不擅自接新账本）", raw);
-            return Mode.LEGACY;
+            log.warn("pet.wallet.mode 配置非法: {}，按新基线 PET_COIN 处理", raw);
+            return Mode.PET;
         }
     }
 }

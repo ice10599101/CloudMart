@@ -29,10 +29,10 @@ public interface PetEconomyService {
                                                long amount, String rewardSnapshot, Object... keyParts);
 
     /**
-     * 余额展示：PET 返回宠物币余额；LEGACY 返回社区星光（降级为 null=Fail-Open 隐藏）；
-     * PAUSED 返回 null（维护中不展示余额）。
+     * 余额展示：PET 返回宠物币余额（P03：long 防高余额 int 溢出）；LEGACY 返回社区星光
+     * （降级为 null=Fail-Open 隐藏）；PAUSED 返回 null（维护中不展示余额）。
      */
-    Integer balanceOf(Long userId);
+    Long balanceOf(Long userId);
 
     /** LEGACY 未知结算异常（购买类调用方语义；PET 模式不会走到） */
     BusinessException settlementPending();

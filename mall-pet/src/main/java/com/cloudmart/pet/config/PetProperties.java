@@ -27,7 +27,10 @@ public class PetProperties {
      * 钱包模式（W02/§6.3，Nacos 持久化）：LEGACY=社区星光（切换前默认）/PAUSED=切换窗口拒绝新收支/PET=独立宠物币。
      * 切换窗口由发布流程执行；非法值回退 LEGACY（fail-safe，不擅自接新账本）。
      */
-    private String walletMode = "LEGACY";
+    /**
+     * P03：新基线为独立 PET_COIN 钱包（LEGACY 仅为存量切换回退显式配置保留）。
+     */
+    private String walletMode = "PET";
 
     private final Decay decay = new Decay();
     private final Level level = new Level();

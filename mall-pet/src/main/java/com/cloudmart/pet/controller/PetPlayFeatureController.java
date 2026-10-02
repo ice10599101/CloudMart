@@ -3,7 +3,7 @@ package com.cloudmart.pet.controller;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.entity.PetCooperation;
-import com.cloudmart.pet.entity.PetMinigameRound;
+import com.cloudmart.pet.vo.PetMinigameRoundVO;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -65,7 +65,7 @@ public class PetPlayFeatureController {
 
     @GetMapping("/minigames")
     @Operation(summary = "对局历史（N04）")
-    public ApiResponse<List<PetMinigameRound>> minigameHistory(
+    public ApiResponse<List<PetMinigameRoundVO>> minigameHistory(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {

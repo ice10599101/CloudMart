@@ -500,12 +500,18 @@ public class PetPlayFeatureService {
         return result;
     }
 
-    /** 历史局列表 */
-    public List<PetMinigameRound> history(Long userId, int page, int size) {
+    /** 对局历史 → 展示投影（N04）：只暴露展示字段，内部字段（序列/流水/归属/配额）不出域 */
+    public List<com.cloudmart.pet.vo.PetMinigameRoundVO> history(Long userId, int page, int size) {
         return minigameMapper.selectList(new LambdaQueryWrapper<PetMinigameRound>()
                 .eq(PetMinigameRound::getUserId, userId)
                 .orderByDesc(PetMinigameRound::getId)
-                .last("LIMIT " + Math.min(size, 50) + " OFFSET " + (Math.max(page - 1, 0)) * Math.min(size, 50)));
+                .last("LIMIT " + Math.min(size, 50) + " OFFSET " + (Math.max(page - 1, 0)) * Math.min(size, 50)))
+                .stream()
+                .map(round -> new com.cloudmart.pet.vo.PetMinigameRoundVO(
+                        round.getId(), round.getGameType(), round.getStatus(), round.getRuleVersion(),
+                        round.getStartedAt(), round.getDeadlineAt(), round.getSuccessCount(),
+                        round.getRewardEligible()))
+                .toList();
     }
 
     private PetMinigameRound requireActiveRound(Long userId, Long roundId) {

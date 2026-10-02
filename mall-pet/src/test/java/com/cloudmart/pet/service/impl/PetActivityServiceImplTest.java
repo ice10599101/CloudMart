@@ -103,7 +103,7 @@ class PetActivityServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0, 1000, false, null));
+                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
                 jobConfigMapper, studyConfigMapper, petMapper, achievementService,
                 eventProducer, statsService, dailyQuestService, intimacyService, economyService,

@@ -175,7 +175,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         return PetJsonUtils.toJson(snapshot);
     }
 
-    private PetEvolutionVO buildStatus(Pet pet, Integer balance) {
+    private PetEvolutionVO buildStatus(Pet pet, Long balance) {
         int stage = currentStage(pet);
         List<PetEvolutionConfig> configs = enabledConfigs();
         int maxStage = configs.stream()
@@ -263,7 +263,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     }
 
     /** 余额查询：展示型数据 Fail-Open（null=不参与"星光是否足够"判定） */
-    private Integer starlightBalanceQuietly(Long userId) {
+    private Long starlightBalanceQuietly(Long userId) {
         try {
             return economyService.balanceOf(userId);
         } catch (Exception e) {

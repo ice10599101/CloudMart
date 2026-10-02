@@ -256,7 +256,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         intimacyService.gain(pet, PetIntimacySource.WORK);
         int levelups = stateService.grantExp(pet, expReward);
         // B01：本地奖励已生效；星光结果未知不回滚，对外"结算中"，恢复任务按原单收敛
-        Integer credited = earnStarlightIdempotent(activity, pet, currencyReward);
+        Long credited = earnStarlightIdempotent(activity, pet, currencyReward);
         activity.setResult(PetJsonUtils.toJson(Map.of(
                 "exp", expReward, "currency", currencyReward, "actualCurrency", credited == null ? 0 : credited,
                 "intelligenceBonus", intelligenceBonus,
@@ -333,9 +333,9 @@ public class PetActivityServiceImpl implements PetActivityService {
     }
 
     /** 幂等发薪：返回钱包实际到账（未知/失败返回 null，结果 JSON 记 actualCurrency=0 + 结算中状态） */
-    private Integer earnStarlightIdempotent(PetActivity activity, Pet pet, int amount) {
+    private Long earnStarlightIdempotent(PetActivity activity, Pet pet, long amount) {
         if (amount <= 0) {
-            return 0;
+            return 0L;
         }
         String bizType = "WORK".equals(activity.getActivityType()) ? "CLAIM_WORK" : "CLAIM_STUDY";
         PetOperationService.WalletSettlement settlement = economyService.earn(

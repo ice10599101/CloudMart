@@ -68,13 +68,21 @@ class PetEconomyServiceImplTest {
     }
 
     @Test
-    @DisplayName("LEGACY（默认与非法值）：委托旧链路，不触碰新钱包")
+    @DisplayName("P03 新基线：null/blank 与非法值一律 PET_COIN（唯一正账本，fail-safe）")
+    void mode_routing_defaultsToPet() {
+        assertThat(serviceOf(null).mode()).isEqualTo(Mode.PET);
+        assertThat(serviceOf("").mode()).isEqualTo(Mode.PET);
+        assertThat(serviceOf("bogus").mode()).isEqualTo(Mode.PET);
+    }
+
+    @Test
+    @DisplayName("LEGACY 显式配置：委托旧链路，不触碰新钱包")
     void legacy_routesToLegacy() {
-        service = serviceOf(null);
+        service = serviceOf("LEGACY");
         assertThat(service.mode()).isEqualTo(Mode.LEGACY);
         when(legacy.operationKey(anyString(), any(Object[].class))).thenReturn("LEG:KEY");
         when(legacy.executeEarn(anyString(), any(), any(), anyString(), any(), anyInt(), any()))
-                .thenReturn(new WalletSettlement("COMPLETED", 10, 100, false, null));
+                .thenReturn(new WalletSettlement("COMPLETED", 10L, 100L, false, null));
 
         WalletSettlement result = service.earn(1001L, 5L, "BATTLE_REWARD", 11L, 10, null, 11L, "attacker");
 
@@ -82,8 +90,6 @@ class PetEconomyServiceImplTest {
         verify(legacy).executeEarn(anyString(), any(), any(), anyString(), any(), anyInt(), any());
         verify(walletService, never()).credit(any(PetWalletCommand.class));
 
-        service = serviceOf("bogus");
-        assertThat(service.mode()).isEqualTo(Mode.LEGACY);
     }
 
     @Test
@@ -155,7 +161,7 @@ class PetEconomyServiceImplTest {
         com.cloudmart.pet.entity.PetWalletAccount account = new com.cloudmart.pet.entity.PetWalletAccount();
         account.setBalance(77L);
         when(walletService.getOrCreateAccount(1001L)).thenReturn(account);
-        assertThat(service.balanceOf(1001L)).isEqualTo(77);
+        assertThat(service.balanceOf(1001L)).isEqualTo(77L);
 
         service = serviceOf("LEGACY");
         when(wishFeignClient.starlightBalance(1001L))

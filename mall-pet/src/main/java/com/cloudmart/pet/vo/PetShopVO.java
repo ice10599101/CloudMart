@@ -13,7 +13,7 @@ import java.util.List;
  */
 @Schema(description = "宠物商城")
 public record PetShopVO(
-        @Schema(description = "余额（null=余额服务降级，前端隐藏）") Integer balance,
+        @Schema(description = "余额（null=余额服务降级，前端隐藏）") Long balance,
         @Schema(description = "余额币种：PET_COIN=宠物币 / STARLIGHT=社区星光") String currency,
         @Schema(description = "商品列表（装备/皮肤/技能书/食物）") List<PetShopItemVO> items
 ) {
