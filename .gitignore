@@ -81,3 +81,20 @@ CloudMart-ui/public/pet-game/
 /pet-game/模型/
 /pet-game/shots/
 /.workbuddy/
+
+# pet-game Cocos 编辑器生成目录（library 资源库索引 / temp 编译缓存 / build 构建产物）
+# 这些由 Cocos Creator 打开工程时自动重建，不进版本库、不上传服务器
+/pet-game/library/
+/pet-game/temp/
+/pet-game/build/
+
+# E04：本地验证期临时输出（永不入库）
+admin-login.json
+admin-token.txt
+admin-products.json
+attempt.json
+dl-url.json
+file-*.json
+file-*-id.txt
+file-a-url.txt
+.qa-*
