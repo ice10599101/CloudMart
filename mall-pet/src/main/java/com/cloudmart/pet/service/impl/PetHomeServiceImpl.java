@@ -236,7 +236,9 @@ public class PetHomeServiceImpl implements PetHomeService {
             throw new BusinessException(PetErrorCodes.PET_ROOM_POS_OCCUPIED, "这个格子已经有家具啦");
         }
         refreshComfort(room, pet.getId());
-        recordDecorate(pet);
+        // R37：真实布置改变的收益走 DECORATE 用户日额度——额度内发 ROOM 亲密/任务进度，
+        // 超额后编辑仍允许但 rewardEligible=false（不刷亲密度）
+        decorateRewarded(pet);
         return buildHomeVo(pet, roomMapper.selectById(room.getId()), dailyEnterRewardedRecently(userId));
     }
 
@@ -255,8 +257,8 @@ public class PetHomeServiceImpl implements PetHomeService {
         if (removed == 0) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_POS_INVALID, "这个格子上没有家具");
         }
+        // R37：撤下单独不发奖励（原实现撤下也发 ROOM 亲密+任务进度，来回放/撤刷亲密）
         refreshComfort(room, pet.getId());
-        recordDecorate(pet);
         return buildHomeVo(pet, roomMapper.selectById(room.getId()), dailyEnterRewardedRecently(userId));
     }
 
@@ -267,11 +269,19 @@ public class PetHomeServiceImpl implements PetHomeService {
         PetRoom room = ensureRoom(pet);
         requireThemeOwned(pet, request.wallCode(), PetFurnitureCategory.WALL);
         requireThemeOwned(pet, request.floorCode(), PetFurnitureCategory.FLOOR);
+        // R37：同主题提交为 no-op——不发布置事件（原实现反复提交同主题可无限刷 ROOM 亲密）
+        boolean themeChanged = !java.util.Objects.equals(room.getWallCode(), request.wallCode())
+                || !java.util.Objects.equals(room.getFloorCode(), request.floorCode());
+        if (!themeChanged) {
+            return buildHomeVo(pet, roomMapper.selectById(room.getId()), dailyEnterRewardedRecently(userId));
+        }
         roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
                 .set(PetRoom::getWallCode, request.wallCode())
                 .set(PetRoom::getFloorCode, request.floorCode())
                 .eq(PetRoom::getId, room.getId()));
-        recordDecorate(pet);
+        // R37：主题变化重算舒适度（原实现 updateTheme 不重算，展示与实际加成不一致）
+        refreshComfort(room, pet.getId());
+        decorateRewarded(pet);
         return buildHomeVo(pet, roomMapper.selectById(room.getId()), dailyEnterRewardedRecently(userId));
     }
 
@@ -329,18 +339,24 @@ public class PetHomeServiceImpl implements PetHomeService {
         if (!Boolean.TRUE.equals(room.getIsPublic())) {
             throw new BusinessException(PetErrorCodes.PET_ROOM_PRIVATE, "对方还没有开放家园");
         }
-        // B13：点赞收益走数据库日额度（Redis 故障不发奖），持久化点赞关系
-        boolean allowed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.LIKE_REWARD, 0,
-                properties.getHome().getDailyLikeLimit());
-        if (!allowed) {
-            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_QUOTA_EXHAUSTED,
-                    "今日点赞次数已达上限");
-        }
+        // R37：先查本人与房间的关系再扣额度——重复赞返回原状态且不消耗日额度
+        //（原实现先 tryConsume 后查重，反复点赞同一房间白烧每日额度）
         com.cloudmart.pet.entity.PetRoomLike like = roomLikeMapper.selectOne(
                 new LambdaQueryWrapper<com.cloudmart.pet.entity.PetRoomLike>()
                         .eq(com.cloudmart.pet.entity.PetRoomLike::getUserId, userId)
                         .eq(com.cloudmart.pet.entity.PetRoomLike::getRoomId, room.getId())
                         .last("LIMIT 1"));
+        boolean alreadyActive = like != null && Boolean.TRUE.equals(like.getActive());
+        boolean allowed = true;
+        if (like == null) {
+            // 首次赞才按奖励规则占额；取消/重赞只改变关系不重发经验也不占额度
+            allowed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.LIKE_REWARD, 0,
+                    properties.getHome().getDailyLikeLimit());
+            if (!allowed) {
+                throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_QUOTA_EXHAUSTED,
+                        "今日点赞次数已达上限");
+            }
+        }
         boolean newlyLiked;
         int rewardExp = 0;
         if (like == null) {
@@ -359,7 +375,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                 stateService.grantExp(pet, rewardExp);
             }
         } else if (!Boolean.TRUE.equals(like.getActive())) {
-            // 取消后再点：恢复点赞，但 rewarded 标记保留——不再发放经验
+            // 取消后再点：恢复点赞，但 rewarded 标记保留——不再发放经验、不占额度
             like.setActive(true);
             roomLikeMapper.updateById(like);
             roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
@@ -367,6 +383,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                     .eq(PetRoom::getId, room.getId()));
             newlyLiked = true;
         } else {
+            // R37：已有 ACTIVE 点赞——不扣额度不重复计数
             newlyLiked = false;
         }
         PetRoom latest = roomMapper.selectById(room.getId());
@@ -393,11 +410,16 @@ public class PetHomeServiceImpl implements PetHomeService {
                         .eq(com.cloudmart.pet.entity.PetRoomLike::getRoomId, room.getId())
                         .last("LIMIT 1"));
         if (like != null && Boolean.TRUE.equals(like.getActive())) {
-            like.setActive(false);
-            roomLikeMapper.updateById(like);
-            roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
-                    .setSql("like_count = GREATEST(like_count - 1, 0)")
-                    .eq(PetRoom::getId, room.getId()));
+            // R37：CAS 条件更新——仅 ACTIVE→INACTIVE 胜者扣减 like_count（并发取消不重复减）
+            int updated = roomLikeMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetRoomLike>()
+                    .set(com.cloudmart.pet.entity.PetRoomLike::getActive, false)
+                    .eq(com.cloudmart.pet.entity.PetRoomLike::getId, like.getId())
+                    .eq(com.cloudmart.pet.entity.PetRoomLike::getActive, true));
+            if (updated > 0) {
+                roomMapper.update(null, new LambdaUpdateWrapper<PetRoom>()
+                        .setSql("like_count = GREATEST(like_count - 1, 0)")
+                        .eq(PetRoom::getId, room.getId()));
+            }
         }
         PetRoom latest = roomMapper.selectById(room.getId());
         return new PetRoomLikeVO(target.getId(),
@@ -423,6 +445,22 @@ public class PetHomeServiceImpl implements PetHomeService {
         // 超过阈值后每 10 点舒适度 +2 心情，封顶配置值（服务端公式，前端只展示结果）
         int bonus = 2 + (comfort - cfg.getComfortBonusThreshold()) / 10 * 2;
         return Math.min(cfg.getComfortRestHappinessBonus(), bonus);
+    }
+
+    /**
+     * R37 布置收益入口：DECORATE 用户日额度内才发放 ROOM 亲密/任务进度/成就——
+     * 超额后布置仍允许但无收益（原实现无条件发放，同主题/重复提交可无限刷）。
+     */
+    private void decorateRewarded(Pet pet) {
+        boolean rewardable = quotaService.tryConsume(pet.getUserId(),
+                PetQuotaService.QuotaType.DECORATE, 0,
+                properties.getHome().getDecorateRewardDailyLimit() > 0
+                        ? properties.getHome().getDecorateRewardDailyLimit() : 3);
+        if (!rewardable) {
+            log.debug("布置收益日额度已耗尽（编辑仍允许，无收益）: petId={}", pet.getId());
+            return;
+        }
+        recordDecorate(pet);
     }
 
     @Override

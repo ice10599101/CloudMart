@@ -254,6 +254,8 @@ public class PetProperties {
         private int dailyVisitLimit = 10;
         /** 每日点赞次数上限 */
         private int dailyLikeLimit = 20;
+        /** R37 每日有收益布置次数上限（超出仍可编辑但不发 ROOM 亲密/任务进度） */
+        private int decorateRewardDailyLimit = 3;
     }
 
     /** 好友互访（三期） */
