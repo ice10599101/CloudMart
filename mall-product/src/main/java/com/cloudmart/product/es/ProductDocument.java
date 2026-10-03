@@ -38,7 +38,7 @@ public class ProductDocument {
     @Field(type = FieldType.Keyword)
     private String mainImage;
 
-    @Field(type = FieldType.Date, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis")
+    @Field(type = FieldType.Date, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS||yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||date_optional_time||epoch_millis")
     private LocalDateTime createdAt;
 
     /** 商品销量，用于算分函数加权 */
