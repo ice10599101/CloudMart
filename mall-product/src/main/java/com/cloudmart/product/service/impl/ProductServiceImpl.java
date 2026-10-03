@@ -122,16 +122,11 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // CAT-01：库存建档到库存服务（唯一库存权威）——建档失败抛异常，
-        // 与 @Transactional 一起回滚商品/SKU，防止出现无库存档案的可售商品
+        // 与 @Transactional 一起回滚商品/SKU，防止出现无库存档案的可售商品；
+        // T08：瞬时故障受控重试（16.2），重试耗尽仍失败才回滚发布
         for (ProductSku sku : skus) {
-            try {
-                inventoryInitFeignClient.initStock(sku.getId(), product.getId(),
-                        sku.getStock() != null ? sku.getStock() : 0);
-            } catch (BusinessException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new BusinessException("INVENTORY_INIT_FAILED", "库存建档失败: SKU " + sku.getId());
-            }
+            initStockWithRetry(sku.getId(), product.getId(),
+                    sku.getStock() != null ? sku.getStock() : 0);
         }
 
         syncToElasticsearch(product.getId());
@@ -311,15 +306,9 @@ public class ProductServiceImpl implements ProductService {
                     sku.setStatus(1);
                     productSkuMapper.insert(sku);
                     // T08：新 SKU 初始化库存建档（幂等；失败随 @Transactional 回滚，
-                    // 防止出现无库存档案的可售 SKU）
-                    try {
-                        inventoryInitFeignClient.initStock(sku.getId(), id,
-                                sku.getStock() != null ? sku.getStock() : 0);
-                    } catch (BusinessException e) {
-                        throw e;
-                    } catch (Exception e) {
-                        throw new BusinessException("INVENTORY_INIT_FAILED", "库存建档失败: SKU " + sku.getId());
-                    }
+                    // 防止出现无库存档案的可售 SKU；瞬时故障受控重试）
+                    initStockWithRetry(sku.getId(), id,
+                            sku.getStock() != null ? sku.getStock() : 0);
                 }
                 skus.add(sku);
             }
@@ -524,6 +513,50 @@ public class ProductServiceImpl implements ProductService {
         }
 
         categoryMapper.deleteById(id);
+    }
+
+    /** 建档重试语义（T08/16.2）：最多 3 次尝试、线性退避 200ms/400ms，仅瞬时类错误可重试。 */
+    private static final int INIT_STOCK_MAX_ATTEMPTS = 3;
+    private static final long INIT_STOCK_BACKOFF_BASE_MILLIS = 200L;
+
+    /**
+     * 库存建档受控重试：连接抖动/服务短暂不可用/库存锁忙属于瞬时故障，短退避后重试；
+     * 其余业务性失败立即上抛（不盲重试）。重试耗尽仍失败抛出末次异常，
+     * 由调用方 @Transactional 回滚发布——fail-closed 语义不变。
+     * 远端 initStock 幂等（存在即覆盖初始值），重试安全。
+     */
+    private void initStockWithRetry(Long skuId, Long productId, Integer stock) {
+        BusinessException lastFailure = null;
+        for (int attempt = 1; attempt <= INIT_STOCK_MAX_ATTEMPTS; attempt++) {
+            try {
+                inventoryInitFeignClient.initStock(skuId, productId, stock);
+                return;
+            } catch (BusinessException e) {
+                if (!isTransientInitError(e.getCode())) {
+                    throw e;
+                }
+                lastFailure = e;
+            } catch (Exception e) {
+                lastFailure = new BusinessException("INVENTORY_INIT_FAILED",
+                        "库存建档失败: SKU " + skuId + "（" + e.getMessage() + "）");
+            }
+            if (attempt < INIT_STOCK_MAX_ATTEMPTS) {
+                try {
+                    // 16.2 backoff：受控重试的线性退避，可中断且恢复中断标志
+                    Thread.sleep(INIT_STOCK_BACKOFF_BASE_MILLIS * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw lastFailure;
+                }
+            }
+        }
+        throw lastFailure;
+    }
+
+    /** 仅瞬时类错误可重试：服务不可用（降级）/库存锁忙；其余业务失败不重试 */
+    private boolean isTransientInitError(String errorCode) {
+        return "INVENTORY_SERVICE_UNAVAILABLE".equals(errorCode)
+                || "INVENTORY_BUSY".equals(errorCode);
     }
 
     private void syncToElasticsearch(Long productId) {

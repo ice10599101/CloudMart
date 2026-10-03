@@ -141,7 +141,7 @@ class ProductPublishGateTest {
     }
 
     @Test
-    @DisplayName("建档失败 → 发布失败（不允许无库存档案的可售商品）")
+    @DisplayName("建档瞬时失败重试耗尽 → 发布失败（3 次尝试，不允许无库存档案的可售商品）")
     void createProduct_inventoryInitFails_publishFails() {
         org.mockito.Mockito.doThrow(new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用"))
                 .when(inventoryInitFeignClient).initStock(anyLong(), anyLong(), anyInt());
@@ -155,6 +155,46 @@ class ProductPublishGateTest {
         assertThatThrownBy(() -> productService.createProduct(request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "INVENTORY_SERVICE_UNAVAILABLE");
-        verify(inventoryInitFeignClient).initStock(anyLong(), anyLong(), anyInt());
+        verify(inventoryInitFeignClient, org.mockito.Mockito.times(3))
+                .initStock(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    @DisplayName("T08：建档瞬时失败（锁忙）→ 短退避重试后成功，发布不回滚")
+    void createProduct_transientThenSuccess_retried() {
+        org.mockito.Mockito.doThrow(new BusinessException("INVENTORY_BUSY", "库存操作繁忙"))
+                .doReturn(ApiResponse.ok(null))
+                .when(inventoryInitFeignClient).initStock(anyLong(), anyLong(), anyInt());
+
+        CreateSkuRequest sku = new CreateSkuRequest(
+                null,
+                "SKU-1", "红", new BigDecimal("10.00"), null, 50, null);
+        CreateProductRequest request = new CreateProductRequest(
+                "商品", "desc", 5L, "Brand", null, List.of(sku));
+
+        var dto = productService.createProduct(request);
+
+        assertThat(dto).isNotNull();
+        verify(inventoryInitFeignClient, org.mockito.Mockito.times(2))
+                .initStock(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    @DisplayName("T08：非瞬时业务失败不重试（首次即上抛，仅 1 次调用）")
+    void createProduct_nonTransientError_noRetry() {
+        org.mockito.Mockito.doThrow(new BusinessException("INVENTORY_LOCK_INTERRUPTED", "获取库存锁被中断"))
+                .when(inventoryInitFeignClient).initStock(anyLong(), anyLong(), anyInt());
+
+        CreateSkuRequest sku = new CreateSkuRequest(
+                null,
+                "SKU-1", "红", new BigDecimal("10.00"), null, 50, null);
+        CreateProductRequest request = new CreateProductRequest(
+                "商品", "desc", 5L, "Brand", null, List.of(sku));
+
+        assertThatThrownBy(() -> productService.createProduct(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "INVENTORY_LOCK_INTERRUPTED");
+        verify(inventoryInitFeignClient, org.mockito.Mockito.times(1))
+                .initStock(anyLong(), anyLong(), anyInt());
     }
 }
