@@ -106,6 +106,12 @@ class PetWalletServiceIntegrationTest {
         java.time.Clock clock() {
             return java.time.Clock.systemUTC();
         }
+
+        @Bean
+        com.cloudmart.pet.config.PetProperties petProperties() {
+            return new com.cloudmart.pet.config.PetProperties();
+        }
+
         @Bean
         TransactionTemplate transactionTemplate(PlatformTransactionManager transactionManager) {
             return new TransactionTemplate(transactionManager);
