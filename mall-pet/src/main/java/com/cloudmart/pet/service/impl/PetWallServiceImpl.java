@@ -79,6 +79,8 @@ public class PetWallServiceImpl implements PetWallService {
     private final PetEventProducer eventProducer;
     private final WishFeignClient wishFeignClient;
     private final com.cloudmart.pet.feign.UserFeignClient userFeignClient;
+    /** R05：社交写入门控（SOCIAL_MUTE 处罚生效时禁止发留言/回复） */
+    private final PetAccessPolicy accessPolicy;
     private final PetProperties properties;
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
@@ -101,7 +103,8 @@ public class PetWallServiceImpl implements PetWallService {
                               StringRedisTemplate redisTemplate,
                               PetQuotaService quotaService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
-                              PetContentSafetyService safetyService) {
+                              PetContentSafetyService safetyService,
+                              PetAccessPolicy accessPolicy) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.wallMessageMapper = wallMessageMapper;
@@ -119,6 +122,7 @@ this.properties = properties;
         this.quotaService = quotaService;
         this.userBlockService = userBlockService;
         this.safetyService = safetyService;
+        this.accessPolicy = accessPolicy;
     }
 
     @Override
@@ -178,6 +182,11 @@ this.properties = properties;
     @Override
     @Transactional
     public PetWallMessageVO post(Long userId, PostWallMessageRequest request) {
+        // R05：SOCIAL_MUTE 处罚生效时禁止新社交写入（查看/历史/领奖不受影响）
+        if (accessPolicy.isSociallyMuted(userId)) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED,
+                    "你的账号因违反社区规范被限制发布，如有疑问请联系客服申诉");
+        }
         Pet me = petService.requireOwnedPet(userId);
         Pet owner = requireWallPet(request.petId());
         if (userId.equals(owner.getUserId())) {

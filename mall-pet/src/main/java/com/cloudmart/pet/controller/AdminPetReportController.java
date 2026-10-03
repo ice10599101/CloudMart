@@ -62,30 +62,11 @@ public class AdminPetReportController {
                 result.getSize(), result.getTotal());
     }
 
-    @PutMapping("/reports/{id}/handle")
-    @Operation(summary = "处理举报", description = "action=HANDLED/REJECTED；处理人取 mall-admin 代理透传的可信操作者头（SEC-02，不接受客户端自填）")
-    public ApiResponse<Void> handle(
-            @Parameter(description = "举报 ID") @PathVariable("id") Long id,
-            @RequestParam("action") String action,
-            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
-        String normalized = action != null ? action.toUpperCase() : "";
-        if (!"HANDLED".equals(normalized) && !"REJECTED".equals(normalized)) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "处理动作非法");
-        }
-        int updated = reportMapper.update(null, new LambdaUpdateWrapper<PetReport>()
-                .set(PetReport::getStatus, normalized)
-                .set(PetReport::getHandledBy, adminUserId)
-                .set(PetReport::getHandledAt, LocalDateTime.now(ZoneOffset.UTC))
-                .eq(PetReport::getId, id)
-                .eq(PetReport::getStatus, "PENDING"));
-        if (updated == 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "举报不存在或已处理");
-        }
-        return ApiResponse.ok(null);
-    }
+    // R05：旧 PUT /reports/{id}/handle 旁路已停用——该端点绕过处罚事实与通知闭环，
+    // 直接终结举报状态。统一走 POST /reports/{id}/resolve（含处罚矩阵与审计）。
 
-    /** 举报闭环处理请求（P0-2） */
-    public record ResolveReportRequest(String action, String reason) {
+    /** 举报闭环处理请求（P0-2/R05：durationSeconds 限时处罚时长，可空=需人工解除） */
+    public record ResolveReportRequest(String action, String reason, Integer durationSeconds) {
     }
 
     @PostMapping("/reports/{id}/resolve")
@@ -95,7 +76,36 @@ public class AdminPetReportController {
             @Parameter(description = "举报 ID") @PathVariable("id") Long id,
             @org.springframework.web.bind.annotation.RequestBody ResolveReportRequest request,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
-        resolutionService.resolve(id, request.action(), request.reason(), adminUserId);
+        resolutionService.resolve(id, request.action(), request.reason(), adminUserId,
+                request.durationSeconds());
+        return ApiResponse.ok(null);
+    }
+
+    // ---------------- R05 处罚事实 ----------------
+
+    private final com.cloudmart.pet.service.impl.PetAccessPolicy accessPolicy;
+
+    @GetMapping("/sanctions")
+    @Operation(summary = "处罚列表（R05）", description = "userId/status/scope 筛选；封禁范围、期限、理由与来源举报可追溯")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetUserSanction>> sanctions(
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "scope", required = false) String scope,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(accessPolicy.list(userId, status, scope, page, size));
+    }
+
+    public record RevokeSanctionRequest(@jakarta.validation.constraints.NotBlank String reason) {
+    }
+
+    @PostMapping("/sanctions/{id}/revoke")
+    @Operation(summary = "撤销处罚（R05）", description = "理由必填留痕；撤销保留历史不物理删除；立即恢复对应写入能力")
+    public ApiResponse<Void> revokeSanction(
+            @PathVariable("id") Long id,
+            @org.springframework.web.bind.annotation.RequestBody RevokeSanctionRequest request,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        accessPolicy.revoke(id, adminUserId, request.reason());
         return ApiResponse.ok(null);
     }
 
