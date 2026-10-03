@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro, { useRouter, useDidShow, useDidHide } from '@tarojs/taro'
 import {
   petApi, petCompanionApi,
   type PetAnniversary,
@@ -420,8 +420,20 @@ export default function PetPage() {
    * 陪伴心跳：小程序在前台时每 60 秒上报一次（服务端按日封顶折算亲密度）。
    * 页面隐藏时不上报——"陪伴"必须是真实停留在宠物页。
    */
+  // R23/T37：仅前台发心跳——useDidShow/useDidHide 维护可见性（注释声称的语义此前未实现）
+  const pageVisibleRef = useRef(true)
+  useDidShow(() => {
+    pageVisibleRef.current = true
+  })
+  useDidHide(() => {
+    pageVisibleRef.current = false
+  })
+
   useEffect(() => {
     const timer = setInterval(() => {
+      if (!pageVisibleRef.current) {
+        return
+      }
       void (async () => {
         try {
           const { data: res } = await petApi.companionHeartbeat(60)

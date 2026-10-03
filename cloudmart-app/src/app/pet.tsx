@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AppState,
   ActivityIndicator,
   Platform,
   Alert,
@@ -515,7 +516,15 @@ export default function PetScreen() {
         // 展示型数据：忽略
       }
     })()
+    // R23/T37：仅前台（AppState=active）发心跳——后台暂停，恢复前台继续
+    const appStateRef = useRef(AppState.currentState)
+    const subscription = AppState.addEventListener('change', (state) => {
+      appStateRef.current = state
+    })
     const timer = setInterval(() => {
+      if (appStateRef.current !== 'active') {
+        return
+      }
       void (async () => {
         try {
           const { data: res } = await petApi.companionHeartbeat(60)
@@ -531,7 +540,10 @@ export default function PetScreen() {
         }
       })()
     }, 60_000)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      subscription.remove()
+    }
   }, [isLoggedIn])
 
   useEffect(() => {

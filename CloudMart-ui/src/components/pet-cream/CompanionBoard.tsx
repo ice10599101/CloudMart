@@ -155,6 +155,8 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         }
     }, [])
 
+    const [pageVisible, setPageVisible] = useState(!document.hidden)
+
     useEffect(() => {
         if (tab === 'intimacy' && intimacy === null) {
             void loadIntimacy()
@@ -180,11 +182,17 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         }
     }, [diary, intimacy, loadDiary, loadIntimacy, loadMemories, loadSettings, memories, memorySettingsLoaded, myPetId, pref, tab])
 
-    /** 陪伴心跳：开启期间按固定间隔上报；卸载时清理定时器（会话由服务端按失效间隔结算） */
+    /**
+     * 陪伴心跳：开启期间按固定间隔上报；卸载时清理定时器（会话由服务端按失效间隔结算）。
+     * R23/T37：仅页面可见时上报——切后台/最小化暂停心跳（服务端会话超时兜底），
+     * 恢复可见时继续；"陪伴"必须是真实停留在宠物页。
+     */
     useEffect(() => {
-        if (!companionOn) {
+        if (!companionOn || document.hidden) {
             return
         }
+        const onVisibility = () => setPageVisible(!document.hidden)
+        document.addEventListener('visibilitychange', onVisibility)
         const timer = window.setInterval(() => {
             seqRef.current += 1
             void (async () => {
@@ -194,8 +202,11 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                 }
             })()
         }, HEARTBEAT_INTERVAL_MS)
-        return () => window.clearInterval(timer)
-    }, [companionOn])
+        return () => {
+            window.clearInterval(timer)
+            document.removeEventListener('visibilitychange', onVisibility)
+        }
+    }, [companionOn, pageVisible])
 
     const startCompanion = useCallback(async () => {
         seqRef.current = 1
