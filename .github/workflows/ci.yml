@@ -112,12 +112,14 @@ jobs:
             echo "::error::clean-db 120s 内未就绪（真实认证探测失败）"; exit 1
           fi
           failed=0
+          # flyway-maven-plugin 直接 CLI 调用的类路径无 flyway-mysql 数据库插件
+          # （No Flyway database plugin found）——改用官方 Flyway Docker CLI（内置 MySQL 支持）
           for dir in mall-*/src/main/resources/db/migration; do
             module=$(echo "$dir" | cut -d/ -f1)
             db="clean_${module}"
             docker exec clean-db mysql -uroot -proot             -e "DROP DATABASE IF EXISTS \`${db}\`; CREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
             echo "::group::Flyway migrate: $module → $db"
-            if ./mvnw -B -ntp -q org.flywaydb:flyway-maven-plugin:11.14.1:migrate               -Dflyway.url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"               -Dflyway.user=root -Dflyway.password=root               -Dflyway.locations="filesystem:$PWD/$dir"; then
+            if docker run --rm --network host                 -v "$PWD/$dir:/flyway/sql:ro"                 flyway/flyway:11                 -url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"                 -user=root -password=root                 -locations=filesystem:/flyway/sql migrate; then
               rows=$(docker exec clean-db mysql -uroot -proot -N              -e "SELECT COUNT(*) FROM \`${db}\`.flyway_schema_history WHERE success=1;")
               echo "OK: $module (history rows=$rows)"
               if [ "$rows" -eq 0 ]; then
