@@ -5,6 +5,10 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
+import com.cloudmart.pet.wallet.PetRequestDedupService;
+import com.cloudmart.pet.wallet.impl.PetRequestDedupServiceImpl;
+import com.cloudmart.pet.repository.PetRequestDedupMapper;
+import com.cloudmart.pet.entity.PetRequestDedup;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
@@ -18,6 +22,7 @@ import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.service.PetService;
+import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetEvolutionVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -70,6 +75,8 @@ class PetEvolutionServiceImplTest {
     private PetEventProducer eventProducer;
     @org.mockito.Mock
     private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+    @org.mockito.Mock
+    private PetRequestDedupMapper dedupMapper;
 
 
     private PetEvolutionServiceImpl evolutionService;
@@ -79,6 +86,8 @@ class PetEvolutionServiceImplTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PetActivity.class);
         TableInfoHelper.initTableInfo(assistant, PetInventory.class);
+        TableInfoHelper.initTableInfo(assistant, Pet.class);
+        TableInfoHelper.initTableInfo(assistant, PetRequestDedup.class);
     }
 
     @BeforeEach
@@ -93,45 +102,97 @@ class PetEvolutionServiceImplTest {
         org.mockito.Mockito.when(petClock.nowUtc())
                 .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(petMapper.update(any(), any())).thenReturn(1);
+        // R28：真实去重桩（mock mapper）+ 直通事务模板；拦截器在真实请求中捕获幂等键，测试手动放置
+        PetRequestDedupService dedupService = new PetRequestDedupServiceImpl(dedupMapper);
+        lenient().when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
+        lenient().when(dedupMapper.update(any(), any())).thenReturn(1);
+        org.springframework.transaction.support.TransactionTemplate txTemplate =
+                org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+        org.mockito.Mockito.when(txTemplate.execute(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<?>) inv.getArgument(0))
+                        .doInTransaction(org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class)));
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
                 inventoryMapper, activityMapper, wishFeignClient, achievementService, economyService,
-                playFeatureService, org.mockito.Mockito.mock(PetOutboxService.class), petClock);
+                playFeatureService, org.mockito.Mockito.mock(PetOutboxService.class), petClock,
+                dedupService, txTemplate);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
         lenient().when(wishFeignClient.starlightBalance(100L)).thenReturn(ApiResponse.ok(5000));
+        com.cloudmart.pet.config.PetRequestContext.setIdempotencyKey("intent-key-evolve-0001");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        com.cloudmart.pet.config.PetRequestContext.clear();
     }
 
     @Test
-    @DisplayName("进化成功：阶段推进 + 属性提升 + 星光扣减 + 皮肤入包 + 成就评估")
+    @DisplayName("R28 进化成功：条件更新推进阶段 + 冻结 fromStage 扣款键 + 皮肤入包 + 成就评估")
     void evolveAppliesBonusesAndSpends() {
         Pet pet = pet(10, 0);
-        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        PetEvolutionVO result = evolutionService.evolve(100L);
+        PetEvolutionVO result = evolutionService.evolve(100L, 1L, null);
 
-        ArgumentCaptor<Pet> captor = ArgumentCaptor.forClass(Pet.class);
-        verify(petMapper).updateById(captor.capture());
-        Pet saved = captor.getValue();
-        assertThat(saved.getEvolutionStage()).isEqualTo(1);
-        assertThat(saved.getMaxHp()).isEqualTo(125);
-        assertThat(saved.getStrength()).isEqualTo(8);
-        assertThat(saved.getCharm()).isEqualTo(8);
+        // 阶段推进走条件更新（WHERE evolution_stage=fromStage），不再全实体覆盖
+        verify(petMapper).update(any(), any());
         assertThat(result.currentStage()).isEqualTo(1);
-        // B01：扣款经统一操作记录（setUp 已打桩 COMPLETED）
+        // 扣款键冻结 fromStage+stageTo（重试收敛原单，不会把重试解释为下一阶段）
         org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(600L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         verify(inventoryMapper).insert(any(PetInventory.class));
         verify(achievementService).evaluate(pet, PetAchievementService.Event.EVOLUTION);
     }
 
     @Test
+    @DisplayName("R28 同键重放：返回原进化结果，不重读阶段、不重新扣款")
+    void evolveSameKeyReplaysStoredResult() {
+        Pet pet = pet(10, 0);
+        when(petMapper.selectById(1L)).thenReturn(pet);
+        when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
+
+        PetEvolutionVO first = evolutionService.evolve(100L, 1L, null);
+
+        // 第二次同键：dedup 行已存在（uk 冲突），返回首次终态快照——
+        // 即使钱包等级余额满足下一阶段，重放也绝不再次选择 nextConfig
+        org.mockito.Mockito.reset(petMapper);
+        when(petMapper.selectById(1L)).thenReturn(pet(10, 0));
+        when(dedupMapper.insert(any(PetRequestDedup.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk"));
+        PetRequestDedupService dedupServiceBean = new PetRequestDedupServiceImpl(dedupMapper);
+        PetRequestDedup existing = new PetRequestDedup();
+        existing.setStatus("COMPLETED");
+        existing.setPayloadHash(dedupServiceBean.canonicalHash(100L, 1L, "EVOLVE", ""));
+        existing.setResponseJson(PetJsonUtils.toJson(java.util.Map.of("type", "SUCCEEDED", "vo", first)));
+        when(dedupMapper.selectOne(any())).thenReturn(existing);
+
+        PetEvolutionVO replay = evolutionService.evolve(100L, 1L, null);
+
+        assertThat(replay.currentStage()).isEqualTo(1);
+        // 重放直接返回存储结果：不再触发扣款与阶段推进
+        org.mockito.Mockito.verify(economyService, org.mockito.Mockito.times(1)).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+    }
+
+    @Test
+    @DisplayName("R28 阶段不符：expectedFromStage 与当前不符 → 409 PET_STATE_CONFLICT")
+    void evolveStageMismatchRejected() {
+        when(petMapper.selectById(1L)).thenReturn(pet(10, 1));
+
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, 0))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(PetErrorCodes.PET_STATE_CONFLICT);
+    }
+
+    @Test
     @DisplayName("等级不足：409 PET_LEVEL_REQUIRED，不扣星光")
     void levelGateBlocksEvolution() {
         Pet pet = pet(3, 0);
-        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        assertThatThrownBy(() -> evolutionService.evolve(100L))
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
@@ -142,10 +203,10 @@ class PetEvolutionServiceImplTest {
     @DisplayName("已到最高阶：409 PET_EVOLUTION_MAX")
     void maxStageRejected() {
         Pet pet = pet(30, 2);
-        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        assertThatThrownBy(() -> evolutionService.evolve(100L))
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_EVOLUTION_MAX);

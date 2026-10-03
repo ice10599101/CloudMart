@@ -34,12 +34,25 @@ public class PetEvolutionController {
         return ApiResponse.ok(evolutionService.status(userId));
     }
 
+    /**
+     * R28：必需幂等键（缺键 400 PET_REQUEST_KEY_INVALID）；请求体可选——
+     * 新版传 {petId, expectedFromStage}，旧客户端无 body 时首次执行绑定当前主宠与阶段。
+     * 同键重放返回原进化结果（不推进下一阶段）；同键异参 409 PET_IDEMPOTENCY_CONFLICT。
+     */
     @PostMapping("/evolution/evolve")
-    @Operation(summary = "执行进化", description = "等级不足 409 PET_LEVEL_REQUIRED；已满阶 409 PET_EVOLUTION_MAX；"
-            + "星光不足 402；星光扣减失败整体回滚（不会出现扣了星光却没进化）")
+    @Operation(summary = "执行进化（R28 意图冻结）", description = "必需幂等键；等级不足 409 PET_LEVEL_REQUIRED；"
+            + "已满阶 409 PET_EVOLUTION_MAX；星光不足 402；同键重试返回原结果，不会重复扣款或连续进化")
     @SentinelResource("PET_EVOLUTION")
     public ApiResponse<PetEvolutionVO> evolve(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(evolutionService.evolve(userId));
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) EvolveRequest request) {
+        if (request == null) {
+            return ApiResponse.ok(evolutionService.evolve(userId, null, null));
+        }
+        return ApiResponse.ok(evolutionService.evolve(userId, request.petId(), request.expectedFromStage()));
+    }
+
+    /** R28 进化请求（可选体；字段均可空=旧客户端兼容路径） */
+    public record EvolveRequest(Long petId, Integer expectedFromStage) {
     }
 }

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
+import com.cloudmart.pet.config.PetRequestContext;
+import com.cloudmart.pet.wallet.PetRequestDedupService;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
@@ -48,6 +50,8 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
 
     private static final int ATTRIBUTE_MAX = 999;
     private static final String BIZ_TYPE = "EVOLVE";
+    /** R28：进化请求去重作用域 */
+    static final String ENDPOINT_EVOLUTION = "EVOLUTION";
 
     private final PetService petService;
     private final PetEvolutionConfigMapper evolutionConfigMapper;
@@ -60,6 +64,8 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
+    private final com.cloudmart.pet.wallet.PetRequestDedupService dedupService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     public PetEvolutionServiceImpl(PetService petService,
                                    PetEvolutionConfigMapper evolutionConfigMapper,
@@ -71,7 +77,9 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
                                    PetEconomyService economyService,
                                    com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                                    PetOutboxService outboxService,
-                                   PetClock petClock) {
+                                   PetClock petClock,
+                                   com.cloudmart.pet.wallet.PetRequestDedupService dedupService,
+                                   org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
         this.petService = petService;
         this.evolutionConfigMapper = evolutionConfigMapper;
         this.petMapper = petMapper;
@@ -83,6 +91,8 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         this.playFeatureService = playFeatureService;
         this.outboxService = outboxService;
         this.petClock = petClock;
+        this.dedupService = dedupService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Override
@@ -92,12 +102,102 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     }
 
     @Override
-    @Transactional
     public PetEvolutionVO evolve(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
-        int stage = currentStage(pet);
+        return evolve(userId, null, null);
+    }
+
+    /**
+     * R28 意图冻结进化（§5.3 编排：本方法是意图事务边界，调用方不得包更大事务）：
+     * <ol>
+     *   <li>必需幂等键 → dedup.claim 作用域 EVOLUTION（同键异参 409，处理中 409）；</li>
+     *   <li>EXISTING 重放：直接返回原进化结果，不重读当前阶段、不重新选 nextConfig——
+     *       修复"重试被解释为购买下一阶段"（同键 50 次仅推进一阶、扣一笔）；</li>
+     *   <li>NEW：业务事务内冻结 fromStage→stageTo 与价格/属性快照；扣款业务键含
+     *       fromStage（等待期阶段变化不影响收敛）；阶段推进带
+     *       {@code WHERE evolution_stage=fromStage} 条件更新；扣款/推进/解锁/事实/事件同事务。</li>
+     * </ol>
+     */
+    @Override
+    public PetEvolutionVO evolve(Long userId, Long petId, Integer expectedFromStage) {
+        String requestKey = PetRequestContext.idempotencyKey();
+        if (!PetRequestDedupService.isValidRequestKey(requestKey)) {
+            throw new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
+                    "缺少有效幂等键（16..128 ASCII），请重试一次由客户端生成");
+        }
+        String payloadHash = dedupService.canonicalHash(userId, petId == null ? "BIND" : petId,
+                "EVOLVE", expectedFromStage == null ? "" : expectedFromStage);
+        PetRequestDedupService.ClaimResult claim = dedupService.claim(
+                userId, ENDPOINT_EVOLUTION, requestKey, payloadHash);
+        switch (claim.outcome()) {
+            case EXISTING -> {
+                return replayResult(claim.responseJson());
+            }
+            case IN_PROGRESS -> throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+                    "进化请求处理中，请稍后按原请求查询结果");
+            case NEW -> {
+                // 继续执行
+            }
+        }
+        if (petId == null) {
+            petId = claim.boundPetId() != null ? claim.boundPetId() : petService.requireOwnedPet(userId).getId();
+            dedupService.bindPet(userId, ENDPOINT_EVOLUTION, requestKey, petId);
+        }
+        final Long boundPetId = petId;
+        final Integer expectedStage = expectedFromStage;
+        final String leaseOwner = claim.leaseOwner();
+        try {
+            PetEvolutionVO result = transactionTemplate.execute(status ->
+                    doEvolve(userId, boundPetId, expectedStage, requestKey));
+            dedupService.completeSucceeded(userId, ENDPOINT_EVOLUTION, requestKey, leaseOwner, boundPetId,
+                    PetJsonUtils.toJson(java.util.Map.of("type", "SUCCEEDED", "vo", result)));
+            return result;
+        } catch (BusinessException definite) {
+            // 业务明确拒绝（等级/满阶/余额/版本）：终态保存拒绝，同键重放返回同一拒绝而非重新执行
+            dedupService.completeSucceeded(userId, ENDPOINT_EVOLUTION, requestKey, leaseOwner, boundPetId,
+                    PetJsonUtils.toJson(java.util.Map.of("type", "REJECTED", "errorCode", definite.getCode())));
+            throw definite;
+        } catch (RuntimeException unknown) {
+            // 业务事务已整体回滚，本地无已提交事实；钱包若已扣款由同键重放/恢复任务按原 operationId 收敛
+            log.error("进化事务未知失败, userId={}, petId={}", userId, boundPetId, unknown);
+            dedupService.markFailed(userId, ENDPOINT_EVOLUTION, requestKey, leaseOwner,
+                    PetJsonUtils.toJson(java.util.Map.of("error", String.valueOf(unknown.getMessage()))));
+            throw unknown;
+        }
+    }
+
+    /** 同键重放：成功返回原 VO，拒绝重抛原错误码（重放语义与首次一致） */
+    private PetEvolutionVO replayResult(String responseJson) {
+        Map<String, Object> envelope = PetJsonUtils.parse(responseJson,
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                });
+        if (envelope == null) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史进化结果快照损坏");
+        }
+        if ("REJECTED".equals(envelope.get("type"))) {
+            throw new BusinessException(String.valueOf(envelope.get("errorCode")), "本次进化此前已被拒绝");
+        }
+        PetEvolutionVO stored = PetJsonUtils.parse(PetJsonUtils.toJson(envelope.get("vo")),
+                new com.fasterxml.jackson.core.type.TypeReference<PetEvolutionVO>() {
+                });
+        if (stored == null) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史进化结果快照损坏");
+        }
+        return stored;
+    }
+
+    /** 业务事务：冻结阶段与价格快照 → 幂等扣款 → 条件推进阶段 → 解锁/事实/事件 */
+    private PetEvolutionVO doEvolve(Long userId, Long petId, Integer expectedFromStage, String requestKey) {
+        Pet pet = petMapper.selectById(petId);
+        if (pet == null || !pet.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能进化自己的宠物");
+        }
+        int fromStage = currentStage(pet);
+        if (expectedFromStage != null && expectedFromStage != fromStage) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "进化阶段已变化，请刷新后重新确认");
+        }
         List<PetEvolutionConfig> configs = enabledConfigs();
-        PetEvolutionConfig next = nextConfig(configs, stage);
+        PetEvolutionConfig next = nextConfig(configs, fromStage);
         if (next == null) {
             throw new BusinessException(PetErrorCodes.PET_EVOLUTION_MAX, "宠物已经进化到最高阶段啦");
         }
@@ -107,12 +207,12 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
                     "等级达到 Lv." + requiredLevel + " 才能进化哦");
         }
 
-        // 1. 幂等扣款（结果未知 → 结算中，按原请求重试幂等；禁止换单号二次扣款）
+        // 1. 幂等扣款：业务键冻结 fromStage+stageTo（同键重试收敛原单；UNKNOWN 按原请求重试）
         int cost = orZero(next.getCostStarlight());
         if (cost > 0) {
             PetOperationService.WalletSettlement settlement = economyService.spend(
-                    userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, cost),
-                    userId, pet.getId(), next.getStageTo());
+                    userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, fromStage, cost),
+                    userId, pet.getId(), fromStage, next.getStageTo());
             if (settlement.isUnknown()) {
                 throw economyService.settlementPending();
             }
@@ -122,8 +222,8 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
             }
         }
 
-        // 2. 应用进化（属性一次性提升 + 阶段推进 + 可选皮肤解锁）
-        applyEvolution(pet, next);
+        // 2. 条件推进阶段（属性一次性提升 + 阶段 CAS + 可选皮肤解锁）
+        applyEvolution(pet, next, fromStage);
         // B02/BE-12：进化事实接入图鉴投影（阶段条目）
         playFeatureService.unlockCollection(userId, pet.getId(),
                 "SPECIES", pet.getSpecies() + ":S" + next.getStageTo(),
@@ -141,30 +241,42 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         return buildStatus(pet, starlightBalanceQuietly(userId));
     }
 
-    /** 进化本地效果：以当前阶段幂等（重复应用时阶段已达标直接跳过，不叠加属性） */
-    private void applyEvolution(Pet pet, PetEvolutionConfig next) {
-        if (currentStage(pet) >= orZero(next.getStageTo())) {
-            return;
-        }
-        pet.setEvolutionStage(next.getStageTo());
-        pet.setMaxHp(pet.getMaxHp() + orZero(next.getBonusMaxHp()));
-        pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + orZero(next.getBonusMaxHp())));
-        pet.setStrength(grow(pet.getStrength(), next.getBonusStrength()));
-        pet.setIntelligence(grow(pet.getIntelligence(), next.getBonusIntelligence()));
-        pet.setAgility(grow(pet.getAgility(), next.getBonusAgility()));
-        pet.setCharm(grow(pet.getCharm(), next.getBonusCharm()));
-        int updated = petMapper.updateById(pet);
+    /** 进化本地效果（R28 条件更新）：{@code WHERE evolution_stage=fromStage AND version=?}——
+     * 阶段不符（并发已推进）显式失败整体回滚；重复应用不再以"当前阶段>=目标"静默跳过 */
+    private void applyEvolution(Pet pet, PetEvolutionConfig next, int fromStage) {
+        int stageTo = orZero(next.getStageTo());
+        int newMaxHp = pet.getMaxHp() + orZero(next.getBonusMaxHp());
+        int newHp = Math.min(newMaxHp, pet.getHp() + orZero(next.getBonusMaxHp()));
+        int updated = petMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Pet>()
+                .set(Pet::getEvolutionStage, stageTo)
+                .set(Pet::getMaxHp, newMaxHp)
+                .set(Pet::getHp, newHp)
+                .set(Pet::getStrength, grow(pet.getStrength(), next.getBonusStrength()))
+                .set(Pet::getIntelligence, grow(pet.getIntelligence(), next.getBonusIntelligence()))
+                .set(Pet::getAgility, grow(pet.getAgility(), next.getBonusAgility()))
+                .set(Pet::getCharm, grow(pet.getCharm(), next.getBonusCharm()))
+                .setSql("version = version + 1")
+                .eq(Pet::getId, pet.getId())
+                .eq(Pet::getEvolutionStage, fromStage)
+                .eq(Pet::getVersion, pet.getVersion() != null ? pet.getVersion() : 0));
         if (updated == 0) {
-            // B02：版本冲突必须显式失败，禁止静默丢更新
+            // B02：版本/阶段冲突必须显式失败，禁止静默丢更新
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
                     "宠物状态被并发修改，请稍后重试");
         }
+        pet.setEvolutionStage(stageTo);
+        pet.setMaxHp(newMaxHp);
+        pet.setHp(newHp);
         grantUnlockSkin(pet, next.getUnlockSkinCode());
     }
 
-    private String snapshot(Pet pet, PetEvolutionConfig next, int cost) {
+    /** 扣款快照（R28：冻结 fromStage/configVersion，恢复任务与对账可核验原意图） */
+    private String snapshot(Pet pet, PetEvolutionConfig next, int fromStage, int cost) {
         Map<String, Object> snapshot = new HashMap<>();
+        snapshot.put("fromStage", fromStage);
         snapshot.put("stageTo", next.getStageTo());
+        snapshot.put("configVersion", next.getUpdatedAt() == null ? "0"
+                : next.getUpdatedAt().toString());
         snapshot.put("bonusMaxHp", orZero(next.getBonusMaxHp()));
         snapshot.put("bonusStrength", orZero(next.getBonusStrength()));
         snapshot.put("bonusIntelligence", orZero(next.getBonusIntelligence()));
