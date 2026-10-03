@@ -164,6 +164,29 @@ async function clearIntent(config: unknown): Promise<void> {
   }
 }
 
+/**
+ * R10：意图键终态判定（按业务 outcome 而非 HTTP<500）——
+ * 409 处理中 / 429 / 401 可刷新 / 5xx / 网络错误是瞬态，清键会让重试换新键，
+ * 丢失与原意图的收敛锚点。
+ */
+const TRANSIENT_ERROR_CODES = new Set([
+  'PET_REQUEST_IN_PROGRESS', 'PET_SETTLEMENT_PENDING', 'PET_TEMPORARILY_UNAVAILABLE',
+  'PET_FEATURE_DISABLED', 'PET_RATE_LIMITED', 'PET_QUOTA_EXCEEDED', 'UNAUTHORIZED',
+])
+
+function intentTerminal(status: number | undefined, errorCode: string | undefined): boolean {
+  if (status === undefined) {
+    return false
+  }
+  if (status >= 500 || status === 429) {
+    return false
+  }
+  if (TRANSIENT_ERROR_CODES.has(errorCode ?? '')) {
+    return false
+  }
+  return true
+}
+
 client.interceptors.request.use(async (config) => {
   const token = await storage.getItem('access_token')
   if (token) {
@@ -196,12 +219,22 @@ async function handleRefreshFailure() {
 
 client.interceptors.response.use(
   (response) => {
-    void clearIntent(response.config)
+    // R10：仅终态清键（success=false 的瞬态错误码保留原键）
+    const errData = response.data as { success?: boolean; error?: { code?: string } } | undefined
+    if (errData?.success === false) {
+      if (intentTerminal(response.status, errData.error?.code)) {
+        void clearIntent(response.config)
+      }
+    } else {
+      void clearIntent(response.config)
+    }
     return response
   },
   async (error) => {
-    // 终态响应（HTTP<500，含业务拒绝）清理意图键；网络错误/5xx 保留原键供重试收敛
-    if (error.response?.status && error.response.status < 500) {
+    // R10：终态按业务 outcome——瞬态（5xx/429/409处理中/结算中/限流/网络错误）保留原键
+    const errStatus = error.response?.status as number | undefined
+    const errCode = (error.response?.data as { error?: { code?: string } } | undefined)?.error?.code
+    if (intentTerminal(errStatus, errCode)) {
       void clearIntent(error.config)
     }
     const originalRequest = error.config

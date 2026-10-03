@@ -98,6 +98,25 @@ function intentStoreKey(method: string, url: string, data: unknown, token: strin
   return `idem:intent:${fingerprint}`
 }
 
+/**
+ * R10：意图键终态判定（按业务 outcome 而非 HTTP<500）——
+ * 409 处理中 / 429 / 401 可刷新 / 5xx / 网络错误是瞬态，清键会让重试换新键。
+ */
+const TRANSIENT_ERROR_CODES = new Set([
+  'PET_REQUEST_IN_PROGRESS', 'PET_SETTLEMENT_PENDING', 'PET_TEMPORARILY_UNAVAILABLE',
+  'PET_FEATURE_DISABLED', 'PET_RATE_LIMITED', 'PET_QUOTA_EXCEEDED', 'UNAUTHORIZED',
+])
+
+function intentTerminal(statusCode: number, errorCode: string | undefined): boolean {
+  if (statusCode >= 500 || statusCode === 429) {
+    return false
+  }
+  if (TRANSIENT_ERROR_CODES.has(errorCode ?? '')) {
+    return false
+  }
+  return true
+}
+
 function resolveIntentKey(storeKey: string): string {
   try {
     const raw = Taro.getStorageSync(storeKey)
@@ -168,9 +187,12 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
     throw error
   }
 
-  // 终态响应（HTTP<500，含业务拒绝）清理意图；5xx 保留原键供重试收敛
-  if (storeKey && res.statusCode < 500) {
-    Taro.removeStorageSync(storeKey)
+  // R10：终态按业务 outcome——瞬态（5xx/429/409处理中/结算中/限流）保留原键供重试收敛
+  if (storeKey) {
+    const errCode = (res.data as { error?: { code?: string } } | undefined)?.error?.code
+    if (intentTerminal(res.statusCode, errCode)) {
+      Taro.removeStorageSync(storeKey)
+    }
   }
 
   if (res.statusCode === 401) {

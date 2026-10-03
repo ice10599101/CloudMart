@@ -192,6 +192,29 @@ function clearIntent(config: AxiosRequestConfig | undefined): void {
   }
 }
 
+/**
+ * R10：意图键是否可清理（终态判定按业务 outcome，而非 HTTP<500——
+ * 409 PET_REQUEST_IN_PROGRESS / 429 / 401-refreshable / 503 是瞬态，
+ * 清键会让重试换新键，丢失与原意图的收敛锚点）。
+ */
+const TRANSIENT_ERROR_CODES = new Set([
+  'PET_REQUEST_IN_PROGRESS', 'PET_SETTLEMENT_PENDING', 'PET_TEMPORARILY_UNAVAILABLE',
+  'PET_FEATURE_DISABLED', 'PET_RATE_LIMITED', 'PET_QUOTA_EXCEEDED', 'UNAUTHORIZED',
+])
+
+function intentTerminal(status: number | undefined, errorCode: string | undefined): boolean {
+  if (status === undefined) {
+    return false // 网络错误/超时：结果未知，保留原键
+  }
+  if (status >= 500 || status === 429) {
+    return false
+  }
+  if (TRANSIENT_ERROR_CODES.has(errorCode ?? '')) {
+    return false
+  }
+  return true
+}
+
 // 已登录则一律附带身份头：公开接口带 token 无害（服务端忽略或用于个性化），
 // 而心愿宇宙存在大量「路径公开、语义私有」的 GET（checkins/fulfillment/tree-hole 等），
 // 若按前缀跳过会导致这些接口缺身份头而 401。token 过期由响应拦截器的刷新流程自愈。
@@ -258,10 +281,14 @@ function clearDomainCredentials(domain: AuthDomain) {
 
 request.interceptors.response.use(
   (response) => {
-    clearIntent(response.config)
     const data = response.data as ApiResponse<unknown>
     if (data.success === false) {
+      // R10：业务拒绝是终态（参数/权限/不存在等确定性失败）——清键；
+      // 瞬态错误码（处理中/结算中/限流/503）保留原键供重试收敛
       const errorCode = data.error?.code ?? ''
+      if (intentTerminal(response.status, errorCode)) {
+        clearIntent(response.config)
+      }
       const businessError = toBusinessError(errorCode, data.error?.message || '请求失败', {
         status: response.status,
         requestId: requestIdOf(response),
@@ -287,9 +314,10 @@ request.interceptors.response.use(
     return response
   },
   async (error) => {
-    // 终态响应（HTTP<500，含业务拒绝）清理意图键；网络错误/5xx 保留原键供重试收敛
-    const errorStatus = error.response?.status
-    if (errorStatus && errorStatus < 500) {
+    // R10：终态按业务 outcome——瞬态（5xx/429/409处理中/结算中/限流）保留原键
+    const errorStatus = error.response?.status as number | undefined
+    const errCode = (error.response?.data as { error?: { code?: string } } | undefined)?.error?.code
+    if (intentTerminal(errorStatus, errCode)) {
       clearIntent(error.config)
     }
     // FE-01：只有 401 才触发刷新；403 是「已认证但无权限」，刷新无济于事（T21 规则）
