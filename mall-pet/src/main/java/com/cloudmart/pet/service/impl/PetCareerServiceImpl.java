@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
+import com.cloudmart.pet.config.PetRequestContext;
+import com.cloudmart.pet.wallet.PetRequestDedupService;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -85,6 +87,11 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
     private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
+    /** R34：晋升请求去重作用域 */
+    static final String ENDPOINT_PROMOTE = "CAREER_PROMOTE";
+    /** R34：晋升意图去重（同键重试收敛原结果，不推进下一阶） */
+    private final PetRequestDedupService dedupService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     /** R12：统一活动互斥（活动+托管跨表排他） */
     private final PetActivityMutex activityMutex;
 
@@ -103,7 +110,9 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                                 PetEconomyService economyService,
                                 PetOutboxService outboxService,
                                 PetClock petClock,
-                                PetActivityMutex activityMutex) {
+                                PetActivityMutex activityMutex,
+                                PetRequestDedupService dedupService,
+                                org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -120,6 +129,8 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         this.outboxService = outboxService;
         this.petClock = petClock;
         this.activityMutex = activityMutex;
+        this.dedupService = dedupService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Override
@@ -238,6 +249,12 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         snapshot.put("durationSeconds", config.getDurationSeconds() != null ? config.getDurationSeconds() : 0);
         snapshot.put("energyCost", orZero(config.getEnergyCost()));
         snapshot.put("hungerCost", orZero(config.getHungerCost()));
+        // R34：开工冻结任职段归属——领取计入原段终身统计，
+        // 原段结束后回同职业领取不再计入新段（T62 晋升计数不被污染）
+        PetCareerStint openStint = openStint(pet.getId(), config.getCode());
+        if (openStint != null) {
+            snapshot.put("boundCareerStintId", openStint.getId());
+        }
 
         PetActivity activity = new PetActivity();
         activity.setPetId(pet.getId());
@@ -308,8 +325,12 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 credited = settlement.credited();
             }
         }
+        // R34：优先按开工快照的任职段累计（原段已结束后领取也计入原段）；
+        // 存量无快照字段回退当前开放段
+        Long boundStintId = snapshot != null && snapshot.get("boundCareerStintId") != null
+                ? ((Number) snapshot.get("boundCareerStintId")).longValue() : null;
         accumulateProgress(pet, careerCode != null ? careerCode
-                        : (config != null ? config.getCode() : null), currencyReward);
+                : (config != null ? config.getCode() : null), currencyReward, boundStintId);
         activity.setResult(PetJsonUtils.toJson(Map.of(
                 "exp", expReward, "currency", currencyReward,
                 "actualCurrency", credited == null ? 0 : credited,
@@ -333,9 +354,68 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 : (config != null ? config.getName() : null));
     }
 
+    /**
+     * R34 意图冻结晋升：必需幂等键（缺键 400），首次执行冻结 from/to 职业——
+     * 重放返回原晋升结果，不重读当前职业推进下一阶（原实现重读 current，
+     * 同键重试可把晋升解释为下一阶，连续扣款连续晋升——与 R28 进化同类缺陷）。
+     */
     @Override
-    @Transactional
     public PetCareerItemVO promote(Long userId) {
+        String requestKey = PetRequestContext.idempotencyKey();
+        if (!PetRequestDedupService.isValidRequestKey(requestKey)) {
+            throw new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
+                    "缺少有效幂等键（16..128 ASCII），请重试一次由客户端生成");
+        }
+        String payloadHash = dedupService.canonicalHash(userId, "PROMOTE");
+        PetRequestDedupService.ClaimResult claim = dedupService.claim(
+                userId, ENDPOINT_PROMOTE, requestKey, payloadHash);
+        switch (claim.outcome()) {
+            case EXISTING -> {
+                return replayPromotion(claim.responseJson());
+            }
+            case IN_PROGRESS -> throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+                    "晋升请求处理中，请稍后按原请求查询结果");
+            case NEW -> {
+                // 继续执行
+            }
+        }
+        String leaseOwner = claim.leaseOwner();
+        try {
+            PetCareerItemVO result = transactionTemplate.execute(status -> doPromote(userId));
+            dedupService.completeSucceeded(userId, ENDPOINT_PROMOTE, requestKey, leaseOwner, null,
+                    PetJsonUtils.toJson(java.util.Map.of("type", "SUCCEEDED", "vo", result)));
+            return result;
+        } catch (BusinessException definite) {
+            dedupService.completeSucceeded(userId, ENDPOINT_PROMOTE, requestKey, leaseOwner, null,
+                    PetJsonUtils.toJson(java.util.Map.of("type", "REJECTED",
+                            "errorCode", String.valueOf(definite.getCode()))));
+            throw definite;
+        } catch (RuntimeException unknown) {
+            log.error("晋升事务未知失败, userId={}", userId, unknown);
+            dedupService.markFailed(userId, ENDPOINT_PROMOTE, requestKey, leaseOwner,
+                    PetJsonUtils.toJson(java.util.Map.of("error", String.valueOf(unknown.getMessage()))));
+            throw unknown;
+        }
+    }
+
+    /** 同键重放：成功返回原晋升后职业，拒绝重抛原错误码 */
+    private PetCareerItemVO replayPromotion(String responseJson) {
+        Map<String, Object> envelope = PetJsonUtils.parse(responseJson,
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                });
+        if (envelope == null) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史晋升结果快照损坏");
+        }
+        if ("REJECTED".equals(envelope.get("type"))) {
+            throw new BusinessException(String.valueOf(envelope.get("errorCode")), "本次晋升此前已被拒绝");
+        }
+        return PetJsonUtils.parse(PetJsonUtils.toJson(envelope.get("vo")),
+                new com.fasterxml.jackson.core.type.TypeReference<PetCareerItemVO>() {
+                });
+    }
+
+    @Transactional
+    public PetCareerItemVO doPromote(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
         PetCareerConfig current = requireCurrentCareer(pet);
         PetCareerStint openStint = openStint(pet.getId(), current.getCode());
@@ -439,6 +519,11 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
 
     /** 工作奖励累计：终身聚合 + 当前开放段（原子 UPDATE，幂等由领奖 CAS 保证只加一次） */
     private void accumulateProgress(Pet pet, String careerCode, int currencyReward) {
+        accumulateProgress(pet, careerCode, currencyReward, null);
+    }
+
+    /** R34：工作累计——stintId 非空按原段累计（不限 endedAt）；空回退当前开放段 */
+    private void accumulateProgress(Pet pet, String careerCode, int currencyReward, Long boundStintId) {
         if (careerCode == null) {
             return;
         }
@@ -447,12 +532,17 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 .setSql("total_currency = total_currency + " + Math.max(0, currencyReward))
                 .eq(PetCareerProgress::getPetId, pet.getId())
                 .eq(PetCareerProgress::getCareerCode, careerCode));
-        stintMapper.update(null, new LambdaUpdateWrapper<PetCareerStint>()
+        LambdaUpdateWrapper<PetCareerStint> stintWrapper = new LambdaUpdateWrapper<PetCareerStint>()
                 .setSql("work_count = work_count + 1")
                 .setSql("total_currency = total_currency + " + Math.max(0, currencyReward))
                 .eq(PetCareerStint::getPetId, pet.getId())
-                .eq(PetCareerStint::getCareerCode, careerCode)
-                .isNull(PetCareerStint::getEndedAt));
+                .eq(PetCareerStint::getCareerCode, careerCode);
+        if (boundStintId != null) {
+            stintWrapper.eq(PetCareerStint::getId, boundStintId);
+        } else {
+            stintWrapper.isNull(PetCareerStint::getEndedAt);
+        }
+        stintMapper.update(null, stintWrapper);
     }
 
     private PetCareerStint openStint(Long petId, String careerCode) {
@@ -517,26 +607,27 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         }
     }
 
-    /** 职业工作每日次数（Redis 快速限频 + 配置上限；数据库权威额度见 B06 统一配额） */
+    /**
+     * 职业工作每日次数（R34 开工预占口径）：IN_PROGRESS/COMPLETED/CLAIMED 都占用名额——
+     * 原实现只数 CLAIMED，"完成不领、继续接单、最后集中领"可绕过日上限（T61）。
+     * 查库异常显式失败（不放行；原实现 Fail-Open 可被错误风暴打穿限额）。
+     */
     private void requireDailyQuota(Long userId, PetCareerConfig config) {
         int limit = properties.getCareer().getDailyWorkLimit();
         if (limit <= 0) {
             return;
         }
-        try {
-            Long used = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                    .eq(PetActivity::getUserId, userId)
-                    .eq(PetActivity::getActivityType, PetActivityType.CAREER_WORK.name())
-                    .eq(PetActivity::getStatus, PetActivityStatus.CLAIMED.name())
-                    .ge(PetActivity::getStartedAt, petClock.businessDateStartUtc(petClock.businessDate())));
-            if (used != null && used >= limit) {
-                throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
-                        "今天已经工作 " + limit + " 次啦，明天再接着干吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("职业工作次数校验异常，按通过处理（CAS 与快照仍保证一致性）: userId={}", userId, e);
+        Long used = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
+                .eq(PetActivity::getUserId, userId)
+                .eq(PetActivity::getActivityType, PetActivityType.CAREER_WORK.name())
+                .in(PetActivity::getStatus, List.of(
+                        PetActivityStatus.IN_PROGRESS.name(),
+                        PetActivityStatus.COMPLETED.name(),
+                        PetActivityStatus.CLAIMED.name()))
+                .ge(PetActivity::getStartedAt, petClock.businessDateStartUtc(petClock.businessDate())));
+        if (used != null && used >= limit) {
+            throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
+                    "今天已经工作 " + limit + " 次啦，明天再接着干吧");
         }
     }
 
