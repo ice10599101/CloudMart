@@ -39,11 +39,16 @@ public class PetWalletQueryServiceImpl implements PetWalletQueryService {
         return walletService.getOrCreateAccount(userId);
     }
 
+    /**
+     * 流水分页（R09）：读取上限为 MAX_PAGE_SIZE+1——调用方（钱包 Controller）传 size+1
+     * 做 hasMore 探测读；公共页大小仍最多 50，探测行由调用方裁剪。
+     * 修复：原实现把探测读也截断到 50，size=50 时 hasMore 永远为 false，第 51 条永远不可见。
+     */
     @Override
     @Transactional(readOnly = true)
     public List<PetWalletTransaction> listTransactions(Long userId, Long cursor, int size,
                                                        String direction, String bizType) {
-        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE + 1);
         LambdaQueryWrapper<PetWalletTransaction> wrapper = new LambdaQueryWrapper<PetWalletTransaction>()
                 .eq(PetWalletTransaction::getUserId, userId)
                 .orderByDesc(PetWalletTransaction::getId)
