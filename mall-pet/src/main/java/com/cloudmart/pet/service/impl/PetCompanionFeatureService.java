@@ -56,6 +56,7 @@ public class PetCompanionFeatureService {
     private final com.cloudmart.pet.config.PetProperties properties;
     private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
     private final com.cloudmart.pet.service.PetUserGuardService guardService;
+    private final com.cloudmart.pet.feign.FileFeignClient fileFeignClient;
 
     public PetCompanionFeatureService(PetMapper petMapper,
                                       PetOnboardingProgressMapper onboardingMapper,
@@ -66,7 +67,8 @@ public class PetCompanionFeatureService {
                                       PetInventoryMapper inventoryMapper,
                                       com.cloudmart.pet.config.PetProperties properties,
                                       com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
-                                      com.cloudmart.pet.service.PetUserGuardService guardService) {
+                                      com.cloudmart.pet.service.PetUserGuardService guardService,
+                                      com.cloudmart.pet.feign.FileFeignClient fileFeignClient) {
         this.petMapper = petMapper;
         this.onboardingMapper = onboardingMapper;
         this.diaryMapper = diaryMapper;
@@ -77,6 +79,7 @@ public class PetCompanionFeatureService {
         this.properties = properties;
         this.notifyPrefMapper = notifyPrefMapper;
         this.guardService = guardService;
+        this.fileFeignClient = fileFeignClient;
     }
 
     /** B19：查询/更新宠物通知偏好（免打扰 + 日常问候开关）；重要业务通知不受偏好影响 */
@@ -270,11 +273,17 @@ public class PetCompanionFeatureService {
         return result;
     }
 
+    /** R04 相册文件约束：PRIVATE、图片三类、≤5MiB——由文件服务按台账裁决，本地不做正则放行 */
+    private static final List<String> ALBUM_ALLOWED_MIMES = List.of("image/jpeg", "image/png", "image/webp");
+    private static final long ALBUM_MAX_SIZE_BYTES = 5L * 1024 * 1024;
+    private static final String ALBUM_BIZ_TYPE = "PET_ALBUM";
+
     /**
-     * 上传相册资源（N02/BE-11）：归属=本人宠物；文件引用必须落在本文件服务命名空间内
-     * （禁止任意外部地址/路径穿越）；日记绑定校验归属；用户上传一律 PENDING（APPROVED
-     * 仅审核流程可设）；100 张配额在用户守卫行锁内核验（并发不越界，T27）。
-     * 文件本身的大小/类型在 mall-file 上传时校验（JPEG/PNG/WebP、≤5MB）。
+     * 上传相册资源（N02/R04）：fileId 为不透明 ID，先本地落 BINDING 行（占配额 + 日记归属校验），
+     * 再调 mall-file 内部接口校验归属/READY/MIME/大小/PRIVATE 并登记幂等引用键
+     * PET_ALBUM:{albumAssetId}——成功推进 BOUND+PENDING_REVIEW，远程失败留 BINDING 可重试
+     * （删除该行即放弃绑定，孤儿文件由用户在文件服务侧自行清理，不占公开访问）。
+     * 100 张配额含 BINDING 行（守卫行锁内串行化，T27）。
      */
     @Transactional
     public PetAlbumAsset uploadAlbumAsset(Long userId, Long petId, String fileId, Long diaryEntryId) {
@@ -282,7 +291,7 @@ public class PetCompanionFeatureService {
         if (pet == null || !pet.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的相册");
         }
-        validateFileReference(fileId);
+        Long fileAssetId = parseFileAssetId(fileId);
         if (diaryEntryId != null) {
             com.cloudmart.pet.entity.PetDiaryEntry diary = diaryMapper.selectById(diaryEntryId);
             if (diary == null || !diary.getUserId().equals(userId) || !diary.getPetId().equals(petId)) {
@@ -300,51 +309,127 @@ public class PetCompanionFeatureService {
         asset.setUserId(userId);
         asset.setPetId(petId);
         asset.setDiaryEntryId(diaryEntryId);
-        asset.setFileId(fileId);
-        // BE-11：用户上传进入审核队列；APPROVED 仅审核流程可设置
+        asset.setFileId(String.valueOf(fileAssetId));
         asset.setAuditStatus("PENDING");
+        asset.setBindStatus("BINDING");
         try {
             albumMapper.insert(asset);
         } catch (DuplicateKeyException e) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该资源已存在");
         }
-        return asset;
+        // 本地 BINDING 行已提交；远程绑定失败不回滚本地行（跨服务无分布式事务）——
+        // 行保留 BINDING 可重试状态，由 confirmAlbumBinding 推进/放弃
+        confirmAlbumBinding(asset, fileAssetId, userId);
+        return albumMapper.selectById(asset.getId());
+    }
+
+    /** 远程绑定（幂等引用键 PET_ALBUM:{id}）：成功 BOUND；失败留 BINDING 并抛出明确错误 */
+    private void confirmAlbumBinding(PetAlbumAsset asset, Long fileAssetId, Long userId) {
+        try {
+            var response = fileFeignClient.bindReference(fileAssetId,
+                    new com.cloudmart.pet.feign.FileFeignClient.BindReferenceRequest(
+                            ALBUM_BIZ_TYPE, String.valueOf(asset.getId()), userId,
+                            ALBUM_ALLOWED_MIMES, ALBUM_MAX_SIZE_BYTES, "PRIVATE"));
+            if (response.data() == null) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件绑定未受理");
+            }
+            asset.setBindStatus("BOUND");
+            albumMapper.updateById(asset);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("相册文件远程绑定失败（行保留 BINDING 可重试）, albumAssetId={}, fileId={}",
+                    asset.getId(), fileAssetId, e);
+            throw new BusinessException("PET_FILE_BINDING_FAILED", "文件绑定失败，请稍后重试或删除该条目");
+        }
+    }
+
+    /** R04：BINDING 行补绑定（上传后响应丢失/远程失败重试的恢复入口） */
+    @Transactional
+    public PetAlbumAsset retryAlbumBinding(Long userId, Long assetId) {
+        PetAlbumAsset asset = albumMapper.selectById(assetId);
+        if (asset == null || !asset.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的相册");
+        }
+        if (!"BINDING".equals(asset.getBindStatus())) {
+            return asset;
+        }
+        Long fileAssetId = parseFileAssetId(asset.getFileId());
+        confirmAlbumBinding(asset, fileAssetId, userId);
+        return albumMapper.selectById(assetId);
+    }
+
+    /** fileId 为十进制数字串（mall-file 资产台账自增 ID），URL/路径形态一律拒绝 */
+    private Long parseFileAssetId(String fileId) {
+        if (fileId == null || fileId.isBlank() || fileId.length() > 19) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件引用非法（fileId 必填）");
+        }
+        try {
+            Long id = Long.parseLong(fileId.trim());
+            if (id <= 0) {
+                throw new NumberFormatException();
+            }
+            return id;
+        } catch (NumberFormatException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "仅支持文件服务返回的 fileId（不接受 URL/路径）");
+        }
+    }
+
+    /** R04 审核队列：默认 PENDING 且已绑定；最旧优先 */
+    public List<PetAlbumAsset> albumReviewQueue(String auditStatus) {
+        return albumMapper.selectList(new LambdaQueryWrapper<PetAlbumAsset>()
+                .eq(PetAlbumAsset::getAuditStatus, auditStatus)
+                .eq(PetAlbumAsset::getBindStatus, "BOUND")
+                .orderByAsc(PetAlbumAsset::getId)
+                .last("LIMIT 100"));
     }
 
     /**
-     * 文件引用命名空间校验（BE-11）：仅接受本文件服务返回的引用形态
-     * {@code [https://host]/files/{category}/{date}/{name}}——拒绝任意外部地址、
-     * 路径穿越、查询串与控制字符，防止盗用他人文件或拼永久外链。
+     * 审核通过（R04）：仅 BOUND+PENDING 可通过；已删除/已处理对象不能被旧 approve 复活
+     * （条件更新，0 行即状态已推进）。
      */
-    private static final java.util.regex.Pattern FILE_REFERENCE_PATTERN =
-            java.util.regex.Pattern.compile("^(https?://[^/\s]+)?/files/[A-Za-z0-9._/-]+$");
-
-    private void validateFileReference(String fileId) {
-        if (fileId == null || fileId.isBlank() || fileId.length() > 500) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件引用非法");
-        }
-        if (fileId.contains("..") || fileId.contains("\\") || fileId.contains("?") || fileId.contains("#")) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件引用非法");
-        }
-        if (!FILE_REFERENCE_PATTERN.matcher(fileId).matches()) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                    "仅支持本站文件服务的资源引用");
-        }
-    }
-
-    /** 审核通过（仅审核链路可调用；用户上传进入时为 PENDING） */
     @Transactional
-    public PetAlbumAsset approveAlbumAsset(Long assetId) {
-        PetAlbumAsset asset = albumMapper.selectById(assetId);
-        if (asset == null) {
-            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "相册资源不存在");
+    public PetAlbumAsset approveAlbumAsset(Long assetId, Long reviewerId) {
+        int updated = albumMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetAlbumAsset>()
+                .set(PetAlbumAsset::getAuditStatus, "APPROVED")
+                .set(PetAlbumAsset::getReviewerId, reviewerId)
+                .set(PetAlbumAsset::getReviewReason, null)
+                .eq(PetAlbumAsset::getId, assetId)
+                .eq(PetAlbumAsset::getAuditStatus, "PENDING")
+                .eq(PetAlbumAsset::getBindStatus, "BOUND"));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "相册资源不存在、未绑定完成或已处理，不能重复审核");
         }
-        asset.setAuditStatus("APPROVED");
-        albumMapper.updateById(asset);
-        return asset;
+        return albumMapper.selectById(assetId);
     }
 
-    /** 删除相册资源（归属校验） */
+    /** 审核驳回（R04）：理由必填留痕；被驳回条目保留在相册（状态可见），不可公开 */
+    @Transactional
+    public PetAlbumAsset rejectAlbumAsset(Long assetId, Long reviewerId, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "驳回理由必填");
+        }
+        int updated = albumMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetAlbumAsset>()
+                .set(PetAlbumAsset::getAuditStatus, "REJECTED")
+                .set(PetAlbumAsset::getReviewerId, reviewerId)
+                .set(PetAlbumAsset::getReviewReason, reason.strip())
+                .eq(PetAlbumAsset::getId, assetId)
+                .eq(PetAlbumAsset::getAuditStatus, "PENDING")
+                .eq(PetAlbumAsset::getBindStatus, "BOUND"));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "相册资源不存在、未绑定完成或已处理，不能重复审核");
+        }
+        return albumMapper.selectById(assetId);
+    }
+
+    /**
+     * 删除相册资源（R04）：本地行立即删除（停止一切新授权），随后尽力解绑远程文件引用
+     * （幂等：引用不存在也成功；解绑失败仅告警——文件服务侧引用残留只影响文件删除检查，
+     * 不产生任何宠物业务可见性，用户可重传/重新绑定同 fileId）。
+     */
     @Transactional
     public void deleteAlbumAsset(Long userId, Long assetId) {
         PetAlbumAsset asset = albumMapper.selectById(assetId);
@@ -352,6 +437,61 @@ public class PetCompanionFeatureService {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能删除自己上传的资源");
         }
         albumMapper.deleteById(assetId);
+        try {
+            fileFeignClient.unbindReference(Long.parseLong(asset.getFileId()), ALBUM_BIZ_TYPE,
+                    String.valueOf(asset.getId()));
+        } catch (Exception e) {
+            log.warn("相册文件远程解绑失败（引用键幂等可重试）, albumAssetId={}, fileId={}",
+                    assetId, asset.getFileId(), e);
+        }
+    }
+
+    /**
+     * R04 相册列表：按权限签发短期预览地址（默认 60 秒），不返回任何持久化 URL——
+     * PENDING/REJECTED 对他人不可见；BINDING 行返回处理中占位（无地址）。
+     */
+    public List<AlbumAssetVO> albumList(Long userId, Long petId) {
+        Pet pet = petMapper.selectById(petId);
+        if (pet == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "宠物不存在");
+        }
+        boolean owner = pet.getUserId().equals(userId);
+        LambdaQueryWrapper<PetAlbumAsset> wrapper = new LambdaQueryWrapper<PetAlbumAsset>()
+                .eq(PetAlbumAsset::getPetId, petId)
+                .orderByDesc(PetAlbumAsset::getId);
+        if (!owner) {
+            // 访客：仅审核通过且已绑定完成的条目可预览
+            wrapper.eq(PetAlbumAsset::getAuditStatus, "APPROVED")
+                    .eq(PetAlbumAsset::getBindStatus, "BOUND");
+        }
+        List<PetAlbumAsset> assets = albumMapper.selectList(wrapper);
+        return assets.stream().map(asset -> toAlbumVo(asset, owner)).toList();
+    }
+
+    private AlbumAssetVO toAlbumVo(PetAlbumAsset asset, boolean owner) {
+        String previewUrl = null;
+        if ("BOUND".equals(asset.getBindStatus())) {
+            try {
+                var response = fileFeignClient.internalDownloadUrl(Long.parseLong(asset.getFileId()), 60L);
+                if (response.data() != null) {
+                    previewUrl = String.valueOf(response.data().getOrDefault("downloadPath", ""));
+                }
+            } catch (Exception e) {
+                // 预览地址签发失败：条目仍返回（状态可见），URL 为空由前端显示占位
+                log.warn("相册预览地址签发失败, albumAssetId={}", asset.getId(), e);
+            }
+        }
+        return new AlbumAssetVO(String.valueOf(asset.getId()), asset.getPetId() == null ? null : String.valueOf(asset.getPetId()),
+                asset.getDiaryEntryId() == null ? null : String.valueOf(asset.getDiaryEntryId()),
+                String.valueOf(asset.getFileId()), asset.getAuditStatus(), asset.getBindStatus(),
+                asset.getReviewReason(), previewUrl,
+                asset.getCreatedAt() == null ? null : asset.getCreatedAt().toString());
+    }
+
+    /** R04 相册条目 VO：fileId 为不透明 ID 字符串，预览地址为短期授权路径（禁止持久化） */
+    public record AlbumAssetVO(String assetId, String petId, String diaryEntryId, String fileId,
+                               String auditStatus, String bindStatus, String reviewReason,
+                               String previewUrl, String createdAt) {
     }
 
     // ---------------- N03 记忆管理 ----------------

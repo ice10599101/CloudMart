@@ -66,7 +66,8 @@ public class PetCompanionFeatureController {
     }
 
     @PostMapping("/pets/{petId}/album")
-    @Operation(summary = "上传相册资源（N02）", description = "fileId 为 mall-file 授权引用（JPEG/PNG/WebP ≤5MB，由文件服务校验）；每用户 100 张")
+    @Operation(summary = "上传相册资源（N02/R04）", description = "fileId 为 mall-file PRIVATE 资产 ID（数字串，不是 URL）；"
+            + "远程校验归属/类型/大小（JPEG/PNG/WebP ≤5MiB）后登记幂等引用；每用户 100 张；失败留 BINDING 可重试")
     public ApiResponse<PetAlbumAsset> uploadAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId,
@@ -74,8 +75,26 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.uploadAlbumAsset(userId, petId, request.fileId(), request.diaryEntryId()));
     }
 
+    @GetMapping("/pets/{petId}/album")
+    @Operation(summary = "相册列表（R04）", description = "本人返回全部条目（含审核状态与驳回理由），访客仅见 APPROVED+BOUND；"
+            + "预览为 60 秒短期授权地址，禁止持久化")
+    public ApiResponse<List<com.cloudmart.pet.service.impl.PetCompanionFeatureService.AlbumAssetVO>> albumList(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId) {
+        return ApiResponse.ok(featureService.albumList(userId, petId));
+    }
+
+    @PostMapping("/pets/{petId}/album/{assetId}/retry-binding")
+    @Operation(summary = "重试文件绑定（R04）", description = "BINDING 条目的恢复入口（上传响应丢失/远程失败）；非 BINDING 返回原状态")
+    public ApiResponse<PetAlbumAsset> retryAlbumBinding(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId,
+            @PathVariable("assetId") Long assetId) {
+        return ApiResponse.ok(featureService.retryAlbumBinding(userId, assetId));
+    }
+
     @DeleteMapping("/pets/{petId}/album/{assetId}")
-    @Operation(summary = "删除相册资源（N02）", description = "归属校验；撤销关联公开访问")
+    @Operation(summary = "删除相册资源（N02/R04）", description = "归属校验；本地行立即删除并尽力解绑远程文件引用")
     public ApiResponse<Void> deleteAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId,

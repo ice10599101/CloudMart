@@ -21,8 +21,10 @@ import {
     getPetMemorySettings,
     getPetNotifyPrefs,
     getPetOnboarding,
+    listPetAlbum,
     listPetDiary,
     listPetMemories,
+    retryPetAlbumBinding,
     sendPetCompanionHeartbeat,
     setPetMemorySettings,
     skipPetOnboarding,
@@ -87,7 +89,7 @@ export default function CompanionBoard({ myPetId, onChanged }: {
     const [diary, setDiary] = useState<PetDiaryEntry[] | null>(null)
     const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
     const [diaryHasMore, setDiaryHasMore] = useState(false)
-    const [assets, setAssets] = useState<Array<{ id: number; url: string; diaryEntryId: number | null }>>([])
+    const [assets, setAssets] = useState<Array<{ id: string; fileId: string; auditStatus: string; bindStatus: string | null; previewUrl: string | null; diaryEntryId: string | null }>>([])
     const [attachTarget, setAttachTarget] = useState<number | null>(null)
 
     const [memories, setMemories] = useState<PetMemory[] | null>(null)
@@ -216,10 +218,11 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         }
     }, [loadIntimacy, message, onChanged, run])
 
+    /** R04 相册上传：PRIVATE 上传拿 fileId → 绑定成功才算成功；绑定失败提示可重试，不把孤儿文件当相册成功 */
     const uploadPhoto = useCallback(async (file: File, diaryEntryId?: number) => {
         setBusy('album')
         try {
-            const { data: up } = await uploadFileAsset(file, 'PUBLIC')
+            const { data: up } = await uploadFileAsset(file, 'PRIVATE')
             if (!up.success) {
                 message.warning(up.error?.message ?? '上传未成功')
                 return
@@ -227,23 +230,61 @@ export default function CompanionBoard({ myPetId, onChanged }: {
             const res = await run('album', () => uploadPetAlbumAsset(myPetId, up.data.fileId, diaryEntryId))
             if (res?.success) {
                 setAssets(prev => [{
-                    id: Number(res.data.id),
-                    url: up.data.url,
+                    id: res.data.assetId,
+                    fileId: res.data.fileId,
+                    auditStatus: res.data.auditStatus,
+                    bindStatus: res.data.bindStatus,
+                    previewUrl: res.data.previewUrl,
                     diaryEntryId: res.data.diaryEntryId,
                 }, ...prev])
-                message.success('照片已存入相册')
+                message.success('照片已存入相册，待审核')
+                await loadDiary(true)
+            } else if (up.data.fileId) {
+                // 绑定失败：文件已上传但未入相册——提示可删除孤儿文件，不算上传成功
+                message.warning('照片绑定失败，可在文件管理中清理后重试')
             }
         } finally {
             setBusy(null)
         }
-    }, [message, myPetId, run])
+    }, [loadDiary, message, myPetId, run])
 
-    const removeAsset = useCallback(async (assetId: number) => {
+    const removeAsset = useCallback(async (assetId: string) => {
         const res = await run(`album-del:${assetId}`, () => deletePetAlbumAsset(myPetId, assetId))
         if (res?.success) {
             setAssets(prev => prev.filter(item => item.id !== assetId))
         }
     }, [myPetId, run])
+
+    /** R04：BINDING 条目恢复（远程失败重试，幂等引用键收敛） */
+    const retryBinding = useCallback(async (assetId: string) => {
+        const res = await run(`album-retry:${assetId}`, () => retryPetAlbumBinding(myPetId, assetId))
+        if (res?.success) {
+            setAssets(prev => prev.map(item => (item.id === assetId
+                ? { ...item, bindStatus: res.data.bindStatus, auditStatus: res.data.auditStatus }
+                : item)))
+        }
+    }, [myPetId, run])
+
+    /** R04：打开相册页时从服务端拉列表（审核状态/预览地址以服务端为准） */
+    const loadAlbum = useCallback(async () => {
+        const { data: res } = await listPetAlbum(myPetId)
+        if (res.success) {
+            setAssets(res.data.map(item => ({
+                id: item.assetId,
+                fileId: item.fileId,
+                auditStatus: item.auditStatus,
+                bindStatus: item.bindStatus,
+                previewUrl: item.previewUrl,
+                diaryEntryId: item.diaryEntryId,
+            })))
+        }
+    }, [myPetId])
+
+    useEffect(() => {
+        if (tab === 'diary') {
+            void loadAlbum()
+        }
+    }, [loadAlbum, tab])
 
     const saveMemory = useCallback(async (memory: PetMemory) => {
         const value = editValue.trim()
@@ -505,16 +546,35 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                                 <div className={styles.albumGrid} style={{ marginTop: 10 }}>
                                     {assets.map(item => (
                                         <div key={item.id} className={styles.albumItem}>
-                                            <img className={styles.albumImg} src={item.url} alt="宠物相册照片" />
+                                            {item.previewUrl ? (
+                                                <img className={styles.albumImg} src={item.previewUrl} alt="宠物相册照片" />
+                                            ) : (
+                                                <div className={styles.albumImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#888' }}>
+                                                    {item.bindStatus === 'BINDING' ? '处理中…' : '待审核'}
+                                                </div>
+                                            )}
                                             <div className={styles.albumFoot}>
-                                                <span>{item.diaryEntryId ? `日记 #${item.diaryEntryId}` : '未挂日记'}</span>
-                                                <CreamButton
-                                                    variant="ghost"
-                                                    loading={busy === `album-del:${item.id}`}
-                                                    onClick={() => void removeAsset(item.id)}
-                                                >
-                                                    删除
-                                                </CreamButton>
+                                                <span>
+                                                    {item.bindStatus === 'BINDING' ? '绑定中' : item.auditStatus === 'REJECTED' ? '未通过' : item.auditStatus === 'PENDING' ? '待审核' : '已通过'}
+                                                    {item.diaryEntryId ? ` · 日记 #${item.diaryEntryId}` : ''}
+                                                </span>
+                                                {item.bindStatus === 'BINDING' ? (
+                                                    <CreamButton
+                                                        variant="ghost"
+                                                        loading={busy === `album-retry:${item.id}`}
+                                                        onClick={() => void retryBinding(item.id)}
+                                                    >
+                                                        重试
+                                                    </CreamButton>
+                                                ) : (
+                                                    <CreamButton
+                                                        variant="ghost"
+                                                        loading={busy === `album-del:${item.id}`}
+                                                        onClick={() => void removeAsset(item.id)}
+                                                    >
+                                                        删除
+                                                    </CreamButton>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

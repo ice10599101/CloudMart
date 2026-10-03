@@ -1358,20 +1358,32 @@ export function listPetDiary(petId: number | string, cursor?: number | string, s
   })
 }
 
-/** 相册资源（fileId 为 mall-file 授权引用；每用户 100 张） */
+/** 相册条目（R04：fileId 不透明 ID；预览为 60 秒短期授权地址，禁止持久化） */
 export interface PetAlbumAsset {
-  id: number
-  userId: number
-  petId: number
-  diaryEntryId: number | null
+  assetId: string
+  petId: string | null
+  diaryEntryId: string | null
   fileId: string
   auditStatus: string
-  createdAt: string
-  updatedAt: string
+  bindStatus: string | null
+  reviewReason: string | null
+  previewUrl: string | null
+  createdAt: string | null
 }
 
+/** 相册列表（本人含审核状态与驳回理由；访客仅见 APPROVED+BOUND） */
+export function listPetAlbum(petId: number | string) {
+  return request.get<ApiResponse<PetAlbumAsset[]>>(`/pet/pets/${petId}/album`)
+}
+
+/** 上传相册资源（R04：PRIVATE fileId 绑定；失败留 BINDING 可重试） */
 export function uploadPetAlbumAsset(petId: number | string, fileId: string, diaryEntryId?: number | string) {
   return request.post<ApiResponse<PetAlbumAsset>>(`/pet/pets/${petId}/album`, { fileId, diaryEntryId })
+}
+
+/** BINDING 条目重试绑定（上传响应丢失/远程失败的恢复入口） */
+export function retryPetAlbumBinding(petId: number | string, assetId: string) {
+  return request.post<ApiResponse<PetAlbumAsset>>(`/pet/pets/${petId}/album/${assetId}/retry-binding`)
 }
 
 export function deletePetAlbumAsset(petId: number | string, assetId: number | string) {

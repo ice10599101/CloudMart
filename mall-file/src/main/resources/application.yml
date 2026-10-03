@@ -118,7 +118,7 @@ cloudmart:
     service-token-ttl-seconds: 60
     service-token-paths:
       - prefix: /internal
-        issuers: [mall-job, mall-community]
+        issuers: [mall-job, mall-community, mall-pet]
         scope: file:internal
 
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与

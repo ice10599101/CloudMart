@@ -99,11 +99,34 @@ public class AdminPetReportController {
         return ApiResponse.ok(null);
     }
 
+    /** R04 审核请求：驳回理由必填（留痕） */
+    public record AlbumReviewRequest(String reason) {
+    }
+
     @PostMapping("/album/{assetId}/approve")
-    @Operation(summary = "相册资源审核通过", description = "BE-11：仅审核链路可设 APPROVED（用户上传进入时为 PENDING）")
+    @Operation(summary = "相册资源审核通过", description = "R04：仅 BOUND+PENDING 可通过；处理人取认证上下文；"
+            + "已处理/已删除对象不能被旧请求复活")
     public ApiResponse<com.cloudmart.pet.entity.PetAlbumAsset> approveAlbum(
-            @Parameter(description = "相册资源 ID") @PathVariable("assetId") Long assetId) {
-        return ApiResponse.ok(companionFeatureService.approveAlbumAsset(assetId));
+            @Parameter(description = "相册资源 ID") @PathVariable("assetId") Long assetId,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        return ApiResponse.ok(companionFeatureService.approveAlbumAsset(assetId, adminUserId));
+    }
+
+    @PostMapping("/album/{assetId}/reject")
+    @Operation(summary = "相册资源审核驳回（R04）", description = "理由必填留痕；被驳回条目保留在相册且不可公开")
+    public ApiResponse<com.cloudmart.pet.entity.PetAlbumAsset> rejectAlbum(
+            @Parameter(description = "相册资源 ID") @PathVariable("assetId") Long assetId,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @org.springframework.web.bind.annotation.RequestBody AlbumReviewRequest request) {
+        return ApiResponse.ok(companionFeatureService.rejectAlbumAsset(assetId, adminUserId, request.reason()));
+    }
+
+    @GetMapping("/album/reviews")
+    @Operation(summary = "相册审核队列（R04）", description = "PENDING 且 BOUND 的条目，按时间正序；auditStatus 可选过滤")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetAlbumAsset>> albumReviewQueue(
+            @Parameter(description = "审核状态过滤（默认 PENDING）") @RequestParam(value = "auditStatus", required = false) String auditStatus) {
+        String status = auditStatus == null || auditStatus.isBlank() ? "PENDING" : auditStatus;
+        return ApiResponse.ok(companionFeatureService.albumReviewQueue(status));
     }
 
     /** 成就补算（B17）：从历史事实重评全部事件；已达成记录唯一键幂等，不重复发奖 */

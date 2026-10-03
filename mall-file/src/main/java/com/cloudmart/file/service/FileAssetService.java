@@ -125,6 +125,18 @@ public class FileAssetService {
         return "/api/file/assets/" + fileId + "/download?token=" + token + "&expires=" + expiresAt;
     }
 
+    /**
+     * R04 内部业务授权预览：调用方（业务服务）完成权限裁决后签发短 TTL 授权地址。
+     * 与 {@link #buildDownloadPath} 的区别：身份裁决发生在调用方业务内（如宠物相册
+     * owner/审核/可见性判断），本方法只负责资产存在性与签名；TTL 显式传入（默认 60s）。
+     */
+    public String buildInternalDownloadPath(Long fileId, Instant now, long ttlSeconds) {
+        requireAsset(fileId);
+        long expiresAt = now.plusSeconds(ttlSeconds).getEpochSecond();
+        String token = sign(fileId, expiresAt);
+        return "/api/file/assets/" + fileId + "/download?token=" + token + "&expires=" + expiresAt;
+    }
+
     /** 校验下载签名（静态资源通道之外的一次性授权下载）；签名密钥未配置时拒绝（fail-closed） */
     public void validateDownloadToken(Long fileId, String token, String expires) {
         if (signingSecret.length == 0) {
