@@ -71,6 +71,8 @@ public class PetFriendServiceImpl implements PetFriendService {
     private final PetEventProducer eventProducer;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
+    /** R21：用户守卫锁（双方按 userId 数值升序加锁，消除交叉锁序死锁） */
+    private final com.cloudmart.pet.service.PetUserGuardService guardService;
 
     public PetFriendServiceImpl(PetService petService,
                                 PetMapper petMapper,
@@ -84,7 +86,8 @@ public class PetFriendServiceImpl implements PetFriendService {
                                 PetEventProducer eventProducer,
                                 PetProperties properties,
                                 StringRedisTemplate redisTemplate,
-                                com.cloudmart.pet.service.PetUserBlockService userBlockService) {
+                                com.cloudmart.pet.service.PetUserBlockService userBlockService,
+                                com.cloudmart.pet.service.PetUserGuardService guardService) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.friendMapper = friendMapper;
@@ -98,6 +101,7 @@ public class PetFriendServiceImpl implements PetFriendService {
         this.properties = properties;
         this.userBlockService = userBlockService;
         this.redisTemplate = redisTemplate;
+        this.guardService = guardService;
     }
 
     @Override
@@ -211,15 +215,32 @@ public class PetFriendServiceImpl implements PetFriendService {
         return toVo(existing, target, resolveNicknames(List.of(friendUserId)), userId);
     }
 
+    /**
+     * 接受好友申请（R21）：双方用户守卫按 userId 数值升序加锁（§5.2 统一锁序，
+     * 交叉邀请不再死锁），锁内复验申请状态、屏蔽关系与双方名额——
+     * "申请后拉黑再接受"被拒绝；49/50 边界并发接受不超上限。
+     */
     @Override
     @Transactional
     public PetFriendVO accept(Long userId, Long friendUserId) {
         Pet pet = petService.requireOwnedPet(userId);
+        // R21：数值升序锁双方守卫（同一对用户无论谁接受，加锁顺序一致）
+        if (userId < friendUserId) {
+            guardService.lockGuard(userId);
+            guardService.lockGuard(friendUserId);
+        } else {
+            guardService.lockGuard(friendUserId);
+            guardService.lockGuard(userId);
+        }
         PetFriend incoming = findRow(friendUserId, userId);
         if (incoming == null || !PetFriendStatus.PENDING.name().equals(incoming.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_FRIEND_NOT_FOUND, "没有待确认的好友申请");
         }
-        // B14：接受时重验双方名额（并发接受不能超过上限）
+        // R21：锁内复验屏蔽——申请后拉黑再接受被拒绝（原实现仅申请时校验一次）
+        if (userBlockService.isBlockedEitherWay(userId, friendUserId)) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法接受该用户的好友申请");
+        }
+        // B14：锁内重验双方名额（并发接受不能超过上限）
         long myCount = friendMapper.selectCount(new LambdaQueryWrapper<PetFriend>()
                 .eq(PetFriend::getUserId, userId)
                 .eq(PetFriend::getStatus, PetFriendStatus.ACTIVE.name()));
@@ -335,7 +356,7 @@ public class PetFriendServiceImpl implements PetFriendService {
                 .last("LIMIT 1"));
     }
 
-    /** 双向落库：不存在则插入 ACTIVE，存在则置 ACTIVE（uk 幂等） */
+    /** 双向落库：不存在则插入 ACTIVE，存在则置 ACTIVE（uk 幂等）。填充默认字段（见 accept 路径复用） */
     private void upsertActive(Long userId, Long friendUserId) {
         PetFriend row = findRow(userId, friendUserId);
         if (row == null) {
