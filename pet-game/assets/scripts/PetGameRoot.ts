@@ -11,6 +11,7 @@ import {
     instantiate,
     Input,
     EventTouch,
+    input,
     Layers,
     Material,
     Node,

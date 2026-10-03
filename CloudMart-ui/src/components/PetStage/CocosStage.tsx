@@ -14,8 +14,10 @@ import {
 import type { BattleRound, GameToHost, HostToGame, PetDisplayState, PetIntentAction } from './bridge'
 import styles from './style.module.css'
 
-/** iframe src 的缓存穿透戳：模块加载时生成一次，页面存续期内稳定（避免父组件重渲染导致 iframe 反复重载） */
-const PET_GAME_FRAME_URL = `${PET_GAME_FRAME_PATH}?v=${Math.random().toString(36).slice(2, 10)}`
+/** iframe src 的缓存穿透戳：**稳定版本号**（产物更新时手动递增）。
+ *  不可用随机戳——随机导致每次刷新 URL 都变，HTTP 缓存全失效，Cocos 产物每次全量冷加载，
+ *  常态性超过 ready 超时而被误降级（实测根因）。 */
+const PET_GAME_FRAME_URL = `${PET_GAME_FRAME_PATH}?v=20261002_1`
 
 /**
  * Cocos 宠物舞台宿主组件（本项目唯一舞台实现）。

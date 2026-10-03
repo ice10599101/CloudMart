@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>pet bridge test</title></head>
+<body style="margin:0;background:#FDF6EC">
+<iframe id="stage" src="/pet-game/index.html?v=20261002_1" style="width:900px;height:560px;border:1px solid #ccc"></iframe>
+<pre id="log" style="font-size:12px;white-space:pre-wrap">— 等待游戏消息 —</pre>
+<script>
+window.addEventListener('message', (e) => {
+  const data = typeof e.data === 'string' ? e.data : JSON.stringify(e.data)
+  const el = document.getElementById('log')
+  if (el.textContent.length > 4000) el.textContent = ''
+  el.textContent += '\n[origin=' + e.origin + '] ' + data.slice(0, 200)
+})
+</script>
+</body></html>
