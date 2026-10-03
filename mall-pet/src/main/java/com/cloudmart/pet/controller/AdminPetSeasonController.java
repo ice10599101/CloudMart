@@ -112,9 +112,8 @@ public class AdminPetSeasonController {
         if (season == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "赛季不存在");
         }
-        if ("SETTLED".equals(season.getStatus())) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "已结算赛季不可修改奖励");
-        }
+        // R17：替换收口到事务应用服务（原 Controller 内先 delete 再逐条 insert 无事务，
+        // 中途失败留空/半张奖励表）；FREEZING/SETTLING 一并禁止改奖励
         List<PetSeasonReward> tiers = request.tiers().stream().map(tier -> {
             PetSeasonReward reward = new PetSeasonReward();
             reward.setSeasonId(id);
@@ -125,9 +124,7 @@ public class AdminPetSeasonController {
             return reward;
         }).toList();
         settlementService.validateTiers(tiers);
-        rewardMapper.delete(new LambdaQueryWrapper<PetSeasonReward>()
-                .eq(PetSeasonReward::getSeasonId, id));
-        tiers.forEach(rewardMapper::insert);
+        settlementService.replaceTiersGuarded(id, season.getStatus(), tiers);
         governance.snapshotAndRecord("pet_season", id,
                 PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);

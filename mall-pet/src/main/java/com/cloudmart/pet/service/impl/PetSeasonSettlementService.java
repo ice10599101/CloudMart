@@ -369,6 +369,23 @@ public class PetSeasonSettlementService {
     }
 
     /**
+     * R17 奖励梯度原子替换：锁住赛季行再 delete+insert 同事务——中途失败整体回滚，
+     * 原梯度完整保留；FREEZING/SETTLING/SETTLED 一律禁止修改（进行中结算的奖励口径不可变）。
+     */
+    @Transactional
+    public void replaceTiersGuarded(Long seasonId, String seasonStatus, List<PetSeasonReward> tiers) {
+        if (!"ACTIVE".equals(seasonStatus)) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR,
+                    "当前赛季状态（" + seasonStatus + "）不可修改奖励梯度");
+        }
+        jdbcTemplate.queryForMap("SELECT id FROM pet_season WHERE id = ? FOR UPDATE", seasonId);
+        rewardMapper.delete(new LambdaQueryWrapper<PetSeasonReward>()
+                .eq(PetSeasonReward::getSeasonId, seasonId));
+        tiers.forEach(rewardMapper::insert);
+    }
+
+    /**
      * 校验奖励梯度（管理端保存前调用）：null 先拒（R17：原实现 sorted 时 NPE 前置）、
      * 区间合法且互斥、按 rank_min 升序、禁止负奖励。
      */

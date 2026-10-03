@@ -132,11 +132,15 @@ public class PetConfigGovernanceService {
                                 "rewardItemCode 不存在（须为已上架装备编码）: " + itemCode);
                     }
                 }
-                // 开始时间必须早于结束时间（两者均提供时）
+                // R17：开始时间必须早于结束时间——按 Instant 比较（字符串比较对非标准格式脆弱）
                 Object starts = data.get("startsAt");
                 Object ends = data.get("endsAt");
-                if (starts != null && ends != null && String.valueOf(starts).compareTo(String.valueOf(ends)) >= 0) {
-                    throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "开始时间必须早于结束时间");
+                if (starts != null && ends != null) {
+                    java.time.Instant startsAt = parseInstantOrNull(starts);
+                    java.time.Instant endsAt = parseInstantOrNull(ends);
+                    if (startsAt != null && endsAt != null && !startsAt.isBefore(endsAt)) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "开始时间必须早于结束时间");
+                    }
                 }
             }
             case "furniture", "equipment", "skin" -> {
@@ -173,9 +177,9 @@ public class PetConfigGovernanceService {
                 Object stageTo = data.get("stageTo");
                 if (stageFrom != null && stageTo != null
                         && Integer.parseInt(String.valueOf(stageTo))
-                                <= Integer.parseInt(String.valueOf(stageFrom))) {
+                                != Integer.parseInt(String.valueOf(stageFrom)) + 1) {
                     throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                            "stageTo 必须大于 stageFrom（逐阶进化）");
+                            "stageTo 必须等于 stageFrom + 1（逐阶进化，不允许跳阶）");
                 }
                 // P1-7：外键型校验——解锁皮肤编码必须真实存在
                 Object skinCode = data.get("unlockSkinCode");
@@ -193,6 +197,26 @@ public class PetConfigGovernanceService {
         }
     }
 
+    /** R17：兼容 ISO 带时区/带 Z/本地时间三种形态解析；不可解析返回 null（不误杀） */
+    private static java.time.Instant parseInstantOrNull(Object raw) {
+        String text = String.valueOf(raw);
+        try {
+            return java.time.OffsetDateTime.parse(text).toInstant();
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // 继续尝试其他形态
+        }
+        try {
+            return java.time.Instant.parse(text);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // 继续尝试其他形态
+        }
+        try {
+            return java.time.LocalDateTime.parse(text).toInstant(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
     /**
      * 技能效果值语义校验（P1-7）：比例型效果（伤害/成功率/加成比例/减免）取值 0~1，
      * 点数型（QUICK_STEP 先手加成）取值 0~100。
@@ -206,6 +230,10 @@ public class PetConfigGovernanceService {
             value = Double.parseDouble(String.valueOf(raw));
         } catch (NumberFormatException e) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "effectValue 必须是数字");
+        }
+        // R17：NaN/Infinity 能通过区间比较（NaN 的所有比较均为 false）——必须显式拒绝
+        if (!Double.isFinite(value)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "effectValue 必须是有限数");
         }
         boolean ratio = !"QUICK_STEP".equals(effectName);
         double max = ratio ? 1.0 : 100.0;
