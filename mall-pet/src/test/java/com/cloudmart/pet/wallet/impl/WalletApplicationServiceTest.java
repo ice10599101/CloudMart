@@ -103,12 +103,12 @@ class WalletApplicationServiceTest {
     void purchase_alreadyOwned_zeroCharge() {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("EQUIPMENT", "sword", 100, "v1", "剑", "r-key"));
-        when(catalog.isUniquePerUser("EQUIPMENT")).thenReturn(true);
-        when(catalog.isOwnedByUser(1001L, "EQUIPMENT", "sword")).thenReturn(true);
+        when(catalog.isUniquePerPet("EQUIPMENT")).thenReturn(true);
+        when(catalog.isOwnedByPet(5L, "EQUIPMENT", "sword")).thenReturn(true);
 
         assertThatThrownBy(() -> service.purchase(1001L, 5L, "EQUIPMENT", "sword", "intent-key-000001", "v1"))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
@@ -122,11 +122,11 @@ class WalletApplicationServiceTest {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
         when(dedupMapper.update(any(), any())).thenReturn(1);
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("FOOD", "cake", 20, "v1", "蛋糕", "r-key"));
-        when(catalog.isUniquePerUser("FOOD")).thenReturn(false);
+        when(catalog.isUniquePerPet("FOOD")).thenReturn(false);
         when(orderMapper.insert(any(PetPurchaseOrder.class))).thenAnswer(inv -> {
             inv.getArgument(0, PetPurchaseOrder.class).setId(700L);
             return 1;
@@ -160,8 +160,8 @@ class WalletApplicationServiceTest {
                     + "\"deliveredSlots\":[\"cake\"],\"duplicate\":false,\"errorCode\":null}");
             return row;
         });
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService,
-                catalogProvider(catalog), emptyProvider(), orderMapper, assetGrantMapper, txTemplate());
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
 
         var result = service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000002", "v1");
 
@@ -264,6 +264,25 @@ class WalletApplicationServiceTest {
         return provider;
     }
 
+    /** R02：购买事务要求恰好一个交付器匹配（唯一类/食物由真实实现分流，桩统一受理） */
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<PetPurchaseCatalog.PetAssetDeliverer> delivererProvider() {
+        ObjectProvider<PetPurchaseCatalog.PetAssetDeliverer> provider = mock(ObjectProvider.class);
+        org.mockito.Mockito.lenient().when(provider.stream()).thenReturn(java.util.stream.Stream.of(
+                new PetPurchaseCatalog.PetAssetDeliverer() {
+                    @Override
+                    public boolean supports(String itemType) {
+                        return true;
+                    }
+
+                    @Override
+                    public java.util.List<String> deliver(DeliveryContext context) {
+                        return java.util.List.of(context.itemCode());
+                    }
+                }));
+        return provider;
+    }
+
     private static <T> ObjectProvider<T> emptyProvider() {
         ObjectProvider<T> provider = mock(ObjectProvider.class);
         lenient().when(provider.iterator()).thenReturn(java.util.Collections.<T>emptyListIterator());
@@ -281,7 +300,7 @@ class WalletApplicationServiceTest {
 
         @Override
         public void completeSucceeded(Long userId, String endpointKey, String requestKey,
-                                      Long bizOrderId, String responseJson) {
+                                      String expectedLeaseOwner, Long bizOrderId, String responseJson) {
             completed++;
         }
     }

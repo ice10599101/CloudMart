@@ -28,15 +28,26 @@ public interface PetRequestDedupService {
     /**
      * 业务成功后写入终态响应（P02：REQUIRED——购买成功路径在业务事务内调用，
      * 与订单/钱包/资产同一事务提交；业务拒绝路径无事务时自成小事务）。
+     *
+     * @param expectedLeaseOwner R02 fencing：仅当行租约仍归属该执行者才允许写终态，
+     *                           旧执行者（租约已被接管轮换）不得覆盖新执行者的终态；
+     *                           传 null 表示无租约上下文（不经 claim 的锚点写入，保持原语义）
      */
     void completeSucceeded(Long userId, String endpointKey, String requestKey,
-                           Long bizOrderId, String responseJson);
+                           String expectedLeaseOwner, Long bizOrderId, String responseJson);
 
     /**
      * 未知失败（P02：REQUIRED；业务事务已回滚后调用，自成小事务）；
-     * 同键下次重试重新执行。
+     * 同键下次重试重新执行。fencing 语义同 {@link #completeSucceeded}。
      */
-    void markFailed(Long userId, String endpointKey, String requestKey, String errorJson);
+    void markFailed(Long userId, String endpointKey, String requestKey,
+                    String expectedLeaseOwner, String errorJson);
+
+    /**
+     * R02：旧请求无显式 petId 时冻结首次绑定归属（幂等：仅在 bound_pet_id 为空时写入）。
+     * 重放/接管后由 claim 返回 boundPetId，同一意图不随主宠切换改投另一只宠物。
+     */
+    void bindPet(Long userId, String endpointKey, String requestKey, Long petId);
 
     /** 规范请求摘要：按固定次序序列化后 SHA-256（客户端 requestKey 不进入业务事实摘要） */
     String canonicalHash(Object... parts);
@@ -54,8 +65,9 @@ public interface PetRequestDedupService {
         return true;
     }
 
-    /** 占键结果 */
-    record ClaimResult(Outcome outcome, Long dedupId, String responseJson) {
+    /** 占键结果（R02：携带租约归属与既有绑定宠物，供 fencing 终态回写与原归属重放） */
+    record ClaimResult(Outcome outcome, Long dedupId, String responseJson,
+                       String leaseOwner, Long boundPetId) {
         public enum Outcome { NEW, EXISTING, IN_PROGRESS }
     }
 }

@@ -87,14 +87,25 @@ public class PetPurchaseRecoveryService {
             // 业务事实已成立：按订单/流水/资产事实重建终态，不产生任何新业务事实
             PetPurchaseApplicationService.PurchaseResult rebuilt =
                     purchaseApplicationService.rebuildResult(row.getUserId(), row.getRequestKey(), order);
+            // R02 fencing：接管成功后重读行取当前租约归属，终态回写匹配 owner（旧执行者失效）
+            PetRequestDedup current = dedupMapper.selectOne(new LambdaQueryWrapper<PetRequestDedup>()
+                    .eq(PetRequestDedup::getUserId, row.getUserId())
+                    .eq(PetRequestDedup::getEndpointKey, row.getEndpointKey())
+                    .eq(PetRequestDedup::getRequestKey, row.getRequestKey()));
             dedupService.completeSucceeded(row.getUserId(), row.getEndpointKey(), row.getRequestKey(),
+                    current == null ? null : current.getLeaseOwner(),
                     order.getId(), PetJsonUtils.toJson(rebuilt));
             log.info("购买幂等按业务事实恢复完成, userId={}, requestKey={}, orderId={}",
                     row.getUserId(), row.getRequestKey(), order.getId());
             return;
         }
         // 无已提交业务事实（业务事务原子回滚或从未开始）：置 FAILED 释放同键重试，重试不会重复扣款
+        PetRequestDedup current = dedupMapper.selectOne(new LambdaQueryWrapper<PetRequestDedup>()
+                .eq(PetRequestDedup::getUserId, row.getUserId())
+                .eq(PetRequestDedup::getEndpointKey, row.getEndpointKey())
+                .eq(PetRequestDedup::getRequestKey, row.getRequestKey()));
         dedupService.markFailed(row.getUserId(), row.getEndpointKey(), row.getRequestKey(),
+                current == null ? null : current.getLeaseOwner(),
                 PetJsonUtils.toJson(Map.of("error", "LEASE_EXPIRED_NO_COMMITTED_FACT")));
         log.info("购买幂等残留无业务事实，置为可重试, userId={}, requestKey={}",
                 row.getUserId(), row.getRequestKey());

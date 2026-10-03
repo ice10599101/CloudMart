@@ -219,6 +219,8 @@ public final class PetErrorCodes {
     public static final String PET_PERMISSION_DENIED = "PET_PERMISSION_DENIED";
     /** 功能开关关闭（§9.3 可回退开关） */
     public static final String PET_FEATURE_DISABLED = "PET_FEATURE_DISABLED";
+    /** 依赖暂不可用（R02：目录/交付器未就绪等，购买入口短暂不可用，503） */
+    public static final String PET_TEMPORARILY_UNAVAILABLE = "PET_TEMPORARILY_UNAVAILABLE";
 
     // --- 429 Too Many Requests ---
     /** 今日聊天次数已达上限 */

@@ -18,11 +18,14 @@ public interface PetPurchaseCatalog {
      */
     CatalogEntry load(Long userId, Long petId, String itemType, String itemCode, String expectedConfigVersion);
 
-    /** @return 该物品是否不可重复拥有（第二笔扣款必须原路退/拒绝，§3.2） */
-    boolean isUniquePerUser(String itemType);
+    /**
+     * @return 该物品类型是否同一宠物仅可拥有一份（R02：唯一性按 petId+类型+编码，
+     *         不改成全账号唯一——多宠各自拥有；FOOD 堆叠可重复购买）
+     */
+    boolean isUniquePerPet(String itemType);
 
-    /** @return 物品是否已归属该用户（不可重复物品的资格锁判定，T06） */
-    boolean isOwnedByUser(Long userId, String itemType, String itemCode);
+    /** @return 物品是否已归属该宠物（唯一类物品的资格锁判定，T06） */
+    boolean isOwnedByPet(Long petId, String itemType, String itemCode);
 
     /** 商品快照（服务端权威） */
     record CatalogEntry(
@@ -45,8 +48,11 @@ public interface PetPurchaseCatalog {
     /** 资产交付回调（W02 注册；在业务事务内执行，失败整体回滚） */
     interface PetAssetDeliverer {
 
+        /** @return 是否受理该物品类型的交付（R02：每种类型必须恰好匹配一个交付器，否则整单失败） */
+        boolean supports(String itemType);
+
         /**
-         * 交付资产到业务库存（装备/皮肤/技能/家具等）。
+         * 交付资产到业务库存（装备/皮肤/技能/家具/食物等）。
          *
          * @return 实际交付的 reward_slot 列表（空列表=无业务库存，仅记录发放事实）
          */

@@ -70,9 +70,10 @@ public class PetRewardApplicationServiceImpl implements PetRewardApplicationServ
         RewardClaimResult result = transactionTemplate.execute(status -> doClaim(command, slot, resolver));
         if (command.requestKey() != null && !command.requestKey().isBlank()
                 && PetRequestDedupService.isValidRequestKey(command.requestKey())) {
-            // 网络重试收敛锚点：同请求键下次直接返回（事实键本身已保证一次性）
+            // 网络重试收敛锚点：同请求键下次直接返回（事实键本身已保证一次性）。
+            // 无租约上下文（不经 claim），expectedLeaseOwner 传 null 保持原语义
             dedupService.completeSucceeded(command.userId(), ENDPOINT_KEY,
-                    command.requestKey(), claimIdOf(result), PetJsonUtils.toJson(result));
+                    command.requestKey(), null, claimIdOf(result), PetJsonUtils.toJson(result));
         }
         return result;
     }

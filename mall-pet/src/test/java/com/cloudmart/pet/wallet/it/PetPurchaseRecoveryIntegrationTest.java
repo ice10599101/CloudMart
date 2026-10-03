@@ -114,12 +114,12 @@ class PetPurchaseRecoveryIntegrationTest {
                 }
 
                 @Override
-                public boolean isUniquePerUser(String itemType) {
+                public boolean isUniquePerPet(String itemType) {
                     return false;
                 }
 
                 @Override
-                public boolean isOwnedByUser(Long userId, String itemType, String itemCode) {
+                public boolean isOwnedByPet(Long petId, String itemType, String itemCode) {
                     return false;
                 }
             };
@@ -128,7 +128,17 @@ class PetPurchaseRecoveryIntegrationTest {
         /** 测试交付器：业务库存无副作用，仅返回槽位（asset_grant 事实仍由应用服务记录） */
         @Bean
         PetPurchaseCatalog.PetAssetDeliverer testDeliverer() {
-            return context -> List.of(context.itemCode());
+            return new PetPurchaseCatalog.PetAssetDeliverer() {
+                @Override
+                public boolean supports(String itemType) {
+                    return true;
+                }
+
+                @Override
+                public java.util.List<String> deliver(DeliveryContext context) {
+                    return java.util.List.of(context.itemCode());
+                }
+            };
         }
     }
 

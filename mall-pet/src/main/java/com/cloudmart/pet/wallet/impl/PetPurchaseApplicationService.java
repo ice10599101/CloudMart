@@ -47,6 +47,7 @@ public class PetPurchaseApplicationService {
 
     private final PetRequestDedupService dedupService;
     private final PetWalletService walletService;
+    private final com.cloudmart.pet.service.PetService petService;
     /** 目录实现随 W-02 商城接入提供；ObjectProvider 允许无实现时服务正常启动（购买入口不可用） */
     private final org.springframework.beans.factory.ObjectProvider<PetPurchaseCatalog> catalogProvider;
     private final ObjectProvider<PetAssetDeliverer> deliverers;
@@ -56,6 +57,7 @@ public class PetPurchaseApplicationService {
 
     public PetPurchaseApplicationService(PetRequestDedupService dedupService,
                                          PetWalletService walletService,
+                                         com.cloudmart.pet.service.PetService petService,
                                          ObjectProvider<PetPurchaseCatalog> catalogProvider,
                                          ObjectProvider<PetAssetDeliverer> deliverers,
                                          PetPurchaseOrderMapper orderMapper,
@@ -63,6 +65,7 @@ public class PetPurchaseApplicationService {
                                          TransactionTemplate transactionTemplate) {
         this.dedupService = dedupService;
         this.walletService = walletService;
+        this.petService = petService;
         this.catalogProvider = catalogProvider;
         this.deliverers = deliverers;
         this.orderMapper = orderMapper;
@@ -74,6 +77,8 @@ public class PetPurchaseApplicationService {
      * 幂等购买。
      *
      * @param requestKey 客户端持久化幂等键（16..128 ASCII；同一意图重试必须复用）
+     * @param petId      目标宠物（R02：可为 null——旧客户端兼容路径；首次执行绑定当前主宠并
+     *                   持久化到去重行，重放/接管按原绑定执行，切宠不改投）
      */
     public PurchaseResult purchase(Long userId, Long petId, String itemType, String itemCode,
                                    String requestKey, String expectedConfigVersion) {
@@ -81,8 +86,11 @@ public class PetPurchaseApplicationService {
             throw new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
                     "缺少有效幂等键（16..128 ASCII），请重试一次由客户端生成");
         }
+        // R02：摘要包含显式 petId；旧请求无 petId 用 BIND 标记——同键重试摘要稳定，
+        // 不因服务端解析出的当前主宠不同而误判"同键异参"
         String payloadHash = dedupService.canonicalHash(
-                userId, petId == null ? "" : petId, itemType, itemCode, expectedConfigVersion == null ? "" : expectedConfigVersion);
+                userId, petId == null ? "BIND" : petId, itemType, itemCode,
+                expectedConfigVersion == null ? "" : expectedConfigVersion);
 
         PetRequestDedupService.ClaimResult claim = dedupService.claim(
                 userId, ENDPOINT_KEY, requestKey, payloadHash);
@@ -94,8 +102,8 @@ public class PetPurchaseApplicationService {
                         });
                 if (stored != null) {
                     return new PurchaseResult(stored.orderId(), stored.operationId(), stored.walletTransactionId(),
-                            stored.balanceAfter(), stored.itemType(), stored.itemCode(), stored.deliveredSlots(),
-                            true, stored.errorCode());
+                            stored.balanceAfter(), stored.petId(), stored.itemType(), stored.itemCode(),
+                            stored.deliveredSlots(), true, stored.errorCode());
                 }
                 throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史购买结果快照损坏");
             }
@@ -106,13 +114,21 @@ public class PetPurchaseApplicationService {
             }
         }
 
+        // R02：无显式 petId 的首次执行绑定当前主宠并冻结（重放按 claim 返回的原绑定）
+        if (petId == null) {
+            petId = claim.boundPetId() != null ? claim.boundPetId() : petService.requireOwnedPet(userId).getId();
+            dedupService.bindPet(userId, ENDPOINT_KEY, requestKey, petId);
+        }
+        String leaseOwner = claim.leaseOwner();
+        final Long boundPetId = petId;
+
         try {
             // P02：dedup 终态写入包含在业务事务内——提交即"订单+扣款+资产+幂等事实"四者原子成立，
             // 不存在"业务已成功、终态回写失败被误标 FAILED 后重试二次交付"的窗口
             PurchaseResult result = transactionTemplate.execute(status -> {
                 PurchaseResult purchased = doPurchase(
-                        userId, petId, itemType, itemCode, expectedConfigVersion, requestKey);
-                dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey,
+                        userId, boundPetId, itemType, itemCode, expectedConfigVersion, requestKey);
+                dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
                         purchased.orderId() == null ? null : Long.valueOf(purchased.orderId()),
                         PetJsonUtils.toJson(purchased));
                 return purchased;
@@ -121,20 +137,22 @@ public class PetPurchaseApplicationService {
         } catch (PetPurchaseCatalog.AlreadyOwnedException already) {
             // 不可重复物品已拥有：零扣款的明确拒绝，终态响应保存（T06）
             PurchaseResult rejected = new PurchaseResult(null, operationIdOf(userId, requestKey), null,
-                    null, itemType, itemCode, List.of(), false, PetErrorCodes.PET_ITEM_ALREADY_OWNED);
-            dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, null, PetJsonUtils.toJson(rejected));
+                    null, boundPetId, itemType, itemCode, List.of(), false, PetErrorCodes.PET_ITEM_ALREADY_OWNED);
+            dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
+                    null, PetJsonUtils.toJson(rejected));
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "已拥有该物品，无需重复购买");
         } catch (BusinessException definite) {
             // 业务明确拒绝（余额不足/版本冲突/不可购买）：保存终态响应，同键返回原拒绝（§8.2）
             PurchaseResult rejected = new PurchaseResult(null, operationIdOf(userId, requestKey), null,
-                    null, itemType, itemCode, List.of(), false, definite.getCode());
-            dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, null, PetJsonUtils.toJson(rejected));
+                    null, boundPetId, itemType, itemCode, List.of(), false, definite.getCode());
+            dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
+                    null, PetJsonUtils.toJson(rejected));
             throw definite;
         } catch (RuntimeException unknown) {
             // 非业务异常（基础设施等）：业务事务已整体回滚（dedup 终态与业务同事务，一并回滚），
             // 本地无任何已提交事实，置 FAILED 后同键重试是安全的
             log.error("购买事务未知失败, userId={}, itemType={}, itemCode={}", userId, itemType, itemCode, unknown);
-            dedupService.markFailed(userId, ENDPOINT_KEY, requestKey,
+            dedupService.markFailed(userId, ENDPOINT_KEY, requestKey, leaseOwner,
                     PetJsonUtils.toJson(Map.of("error", String.valueOf(unknown.getMessage()))));
             throw unknown;
         }
@@ -148,7 +166,7 @@ public class PetPurchaseApplicationService {
             throw new BusinessException("PET_TEMPORARILY_UNAVAILABLE", "商城目录未接入，购买暂不可用");
         }
         PetPurchaseCatalog.CatalogEntry entry = catalog.load(userId, petId, itemType, itemCode, expectedConfigVersion);
-        if (catalog.isUniquePerUser(itemType) && catalog.isOwnedByUser(userId, itemType, itemCode)) {
+        if (catalog.isUniquePerPet(itemType) && catalog.isOwnedByPet(petId, itemType, itemCode)) {
             throw new PetPurchaseCatalog.AlreadyOwnedException(itemType + ":" + itemCode);
         }
 
@@ -210,12 +228,21 @@ public class PetPurchaseApplicationService {
 
         return new PurchaseResult(String.valueOf(order.getId()), operationId,
                 wallet.transactionId() == null ? null : String.valueOf(wallet.transactionId()),
-                wallet.balanceAfter(), itemType, itemCode, slots, false, null);
+                wallet.balanceAfter(), petId, itemType, itemCode, slots, false, null);
     }
 
-    /** 资产交付：asset_grant 事实记录（uk 保证同单同槽一次）+ 交付器回调业务库存 */
+    /** 资产交付：asset_grant 事实记录（uk 保证同单同槽一次）+ 交付器回调业务库存。
+     * R02：交付器必须恰好匹配一个——匹配零个（缺交付器）整单失败，绝不默认视为已交付 */
     private List<String> deliver(PetPurchaseOrder order, Long userId, Long petId,
                                  PetPurchaseCatalog.CatalogEntry entry) {
+        PetAssetDeliverer deliverer = deliverers.stream()
+                .filter(d -> d.supports(order.getItemType()))
+                .reduce((a, b) -> {
+                    throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                            "物品类型交付器配置冲突（多个实现匹配）: " + order.getItemType());
+                })
+                .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_TEMPORARILY_UNAVAILABLE,
+                        "物品类型暂不支持交付: " + order.getItemType()));
         PetAssetGrant grant = new PetAssetGrant();
         grant.setUserId(userId);
         grant.setPetId(petId);
@@ -231,16 +258,10 @@ public class PetPurchaseApplicationService {
             // 同单同槽已发放（重复回调）：幂等跳过
             return List.of(entry.itemCode());
         }
-        List<String> slots = List.of(entry.itemCode());
-        for (PetAssetDeliverer deliverer : deliverers) {
-            List<String> delivered = deliverer.deliver(new PetAssetDeliverer.DeliveryContext(
-                    userId, petId, order.getId(), order.getItemType(), order.getItemCode(),
-                    order.getQuantity(), entry));
-            if (delivered != null && !delivered.isEmpty()) {
-                slots = delivered;
-            }
-        }
-        return slots;
+        List<String> delivered = deliverer.deliver(new PetAssetDeliverer.DeliveryContext(
+                userId, petId, order.getId(), order.getItemType(), order.getItemCode(),
+                order.getQuantity(), entry));
+        return delivered != null && !delivered.isEmpty() ? delivered : List.of(entry.itemCode());
     }
 
     private long currentBalance(Long userId) {
@@ -263,7 +284,7 @@ public class PetPurchaseApplicationService {
     PurchaseResult rebuildResult(PetPurchaseOrder order, String operationId) {
         return new PurchaseResult(String.valueOf(order.getId()), operationId,
                 order.getWalletTransactionId() == null ? null : String.valueOf(order.getWalletTransactionId()),
-                currentBalance(order.getUserId()), order.getItemType(), order.getItemCode(),
+                currentBalance(order.getUserId()), order.getPetId(), order.getItemType(), order.getItemCode(),
                 deliveredSlotsOf(order), true, null);
     }
 
@@ -280,6 +301,7 @@ public class PetPurchaseApplicationService {
     /**
      * 购买结果（契约 §8.1：ID/操作键为字符串，余额为十进制字符串语义由序列化层保证）。
      *
+     * @param petId    实际归属宠物（R02：显式传入或首次绑定的冻结值）
      * @param duplicate 是否命中原请求终态
      * @param errorCode 业务拒绝码（成功为 null）
      */
@@ -288,6 +310,7 @@ public class PetPurchaseApplicationService {
             String operationId,
             String walletTransactionId,
             Long balanceAfter,
+            Long petId,
             String itemType,
             String itemCode,
             List<String> deliveredSlots,

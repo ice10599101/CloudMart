@@ -35,6 +35,9 @@ public class PetRequestDedup {
     /** 规范请求摘要 SHA-256 */
     private String payloadHash;
 
+    /** 首次执行绑定的目标宠物 ID（R02：旧请求无显式 petId 时冻结，重放按原归属不随主宠切换） */
+    private Long boundPetId;
+
     /** 业务单 ID */
     private Long bizOrderId;
 
@@ -52,6 +55,12 @@ public class PetRequestDedup {
 
     /** 终态响应快照 JSON */
     private String responseJson;
+
+    /** 业务拒绝终态码（COMPLETED 且为拒绝结果时记录；重放返回同一拒绝） */
+    private String terminalErrorCode;
+
+    /** 终态完成时间（UTC） */
+    private LocalDateTime finishedAt;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

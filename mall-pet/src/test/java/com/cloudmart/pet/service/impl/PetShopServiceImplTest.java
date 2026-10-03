@@ -7,16 +7,14 @@ import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
-import com.cloudmart.pet.entity.PetEquipmentConfig;
 import com.cloudmart.pet.entity.PetInventory;
-import com.cloudmart.pet.entity.PetSkinConfig;
-import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.repository.PetEquipmentConfigMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetSkillConfigMapper;
-import com.cloudmart.pet.repository.PetSkillMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
+import com.cloudmart.pet.repository.PetSkillMapper;
 import com.cloudmart.pet.service.PetService;
+import com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService;
 import com.cloudmart.pet.vo.PetInventoryItemVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,31 +22,30 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 宠物商城测试：门槛校验（等级/进化/种类）、重复购买拒绝、价格 0 不扣星光、
- * 购买顺序（先入包后扣星光，扣减异常向上抛出触发回滚）。
+ * R02 商城门面测试：buy 只做统一购买服务委托 + 兼容结果组装，
+ * 扣款/交付/幂等在 PetPurchaseApplicationService 内编排（另有专测）。
+ * 门槛校验（等级/进化/种类/上下架）已上收到 DefaultPetPurchaseCatalog。
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("PetShopServiceImpl 单元测试")
+@DisplayName("PetShopServiceImpl 门面测试（R02）")
 class PetShopServiceImplTest {
 
     @Mock
@@ -66,12 +63,7 @@ class PetShopServiceImplTest {
     @Mock
     private PetSkillMapper skillMapper;
     @Mock
-    private PetEconomyService economyService;
-    @Mock
-    private WishFeignClient wishFeignClient;
-    @org.mockito.Mock
-    private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
-
+    private PetPurchaseApplicationService purchaseApplicationService;
 
     private PetShopServiceImpl shopService;
 
@@ -83,140 +75,82 @@ class PetShopServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.lenient().when(inventoryMapper.insert(org.mockito.ArgumentMatchers.any(PetInventory.class))).thenReturn(1);
-        economyService = org.mockito.Mockito.mock(PetEconomyService.class);
-                org.mockito.Mockito.when(economyService.spend(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         shopService = new PetShopServiceImpl(petService, itemCatalog, equipmentConfigMapper, skinConfigMapper,
-                skillConfigMapper, inventoryMapper, skillMapper, wishFeignClient, economyService,
-                playFeatureService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class));
+                skillConfigMapper, inventoryMapper, skillMapper,
+                org.mockito.Mockito.mock(PetEconomyService.class),
+                org.mockito.Mockito.mock(PetPlayFeatureService.class),
+                org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class),
+                purchaseApplicationService);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
-        lenient().when(inventoryMapper.selectList(any())).thenReturn(List.of());
+        // 拦截器在真实请求中捕获 Idempotency-Key；测试里手动放置并清理
+        com.cloudmart.pet.config.PetRequestContext.setIdempotencyKey("req-key-16-chars-ok");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        com.cloudmart.pet.config.PetRequestContext.clear();
     }
 
     @Test
-    @DisplayName("购买装备：先幂等扣星光再入包（B01 顺序），返回背包物品")
-    void buyEquipmentInsertsThenSpends() {
-        when(itemCatalog.equipment("straw_hat")).thenReturn(Optional.of(equipment("straw_hat", 120, 1, 0)));
-        when(inventoryMapper.selectCount(any())).thenReturn(0L);
-        when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
-        PetInventoryItemVO vo = new PetInventoryItemVO("EQUIPMENT", "straw_hat", "草编渔夫帽", "", "👒",
-                "COMMON", "HAT", null, null, null, null, 0, 0, 1, 1, 0, false, 1, false, null);
+    @DisplayName("R02 购买委托：携带幂等键/目标宠物/版本调用统一购买服务，按归属宠物组装背包 VO")
+    void buyDelegatesToPurchaseApplicationService() {
+        PetInventory row = inventory();
+        var result = new PetPurchaseApplicationService.PurchaseResult(
+                "2040000000000000001", "pw_x", "wt_1", 80L, 1L, "FOOD", "apple", List.of("apple"), false, null);
+        when(purchaseApplicationService.purchase(100L, 1L, "FOOD", "apple", "req-key-16-chars-ok", null))
+                .thenReturn(result);
+        when(inventoryMapper.selectOne(any())).thenReturn(row);
+        PetInventoryItemVO vo = new PetInventoryItemVO("FOOD", "apple", "苹果", "", "🍎",
+                "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0, false, 1, false, null);
         when(itemCatalog.toInventoryVo(any(), eq(false))).thenReturn(vo);
 
-        PetInventoryItemVO result = shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "straw_hat"));
+        PetInventoryItemVO out = shopService.buy(100L,
+                new BuyItemRequest("FOOD", "apple", 1L, null));
 
-        assertThat(result.code()).isEqualTo("straw_hat");
-        verify(inventoryMapper).insert(any(PetInventory.class));
-        // B01：扣款经统一操作记录，先扣款后入包
-        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        assertThat(out.code()).isEqualTo("apple");
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetInventory>> captor =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(inventoryMapper).selectOne(captor.capture());
+        assertThat(captor.getValue()).isNotNull();
     }
 
     @Test
-    @DisplayName("购买装备：价格 0 时不调用星光服务")
-    void freeItemDoesNotSpend() {
-        when(itemCatalog.equipment("free_hat")).thenReturn(Optional.of(equipment("free_hat", 0, 1, 0)));
-        when(inventoryMapper.selectCount(any())).thenReturn(0L);
-        when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
-        when(itemCatalog.toInventoryVo(any(), anyBoolean())).thenReturn(null);
+    @DisplayName("R02 缺幂等键：统一购买服务抛 PET_REQUEST_KEY_INVALID 时门面不吞（400）")
+    void missingRequestKeyPropagates() {
+        when(purchaseApplicationService.purchase(eq(100L), any(), eq("FOOD"), eq("apple"), any(), any()))
+                .thenThrow(new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID, "缺少有效幂等键"));
 
-        shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "free_hat"));
-
-        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
-    }
-
-    @Test
-    @DisplayName("重复购买：409 PET_ITEM_ALREADY_OWNED，且不扣星光")
-    void duplicatePurchaseRejected() {
-        when(itemCatalog.equipment("straw_hat")).thenReturn(Optional.of(equipment("straw_hat", 120, 1, 0)));
-        when(inventoryMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "straw_hat")))
+        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("FOOD", "apple", 1L, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_ITEM_ALREADY_OWNED);
-        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+                .isEqualTo(PetErrorCodes.PET_REQUEST_KEY_INVALID);
     }
 
     @Test
-    @DisplayName("等级不足：409 PET_LEVEL_REQUIRED，且不扣星光")
-    void levelGateBlocksPurchase() {
-        when(itemCatalog.equipment("explorer_cap")).thenReturn(Optional.of(equipment("explorer_cap", 320, 10, 0)));
-
-        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "explorer_cap")))
+    @DisplayName("家具购买走家园商城：商城入口显式拒绝，不进购买服务")
+    void furnitureRedirectedToHomeShop() {
+        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("FURNITURE", "rug", 1L, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+                .isEqualTo(PetErrorCodes.PET_VALIDATION_ERROR);
+        verify(purchaseApplicationService, org.mockito.Mockito.never()).purchase(
+                any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("进化阶段不足：409 PET_EVOLUTION_REQUIRED")
-    void evolutionGateBlocksPurchase() {
-        when(itemCatalog.equipment("crystal_pendant"))
-                .thenReturn(Optional.of(equipment("crystal_pendant", 680, 1, 1)));
+    @DisplayName("R02 防伪装成功：订单成功但背包行不可读 → PET_SETTLEMENT_PENDING 而非返回 null")
+    void missingInventoryRowFailsLoudly() {
+        var result = new PetPurchaseApplicationService.PurchaseResult(
+                "2040000000000000001", "pw_x", "wt_1", 80L, 1L, "FOOD", "apple", List.of("apple"), false, null);
+        when(purchaseApplicationService.purchase(eq(100L), any(), any(), any(), any(), any()))
+                .thenReturn(result);
+        when(inventoryMapper.selectOne(any())).thenReturn(null);
 
-        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "crystal_pendant")))
+        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("FOOD", "apple", 1L, null)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_EVOLUTION_REQUIRED);
-    }
-
-    @Test
-    @DisplayName("皮肤种类不匹配：400 PET_SKIN_SPECIES_MISMATCH")
-    void skinSpeciesMismatchRejected() {
-        PetSkinConfig skin = new PetSkinConfig();
-        skin.setCode("golden_dog");
-        skin.setName("金渐层柴");
-        skin.setSpecies("ORANGE");
-        skin.setColor("golden");
-        skin.setAccessory("bandana");
-        skin.setPriceStarlight(260);
-        skin.setRequiredLevel(2);
-        skin.setRequiredEvolutionStage(0);
-        skin.setEnabled(true);
-        when(itemCatalog.skin("golden_dog")).thenReturn(Optional.of(skin));
-
-        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("SKIN", "golden_dog")))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_SKIN_SPECIES_MISMATCH);
-    }
-
-    @Test
-    @DisplayName("物品已下架：404 PET_ITEM_NOT_FOUND")
-    void disabledItemNotFound() {
-        PetEquipmentConfig disabled = equipment("straw_hat", 120, 1, 0);
-        disabled.setEnabled(false);
-        when(itemCatalog.equipment("straw_hat")).thenReturn(Optional.of(disabled));
-
-        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("EQUIPMENT", "straw_hat")))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getCode())
-                .isEqualTo(PetErrorCodes.PET_ITEM_NOT_FOUND);
-    }
-
-    private PetEquipmentConfig equipment(String code, int price, int requiredLevel, int requiredEvolutionStage) {
-        PetEquipmentConfig config = new PetEquipmentConfig();
-        config.setCode(code);
-        config.setName(code);
-        config.setSlot("HAT");
-        config.setRarity("COMMON");
-        config.setIcon("👒");
-        config.setPriceStarlight(price);
-        config.setBonusStrength(0);
-        config.setBonusIntelligence(0);
-        config.setBonusAgility(1);
-        config.setBonusCharm(1);
-        config.setBonusMaxHp(0);
-        config.setRequiredLevel(requiredLevel);
-        config.setRequiredEvolutionStage(requiredEvolutionStage);
-        config.setEnabled(true);
-        return config;
+                .isEqualTo(PetErrorCodes.PET_SETTLEMENT_PENDING);
     }
 
     private Pet pet() {
@@ -234,46 +168,6 @@ class PetShopServiceImplTest {
         pet.setCharm(5);
         pet.setEvolutionStage(0);
         return pet;
-    }
-
-    @Test
-    @DisplayName("F1 购买食物：扣款+堆叠入包+解锁图鉴，返回背包物品")
-    void buyFoodStacksInventory() {
-        when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
-                new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆", 20, 15, 2, 0)));
-        // 首购：条件更新命中 0 行 → insert quantity=1
-        when(inventoryMapper.update(any(), any())).thenReturn(0);
-        when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
-        when(inventoryMapper.selectOne(any())).thenReturn(inventory());
-        PetInventoryItemVO vo = new PetInventoryItemVO("FOOD", "apple", "苹果", "", "🍎",
-                "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0, false, 1, false, null);
-        when(itemCatalog.toInventoryVo(any(), eq(false))).thenReturn(vo);
-
-        PetInventoryItemVO result = shopService.buy(100L, new BuyItemRequest("FOOD", "apple"));
-
-        assertThat(result.code()).isEqualTo("apple");
-        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("SHOP_BUY"),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20L),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
-        verify(inventoryMapper).insert(any(PetInventory.class));
-    }
-
-    @Test
-    @DisplayName("F1 购买食物：已有库存行 quantity 原子 +1（不 insert）")
-    void buyFoodIncrementsExistingRow() {
-        when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
-                new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆", 20, 15, 2, 0)));
-        when(inventoryMapper.update(any(), any())).thenReturn(1);
-        when(inventoryMapper.selectOne(any())).thenReturn(inventory());
-        PetInventoryItemVO vo = new PetInventoryItemVO("FOOD", "apple", "苹果", "", "🍎",
-                "COMMON", null, null, null, null, null, 0, 0, 0, 0, 0, false, 2, false, null);
-        when(itemCatalog.toInventoryVo(any(), eq(false))).thenReturn(vo);
-
-        PetInventoryItemVO result = shopService.buy(100L, new BuyItemRequest("FOOD", "apple"));
-
-        assertThat(result.quantity()).isEqualTo(2);
-        verify(inventoryMapper, org.mockito.Mockito.never()).insert(any(PetInventory.class));
     }
 
     private PetInventory inventory() {

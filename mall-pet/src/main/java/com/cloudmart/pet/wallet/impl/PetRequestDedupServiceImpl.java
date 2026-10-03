@@ -68,12 +68,12 @@ public class PetRequestDedupServiceImpl implements PetRequestDedupService {
         fresh.setVersion(0L);
         try {
             dedupMapper.insert(fresh);
-            return new ClaimResult(ClaimResult.Outcome.NEW, fresh.getId(), null);
+            return new ClaimResult(ClaimResult.Outcome.NEW, fresh.getId(), null, fresh.getLeaseOwner(), null);
         } catch (DuplicateKeyException e) {
             PetRequestDedup existing = find(userId, endpointKey, requestKey);
             if (existing == null) {
                 // 并发同键尚未提交：按处理中返回，重试收敛
-                return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, null, null);
+                return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, null, null, null, null);
             }
             if (!existing.getPayloadHash().equals(payloadHash)) {
                 // 同键不同内容：409，禁止自动换键（§8.6）
@@ -82,7 +82,7 @@ public class PetRequestDedupServiceImpl implements PetRequestDedupService {
             }
             return switch (existing.getStatus()) {
                 case "COMPLETED" -> new ClaimResult(ClaimResult.Outcome.EXISTING, existing.getId(),
-                        existing.getResponseJson());
+                        existing.getResponseJson(), existing.getLeaseOwner(), existing.getBoundPetId());
                 case "PROCESSING" -> processingOutcome(existing);
                 case "FAILED" -> retry(existing);
                 default -> throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
@@ -97,10 +97,14 @@ public class PetRequestDedupServiceImpl implements PetRequestDedupService {
      */
     private ClaimResult processingOutcome(PetRequestDedup existing) {
         if (tryTakeover(existing.getUserId(), existing.getEndpointKey(), existing.getRequestKey())) {
+            // R02 fencing：接管成功后重读行，携带新租约归属——终态回写必须匹配本次接管后的 owner
+            PetRequestDedup taken = find(existing.getUserId(), existing.getEndpointKey(), existing.getRequestKey());
             log.info("请求幂等租约到期接管, dedupId={}, previousOwner={}", existing.getId(), existing.getLeaseOwner());
-            return new ClaimResult(ClaimResult.Outcome.NEW, existing.getId(), null);
+            return new ClaimResult(ClaimResult.Outcome.NEW, existing.getId(), null,
+                    taken != null ? taken.getLeaseOwner() : null, existing.getBoundPetId());
         }
-        return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, existing.getId(), null);
+        return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, existing.getId(), null,
+                existing.getLeaseOwner(), existing.getBoundPetId());
     }
 
     @Override
@@ -129,25 +133,31 @@ public class PetRequestDedupServiceImpl implements PetRequestDedupService {
                 .eq(PetRequestDedup::getStatus, "FAILED"));
         if (updated == 1) {
             log.info("请求幂等 FAILED 行同键重试, dedupId={}", existing.getId());
-            return new ClaimResult(ClaimResult.Outcome.NEW, existing.getId(), null);
+            return new ClaimResult(ClaimResult.Outcome.NEW, existing.getId(), null,
+                    leaseOwner(), existing.getBoundPetId());
         }
-        return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, existing.getId(), null);
+        return new ClaimResult(ClaimResult.Outcome.IN_PROGRESS, existing.getId(), null,
+                existing.getLeaseOwner(), existing.getBoundPetId());
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void completeSucceeded(Long userId, String endpointKey, String requestKey,
-                                  Long bizOrderId, String responseJson) {
+                                  String expectedLeaseOwner, Long bizOrderId, String responseJson) {
         int updated = dedupMapper.update(null, new LambdaUpdateWrapper<PetRequestDedup>()
                 .set(PetRequestDedup::getStatus, "COMPLETED")
                 .set(PetRequestDedup::getBizOrderId, bizOrderId)
                 .set(PetRequestDedup::getResponseJson, responseJson)
+                .set(PetRequestDedup::getTerminalErrorCode, null)
+                .set(PetRequestDedup::getFinishedAt, LocalDateTime.now(ZoneOffset.UTC))
                 .set(PetRequestDedup::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .eq(PetRequestDedup::getUserId, userId)
                 .eq(PetRequestDedup::getEndpointKey, endpointKey)
                 .eq(PetRequestDedup::getRequestKey, requestKey)
-                .eq(PetRequestDedup::getStatus, "PROCESSING"));
+                .eq(PetRequestDedup::getStatus, "PROCESSING")
+                // R02 fencing：租约上下文存在时必须匹配当前 owner，旧执行者不得覆盖新租约的终态
+                .apply(expectedLeaseOwner != null, "lease_owner = {0}", expectedLeaseOwner));
         if (updated != 1) {
             // 0 行：行已被接管重试（本执行者租约失效）。业务事实由 uk 兜底收敛，恢复扫描器按事实对齐终态
             log.warn("请求幂等终态回写未命中（行被并发推进），userId={}, endpointKey={}, requestKey={}",
@@ -157,16 +167,33 @@ public class PetRequestDedupServiceImpl implements PetRequestDedupService {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public void markFailed(Long userId, String endpointKey, String requestKey, String errorJson) {
+    public void markFailed(Long userId, String endpointKey, String requestKey,
+                           String expectedLeaseOwner, String errorJson) {
         dedupMapper.update(null, new LambdaUpdateWrapper<PetRequestDedup>()
                 .set(PetRequestDedup::getStatus, "FAILED")
                 .set(PetRequestDedup::getResponseJson, errorJson)
+                .set(PetRequestDedup::getFinishedAt, LocalDateTime.now(ZoneOffset.UTC))
                 .set(PetRequestDedup::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .eq(PetRequestDedup::getUserId, userId)
                 .eq(PetRequestDedup::getEndpointKey, endpointKey)
                 .eq(PetRequestDedup::getRequestKey, requestKey)
-                .eq(PetRequestDedup::getStatus, "PROCESSING"));
+                .eq(PetRequestDedup::getStatus, "PROCESSING")
+                .apply(expectedLeaseOwner != null, "lease_owner = {0}", expectedLeaseOwner));
+    }
+
+    @Override
+    public void bindPet(Long userId, String endpointKey, String requestKey, Long petId) {
+        if (petId == null) {
+            return;
+        }
+        // R02：仅在尚未绑定时写入（幂等）；已绑定行不改归属——同键重试不随主宠切换改投
+        dedupMapper.update(null, new LambdaUpdateWrapper<PetRequestDedup>()
+                .set(PetRequestDedup::getBoundPetId, petId)
+                .eq(PetRequestDedup::getUserId, userId)
+                .eq(PetRequestDedup::getEndpointKey, endpointKey)
+                .eq(PetRequestDedup::getRequestKey, requestKey)
+                .isNull(PetRequestDedup::getBoundPetId));
     }
 
     @Override

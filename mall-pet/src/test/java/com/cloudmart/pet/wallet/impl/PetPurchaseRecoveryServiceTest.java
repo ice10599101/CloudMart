@@ -70,7 +70,7 @@ class PetPurchaseRecoveryServiceTest {
     void setUp() {
         dedupService = new RecordingDedupService(dedupMapper);
         PetPurchaseApplicationService purchaseService = new PetPurchaseApplicationService(
-                dedupService, walletService, staticProvider(null), staticProvider(null),
+                dedupService, walletService, null, staticProvider(null), staticProvider(null),
                 orderMapper, assetGrantMapper, null);
         recoveryService = new PetPurchaseRecoveryService(dedupService, dedupMapper, orderMapper, purchaseService);
         lenient().when(walletService.getOrCreateAccount(anyLong())).thenAnswer(inv -> {
@@ -187,12 +187,13 @@ class PetPurchaseRecoveryServiceTest {
 
         @Override
         public void completeSucceeded(Long userId, String endpointKey, String requestKey,
-                                      Long bizOrderId, String responseJson) {
+                                      String expectedLeaseOwner, Long bizOrderId, String responseJson) {
             completed.add(new Completion(bizOrderId, responseJson));
         }
 
         @Override
-        public void markFailed(Long userId, String endpointKey, String requestKey, String errorJson) {
+        public void markFailed(Long userId, String endpointKey, String requestKey,
+                               String expectedLeaseOwner, String errorJson) {
             failed.add(new Failure(requestKey, errorJson));
         }
     }

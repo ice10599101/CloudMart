@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
+import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -99,6 +100,7 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
+    private final com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService purchaseApplicationService;
     private final PetEventProducer eventProducer;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
@@ -127,7 +129,8 @@ public class PetHomeServiceImpl implements PetHomeService {
                               com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                               com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
-                              com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService) {
+                              com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
+                              com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService purchaseApplicationService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -150,6 +153,7 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.achievementService = achievementService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.purchaseApplicationService = purchaseApplicationService;
     }
 
     @Override
@@ -161,53 +165,27 @@ public class PetHomeServiceImpl implements PetHomeService {
         return buildHomeVo(pet, room, enterRewarded);
     }
 
+    /**
+     * R02 购买主链收口：家具购买委托 {@link PetPurchaseApplicationService} 统一编排
+     * （意图认领→订单→扣款→交付→幂等终态同事务），本类不再直接扣款/入包。
+     * 无请求键 400（PET_REQUEST_KEY_INVALID）；本方法不加事务——购买服务自身是事务边界。
+     */
     @Override
-    @Transactional
     public PetInventoryItemVO buyFurniture(Long userId, BuyFurnitureRequest request) {
+        purchaseApplicationService.purchase(userId, null, PetItemType.FURNITURE.name(),
+                request.furnitureCode(), PetRequestContext.idempotencyKey(), null);
         Pet pet = petService.requireOwnedPet(userId);
-        PetFurnitureConfig config = furnitureConfigMapper.selectOne(new LambdaQueryWrapper<PetFurnitureConfig>()
-                .eq(PetFurnitureConfig::getCode, request.furnitureCode())
+        PetInventory item = inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
+                .eq(PetInventory::getPetId, pet.getId())
+                .eq(PetInventory::getItemType, PetItemType.FURNITURE.name())
+                .eq(PetInventory::getItemCode, request.furnitureCode())
                 .last("LIMIT 1"));
-        if (config == null || !Boolean.TRUE.equals(config.getEnabled())) {
-            throw new BusinessException(PetErrorCodes.PET_FURNITURE_NOT_FOUND, "这件家具不存在或已下架");
+        if (item == null) {
+            // 扣款/交付事实已提交但背包行不可读：不该发生（同事务），显式失败禁止伪装成功
+            throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
+                    "购买已受理，背包同步稍后完成，请稍后刷新查看");
         }
-        int requiredLevel = config.getRequiredLevel() != null ? config.getRequiredLevel() : 1;
-        if (pet.getLevel() < requiredLevel) {
-            throw new BusinessException(PetErrorCodes.PET_LEVEL_REQUIRED,
-                    "等级达到 Lv." + requiredLevel + " 才能购买哦");
-        }
-        PetInventory item = new PetInventory();
-        item.setPetId(pet.getId());
-        item.setUserId(userId);
-        item.setItemType(PetItemType.FURNITURE.name());
-        item.setItemCode(config.getCode());
-        item.setQuantity(1);
-        item.setEquipped(false);
-        item.setSlot(config.getCategory());
-        item.setAcquiredAt(LocalDateTime.now(ZoneId.of("UTC")));
-        try {
-            inventoryMapper.insert(item);
-            // B02/BE-12：家具获得事实接入图鉴投影
-            playFeatureService.unlockCollection(userId, pet.getId(),
-                    "FURNITURE", config.getCode(), "FURNITURE_BUY:" + userId + ":" + config.getCode());
-        } catch (DuplicateKeyException e) {
-            throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "家里已经有这件家具啦");
-        }
-        int cost = config.getPriceStarlight() != null ? config.getPriceStarlight() : 0;
-        if (cost > 0) {
-            PetOperationService.WalletSettlement settlement = economyService.spend(
-                    userId, pet.getId(), "FURNITURE_BUY", pet.getId(), cost,
-                    com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
-                            "itemType", "FURNITURE", "itemCode", config.getCode(), "price", cost)),
-                    userId, pet.getId(), config.getCode());
-            if (settlement.isUnknown()) {
-                throw economyService.settlementPending();
-            }
-            if (!settlement.isCompleted()) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                        "星光扣款未完成: " + settlement.lastError());
-            }
-        }
+        PetFurnitureConfig config = requireFurniture(request.furnitureCode());
         return toInventoryVo(item, config);
     }
 

@@ -189,6 +189,8 @@ public class GlobalExceptionHandler {
                  "PET_ALREADY_EXISTS", "PET_ACTIVITY_CONFLICT",
                  "PET_ACTIVITY_NOT_FINISHED", "PET_ACTIVITY_ALREADY_CLAIMED",
                  "PET_ACTIVITY_EXPIRED",
+                 // R02/R10 幂等契约：同键异参 409、处理中 409、配置版本冲突 409（客户端按原键查询不换键）
+                 "PET_IDEMPOTENCY_CONFLICT", "PET_REQUEST_IN_PROGRESS", "PET_CONFIG_VERSION_CONFLICT",
                  "PET_BOTTLE_COOLDOWN", "PET_ENERGY_INSUFFICIENT", "PET_HUNGER_TOO_LOW",
                  "PET_STATE_FULL", "PET_LEVEL_REQUIRED",
                  "PET_BATTLE_CONFLICT", "PET_BATTLE_ALREADY_HANDLED",
@@ -219,7 +221,7 @@ public class GlobalExceptionHandler {
                  "USER_REGISTER_CODE_FREQUENT" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
-                 "PET_SETTLEMENT_PENDING", "PET_FEATURE_DISABLED",
+                 "PET_SETTLEMENT_PENDING", "PET_FEATURE_DISABLED", "PET_TEMPORARILY_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
             // 否则会被 default 分支误映射成 400，掩盖真实的服务端异常
