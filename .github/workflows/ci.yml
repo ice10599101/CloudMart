@@ -70,17 +70,32 @@ jobs:
           name: failsafe-reports
           path: '**/target/failsafe-reports/**'
           retention-days: 7
-      - name: 集成测试执行数校验（防止 IT 被静默跳过）
+      # R26：门禁校验——执行数 > 0 且 skipped == 0。disabledWithoutDocker/skip 激活时
+      # failsafe 报告 Skipped>0 或总数为 0，此前只看 Tests run 总数会把跳过误当执行
+      - name: 集成测试执行数校验（执行>0 且 skipped=0，防止 IT 被静默跳过）
         run: |
           total=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')
-          echo "failsafe 实际执行测试数: $total"
+          skipped=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{for(i=1;i<=NF;i++) if($i ~ /Skipped/) {gsub(/ /,"",$(i+1)); s+=$(i+1)}} END {print s+0}')
+          echo "failsafe 执行: $total, skipped: $skipped"
           if [ "$total" -eq 0 ]; then
             echo "::error::failsafe 未执行任何集成测试"; exit 1
           fi
-      # E01：迁移干净建库验证——全新 MySQL 逐模块 Flyway migrate（可恢复性核心验证）
-      - name: 迁移干净建库验证（全部模块 V1..Vn 从零执行）
+          if [ "$skipped" -ne 0 ]; then
+            echo "::error::集成测试存在被跳过的用例（skipped=$skipped）——门禁要求 skipped=0"; exit 1
+          fi
+      # R26：宠物模块专属门禁——发布阻断级改造要求 mall-pet 专属 IT 非零
+      - name: 宠物模块专属 IT 门禁
         run: |
-          docker run -d --name clean-db -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=clean_check             -p 33061:3306 mysql:9.4.0
+          pet_total=$(find mall-pet -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')
+          echo "mall-pet failsafe 执行数: $pet_total"
+          if [ "$pet_total" -eq 0 ]; then
+            echo "::error::mall-pet 专属集成测试未执行（宠物发布门禁要求非零）"; exit 1
+          fi
+      # R26：迁移干净建库验证——每模块独立数据库（同一库会混入不同模块的同版本号
+      # V1/V2，flyway history 污染导致假绿/假红），并校验 history 非空
+      - name: 迁移干净建库验证（每模块独立库，V1..Vn 从零执行）
+        run: |
+          docker run -d --name clean-db -e MYSQL_ROOT_PASSWORD=root             -p 33061:3306 mysql:9.4.0
           for i in $(seq 1 30); do
             docker exec clean-db mysqladmin ping -uroot -proot --silent && break
             sleep 2
@@ -88,9 +103,15 @@ jobs:
           failed=0
           for dir in mall-*/src/main/resources/db/migration; do
             module=$(echo "$dir" | cut -d/ -f1)
-            echo "::group::Flyway migrate: $module"
-            if ./mvnw -B -ntp -q org.flywaydb:flyway-maven-plugin:11.14.1:migrate               -Dflyway.url="jdbc:mysql://127.0.0.1:33061/clean_check?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"               -Dflyway.user=root -Dflyway.password=root               -Dflyway.locations="filesystem:$PWD/$dir"; then
-              echo "OK: $module"
+            db="clean_${module}"
+            docker exec clean-db mysql -uroot -proot             -e "DROP DATABASE IF EXISTS \`${db}\`; CREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+            echo "::group::Flyway migrate: $module → $db"
+            if ./mvnw -B -ntp -q org.flywaydb:flyway-maven-plugin:11.14.1:migrate               -Dflyway.url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"               -Dflyway.user=root -Dflyway.password=root               -Dflyway.locations="filesystem:$PWD/$dir"; then
+              rows=$(docker exec clean-db mysql -uroot -proot -N              -e "SELECT COUNT(*) FROM \`${db}\`.flyway_schema_history WHERE success=1;")
+              echo "OK: $module (history rows=$rows)"
+              if [ "$rows" -eq 0 ]; then
+                echo "::error::$module 迁移后 history 为空（可能整个 locations 未被加载）"; failed=1
+              fi
             else
               echo "::error::迁移失败: $module"; failed=1
             fi
