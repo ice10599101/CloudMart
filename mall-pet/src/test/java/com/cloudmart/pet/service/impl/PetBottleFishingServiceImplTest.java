@@ -290,6 +290,99 @@ class PetBottleFishingServiceImplTest {
     }
 
     @Test
+    @DisplayName("R31：远程失败落 FAILED → 无亲密度/任务/经验（不是已完成参与）")
+    void settleFailedGrantsNothing() {
+        Pet p = pet(100, 100);
+        when(petMapper.selectById(1L)).thenReturn(p);
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new BusinessException("WISH_SERVICE_UNAVAILABLE", "降级"));
+        when(activityMapper.update(any(), any())).thenReturn(1);
+
+        settlementService.settleActivity(inProgressFishing(11L));
+
+        // FAILED：不推进亲密度/任务/成就/经验
+        org.mockito.Mockito.verify(intimacyService, org.mockito.Mockito.never())
+                .gain(any(Pet.class), any(com.cloudmart.pet.enums.PetIntimacySource.class));
+        org.mockito.Mockito.verify(dailyQuestService, org.mockito.Mockito.never())
+                .record(any(Pet.class), any(com.cloudmart.pet.enums.PetQuestType.class), org.mockito.ArgumentMatchers.anyInt());
+        org.mockito.Mockito.verify(stateService, org.mockito.Mockito.never())
+                .grantExp(any(Pet.class), org.mockito.ArgumentMatchers.anyInt());
+        ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
+        verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
+        assertThat(captor.getValue().getOutcome()).isEqualTo(PetBottleOutcome.FAILED.name());
+    }
+
+    @Test
+    @DisplayName("R31：重试成功从 FAILED 首次进终态 → 奖励只发一次；CLAIM 后无重复")
+    void retryFromFailedGrantsOnce() {
+        Pet p = pet(100, 100);
+        when(petMapper.selectById(1L)).thenReturn(p);
+        when(activityMapper.update(any(), any())).thenReturn(1);
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
+                        555L, "PICKED", "PICKED", "你好呀", null, null)));
+
+        // FAILED 结算（远程不可用）→ 无奖励；同种子重试成功 → 一次性奖励
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new BusinessException("WISH_SERVICE_UNAVAILABLE", "降级"))
+                .thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
+                        555L, "PICKED", "PICKED", "你好呀", null, null)));
+        PetActivity activity = inProgressFishing(11L);
+        settlementService.settleActivity(activity);
+        ArgumentCaptor<PetBottleRecord> failedCaptor = ArgumentCaptor.forClass(PetBottleRecord.class);
+        verify(bottleRecordMapper, atLeastOnce()).insert(failedCaptor.capture());
+        PetBottleRecord failed = failedCaptor.getValue();
+        assertThat(failed.getOutcome()).isEqualTo(PetBottleOutcome.FAILED.name());
+
+        PetActivity completed = new PetActivity();
+        completed.setId(11L);
+        completed.setPetId(1L);
+        completed.setUserId(100L);
+        completed.setActivityType(PetActivityType.BOTTLE_FISHING.name());
+        completed.setStatus(PetActivityStatus.COMPLETED.name());
+        completed.setStartedAt(activity.getStartedAt());
+        completed.setFinishedAt(activity.getFinishedAt());
+        settlementService.retryFailedRecord(completed, failed);
+
+        org.mockito.Mockito.verify(intimacyService, org.mockito.Mockito.times(1))
+                .gain(any(Pet.class), any(com.cloudmart.pet.enums.PetIntimacySource.class));
+        org.mockito.Mockito.verify(dailyQuestService, org.mockito.Mockito.times(1))
+                .record(any(Pet.class), any(com.cloudmart.pet.enums.PetQuestType.class), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("R31：重试仍失败 → 领取被拒（PET_SETTLEMENT_PENDING），不 CLAIMED 终结")
+    void claimStillFailedRejected() {
+        when(petService.requireOwnedPet(100L)).thenReturn(pet(100, 100));
+        when(petMapper.selectById(1L)).thenReturn(pet(100, 100));
+        when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(11L));
+        // 结算 CAS 后重读：mock 返回 COMPLETED 态（真实链路由 CAS 更新产生）
+        when(activityMapper.selectById(11L)).thenAnswer(inv -> {
+            PetActivity completed = inProgressFishing(11L);
+            completed.setStatus(PetActivityStatus.COMPLETED.name());
+            return completed;
+        });
+        // 结算落库的 FAILED 记录
+        when(bottleRecordMapper.selectOne(any())).thenAnswer(inv -> {
+            PetBottleRecord failed = new PetBottleRecord();
+            failed.setActivityId(11L);
+            failed.setPetId(1L);
+            failed.setUserId(100L);
+            failed.setOutcome(PetBottleOutcome.FAILED.name());
+            failed.setRarity(PetBottleRarity.NORMAL.name());
+            return failed;
+        });
+        when(activityMapper.update(any(), any())).thenReturn(1);
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new BusinessException("WISH_SERVICE_UNAVAILABLE", "降级"));
+
+        // 结算落 FAILED（claimByActivity 内部会先结算再重试，均失败）
+        assertThatThrownBy(() -> bottleService.claim(100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_SETTLEMENT_PENDING);
+    }
+
+    @Test
     @DisplayName("开工：冷却中 → 409 PET_BOTTLE_COOLDOWN")
     void startInCooldown() {
         when(petService.requireOwnedPet(100L)).thenReturn(pet(30, 10));

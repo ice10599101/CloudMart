@@ -230,11 +230,25 @@ public class PetBottleSettlementService {
         return toActivityVo(activity);
     }
 
-    /** 结算奖励（经验/亲密度/任务/成就/星光/通知），经验为 0 也保存亲密度 */
+    /**
+     * 结算奖励（经验/亲密度/任务/成就/星光/通知）。
+     * R31：FAILED（远程打捞不可用）不是"已完成参与"——不推进亲密度/任务/成就/经验，
+     * 只把宠物从 FISHING 释放为 IDLE；奖励事实仅对 CAUGHT/EMPTY 终态一次性发放
+     * （retry 成功时从 FAILED 首次进入终态，天然只发一次，重复重试零副作用）。
+     */
     private void applySettlementRewards(Pet pet, PetActivity activity, PetBottleOutcome outcome,
                                         PetBottleRarity rarity, Long bottleId, int expGain) {
-        intimacyService.gain(pet, PetIntimacySource.BOTTLE);
         pet.setStatus(PetStatus.IDLE.name());
+        if (outcome == PetBottleOutcome.FAILED) {
+            // 远程不可用：无奖励事实，仅释放忙碌状态（重试成功后经本方法首次入账）
+            int updated = petMapper.updateById(pet);
+            if (updated == 0) {
+                throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                        "宠物状态被并发修改，请稍后重试");
+            }
+            return;
+        }
+        intimacyService.gain(pet, PetIntimacySource.BOTTLE);
         if (expGain > 0) {
             int levelups = stateService.grantExp(pet, expGain);
             if (levelups > 0) {

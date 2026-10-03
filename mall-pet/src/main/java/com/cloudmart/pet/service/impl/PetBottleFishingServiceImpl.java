@@ -219,6 +219,16 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
             settlementService.retryFailedRecord(activity, record);
             record = findRecord(activity.getId());
             activity = activityMapper.selectById(activity.getId());
+            // R31：重试仍失败 → 保持可重试（不 CLAIMED 终结、不伪装结果），503 处理中
+            if (record != null && PetBottleOutcome.FAILED.name().equals(record.getOutcome())) {
+                throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
+                        "打捞服务还在处理中，稍后再来确认结果吧");
+            }
+        }
+        // R31：远程失败的结果不允许在无记录/失败态下被 CLAIMED 终结（保留恢复通道）
+        if (record != null && PetBottleOutcome.FAILED.name().equals(record.getOutcome())) {
+            throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
+                    "打捞服务还在处理中，稍后再来确认结果吧");
         }
         if (!PetActivityStatus.COMPLETED.name().equals(activity.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FINISHED, "任务还没完成，再等等吧");
