@@ -29,8 +29,10 @@ import java.util.List;
 /**
  * 宠物商城与背包接口（原文档 §6.1 背包/装备、§89 宠物商城/皮肤）。
  *
- * <p>货币为星光（mall-wish 钱包），购买先入包再扣星光——扣减失败整体回滚，
- * 不出现"扣了星光没拿到物品"（AGENTS §17）。</p>
+ * <p>R02 收口后本控制器只承载目录查询（/shop、/inventory 系列）与旧购买入口
+ * 兼容适配——购买统一经 {@code PetPurchaseApplicationService} 编排
+ * （意图认领→订单→钱包扣款→交付→幂等终态同事务），币域 PET_COIN；
+ * 不再存在"先入包后扣星光"的本地事务路径。</p>
  */
 @RestController
 @RequestMapping

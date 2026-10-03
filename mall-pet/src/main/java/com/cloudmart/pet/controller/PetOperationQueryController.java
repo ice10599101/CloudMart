@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * P02：按原请求键查询操作结果（方案 12.4 GET /pet/operations/{requestKey}）。
+ * P02/R02：按原请求键查询操作结果（GET /operations/{requestKey}?endpointKey=）——
+ * 客户端对超时/丢响应/503 的购买、进化等操作，用原幂等键查询收敛，禁止换键重发。
  *
  * <p>429/503/网络丢包后客户端用原 requestKey 查询即可拿回原结果或确认处理中，
  * 不得换键重发。FAILED 表示执行者丢失且无已提交业务事实——同键重发是安全的。</p>

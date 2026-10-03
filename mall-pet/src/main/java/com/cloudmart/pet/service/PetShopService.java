@@ -5,16 +5,17 @@ import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetShopVO;
 
 /**
- * 宠物商城（原文档 §89 宠物商城：装备/皮肤/技能书统一售卖，货币为星光）。
+ * 宠物商城（原文档 §89：装备/皮肤/技能书/食物统一售卖；币域 PET_COIN）。
  *
  * <p>价格、加成、门槛全部来自服务端配置表；客户端只提交"买什么"。
- * 扣星光走 mall-wish 内部端点（PET_SHOP 流水），失败整体回滚不产出物品。</p>
+ * R02 收口后购买统一委托 {@code PetPurchaseApplicationService}（本接口仅做
+ * 目录查询与兼容结果组装，扣款/交付/幂等在统一购买链内编排）。</p>
  */
 public interface PetShopService {
 
-    /** 商城列表（商品 + 我的星光余额 + 拥有/可购状态） */
+    /** 商城列表（商品 + 余额 + 拥有/可购状态；余额币种随钱包模式切换） */
     PetShopVO shop(Long userId);
 
-    /** 购买（先落背包再扣星光：扣减失败回滚，不会出现"付了钱没拿到东西"） */
+    /** 购买（R02：委托统一购买服务；缺幂等键 400，同键重放返回原结果） */
     PetInventoryItemVO buy(Long userId, BuyItemRequest request);
 }
