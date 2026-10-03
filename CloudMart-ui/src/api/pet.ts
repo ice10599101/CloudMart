@@ -1352,9 +1352,9 @@ export interface PetDiaryPage {
   hasMore: boolean
 }
 
-export function listPetDiary(petId: number | string, cursor?: number | string, pageSize = 20) {
+export function listPetDiary(petId: number | string, cursor?: number | string, size = 20) {
   return request.get<ApiResponse<PetDiaryPage>>(`/pet/pets/${petId}/diary`, {
-    params: { cursor, pageSize },
+    params: { cursor, size },
   })
 }
 
@@ -1398,11 +1398,7 @@ export function listPetMemories(petId: number | string) {
   return request.get<ApiResponse<PetMemory[]>>(`/pet/pets/${petId}/memories`)
 }
 
-export function editPetMemory(
-  petId: number | string,
-  memoryId: number | string,
-  data: { memoryValue: string; importance?: number },
-) {
+export function editPetMemory(petId: number | string, memoryId: number | string, data: { value: string }) {
   return request.put<ApiResponse<PetMemory>>(`/pet/pets/${petId}/memories/${memoryId}`, data)
 }
 
@@ -1415,9 +1411,14 @@ export function clearPetMemories(petId: number | string) {
   return request.delete<ApiResponse<void>>(`/pet/pets/${petId}/memories`)
 }
 
-/** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文，二者独立；服务端无读取端点） */
+/** 记忆设置读取（R03/T11：先 GET 再编辑，不得以默认值覆盖服务端已关闭设置） */
+export function getPetMemorySettings(petId: number | string) {
+  return request.get<ApiResponse<{ extract: boolean; use: boolean }>>(`/pet/pets/${petId}/memory-settings`)
+}
+
+/** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文，二者独立） */
 export function setPetMemorySettings(petId: number | string, data: { extract: boolean; use: boolean }) {
-  return request.put<ApiResponse<void>>(`/pet/pets/${petId}/memory-settings`, data)
+  return request.put<ApiResponse<{ extract: boolean; use: boolean }>>(`/pet/pets/${petId}/memory-settings`, data)
 }
 
 /** 通知偏好（B19：免打扰/日常问候；仅影响日常 proactive 问候） */

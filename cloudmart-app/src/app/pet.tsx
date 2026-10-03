@@ -3152,7 +3152,6 @@ const COMPANION_TABS: { key: CompanionTab; label: string }[] = [
 ]
 
 const MEMORY_TYPE_LABEL: Record<string, string> = { FAVORITE: '喜好', HABIT: '习惯', FACT: '事实' }
-const IMPORTANCE_OPTIONS = [1, 2, 3, 4, 5]
 const FEED_EVENT_LABEL: Record<string, string> = {
   LEVEL_UP: '升级', WORK_COMPLETED: '打工完成', STUDY_COMPLETED: '读书完成', BATTLE_WIN: '对战获胜',
 }
@@ -3179,7 +3178,6 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   const [memories, setMemories] = useState<PetMemory[]>([])
   const [editId, setEditId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [editImportance, setEditImportance] = useState(3)
   // 记忆开关草稿：服务端无读取端点，默认取库表默认值 1/1（界面已注明）
   const [extractDraft, setExtractDraft] = useState(true)
   const [useDraft, setUseDraft] = useState(true)
@@ -3228,7 +3226,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   const loadDiary = useCallback(async (reset: boolean) => {
     const { data: res } = await petApi.listDiary(petId, {
       cursor: reset ? undefined : (diaryCursor ?? undefined),
-      pageSize: 20,
+      size: 20,
     })
     if (res.success && res.data) {
       setDiary((prev) => reset
@@ -3315,12 +3313,12 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
       return
     }
     const res = await run(`memory:${memory.id}`,
-      () => petApi.editMemory(petId, memory.id, { memoryValue: value, importance: editImportance }))
+      () => petApi.editMemory(petId, memory.id, { value: value }))
     if (res?.success) {
       setEditId(null)
       void loadMemories()
     }
-  }, [editImportance, editValue, loadMemories, petId, run])
+  }, [editValue, loadMemories, petId, run])
 
   const removeMemory = useCallback(async (memoryId: number) => {
     const res = await run(`memory-del:${memoryId}`, () => petApi.deleteMemory(petId, memoryId))
@@ -3527,23 +3525,6 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
                       color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs,
                     }}
                   />
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {IMPORTANCE_OPTIONS.map((value) => (
-                      <TouchableOpacity
-                        key={value}
-                        onPress={() => setEditImportance(value)}
-                        style={{
-                          paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
-                          backgroundColor: editImportance === value ? colors.primary : colors.bgBase,
-                          borderWidth: 1, borderColor: editImportance === value ? colors.primary : colors.border,
-                        }}
-                      >
-                        <Text style={{ fontSize: 10, color: editImportance === value ? '#fff' : colors.textSecondary }}>
-                          {`重要度 ${value}`}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
                   <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
                     <ChipButton label="保存" primary disabled={pending === `memory:${item.id}`} onPress={() => void saveMemory(item)} />
                     <ChipButton label="取消" onPress={() => setEditId(null)} />
@@ -3556,7 +3537,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
                     {`置信度 ${item.confidence} · 更新于 ${item.updatedAt.slice(5, 16).replace('T', ' ')}`}
                   </Text>
                   <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
-                    <ChipButton label="编辑" onPress={() => { setEditId(item.id); setEditValue(item.memoryValue); setEditImportance(item.importance) }} />
+                    <ChipButton label="编辑" onPress={() => { setEditId(item.id); setEditValue(item.memoryValue) }} />
                     <ChipButton label="删除" disabled={pending === `memory-del:${item.id}`} onPress={() => void removeMemory(item.id)} />
                   </View>
                 </>

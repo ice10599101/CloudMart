@@ -47,7 +47,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       try {
         const { data: res } = await petCompanionApi.listDiary(petId, {
           cursor: reset ? undefined : (diaryCursor ?? undefined),
-          pageSize: PAGE_SIZE,
+          size: PAGE_SIZE,
         })
         if (res.success && res.data) {
           setDiary((prev) => (reset ? res.data.items : [...prev, ...res.data.items]))
@@ -69,7 +69,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       const collected: Array<{ assetId: number; entryId: number }> = []
       let cursor: string | null = null
       for (let page = 0; page < 5; page += 1) {
-        const { data: res } = await petCompanionApi.listDiary(petId, { cursor: cursor ?? undefined, pageSize: PAGE_SIZE })
+        const { data: res } = await petCompanionApi.listDiary(petId, { cursor: cursor ?? undefined, size: PAGE_SIZE })
         if (!res.success || !res.data) break
         res.data.items.forEach((entry) => {
           ;(entry.assetIds ?? []).forEach((assetId) => collected.push({ assetId, entryId: entry.id }))
@@ -141,7 +141,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       Taro.showToast({ title: '记忆内容不能为空', icon: 'none' })
       return
     }
-    const { data: res } = await petCompanionApi.editMemory(petId, memory.id, { memoryValue: editValue.trim() })
+    const { data: res } = await petCompanionApi.editMemory(petId, memory.id, { value: editValue.trim() })
     if (res.success) {
       Taro.showToast({ title: '已更新（编辑优先于自动抽取）', icon: 'success' })
       setEditId(null)

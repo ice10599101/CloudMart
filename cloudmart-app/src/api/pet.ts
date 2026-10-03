@@ -760,7 +760,7 @@ export const petApi = {
   skipOnboarding: () => request<void>({ url: '/pet/onboarding/skip', method: 'POST' }),
 
   /** N02 成长日记（游标分页；他人仅见 PUBLIC 条目） */
-  listDiary: (petId: number | string, params?: { cursor?: number | string; pageSize?: number }) =>
+  listDiary: (petId: number | string, params?: { cursor?: number | string; size?: number }) =>
     request<PetDiaryPage>({ url: `/pet/pets/${petId}/diary${buildQuery(params)}` }),
 
   /** N02 相册：上传（fileId 为 mall-file 授权引用）/删除；无列表接口，资产随日记展示 */
@@ -772,7 +772,7 @@ export const petApi = {
   /** N03 结构化记忆：USER 编辑优先于 AUTO 抽取 */
   listMemories: (petId: number | string) =>
     request<PetMemory[]>({ url: `/pet/pets/${petId}/memories` }),
-  editMemory: (petId: number | string, memoryId: number | string, data: { memoryValue: string; importance?: number }) =>
+  editMemory: (petId: number | string, memoryId: number | string, data: { value: string }) =>
     request<PetMemory>({ url: `/pet/pets/${petId}/memories/${memoryId}`, method: 'PUT', data }),
   deleteMemory: (petId: number | string, memoryId: number | string) =>
     request<void>({ url: `/pet/pets/${petId}/memories/${memoryId}`, method: 'DELETE' }),

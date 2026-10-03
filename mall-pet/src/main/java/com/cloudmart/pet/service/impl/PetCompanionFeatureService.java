@@ -238,7 +238,11 @@ public class PetCompanionFeatureService {
         }
     }
 
-    /** 时间线（游标分页；他人仅可见 PUBLIC 条目） */
+    /**
+     * 时间线（游标分页；他人仅可见 PUBLIC 条目）。
+     * R03：返回显式 VO（items/type/content/visibility/assetIds），不再吐数据库实体
+     * 让三端猜字段；OWNER_ONLY 对外统一映射 PRIVATE（客户端枚举无 OWNER_ONLY）。
+     */
     public Map<String, Object> diary(Long userId, Long petId, String cursor, int size) {
         requireFeature(properties.getFeatureSwitches().isDiary());
         Pet pet = petMapper.selectById(petId);
@@ -260,7 +264,7 @@ public class PetCompanionFeatureService {
         String nextCursor = entries.size() == Math.min(Math.max(size, 1), 50)
                 && !entries.isEmpty() ? String.valueOf(entries.get(entries.size() - 1).getId()) : null;
         Map<String, Object> result = new HashMap<>();
-        result.put("entries", entries);
+        result.put("items", entries.stream().map(DiaryEntryVO::of).toList());
         result.put("nextCursor", nextCursor);
         result.put("hasMore", nextCursor != null);
         return result;
@@ -401,14 +405,55 @@ public class PetCompanionFeatureService {
         memoryMapper.update(null, wrapper);
     }
 
-    /** 记忆开关（提取/使用独立） */
+    /**
+     * R03：记忆设置读取（T11——三端先 GET 再编辑，不得以默认 true/true 覆盖服务端已关闭设置）。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> memorySettings(Long userId, Long petId) {
+        requireOwner(userId, petId);
+        Pet pet = petMapper.selectById(petId);
+        return Map.of(
+                "extract", Boolean.TRUE.equals(pet.getMemoryExtractEnabled()),
+                "use", Boolean.TRUE.equals(pet.getMemoryUseEnabled()));
+    }
+
+    /** 记忆开关（提取/使用独立）；返回持久化后的值（§7.2 PUT 返回持久化结果） */
     @Transactional
-    public void toggleMemory(Long userId, Long petId, boolean extract, boolean use) {
+    public Map<String, Object> toggleMemory(Long userId, Long petId, boolean extract, boolean use) {
         requireOwner(userId, petId);
         Pet pet = petMapper.selectById(petId);
         pet.setMemoryExtractEnabled(extract);
         pet.setMemoryUseEnabled(use);
         petMapper.updateById(pet);
+        return Map.of("extract", extract, "use", use);
+    }
+
+    /**
+     * R03 日记条目 VO（三端契约字段：id/petId/type/content/visibility/assetIds/createdAt/occurredAt）。
+     * content 从事件载荷 JSON 渲染（未知事件类型返回空串安全文案，不吐原始 snapshot）；
+     * OWNER_ONLY 对外统一映射 PRIVATE。
+     */
+    public record DiaryEntryVO(Long id, Long petId, String type, String content, String visibility,
+                               java.util.List<Long> assetIds, java.time.LocalDateTime createdAt,
+                               java.time.LocalDateTime occurredAt) {
+
+        static DiaryEntryVO of(PetDiaryEntry entry) {
+            Map<String, Object> payload = PetJsonUtils.parse(entry.getSnapshot(),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
+            String content = payload != null && payload.get("content") != null
+                    ? String.valueOf(payload.get("content")) : "";
+            Object rawAssetIds = payload != null ? payload.get("assetIds") : null;
+            java.util.List<Long> assetIdList = rawAssetIds instanceof List<?> list
+                    ? list.stream()
+                            .map(v -> v instanceof Number number ? number.longValue() : null)
+                            .filter(java.util.Objects::nonNull)
+                            .toList()
+                    : java.util.List.of();
+            String visibility = "PUBLIC".equals(entry.getVisibility()) ? "PUBLIC" : "PRIVATE";
+            return new DiaryEntryVO(entry.getId(), entry.getPetId(), entry.getEventType(), content,
+                    visibility, assetIdList, entry.getCreatedAt(), entry.getOccurredAt());
+        }
     }
 
     private void requireOwner(Long userId, Long petId) {

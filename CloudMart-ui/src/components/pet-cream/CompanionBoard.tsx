@@ -18,6 +18,7 @@ import {
     deletePetMemory,
     editPetMemory,
     getPetIntimacy,
+    getPetMemorySettings,
     getPetNotifyPrefs,
     getPetOnboarding,
     listPetDiary,
@@ -59,7 +60,6 @@ const MEMORY_TYPE_LABEL: Record<string, string> = {
     FACT: '事实',
 }
 
-const IMPORTANCE_OPTIONS = [1, 2, 3, 4, 5]
 
 function fmtSeconds(seconds: number): string {
     const total = Math.max(0, Math.round(seconds))
@@ -91,12 +91,12 @@ export default function CompanionBoard({ myPetId, onChanged }: {
     const [attachTarget, setAttachTarget] = useState<number | null>(null)
 
     const [memories, setMemories] = useState<PetMemory[] | null>(null)
-    /** 记忆开关草稿（服务端无读取端点，默认取库表默认值 1/1，保存后即为最新状态） */
+    /** 记忆开关草稿（R03/T11：初值来自服务端 GET，不得以默认 true 覆盖已关闭设置） */
     const [extractDraft, setExtractDraft] = useState(true)
     const [useDraft, setUseDraft] = useState(true)
+    const [memorySettingsLoaded, setMemorySettingsLoaded] = useState(false)
     const [editId, setEditId] = useState<number | null>(null)
     const [editValue, setEditValue] = useState('')
-    const [editImportance, setEditImportance] = useState(3)
 
     const [pref, setPref] = useState<PetNotifyPref | null>(null)
     const [onboarding, setOnboarding] = useState<PetOnboardingProgress | null>(null)
@@ -163,10 +163,20 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         if (tab === 'memory' && memories === null) {
             void loadMemories()
         }
+        if (tab === 'memory' && !memorySettingsLoaded) {
+            void (async () => {
+                const { data: res } = await getPetMemorySettings(myPetId)
+                if (res.success) {
+                    setExtractDraft(res.data.extract)
+                    setUseDraft(res.data.use)
+                    setMemorySettingsLoaded(true)
+                }
+            })()
+        }
         if (tab === 'settings' && pref === null) {
             void loadSettings()
         }
-    }, [diary, intimacy, loadDiary, loadIntimacy, loadMemories, loadSettings, memories, pref, tab])
+    }, [diary, intimacy, loadDiary, loadIntimacy, loadMemories, loadSettings, memories, memorySettingsLoaded, myPetId, pref, tab])
 
     /** 陪伴心跳：开启期间按固定间隔上报；卸载时清理定时器（会话由服务端按失效间隔结算） */
     useEffect(() => {
@@ -242,12 +252,12 @@ export default function CompanionBoard({ myPetId, onChanged }: {
             return
         }
         const res = await run(`memory:${memory.id}`,
-            () => editPetMemory(myPetId, memory.id, { memoryValue: value, importance: editImportance }))
+            () => editPetMemory(myPetId, memory.id, { value }))
         if (res?.success) {
             setEditId(null)
             await loadMemories()
         }
-    }, [editImportance, editValue, loadMemories, message, myPetId, run])
+    }, [editValue, loadMemories, message, myPetId, run])
 
     const removeMemory = useCallback(async (memoryId: number) => {
         const res = await run(`memory-del:${memoryId}`, () => deletePetMemory(myPetId, memoryId))
@@ -548,18 +558,6 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                                                 maxLength={200}
                                             />
                                         </div>
-                                        <div className={styles.picks} style={{ marginTop: 8 }}>
-                                            {IMPORTANCE_OPTIONS.map(value => (
-                                                <button
-                                                    key={value}
-                                                    type="button"
-                                                    className={`${styles.pick} ${editImportance === value ? styles.pickActive : ''}`}
-                                                    onClick={() => setEditImportance(value)}
-                                                >
-                                                    重要度 {value}
-                                                </button>
-                                            ))}
-                                        </div>
                                         <div className={styles.memoryActions}>
                                             <CreamButton
                                                 loading={busy === `memory:${item.id}`}
@@ -582,7 +580,6 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                                                 onClick={() => {
                                                     setEditId(item.id)
                                                     setEditValue(item.memoryValue)
-                                                    setEditImportance(item.importance)
                                                 }}
                                             >
                                                 编辑

@@ -35,14 +35,14 @@ public class PetCompanionFeatureController {
 
     // ---------------- N01 ----------------
 
-    @GetMapping("/pet/onboarding")
+    @GetMapping("/onboarding")
     @Operation(summary = "新手引导进度（N01）", description = "查询当前步骤/全部步骤/是否可跳过；完成由领域事件驱动，不能客户端提交")
     public ApiResponse<Map<String, Object>> onboarding(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(featureService.onboarding(userId));
     }
 
-    @PostMapping("/pet/onboarding/skip")
+    @PostMapping("/onboarding/skip")
     @Operation(summary = "跳过引导（N01）", description = "幂等；跳过不伪造步骤与奖励，不影响正常养成")
     public ApiResponse<Void> skipOnboarding(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
@@ -52,7 +52,7 @@ public class PetCompanionFeatureController {
 
     // ---------------- N02 ----------------
 
-    @GetMapping("/pet/pets/{petId}/diary")
+    @GetMapping("/pets/{petId}/diary")
     @Operation(summary = "成长日记时间线（N02）", description = "游标分页 nextCursor/hasMore；他人仅见 PUBLIC 条目")
     public ApiResponse<Map<String, Object>> diary(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -65,7 +65,7 @@ public class PetCompanionFeatureController {
     public record AlbumUploadRequest(String fileId, Long diaryEntryId) {
     }
 
-    @PostMapping("/pet/pets/{petId}/album")
+    @PostMapping("/pets/{petId}/album")
     @Operation(summary = "上传相册资源（N02）", description = "fileId 为 mall-file 授权引用（JPEG/PNG/WebP ≤5MB，由文件服务校验）；每用户 100 张")
     public ApiResponse<PetAlbumAsset> uploadAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -74,7 +74,7 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.uploadAlbumAsset(userId, petId, request.fileId(), request.diaryEntryId()));
     }
 
-    @DeleteMapping("/pet/pets/{petId}/album/{assetId}")
+    @DeleteMapping("/pets/{petId}/album/{assetId}")
     @Operation(summary = "删除相册资源（N02）", description = "归属校验；撤销关联公开访问")
     public ApiResponse<Void> deleteAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -86,7 +86,7 @@ public class PetCompanionFeatureController {
 
     // ---------------- N03 ----------------
 
-    @GetMapping("/pet/pets/{petId}/memories")
+    @GetMapping("/pets/{petId}/memories")
     @Operation(summary = "宠物记忆列表（N03）", description = "按宠物隔离；仅主人可访问；不进公开接口/排行/分享")
     public ApiResponse<List<PetMemory>> memories(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -97,7 +97,7 @@ public class PetCompanionFeatureController {
     public record MemoryEditRequest(String value) {
     }
 
-    @PutMapping("/pet/pets/{petId}/memories/{memoryId}")
+    @PutMapping("/pets/{petId}/memories/{memoryId}")
     @Operation(summary = "编辑记忆（N03）", description = "用户编辑（USER 来源）优先于自动抽取，同长度/否定语句均可覆盖")
     public ApiResponse<PetMemory> editMemory(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -106,7 +106,7 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.editMemory(userId, petId, memoryId, request.value()));
     }
 
-    @DeleteMapping("/pet/pets/{petId}/memories/{memoryId}")
+    @DeleteMapping("/pets/{petId}/memories/{memoryId}")
     @Operation(summary = "删除记忆（N03）", description = "删除标记防复活；下次上下文不再注入")
     public ApiResponse<Void> deleteMemory(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -118,16 +118,23 @@ public class PetCompanionFeatureController {
     public record MemoryToggleRequest(boolean extract, boolean use) {
     }
 
-    @PutMapping("/pet/pets/{petId}/memory-settings")
-    @Operation(summary = "记忆开关（N03）", description = "自动提取与注入使用独立控制")
-    public ApiResponse<Void> toggleMemory(
+    @GetMapping("/pets/{petId}/memory-settings")
+    @Operation(summary = "记忆设置读取（R03/T11）", description = "三端先 GET 再编辑；不得以默认值覆盖服务端已关闭设置")
+    public ApiResponse<Map<String, Object>> memorySettings(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("petId") Long petId, @RequestBody MemoryToggleRequest request) {
-        featureService.toggleMemory(userId, petId, request.extract(), request.use());
-        return ApiResponse.ok(null);
+            @PathVariable("petId") Long petId) {
+        return ApiResponse.ok(featureService.memorySettings(userId, petId));
     }
 
-    @GetMapping("/pet/notify-settings")
+    @PutMapping("/pets/{petId}/memory-settings")
+    @Operation(summary = "记忆开关（N03）", description = "自动提取与注入使用独立控制；返回持久化后的值")
+    public ApiResponse<Map<String, Object>> toggleMemory(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId, @RequestBody MemoryToggleRequest request) {
+        return ApiResponse.ok(featureService.toggleMemory(userId, petId, request.extract(), request.use()));
+    }
+
+    @GetMapping("/notify-settings")
     @Operation(summary = "通知偏好查询（B19）", description = "免打扰/日常问候开关")
     public ApiResponse<PetNotifyPref> notifyPrefs(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
@@ -137,7 +144,7 @@ public class PetCompanionFeatureController {
     public record NotifyPrefUpdate(boolean muteDailyGreeting, boolean dailyGreetingEnabled) {
     }
 
-    @PutMapping("/pet/notify-settings")
+    @PutMapping("/notify-settings")
     @Operation(summary = "更新通知偏好（B19）", description = "仅作用于日常问候类 proactive；重要业务通知不受影响")
     public ApiResponse<PetNotifyPref> updateNotifyPrefs(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
@@ -145,7 +152,7 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.updateNotifyPrefs(userId, request.muteDailyGreeting(), request.dailyGreetingEnabled()));
     }
 
-    @DeleteMapping("/pet/pets/{petId}/memories")
+    @DeleteMapping("/pets/{petId}/memories")
     @Operation(summary = "批量清空记忆（N03）", description = "全部软删（可恢复标记防复活）")
     public ApiResponse<Void> clearMemories(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,

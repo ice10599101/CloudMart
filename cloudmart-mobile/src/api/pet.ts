@@ -1208,7 +1208,7 @@ export const petCompanionApi = {
   /** 跳过引导（幂等；不伪造步骤与奖励） */
   skipOnboarding: () => request<void>({ url: '/pet/onboarding/skip', method: 'POST' }),
 
-  listDiary: (petId: number | string, params?: { cursor?: number | string; pageSize?: number }) => {
+  listDiary: (petId: number | string, params?: { cursor?: number | string; size?: number }) => {
     const qs = Object.entries(params ?? {})
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
@@ -1228,7 +1228,7 @@ export const petCompanionApi = {
   listMemories: (petId: number | string) =>
     request<PetMemory[]>({ url: `/pet/pets/${petId}/memories` }),
   /** 编辑记忆（USER 来源优先于自动抽取，不被覆盖） */
-  editMemory: (petId: number | string, memoryId: number | string, data: { memoryValue: string; importance?: number }) =>
+  editMemory: (petId: number | string, memoryId: number | string, data: { value: string }) =>
     request<PetMemory>({
       url: `/pet/pets/${petId}/memories/${memoryId}`,
       method: 'PUT',
