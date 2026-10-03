@@ -130,7 +130,8 @@ class PetAchievementServiceImplTest {
         achievementService.evaluate(pet(), PetAchievementService.Event.FEED);
 
         verify(recordMapper).insert(any(PetAchievementRecord.class));
-        verify(eventProducer).publishViaOutbox(any(String.class), any(PetEventProducer.PetEventMessage.class));
+        verify(eventProducer).publishViaOutbox(any(String.class), any(PetEventProducer.PetEventMessage.class),
+                org.mockito.ArgumentMatchers.eq(1L));
     }
 
     @Test
@@ -180,6 +181,6 @@ class PetAchievementServiceImplTest {
         achievementService.evaluate(pet(), PetAchievementService.Event.BOTTLE_SETTLED);
 
         verify(eventProducer).publishViaOutbox(eq(RocketMQConfig.PET_TAG_ACHIEVEMENT),
-                any(PetEventProducer.PetEventMessage.class));
+                any(PetEventProducer.PetEventMessage.class), org.mockito.ArgumentMatchers.eq(1L));
     }
 }

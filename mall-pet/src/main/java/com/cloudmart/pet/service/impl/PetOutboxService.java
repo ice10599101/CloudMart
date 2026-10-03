@@ -61,6 +61,9 @@ public class PetOutboxService {
     /**
      * 在当前业务事务内登记事件（业务提交后才会被发送）。同一 eventId 重复登记静默跳过
      * （幂等），禁止覆盖已排队事件。
+     *
+     * <p>R15：petId 语义为<b>事件主体宠物</b>（日记归属依据），由调用方显式传入，
+     * 不再从 bizId 推断；null=无宠物主体（运维/举报等），不生成宠物日记。</p>
      */
     public void record(String eventId, String eventType, Long userId, Long petId,
                        PetEventProducer.PetEventMessage message) {
@@ -89,7 +92,28 @@ public class PetOutboxService {
                 .orderByAsc(PetOutboxEvent::getId)
                 .last("LIMIT " + BATCH_SIZE));
         for (PetOutboxEvent event : events) {
-            dispatchOne(event);
+            // R15：单事件全流程隔离——坏 payload/单条异常不阻断批次（原实现坏 JSON 可中断整批）
+            try {
+                dispatchOne(event);
+            } catch (Exception e) {
+                log.error("发件箱单事件推进异常, eventId={}", event.getEventId(), e);
+                markDead(event, String.valueOf(e.getMessage()));
+            }
+        }
+    }
+
+    /** R15：不可恢复事件进 DEAD（后台可查/同事件重放），不阻塞后续事件 */
+    private void markDead(PetOutboxEvent event, String error) {
+        try {
+            outboxMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetOutboxEvent>()
+                    .set(PetOutboxEvent::getStatus, "DEAD")
+                    .set(PetOutboxEvent::getNextRetryAt, null)
+                    .eq(PetOutboxEvent::getId, event.getId())
+                    .eq(PetOutboxEvent::getStatus, event.getStatus()));
+            metrics.increment("pet_outbox_dead", "type", String.valueOf(event.getEventType()));
+            log.warn("发件箱事件置 DEAD: eventId={}, error={}", event.getEventId(), error);
+        } catch (Exception e) {
+            log.error("发件箱 DEAD 标记失败（下轮重试）, eventId={}", event.getEventId(), e);
         }
     }
 
@@ -98,6 +122,10 @@ public class PetOutboxService {
         PetEventProducer.PetEventMessage payload = PetJsonUtils.parse(event.getPayload(),
                 new com.fasterxml.jackson.core.type.TypeReference<PetEventProducer.PetEventMessage>() {
                 });
+        if (payload == null || payload.eventId() == null) {
+            // R15：坏 payload 不可解析——置 DEAD 隔离（原实现抛出中断本批，坏消息阻塞后续全部事件）
+            throw new IllegalStateException("payload 不可解析（坏消息）");
+        }
         // 需求：用户自定义主人称呼——事件类通知（挑战/留言/赛季奖励等）在投递前统一替换
         // 文案中的「主人」为收件人设置的称呼（宠物口吻漏斗之外的收口点，覆盖全部 PET 事件）。
         // 查询失败/无宠时 Fail-Open 保留原文案。
@@ -123,9 +151,12 @@ public class PetOutboxService {
             }
         }
         boolean sent = eventProducer.tryPublish(event.getEventType(), payload);
-        // N02：业务事实事件同步生成成长日记（eventId 复用，天然去重）
-        try {
-            if (petDiaryEntryMapper != null && payload.userId() != null) {
+        // N02/R15：业务事实事件同步生成成长日记——归属=事件主体宠物（显式登记，不从 bizId 推断）；
+        // 无宠物主体的事件不生成日记。日记失败时整体保持 FAILED 重试（MQ 消费者按 eventId 去重
+        // 保证重发安全；日记 eventId 唯一键保证重建不重复）——不再"MQ 成功即 SENT、日记永久缺失"。
+        boolean diaryOk = true;
+        if (petDiaryEntryMapper != null && payload.userId() != null && event.getPetId() != null) {
+            try {
                 com.cloudmart.pet.entity.PetDiaryEntry entry = new com.cloudmart.pet.entity.PetDiaryEntry();
                 entry.setPetId(event.getPetId());
                 entry.setUserId(Long.valueOf(payload.userId()));
@@ -135,9 +166,16 @@ public class PetOutboxService {
                 entry.setSnapshot(event.getPayload());
                 entry.setVisibility("OWNER_ONLY");
                 petDiaryEntryMapper.insert(entry);
+            } catch (DuplicateKeyException duplicate) {
+                // 日记已存在（重放）：视为成功
+            } catch (Exception e) {
+                diaryOk = false;
+                log.warn("日记生成失败（事件保持可重试，不静默丢失）: eventId={}", event.getEventId(), e);
             }
-        } catch (Exception e) {
-            log.debug("日记生成幂等跳过: eventId={}", event.getEventId());
+        }
+        if (sent && !diaryOk) {
+            // MQ 已发出但日记未落：按 FAILED 退避重试——重发由消费者 eventId 去重收敛，日记补建
+            sent = false;
         }
         if (sent) {
             event.setStatus("SENT");

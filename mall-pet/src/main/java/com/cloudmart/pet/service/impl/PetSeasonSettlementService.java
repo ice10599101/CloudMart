@@ -309,7 +309,8 @@ public class PetSeasonSettlementService {
                                 "赛季结算奖励到账啦！",
                                 "主人！「" + season.getName() + "」赛季我拿到了第 " + row.getRankNo()
                                         + " 名，奖励已发放，快去看看吧！",
-                                String.valueOf(season.getId()), "PET_SEASON_REWARD"));
+                                String.valueOf(season.getId()), "PET_SEASON_REWARD"),
+                        row.getPetId());
                 rewarded++;
             }
         }

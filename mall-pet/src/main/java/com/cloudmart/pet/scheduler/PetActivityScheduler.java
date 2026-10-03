@@ -56,6 +56,8 @@ public class PetActivityScheduler {
     private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService dashboardSnapshotService;
     private final com.cloudmart.pet.service.impl.PetSeasonSettlementService seasonSettlementService;
     private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
+    /** R15：完成 CAS 与 Outbox 登记同一事务——kill 窗口不再丢"任务完成"通知 */
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Scheduled(fixedDelay = 60_000)
     public void settleFinishedActivities() {
@@ -143,7 +145,8 @@ public class PetActivityScheduler {
     private void handleFinished(PetActivity activity) {
         PetActivityType type = PetActivityType.valueOf(activity.getActivityType());
         switch (type) {
-            case WORK, STUDY, CAREER_WORK -> {
+            case WORK, STUDY, CAREER_WORK -> transactionTemplate.executeWithoutResult(status -> {
+                // R15：CAS 与 outbox 登记同事务提交——进程 kill 不再产生"已完成但通知永久丢失"
                 int updated = activityMapper.update(null, new LambdaUpdateWrapper<PetActivity>()
                         .set(PetActivity::getStatus, PetActivityStatus.COMPLETED.name())
                         .eq(PetActivity::getId, activity.getId())
@@ -151,7 +154,7 @@ public class PetActivityScheduler {
                 if (updated > 0) {
                     publishCompleted(activity, type);
                 }
-            }
+            });
             case BOTTLE_FISHING -> bottleFishingService.settle(activity.getUserId(), activity.getId());
             // R30：REST/BOTTLE 结算按 activityId 归属到 activity.petId，效果不再落到当前主宠
             case REST -> interactionService.settleRest(activity.getUserId(), activity.getId());
@@ -176,19 +179,22 @@ public class PetActivityScheduler {
                     "WORK_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的打工结束啦！",
-                    petName + "：" + "主人，我打工回来啦，快来领取奖励！", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
+                    petName + "：" + "主人，我打工回来啦，快来领取奖励！", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"),
+                    activity.getPetId());
         } else if (type == PetActivityType.CAREER_WORK) {
             eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_WORK_COMPLETED, new PetEventProducer.PetEventMessage(
                     "CAREER_WORK_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_WORK_COMPLETED",
                     "我的工作结束啦！",
-                    petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"));
+                    petName + "：" + "主人，今天的工作做完啦，工钱还没领呢～", String.valueOf(activity.getId()), "PET_WORK_COMPLETED"),
+                    activity.getPetId());
         } else {
             eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_STUDY_COMPLETED, new PetEventProducer.PetEventMessage(
                     "STUDY_COMPLETED:" + activity.getId(),
                     String.valueOf(activity.getUserId()), "PET_STUDY_COMPLETED",
                     "我已经读完啦！",
-                    petName + "：" + "主人，这本书读完啦，我感觉自己变聪明了一点点！", String.valueOf(activity.getId()), "PET_STUDY_COMPLETED"));
+                    petName + "：" + "主人，这本书读完啦，我感觉自己变聪明了一点点！", String.valueOf(activity.getId()), "PET_STUDY_COMPLETED"),
+                    activity.getPetId());
         }
     }
 }

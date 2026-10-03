@@ -35,8 +35,18 @@ public class PetEventProducer {
      * 同 eventId 重复登记由 outbox 唯一键幂等跳过。
      */
     public void publishViaOutbox(String tag, PetEventMessage message) {
+        publishViaOutbox(tag, message, null);
+    }
+
+    /**
+     * R15 事务内 Outbox 登记（带事件主体宠物）：{@code subjectPetId} 是日记归属的
+     * 唯一依据——绝不从 bizId 推断（bizId 是 activityId/seasonId/bottleId/reportId 等
+     * 聚合 ID，原实现误当 petId 写入发件箱，日记错归属/不可见）。
+     * 无宠物主体的运维/举报事件传 null，不生成宠物日记。
+     */
+    public void publishViaOutbox(String tag, PetEventMessage message, Long subjectPetId) {
         outboxService.record(message.eventId(), tag, parseOrNull(message.userId()),
-                parseOrNull(message.bizId()), message);
+                subjectPetId, message);
     }
 
     private static Long parseOrNull(String value) {

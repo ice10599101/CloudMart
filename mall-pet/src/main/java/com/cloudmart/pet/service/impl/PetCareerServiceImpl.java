@@ -199,7 +199,8 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 String.valueOf(userId), "PET_CAREER_PROMOTED",
                 "我入职啦！",
                 pet.getName() + "：主人，我现在是「" + config.getName() + "」啦，明天开始好好上班～",
-                String.valueOf(pet.getId()), "PET_CAREER_PROMOTED"));
+                String.valueOf(pet.getId()), "PET_CAREER_PROMOTED"),
+                pet.getId());
         log.info("宠物入职: userId={}, petId={}, from={}, to={}", userId, pet.getId(), previousCode, config.getCode());
         Map<String, PetCareerConfig> configMap = enabledConfigs().stream()
                 .collect(Collectors.toMap(PetCareerConfig::getCode, Function.identity(), (a, b) -> a));
@@ -376,7 +377,8 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 String.valueOf(userId), "PET_CAREER_PROMOTED",
                 "我晋升啦！",
                 pet.getName() + "：主人，我晋升成「" + target.getName() + "」啦，以后能赚更多小钱钱！",
-                String.valueOf(pet.getId()), "PET_CAREER_PROMOTED"));
+                String.valueOf(pet.getId()), "PET_CAREER_PROMOTED"),
+                pet.getId());
         achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
         Map<String, PetCareerConfig> configMap = enabledConfigs().stream()
                 .collect(Collectors.toMap(PetCareerConfig::getCode, Function.identity(), (a, b) -> a));

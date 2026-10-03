@@ -262,7 +262,7 @@ public class PetAchievementServiceImpl implements PetAchievementService {
                 String.valueOf(pet.getUserId()), "PET_ACHIEVEMENT",
                 "成就达成：" + achievement.getName(),
                 "恭喜！宠物达成了成就「" + achievement.getName() + "」：" + achievement.getDescription(),
-                String.valueOf(achievement.getId()), "PET_ACHIEVEMENT"));
+                String.valueOf(achievement.getId()), "PET_ACHIEVEMENT"), pet.getId());
     }
 
     private PetAchievementVO toVo(PetAchievement achievement, boolean achieved, LocalDateTime achievedAt) {

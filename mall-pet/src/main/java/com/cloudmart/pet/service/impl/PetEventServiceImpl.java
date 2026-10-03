@@ -140,7 +140,7 @@ public class PetEventServiceImpl implements PetEventService {
                         String.valueOf(userId), "PET_LEVEL_UP",
                         "宠物升级啦！",
                         pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
-                        String.valueOf(pet.getId()), "PET_LEVEL_UP"));
+                        String.valueOf(pet.getId()), "PET_LEVEL_UP"), pet.getId());
             }
         }
         int starlight = orZero(config.getRewardStarlight());
