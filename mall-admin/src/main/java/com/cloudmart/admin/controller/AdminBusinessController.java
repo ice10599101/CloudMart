@@ -17,6 +17,7 @@ import com.cloudmart.admin.feign.NotificationQueryFeignClient;
 import com.cloudmart.admin.feign.OrderFeignClient;
 import com.cloudmart.admin.feign.PaymentFeignClient;
 import com.cloudmart.admin.feign.PaymentReconciliationFeignClient;
+import com.cloudmart.admin.feign.ProductEsFeignClient;
 import com.cloudmart.admin.feign.ProductFeignClient;
 import com.cloudmart.admin.feign.ReviewFeignClient;
 import com.cloudmart.admin.feign.RiskFeignClient;
@@ -61,6 +62,7 @@ public class AdminBusinessController {
     private final BrandFeignClient brandFeignClient;
     private final PaymentReconciliationFeignClient paymentReconciliationFeignClient;
     private final ExchangeCodeFeignClient exchangeCodeFeignClient;
+    private final ProductEsFeignClient productEsFeignClient;
 
     public AdminBusinessController(ProductFeignClient productFeignClient,
                                    CategoryFeignClient categoryFeignClient,
@@ -83,7 +85,8 @@ public class AdminBusinessController {
                                    BrandFeignClient brandFeignClient,
                                    NotificationQueryFeignClient notificationQueryFeignClient,
                                    PaymentReconciliationFeignClient paymentReconciliationFeignClient,
-                                   ExchangeCodeFeignClient exchangeCodeFeignClient) {
+                                   ExchangeCodeFeignClient exchangeCodeFeignClient,
+                                   ProductEsFeignClient productEsFeignClient) {
         this.productFeignClient = productFeignClient;
         this.categoryFeignClient = categoryFeignClient;
         this.orderFeignClient = orderFeignClient;
@@ -106,6 +109,7 @@ public class AdminBusinessController {
         this.brandFeignClient = brandFeignClient;
         this.paymentReconciliationFeignClient = paymentReconciliationFeignClient;
         this.exchangeCodeFeignClient = exchangeCodeFeignClient;
+        this.productEsFeignClient = productEsFeignClient;
     }
 
     // ==================== 品牌 ====================
@@ -582,6 +586,30 @@ public class AdminBusinessController {
     public ApiResponse<Void> resolveReconciliationDifference(@PathVariable Long diffId,
                                                              @RequestBody Map<String, Object> body) {
         return paymentReconciliationFeignClient.resolveDifference(diffId, body);
+    }
+
+    // ==================== 商品 ES 索引管理（T08 蓝绿重建） ====================
+
+    @GetMapping("/products/es/index/status")
+    @RequiresPermission("business:product:edit")
+    @Operation(summary = "ES 索引状态", description = "别名指向（含写索引）、mapping 与 settings")
+    public ApiResponse<Map<String, Object>> esIndexStatus() {
+        return productEsFeignClient.indexStatus();
+    }
+
+    @GetMapping("/products/es/index/versions")
+    @RequiresPermission("business:product:edit")
+    @Operation(summary = "ES 索引版本清单", description = "当前写索引与版本化实体索引")
+    public ApiResponse<Map<String, Object>> esIndexVersions() {
+        return productEsFeignClient.indexVersions();
+    }
+
+    @PostMapping("/products/es/index/full-rebuild")
+    @OperLog(title = "ES 索引蓝绿重建", businessType = 1)
+    @RequiresPermission("business:product:edit")
+    @Operation(summary = "ES 索引蓝绿全量重建", description = "建新版本索引→全量写入→原子切换别名；旧版本保留回滚能力")
+    public ApiResponse<Map<String, Object>> esIndexFullRebuild() {
+        return productEsFeignClient.fullRebuild();
     }
 
     // ==================== 通知 ====================

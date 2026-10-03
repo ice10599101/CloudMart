@@ -40,6 +40,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
+      # Windows 开发的仓库不带 +x 位：不 chmod 则 ./mvnw 以 exit 126 失败
+      - name: 赋予 mvnw 执行权限
+        run: chmod +x mvnw
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
