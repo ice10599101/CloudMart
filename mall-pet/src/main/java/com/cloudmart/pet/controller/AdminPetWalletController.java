@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.PetWalletAccount;
 import com.cloudmart.pet.entity.PetWalletAdjustment;
 import com.cloudmart.pet.entity.PetWalletTransaction;
@@ -160,7 +162,13 @@ public class AdminPetWalletController {
     public ApiResponse<PetWalletAdjustment> createAdjustment(
             @RequestBody AdjustmentRequest request,
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long operatorAdminId) {
-        long delta = Long.parseLong(request.delta());
+        long delta;
+        try {
+            delta = Long.parseLong(request.delta());
+        } catch (NumberFormatException e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "delta 必须是十进制整数字符串");
+        }
         return ApiResponse.ok(adjustmentService.apply(request.userId(), delta, request.reason(),
                 request.ticketNo(), operatorAdminId));
     }

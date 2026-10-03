@@ -57,4 +57,7 @@ public class PetWalletAdjustment {
     private LocalDateTime updatedAt;
 
     private LocalDateTime reviewedAt;
+
+    /** R18 审批意见（拒绝必填/通过可填；审计可见） */
+    private String reviewReason;
 }

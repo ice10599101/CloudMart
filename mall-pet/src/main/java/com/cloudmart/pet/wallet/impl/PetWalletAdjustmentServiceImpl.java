@@ -40,15 +40,23 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
     private final PetWalletAccountMapper accountMapper;
     private final PetWalletService walletService;
 
+    /** R18 单笔金额上限（远离溢出量级；更大额度走多张申请=多道审批闸门） */
+    private static final long MAX_ABS_DELTA = 1_000_000L;
+
     @Override
     public PetWalletAdjustment apply(Long targetUserId, long delta, String reason,
                                      String ticketNo, Long operatorAdminId) {
         validateOperator(operatorAdminId);
-        if (delta == 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "调账金额不能为 0");
+        // R18：数值范围用比较而非 Math.abs（abs(Long.MIN_VALUE) 溢出为负，限制失效）
+        if (delta == 0 || delta > MAX_ABS_DELTA || delta < -MAX_ABS_DELTA) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "调账金额非 0 且单笔幅度不超过 " + MAX_ABS_DELTA);
         }
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "调账原因必填");
+        }
+        if (targetUserId == null || targetUserId <= 0) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "目标用户非法");
         }
         PetWalletAdjustment adjustment = new PetWalletAdjustment();
         adjustment.setUserId(targetUserId);
@@ -58,7 +66,23 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
         adjustment.setRequestedBy(operatorAdminId);
         adjustment.setStatus("PENDING");
         adjustment.setVersion(0L);
-        adjustmentMapper.insert(adjustment);
+        try {
+            adjustmentMapper.insert(adjustment);
+        } catch (DuplicateKeyException duplicate) {
+            // R18：同工单号幂等——双击/重试返回既有申请，不再产生第二张可审批单（多次审批发币）
+            if (ticketNo != null && !ticketNo.isBlank()) {
+                PetWalletAdjustment existing = adjustmentMapper.selectOne(
+                        new LambdaQueryWrapper<PetWalletAdjustment>()
+                                .eq(PetWalletAdjustment::getTicketNo, ticketNo)
+                                .last("LIMIT 1"));
+                if (existing != null) {
+                    log.info("调账申请同工单号幂等返回, ticketNo={}, adjustmentId={}",
+                            ticketNo, existing.getId());
+                    return existing;
+                }
+            }
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "调账申请创建冲突，请重试");
+        }
         log.info("调账申请创建, adjustmentId={}, targetUser={}, delta={}, operator={}",
                 adjustment.getId(), targetUserId, delta, operatorAdminId);
         return adjustment;
@@ -72,12 +96,13 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
             // 重复审批：返回原结果（幂等，不产生第二次资金变动）
             return adjustmentMapper.selectById(adjustmentId);
         }
-        if (!casSettle(adjustment, operatorAdminId, "APPROVED")) {
+        if (!casSettle(adjustment, operatorAdminId, "APPROVED", reason)) {
             // 并发双审：另一管理员已处理，返回其结果（不产生第二次资金变动）
             return adjustmentMapper.selectById(adjustmentId);
         }
         adjustment.setStatus("APPROVED");
         adjustment.setApprovedBy(operatorAdminId);
+        adjustment.setReviewReason(reason);
         adjustment.setVersion(adjustment.getVersion() + 1);
         // 仅 CAS 胜者入账：原子（失败整体回滚含审批状态）。
         // 补发（delta>0）走 ADJUSTMENT credit——冻结账户允许入账（§5.3）；
@@ -105,11 +130,15 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public PetWalletAdjustment reject(Long adjustmentId, Long operatorAdminId, String reason) {
+        // R18：拒绝理由必填并持久化（审计可查——原实现参数被丢弃）
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "拒绝理由必填");
+        }
         PetWalletAdjustment adjustment = requireReviewable(adjustmentId, operatorAdminId);
         if (adjustment == null) {
             return adjustmentMapper.selectById(adjustmentId);
         }
-        casSettle(adjustment, operatorAdminId, "REJECTED");
+        casSettle(adjustment, operatorAdminId, "REJECTED", reason.strip());
         return adjustmentMapper.selectById(adjustmentId);
     }
 
@@ -134,12 +163,14 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
         return adjustment;
     }
 
-    /** CAS 抢占审批权（PENDING→目标状态），并发双审单胜 */
-    private boolean casSettle(PetWalletAdjustment adjustment, Long operatorAdminId, String targetStatus) {
+    /** CAS 抢占审批权（PENDING→目标状态），并发双审单胜；审批意见同事务落库 */
+    private boolean casSettle(PetWalletAdjustment adjustment, Long operatorAdminId,
+                              String targetStatus, String reviewReason) {
         long newVersion = adjustment.getVersion() + 1;
         int updated = adjustmentMapper.update(null, new LambdaUpdateWrapper<PetWalletAdjustment>()
                 .set(PetWalletAdjustment::getStatus, targetStatus)
                 .set(PetWalletAdjustment::getApprovedBy, operatorAdminId)
+                .set(PetWalletAdjustment::getReviewReason, reviewReason)
                 .set(PetWalletAdjustment::getVersion, newVersion)
                 .set(PetWalletAdjustment::getReviewedAt, LocalDateTime.now(ZoneOffset.UTC))
                 .eq(PetWalletAdjustment::getId, adjustment.getId())
@@ -183,15 +214,16 @@ public class PetWalletAdjustmentServiceImpl implements PetWalletAdjustmentServic
         if (account == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "钱包账户不存在");
         }
+        // R18：expectedVersion 必填（原实现可空=并发冻结互相覆盖；§8.4 高危写必须带版本）
+        if (expectedVersion == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "expectedVersion 必填");
+        }
         String targetStatus = frozen ? "FROZEN" : "ACTIVE";
         LambdaUpdateWrapper<PetWalletAccount> wrapper = new LambdaUpdateWrapper<PetWalletAccount>()
                 .set(PetWalletAccount::getStatus, targetStatus)
                 .eq(PetWalletAccount::getId, account.getId())
-                .eq(PetWalletAccount::getStatus, frozen ? "ACTIVE" : "FROZEN");
-        if (expectedVersion != null) {
-            // §8.4：expectedVersion 必带时 CAS 校验，防止并发操作互相覆盖
-            wrapper.eq(PetWalletAccount::getVersion, expectedVersion);
-        }
+                .eq(PetWalletAccount::getStatus, frozen ? "ACTIVE" : "FROZEN")
+                .eq(PetWalletAccount::getVersion, expectedVersion);
         int updated = accountMapper.update(null, wrapper);
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,

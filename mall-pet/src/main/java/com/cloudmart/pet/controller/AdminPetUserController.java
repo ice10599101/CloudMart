@@ -133,7 +133,7 @@ public class AdminPetUserController {
                     "field 必须是 " + ADJUSTABLE_FIELDS.keySet() + " 或 exp/hp");
         }
         int delta = request.delta() != null ? request.delta() : 0;
-        if (delta == 0 || Math.abs(delta) > MAX_ABS_DELTA) {
+        if (delta == 0 || delta > MAX_ABS_DELTA || delta < -MAX_ABS_DELTA) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
                     "delta 非零且单次幅度不超过 " + MAX_ABS_DELTA);
         }
@@ -188,9 +188,9 @@ public class AdminPetUserController {
             @Valid @RequestBody CompensationRequest request,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
         long delta = request.delta() != null ? request.delta() : 0;
-        if (delta == 0 || Math.abs(delta) > MAX_ABS_DELTA) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                    "delta 非零且单次幅度不超过 " + MAX_ABS_DELTA);
+        // R18：比较代替 Math.abs（MIN_VALUE 溢出为负使限制失效）；上限由调账服务统一裁决
+        if (delta == 0) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "delta 非零");
         }
         return ApiResponse.ok(adjustmentService.apply(userId, delta, request.reason(),
                 request.ticketNo(), adminUserId));

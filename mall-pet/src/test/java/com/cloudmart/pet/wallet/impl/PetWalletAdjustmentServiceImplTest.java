@@ -6,6 +6,8 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.PetWalletAccount;
 import com.cloudmart.pet.entity.PetWalletAdjustment;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.springframework.dao.DuplicateKeyException;
 import com.cloudmart.pet.repository.PetWalletAccountMapper;
 import com.cloudmart.pet.repository.PetWalletAdjustmentMapper;
 import com.cloudmart.pet.wallet.PetWalletService;
@@ -132,6 +134,64 @@ class PetWalletAdjustmentServiceImplTest {
         assertThat(captor.getValue().direction()).isEqualTo("SPEND");
         assertThat(captor.getValue().amount()).isEqualTo(50);
         verify(walletService, never()).credit(any(PetWalletCommand.class));
+    }
+
+    @Test
+    @DisplayName("R18：同工单号重复申请 → 幂等返回既有申请（不再产生第二张可审批单）")
+    void apply_sameTicketIdempotent() {
+        when(adjustmentMapper.insert(any(PetWalletAdjustment.class)))
+                .thenThrow(new DuplicateKeyException("uk_pet_wallet_adjustment_ticket"));
+        PetWalletAdjustment existing = new PetWalletAdjustment();
+        existing.setId(600L);
+        existing.setTicketNo("TICKET-1");
+        existing.setStatus("PENDING");
+        when(adjustmentMapper.selectOne(any())).thenReturn(existing);
+
+        PetWalletAdjustment result = service.apply(TARGET_USER, 100, "补偿", "TICKET-1", APPLICANT);
+
+        assertThat(result.getId()).isEqualTo(600L);
+        verify(adjustmentMapper, org.mockito.Mockito.times(1)).insert(any(PetWalletAdjustment.class));
+    }
+
+    @Test
+    @DisplayName("R18：拒绝理由必填（原实现参数被丢弃不可查）")
+    void reject_reasonRequired() {
+        pending(100);
+        assertThatThrownBy(() -> service.reject(500L, APPROVER, " "))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("R18：拒绝理由持久化落库")
+    void reject_persistsReason() {
+        pending(100);
+        when(adjustmentMapper.update(any(), any())).thenReturn(1);
+
+        service.reject(500L, APPROVER, "证据不足");
+
+        ArgumentCaptor<LambdaUpdateWrapper> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(adjustmentMapper).update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("review_reason");
+    }
+
+    @Test
+    @DisplayName("R18：expectedVersion 缺失 → 冻结直接拒绝（原实现可空=并发覆盖）")
+    void freeze_requiresExpectedVersion() {
+        assertThatThrownBy(() -> service.setAccountStatus(TARGET_USER, true, "风控冻结", null, APPROVER))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("R18：金额超上限拒绝（比较裁决，Long.MIN_VALUE 不再绕过）")
+    void apply_boundsWithoutAbsOverflow() {
+        assertThatThrownBy(() -> service.apply(TARGET_USER, Long.MIN_VALUE + 1, "溢出", null, APPLICANT))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
+        assertThatThrownBy(() -> service.apply(TARGET_USER, 2_000_000L, "超限", null, APPLICANT))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
     }
 
     @Test
