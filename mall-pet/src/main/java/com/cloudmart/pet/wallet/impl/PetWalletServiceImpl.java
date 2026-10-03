@@ -260,6 +260,20 @@ public class PetWalletServiceImpl implements PetWalletService {
                         .eq(PetWalletTransaction::getDirection, DIRECTION_REFUND)
                         .eq(PetWalletTransaction::getStatus, STATUS_COMMITTED));
         long refunded = priorRefunds.stream().mapToLong(PetWalletTransaction::getAmount).sum();
+        if (refunded >= original.getAmount()) {
+            // QA34：原单已全额退款——后续退款请求（无论 operationId）返回既有退款结果，
+            // 余额不再变化（重放语义，重复请求不得二次入账也不得误报失败）
+            PetWalletTransaction prior = priorRefunds.stream()
+                    .reduce((a, b) -> a.getId() > b.getId() ? a : b).orElseThrow();
+            PetWalletLedger priorLedger = ledgerMapper.selectOne(
+                    new LambdaQueryWrapper<PetWalletLedger>()
+                            .eq(PetWalletLedger::getTransactionId, prior.getId()));
+            log.info("钱包重复退款命中原结果, originalTransactionId={}, refundOperationId={}",
+                    originalTransactionId, refundOperationId);
+            return new PetWalletResult(prior.getId(), prior.getOperationId(),
+                    priorLedger == null ? 0L : priorLedger.getBalanceAfter(),
+                    prior.getAmount(), prior.getStatus(), true);
+        }
         if (refunded + original.getAmount() > original.getAmount()) {
             throw new BusinessException(PetErrorCodes.PET_WALLET_REFUND_INVALID,
                     "累计退款将超过原单实扣金额（已退 " + refunded + "）");

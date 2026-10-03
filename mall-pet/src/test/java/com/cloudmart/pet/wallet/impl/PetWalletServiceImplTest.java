@@ -316,11 +316,20 @@ class PetWalletServiceImplTest {
         spendOriginal.setRequestHash("h");
         when(transactionMapper.selectByIdForUpdate(900L)).thenReturn(spendOriginal);
         PetWalletTransaction priorRefund = new PetWalletTransaction();
+        priorRefund.setId(901L);
         priorRefund.setAmount(50L);
+        priorRefund.setOperationId("pw_r1");
+        priorRefund.setStatus("COMMITTED");
         when(transactionMapper.selectList(any())).thenReturn(List.of(priorRefund));
-        assertThatThrownBy(() -> service.refundFull(900L, "pw_r2", "客服退款"))
-                .isInstanceOfSatisfying(BusinessException.class, e ->
-                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_WALLET_REFUND_INVALID));
+        // QA34：原单已全额退款——后续退款请求（无论 operationId）返回既有退款结果，
+        // 重复请求不得二次入账也不得误报失败
+        PetWalletLedger priorLedger = new PetWalletLedger();
+        priorLedger.setBalanceAfter(100L);
+        when(ledgerMapper.selectOne(any())).thenReturn(priorLedger);
+        PetWalletResult replayedRefund = service.refundFull(900L, "pw_r2", "客服退款");
+        assertThat(replayedRefund.duplicate()).isTrue();
+        assertThat(replayedRefund.transactionId()).isEqualTo(901L);
+        assertThat(replayedRefund.balanceAfter()).isEqualTo(100L);
 
         when(transactionMapper.selectList(any())).thenReturn(List.of());
         stubAccount(account(10, 2, "ACTIVE"));

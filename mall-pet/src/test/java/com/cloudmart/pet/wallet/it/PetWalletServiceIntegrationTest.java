@@ -172,9 +172,10 @@ class PetWalletServiceIntegrationTest {
                 .orderByAsc(PetWalletLedger::getAccountVersion));
     }
 
-    private void assertAccountLedgerConsistent(long userId, long openingBalance) {
+    private void assertAccountLedgerConsistent(long userId) {
+        // 种子入账也写账本：余额必须恰等于账本累计增量（账实一致，不引入外部期初）
         long sumDelta = ledgersOf(userId).stream().mapToLong(PetWalletLedger::getDelta).sum();
-        assertThat(balanceOf(userId)).as("余额必须等于期初 + 账本累计增量").isEqualTo(openingBalance + sumDelta);
+        assertThat(balanceOf(userId)).as("余额必须等于账本累计增量").isEqualTo(sumDelta);
     }
 
     @Test
@@ -196,7 +197,7 @@ class PetWalletServiceIntegrationTest {
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
                 .eq(PetWalletTransaction::getUserId, userId)
                 .eq(PetWalletTransaction::getBizType, "PURCHASE"))).isEqualTo(1);
-        assertAccountLedgerConsistent(userId, 100);
+        assertAccountLedgerConsistent(userId);
     }
 
     @Test
@@ -225,8 +226,9 @@ class PetWalletServiceIntegrationTest {
         }
         assertThat(balanceOf(userId)).isEqualTo(90);
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
-                .eq(PetWalletTransaction::getUserId, userId))).isEqualTo(1);
-        assertAccountLedgerConsistent(userId, 100);
+                .eq(PetWalletTransaction::getUserId, userId)
+                .eq(PetWalletTransaction::getBizType, "PURCHASE"))).isEqualTo(1);
+        assertAccountLedgerConsistent(userId);
     }
 
     @Test
@@ -261,7 +263,7 @@ class PetWalletServiceIntegrationTest {
             assertThat(ledger.getBalanceAfter()).isEqualTo(expected);
             assertThat(ledger.getAccountVersion()).as("账本 accountVersion 必须连续").isEqualTo(++prevVersion);
         }
-        assertAccountLedgerConsistent(userId, 1000);
+        assertAccountLedgerConsistent(userId);
     }
 
     @Test
@@ -276,7 +278,8 @@ class PetWalletServiceIntegrationTest {
 
         assertThat(balanceOf(userId)).isEqualTo(90);
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
-                .eq(PetWalletTransaction::getUserId, userId))).isEqualTo(1);
+                .eq(PetWalletTransaction::getUserId, userId)
+                .eq(PetWalletTransaction::getBizType, "PURCHASE"))).isEqualTo(1);
     }
 
     @Test
@@ -290,7 +293,8 @@ class PetWalletServiceIntegrationTest {
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(balanceOf(userId)).isEqualTo(90);
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
-                .eq(PetWalletTransaction::getUserId, userId))).isEqualTo(1);
+                .eq(PetWalletTransaction::getUserId, userId)
+                .eq(PetWalletTransaction::getBizType, "PURCHASE"))).isEqualTo(1);
     }
 
     @Test
@@ -345,7 +349,7 @@ class PetWalletServiceIntegrationTest {
                 .eq(PetWalletTransaction::getUserId, userId)
                 .eq(PetWalletTransaction::getDirection, "REFUND"));
         assertThat(refundCount).isEqualTo(1);
-        assertAccountLedgerConsistent(userId, 100);
+        assertAccountLedgerConsistent(userId);
     }
 
     /** 跨账户 operationId 竞争任务：败方以异常返回（事务已整体回滚），胜方以结果返回。 */
@@ -383,8 +387,8 @@ class PetWalletServiceIntegrationTest {
         // 失败方余额必须原封不动：赢家已扣 10，两账户合计 = 200 - 10 = 190
         long total = balanceOf(userA) + balanceOf(userB);
         assertThat(total).isEqualTo(190);
-        assertAccountLedgerConsistent(userA, 100);
-        assertAccountLedgerConsistent(userB, 100);
+        assertAccountLedgerConsistent(userA);
+        assertAccountLedgerConsistent(userB);
     }
 
     @Test
