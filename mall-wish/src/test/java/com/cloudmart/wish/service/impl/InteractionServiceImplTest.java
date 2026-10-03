@@ -599,7 +599,7 @@ class InteractionServiceImplTest {
         @DisplayName("昨日 BLESS 记录：createdToday=false（今日可再次祝福）")
         void my_yesterdayBless() {
             WishInteraction bless = buildInteraction(InteractionType.BLESS, USER_ID);
-            bless.setCreatedAt(LocalDateTime.now().minusDays(1));
+            bless.setCreatedAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusDays(1));
             when(wishInteractionMapper.selectList(any())).thenReturn(List.of(bless));
 
             var result = interactionService.listMyInteractions(USER_ID, WISH_ID);
@@ -668,7 +668,9 @@ class InteractionServiceImplTest {
         interaction.setUserId(userId);
         interaction.setType(type);
         interaction.setStarlightCost(type == InteractionType.LIGHT ? 2 : 0);
-        interaction.setCreatedAt(LocalDateTime.now());
+        // impl 以平台时区（Asia/Shanghai）解释裸 createdAt——夹具必须取同一时区的
+        // 墙钟，否则 UTC 时钟的 CI 在 UTC 16:00 后（上海已次日）日期判定翻转
+        interaction.setCreatedAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")));
         return interaction;
     }
 }
