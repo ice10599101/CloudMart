@@ -17,6 +17,9 @@ public final class RocketMQConfig {
 
     public static final String ORDER_TOPIC = "order-events";
     public static final String ORDER_TAG_PAID = "paid";
+    /** T11 切片三：售后质检通过事件（RETURN_REFUND 案件退货入库联动） */
+    public static final String ORDER_TAG_AFTER_SALE = "after-sale";
 
     public static final String CG_WMS_ORDER_PAID = "wms-order-paid-cg";
+    public static final String CG_WMS_AFTER_SALE_RETURN = "wms-after-sale-return-cg";
 }

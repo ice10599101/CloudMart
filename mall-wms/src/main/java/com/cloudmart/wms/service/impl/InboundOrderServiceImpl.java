@@ -106,6 +106,15 @@ public class InboundOrderServiceImpl implements InboundOrderService {
     }
 
     @Override
+    public InboundOrderDTO findByTypeAndReferenceNo(String type, String referenceNo) {
+        InboundOrder order = inboundOrderMapper.selectOne(new LambdaQueryWrapper<InboundOrder>()
+                .eq(InboundOrder::getType, type)
+                .eq(InboundOrder::getReferenceNo, referenceNo)
+                .last("LIMIT 1"));
+        return order == null ? null : toDTO(order);
+    }
+
+    @Override
     public IPage<InboundOrderDTO> listInboundOrders(String status, Long warehouseId, int page, int size) {
         LambdaQueryWrapper<InboundOrder> wrapper = new LambdaQueryWrapper<>();
         if (status != null && !status.isBlank()) {

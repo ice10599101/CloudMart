@@ -45,6 +45,7 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final com.cloudmart.common.async.outbox.OutboxService outboxService;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -212,13 +213,39 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         // APPROVED 等待运营与用户协商）
         if ("PASSED".equals(result)) {
             AfterSaleCase entity = requireCase(caseId);
+            // T11 切片二 C：质检 PASSED → 自动退款流转（Outbox 事件驱动本服务消费者，
+            // 系统代发 requestRefund + approveRefund 免人工二次操作；REJECTED 保持
+            // APPROVED 等待运营与用户协商）
+            // 切片三：payload 附带 SKU 明细，mall-wms 消费后自动建退货入库单
             outboxService.record(com.cloudmart.common.async.EventEnvelope.of(
                     "AFTER_SALE_INSPECT_PASSED", 1, entity.getCaseNo(), 1, null,
-                    "{\"caseId\":" + caseId + ",\"caseNo\":\"" + entity.getCaseNo()
-                            + "\",\"orderId\":" + entity.getOrderId()
-                            + ",\"userId\":" + entity.getUserId() + "}"));
+                    inspectPassedPayload(entity)));
         }
         log.info("[T11] 售后质检录入 caseId={} result={} by admin:{}", caseId, result, adminId);
+    }
+
+    /**
+     * 质检通过事件 payload：自动退款所需案件标识 + 退货入库所需 SKU 明细。
+     * quantity 缺省 1（单件退货）；itemId 关联的订单明细可能已被删除（数据完整性
+     * 由消费者侧兜底校验），此处尽力携带。
+     */
+    private String inspectPassedPayload(AfterSaleCase entity) {
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("caseId", entity.getId());
+        payload.put("caseNo", entity.getCaseNo());
+        payload.put("orderId", entity.getOrderId());
+        payload.put("userId", entity.getUserId());
+        payload.put("afterSaleType", entity.getType());
+        payload.put("itemId", entity.getItemId());
+        payload.put("quantity", entity.getQuantity() == null ? 1 : entity.getQuantity());
+        if (entity.getItemId() != null) {
+            OrderItem item = orderItemMapper.selectById(entity.getItemId());
+            if (item != null) {
+                payload.put("skuId", item.getSkuId());
+                payload.put("productName", item.getProductName());
+            }
+        }
+        return objectMapper.writeValueAsString(payload);
     }
 
     @Override

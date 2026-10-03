@@ -28,7 +28,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @RocketMQMessageListener(
-        topic = RocketMQConfig.PAYMENT_TOPIC,
+        topic = RocketMQConfig.ORDER_TOPIC,
         consumerGroup = RocketMQConfig.CG_ORDER_AFTER_SALE,
         selectorExpression = RocketMQConfig.TAG_AFTER_SALE
 )
