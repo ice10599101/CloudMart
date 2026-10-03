@@ -1679,29 +1679,56 @@ export default function PetCreamPage() {
     const [appearanceDraft, setAppearanceDraft] = useState<{ color: string; accessory: string } | null>(null)
     /** 动作可执行性（B06）：刷新随宠物一起拉取 */
     const [actions, setActions] = useState<PetActionItem[] | null>(null)
+    /** R23/T36：加载代际——切宠/重载推进代际，迟到的旧响应不覆盖新状态 */
+    const loadGenerationRef = useRef(0)
+    /** R23：pet 镜像 ref——catch 分支读取当前值而无需把 pet 拉进 load 依赖（避免 effect 循环） */
+    const petRef = useRef<typeof pet>(null)
+    useEffect(() => {
+        petRef.current = pet
+    }, [pet])
+    /** R23/T36：加载失败且无旧数据时展示重试页（500 不再伪装成未领养） */
+    const [loadFailed, setLoadFailed] = useState(false)
 
     const load = useCallback(async () => {
+        const generation = ++loadGenerationRef.current
         setLoading(true)
         try {
             const { data: mine } = await getMyPet()
+            if (generation !== loadGenerationRef.current) {
+                return // 迟到的旧响应：丢弃（服务端权威数据由更新的一次 load 承载）
+            }
             setPet(mine.success ? mine.data : null)
             if (mine.success) {
                 // 动作可执行性（B06）：喂食/玩耍等当前能否执行与不可执行原因，随宠物一起刷新
                 const { data: actionsRes } = await getPetActions(mine.data.petId)
-                if (actionsRes.success) {
+                if (actionsRes.success && generation === loadGenerationRef.current) {
                     setActions(actionsRes.data ?? [])
                 }
             }
             const { data: list } = await listMyPets()
-            if (list.success) {
+            if (list.success && generation === loadGenerationRef.current) {
                 setPets(list.data)
             }
-        } catch {
-            setPet(null)
+        } catch (error) {
+            if (generation !== loadGenerationRef.current) {
+                return
+            }
+            // R23/T36：仅"确实无宠物"（PET_NOT_FOUND）才显示领养入口；
+            // 500/网络错误保留旧数据并提示可重试，不再伪装成"未领养"
+            const code = (error as { code?: string })?.code
+            if (code === 'PET_NOT_FOUND') {
+                setPet(null)
+            } else if (petRef.current !== null) {
+                message.warning('刷新失败，显示的可能不是最新数据，请重试')
+            } else {
+                setLoadFailed(true)
+            }
         } finally {
-            setLoading(false)
+            if (generation === loadGenerationRef.current) {
+                setLoading(false)
+            }
         }
-    }, [])
+    }, [message])
 
     useEffect(() => {
         void load()
@@ -1881,7 +1908,14 @@ export default function PetCreamPage() {
                     <div className={styles.mastheadRule} />
                 </header>
 
-                {!pet ? (
+                {/* R23/T36：加载失败（500/网络错误且无旧数据）显示重试页——不伪装成未领养 */}
+                {loadFailed && !pet ? (
+                    <CreamCard variant="arch" label="Adoption" title="加载失败" subtitle="服务暂时不可用，请稍后重试">
+                        <CreamButton block onClick={() => { setLoadFailed(false); void load() }}>
+                            重新加载
+                        </CreamButton>
+                    </CreamCard>
+                ) : !pet ? (
                     <CreamCard variant="arch" label="Adoption" title="领养一只水果伙伴" subtitle="选一只，给它取个名字">
                         <div className={styles.fruitGrid}>
                             {FRUIT_OPTIONS.map(item => (
