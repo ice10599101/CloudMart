@@ -95,7 +95,7 @@ class PetPurchaseRecoveryIntegrationTest {
     @MapperScan("com.cloudmart.pet.repository")
     @Import({PetWalletServiceImpl.class, PetRequestDedupServiceImpl.class,
             PetPurchaseApplicationService.class, PetPurchaseRecoveryService.class,
-            com.cloudmart.pet.config.MyBatisPlusConfig.class})
+            com.cloudmart.pet.config.MyBatisPlusConfig.class, com.cloudmart.pet.config.PetClock.class})
     @EnableTransactionManagement
     static class PurchaseItConfig {
 
