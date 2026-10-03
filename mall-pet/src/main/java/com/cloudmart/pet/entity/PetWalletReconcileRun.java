@@ -26,6 +26,12 @@ public class PetWalletReconcileRun {
     /** 对账截止时间 */
     private LocalDateTime cutoff;
 
+    /** R19 本轮账户上界（创建时快照 MAX(id)；该轮只扫 <= 此值） */
+    private Long maxAccountId;
+
+    /** R19 已扫描到的账户 ID 游标（keyset 推进，中断后续跑不重扫不漏扫） */
+    private Long cursorAccountId;
+
     /** 状态：RUNNING/COMPLETED/FAILED */
     private String status;
 
