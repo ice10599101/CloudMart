@@ -16,7 +16,6 @@ import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetCareerConfig;
 import com.cloudmart.pet.entity.PetCareerProgress;
 import com.cloudmart.pet.entity.PetCareerStint;
-import com.cloudmart.pet.entity.PetOperation;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetIntimacySource;
@@ -32,7 +31,6 @@ import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.service.PetCareerService;
 import com.cloudmart.pet.service.PetDailyQuestService;
 import com.cloudmart.pet.service.PetIntimacyService;
-import com.cloudmart.pet.service.PetOperationRecoverable;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetActivityVO;
@@ -66,7 +64,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
-public class PetCareerServiceImpl implements PetCareerService, PetOperationRecoverable {
+public class PetCareerServiceImpl implements PetCareerService {
 
     /** 默认阶位 */
     private static final int DEFAULT_TIER = 1;
@@ -133,7 +131,6 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         this.transactionTemplate = transactionTemplate;
     }
 
-    @Override
     @Transactional
     public PetCareerVO status(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
@@ -179,7 +176,6 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 items, history);
     }
 
-    @Override
     @Transactional
     public PetCareerItemVO apply(Long userId, ApplyCareerRequest request) {
         Pet pet = petService.requireOwnedPet(userId);
@@ -218,7 +214,6 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         return toItemVo(pet, config, configMap, 0);
     }
 
-    @Override
     @Transactional
     public PetActivityVO startWork(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
@@ -278,14 +273,12 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
     }
 
     /** 兼容入口：稳定取本人最新一条可领取 CAREER_WORK */
-    @Override
     @Transactional
     public PetActivityVO claimWork(Long userId) {
         return claimByActivity(userId, requireClaimableActivity(userId));
     }
 
     /** 唯一任务归属领取（B03）：校验活动归属，奖励归 activity.petId，不取当前主宠 */
-    @Override
     @Transactional
     public PetActivityVO claimByActivity(Long userId, PetActivity activity) {
         if (!activity.getUserId().equals(userId)
@@ -318,7 +311,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         // B01：本地奖励已生效；星光结果未知不回滚
         Long credited = null;
         if (currencyReward > 0) {
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     userId, activity.getPetId(), "CAREER_CLAIM", activity.getId(),
                     currencyReward, null, activity.getId());
             if (settlement.isCompleted()) {
@@ -440,7 +433,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
             String promoteSnapshot = PetJsonUtils.toJson(Map.of(
                     "careerTo", target.getCode(),
                     "careerFrom", current.getCode()));
-            PetOperationService.WalletSettlement settlement = economyService.spend(
+            PetEconomyService.WalletSettlement settlement = economyService.spend(
                     userId, pet.getId(), BIZ_TYPE_PROMOTE, pet.getId(), cost, promoteSnapshot,
                     pet.getId(), target.getCode());
             if (settlement.isUnknown()) {
@@ -799,26 +792,6 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
 
     // ---------------- B01 恢复回调 ----------------
 
-    @Override
-    public String supportedBizType() {
-        return BIZ_TYPE_PROMOTE;
-    }
 
     /** 恢复任务回调：钱包已扣款但晋升未生效时按快照幂等补切职业（目标职业已生效=已履约） */
-    @Override
-    public boolean completePendingOperation(PetOperation operation) {
-        Map<String, Object> snapshot = PetJsonUtils.parse(operation.getRewardSnapshot(),
-                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
-                });
-        String careerTo = String.valueOf(snapshot.get("careerTo"));
-        Pet pet = petMapper.selectById(operation.getPetId());
-        if (pet == null) {
-            return false;
-        }
-        if (careerTo.equals(pet.getCareerCode())) {
-            return true;
-        }
-        switchCareer(pet, careerTo, "PROMOTED");
-        return true;
-    }
 }

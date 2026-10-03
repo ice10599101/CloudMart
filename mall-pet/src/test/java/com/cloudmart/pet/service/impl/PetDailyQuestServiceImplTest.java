@@ -87,7 +87,7 @@ class PetDailyQuestServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
                 wishFeignClient, economyService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties,
                 // R13：自代理提供者——测试中直通返回本实例（事务由生产代理承担，单测验证编排语义）

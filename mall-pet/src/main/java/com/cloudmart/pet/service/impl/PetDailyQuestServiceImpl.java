@@ -145,7 +145,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         int levelups = stateService.grantExp(pet, expReward);
         if (currencyReward > 0) {
             // B01：本地奖励已生效；星光结果未知不回滚，恢复任务按原单收敛
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     userId, pet.getId(), "QUEST_CLAIM", quest.getId(), currencyReward, null,
                     quest.getId());
             if (!settlement.isCompleted()) {
@@ -271,7 +271,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         int chestCurrency = chestSnapshot != null ? intOf(chestSnapshot.get("chestCurrency")) : cfg.getChestCurrency();
         int levelups = stateService.grantExp(pet, chestExp);
         if (chestCurrency > 0) {
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     userId, pet.getId(), "QUEST_CHEST", chest.getId(), chestCurrency, null,
                     userId, chest.getId());
             if (!settlement.isCompleted()) {

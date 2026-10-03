@@ -96,7 +96,7 @@ class PetEventServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         eventService = new PetEventServiceImpl(stateService, eventConfigMapper, progressMapper,
                 activityMapper, bottleRecordMapper, battleMapper, inventoryMapper, wishFeignClient,
                 economyService, achievementService, eventProducer);

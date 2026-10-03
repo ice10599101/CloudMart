@@ -34,51 +34,19 @@ public interface WishFeignClient {
                                          @RequestParam(value = "requestId", required = false) String requestId);
 
     /** 幂等发放星光（PET_REWARD 流水），返回实际入账量（余额上限截断）与操作后余额 */
-    @PostMapping("/internal/pet-support/starlight/earn")
-    ApiResponse<PetWalletOperationVO> earnStarlightIdempotent(@RequestParam("userId") Long userId,
-                                                              @RequestParam("amount") Integer amount,
-                                                              @RequestParam("refId") Long refId,
-                                                              @RequestParam("operationId") String operationId);
 
     /** 幂等扣减星光（PET_SHOP 流水）；余额不足由 mall-wish 返回 402 */
-    @PostMapping("/internal/pet-support/starlight/spend")
-    ApiResponse<PetWalletOperationVO> spendStarlightIdempotent(@RequestParam("userId") Long userId,
-                                                               @RequestParam("amount") Integer amount,
-                                                               @RequestParam("refId") Long refId,
-                                                               @RequestParam("operationId") String operationId);
 
     /** 交易结果查询（B01 内部结果查询）：data=null 表示结果未知，可按原单安全重试 */
-    @GetMapping("/internal/pet-support/starlight/operations/{operationId}")
-    ApiResponse<PetWalletOperationVO> findOperation(@PathVariable("operationId") String operationId);
 
     /**
      * 宠物旧单幂等退款（P02/TX-04）：仅限原 SPEND 扣款单的全额原路退回。
      * wish 侧校验原单存在/同用户/金额一致并按原单累计退款；不走余额上限截断，
      * 独立 PET_REFUND 流水。原单缺失/越权/超退返回 409 WISH_OPERATION_CONFLICT。
      */
-    @PostMapping("/internal/pet-support/starlight/refund")
-    ApiResponse<PetWalletOperationVO> refundStarlightIdempotent(@RequestParam("userId") Long userId,
-                                                                @RequestParam("amount") Integer amount,
-                                                                @RequestParam("originalOperationId") String originalOperationId,
-                                                                @RequestParam("refundOperationId") String refundOperationId);
 
     /** 星光余额（商城展示）；失败由 fallback 抛 WISH_SERVICE_UNAVAILABLE */
-    @GetMapping("/internal/pet-support/starlight/balance")
-    ApiResponse<Integer> starlightBalance(@RequestParam("userId") Long userId);
 
-    /** 幂等交易结果（与 mall-wish PetWalletOperationVO 契约对齐；ID 以字符串往返） */
-    record PetWalletOperationVO(
-            String operationId,
-            String operationType,
-            Integer amount,
-            Integer creditedAmount,
-            Integer balanceAfter,
-            String source,
-            Long refId,
-            String status,
-            boolean duplicate
-    ) {
-    }
 
     /** 捞瓶结果（仅宠物模块消费的字段子集；时间字段以 String 承接避免跨服务类型耦合） */
     record WishBottleVO(

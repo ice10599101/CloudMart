@@ -63,7 +63,10 @@ class PetCustodyCareServiceTest {
     void setUp() {
         PetProperties properties = new PetProperties();
         PetClock clock = new PetClock(java.time.Clock.systemUTC(), properties);
-        careService = new PetCustodyCareService(petMapper, custodyMapper, clock);
+        careService = new PetCustodyCareService(petMapper, custodyMapper, clock,
+                new com.cloudmart.pet.config.PetProperties(),
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserGuardService.class),
+                org.mockito.Mockito.mock(PetActivityMutex.class));
         mutex = new PetActivityMutex(
                 org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetActivityMapper.class),
                 custodyMapper);

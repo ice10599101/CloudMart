@@ -12,18 +12,15 @@ import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetEvolutionConfig;
 import com.cloudmart.pet.entity.PetInventory;
-import com.cloudmart.pet.entity.PetOperation;
 import com.cloudmart.pet.enums.PetActivityStatus;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetItemType;
-import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetEvolutionConfigMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.service.PetAchievementService;
 import com.cloudmart.pet.service.PetEvolutionService;
-import com.cloudmart.pet.service.PetOperationRecoverable;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.vo.PetEvolutionVO;
@@ -46,7 +43,7 @@ import java.util.Map;
  */
 @Service
 @Slf4j
-public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperationRecoverable {
+public class PetEvolutionServiceImpl implements PetEvolutionService {
 
     private static final int ATTRIBUTE_MAX = 999;
     private static final String BIZ_TYPE = "EVOLVE";
@@ -58,7 +55,6 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
     private final PetMapper petMapper;
     private final PetInventoryMapper inventoryMapper;
     private final PetActivityMapper activityMapper;
-    private final WishFeignClient wishFeignClient;
     private final PetAchievementService achievementService;
     private final PetEconomyService economyService;
     private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
@@ -72,7 +68,6 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
                                    PetMapper petMapper,
                                    PetInventoryMapper inventoryMapper,
                                    PetActivityMapper activityMapper,
-                                   WishFeignClient wishFeignClient,
                                    PetAchievementService achievementService,
                                    PetEconomyService economyService,
                                    com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
@@ -85,7 +80,6 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         this.petMapper = petMapper;
         this.inventoryMapper = inventoryMapper;
         this.activityMapper = activityMapper;
-        this.wishFeignClient = wishFeignClient;
         this.achievementService = achievementService;
         this.economyService = economyService;
         this.playFeatureService = playFeatureService;
@@ -210,7 +204,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
         // 1. 幂等扣款：业务键冻结 fromStage+stageTo（同键重试收敛原单；UNKNOWN 按原请求重试）
         int cost = orZero(next.getCostStarlight());
         if (cost > 0) {
-            PetOperationService.WalletSettlement settlement = economyService.spend(
+            PetEconomyService.WalletSettlement settlement = economyService.spend(
                     userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, fromStage, cost),
                     userId, pet.getId(), fromStage, next.getStageTo());
             if (settlement.isUnknown()) {
@@ -382,41 +376,5 @@ public class PetEvolutionServiceImpl implements PetEvolutionService, PetOperatio
             log.warn("星光余额查询降级（Fail-Open）: userId={}", userId, e);
             return null;
         }
-    }
-
-    @Override
-    public String supportedBizType() {
-        return BIZ_TYPE;
-    }
-
-    /** 恢复任务回调（B01）：钱包已扣款但本地进化未应用时，按快照幂等补应用（阶段已达标=已履约） */
-    @Override
-    public boolean completePendingOperation(PetOperation operation) {
-        Map<String, Object> snapshot = PetJsonUtils.parse(operation.getRewardSnapshot(),
-                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
-                });
-        int stageTo = ((Number) snapshot.get("stageTo")).intValue();
-        Pet pet = petMapper.selectById(operation.getPetId());
-        if (pet == null) {
-            return false;
-        }
-        if (currentStage(pet) >= stageTo) {
-            return true;
-        }
-        pet.setEvolutionStage(stageTo);
-        pet.setMaxHp(pet.getMaxHp() + intOf(snapshot.get("bonusMaxHp")));
-        pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + intOf(snapshot.get("bonusMaxHp"))));
-        pet.setStrength(grow(pet.getStrength(), intOf(snapshot.get("bonusStrength"))));
-        pet.setIntelligence(grow(pet.getIntelligence(), intOf(snapshot.get("bonusIntelligence"))));
-        pet.setAgility(grow(pet.getAgility(), intOf(snapshot.get("bonusAgility"))));
-        pet.setCharm(grow(pet.getCharm(), intOf(snapshot.get("bonusCharm"))));
-        petMapper.updateById(pet);
-        grantUnlockSkin(pet, (String) snapshot.get("unlockSkinCode"));
-        recordEvolutionActivity(pet);
-        return true;
-    }
-
-    private int intOf(Object value) {
-        return value instanceof Number number ? number.intValue() : 0;
     }
 }

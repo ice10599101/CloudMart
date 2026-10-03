@@ -14,7 +14,6 @@ import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetEvolutionConfig;
 import com.cloudmart.pet.entity.PetInventory;
-import com.cloudmart.pet.feign.WishFeignClient;
 import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetEvolutionConfigMapper;
@@ -68,8 +67,6 @@ class PetEvolutionServiceImplTest {
     @Mock
     private PetEconomyService economyService;
     @Mock
-    private WishFeignClient wishFeignClient;
-    @Mock
     private PetAchievementService achievementService;
     @Mock
     private PetEventProducer eventProducer;
@@ -97,7 +94,7 @@ class PetEvolutionServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
         org.mockito.Mockito.when(petClock.nowUtc())
                 .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -113,12 +110,11 @@ class PetEvolutionServiceImplTest {
                 .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<?>) inv.getArgument(0))
                         .doInTransaction(org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class)));
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
-                inventoryMapper, activityMapper, wishFeignClient, achievementService, economyService,
+                inventoryMapper, activityMapper, achievementService, economyService,
                 playFeatureService, org.mockito.Mockito.mock(PetOutboxService.class), petClock,
                 dedupService, txTemplate);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
-        lenient().when(wishFeignClient.starlightBalance(100L)).thenReturn(ApiResponse.ok(5000));
         com.cloudmart.pet.config.PetRequestContext.setIdempotencyKey("intent-key-evolve-0001");
     }
 
@@ -218,7 +214,6 @@ class PetEvolutionServiceImplTest {
         Pet pet = pet(10, 0);
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
-        when(wishFeignClient.starlightBalance(100L)).thenReturn(ApiResponse.ok(100));
 
         PetEvolutionVO status = evolutionService.status(100L);
 

@@ -51,7 +51,6 @@ public class PetCompanionFeatureService {
     private final PetDiaryEntryMapper diaryMapper;
     private final PetAlbumAssetMapper albumMapper;
     private final PetMemoryMapper memoryMapper;
-    private final PetOperationService operationService;
     private final PetInventoryMapper inventoryMapper;
     private final com.cloudmart.pet.config.PetProperties properties;
     private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
@@ -63,7 +62,6 @@ public class PetCompanionFeatureService {
                                       PetDiaryEntryMapper diaryMapper,
                                       PetAlbumAssetMapper albumMapper,
                                       PetMemoryMapper memoryMapper,
-                                      PetOperationService operationService,
                                       PetInventoryMapper inventoryMapper,
                                       com.cloudmart.pet.config.PetProperties properties,
                                       com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
@@ -74,7 +72,6 @@ public class PetCompanionFeatureService {
         this.diaryMapper = diaryMapper;
         this.albumMapper = albumMapper;
         this.memoryMapper = memoryMapper;
-        this.operationService = operationService;
         this.inventoryMapper = inventoryMapper;
         this.properties = properties;
         this.notifyPrefMapper = notifyPrefMapper;
@@ -181,7 +178,8 @@ public class PetCompanionFeatureService {
         if (progress.getFurnitureGrantOpId() != null) {
             return;
         }
-        String operationId = operationService.operationKey("ONBOARDING_GIFT", userId, GUIDE_VERSION);
+        // P03 二阶段：LEGACY operationKey 已删——本地确定性键（同格式 bizType:part1:part2）
+        String operationId = "ONBOARDING_GIFT:" + userId + ":" + GUIDE_VERSION;
         PetOnboardingProgress locked = onboardingMapper.selectOne(
                 new LambdaQueryWrapper<PetOnboardingProgress>().eq(PetOnboardingProgress::getUserId, userId));
         locked.setFurnitureGrantOpId(operationId);

@@ -4,10 +4,8 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.constant.PetErrorCodes;
-import com.cloudmart.pet.feign.WishFeignClient;
-import com.cloudmart.pet.service.impl.PetOperationService;
-import com.cloudmart.pet.service.impl.PetOperationService.WalletSettlement;
 import com.cloudmart.pet.wallet.PetEconomyService.Mode;
+import com.cloudmart.pet.wallet.PetEconomyService.WalletSettlement;
 import com.cloudmart.pet.wallet.PetRequestDedupService;
 import com.cloudmart.pet.wallet.PetWalletService;
 import com.cloudmart.pet.wallet.PetWalletService.PetWalletCommand;
@@ -34,7 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * W02 结算门面路由测试：LEGACY 委托旧链路、PET 走独立钱包（事实键/操作键）、
+ * W02 结算门面路由测试：PET 走独立钱包（事实键/操作键）、
  * PAUSED 维护拒绝、非法配置 fail-safe 回退。
  */
 @ExtendWith(MockitoExtension.class)
@@ -45,13 +43,9 @@ class PetEconomyServiceImplTest {
     @Mock
     private PetProperties properties;
     @Mock
-    private PetOperationService legacy;
-    @Mock
     private PetWalletService walletService;
     @Mock
     private PetRequestDedupService dedupService;
-    @Mock
-    private WishFeignClient wishFeignClient;
 
     private PetEconomyServiceImpl service;
 
@@ -59,7 +53,7 @@ class PetEconomyServiceImplTest {
         lenient().when(properties.getWalletMode()).thenReturn(mode);
         lenient().when(dedupService.canonicalHash(anyString())).thenReturn("a".repeat(64));
         lenient().when(dedupService.canonicalHash(any(), any(), any())).thenReturn("a".repeat(64));
-        return new PetEconomyServiceImpl(properties, legacy, walletService, dedupService, wishFeignClient);
+        return new PetEconomyServiceImpl(properties, walletService, dedupService);
     }
 
     @AfterEach
@@ -75,22 +69,6 @@ class PetEconomyServiceImplTest {
         assertThat(serviceOf("bogus").mode()).isEqualTo(Mode.PET);
     }
 
-    @Test
-    @DisplayName("LEGACY 显式配置：委托旧链路，不触碰新钱包")
-    void legacy_routesToLegacy() {
-        service = serviceOf("LEGACY");
-        assertThat(service.mode()).isEqualTo(Mode.LEGACY);
-        when(legacy.operationKey(anyString(), any(Object[].class))).thenReturn("LEG:KEY");
-        when(legacy.executeEarn(anyString(), any(), any(), anyString(), any(), anyInt(), any()))
-                .thenReturn(new WalletSettlement("COMPLETED", 10L, 100L, false, null));
-
-        WalletSettlement result = service.earn(1001L, 5L, "BATTLE_REWARD", 11L, 10, null, 11L, "attacker");
-
-        assertThat(result.isCompleted()).isTrue();
-        verify(legacy).executeEarn(anyString(), any(), any(), anyString(), any(), anyInt(), any());
-        verify(walletService, never()).credit(any(PetWalletCommand.class));
-
-    }
 
     @Test
     @DisplayName("PAUSED：新收支拒绝 PET_WALLET_MAINTENANCE；余额不展示")
@@ -155,7 +133,7 @@ class PetEconomyServiceImplTest {
     }
 
     @Test
-    @DisplayName("余额路由：PET 读钱包余额；LEGACY 读社区星光（降级 null）")
+    @DisplayName("余额路由：PET 读钱包余额")
     void balance_routing() {
         service = serviceOf("PET");
         com.cloudmart.pet.entity.PetWalletAccount account = new com.cloudmart.pet.entity.PetWalletAccount();
@@ -163,9 +141,5 @@ class PetEconomyServiceImplTest {
         when(walletService.getOrCreateAccount(1001L)).thenReturn(account);
         assertThat(service.balanceOf(1001L)).isEqualTo(77L);
 
-        service = serviceOf("LEGACY");
-        when(wishFeignClient.starlightBalance(1001L))
-                .thenThrow(new RuntimeException("down"));
-        assertThat(service.balanceOf(1001L)).isNull();
     }
 }

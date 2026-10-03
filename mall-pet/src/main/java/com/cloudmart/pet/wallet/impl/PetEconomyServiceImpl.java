@@ -3,9 +3,7 @@ package com.cloudmart.pet.wallet.impl;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
-import com.cloudmart.pet.feign.WishFeignClient;
-import com.cloudmart.pet.service.impl.PetOperationService;
-import com.cloudmart.pet.service.impl.PetOperationService.WalletSettlement;
+import com.cloudmart.pet.wallet.PetEconomyService.WalletSettlement;
 import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.wallet.PetRequestDedupService;
 import com.cloudmart.pet.wallet.PetWalletService;
@@ -30,21 +28,15 @@ import java.util.UUID;
 public class PetEconomyServiceImpl implements PetEconomyService {
 
     private final PetProperties properties;
-    private final PetOperationService legacyOperationService;
     private final PetWalletService walletService;
     private final PetRequestDedupService dedupService;
-    private final WishFeignClient wishFeignClient;
 
     public PetEconomyServiceImpl(PetProperties properties,
-                                 PetOperationService legacyOperationService,
                                  PetWalletService walletService,
-                                 PetRequestDedupService dedupService,
-                                 WishFeignClient wishFeignClient) {
+                                 PetRequestDedupService dedupService) {
         this.properties = properties;
-        this.legacyOperationService = legacyOperationService;
         this.walletService = walletService;
         this.dedupService = dedupService;
-        this.wishFeignClient = wishFeignClient;
     }
 
     @Override
@@ -68,24 +60,8 @@ public class PetEconomyServiceImpl implements PetEconomyService {
         return switch (mode) {
             case PAUSED -> throw new BusinessException(PetErrorCodes.PET_WALLET_MAINTENANCE,
                     "宠物收支维护中，请稍后再试（进行中请求不受影响）");
-            case LEGACY -> settleLegacy(userId, petId, bizType, bizRefId, amount, rewardSnapshot,
-                    keyParts, spend);
             case PET -> settlePet(userId, petId, bizType, amount, rewardSnapshot, keyParts, spend);
         };
-    }
-
-    /** 切换前：社区星光 + pet_operation 幂等/恢复（行为与切换前一致） */
-    private WalletSettlement settleLegacy(Long userId, Long petId, String bizType, Long bizRefId,
-                                          long amount, String rewardSnapshot, Object[] keyParts,
-                                          boolean spend) {
-        String operationKey = spend
-                ? legacyOperationService.requestOperationKey(bizType, keyParts)
-                : legacyOperationService.operationKey(bizType, keyParts);
-        return spend
-                ? legacyOperationService.executeSpend(operationKey, userId, petId, bizType, bizRefId,
-                        (int) amount, rewardSnapshot)
-                : legacyOperationService.executeEarn(operationKey, userId, petId, bizType, bizRefId,
-                        (int) amount, rewardSnapshot);
     }
 
     /** 切换后：独立宠物币钱包同库同事务（无远程 UNKNOWN；明确失败抛出回滚调用方事务） */
@@ -119,24 +95,14 @@ public class PetEconomyServiceImpl implements PetEconomyService {
     public Long balanceOf(Long userId) {
         return switch (mode()) {
             case PET -> walletService.getOrCreateAccount(userId).getBalance();
-            case LEGACY -> starlightBalanceQuietly(userId);
             case PAUSED -> null;
         };
     }
 
-    private Long starlightBalanceQuietly(Long userId) {
-        try {
-            Integer starlight = wishFeignClient.starlightBalance(userId).data();
-            return starlight == null ? null : starlight.longValue();
-        } catch (Exception e) {
-            // 展示型数据 Fail-Open：null=前端隐藏余额，不阻断浏览
-            return null;
-        }
-    }
-
     @Override
     public BusinessException settlementPending() {
-        return legacyOperationService.settlementPending();
+        return new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
+                "结算处理中，请稍后按原操作查询结果，勿重复下单");
     }
 
     @Override

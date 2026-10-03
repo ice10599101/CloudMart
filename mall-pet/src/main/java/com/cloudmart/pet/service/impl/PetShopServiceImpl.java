@@ -9,7 +9,6 @@ import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
 import com.cloudmart.pet.entity.PetInventory;
-import com.cloudmart.pet.entity.PetOperation;
 import com.cloudmart.pet.entity.PetSkill;
 import com.cloudmart.pet.entity.PetSkillConfig;
 import com.cloudmart.pet.entity.PetSkinConfig;
@@ -19,7 +18,6 @@ import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetSkillConfigMapper;
 import com.cloudmart.pet.repository.PetSkillMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
-import com.cloudmart.pet.service.PetOperationRecoverable;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.service.PetShopService;
 import com.cloudmart.pet.util.PetJsonUtils;
@@ -52,7 +50,7 @@ import java.util.Set;
  */
 @Service
 @Slf4j
-public class PetShopServiceImpl implements PetShopService, PetOperationRecoverable {
+public class PetShopServiceImpl implements PetShopService {
 
     private static final String BIZ_TYPE = "SHOP_BUY";
 
@@ -227,75 +225,11 @@ public class PetShopServiceImpl implements PetShopService, PetOperationRecoverab
         }
     }
 
-    @Override
-    public String supportedBizType() {
-        return BIZ_TYPE;
-    }
 
     /**
      * 恢复任务回调（B01）：钱包已扣款但本地入包未落地时，按 rewardSnapshot 幂等补入包。
      * 已拥有（DuplicateKey/存在查询）视为已履约。
      */
     /** 恢复任务堆叠履约（F1）：无条件 quantity+1（insert 1 冲突转 +1） */
-    private void stackInventory(PetItemType type, String code, PetOperation operation) {
-        int updated = inventoryMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetInventory>()
-                .setSql("quantity = quantity + 1")
-                .eq(PetInventory::getPetId, operation.getPetId())
-                .eq(PetInventory::getItemType, type.name())
-                .eq(PetInventory::getItemCode, code));
-        if (updated == 0) {
-            PetInventory item = new PetInventory();
-            item.setPetId(operation.getPetId());
-            item.setUserId(operation.getUserId());
-            item.setItemType(type.name());
-            item.setItemCode(code);
-            item.setQuantity(1);
-            item.setEquipped(false);
-            item.setAcquiredAt(LocalDateTime.now(java.time.ZoneOffset.UTC));
-            inventoryMapper.insert(item);
-        }
-    }
 
-    @Override
-    public boolean completePendingOperation(PetOperation operation) {
-        Map<String, Object> snapshot = PetJsonUtils.parse(operation.getRewardSnapshot(),
-                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
-                });
-        String itemType = String.valueOf(snapshot.get("itemType"));
-        String itemCode = String.valueOf(snapshot.get("itemCode"));
-        // F1：食物可堆叠——同一 (pet,FOOD,code) 已有历史行不代表本次购买已履约，
-        // 无条件补 1（insert quantity=1，uk 冲突转堆叠 +1）
-        if (PetItemType.FOOD.name().equals(itemType)) {
-            try {
-                stackInventory(PetItemType.FOOD, itemCode, operation);
-            } catch (DuplicateKeyException e) {
-                // 并发履约：视为已入包
-            }
-            return true;
-        }
-        boolean exists = inventoryMapper.selectCount(new LambdaQueryWrapper<PetInventory>()
-                .eq(PetInventory::getPetId, operation.getPetId())
-                .eq(PetInventory::getItemType, itemType)
-                .eq(PetInventory::getItemCode, itemCode)) > 0;
-        if (exists) {
-            return true;
-        }
-        PetInventory item = new PetInventory();
-        item.setPetId(operation.getPetId());
-        item.setUserId(operation.getUserId());
-        item.setItemType(itemType);
-        item.setItemCode(itemCode);
-        item.setQuantity(1);
-        item.setEquipped(false);
-        item.setAcquiredAt(LocalDateTime.now(java.time.ZoneOffset.UTC));
-        try {
-            inventoryMapper.insert(item);
-            // B02/BE-12：购买事实接入图鉴投影（uk 幂等，重复获得仅解锁一次）
-            playFeatureService.unlockCollection(operation.getUserId(), operation.getPetId(),
-                    itemType, itemCode, "SHOP_BUY:" + operation.getPetId() + ":" + itemType + ":" + itemCode);
-            return true;
-        } catch (DuplicateKeyException e) {
-            return true;
-        }
-    }
 }

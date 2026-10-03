@@ -278,7 +278,7 @@ public class PetBottleSettlementService {
         }
         if (outcome == PetBottleOutcome.CAUGHT) {
             if (rarity == PetBottleRarity.RARE) {
-                PetOperationService.WalletSettlement settlement = economyService.earn(
+                PetEconomyService.WalletSettlement settlement = economyService.earn(
                         activity.getUserId(), activity.getPetId(),
                         "BOTTLE_REWARD", activity.getId(), RARE_STARLIGHT, null, activity.getId());
                 if (!settlement.isCompleted()) {

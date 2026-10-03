@@ -27,35 +27,10 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
                 throw unavailable(cause);
             }
 
-            @Override
-            public ApiResponse<WishFeignClient.PetWalletOperationVO> earnStarlightIdempotent(
-                    Long userId, Integer amount, Long refId, String operationId) {
-                throw unavailable(cause);
-            }
 
-            @Override
-            public ApiResponse<WishFeignClient.PetWalletOperationVO> spendStarlightIdempotent(
-                    Long userId, Integer amount, Long refId, String operationId) {
-                throw unavailable(cause);
-            }
 
-            @Override
-            public ApiResponse<WishFeignClient.PetWalletOperationVO> refundStarlightIdempotent(
-                    Long userId, Integer amount, String originalOperationId, String refundOperationId) {
-                throw unavailable(cause);
-            }
 
-            @Override
-            public ApiResponse<WishFeignClient.PetWalletOperationVO> findOperation(String operationId) {
-                // 结果查询降级 = 结果未知（不是"未执行"），调用方保持 UNKNOWN 状态继续退避
-                throw unavailable(cause);
-            }
 
-            @Override
-            public ApiResponse<Integer> starlightBalance(Long userId) {
-                // 余额是展示型数据：Fail-Open 返回 null（前端隐藏余额，不阻断商城浏览）
-                return ApiResponse.ok(null);
-            }
 
             private BusinessException unavailable(Throwable cause) {
                 return new BusinessException("WISH_SERVICE_UNAVAILABLE",

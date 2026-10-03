@@ -291,7 +291,7 @@ public class PetSeasonSettlementService {
                 if (starlight > 0) {
                     // 幂等入账：operationKey=SEASON_REWARD:{seasonId}:{petId}，同 key 重跑不重发；
                     // UNKNOWN 抛 503 回滚本批（奖励事实随之回滚，续跑重新发）
-                    PetOperationService.WalletSettlement settlement = economyService.earn(
+                    PetEconomyService.WalletSettlement settlement = economyService.earn(
                             row.getUserId(), row.getPetId(),
                             "SEASON_REWARD", season.getId(), starlight, null,
                             season.getId(), row.getPetId());

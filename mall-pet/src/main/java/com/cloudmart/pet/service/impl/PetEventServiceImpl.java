@@ -157,7 +157,7 @@ public class PetEventServiceImpl implements PetEventService {
         int starlight = orZero(config.getRewardStarlight());
         if (starlight > 0) {
             // 操作键绑定 (pet, event, claimDate)：同一活动多次领取只一次收益
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null,
                     pet.getId(), config.getCode(), now.toLocalDate());
             if (!settlement.isCompleted()) {
@@ -230,7 +230,7 @@ public class PetEventServiceImpl implements PetEventService {
             log.info("活动奖励物品已拥有且无替代星光, petId={}, item={}", pet.getId(), itemCode);
             return;
         }
-        PetOperationService.WalletSettlement settlement = economyService.earn(
+        PetEconomyService.WalletSettlement settlement = economyService.earn(
                 pet.getUserId(), pet.getId(), "EVENT_ALT", pet.getId(), alt, null,
                 pet.getId(), config.getCode(), now.toLocalDate());
         if (!settlement.isCompleted()) {

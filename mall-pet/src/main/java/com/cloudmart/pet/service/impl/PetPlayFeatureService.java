@@ -13,7 +13,6 @@ import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.entity.PetCooperationContribution;
 import com.cloudmart.pet.entity.PetCustodyRecord;
 import com.cloudmart.pet.entity.PetInventory;
-import com.cloudmart.pet.entity.PetMinigameRound;
 import com.cloudmart.pet.repository.PetCollectionEntryMapper;
 import com.cloudmart.pet.repository.PetCollectionRecordMapper;
 import com.cloudmart.pet.repository.PetCooperationContributionMapper;
@@ -21,7 +20,6 @@ import com.cloudmart.pet.repository.PetCooperationMapper;
 import com.cloudmart.pet.repository.PetCustodyRecordMapper;
 import com.cloudmart.pet.repository.PetMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
-import com.cloudmart.pet.repository.PetMinigameRoundMapper;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.util.PetJsonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +27,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -60,15 +57,6 @@ import java.util.UUID;
 @Slf4j
 public class PetPlayFeatureService {
 
-    private static final int CATCH_WINDOWS = 10;
-    private static final long ROUND_SECONDS = 30;
-    /** R11：单窗时长（毫秒）——窗口归属由服务端时钟决定，与点击次数无关 */
-    private static final long WINDOW_MS = 3000;
-    private static final long GRACE_SECONDS = 2;
-    private static final int MIN_SUCCESS_FOR_REWARD = 3;
-    private static final int DAILY_REWARD_ROUNDS = 5;
-    private static final List<String> SLOTS = List.of("LEFT", "CENTER", "RIGHT");
-
     private final PetMapper petMapper;
     private final PetClock petClock;
     /** R12：统一活动互斥（工作/读书/职业/捞瓶/休息/托管跨表排他） */
@@ -76,9 +64,6 @@ public class PetPlayFeatureService {
     /** R12：托管照顾公开事务应用服务 */
     private final PetCustodyCareService custodyCareService;
     private final PetQuotaService quotaService;
-    private final PetMinigameRoundMapper minigameMapper;
-    /** R11：窗口操作唯一事实（uk roundId+windowIndex，每窗至多一次有效操作） */
-    private final com.cloudmart.pet.repository.PetMinigameOperationMapper operationMapper;
     private final PetCustodyRecordMapper custodyMapper;
     private final PetCooperationMapper cooperationMapper;
     private final PetCooperationContributionMapper contributionMapper;
@@ -100,8 +85,6 @@ public class PetPlayFeatureService {
     public PetPlayFeatureService(PetMapper petMapper, PetClock petClock, PetQuotaService quotaService,
                                  PetActivityMutex activityMutex,
                                  PetCustodyCareService custodyCareService,
-                                 PetMinigameRoundMapper minigameMapper,
-                                 com.cloudmart.pet.repository.PetMinigameOperationMapper operationMapper,
                                  PetCustodyRecordMapper custodyMapper,
                                  PetCooperationMapper cooperationMapper,
                                  PetCooperationContributionMapper contributionMapper,
@@ -123,9 +106,7 @@ public class PetPlayFeatureService {
         this.petClock = petClock;
         this.activityMutex = activityMutex;
         this.custodyCareService = custodyCareService;
-        this.operationMapper = operationMapper;
         this.quotaService = quotaService;
-        this.minigameMapper = minigameMapper;
         this.custodyMapper = custodyMapper;
         this.cooperationMapper = cooperationMapper;
         this.contributionMapper = contributionMapper;
@@ -331,7 +312,7 @@ public class PetPlayFeatureService {
                 reward = Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE, "duplicate", true);
             }
         } else {
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     userId, boundPetId, "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null,
                     cooperationId, userId);
             if (!settlement.isCompleted()) {
@@ -350,82 +331,6 @@ public class PetPlayFeatureService {
     private void requireFeature(boolean enabled) {
         if (!enabled) {
             throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "该功能暂未开放");
-        }
-    }
-
-    // ---------------- N05 有限托管 ----------------
-
-    /** 启动托管：每自然周 1 次（uk 幂等）；不收费不自动续。
-     * R12：先取用户守卫锁再复验互斥（原实现先检查后加锁，与活动开始并发有竞态窗口）；
-     * 锁内经统一互斥 Bean 复验活动与托管，跨表排他成立。 */
-    @Transactional
-    public Map<String, Object> startCustody(Long userId) {
-        requireFeature(properties.getFeatureSwitches().isCustody());
-        Pet pet = requireActivePet(userId);
-        guardService.lockGuard(userId);
-        // BE-09/R12：托管占用统一长期活动名额——锁内重读（打工/读书/捞瓶/休息/进行中托管互斥）
-        activityMutex.requireFree(userId);
-        LocalDate weekStart = petClock.businessDate().with(DayOfWeek.MONDAY);
-        PetCustodyRecord record = new PetCustodyRecord();
-        record.setUserId(userId);
-        record.setPetId(pet.getId());
-        record.setWeekStart(weekStart);
-        record.setStatus("ACTIVE");
-        record.setStartedAt(petClock.nowUtc());
-        record.setEndsAt(petClock.nowUtc().plusHours(24));
-        record.setRuleSnapshot(PetJsonUtils.toJson(Map.of(
-                "hunger", Map.of("threshold", 30, "restoreTo", 50, "maxTimes", 2),
-                "cleanliness", Map.of("threshold", 30, "restoreTo", 50, "maxTimes", 1))));
-        record.setCareFeedUsed(0);
-        record.setCareCleanUsed(0);
-        try {
-            custodyMapper.insert(record);
-        } catch (DuplicateKeyException e) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "本周托管次数已用完或正在托管中");
-        }
-        Map<String, Object> result = new HashMap<>();
-        result.put("custodyId", record.getId());
-        result.put("endsAt", record.getEndsAt());
-        return result;
-    }
-
-    /** 托管状态（惰性应用照顾：按原时间轴分段判定，唯一照顾事件去重） */
-    public Map<String, Object> custodyStatus(Long userId) {
-        PetCustodyRecord record = custodyMapper.selectOne(new LambdaQueryWrapper<PetCustodyRecord>()
-                .eq(PetCustodyRecord::getUserId, userId)
-                .eq(PetCustodyRecord::getStatus, "ACTIVE")
-                .last("LIMIT 1"));
-        Map<String, Object> result = new HashMap<>();
-        if (record == null) {
-            result.put("active", false);
-            result.put("weekUsed", custodyMapper.selectCount(new LambdaQueryWrapper<PetCustodyRecord>()
-                    .eq(PetCustodyRecord::getUserId, userId)
-                    .eq(PetCustodyRecord::getWeekStart, petClock.businessDate().with(DayOfWeek.MONDAY))) > 0);
-            return result;
-        }
-        // BE-09/R12：到期先结算最后一段照顾再原子结束（T18 最后一段不丢失），结束后不再照顾
-        if (record.getEndsAt() != null && record.getEndsAt().isBefore(petClock.nowUtc())) {
-            custodyCareService.settleAndEnd(record);
-            result.put("active", false);
-            result.put("weekUsed", true);
-            result.put("nextAvailableAt", petClock.businessDate().with(DayOfWeek.MONDAY).plusWeeks(1));
-            return result;
-        }
-        // R12：照顾进入公开事务应用服务（原 private @Transactional 自调用事务不生效）
-        custodyCareService.applyCare(record);
-        result.put("active", true);
-        result.put("endsAt", record.getEndsAt());
-        result.put("careFeedUsed", record.getCareFeedUsed());
-        result.put("careCleanUsed", record.getCareCleanUsed());
-        return result;
-    }
-
-    /** 提前结束（R12：先结算截止当前时刻的照顾再转终态；不退还本周次数） */
-    @Transactional
-    public void endCustody(Long userId) {
-        PetCustodyRecord record = custodyCareService.activeRecord(userId);
-        if (record != null) {
-            custodyCareService.settleAndEnd(record);
         }
     }
 

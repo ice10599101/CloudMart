@@ -5,6 +5,7 @@ import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.vo.PetMinigameRoundVO;
 import com.cloudmart.pet.service.impl.PetMinigameService;
+import com.cloudmart.pet.service.impl.PetCustodyCareService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,6 +33,8 @@ public class PetPlayFeatureController {
     private final PetPlayFeatureService playService;
     /** R27：小游戏拆分为独立应用服务 */
     private final PetMinigameService minigameService;
+    /** R27：托管拆分为独立应用服务 */
+    private final PetCustodyCareService custodyCareService;
 
     // ---------------- N04 ----------------
 
@@ -90,14 +93,14 @@ public class PetPlayFeatureController {
     @Operation(summary = "启动托管（N05）", description = "每自然周 1 次免费、最长 24h、每次一只；期间禁止工作/读书/捞瓶/有收益对战玩耍")
     public ApiResponse<Map<String, Object>> startCustody(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.startCustody(userId));
+        return ApiResponse.ok(custodyCareService.startCustody(userId));
     }
 
     @GetMapping("/custody")
     @Operation(summary = "托管状态（N05）", description = "惰性应用照顾（饱食<30→50 最多2次；清洁<30→50 最多1次）；不产出养成收益")
     public ApiResponse<Map<String, Object>> custodyStatus(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.custodyStatus(userId));
+        return ApiResponse.ok(custodyCareService.custodyStatus(userId));
     }
 
     @GetMapping("/offline-digest")
@@ -131,7 +134,7 @@ public class PetPlayFeatureController {
     @Operation(summary = "提前结束托管（N05）", description = "不退还本周次数；恢复普通自然变化")
     public ApiResponse<Void> endCustody(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        playService.endCustody(userId);
+        custodyCareService.endCustody(userId);
         return ApiResponse.ok(null);
     }
 

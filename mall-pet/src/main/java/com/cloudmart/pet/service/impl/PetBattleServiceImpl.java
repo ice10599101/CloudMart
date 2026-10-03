@@ -469,7 +469,7 @@ public class PetBattleServiceImpl implements PetBattleService {
 
         if (attackerRewarded && attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
             // B01：本地奖励已生效；星光经统一操作记录幂等发放，结果未知不回滚本地奖励
-            PetOperationService.WalletSettlement settlement = economyService.earn(
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
                     battle.getAttackerUserId(), battle.getAttackerPetId(),
                     "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
                     battle.getId(), "attacker");
@@ -499,7 +499,7 @@ public class PetBattleServiceImpl implements PetBattleService {
                 // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
                 relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
                 if (defenderRewarded && !attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-                    PetOperationService.WalletSettlement settlement = economyService.earn(
+                    PetEconomyService.WalletSettlement settlement = economyService.earn(
                             defender.getUserId(), defender.getId(),
                             "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
                             battle.getId(), "defender");

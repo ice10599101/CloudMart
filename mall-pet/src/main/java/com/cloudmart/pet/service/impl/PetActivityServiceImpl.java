@@ -371,7 +371,7 @@ public class PetActivityServiceImpl implements PetActivityService {
             return 0L;
         }
         String bizType = "WORK".equals(activity.getActivityType()) ? "CLAIM_WORK" : "CLAIM_STUDY";
-        PetOperationService.WalletSettlement settlement = economyService.earn(
+        PetEconomyService.WalletSettlement settlement = economyService.earn(
                 activity.getUserId(), activity.getPetId(), bizType, activity.getId(),
                 amount, null, activity.getId());
         if (settlement.isCompleted()) {
