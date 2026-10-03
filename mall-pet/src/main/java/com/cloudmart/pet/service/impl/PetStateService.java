@@ -64,17 +64,29 @@ public class PetStateService {
      * F4：是否虚弱（hunger=0 且归零起点距今 ≥24h）。以列实时判定而非状态快照，
      * 避免活动结算回写 IDLE 时弱化门禁失效。
      */
+    /**
+     * F4/R16：是否虚弱——归零满 24h，或状态列仍为 WEAK 且未恢复到阈值（迟滞：
+     * 门禁与展示同一判据，部分喂食未达恢复阈值时不再放行打工/对战）。
+     */
     public boolean isWeak(Pet pet) {
-        return pet.getHunger() != null && pet.getHunger() == 0
+        boolean zeroCrossed = pet.getHunger() != null && pet.getHunger() == 0
                 && pet.getHungerZeroSince() != null
                 && Duration.between(pet.getHungerZeroSince(), petClock.nowUtc()).toHours() >= WEAK_AFTER_HOURS;
+        return zeroCrossed || (PetStatus.WEAK.name().equals(pet.getStatus())
+                && orZero(pet.getHunger()) < RECOVER_THRESHOLD);
     }
 
-    /** F4：是否生病（happiness=0 且归零起点距今 ≥48h） */
+    /** F4/R16：是否生病——同虚弱迟滞语义（恢复到阈值才解除） */
     public boolean isSick(Pet pet) {
-        return pet.getHappiness() != null && pet.getHappiness() == 0
+        boolean zeroCrossed = pet.getHappiness() != null && pet.getHappiness() == 0
                 && pet.getHappinessZeroSince() != null
                 && Duration.between(pet.getHappinessZeroSince(), petClock.nowUtc()).toHours() >= SICK_AFTER_HOURS;
+        return zeroCrossed || (PetStatus.SICK.name().equals(pet.getStatus())
+                && orZero(pet.getHappiness()) < RECOVER_THRESHOLD);
+    }
+
+    private static int orZero(Integer value) {
+        return value != null ? value : 0;
     }
 
     public Pet applyIdleDecay(Pet pet) {

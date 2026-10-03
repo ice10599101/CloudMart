@@ -109,10 +109,12 @@ public class PetServiceImpl implements PetService {
             Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(10));
             locked = Boolean.TRUE.equals(acquired);
         } catch (Exception e) {
-            log.warn("领养分布式锁不可用（Fail-Open，退化行锁）: userId={}", userId, e);
+            // R16：锁仅优化限频——Redis 故障不决定领养正确性（守卫行锁+maxPets 校验兜底），
+            // 与注释一致的 Fail-Open：继续执行，绝不阻断领养
+            log.warn("领养分布式锁不可用（Fail-Open，退化守卫行锁）: userId={}", userId, e);
         }
         if (!locked) {
-            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "领养处理中，请稍后再试");
+            log.info("领养锁未取得（并发限频降级，正确性由守卫行保证）: userId={}", userId);
         }
         try {
             return doCreatePet(userId, request);
