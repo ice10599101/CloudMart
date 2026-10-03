@@ -158,6 +158,9 @@ public class PetFriendFeedService {
                 ? String.valueOf(payload.get("petName")) : null;
         return new FeedItemVO(feed.getId(), feed.getActorUserId(), feed.getActorPetId(),
                 feed.getEventType(), text, petName,
-                feed.getCreatedAt() != null ? feed.getCreatedAt().toString() : null);
+                // R20：DB 存 UTC——toString() 无时区会被三端当本地时间解析，统一 RFC3339 带 Z
+                feed.getCreatedAt() != null
+                        ? feed.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)
+                        .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
     }
 }

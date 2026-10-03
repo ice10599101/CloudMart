@@ -83,7 +83,7 @@ public class PetActivityScheduler {
         }
     }
 
-    @Scheduled(cron = "0 30 * * * *")
+    @Scheduled(cron = "0 30 * * * *", zone = "UTC")
     public void housekeeping() {
         if (!tryLock(LOCK_HOUSEKEEPING, Duration.ofSeconds(300))) {
             return;
@@ -106,7 +106,7 @@ public class PetActivityScheduler {
     }
 
     /** P1-4：排行榜缓存每日全量重建（校准 ZSet 漂移；Redis 异常由重建内部降级） */
-    @Scheduled(cron = "0 20 3 * * *")
+    @Scheduled(cron = "0 20 3 * * *", zone = "UTC")
     public void rebuildRankingCache() {
         if (!tryLock(LOCK_RANK_REBUILD, Duration.ofSeconds(600))) {
             return;

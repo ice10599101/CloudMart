@@ -56,6 +56,7 @@ public record PetVO(
         @Schema(description = "当前职业编码（null = 未入职）") String careerCode,
         @Schema(description = "当前职业名（null = 未入职）") String careerName,
         @Schema(description = "当前职业阶段（1/2/3）") Integer careerTier,
-        @Schema(description = "主人称呼（宠物对主人的叫法，默认主人）") String ownerTitle
+        @Schema(description = "主人称呼（宠物对主人的叫法，默认主人）") String ownerTitle,
+        @Schema(description = "业务日重置点（R20：UTC，客户端倒计时以服务端为准）") java.time.LocalDateTime nextResetAt
 ) {
 }

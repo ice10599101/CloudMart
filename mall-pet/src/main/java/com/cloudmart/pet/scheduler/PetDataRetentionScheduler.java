@@ -26,7 +26,7 @@ public class PetDataRetentionScheduler {
     private final PetOutboxEventMapper outboxMapper;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    @Scheduled(cron = "0 0 4 * * *")
+    @Scheduled(cron = "0 0 4 * * *", zone = "UTC")
     public void purgeSentOutbox() {
         int deleted = outboxMapper.delete(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetOutboxEvent>()
                 .eq(com.cloudmart.pet.entity.PetOutboxEvent::getStatus, "SENT")

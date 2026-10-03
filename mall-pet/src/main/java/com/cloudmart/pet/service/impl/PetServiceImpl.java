@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.CreatePetRequest;
@@ -58,7 +59,6 @@ import java.util.Map;
 public class PetServiceImpl implements PetService {
 
     /** Redis Key：宠物模块限频计数，规范 {service}:{module}:{type}:{id}:{date} */
-    static final String KEY_FEED_COUNTER = "pet:ratelimit:feed:%d:%s";
 
     /** Redis Key：领养互斥锁（P1-1：首只宠物无可锁行时由它兜底并发） */
     static final String KEY_ADOPT_LOCK = "pet:lock:adopt:%d";
@@ -78,6 +78,8 @@ public class PetServiceImpl implements PetService {
     private final PetCompanionFeatureService companionFeatureService;
     private final PetContentSafetyService safetyService;
     private final PetRankingCache rankingCache;
+    private final PetQuotaService quotaService;
+    private final PetClock petClock;
 
     @Override
     public PetVO getMyPet(Long userId) {
@@ -326,19 +328,13 @@ public class PetServiceImpl implements PetService {
         return stateService.requireActivePet(userId);
     }
 
-    /** 今日剩余喂食次数；Redis 降级返回 null（Fail-Open 不限次，文档 §1.5） */
+    /**
+     * 今日剩余喂食次数（R20）：与 feed 动作同源（PetQuotaService 的 DB 配额+businessDate），
+     * 不再读旧 Redis UTC 日计数——两条口径并存时关 Redis 会显示"不限次"/计数漂移。
+     */
     Integer feedRemainingToday(Long userId) {
-        try {
-            String key = String.format(KEY_FEED_COUNTER, userId, LocalDate.now(ZoneId.of("UTC")));
-            String used = redisTemplate.opsForValue().get(key);
-            if (used == null) {
-                return null;
-            }
-            return Math.max(0, properties.getInteraction().getFeedDailyLimit() - Integer.parseInt(used));
-        } catch (Exception e) {
-            log.warn("喂食日计数查询降级（Fail-Open）: userId={}", userId, e);
-            return null;
-        }
+        return quotaService.remaining(userId, PetQuotaService.QuotaType.FEED, 0,
+                properties.getInteraction().getFeedDailyLimit());
     }
 
     /** P2-1：互动链路复用入口——基于调用方事务内已同步状态的实体组装 VO，免二次全量查询 */
@@ -393,7 +389,9 @@ public class PetServiceImpl implements PetService {
                 pet.getCompanionDays() != null ? pet.getCompanionDays() : 0,
                 pet.getCompanionStreak() != null ? pet.getCompanionStreak() : 0,
                 pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()),
-                ownerTitleOf(pet));
+                ownerTitleOf(pet),
+                // R20：业务日重置点（JacksonConfig 统一输出 RFC3339 UTC 带 Z），客户端倒计时以服务端为准
+                petClock.nextBusinessResetUtc());
     }
 
     /** 主人称呼（宠物对主人的叫法；未设置回落「主人」） */

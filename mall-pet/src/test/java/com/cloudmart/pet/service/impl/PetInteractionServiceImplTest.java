@@ -141,7 +141,7 @@ class PetInteractionServiceImplTest {
                 80, 100, 60, 60, 100, 60, 5, 5, 5, 5, "IDLE", null, null, null,
                 true, null, LocalDateTime.now(ZoneId.of("UTC")),
                 0, null, 1, 3,
-                0, 1, "初识", 100, 0, 0L, 0, 0, 0, null, null, null, "主人");
+                0, 1, "初识", 100, 0, 0L, 0, 0, 0, null, null, null, "主人", null);
     }
 
     @Test

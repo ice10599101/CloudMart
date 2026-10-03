@@ -33,19 +33,24 @@ public class MyBatisPlusConfig {
         return interceptor;
     }
 
+    /**
+     * R20：createdAt/updatedAt 自动填充统一经注入的 {@link PetClock}（UTC）——
+     * 原实现用主机 {@code LocalDateTime.now()}，宿主时区非 UTC 时所有自动填充时间整体漂移，
+     * 与接口层"按 UTC 加 Z"的口径冲突（业务日归属/财务顺序被污染）。
+     */
     @Bean
-    public MetaObjectHandler metaObjectHandler() {
+    public MetaObjectHandler metaObjectHandler(PetClock petClock) {
         return new MetaObjectHandler() {
             @Override
             public void insertFill(MetaObject metaObject) {
-                this.strictInsertFill(metaObject, "createdAt", LocalDateTime::now, LocalDateTime.class);
-                this.strictInsertFill(metaObject, "updatedAt", LocalDateTime::now, LocalDateTime.class);
+                this.strictInsertFill(metaObject, "createdAt", petClock::nowUtc, LocalDateTime.class);
+                this.strictInsertFill(metaObject, "updatedAt", petClock::nowUtc, LocalDateTime.class);
                 this.strictInsertFill(metaObject, "version", () -> 0, Integer.class);
             }
 
             @Override
             public void updateFill(MetaObject metaObject) {
-                this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime::now, LocalDateTime.class);
+                this.strictUpdateFill(metaObject, "updatedAt", petClock::nowUtc, LocalDateTime.class);
             }
         };
     }

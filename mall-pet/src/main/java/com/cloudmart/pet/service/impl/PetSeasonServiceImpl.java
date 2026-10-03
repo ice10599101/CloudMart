@@ -32,7 +32,8 @@ import java.util.Map;
 public class PetSeasonServiceImpl implements PetSeasonService {
 
     private static final int TOP_N = 50;
-    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    /** R20：RFC3339 UTC 带 Z（ISO_LOCAL_DATE_TIME 丢失时区语义，三端解析回退本地时区） */
+    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonRankingMapper rankingMapper;

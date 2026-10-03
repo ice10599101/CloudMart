@@ -68,6 +68,8 @@ export interface PetInfo {
   careerTier: number | null
   /** 主人称呼（宠物怎么叫主人） */
   ownerTitle?: string
+  /** R20：业务日重置点（UTC，客户端倒计时以服务端为准） */
+  nextResetAt?: string
 }
 
 export interface PetActivityItem {

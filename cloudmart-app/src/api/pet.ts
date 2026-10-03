@@ -14,6 +14,8 @@ export type PetActivityType = 'WORK' | 'STUDY' | 'BOTTLE_FISHING' | 'REST'
 export interface PetInfo {
   /** 主人称呼（宠物怎么叫主人） */
   ownerTitle?: string
+  /** R20：业务日重置点（UTC，客户端倒计时以服务端为准） */
+  nextResetAt?: string
   petId: number | string
   userId: number | string
   name: string
