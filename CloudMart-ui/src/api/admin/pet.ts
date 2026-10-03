@@ -384,9 +384,11 @@ export function approvePetAlbumAsset(assetId: number | string) {
 }
 
 /** 配置治理支持的配置类型（与后端白名单一致） */
+// R07：pet/pet_season 是运行实体——通用配置回退会覆盖经验/主宠标记/赛季状态等运行字段，
+// 已在后端硬拒绝；此处同步移除选项，数值调整与赛季状态不走通用回退
 export const PET_CONFIG_GOVERNANCE_TYPES = [
   'job', 'study', 'career', 'furniture', 'equipment', 'skin', 'skill',
-  'evolution', 'event', 'daily_quest', 'sensitive_word', 'pet', 'pet_season', 'food',
+  'evolution', 'event', 'daily_quest', 'sensitive_word', 'food',
 ] as const
 
 /** 配置校验预览（数值上下限组合校验，不落库） */

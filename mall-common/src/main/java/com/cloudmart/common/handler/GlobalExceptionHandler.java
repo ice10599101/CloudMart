@@ -188,6 +188,7 @@ public class GlobalExceptionHandler {
                  "POLL_ALREADY_VOTED",
                  "PET_ALREADY_EXISTS", "PET_ACTIVITY_CONFLICT",
                  "PET_ACTIVITY_NOT_FINISHED", "PET_ACTIVITY_ALREADY_CLAIMED",
+                 "PET_ACTIVITY_EXPIRED",
                  "PET_BOTTLE_COOLDOWN", "PET_ENERGY_INSUFFICIENT", "PET_HUNGER_TOO_LOW",
                  "PET_STATE_FULL", "PET_LEVEL_REQUIRED",
                  "PET_BATTLE_CONFLICT", "PET_BATTLE_ALREADY_HANDLED",

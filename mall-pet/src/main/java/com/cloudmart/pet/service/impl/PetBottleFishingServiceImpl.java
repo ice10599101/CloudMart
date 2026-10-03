@@ -103,8 +103,9 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                     fishing = true;
                     remaining = Math.max(0, Duration.between(now, finishedAt).getSeconds());
                 } else {
-                    // 惰性结算（经独立事务 Bean 代理调用，保证事务生效；CAS 幂等）
-                    settlementService.settleActivity(pet, activity);
+                    // 惰性结算（经独立事务 Bean 代理调用，保证事务效力；CAS 幂等）。
+                    // R30：结算对象由 settleActivity 内部按 activity.petId 加载，不传当前主宠
+                    settlementService.settleActivity(activity);
                     activity = activityMapper.selectById(activity.getId());
                     PetBottleRecord record = findRecord(activity.getId());
                     if (record != null) {
@@ -204,18 +205,18 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                 || !PetActivityType.BOTTLE_FISHING.name().equals(activity.getActivityType())) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "没有这个捞瓶任务");
         }
-        Pet pet = requireActivityPet(activity);
         if (PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())) {
             if (activity.getFinishedAt().isAfter(petClock.nowUtc())) {
                 throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FINISHED, "任务还没完成，再等等吧");
             }
-            settlementService.settleActivity(pet, activity);
+            // R30：结算归属由 settleActivity 内部按 activity.petId 决定
+            settlementService.settleActivity(activity);
             activity = activityMapper.selectById(activity.getId());
         }
         PetBottleRecord record = findRecord(activity.getId());
         if (record != null && PetBottleOutcome.FAILED.name().equals(record.getOutcome())) {
             // 心愿服务曾失败：按原种子语义重试远程打捞
-            settlementService.retryFailedRecord(pet, activity, record);
+            settlementService.retryFailedRecord(activity, record);
             record = findRecord(activity.getId());
             activity = activityMapper.selectById(activity.getId());
         }
@@ -235,19 +236,25 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         return toActivityVo(activity);
     }
 
-    /** 定时扫描器入口（按活动结算；经代理调用，事务生效） */
+    /**
+     * 任务结算入口（R30）：按 activityId 加载活动并结算归属宠物（activity.petId），
+     * 定时扫描器传扫描到的 activityId，不再按"当前主宠"结算。
+     */
     @Override
     @Transactional
-    public PetActivityVO settle(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
-        PetActivity activity = latestActivity(userId);
-        if (activity == null || !PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())) {
-            return activity != null ? toActivityVo(activity) : null;
+    public PetActivityVO settle(Long userId, Long activityId) {
+        PetActivity activity = activityId != null ? activityMapper.selectById(activityId) : latestActivity(userId);
+        if (activity == null || !activity.getUserId().equals(userId)
+                || !PetActivityType.BOTTLE_FISHING.name().equals(activity.getActivityType())) {
+            return null;
+        }
+        if (!PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())) {
+            return toActivityVo(activity);
         }
         if (activity.getFinishedAt().isAfter(petClock.nowUtc())) {
             return toActivityVo(activity);
         }
-        return settlementService.settleActivity(pet, activity);
+        return settlementService.settleActivity(activity);
     }
 
     // ---------------- 内部 ----------------
@@ -280,14 +287,6 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                 .eq(PetActivity::getActivityType, PetActivityType.BOTTLE_FISHING.name())
                 .orderByDesc(PetActivity::getId)
                 .last("LIMIT 1"));
-    }
-
-    private Pet requireActivityPet(PetActivity activity) {
-        Pet pet = petMapper.selectById(activity.getPetId());
-        if (pet == null) {
-            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "执行任务的宠物不存在");
-        }
-        return pet;
     }
 
     private PetActivityVO toActivityVo(PetActivity activity) {

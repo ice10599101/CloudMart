@@ -328,18 +328,25 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         return petService.toVo(pet);
     }
 
-    /** 定时休息到期结算（幂等 CAS）：恢复精力/生命 + 舒适度心情加成 + 额度内亲密度 */
+    /**
+     * 定时休息到期结算（幂等 CAS）：恢复精力/生命 + 舒适度心情加成 + 额度内亲密度。
+     * R30：按 activityId 定位活动，效果施加给 activity.petId 归属宠物并校验归属一致，
+     * 不再取当前主宠——A 休息后切到 B，到期恢复的是 A，B 状态不受影响。
+     */
     @Override
     @Transactional
-    public PetVO settleRest(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
-        PetActivity activity = activityMapper.selectOne(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, userId)
-                .eq(PetActivity::getActivityType, PetActivityType.REST.name())
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name())
-                .orderByDesc(PetActivity::getId)
-                .last("LIMIT 1"));
-        if (activity != null && !activity.getFinishedAt().isAfter(petClock.nowUtc())) {
+    public PetVO settleRest(Long userId, Long activityId) {
+        PetActivity activity = activityMapper.selectById(activityId);
+        if (activity == null || !activity.getUserId().equals(userId)
+                || !PetActivityType.REST.name().equals(activity.getActivityType())) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "没有这个休息任务");
+        }
+        Pet pet = petMapper.selectById(activity.getPetId());
+        if (pet == null || !pet.getUserId().equals(activity.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "执行任务的宠物不存在");
+        }
+        if (PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())
+                && !activity.getFinishedAt().isAfter(petClock.nowUtc())) {
             int applied = activityMapper.update(null, new LambdaUpdateWrapper<PetActivity>()
                     .set(PetActivity::getStatus, PetActivityStatus.CLAIMED.name())
                     .set(PetActivity::getClaimedAt, petClock.nowUtc())

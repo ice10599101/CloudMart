@@ -187,6 +187,10 @@ public class PetActivityServiceImpl implements PetActivityService {
     /**
      * 唯一任务归属领取入口（B03）：活动属于当前用户，奖励归 activity.petId。
      * CAREER_WORK/BOTTLE_FISHING 委托对应服务（同一活动、同一 CAS、同一额度体系）。
+     *
+     * <p>R29：所有入口统一时间窗判断 {@code finishedAt <= now < finishedAt+72h}，
+     * 按时间推导而非依赖清理任务是否已扫描；过期直接拒绝且不写状态
+     * （避免"更新 EXPIRED 后抛业务异常"把状态更新一起回滚）。</p>
      */
     @Override
     @Transactional
@@ -195,6 +199,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         if (activity == null || !activity.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "没有这个任务");
         }
+        requireClaimWindowOpen(activity);
         return switch (activity.getActivityType()) {
             case "WORK" -> claimWorkActivity(activity);
             case "STUDY" -> claimStudyActivity(activity);
@@ -203,6 +208,18 @@ public class PetActivityServiceImpl implements PetActivityService {
             default -> throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND,
                     "该类型活动不支持按 ID 领取");
         };
+    }
+
+    /** R29 领取时间窗：未完成拒绝（惰性流转交给对应分支），超 72h 领取期按时间直接判过期 */
+    private void requireClaimWindowOpen(PetActivity activity) {
+        if (PetActivityStatus.IN_PROGRESS.name().equals(activity.getStatus())
+                && activity.getFinishedAt().isAfter(petClock.nowUtc())) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FINISHED, "任务还没完成，再等等吧");
+        }
+        if (!activity.getFinishedAt().isAfter(petClock.nowUtc().minusHours(CLAIM_EXPIRE_HOURS))) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_EXPIRED,
+                    "奖励超过 " + CLAIM_EXPIRE_HOURS + " 小时未领取，已经过期啦");
+        }
     }
 
     @Override
@@ -248,8 +265,13 @@ public class PetActivityServiceImpl implements PetActivityService {
         Map<String, Object> snapshot = rewardSnapshot(activity);
         int expReward = intOf(snapshot.get("expReward"));
         int currencyReward = intOf(snapshot.get("currencyReward"));
-        // 智力影响工作收益（原文档 §12）：加成 = min(25%, 智力×0.5%)，加成基于宠物当前智力
-        int intelligenceBonus = intelligenceBonusPercent(pet.getIntelligence());
+        // 智力影响工作收益（原文档 §12）：加成 = min(25%, 智力×0.5%)。
+        // R29 规则快照补全：开工时冻结加成，等待期间智力变化不重算原单；存量无冻结值回退当前智力
+        Integer frozenBonus = intOrNull(snapshot.get("intelligenceBonus"));
+        int intelligenceBonus = frozenBonus != null ? frozenBonus : intelligenceBonusPercent(pet.getIntelligence());
+        if (frozenBonus == null) {
+            log.warn("活动快照缺智力加成，回退当前值结算（存量兼容）, activityId={}", activity.getId());
+        }
         expReward = expReward + Math.round(expReward * intelligenceBonus / 100f);
         currencyReward = currencyReward + Math.round(currencyReward * intelligenceBonus / 100f);
 
@@ -282,9 +304,16 @@ public class PetActivityServiceImpl implements PetActivityService {
         Map<String, Object> snapshot = rewardSnapshot(activity);
         int expReward = intOf(snapshot.get("expReward"));
         int intelligenceReward = intOf(snapshot.get("intelligenceReward"));
-        int intelligenceBonus = intelligenceBonusPercent(pet.getIntelligence());
+        // R29：智力/技能加成开工时冻结（同 claimWorkActivity）；存量无冻结值回退当前属性
+        Integer frozenBonus = intOrNull(snapshot.get("intelligenceBonus"));
+        int intelligenceBonus = frozenBonus != null ? frozenBonus : intelligenceBonusPercent(pet.getIntelligence());
+        if (frozenBonus == null) {
+            log.warn("活动快照缺智力加成，回退当前值结算（存量兼容）, activityId={}", activity.getId());
+        }
         expReward = expReward + Math.round(expReward * intelligenceBonus / 100f);
-        int skillBonusPercent = (int) Math.round(statsService.studyExpBonus(pet) * 100);
+        Integer frozenSkillBonus = intOrNull(snapshot.get("skillBonus"));
+        int skillBonusPercent = frozenSkillBonus != null
+                ? frozenSkillBonus : (int) Math.round(statsService.studyExpBonus(pet) * 100);
         expReward = expReward + Math.round(expReward * skillBonusPercent / 100f);
 
         intimacyService.gain(pet, PetIntimacySource.STUDY);
@@ -378,6 +407,11 @@ public class PetActivityServiceImpl implements PetActivityService {
         snapshot.put("durationSeconds", durationSeconds != null ? durationSeconds : 0);
         snapshot.put("energyCost", energyCost != null ? energyCost : 0);
         snapshot.put("hungerCost", hungerCost != null ? hungerCost : 0);
+        // R29 规则快照补全：开工冻结确定性收益修正，领取只按快照入账（等待期间养成变化不重算原单）
+        snapshot.put("intelligenceBonus", intelligenceBonusPercent(pet.getIntelligence()));
+        if (type == PetActivityType.STUDY) {
+            snapshot.put("skillBonus", (int) Math.round(statsService.studyExpBonus(pet) * 100));
+        }
 
         PetActivity activity = new PetActivity();
         activity.setPetId(pet.getId());
@@ -450,13 +484,17 @@ public class PetActivityServiceImpl implements PetActivityService {
         activity.setStatus(PetActivityStatus.COMPLETED.name());
     }
 
-    /** 领取 CAS：IN_PROGRESS/COMPLETED → CLAIMED（返回影响行数，0=已领取） */
+    /** 领取 CAS：IN_PROGRESS/COMPLETED → CLAIMED（返回影响行数，0=已领取）。
+     * R29：CAS 自带时间条件——必须已完成且未超 72h 领取期，任何入口绕过前置判断也无法提前/过期领取 */
     private int claimActivityCas(PetActivity activity) {
+        LocalDateTime now = petClock.nowUtc();
         return activityMapper.update(null, new LambdaUpdateWrapper<PetActivity>()
                 .set(PetActivity::getStatus, PetActivityStatus.CLAIMED.name())
-                .set(PetActivity::getClaimedAt, petClock.nowUtc())
+                .set(PetActivity::getClaimedAt, now)
                 .eq(PetActivity::getId, activity.getId())
-                .in(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name(), PetActivityStatus.COMPLETED.name()));
+                .in(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name(), PetActivityStatus.COMPLETED.name())
+                .le(PetActivity::getFinishedAt, now)
+                .gt(PetActivity::getFinishedAt, now.minusHours(CLAIM_EXPIRE_HOURS)));
     }
 
     /** 奖励归属宠物（B03）：按 activity.petId 加载，不取当前主宠 */
@@ -557,6 +595,11 @@ public class PetActivityServiceImpl implements PetActivityService {
 
     private int intOf(Object value) {
         return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    /** R29：快照字段缺省返回 null（区分"冻结为0"与"存量无冻结值"） */
+    private static Integer intOrNull(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
     }
 
     /** 静态工具：秒差计算 */

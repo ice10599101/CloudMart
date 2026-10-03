@@ -37,6 +37,7 @@ import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -301,6 +302,69 @@ class PetActivityServiceImplTest {
             assertThatThrownBy(() -> activityService.claimWork(100L))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_ACTIVITY_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("R29 按ID提前领取：开工后立刻 claimActivity → 409 PET_ACTIVITY_NOT_FINISHED，无任何奖励")
+        void claimByIdBeforeFinishRejected() {
+            PetActivity inProgress = new PetActivity();
+            inProgress.setId(11L);
+            inProgress.setUserId(100L);
+            inProgress.setPetId(1L);
+            inProgress.setActivityType(PetActivityType.WORK.name());
+            inProgress.setStatus(PetActivityStatus.IN_PROGRESS.name());
+            inProgress.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(29));
+            when(activityMapper.selectById(11L)).thenReturn(inProgress);
+
+            assertThatThrownBy(() -> activityService.claimActivity(100L, 11L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_ACTIVITY_NOT_FINISHED);
+            org.mockito.Mockito.verify(stateService, org.mockito.Mockito.never())
+                    .grantExp(any(Pet.class), org.mockito.ArgumentMatchers.anyInt());
+            org.mockito.Mockito.verify(economyService, org.mockito.Mockito.never()).earn(
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(Object[].class));
+        }
+
+        @Test
+        @DisplayName("R29 超领取期：COMPLETED 超 72h（清理任务未扫）→ 409 PET_ACTIVITY_EXPIRED")
+        void claimByIdAfterDeadlineRejected() {
+            PetActivity stale = new PetActivity();
+            stale.setId(11L);
+            stale.setUserId(100L);
+            stale.setPetId(1L);
+            stale.setActivityType(PetActivityType.WORK.name());
+            stale.setStatus(PetActivityStatus.COMPLETED.name());
+            stale.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusHours(73));
+            when(activityMapper.selectById(11L)).thenReturn(stale);
+
+            assertThatThrownBy(() -> activityService.claimActivity(100L, 11L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_ACTIVITY_EXPIRED);
+        }
+
+        @Test
+        @DisplayName("R29 快照冻结：开工快照含智力加成，等待期间智力变化不重算原单")
+        void startWorkFreezesIntelligenceBonus() {
+            Pet p = pet();
+            when(petService.requireOwnedPet(100L)).thenReturn(p);
+            when(activityMapper.selectCount(any())).thenReturn(0L);
+            when(jobConfigMapper.selectById(9001002L)).thenReturn(job());
+            when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);
+
+            activityService.startWork(100L, new StartWorkRequest(9001002L));
+
+            org.mockito.ArgumentCaptor<PetActivity> captor =
+                    org.mockito.ArgumentCaptor.forClass(PetActivity.class);
+            org.mockito.Mockito.verify(activityMapper).insert(captor.capture());
+            Map<String, Object> snapshot = com.cloudmart.pet.util.PetJsonUtils.parse(
+                    captor.getValue().getSnapshot(),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
+            // pet.intelligence=10 → min(25, 10/2)=5
+            assertThat(snapshot.get("intelligenceBonus")).isEqualTo(5);
         }
     }
 }

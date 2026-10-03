@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * B21 配置治理：数值上下限组合校验（校验预览）+ 发布历史快照 + 版本回退。
@@ -39,6 +40,13 @@ public class PetConfigGovernanceService {
             Map.entry("pet", "pet"),
             Map.entry("pet_season", "pet_season"),
             Map.entry("food", "pet_food_config"));
+
+    /**
+     * R07 运行实体类型：允许快照审计（数值调整/赛季保存留痕），但禁止通用 rollback——
+     * 通用回退会把经验、version、主宠标记、赛季 status/settled_at 等运行字段一并写回，
+     * 可破坏账实一致与赛季状态机。赛季可编辑配置的受控回退由 R17 的字段白名单实现。
+     */
+    private static final Set<String> RUNTIME_ENTITY_TYPES = Set.of("pet", "pet_season");
 
     private final PetConfigVersionMapper versionMapper;
     private final JdbcTemplate jdbcTemplate;
@@ -263,9 +271,14 @@ public class PetConfigGovernanceService {
         throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "配置版本并发冲突，请重试");
     }
 
-    /** B21 回退：将指定版本的快照字段写回目标行（列白名单取自快照键），并记录 ROLLBACK 版本 */
+    /** B21 回退：将指定版本的快照字段写回目标行（列白名单取自快照键），并记录 ROLLBACK 版本。
+     * R07：运行实体（pet/pet_season）直接拒绝——经验/赛季状态等运行字段不属于可回退配置 */
     @Transactional
     public void rollback(String configType, Long configId, int targetVersion, String operator) {
+        if (RUNTIME_ENTITY_TYPES.contains(configType)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "运行实体不允许通用配置回退: " + configType + "（数值纠错走调整单，赛季状态不可逆）");
+        }
         String table = requireTable(configType);
         PetConfigVersion target = versionMapper.selectList(new LambdaQueryWrapper<PetConfigVersion>()
                         .eq(PetConfigVersion::getConfigType, configType)

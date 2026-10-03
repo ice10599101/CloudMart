@@ -348,9 +348,10 @@ public class PetServiceImpl implements PetService {
     }
 
     private PetVO toVo(Pet pet, Integer feedRemaining) {
-        // P2-1：进行中 + 可领取活动合并为一次查询（原两条 SELECT），按 id 降序取每状态最新一条
+        // P2-1：进行中 + 可领取活动合并为一次查询（原两条 SELECT），按 id 降序取每状态最新一条。
+        // R30：按 petId 过滤——活动归属开工宠物，A 在忙时 B 的 VO 不再显示 A 的活动（账号忙碌归属属账号级展示，由活动中心接口承载）
         List<PetActivity> recentActivities = activityMapper.selectList(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, pet.getUserId())
+                .eq(PetActivity::getPetId, pet.getId())
                 .in(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name(), PetActivityStatus.COMPLETED.name())
                 .orderByDesc(PetActivity::getId)
                 .last("LIMIT 4"));

@@ -47,16 +47,19 @@ public class PetConfigGovernanceController {
         return ApiResponse.ok(governanceService.history(configType, configId));
     }
 
-    public record RollbackRequest(String configType, Long configId, Integer version, String operator) {
+    public record RollbackRequest(String configType, Long configId, Integer version) {
     }
 
     @PostMapping("/rollback")
-    @Operation(summary = "回退配置（B21）", description = "将指定版本快照写回目标行；回退动作本身留版本审计")
+    @Operation(summary = "回退配置（B21）", description = "将指定版本快照写回目标行；回退动作本身留版本审计。"
+            + "运行实体（pet/pet_season）不可回退；操作者取认证上下文，不接受请求体传入")
     public ApiResponse<Void> rollback(@RequestBody RollbackRequest request) {
         if (request.configType() == null || request.configId() == null || request.version() == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "回退参数不完整");
         }
-        governanceService.rollback(request.configType(), request.configId(), request.version(), request.operator());
+        // R07：高危写操作者只取已验签服务令牌声明，请求体 operator 是可伪造字段，禁止入审计
+        governanceService.rollback(request.configType(), request.configId(), request.version(),
+                PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
 }

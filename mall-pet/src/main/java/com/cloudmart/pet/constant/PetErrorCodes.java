@@ -65,6 +65,8 @@ public final class PetErrorCodes {
     public static final String PET_ACTIVITY_NOT_FINISHED = "PET_ACTIVITY_NOT_FINISHED";
     /** 奖励已领取（幂等第二次返回） */
     public static final String PET_ACTIVITY_ALREADY_CLAIMED = "PET_ACTIVITY_ALREADY_CLAIMED";
+    /** 奖励已过领取期（R29：超完成时间 72h，按时间推导不依赖清理任务是否已扫描） */
+    public static final String PET_ACTIVITY_EXPIRED = "PET_ACTIVITY_EXPIRED";
     /** 捞瓶任务未完成或冷却中 */
     public static final String PET_BOTTLE_COOLDOWN = "PET_BOTTLE_COOLDOWN";
     /** 精力不足 */

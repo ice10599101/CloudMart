@@ -32,8 +32,12 @@ public interface PetInteractionService {
      */
     PetVO rest(Long userId);
 
-    /** 定时休息到期结算：恢复精力/生命 + 配额内亲密度；供扫描器与读取路径惰性调用（幂等） */
-    PetVO settleRest(Long userId);
+    /**
+     * 定时休息到期结算：恢复精力/生命 + 配额内亲密度；供扫描器与读取路径惰性调用（幂等）。
+     * R30：按 activityId 加载活动并把效果施加给 activity.petId 归属宠物，
+     * 不落到当前主宠——A 开始休息后切到 B，到期恢复的是 A。
+     */
+    PetVO settleRest(Long userId, Long activityId);
 
     /** 动作可执行性查询（B06 统一动作 DTO）：allowed/reasonCode/reasonText/nextAvailableAt/rewardRemainingToday */
     List<PetActionVO> actions(Long userId);

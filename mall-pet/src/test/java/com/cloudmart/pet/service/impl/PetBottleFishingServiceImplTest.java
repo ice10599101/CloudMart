@@ -211,8 +211,9 @@ class PetBottleFishingServiceImplTest {
         // 随机抽中罕见瓶（RARE/PET/EASTER_EGG，~5%）时 specialContent 取自 provider，mock 需兜底非空
         lenient().when(contentProvider.pick(any(PetBottleRarity.class))).thenReturn("来自远海的悄悄话…");
 
-        // B11：结算按 (pet, activity) 直接进入处理器（快照冻结种子，结果确定）
-        settlementService.settleActivity(p, inProgressFishing(11L));
+        // B11：结算按 activity 直接进入处理器（快照冻结种子，结果确定）；R30：归属宠物由 activity.petId 加载
+        when(petMapper.selectById(1L)).thenReturn(p);
+        settlementService.settleActivity(inProgressFishing(11L));
 
         ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
         verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
@@ -233,6 +234,38 @@ class PetBottleFishingServiceImplTest {
     }
 
     @Test
+    @DisplayName("R30 跨宠归属：结算对象是 activity.petId 的宠物，与当前主宠无关")
+    void settleAttributionFollowsActivityPet() {
+        Pet activityPet = pet(30, 10);
+        Pet currentActive = pet(30, 10);
+        currentActive.setId(2L);
+        currentActive.setName("另一只");
+        // 当前主宠是 B（id=2），活动归属 A（activity.petId=1）：结算必须加载 A
+        when(petService.requireOwnedPet(100L)).thenReturn(currentActive);
+        when(petMapper.selectById(1L)).thenReturn(activityPet);
+        when(petMapper.selectById(2L)).thenReturn(currentActive);
+        when(stateService.grantExp(any(Pet.class), any(Integer.class))).thenReturn(0);
+        when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(11L));
+        when(activityMapper.update(any(), any())).thenReturn(1);
+        when(wishFeignClient.fishForPet(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(ApiResponse.ok(new WishFeignClient.WishBottleVO(
+                        555L, "PICKED", "PICKED", "你好呀", null, null)));
+
+        settlementService.settleActivity(inProgressFishing(11L));
+
+        // 经验只发给活动归属宠物 A，流水 petId=A；B 状态/经验不被触碰
+        ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
+        verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
+        assertThat(captor.getValue().getPetId()).isEqualTo(1L);
+        verify(stateService, atLeastOnce()).grantExp(org.mockito.ArgumentMatchers.argThat(
+                        p -> p != null && p.getId().equals(1L)),
+                org.mockito.ArgumentMatchers.anyInt());
+        verify(stateService, org.mockito.Mockito.never()).grantExp(org.mockito.ArgumentMatchers.argThat(
+                p -> p != null && p.getId().equals(2L)), org.mockito.ArgumentMatchers.anyInt());
+        assertThat(activityPet.getStatus()).isEqualTo(com.cloudmart.pet.enums.PetStatus.IDLE.name());
+    }
+
+    @Test
     @DisplayName("结算：Feign 降级 → outcome=FAILED 落库（不抛出，保持可重试领取）")
     void settleFeignDegradeMarksFailed() {
         Pet p = pet(100, 100);
@@ -246,7 +279,8 @@ class PetBottleFishingServiceImplTest {
         for (int attempt = 0; attempt < 500 && !reachedFeign; attempt++) {
             final long id = 100L + attempt;
             when(activityMapper.selectOne(any())).thenReturn(inProgressFishing(id));
-            settlementService.settleActivity(p, inProgressFishing(id));
+            when(petMapper.selectById(1L)).thenReturn(p);
+            settlementService.settleActivity(inProgressFishing(id));
             ArgumentCaptor<PetBottleRecord> captor = ArgumentCaptor.forClass(PetBottleRecord.class);
             verify(bottleRecordMapper, atLeastOnce()).insert(captor.capture());
             reachedFeign = captor.getAllValues().stream()

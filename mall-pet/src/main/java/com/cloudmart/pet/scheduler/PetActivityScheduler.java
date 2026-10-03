@@ -152,8 +152,9 @@ public class PetActivityScheduler {
                     publishCompleted(activity, type);
                 }
             }
-            case BOTTLE_FISHING -> bottleFishingService.settle(activity.getUserId());
-            case REST -> interactionService.settleRest(activity.getUserId());
+            case BOTTLE_FISHING -> bottleFishingService.settle(activity.getUserId(), activity.getId());
+            // R30：REST/BOTTLE 结算按 activityId 归属到 activity.petId，效果不再落到当前主宠
+            case REST -> interactionService.settleRest(activity.getUserId(), activity.getId());
             case FEED, PLAY, CLEAN, VISIT, EVOLVE -> {
                 // 即时行为不存在 IN_PROGRESS 状态，正常不会扫到；防御性日志
                 log.warn("扫描到非预期进行中活动: activityId={}, type={}", activity.getId(), type);

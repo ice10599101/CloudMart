@@ -68,9 +68,12 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 1
-    locations: classpath:db/migration
+    # R01：生产可经 FLYWAY_LOCATIONS 排除开发重置迁移（如 classpath:db/migration-prod）；
+    # 常规环境不设置，保持完整前向链
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     clean-disabled: true
-    validate-on-migrate: false
+    # R01：开启校验——历史迁移 checksum 被改/失败历史行必须走受控修复单，启动即失败而非自动 repair 掩盖
+    validate-on-migrate: true
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

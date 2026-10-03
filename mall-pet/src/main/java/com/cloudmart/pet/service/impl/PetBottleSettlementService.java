@@ -113,9 +113,13 @@ public class PetBottleSettlementService {
     /**
      * 结算一个捞瓶活动（CAS IN_PROGRESS→COMPLETED 保证只执行一次）。
      * 远程打捞带稳定请求标识（BOTTLE_FISH:{activityId}）与显式主人身份。
+     *
+     * <p>R30：结算对象固定为 activity.petId 归属宠物（内部加载并校验归属），
+     * 不接受调用方传入的任意 Pet 实体——A 开始捞瓶后切到 B，到期结果与经验归 A。</p>
      */
     @Transactional
-    public PetActivityVO settleActivity(Pet pet, PetActivity activity) {
+    public PetActivityVO settleActivity(PetActivity activity) {
+        Pet pet = requireActivityPet(activity);
         int updated = activityMapper.update(null, new LambdaUpdateWrapper<PetActivity>()
                 .set(PetActivity::getStatus, PetActivityStatus.COMPLETED.name())
                 .eq(PetActivity::getId, activity.getId())
@@ -203,7 +207,8 @@ public class PetBottleSettlementService {
 
     /** FAILED 重试（同种子语义）：只重试远程打捞，稀有度/结果不变；仍失败保持 FAILED 可重试 */
     @Transactional
-    public PetActivityVO retryFailedRecord(Pet pet, PetActivity activity, PetBottleRecord record) {
+    public PetActivityVO retryFailedRecord(PetActivity activity, PetBottleRecord record) {
+        Pet pet = requireActivityPet(activity);
         String requestId = "BOTTLE_FISH:" + activity.getId();
         WishFeignClient.WishBottleVO bottle;
         try {
@@ -280,8 +285,16 @@ public class PetBottleSettlementService {
         }
     }
 
-    PetBottleRarity rollRarity(Random random) {
-        double roll = random.nextDouble();
+    /** R30：奖励归属宠物——按 activity.petId 加载并校验与活动归属用户一致，不取当前主宠 */
+    private Pet requireActivityPet(PetActivity activity) {
+        Pet pet = petMapper.selectById(activity.getPetId());
+        if (pet == null || !activity.getUserId().equals(pet.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "执行任务的宠物不存在");
+        }
+        return pet;
+    }
+
+    PetBottleRarity rollRarity(Random random) {        double roll = random.nextDouble();
         if (roll < 0.08) {
             return PetBottleRarity.RARE;
         }

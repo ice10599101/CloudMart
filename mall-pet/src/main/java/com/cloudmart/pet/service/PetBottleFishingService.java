@@ -24,8 +24,9 @@ public interface PetBottleFishingService {
     /**
      * 任务结算：成功率 roll → 调 mall-wish 捞瓶 → 落 pet_bottle_record → 通知。
      * 供领取/状态查询惰性调用与定时扫描器调用；CAS 保证只结算一次。
+     * R30：按 activityId 结算归属宠物（activity.petId），不接受当前主宠作为结算对象。
      *
-     * @return 结算后的活动（COMPLETED 状态，result 含 outcome）
+     * @return 结算后的活动（COMPLETED 状态，result 含 outcome）；活动不属于该用户/非捞瓶类型返回 null
      */
-    PetActivityVO settle(Long userId);
+    PetActivityVO settle(Long userId, Long activityId);
 }

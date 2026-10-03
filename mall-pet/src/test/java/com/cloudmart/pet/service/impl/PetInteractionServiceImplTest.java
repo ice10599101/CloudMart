@@ -2,8 +2,10 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
+import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.mq.PetEventProducer;
@@ -34,6 +36,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -208,7 +211,7 @@ class PetInteractionServiceImplTest {
     void settleRestAppliesEffects() {
         Pet pet = pet();
         pet.setEnergy(40);
-        when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        when(petService.toVo(any())).thenReturn(petVo());
         PetActivity rest = new PetActivity();
         rest.setId(30L);
         rest.setUserId(100L);
@@ -216,14 +219,66 @@ class PetInteractionServiceImplTest {
         rest.setActivityType(PetActivityType.REST.name());
         rest.setStatus(PetActivityStatus.IN_PROGRESS.name());
         rest.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusSeconds(1));
-        when(activityMapper.selectOne(any())).thenReturn(rest);
+        when(activityMapper.selectById(30L)).thenReturn(rest);
+        when(petMapper.selectById(1L)).thenReturn(pet);
         when(activityMapper.update(any(), any())).thenReturn(1);
+        when(petMapper.updateById(any(Pet.class))).thenReturn(1);
         when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.REST_INTIMACY), eq(0L), eq(3))).thenReturn(true);
 
-        interactionService.settleRest(100L);
+        interactionService.settleRest(100L, 30L);
 
         verify(achievementService).evaluate(eq(pet), eq(PetAchievementService.Event.REST));
         org.assertj.core.api.Assertions.assertThat(pet.getEnergy()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("R30 跨宠归属：休息到期恢复 activity.petId 的宠物A，当前主宠B不受影响")
+    void settleRestAttributionFollowsActivityPet() {
+        Pet activityPet = pet();
+        activityPet.setId(1L);
+        activityPet.setEnergy(40);
+        Pet currentActive = pet();
+        currentActive.setId(2L);
+        currentActive.setEnergy(70);
+        when(petService.toVo(any())).thenReturn(petVo());
+        PetActivity rest = new PetActivity();
+        rest.setId(30L);
+        rest.setUserId(100L);
+        rest.setPetId(1L);
+        rest.setActivityType(PetActivityType.REST.name());
+        rest.setStatus(PetActivityStatus.IN_PROGRESS.name());
+        rest.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusSeconds(1));
+        when(activityMapper.selectById(30L)).thenReturn(rest);
+        when(petMapper.selectById(1L)).thenReturn(activityPet);
+        when(activityMapper.update(any(), any())).thenReturn(1);
+        when(petMapper.updateById(any(Pet.class))).thenReturn(1);
+        when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.REST_INTIMACY), eq(0L), eq(3))).thenReturn(true);
+
+        interactionService.settleRest(100L, 30L);
+
+        // A 恢复满精力并转 IDLE；B 精力保持原值、状态不被覆盖
+        org.assertj.core.api.Assertions.assertThat(activityPet.getEnergy()).isEqualTo(100);
+        org.assertj.core.api.Assertions.assertThat(activityPet.getStatus()).isEqualTo(PetStatus.IDLE.name());
+        verify(petMapper, org.mockito.Mockito.never()).updateById(org.mockito.ArgumentMatchers.<Pet>argThat(
+                p -> p != null && p.getId().equals(2L)));
+        org.assertj.core.api.Assertions.assertThat(currentActive.getEnergy()).isEqualTo(70);
+    }
+
+    @Test
+    @DisplayName("R30 归属校验：activityId 不属于该用户 → PET_ACTIVITY_NOT_FOUND")
+    void settleRestRejectsForeignActivity() {
+        PetActivity rest = new PetActivity();
+        rest.setId(30L);
+        rest.setUserId(999L);
+        rest.setPetId(1L);
+        rest.setActivityType(PetActivityType.REST.name());
+        rest.setStatus(PetActivityStatus.IN_PROGRESS.name());
+        rest.setFinishedAt(LocalDateTime.now(ZoneId.of("UTC")).minusSeconds(1));
+        when(activityMapper.selectById(30L)).thenReturn(rest);
+
+        assertThatThrownBy(() -> interactionService.settleRest(100L, 30L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_ACTIVITY_NOT_FOUND);
     }
 
     // ---------------- F1 喂养道具 ----------------
