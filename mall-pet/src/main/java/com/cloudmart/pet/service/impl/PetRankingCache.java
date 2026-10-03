@@ -47,11 +47,30 @@ public class PetRankingCache {
         return level * LEVEL_SCORE_UNIT + exp;
     }
 
-    /** 经验发放成功后同步等级榜（私密宠物不入榜） */
+    /**
+     * 经验发放成功后同步等级榜（私密宠物不入榜）。
+     * R24：存在活动事务时注册 afterCommit 投影——业务回滚不再残留幽灵分数
+     * （原实现事务未提交即写缓存，扣款/发奖回滚后缓存与 DB 漂移）；无事务上下文
+     * （定时重建等）直接写。
+     */
     public void onExpGranted(Long petId, int level, int exp, boolean isPublic) {
         if (!isPublic) {
             return;
         }
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            applyLevelScore(petId, level, exp);
+                        }
+                    });
+            return;
+        }
+        applyLevelScore(petId, level, exp);
+    }
+
+    private void applyLevelScore(Long petId, int level, int exp) {
         try {
             redisTemplate.opsForZSet().add(KEY_LEVEL, String.valueOf(petId), levelScore(level, exp));
         } catch (Exception e) {
@@ -111,19 +130,25 @@ public class PetRankingCache {
      */
     public boolean rebuild(List<LevelEntry> levelEntries, List<RankedEntry> battleWinEntries) {
         try {
-            redisTemplate.delete(List.of(KEY_LEVEL, KEY_BATTLE_WINS));
+            // R24：临时 key 完整构建 → RENAME 原子切换——读端不再看到 DEL 后的半榜窗口
+            String tmpLevel = KEY_LEVEL + ":rebuild";
+            String tmpBattle = KEY_BATTLE_WINS + ":rebuild";
+            redisTemplate.delete(List.of(tmpLevel, tmpBattle));
             redisTemplate.executePipelined((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
                 var zset = connection.zSetCommands();
                 for (LevelEntry entry : levelEntries) {
-                    zset.zAdd(KEY_LEVEL.getBytes(), levelScore(entry.level(), entry.exp()),
+                    zset.zAdd(tmpLevel.getBytes(), levelScore(entry.level(), entry.exp()),
                             entry.petId().toString().getBytes());
                 }
                 for (RankedEntry entry : battleWinEntries) {
-                    zset.zAdd(KEY_BATTLE_WINS.getBytes(), entry.score(), entry.petId().toString().getBytes());
+                    zset.zAdd(tmpBattle.getBytes(), entry.score(), entry.petId().toString().getBytes());
                 }
                 return null;
             });
-            log.info("排行榜缓存重建完成: level={}, battleWins={}", levelEntries.size(), battleWinEntries.size());
+            redisTemplate.rename(tmpLevel, KEY_LEVEL);
+            redisTemplate.rename(tmpBattle, KEY_BATTLE_WINS);
+            log.info("排行榜缓存重建完成（原子切换）: level={}, battleWins={}",
+                    levelEntries.size(), battleWinEntries.size());
             return true;
         } catch (Exception e) {
             degraded("rebuild", e);
