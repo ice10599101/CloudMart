@@ -58,6 +58,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     private final PetProperties properties;
     private final PetClock petClock;
     private final PetStateService stateService;
+    /** R12：统一活动互斥（活动+托管跨表排他） */
+    private final PetActivityMutex activityMutex;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PetBottleFishingServiceImpl(PetService petService,
@@ -67,7 +69,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
                                        PetBottleSettlementService settlementService,
                                        PetProperties properties,
                                        PetClock petClock,
-                                       PetStateService stateService) {
+                                       PetStateService stateService,
+                                       PetActivityMutex activityMutex) {
         this.petService = petService;
         this.activityMapper = activityMapper;
         this.bottleRecordMapper = bottleRecordMapper;
@@ -76,6 +79,7 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
         this.properties = properties;
         this.petClock = petClock;
         this.stateService = stateService;
+        this.activityMutex = activityMutex;
     }
 
     @Override
@@ -136,12 +140,8 @@ public class PetBottleFishingServiceImpl implements PetBottleFishingService {
     public PetActivityVO start(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
 
-        Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, userId)
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
-        if (busy > 0) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物已经在忙另一件事啦");
-        }
+        // R12：统一互斥（活动+托管跨表排他）
+        activityMutex.requireFree(userId);
         if (stateService.isWeak(pet)) {
             throw new BusinessException(PetErrorCodes.PET_STATE_WEAK, "宠物饿坏了没力气去海边，先喂点东西吧");
         }

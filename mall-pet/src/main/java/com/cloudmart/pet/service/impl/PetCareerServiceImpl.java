@@ -85,6 +85,8 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
     private final PetEconomyService economyService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
+    /** R12：统一活动互斥（活动+托管跨表排他） */
+    private final PetActivityMutex activityMutex;
 
     public PetCareerServiceImpl(PetService petService,
                                 PetStateService stateService,
@@ -100,7 +102,8 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                                 PetProperties properties,
                                 PetEconomyService economyService,
                                 PetOutboxService outboxService,
-                                PetClock petClock) {
+                                PetClock petClock,
+                                PetActivityMutex activityMutex) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -116,6 +119,7 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
         this.economyService = economyService;
         this.outboxService = outboxService;
         this.petClock = petClock;
+        this.activityMutex = activityMutex;
     }
 
     @Override
@@ -494,14 +498,9 @@ public class PetCareerServiceImpl implements PetCareerService, PetOperationRecov
                 .collect(Collectors.toMap(PetCareerProgress::getCareerCode, Function.identity(), (a, b) -> a));
     }
 
+    /** R12：统一互斥（活动+托管跨表排他），替代仅查 pet_activity 的本地实现 */
     private void ensureNoBusyActivity(Long userId) {
-        Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, userId)
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
-        if (busy > 0) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
-                    "宠物一次只能做一件事，等当前任务结束吧");
-        }
+        activityMutex.requireFree(userId);
     }
 
     /** B10：职业工作进行中禁止转职/晋升（该宠物维度） */

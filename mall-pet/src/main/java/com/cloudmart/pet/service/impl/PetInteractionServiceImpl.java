@@ -63,6 +63,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
     private final PetFriendFeedService friendFeedService;
     private final PetItemCatalog itemCatalog;
+    /** R12：统一活动互斥（活动+托管跨表排他） */
+    private final PetActivityMutex activityMutex;
 
     public PetInteractionServiceImpl(PetService petService,
                                      PetStateService stateService,
@@ -80,7 +82,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetFriendFeedService friendFeedService,
                                      PetItemCatalog itemCatalog,
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
-                                     com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService) {
+                                     com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
+                                     PetActivityMutex activityMutex) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -98,6 +101,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.itemCatalog = itemCatalog;
         this.companionFeatureService = companionFeatureService;
         this.playFeatureService = playFeatureService;
+        this.activityMutex = activityMutex;
     }
 
     @Override
@@ -275,12 +279,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
 
         // §9.3 可回退开关：关闭定时休息回落旧即时恢复（精力/生命立即回满，无活动行）
         if (!properties.getFeatureSwitches().isTimedRest()) {
-            Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                    .eq(PetActivity::getUserId, userId)
-                    .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
-            if (busy > 0) {
-                throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物正在忙，忙完再休息吧");
-            }
+            activityMutex.requireFree(userId);
             if (pet.getEnergy() >= 100 && pet.getHp() >= pet.getMaxHp()) {
                 throw new BusinessException(PetErrorCodes.PET_STATE_FULL, "宠物精力充沛，不需要休息哦");
             }
@@ -295,10 +294,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             return petService.toVo(pet);
         }
 
-        // 长期活动互斥（每用户一条进行中）
-        if (hasBusyActivity(userId)) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "宠物正在忙，忙完再休息吧");
-        }
+        // R12：长期活动互斥（活动+托管跨表排他）
+        activityMutex.requireFree(userId);
         // 全满状态拒绝无效休息：不消耗次数、不加亲密度（B06）
         if (pet.getEnergy() >= 100 && pet.getHp() >= pet.getMaxHp()) {
             throw new BusinessException(PetErrorCodes.PET_STATE_FULL, "宠物精力充沛，不需要休息哦");

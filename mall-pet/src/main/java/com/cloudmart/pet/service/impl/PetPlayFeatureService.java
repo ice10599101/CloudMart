@@ -69,6 +69,10 @@ public class PetPlayFeatureService {
 
     private final PetMapper petMapper;
     private final PetClock petClock;
+    /** R12：统一活动互斥（工作/读书/职业/捞瓶/休息/托管跨表排他） */
+    private final PetActivityMutex activityMutex;
+    /** R12：托管照顾公开事务应用服务 */
+    private final PetCustodyCareService custodyCareService;
     private final PetQuotaService quotaService;
     private final PetMinigameRoundMapper minigameMapper;
     private final PetCustodyRecordMapper custodyMapper;
@@ -90,6 +94,8 @@ public class PetPlayFeatureService {
     private final com.cloudmart.pet.service.PetIntimacyService intimacyService;
 
     public PetPlayFeatureService(PetMapper petMapper, PetClock petClock, PetQuotaService quotaService,
+                                 PetActivityMutex activityMutex,
+                                 PetCustodyCareService custodyCareService,
                                  PetMinigameRoundMapper minigameMapper,
                                  PetCustodyRecordMapper custodyMapper,
                                  PetCooperationMapper cooperationMapper,
@@ -110,6 +116,8 @@ public class PetPlayFeatureService {
                                  com.cloudmart.pet.service.PetIntimacyService intimacyService) {
         this.petMapper = petMapper;
         this.petClock = petClock;
+        this.activityMutex = activityMutex;
+        this.custodyCareService = custodyCareService;
         this.quotaService = quotaService;
         this.minigameMapper = minigameMapper;
         this.custodyMapper = custodyMapper;
@@ -524,20 +532,16 @@ public class PetPlayFeatureService {
 
     // ---------------- N05 有限托管 ----------------
 
-    /** 启动托管：每自然周 1 次（uk 幂等）；期间无其他进行中活动；不收费不自动续 */
+    /** 启动托管：每自然周 1 次（uk 幂等）；不收费不自动续。
+     * R12：先取用户守卫锁再复验互斥（原实现先检查后加锁，与活动开始并发有竞态窗口）；
+     * 锁内经统一互斥 Bean 复验活动与托管，跨表排他成立。 */
     @Transactional
     public Map<String, Object> startCustody(Long userId) {
         requireFeature(properties.getFeatureSwitches().isCustody());
         Pet pet = requireActivePet(userId);
-        // BE-09：托管占用统一长期活动名额——有进行中活动（打工/读书/捞瓶/休息等）时拒绝托管，
-        // 反向由活动开始路径的 ensureNoBusyActivity + ACTIVE 托管检查共同保证"只能一个"
-        Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, userId)
-                .eq(PetActivity::getStatus, com.cloudmart.pet.enums.PetActivityStatus.IN_PROGRESS.name()));
-        if (busy > 0) {
-            throw new BusinessException(PetErrorCodes.PET_USER_BUSY, "宠物正在忙碌，托管与任务不能同时进行");
-        }
         guardService.lockGuard(userId);
+        // BE-09/R12：托管占用统一长期活动名额——锁内重读（打工/读书/捞瓶/休息/进行中托管互斥）
+        activityMutex.requireFree(userId);
         LocalDate weekStart = petClock.businessDate().with(DayOfWeek.MONDAY);
         PetCustodyRecord record = new PetCustodyRecord();
         record.setUserId(userId);
@@ -576,15 +580,16 @@ public class PetPlayFeatureService {
                     .eq(PetCustodyRecord::getWeekStart, petClock.businessDate().with(DayOfWeek.MONDAY))) > 0);
             return result;
         }
-        // BE-09：到期原子结束——过期托管先结束（释放占位），不再施加照顾、不再返回 active
+        // BE-09/R12：到期先结算最后一段照顾再原子结束（T18 最后一段不丢失），结束后不再照顾
         if (record.getEndsAt() != null && record.getEndsAt().isBefore(petClock.nowUtc())) {
-            expireCustody(record);
+            custodyCareService.settleAndEnd(record);
             result.put("active", false);
             result.put("weekUsed", true);
             result.put("nextAvailableAt", petClock.businessDate().with(DayOfWeek.MONDAY).plusWeeks(1));
             return result;
         }
-        applyCustodyCare(record);
+        // R12：照顾进入公开事务应用服务（原 private @Transactional 自调用事务不生效）
+        custodyCareService.applyCare(record);
         result.put("active", true);
         result.put("endsAt", record.getEndsAt());
         result.put("careFeedUsed", record.getCareFeedUsed());
@@ -592,55 +597,13 @@ public class PetPlayFeatureService {
         return result;
     }
 
-    /** 托管到期结束（CAS，幂等；不产出任何奖励；本周名额不恢复） */
-    private void expireCustody(PetCustodyRecord record) {
-        int updated = custodyMapper.update(null, new LambdaUpdateWrapper<PetCustodyRecord>()
-                .set(PetCustodyRecord::getStatus, "ENDED")
-                .set(PetCustodyRecord::getEndsAt, record.getEndsAt())
-                .eq(PetCustodyRecord::getId, record.getId())
-                .eq(PetCustodyRecord::getStatus, "ACTIVE"));
-        if (updated > 0) {
-            log.info("托管到期自动结束, custodyId={}, userId={}", record.getId(), record.getUserId());
-        }
-    }
-
-    /** 照顾效果（服务端定时/惰性结算；不产出经验/星光/亲密度/任务进度）；BE-09：到期后不再照顾 */
-    @org.springframework.transaction.annotation.Transactional
-    private void applyCustodyCare(PetCustodyRecord record) {
-        if (record.getEndsAt() != null && record.getEndsAt().isBefore(petClock.nowUtc())) {
-            expireCustody(record);
-            return;
-        }
-        Pet pet = petMapper.selectById(record.getPetId());
-        if (pet == null) {
-            return;
-        }
-        LambdaUpdateWrapper<Pet> wrapper = new LambdaUpdateWrapper<Pet>().eq(Pet::getId, pet.getId());
-        boolean changed = false;
-        if (pet.getHunger() < 30 && record.getCareFeedUsed() < 2) {
-            wrapper.setSql("hunger = 50");
-            record.setCareFeedUsed(record.getCareFeedUsed() + 1);
-            changed = true;
-        }
-        if (pet.getCleanliness() < 30 && record.getCareCleanUsed() < 1) {
-            wrapper.setSql("cleanliness = 50");
-            record.setCareCleanUsed(record.getCareCleanUsed() + 1);
-            changed = true;
-        }
-        if (changed) {
-            petMapper.update(null, wrapper);
-            custodyMapper.updateById(record);
-        }
-    }
-
-    /** 提前结束（不退还本周次数；服务端故障未实际启动可释放预占） */
+    /** 提前结束（R12：先结算截止当前时刻的照顾再转终态；不退还本周次数） */
     @Transactional
     public void endCustody(Long userId) {
-        custodyMapper.update(null, new LambdaUpdateWrapper<PetCustodyRecord>()
-                .set(PetCustodyRecord::getStatus, "ENDED")
-                .set(PetCustodyRecord::getEndedAt, petClock.nowUtc())
-                .eq(PetCustodyRecord::getUserId, userId)
-                .eq(PetCustodyRecord::getStatus, "ACTIVE"));
+        PetCustodyRecord record = custodyCareService.activeRecord(userId);
+        if (record != null) {
+            custodyCareService.settleAndEnd(record);
+        }
     }
 
     // ---------------- N06 好友合作周任务 ----------------

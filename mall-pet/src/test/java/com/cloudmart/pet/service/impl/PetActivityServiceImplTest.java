@@ -111,7 +111,10 @@ class PetActivityServiceImplTest {
                 org.mockito.Mockito.mock(PetOutboxService.class), petClock,
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetCareerService.class),
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetBottleFishingService.class),
-                org.mockito.Mockito.mock(PetCompanionFeatureService.class));
+                org.mockito.Mockito.mock(PetCompanionFeatureService.class),
+                // 真实互斥 Bean（mock mapper）——保持 selectCount 桩语义可驱动"忙碌"分支
+                new PetActivityMutex(activityMapper,
+                        org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetCustodyRecordMapper.class)));
         // 技能被动加成（博览群书）默认 0：无技能时与改造前收益口径一致
         lenient().when(statsService.studyExpBonus(any())).thenReturn(0.0);
     }

@@ -81,6 +81,8 @@ public class PetActivityServiceImpl implements PetActivityService {
     private final PetCareerService careerService;
     private final PetCompanionFeatureService companionFeatureService;
     private final PetBottleFishingService bottleFishingService;
+    /** R12：统一活动互斥（活动+托管跨表排他） */
+    private final PetActivityMutex activityMutex;
 
     public PetActivityServiceImpl(PetService petService,
                                   PetStateService stateService,
@@ -98,7 +100,8 @@ public class PetActivityServiceImpl implements PetActivityService {
                                   PetClock petClock,
                                   PetCareerService careerService,
                                   PetBottleFishingService bottleFishingService,
-                                  PetCompanionFeatureService companionFeatureService) {
+                                  PetCompanionFeatureService companionFeatureService,
+                                  PetActivityMutex activityMutex) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -116,6 +119,7 @@ public class PetActivityServiceImpl implements PetActivityService {
         this.careerService = careerService;
         this.bottleFishingService = bottleFishingService;
         this.companionFeatureService = companionFeatureService;
+        this.activityMutex = activityMutex;
     }
 
     @Override
@@ -437,14 +441,9 @@ public class PetActivityServiceImpl implements PetActivityService {
         return toVo(activity, pet.getName());
     }
 
+    /** R12：统一互斥（活动+托管跨表排他），替代仅查 pet_activity 的本地实现 */
     private void ensureNoBusyActivity(Long userId) {
-        Long busy = activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
-                .eq(PetActivity::getUserId, userId)
-                .eq(PetActivity::getStatus, PetActivityStatus.IN_PROGRESS.name()));
-        if (busy > 0) {
-            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
-                    "宠物一次只能做一件事，等当前任务结束吧");
-        }
+        activityMutex.requireFree(userId);
     }
 
     private boolean isEligible(Pet pet, Integer requiredLevel, Integer energyCost, Integer hungerCost) {

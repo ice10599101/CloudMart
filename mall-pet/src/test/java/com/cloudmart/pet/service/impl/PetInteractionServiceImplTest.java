@@ -113,7 +113,8 @@ class PetInteractionServiceImplTest {
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
                 properties, quotaService, outboxService, petClock, inventoryMapper, friendFeedService,
                 itemCatalog,
-                org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class));
+                org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class),
+                org.mockito.Mockito.mock(PetActivityMutex.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());
         // F1 配置化：食物效果由 PetItemCatalog 查配置表提供（测试 stub 静态基线 apple）
