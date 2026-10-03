@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -17,6 +17,10 @@ const CATCH_WINDOWS = 10
 interface RoundState {
   roundId: string
   deadlineAt: number
+  /** 服务端开局时间（epoch ms，R11 窗口号由此计算） */
+  startedAt: number
+  /** 服务端窗口时长（ms） */
+  windowMs: number
   submitted: number
 }
 
@@ -120,11 +124,26 @@ export default function PetPlayScreen() {
     return () => clearInterval(timer)
   }, [round])
 
+  // R11：服务端时钟偏移——窗口归属以服务端时间为准，windowIndex=floor((serverNow-startedAt)/windowMs)+1
+  const serverOffsetRef = useRef(0)
+
   const startRound = async () => {
     if (!pet) return
     const res = await petApi.startMinigameRound(pet.petId)
     if (res.data?.success && res.data.data) {
-      setRound({ roundId: String(res.data.data.roundId), deadlineAt: new Date(res.data.data.deadlineAt).getTime(), submitted: 0 })
+      const data = res.data.data as unknown as Record<string, unknown> & { roundId: number | string; deadlineAt: string; startedAt?: string; serverNow?: string; windowMs?: number }
+      const startedAt = data.startedAt ? Date.parse(data.startedAt) : Date.now()
+      const windowMs = typeof data.windowMs === 'number' ? data.windowMs : 3000
+      if (data.serverNow) {
+        serverOffsetRef.current = Date.parse(data.serverNow) - Date.now()
+      }
+      setRound({
+        roundId: String(data.roundId),
+        deadlineAt: new Date(data.deadlineAt).getTime(),
+        startedAt,
+        windowMs,
+        submitted: 0,
+      })
       setMgResult('')
       setRemaining(30)
     }
@@ -132,11 +151,39 @@ export default function PetPlayScreen() {
 
   const catchSlot = async (slot: 'LEFT' | 'CENTER' | 'RIGHT') => {
     if (!round) return
-    const windowIndex = round.submitted + 1
-    if (windowIndex > CATCH_WINDOWS) return
+    // R11：窗口号由服务端时钟决定（不再按点击次数递增）；服务端 accepted 权威
+    const serverNow = Date.now() + serverOffsetRef.current
+    const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
+    if (windowIndex < 1 || windowIndex > CATCH_WINDOWS) return
     const res = await petApi.submitMinigameOps(round.roundId, [{ seq: windowIndex, windowIndex, slot }])
-    if (res.data?.success) setRound({ ...round, submitted: windowIndex })
+    if (res.data?.success && res.data.data) {
+      const accepted = Number((res.data.data as { totalAccepted?: number }).totalAccepted ?? round.submitted)
+      setRound({ ...round, submitted: accepted })
+    }
   }
+
+  // R11：重进页面恢复当前局（断线恢复，同 roundId 续玩）
+  const restoreCurrentRound = useCallback(async () => {
+    const res = await petApi.currentMinigameRound()
+    const data = res.data?.success ? (res.data.data as { round?: Record<string, unknown> | null } | null) : null
+    const roundData = data?.round
+    if (roundData && roundData.roundId) {
+      const startedAt = Date.parse(String(roundData.startedAt))
+      const windowMs = typeof roundData.windowMs === 'number' ? roundData.windowMs : 3000
+      if (roundData.serverNow) {
+        serverOffsetRef.current = Date.parse(String(roundData.serverNow)) - Date.now()
+      }
+      const accepted = Array.isArray(roundData.acceptedWindows) ? roundData.acceptedWindows.length : 0
+      setRound({
+        roundId: String(roundData.roundId),
+        deadlineAt: new Date(String(roundData.deadlineAt)).getTime(),
+        startedAt,
+        windowMs,
+        submitted: accepted,
+      })
+      setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + serverOffsetRef.current)) / 1000)))
+    }
+  }, [])
 
   const settleRound = async () => {
     if (!round) return
@@ -159,6 +206,10 @@ export default function PetPlayScreen() {
     if (round && remaining === 0) void settleRound()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, round])
+
+  useEffect(() => {
+    if (isLoggedIn) void restoreCurrentRound()
+  }, [isLoggedIn, restoreCurrentRound])
 
   const confirmDigest = async () => {
     if (!digest) return

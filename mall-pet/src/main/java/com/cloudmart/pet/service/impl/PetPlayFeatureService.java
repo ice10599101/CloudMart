@@ -62,6 +62,8 @@ public class PetPlayFeatureService {
 
     private static final int CATCH_WINDOWS = 10;
     private static final long ROUND_SECONDS = 30;
+    /** R11：单窗时长（毫秒）——窗口归属由服务端时钟决定，与点击次数无关 */
+    private static final long WINDOW_MS = 3000;
     private static final long GRACE_SECONDS = 2;
     private static final int MIN_SUCCESS_FOR_REWARD = 3;
     private static final int DAILY_REWARD_ROUNDS = 5;
@@ -75,6 +77,8 @@ public class PetPlayFeatureService {
     private final PetCustodyCareService custodyCareService;
     private final PetQuotaService quotaService;
     private final PetMinigameRoundMapper minigameMapper;
+    /** R11：窗口操作唯一事实（uk roundId+windowIndex，每窗至多一次有效操作） */
+    private final com.cloudmart.pet.repository.PetMinigameOperationMapper operationMapper;
     private final PetCustodyRecordMapper custodyMapper;
     private final PetCooperationMapper cooperationMapper;
     private final PetCooperationContributionMapper contributionMapper;
@@ -97,6 +101,7 @@ public class PetPlayFeatureService {
                                  PetActivityMutex activityMutex,
                                  PetCustodyCareService custodyCareService,
                                  PetMinigameRoundMapper minigameMapper,
+                                 com.cloudmart.pet.repository.PetMinigameOperationMapper operationMapper,
                                  PetCustodyRecordMapper custodyMapper,
                                  PetCooperationMapper cooperationMapper,
                                  PetCooperationContributionMapper contributionMapper,
@@ -118,6 +123,7 @@ public class PetPlayFeatureService {
         this.petClock = petClock;
         this.activityMutex = activityMutex;
         this.custodyCareService = custodyCareService;
+        this.operationMapper = operationMapper;
         this.quotaService = quotaService;
         this.minigameMapper = minigameMapper;
         this.custodyMapper = custodyMapper;
@@ -348,6 +354,10 @@ public class PetPlayFeatureService {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能为自己的宠物开局");
         }
         guardService.lockGuard(userId);
+        // R11：先惰性结算到期残留局——只剩过期局不得永久阻止开新局（断线恢复 T21）
+        settleExpiredRounds(userId);
+        // R11/R12：统一互斥——托管/长期活动进行中不开新局（有收益小游戏属互斥集合）
+        activityMutex.requireFree(userId);
         Long active = minigameMapper.selectCount(new LambdaQueryWrapper<PetMinigameRound>()
                 .eq(PetMinigameRound::getUserId, userId)
                 .eq(PetMinigameRound::getStatus, "ACTIVE"));
@@ -405,55 +415,150 @@ public class PetPlayFeatureService {
         result.put("ruleVersion", round.getRuleVersion());
         // §7.4：目标序列是展示数据（防滥用靠服务端时窗/去重/额度，不靠序列保密）
         result.put("sequence", sequence);
+        // R11：客户端时钟校准——窗口归属以服务端时间为准（windowIndex=floor((serverNow-startedAt)/windowMs)）
+        result.put("startedAt", round.getStartedAt());
+        result.put("serverNow", round.getStartedAt());
+        result.put("windowMs", WINDOW_MS);
         return result;
     }
 
-    /** 提交操作批次：服务端校验窗口与目标；相邻宽限重叠不重复计窗 */
+    /**
+     * R11 当前局查询（断线恢复，§7.2 GET /minigames/current）：同 roundId 恢复；
+     * 已到期残留局先惰性结算（到期自动完成，不永久卡 ACTIVE）。
+     */
+    @Transactional
+    public Map<String, Object> currentRound(Long userId) {
+        settleExpiredRounds(userId);
+        PetMinigameRound round = minigameMapper.selectOne(new LambdaQueryWrapper<PetMinigameRound>()
+                .eq(PetMinigameRound::getUserId, userId)
+                .eq(PetMinigameRound::getStatus, "ACTIVE")
+                .orderByDesc(PetMinigameRound::getId)
+                .last("LIMIT 1"));
+        Map<String, Object> result = new HashMap<>();
+        if (round == null) {
+            result.put("round", null);
+            return result;
+        }
+        result.put("round", roundView(round));
+        return result;
+    }
+
+    /** 对局视图：恢复所需的服务端权威字段（序列/已接受窗口/时间校准） */
+    private Map<String, Object> roundView(PetMinigameRound round) {
+        List<String> sequence = PetJsonUtils.parse(round.getSequence(),
+                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {
+                });
+        Map<String, Object> view = new HashMap<>();
+        view.put("roundId", round.getId());
+        view.put("petId", round.getPetId());
+        view.put("startedAt", round.getStartedAt());
+        view.put("deadlineAt", round.getDeadlineAt());
+        view.put("serverNow", petClock.nowUtc());
+        view.put("windowMs", WINDOW_MS);
+        view.put("rewardEligible", Boolean.TRUE.equals(round.getRewardEligible()));
+        view.put("sequence", sequence);
+        view.put("acceptedWindows", acceptedWindows(round.getId()));
+        return view;
+    }
+
+    /** 已接受窗口序号（操作事实表权威） */
+    private List<Integer> acceptedWindows(Long roundId) {
+        return operationMapper.selectList(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetMinigameOperation>()
+                        .eq(com.cloudmart.pet.entity.PetMinigameOperation::getRoundId, roundId)
+                        .orderByAsc(com.cloudmart.pet.entity.PetMinigameOperation::getWindowIndex))
+                .stream().map(com.cloudmart.pet.entity.PetMinigameOperation::getWindowIndex).toList();
+    }
+
+    /** R11：惰性结算该用户全部到期残留局（CAS 幂等；到期自动完成，不卡 ACTIVE） */
+    private void settleExpiredRounds(Long userId) {
+        List<PetMinigameRound> stale = minigameMapper.selectList(new LambdaQueryWrapper<PetMinigameRound>()
+                .eq(PetMinigameRound::getUserId, userId)
+                .eq(PetMinigameRound::getStatus, "ACTIVE")
+                .le(PetMinigameRound::getDeadlineAt, petClock.nowUtc()));
+        for (PetMinigameRound round : stale) {
+            try {
+                settleById(round);
+            } catch (Exception e) {
+                log.warn("到期局惰性结算失败（下轮重试）, roundId={}", round.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * 提交操作批次（R11 重写）：每窗操作以 pet_minigame_operation 唯一事实落库
+     * （uk roundId+windowIndex——并发提交/重放由唯一键收敛，不再整行 JSON 读改写；
+     * 原实现 updateById 全实体覆盖无版本，与 settle 竞争时旧 ACTIVE 实体可把
+     * SETTLED 写回 ACTIVE）。窗口归属由服务端接收时间决定，客户端点击次数不参与。
+     */
     @Transactional
     public Map<String, Object> submitOps(Long userId, Long roundId, List<Map<String, Object>> ops) {
         PetMinigameRound round = requireActiveRound(userId, roundId);
-        List<Map<String, Object>> accepted = PetJsonUtils.parse(round.getOps(),
-                new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {
-                });
+        if (ops == null || ops.isEmpty() || ops.size() > 10) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "操作批次需 1~10 条");
+        }
         List<String> sequence = PetJsonUtils.parse(round.getSequence(),
                 new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {
                 });
         LocalDateTime now = petClock.nowUtc();
-        int lastWindow = accepted.stream()
-                .mapToInt(op -> ((Number) op.get("windowIndex")).intValue())
-                .max().orElse(0);
-        int success = 0;
+        int acceptedNow = 0;
         for (Map<String, Object> op : ops) {
-            int seq = ((Number) op.get("seq")).intValue();
-            int window = ((Number) op.get("windowIndex")).intValue();
-            String slot = String.valueOf(op.get("slot"));
-            // 校验：窗口序号前进（倒序/重放拒绝）、目标匹配随机序列、接收时间在窗口+宽限内
-            if (window <= lastWindow || window > CATCH_WINDOWS || window < 1) {
-                continue;
+            Object rawWindow = op.get("windowIndex");
+            Object rawSlot = op.get("slot");
+            if (rawWindow == null || rawSlot == null) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "操作缺少 windowIndex/slot");
             }
-            if (!sequence.get(window - 1).equals(slot)) {
-                continue;
+            int window = ((Number) rawWindow).intValue();
+            String slot = String.valueOf(rawSlot);
+            if (window < 1 || window > CATCH_WINDOWS) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "窗口序号越界");
             }
-            long windowStartOffset = (long) (window - 1) * 3;
+            if (!SLOTS.contains(slot)) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "槽位非法");
+            }
+            // 服务端窗口判定：接收时间必须落在窗口内（相邻窗口 GRACE 宽限）；目标匹配随机序列
+            long windowStartOffset = (window - 1) * (WINDOW_MS / 1000);
             LocalDateTime windowStart = round.getStartedAt().plusSeconds(windowStartOffset);
             LocalDateTime windowEnd = window == CATCH_WINDOWS
-                    ? round.getDeadlineAt() : round.getStartedAt().plusSeconds(windowStartOffset + 3 + GRACE_SECONDS);
-            if (now.isBefore(windowStart) || now.isAfter(windowEnd)) {
+                    ? round.getDeadlineAt() : round.getStartedAt().plusSeconds(windowStartOffset + WINDOW_MS / 1000 + GRACE_SECONDS);
+            boolean inWindow = !now.isBefore(windowStart) && !now.isAfter(windowEnd);
+            boolean targetMatched = sequence.get(window - 1).equals(slot);
+            if (!inWindow || !targetMatched) {
                 continue;
             }
-            accepted.add(new HashMap<>(Map.of("seq", seq, "windowIndex", window, "slot", slot,
-                    "serverTime", now.toString())));
-            lastWindow = window;
-            success++;
+            // 每窗唯一事实：并发提交同一窗口只有一个胜者（DuplicateKey = 已接受，幂等跳过）
+            try {
+                com.cloudmart.pet.entity.PetMinigameOperation operation = new com.cloudmart.pet.entity.PetMinigameOperation();
+                operation.setRoundId(roundId);
+                operation.setUserId(userId);
+                operation.setWindowIndex(window);
+                operation.setSlot(slot);
+                operation.setAccepted(1);
+                operation.setServerTime(now);
+                operationMapper.insert(operation);
+                acceptedNow++;
+            } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+                // 该窗已被接受：幂等跳过，不重复计分
+            }
         }
-        int totalSuccess = success + accepted.size() - success;
-        round.setOps(PetJsonUtils.toJson(accepted));
-        round.setSuccessCount(accepted.size());
-        minigameMapper.updateById(round);
+        int totalAccepted = acceptedCount(roundId);
+        // 展示投影更新：LambdaUpdateWrapper 限定列+状态守卫——绝不触碰 status（终态不可被旧实体覆盖）
+        minigameMapper.update(null, new LambdaUpdateWrapper<PetMinigameRound>()
+                .set(PetMinigameRound::getOps, PetJsonUtils.toJson(Map.of("acceptedCount", totalAccepted)))
+                .set(PetMinigameRound::getSuccessCount, totalAccepted)
+                .eq(PetMinigameRound::getId, roundId)
+                .eq(PetMinigameRound::getStatus, "ACTIVE"));
         Map<String, Object> result = new HashMap<>();
-        result.put("accepted", accepted.size());
+        result.put("accepted", acceptedNow);
+        result.put("totalAccepted", totalAccepted);
         result.put("status", "ACTIVE");
         return result;
+    }
+
+    /** 已接受窗口数（操作事实表权威） */
+    private int acceptedCount(Long roundId) {
+        Long count = operationMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetMinigameOperation>()
+                .eq(com.cloudmart.pet.entity.PetMinigameOperation::getRoundId, roundId));
+        return count != null ? count.intValue() : 0;
     }
 
     /** 结束/到期结算（幂等 CAS SETTLED；正常结束须达服务端截止时间） */
@@ -472,6 +577,20 @@ public class PetPlayFeatureService {
             result.put("status", "ACTIVE");
             result.put("remainingSeconds", Duration.between(now, round.getDeadlineAt()).getSeconds());
             return result;
+        }
+        return settleById(round);
+    }
+
+    /** R11 结算主体（startRound 惰性结算复用）：操作事实计数为权威，CAS 幂等，奖励只发一次 */
+    private Map<String, Object> settleById(PetMinigameRound round) {
+        Long roundId = round.getId();
+        // 操作事实为权威：以事实表计数覆盖（提交路径崩溃时投影列可能落后）
+        int authoritativeCount = acceptedCount(roundId);
+        if (!Integer.valueOf(authoritativeCount).equals(round.getSuccessCount())) {
+            minigameMapper.update(null, new LambdaUpdateWrapper<PetMinigameRound>()
+                    .set(PetMinigameRound::getSuccessCount, authoritativeCount)
+                    .eq(PetMinigameRound::getId, roundId));
+            round.setSuccessCount(authoritativeCount);
         }
         int updated = minigameMapper.update(null, new LambdaUpdateWrapper<PetMinigameRound>()
                 .set(PetMinigameRound::getStatus, "SETTLED")

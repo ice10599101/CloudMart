@@ -45,6 +45,15 @@ public class PetPlayFeatureController {
     public record RoundOpsRequest(List<Map<String, Object>> ops) {
     }
 
+    @GetMapping("/minigames/current")
+    @Operation(summary = "当前局查询（R11 断线恢复）", description = "返回进行中的回合（同 roundId 恢复）；"
+            + "含服务端时间校准/已接受窗口；无进行中回合返回 null；到期残留局先惰性结算")
+    public ApiResponse<java.util.Map<String, Object>> currentRound(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "宠物 ID") @RequestParam(value = "petId", required = false) Long petId) {
+        return ApiResponse.ok(playService.currentRound(userId));
+    }
+
     @PostMapping("/minigames/{roundId}/ops")
     @Operation(summary = "提交操作批次（N04）", description = "服务端校验机会编号/目标/接收时间窗口；乱序/重放/超期不计分")
     public ApiResponse<Map<String, Object>> submitOps(
