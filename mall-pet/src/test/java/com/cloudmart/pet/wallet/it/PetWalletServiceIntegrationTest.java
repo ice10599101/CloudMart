@@ -182,18 +182,20 @@ class PetWalletServiceIntegrationTest {
     void sequentialReplay_balanceChangesOnce() {
         long userId = newUser(100);
 
-        PetWalletResult first = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult first = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
         assertThat(first.duplicate()).isFalse();
         assertThat(first.balanceAfter()).isEqualTo(90);
 
-        PetWalletResult replay = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult replay = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
         assertThat(replay.duplicate()).isTrue();
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(replay.balanceAfter()).isEqualTo(90);
 
         assertThat(balanceOf(userId)).isEqualTo(90);
+        // 种子 EARN 也是一笔流水——此处断言的是扣款事实只有一笔（重放不新增）
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
-                .eq(PetWalletTransaction::getUserId, userId))).isEqualTo(1);
+                .eq(PetWalletTransaction::getUserId, userId)
+                .eq(PetWalletTransaction::getBizType, "PURCHASE"))).isEqualTo(1);
         assertAccountLedgerConsistent(userId, 100);
     }
 
@@ -201,7 +203,7 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA33 并发重放：50 线程同 operationId → 单一流水，余额不变，全部返回原结果")
     void concurrentReplay_singleFact() throws Exception {
         long userId = newUser(100);
-        PetWalletResult seed = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult seed = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
         assertThat(balanceOf(userId)).isEqualTo(90);
 
         int threads = 50;
@@ -211,7 +213,7 @@ class PetWalletServiceIntegrationTest {
             for (int i = 0; i < threads; i++) {
                 futures.add(pool.submit((Callable<PetWalletResult>) () -> {
                     start.await();
-                    return inTx(() -> walletService.debit(debitCommand(userId, "order-1", 10, "pw_op_a")));
+                    return inTx(() -> walletService.debit(debitCommand(userId, "order-1_" + userId, 10, "pw_op_a_" + userId)));
                 }));
             }
             start.countDown();
@@ -250,7 +252,8 @@ class PetWalletServiceIntegrationTest {
         assertThat(balanceOf(userId)).isEqualTo(500);
         List<PetWalletLedger> ledgers = ledgersOf(userId);
         assertThat(ledgers).hasSize(51);
-        long expected = 1000;
+        // 账本首行是种子入账（before=0, delta=+1000），游标从 0 起算
+        long expected = 0;
         long prevVersion = 0;
         for (PetWalletLedger ledger : ledgers) {
             assertThat(ledger.getBalanceBefore()).isEqualTo(expected);
@@ -265,7 +268,7 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA34 同 operationId 异额：PET_OPERATION_CONFLICT，余额与流水不变")
     void sameOperationIdDifferentAmount_rejected() {
         long userId = newUser(100);
-        debitInTx(userId, "order-1", 10, "pw_op_a");
+        debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
 
         assertThatThrownBy(() -> debitInTx(userId, "order-1", 20, "pw_op_a"))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
@@ -280,9 +283,9 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA34 换键同事实：不同 operationId 同一业务事实 → 返回原结果，不产生新流水")
     void sameFactDifferentOperationId_replays() {
         long userId = newUser(100);
-        PetWalletResult first = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult first = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
 
-        PetWalletResult replay = debitInTx(userId, "order-1", 10, "pw_op_b");
+        PetWalletResult replay = debitInTx(userId, "order-1_" + userId, 10, "pw_op_b_" + userId);
         assertThat(replay.duplicate()).isTrue();
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(balanceOf(userId)).isEqualTo(90);
@@ -294,10 +297,10 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA34 余额不足后重放：返回原结果而非 PET_WALLET_INSUFFICIENT")
     void replayAfterInsufficientBalance_returnsOriginalResult() {
         long userId = newUser(100);
-        PetWalletResult first = debitInTx(userId, "order-1", 90, "pw_op_a");
+        PetWalletResult first = debitInTx(userId, "order-1_" + userId, 90, "pw_op_a_" + userId);
         assertThat(first.balanceAfter()).isEqualTo(10);
 
-        PetWalletResult replay = debitInTx(userId, "order-1", 90, "pw_op_a");
+        PetWalletResult replay = debitInTx(userId, "order-1_" + userId, 90, "pw_op_a_" + userId);
         assertThat(replay.duplicate()).isTrue();
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(balanceOf(userId)).isEqualTo(10);
@@ -307,14 +310,14 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA34 冻结后重放：返回原结果，不被 PET_WALLET_FROZEN 拦截")
     void replayOnFrozenAccount_returnsOriginalResult() {
         long userId = newUser(100);
-        PetWalletResult first = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult first = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
 
         transactionTemplate.executeWithoutResult(status -> accountMapper.update(null,
                 new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetWalletAccount>()
                         .set(PetWalletAccount::getStatus, "FROZEN")
                         .eq(PetWalletAccount::getUserId, userId)));
 
-        PetWalletResult replay = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult replay = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
         assertThat(replay.duplicate()).isTrue();
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(balanceOf(userId)).isEqualTo(90);
@@ -324,7 +327,7 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("QA34 重复退款：第二个退款请求返回原退款结果，余额只恢复一次")
     void doubleRefund_singleRefundFact() {
         long userId = newUser(100);
-        PetWalletResult spend = debitInTx(userId, "order-9", 40, "pw_spend");
+        PetWalletResult spend = debitInTx(userId, "order-9_" + userId, 40, "pw_spend_" + userId);
 
         PetWalletResult refund1 = inTx(() -> walletService.refundFull(
                 spend.transactionId(), "pw_refund_1", "客服退款"));
@@ -377,9 +380,9 @@ class PetWalletServiceIntegrationTest {
 
         assertThat(transactionMapper.selectCount(new LambdaQueryWrapper<PetWalletTransaction>()
                 .eq(PetWalletTransaction::getOperationId, sharedOperationId))).isEqualTo(1);
-        // 失败方余额必须原封不动：两个账户合计仍为 200
+        // 失败方余额必须原封不动：赢家已扣 10，两账户合计 = 200 - 10 = 190
         long total = balanceOf(userA) + balanceOf(userB);
-        assertThat(total).isEqualTo(200);
+        assertThat(total).isEqualTo(190);
         assertAccountLedgerConsistent(userA, 100);
         assertAccountLedgerConsistent(userB, 100);
     }
@@ -388,9 +391,9 @@ class PetWalletServiceIntegrationTest {
     @DisplayName("P01 resolveDuplicate：已提交事实返回原结果；未知键返回处理中")
     void resolveDuplicate_semanticsOnRealDb() {
         long userId = newUser(100);
-        PetWalletResult first = debitInTx(userId, "order-1", 10, "pw_op_a");
+        PetWalletResult first = debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
 
-        PetWalletResult resolved = walletService.resolveDuplicate(debitCommand(userId, "order-1", 10, "pw_op_a"));
+        PetWalletResult resolved = walletService.resolveDuplicate(debitCommand(userId, "order-1_" + userId, 10, "pw_op_a_" + userId));
         assertThat(resolved.duplicate()).isTrue();
         assertThat(resolved.transactionId()).isEqualTo(first.transactionId());
 
