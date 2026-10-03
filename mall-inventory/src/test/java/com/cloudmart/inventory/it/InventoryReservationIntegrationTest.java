@@ -2,6 +2,7 @@ package com.cloudmart.inventory.it;
 
 import com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.cloudmart.inventory.config.MyBatisPlusConfig;
 import com.cloudmart.inventory.config.RedisConfig;
 import com.cloudmart.inventory.converter.InventoryConverterImpl;
 import com.cloudmart.inventory.dto.DeductRequest;
@@ -104,7 +105,7 @@ class InventoryReservationIntegrationTest {
             FlywayAutoConfiguration.class, MybatisPlusAutoConfiguration.class,
             DataRedisAutoConfiguration.class, RedissonAutoConfigurationV4.class})
     @MapperScan("com.cloudmart.inventory.repository")
-    @Import({RedisConfig.class, InventoryConverterImpl.class, InventoryServiceImpl.class})
+    @Import({RedisConfig.class, MyBatisPlusConfig.class, InventoryConverterImpl.class, InventoryServiceImpl.class})
     @EnableTransactionManagement
     static class InventoryItConfig {
         @Bean
