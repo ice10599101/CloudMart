@@ -54,6 +54,8 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     private final com.cloudmart.pet.service.PetAchievementService achievementService;
     private final PetClock petClock;
     private final com.cloudmart.pet.service.PetUserGuardService guardService;
+    /** R36：COMPANION 任务事件——ObjectProvider 规避与 PetDailyQuestServiceImpl 的循环依赖 */
+    private final org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService> questService;
 
     public PetIntimacyServiceImpl(PetMapper petMapper,
                                   PetCompanionSessionMapper sessionMapper,
@@ -63,7 +65,8 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
                                   PetOutboxService outboxService,
                                   com.cloudmart.pet.service.PetAchievementService achievementService,
                                   PetClock petClock,
-                                  com.cloudmart.pet.service.PetUserGuardService guardService) {
+                                  com.cloudmart.pet.service.PetUserGuardService guardService,
+                                  org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService> questService) {
         this.petMapper = petMapper;
         this.sessionMapper = sessionMapper;
         this.dailyMapper = dailyMapper;
@@ -73,6 +76,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
         this.achievementService = achievementService;
         this.petClock = petClock;
         this.guardService = guardService;
+        this.questService = questService;
     }
 
     @Override
@@ -233,6 +237,32 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             }
             totalCredited += accepted;
 
+            // R36：宠物维度累计写入（原实现只更新用户日账，pet.companionSeconds 无写入路径，
+            // 时长成就可达性断开）；当日段同步 todayCompanionSeconds
+            LocalDate currentBusinessDate = petClock.businessDate();
+            LambdaUpdateWrapper<com.cloudmart.pet.entity.Pet> petWrapper = new LambdaUpdateWrapper<com.cloudmart.pet.entity.Pet>()
+                    .setSql("companion_seconds = companion_seconds + " + accepted)
+                    .eq(com.cloudmart.pet.entity.Pet::getId, pet.getId());
+            if (date.equals(currentBusinessDate)) {
+                petWrapper.setSql("today_companion_seconds = LEAST(today_companion_seconds + " + accepted + ", 86400)");
+            }
+            petMapper.update(null, petWrapper);
+            pet.setCompanionSeconds((pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L) + accepted);
+
+            // R36：COMPANION 任务按新增完整 60 秒产生事件（floor 差值——30s+30s 应计 1 分钟，
+            // 不按心跳次数累计；原实现无 record(COMPANION) 调用，任务进度永远不可达）
+            int oldSeconds = already;
+            int newSeconds = oldSeconds + accepted;
+            int minutesDelta = newSeconds / 60 - oldSeconds / 60;
+            com.cloudmart.pet.service.PetDailyQuestService questServiceBean = questService.getIfAvailable();
+            if (minutesDelta > 0 && questServiceBean != null) {
+                try {
+                    questServiceBean.record(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION, minutesDelta);
+                } catch (Exception questError) {
+                    log.warn("COMPANION 任务事件失败（不阻断陪伴入账）: petId={}", pet.getId(), questError);
+                }
+            }
+
             // 积分：entitled = min(floor(accepted/secondsPerPoint), cap)；grant = entitled - granted
             int grantedSoFar = daily.getGrantedPoints() != null ? daily.getGrantedPoints() : 0;
             int entitled = Math.min((already + accepted) / Math.max(1, cfg.getCompanionSecondsPerPoint()),
@@ -249,8 +279,11 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             date = date.plusDays(1);
         }
 
-        // 累计陪伴秒数/天数/连续天数（历史口径，跨天惰性维护）
-        maintainLifetimeCounters(pet, petClock.businessDate());
+        // R36：累计陪伴天数/连续天数仅在本次有实际计入秒数时维护
+        //（0 秒/超额不加日——原实现 accepted=0 也执行，虚增陪伴天数）
+        if (totalCredited > 0) {
+            maintainLifetimeCounters(pet, petClock.businessDate());
+        }
         return totalCredited;
     }
 

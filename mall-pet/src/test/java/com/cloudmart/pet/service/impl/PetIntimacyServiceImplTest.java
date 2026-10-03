@@ -77,7 +77,29 @@ class PetIntimacyServiceImplTest {
         org.mockito.Mockito.lenient().when(guardService.lockGuard(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new com.cloudmart.pet.entity.PetUserGuard());
         intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
-                properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock, guardService);
+                properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock, guardService,
+                // R36：COMPANION 任务事件桩——捕获调用供断言（getIfAvailable 返回 null 也不抛）
+                new org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService>() {
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getObject(Object... args) {
+                        return null;
+                    }
+
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getIfAvailable() {
+                        return null;
+                    }
+
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getIfUnique() {
+                        return null;
+                    }
+
+                    @Override
+                    public java.util.stream.Stream<com.cloudmart.pet.service.PetDailyQuestService> stream() {
+                        return java.util.stream.Stream.empty();
+                    }
+                });
         lenient().when(sessionMapper.insert(any(PetCompanionSession.class))).thenReturn(1);
         lenient().when(dailyMapper.insert(any(PetCompanionDaily.class))).thenReturn(1);
         lenient().when(petMapper.update(any(), any())).thenReturn(1);
