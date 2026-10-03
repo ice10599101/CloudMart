@@ -234,15 +234,20 @@ public class PetAchievementServiceImpl implements PetAchievementService {
         return (int) (seconds / 3600);
     }
 
+    /**
+     * R39/T75：聊天成就计数——V25 起同用户每宠一个会话，selectOne 多行直接抛异常
+     * 且按单会话计数对多宠成就不准确；改为跨该用户全部会话汇总本人有效消息。
+     */
     private long chatMessageCount(Long userId) {
-        PetChatSession session = chatSessionMapper.selectOne(new LambdaQueryWrapper<PetChatSession>()
+        List<PetChatSession> sessions = chatSessionMapper.selectList(new LambdaQueryWrapper<PetChatSession>()
                 .eq(PetChatSession::getUserId, userId));
-        if (session == null) {
+        if (sessions.isEmpty()) {
             return 0;
         }
-        return chatMessageMapper.selectCount(new LambdaQueryWrapper<PetChatMessage>()
-                .eq(PetChatMessage::getSessionId, session.getId())
-                .eq(PetChatMessage::getRole, PetChatRole.USER.name()));
+        return sessions.stream().mapToLong(session ->
+                chatMessageMapper.selectCount(new LambdaQueryWrapper<PetChatMessage>()
+                        .eq(PetChatMessage::getSessionId, session.getId())
+                        .eq(PetChatMessage::getRole, PetChatRole.USER.name()))).sum();
     }
 
     private void award(Pet pet, PetAchievement achievement) {

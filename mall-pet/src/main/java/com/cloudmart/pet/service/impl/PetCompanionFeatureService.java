@@ -134,12 +134,17 @@ public class PetCompanionFeatureService {
         return result;
     }
 
-    /** 领域事件推进步骤（幂等：DONE 不回退）；全部完成置 completed */
+    /**
+     * 领域事件推进步骤（幂等：DONE 不回退）；全部完成置 completed。
+     * R39：用户守卫行锁串行化并发步骤推进——原实现读改写整份 steps JSON 无锁，
+     * 并发 FEED+PLAY 相互覆盖丢步骤（T73）。
+     */
     @Transactional
     public void recordStep(Long userId, String step) {
         if (!STEPS.contains(step)) {
             return;
         }
+        guardService.lockGuard(userId);
         PetOnboardingProgress progress = onboardingMapper.selectOne(
                 new LambdaQueryWrapper<PetOnboardingProgress>().eq(PetOnboardingProgress::getUserId, userId));
         if (progress == null || progress.getCompletedAt() != null || progress.getSkippedAt() != null) {
