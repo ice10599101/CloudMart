@@ -120,6 +120,34 @@ class PetVisitApplicationServiceImplTest {
         verify(quotaService).release(100L, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0);
     }
 
+    @Test
+    @DisplayName("R14：友好额度已满（本次未占用）→ 不释放任何额度（原实现误把历史 used 减 1）")
+    void friendVisitQuotaFull_noRelease() {
+        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.FRIEND_VISIT_REWARD),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(false);
+
+        VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.FRIEND);
+
+        assertThat(grant.factCreated()).isTrue();
+        assertThat(grant.rewardGranted()).isFalse();
+        // 友好额度失败短路：共享额度未尝试；两者都不释放（无占用即无回退）
+        verify(quotaService, never()).tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.VISIT_REWARD),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(quotaService, never()).release(any(), any(), org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    @DisplayName("R14：友好额度成功+共享额度成功 → 无任何释放")
+    void friendVisitBothConsumed_noRelease() {
+        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+
+        VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.FRIEND);
+
+        assertThat(grant.rewardGranted()).isTrue();
+        verify(quotaService, never()).release(any(), any(), org.mockito.ArgumentMatchers.anyLong());
+    }
+
     private java.time.LocalDate petClockBusinessDate() {
         // 测试未固定时钟，直接以 PetClock 的上海口径重算当日业务日
         return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));

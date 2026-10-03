@@ -57,15 +57,18 @@ public class PetVisitApplicationServiceImpl implements PetVisitApplicationServic
             return new VisitGrant(false, false);
         }
 
-        // 3) 收益额度（数据库权威）：共享收益上限 + 好友入口更严上限
+        // 3) 收益额度（数据库权威）：共享收益上限 + 好友入口更严上限。
+        // R14：分别保存本次各额度占用结果，只回退本次成功占用的——原实现短路失败时
+        // 也无条件 release FRIEND，把历史 used 减 1（免费收益漏洞）
         boolean rewardGranted;
         if (source == VisitSource.FRIEND) {
-            rewardGranted = quotaService.tryConsume(visitorUserId, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD,
-                    0, properties.getFriend().getDailyVisitLimit())
-                    && quotaService.tryConsume(visitorUserId, PetQuotaService.QuotaType.VISIT_REWARD,
-                    0, properties.getHome().getDailyVisitLimit());
-            if (!rewardGranted) {
-                // 双额度中后一个失败时回退先占的友好额度，避免虚耗
+            boolean friendConsumed = quotaService.tryConsume(visitorUserId,
+                    PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0, properties.getFriend().getDailyVisitLimit());
+            boolean sharedConsumed = friendConsumed && quotaService.tryConsume(visitorUserId,
+                    PetQuotaService.QuotaType.VISIT_REWARD, 0, properties.getHome().getDailyVisitLimit());
+            rewardGranted = friendConsumed && sharedConsumed;
+            if (friendConsumed && !sharedConsumed) {
+                // 第二额度失败：仅回退本次已占用的友好额度
                 quotaService.release(visitorUserId, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0);
             }
         } else {
