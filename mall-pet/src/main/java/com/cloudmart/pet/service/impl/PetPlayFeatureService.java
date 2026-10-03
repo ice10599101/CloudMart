@@ -756,17 +756,18 @@ public class PetPlayFeatureService {
         }
         LocalDate today = petClock.businessDate();
         LocalDate weekStart = today.with(DayOfWeek.MONDAY);
-        if (today.plusDays(2).with(DayOfWeek.MONDAY).equals(weekStart) && today.getDayOfWeek() != DayOfWeek.MONDAY) {
-            // 本周剩余不足 3 天时拒绝（周五及以后）
-            if (today.getDayOfWeek().getValue() >= DayOfWeek.FRIDAY.getValue()) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                        "本周剩余时间不足，下周一再来组队吧");
-            }
+        // R35：周末口径统一——周五（剩余 3 个业务日：五/六/日）可组队，周六起新队禁止
+        //（原实现创建分支先算 plusDays(2) 又内嵌 >=FRIDAY，放过周六/日）
+        if (today.getDayOfWeek().getValue() >= DayOfWeek.SATURDAY.getValue()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "本周剩余时间不足，下周一再来组队吧");
         }
         PetCooperation cooperation = new PetCooperation();
         cooperation.setWeekStart(weekStart);
         cooperation.setInviterUserId(userId);
         cooperation.setInviterPetId(pet.getId());
+        // R35：明确保存目标受邀人——好友 C 不能接受发给 B 的邀请（T63）
+        cooperation.setInviteeUserId(inviteeUserId);
         cooperation.setStatus("INVITED");
         cooperation.setInviteExpiresAt(petClock.nowUtc().plusHours(24));
         cooperation.setContributions(PetJsonUtils.toJson(Map.of("inviter", 0, "invitee", 0)));
@@ -797,6 +798,10 @@ public class PetPlayFeatureService {
         if (userId.equals(cooperation.getInviterUserId())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "不能接受自己发起的邀请");
         }
+        // R35：仅目标受邀人可接受（原实现任何好友都能接受别人的邀请）
+        if (cooperation.getInviteeUserId() == null || !userId.equals(cooperation.getInviteeUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "这份邀请不是发给你的");
+        }
         if (userBlockService.isBlockedEitherWay(userId, cooperation.getInviterUserId())) {
             throw new BusinessException(PetErrorCodes.PET_BLOCKED, "无法与该用户组队");
         }
@@ -812,6 +817,7 @@ public class PetPlayFeatureService {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "只能和好友组队");
         }
         LocalDate today = petClock.businessDate();
+        // R35：周末口径与创建一致（周六起不能新组队；跨周邀请已过期）
         if (!today.with(java.time.DayOfWeek.MONDAY).equals(cooperation.getWeekStart())
                 || today.getDayOfWeek().getValue() >= java.time.DayOfWeek.SATURDAY.getValue()) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "邀请已过期，下周一再来组队吧");
@@ -841,15 +847,31 @@ public class PetPlayFeatureService {
      */
     @Transactional
     public void recordContribution(Long userId, String eventId) {
+        expireStaleCooperations();
+        LocalDate currentWeekStart = petClock.businessDate().with(DayOfWeek.MONDAY);
+        // R35：仅本周 ACTIVE 队吸收贡献（原实现无周过滤，旧队跨周继续计数）
         PetCooperation cooperation = cooperationMapper.selectOne(new LambdaQueryWrapper<PetCooperation>()
                 .eq(PetCooperation::getStatus, "ACTIVE")
+                .eq(PetCooperation::getWeekStart, currentWeekStart)
                 .and(w -> w.eq(PetCooperation::getInviterUserId, userId)
                         .or().eq(PetCooperation::getInviteeUserId, userId))
                 .last("LIMIT 1"));
         if (cooperation == null) {
             return;
         }
-        guardService.lockGuard(userId);
+        // R35：双方守卫按 userId 数值升序加锁——最后一份并发贡献串行提交，
+        // 后提交者的 COUNT 可见先提交者的记录，队伍必达 COMPLETED（T65）
+        Long inviterId = cooperation.getInviterUserId();
+        Long inviteeId = cooperation.getInviteeUserId();
+        if (userId < (inviteeId != null ? inviteeId : userId)) {
+            guardService.lockGuard(userId);
+            guardService.lockGuard(inviterId);
+            guardService.lockGuard(inviteeId);
+        } else {
+            guardService.lockGuard(inviteeId);
+            guardService.lockGuard(inviterId);
+            guardService.lockGuard(userId);
+        }
         LocalDate today = petClock.businessDate();
         PetCooperationContribution contribution = new PetCooperationContribution();
         contribution.setCooperationId(cooperation.getId());
@@ -877,8 +899,28 @@ public class PetPlayFeatureService {
         }
     }
 
+    /**
+     * R35 周截止惰性流转：上周仍未完成的 ACTIVE 队转 EXPIRED（不吸收新周贡献）；
+     * 已完成的保留个人领奖（§7.6 状态机 INVITED/ACTIVE/COMPLETED/EXPIRED/ENDED）。
+     */
+    private void expireStaleCooperations() {
+        LocalDate currentWeekStart = petClock.businessDate().with(DayOfWeek.MONDAY);
+        cooperationMapper.update(null, new LambdaUpdateWrapper<PetCooperation>()
+                .set(PetCooperation::getStatus, "EXPIRED")
+                .set(PetCooperation::getEndedAt, petClock.nowUtc())
+                .eq(PetCooperation::getStatus, "ACTIVE")
+                .lt(PetCooperation::getWeekStart, currentWeekStart));
+        // 过期未接受邀请同样流转（名额不占、可重新邀请）
+        cooperationMapper.update(null, new LambdaUpdateWrapper<PetCooperation>()
+                .set(PetCooperation::getStatus, "EXPIRED")
+                .set(PetCooperation::getEndedAt, petClock.nowUtc())
+                .eq(PetCooperation::getStatus, "INVITED")
+                .lt(PetCooperation::getWeekStart, currentWeekStart));
+    }
+
     /** 查询当前/历史合作任务（对方隐私最小化：只返回贡献次数与宠物摘要） */
     public List<PetCooperation> cooperations(Long userId) {
+        expireStaleCooperations();
         return cooperationMapper.selectList(new LambdaQueryWrapper<PetCooperation>()
                 .and(w -> w.eq(PetCooperation::getInviterUserId, userId)
                         .or().eq(PetCooperation::getInviteeUserId, userId))
