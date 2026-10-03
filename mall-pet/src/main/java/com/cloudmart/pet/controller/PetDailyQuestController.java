@@ -51,7 +51,7 @@ public class PetDailyQuestController {
     @PostMapping("/daily-quests/claim-all")
     @Operation(summary = "批量领取全部已完成项（B15）", description = "逐项独立 CAS 与幂等，单项失败跳过可重试")
     @SentinelResource("PET_QUEST_CLAIM")
-    public ApiResponse<java.util.List<PetDailyQuestItemVO>> claimAll(
+    public ApiResponse<com.cloudmart.pet.vo.ClaimAllResult> claimAll(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(dailyQuestService.claimAll(userId));
     }

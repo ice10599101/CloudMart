@@ -89,7 +89,29 @@ class PetDailyQuestServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetOperationService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
-                wishFeignClient, economyService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties);
+                wishFeignClient, economyService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties,
+                // R13：自代理提供者——测试中直通返回本实例（事务由生产代理承担，单测验证编排语义）
+                new org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService>() {
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getObject(Object... args) {
+                        return questService;
+                    }
+
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getIfAvailable() {
+                        return questService;
+                    }
+
+                    @Override
+                    public com.cloudmart.pet.service.PetDailyQuestService getIfUnique() {
+                        return questService;
+                    }
+
+                    @Override
+                    public java.util.stream.Stream<com.cloudmart.pet.service.PetDailyQuestService> stream() {
+                        return java.util.stream.Stream.of(questService);
+                    }
+                });
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(configMapper.selectList(any())).thenReturn(List.of(config()));
         lenient().when(configMapper.selectOne(any())).thenReturn(config());
@@ -200,6 +222,49 @@ class PetDailyQuestServiceImplTest {
 
         verify(stateService).grantExp(any(), eq(properties.getDailyQuest().getChestExp()));
         org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq((long) properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+    }
+
+    @Test
+    @DisplayName("R13 一键领奖：逐项独立终态——第二项 ALREADY_CLAIMED 不掩盖，宝箱按真实状态评估为 NOT_READY")
+    void claimAllPerItemOutcomes() {
+        PetDailyQuest first = quest("COMPLETE");
+        PetDailyQuest second = quest("COMPLETE");
+        // 同一 List 实例被 ensureToday 反复读：claim 的内存状态翻转（CLAIMED）对宝箱评估可见
+        java.util.List<PetDailyQuest> rows = new java.util.ArrayList<>(java.util.List.of(first, second, chest("IN_PROGRESS")));
+        when(questMapper.selectList(any())).thenReturn(rows);
+        // requireQuest 按编码重读：两次迭代命中同一行（first）——
+        // 第一次 CAS 成功并翻转内存状态，第二次在状态检查即抛 ALREADY_CLAIMED（真实重复语义）
+        when(questMapper.selectOne(any())).thenReturn(first);
+        // 序列：first CAS=1 成功、宝箱 mark=1、宝箱 claim=1
+        when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any()))
+                .thenReturn(1, 1, 1);
+
+        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAll(100L);
+
+        assertThat(result.results()).hasSize(2);
+        assertThat(result.results().get(0).status()).isEqualTo("CLAIMED");
+        assertThat(result.results().get(0).expReward()).isNotNull();
+        // 失败/已领项显式回传，不再伪装成普通任务 VO
+        assertThat(result.results().get(1).status()).isEqualTo("ALREADY_CLAIMED");
+        assertThat(result.results().get(1).errorCode())
+                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_QUEST_ALREADY_CLAIMED);
+        // 第二项仍 COMPLETE（未领）：宝箱门槛不满足 → NOT_READY，不白领
+        assertThat(result.chest().status()).isEqualTo("NOT_READY");
+    }
+
+    @Test
+    @DisplayName("R13 一键领奖：仅宝箱可领 → results 为空且宝箱真实尝试领取（修复'空列表却提示都收好了'）")
+    void claimAllChestOnly() {
+        when(questMapper.selectList(any()))
+                .thenReturn(java.util.List.of(quest("CLAIMED"), chest("IN_PROGRESS")));
+        when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any())).thenReturn(1);
+
+        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAll(100L);
+
+        assertThat(result.results()).isEmpty();
+        assertThat(result.chest().status()).isEqualTo("CLAIMED");
+        assertThat(result.chest().expReward())
+                .isEqualTo(properties.getDailyQuest().getChestExp());
     }
 
     @Test

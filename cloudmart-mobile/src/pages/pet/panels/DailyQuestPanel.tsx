@@ -53,12 +53,17 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
     }
   }
 
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+  const run = async (
+    key: string,
+    action: () => Promise<{ data: { success: boolean } }>,
+    text: string | ((data: unknown) => string),
+  ) => {
     setPending(key)
     try {
       const { data: res } = await action()
       if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
+        // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
+        Taro.showToast({ title: typeof text === 'function' ? text(res) : text, icon: 'success' })
         await load()
         onRefresh()
       }
@@ -100,7 +105,17 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
         size='mini'
         style={{ marginBottom: '12rpx' }}
         loading={pending === 'claim-all'}
-        onClick={() => run('claim-all', () => petCompanionApi.claimAllDailyQuests(), '已完成任务奖励已全部领取')}
+        onClick={() => run('claim-all', () => petCompanionApi.claimAllDailyQuests(), (data) => {
+          const payload = data as { results?: Array<{ status: string }>; chest?: { status: string } }
+          const claimed = (payload.results ?? []).filter((item) => item.status === 'CLAIMED').length
+          const failed = (payload.results ?? []).filter((item) => item.status === 'FAILED').length
+          const chestClaimed = payload.chest?.status === 'CLAIMED'
+          const text = [`${claimed} 项任务成功`]
+          if (chestClaimed) text.push('宝箱已开启')
+          if (failed > 0) text.push(`${failed} 项失败，可稍后重试`)
+          if (claimed === 0 && failed === 0 && !chestClaimed) return '奖励已经领过了'
+          return text.join('，')
+        })}
       >
         一键领取
       </Button>

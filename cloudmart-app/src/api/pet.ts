@@ -720,7 +720,9 @@ export const petApi = {
   /** B08 待应战：面板从 listBattleHistory 过滤 PENDING+DEFENDER 渲染，专用查询冗余已移除 */
 
   /** B15 一键领取全部已完成任务 */
-  claimAllDailyQuests: () => request<void>({ url: '/pet/daily-quests/claim-all', method: 'POST' }),
+  claimAllDailyQuests: () => request<{ results: Array<{ status: string }>; chest: { status: string } }>({
+    url: '/pet/daily-quests/claim-all', method: 'POST',
+  }),
 
   /** B05 停止陪伴会话（结算有效窗口内未计入时间；幂等） */
   stopCompanion: () => request<void>({ url: '/pet/companion/stop', method: 'POST' }),

@@ -67,6 +67,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final PetIntimacyService intimacyService;
     private final PetAchievementService achievementService;
     private final PetProperties properties;
+    /** R13：自代理提供者——批量编排经代理调用单项事务方法（同类 this 调用事务不生效） */
+    private final org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider;
 
     public PetDailyQuestServiceImpl(PetService petService,
                                     PetStateService stateService,
@@ -77,7 +79,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetClock petClock,
                                     PetIntimacyService intimacyService,
                                     PetAchievementService achievementService,
-                                    PetProperties properties) {
+                                    PetProperties properties,
+                                    org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider) {
         this.petService = petService;
         this.stateService = stateService;
         this.configMapper = configMapper;
@@ -88,6 +91,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.intimacyService = intimacyService;
         this.achievementService = achievementService;
         this.properties = properties;
+        this.selfProvider = selfProvider;
     }
 
     @Override
@@ -143,26 +147,65 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         return toItemVo(quest, config);
     }
 
-    /** B15：批量领取全部已完成项（逐项独立 CAS 与幂等，单项失败跳过可重试） */
+    /**
+     * B15/R13 一键领奖：本方法<b>非事务</b>编排——每项经自代理调用 claim（独立事务），
+     * 单项回滚不波及其余项（原实现整体一个事务+同类自调用，跨代理异常会把共享事务
+     * 标记 rollback-only，全批失败；失败项还伪装成普通 VO，前端无法区分）。
+     * 宝箱作为独立动作：普通项全部结束后重新读取已领取状态再评估（不在失败处理中假定成功）。
+     */
     @Override
-    @Transactional
-    public java.util.List<PetDailyQuestItemVO> claimAll(Long userId) {
+    public com.cloudmart.pet.vo.ClaimAllResult claimAll(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
         List<PetDailyQuest> quests = ensureToday(pet);
-        java.util.List<PetDailyQuestItemVO> results = new java.util.ArrayList<>();
+        java.util.List<com.cloudmart.pet.vo.QuestClaimResult> results = new java.util.ArrayList<>();
         for (PetDailyQuest quest : quests) {
             if (CHEST_CODE.equals(quest.getQuestCode())
                     || !PetQuestStatus.COMPLETE.name().equals(quest.getStatus())) {
                 continue;
             }
-            try {
-                results.add(claim(userId, quest.getQuestCode()));
-            } catch (BusinessException e) {
-                // 单项失败（如并发已被领取）不阻断其余项，逐项回传
-                results.add(toItemVo(quest, configByCode(quest.getQuestCode())));
-            }
+            results.add(claimItemIndependently(userId, quest.getQuestCode()));
         }
-        return results;
+        // R13：宝箱独立评估（普通项结束后的真实 CLAIMED 状态，失败项不计入门槛）
+        com.cloudmart.pet.vo.QuestClaimResult chest;
+        try {
+            PetDailyQuestVO chestVo = selfProxy().claimChest(userId);
+            chest = new com.cloudmart.pet.vo.QuestClaimResult(CHEST_CODE, null,
+                    "CLAIMED", chestVo.chestExp(), chestVo.chestCurrency(), null);
+        } catch (BusinessException e) {
+            chest = new com.cloudmart.pet.vo.QuestClaimResult(CHEST_CODE, null,
+                    classify(e.getCode()), null, null, e.getCode());
+        }
+        return new com.cloudmart.pet.vo.ClaimAllResult(results, chest);
+    }
+
+    /** 单项独立事务领取（经代理调用；终态分类，绝不把失败伪装成普通任务 VO） */
+    private com.cloudmart.pet.vo.QuestClaimResult claimItemIndependently(Long userId, String questCode) {
+        try {
+            PetDailyQuestItemVO claimed = selfProxy().claim(userId, questCode);
+            return new com.cloudmart.pet.vo.QuestClaimResult(questCode,
+                    String.valueOf(claimed.code()), "CLAIMED",
+                    claimed.expReward(), claimed.currencyReward(), null);
+        } catch (BusinessException e) {
+            return new com.cloudmart.pet.vo.QuestClaimResult(questCode, null,
+                    classify(e.getCode()), null, null, e.getCode());
+        }
+    }
+
+    /** 错误码 → 客户端可理解的领取状态（R13 契约：CLAIMED/ALREADY_CLAIMED/NOT_READY/FAILED） */
+    private String classify(String errorCode) {
+        return switch (errorCode == null ? "" : errorCode) {
+            case "PET_QUEST_ALREADY_CLAIMED", "PET_QUEST_CHEST_CLAIMED" -> "ALREADY_CLAIMED";
+            case "PET_QUEST_NOT_FINISHED", "PET_QUEST_CHEST_NOT_READY" -> "NOT_READY";
+            default -> "FAILED";
+        };
+    }
+
+    /**
+     * 自代理（R13）：claim/claimChest 的 @Transactional 必须经代理才生效，
+     * 同类 this 调用会绕过事务边界。ObjectProvider 规避构造期循环依赖。
+     */
+    private PetDailyQuestService selfProxy() {
+        return selfProvider.getObject();
     }
 
     @Override

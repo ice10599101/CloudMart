@@ -2174,12 +2174,17 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
     void load()
   }, [load])
 
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+  const run = async (
+    key: string,
+    action: () => Promise<{ data: { success: boolean } }>,
+    text: string | ((data: unknown) => string),
+  ) => {
     setPending(key)
     try {
       const { data: res } = await action()
       if (res.success) {
-        Alert.alert('成功', text)
+        // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
+        Alert.alert('成功', typeof text === 'function' ? text(res) : text)
         await load()
         onRefresh()
       }
@@ -2318,12 +2323,17 @@ function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
   }, [load])
 
 
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+  const run = async (
+    key: string,
+    action: () => Promise<{ data: { success: boolean } }>,
+    text: string | ((data: unknown) => string),
+  ) => {
     setPending(key)
     try {
       const { data: res } = await action()
       if (res.success) {
-        Alert.alert('成功', text)
+        // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
+        Alert.alert('成功', typeof text === 'function' ? text(res) : text)
         await load()
         onRefresh()
       }
@@ -2366,7 +2376,18 @@ function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
           {`今日进度 ${panel.claimedCount}/${panel.totalCount} · 全清宝箱 经验+${panel.chestExp} 宠物币+${panel.chestCurrency}`}
         </Text>
         {(panel.quests.some((quest) => quest.claimable) || panel.chestClaimable) && (
-          <CreamButton disabled={pending === 'claim-all'} onPress={() => run('claim-all', () => petApi.claimAllDailyQuests(), '可领的都收好了！')}>
+          <CreamButton disabled={pending === 'claim-all'} onPress={() => run('claim-all', () => petApi.claimAllDailyQuests(), (data) => {
+            // R13：按逐项结果汇总提示，失败项不掩盖
+            const results = (data as { results?: Array<{ status: string }>; chest?: { status: string } }).results ?? []
+            const claimed = results.filter((item) => item.status === 'CLAIMED').length
+            const failed = results.filter((item) => item.status === 'FAILED').length
+            const chestClaimed = (data as { chest?: { status: string } }).chest?.status === 'CLAIMED'
+            const text = [`${claimed} 项任务成功`]
+            if (chestClaimed) text.push('宝箱已开启')
+            if (failed > 0) text.push(`${failed} 项失败，可稍后重试`)
+            if (claimed === 0 && failed === 0 && !chestClaimed) return '奖励已经领过了'
+            return text.join('，')
+          })}>
             一键领取
           </CreamButton>
         )}
@@ -2920,12 +2941,17 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
     })()
   }, [tab])
 
-  const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
+  const run = async (
+    key: string,
+    action: () => Promise<{ data: { success: boolean } }>,
+    text: string | ((data: unknown) => string),
+  ) => {
     setPending(key)
     try {
       const { data: res } = await action()
       if (res.success) {
-        Alert.alert('成功', text)
+        // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
+        Alert.alert('成功', typeof text === 'function' ? text(res) : text)
         await load()
         onRefresh()
       }

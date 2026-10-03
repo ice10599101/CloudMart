@@ -1470,8 +1470,24 @@ export function listPendingBattles() {
 }
 
 /** 一键领取全部已完成每日任务（逐项独立 CAS + 幂等，单项失败跳过可重试） */
+/** R13 一键领奖逐项结果 */
+export interface PetQuestClaimResult {
+  code: string
+  questId: string | null
+  status: 'CLAIMED' | 'ALREADY_CLAIMED' | 'NOT_READY' | 'FAILED'
+  expReward: number | null
+  currencyReward: number | null
+  errorCode: string | null
+}
+
+/** R13 一键领奖结果：逐项终态 + 宝箱独立评估（不再只有一个 success 提示） */
+export interface PetClaimAllResult {
+  results: PetQuestClaimResult[]
+  chest: PetQuestClaimResult
+}
+
 export function claimAllDailyQuests() {
-  return request.post<ApiResponse<Array<Record<string, unknown>>>>('/pet/daily-quests/claim-all')
+  return request.post<ApiResponse<PetClaimAllResult>>('/pet/daily-quests/claim-all')
 }
 
 /** 停止陪伴会话（结算有效窗口内未计入时间；幂等） */

@@ -333,7 +333,22 @@ function QuestsPanel({ onChanged }: { onChanged: () => void }) {
         try {
             const { data: res } = await claimAllDailyQuests()
             if (res.success) {
-                message.success('可领的都收好了')
+                // R13：逐项结果汇总——不再无条件"都收好了"，失败项明确提示
+                const claimed = res.data.results.filter(item => item.status === 'CLAIMED').length
+                const failed = res.data.results.filter(item => item.status === 'FAILED').length
+                const chestClaimed = res.data.chest.status === 'CLAIMED'
+                const parts = [`${claimed} 项任务成功`]
+                if (chestClaimed) {
+                    parts.push('宝箱已开启')
+                }
+                if (failed > 0) {
+                    parts.push(`${failed} 项失败，可稍后重试`)
+                }
+                if (claimed === 0 && failed === 0 && !chestClaimed) {
+                    message.info('奖励已经领过了')
+                } else {
+                    message.success(parts.join('，'))
+                }
                 await load()
                 onChanged()
             } else {

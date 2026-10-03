@@ -1267,7 +1267,9 @@ export const petCompanionApi = {
     request<void>({ url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
   claimAllDailyQuests: () =>
-    request<Array<Record<string, unknown>>>({ url: '/pet/daily-quests/claim-all', method: 'POST' }),
+    request<{ results: Array<{ status: string }>; chest: { status: string } }>({
+      url: '/pet/daily-quests/claim-all', method: 'POST',
+    }),
   stopCompanion: () =>
     request<Record<string, unknown>>({ url: '/pet/companion/stop', method: 'POST' }),
   /** B12 装备替换预览：后端收 itemCode（装备编码），不是 itemId */
