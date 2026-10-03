@@ -416,18 +416,34 @@ export default function PetScreen() {
     postToGame({ source: 'pet-host', type: 'chatBubble', content })
   }, [postToGame])
 
+  // R23/T36：加载代际——迟到的旧响应不覆盖新状态
+  const refreshGenerationRef = useRef(0)
   const refresh = useCallback(async () => {
+    const generation = ++refreshGenerationRef.current
     try {
       const { data: res } = await petApi.getMyPet()
+      if (generation !== refreshGenerationRef.current) {
+        return
+      }
       if (res.success && res.data) {
         setPet(res.data)
         setNoPet(false)
         if (gameReady) syncStage(res.data)
       }
-    } catch {
-      setNoPet(true)
+    } catch (error) {
+      if (generation !== refreshGenerationRef.current) {
+        return
+      }
+      // R23/T36：仅 PET_NOT_FOUND（确实无宠物）才显示领养；500/网络错误保留旧数据，
+      // 不再伪装成"未领养"（拦截器已对非 404 错误给出提示）
+      const code = (error as { code?: string })?.code
+      if (code === 'PET_NOT_FOUND') {
+        setNoPet(true)
+      }
     } finally {
-      setLoading(false)
+      if (generation === refreshGenerationRef.current) {
+        setLoading(false)
+      }
     }
   }, [gameReady, syncStage])
 

@@ -481,20 +481,33 @@ export default function PetPage() {
     }
   }, [equipPreview?.itemCode])
 
+  // R23/T36：加载代际——迟到的旧响应不覆盖新状态
+  const refreshGenerationRef = useRef(0)
   const refresh = useCallback(async () => {
+    const generation = ++refreshGenerationRef.current
     try {
       const { data: res } = await petApi.getMyPet()
+      if (generation !== refreshGenerationRef.current) {
+        return
+      }
       if (res.success && res.data) {
         setPet(res.data)
         setNoPet(false)
       }
     } catch (error) {
-      setNoPet(true)
-      if ((error as { code?: string }).code !== 'PET_NOT_FOUND') {
+      if (generation !== refreshGenerationRef.current) {
+        return
+      }
+      // R23/T36：仅 PET_NOT_FOUND 才显示领养；其他错误保留旧数据（仅提示）
+      if ((error as { code?: string }).code === 'PET_NOT_FOUND') {
+        setNoPet(true)
+      } else {
         toast(friendlyError(error))
       }
     } finally {
-      setLoading(false)
+      if (generation === refreshGenerationRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
