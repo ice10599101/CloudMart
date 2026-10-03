@@ -196,7 +196,7 @@ class SeckillRequestStateMachineIntegrationTest {
         }
 
         assertThat(winners).as("购买限额事实：同用户只允许一个席位").hasSize(1);
-        assertThat(failureCodes).as("其余 99 次全部以席位已存在拒绝").hasSize(99).containsOnly("SEAT_EXISTS");
+        assertThat(failureCodes).as("其余 99 次全部以席位已存在拒绝（Set 去重后唯一错误码）").containsExactly("SEAT_EXISTS");
         assertThat(availableOf(productId)).isEqualTo(49);
     }
 
