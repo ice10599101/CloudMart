@@ -100,6 +100,11 @@ class PetPurchaseRecoveryIntegrationTest {
     static class PurchaseItConfig {
 
         @Bean
+        java.time.Clock clock() {
+            return java.time.Clock.systemUTC();
+        }
+
+        @Bean
         TransactionTemplate transactionTemplate(PlatformTransactionManager transactionManager) {
             return new TransactionTemplate(transactionManager);
         }

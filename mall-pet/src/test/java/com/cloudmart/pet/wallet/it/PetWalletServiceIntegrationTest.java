@@ -101,6 +101,11 @@ class PetWalletServiceIntegrationTest {
         com.cloudmart.pet.config.PetClock.class})
     @EnableTransactionManagement
     static class WalletItConfig {
+
+        @Bean
+        java.time.Clock clock() {
+            return java.time.Clock.systemUTC();
+        }
         @Bean
         TransactionTemplate transactionTemplate(PlatformTransactionManager transactionManager) {
             return new TransactionTemplate(transactionManager);
