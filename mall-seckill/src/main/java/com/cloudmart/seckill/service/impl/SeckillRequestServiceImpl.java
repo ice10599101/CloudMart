@@ -46,7 +46,12 @@ public class SeckillRequestServiceImpl implements SeckillRequestService {
             if (!SeckillRequest.STATUS_FAILED.equals(existing.getStatus())) {
                 throw new SeatExistsException(existing);
             }
-            // 终态失败重发起：CAS 复用原行（并发重发起只有一方生效）
+            // 终态失败重发起：席位已在终态失败时释放，重发起必须重新预减库存
+            // （否则白拿座位）；在事务内执行，唯一键冲突时与预减一并回滚
+            if (requestMapper.holdStock(productId) == 0) {
+                throw new SeatSoldOutException(productId);
+            }
+            // CAS 复用原行（并发重发起只有一方生效）
             SeckillRequest reinit = new SeckillRequest();
             reinit.setId(existing.getId());
             reinit.setRequestId(newRequestId());

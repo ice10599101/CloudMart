@@ -106,6 +106,7 @@ class SeckillRequestServiceImplTest {
     @Test
     @DisplayName("T09：终态失败重发起 → CAS 复用原行换新 requestId")
     void holdSeat_existingFailed_reinitiates() {
+        when(requestMapper.holdStock(PRODUCT_ID)).thenReturn(1);
         SeckillRequest failedRow = existingRow("FAILED");
         SeckillRequest requeuedRow = existingRow("PENDING");
         requeuedRow.setRequestId("req-new");
@@ -127,6 +128,7 @@ class SeckillRequestServiceImplTest {
     @Test
     @DisplayName("终态失败重发起 CAS 失败（他方先行）→ 返回胜者事实")
     void holdSeat_reinitiateLost_returnsWinner() {
+        when(requestMapper.holdStock(PRODUCT_ID)).thenReturn(1);
         SeckillRequest failedRow = existingRow("FAILED");
         SeckillRequest winner = existingRow("PENDING");
         winner.setRequestId("req-winner");

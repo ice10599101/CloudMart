@@ -165,6 +165,7 @@ class SeckillRequestStateMachineIntegrationTest {
         long skuId = newSkuId();
         long productId = newProduct(activityId, skuId, 50);
         int threads = 100;
+        long buyerId = newUserId();
         List<SeckillRequest> winners = new CopyOnWriteArrayList<>();
         Set<String> failureCodes = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -176,7 +177,7 @@ class SeckillRequestStateMachineIntegrationTest {
                     start.await();
                     try {
                         synchronized (winners) {
-                            winners.add(requestService.holdSeat(newUserId(), activityId, productId, skuId, PRICE, 1));
+                            winners.add(requestService.holdSeat(buyerId, activityId, productId, skuId, PRICE, 1));
                         }
                         return true;
                     } catch (SeckillRequestService.SeatExistsException e) {
