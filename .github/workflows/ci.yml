@@ -99,10 +99,18 @@ jobs:
       - name: 迁移干净建库验证（每模块独立库，V1..Vn 从零执行）
         run: |
           docker run -d --name clean-db -e MYSQL_ROOT_PASSWORD=root             -p 33061:3306 mysql:9.4.0
-          for i in $(seq 1 30); do
-            docker exec clean-db mysqladmin ping -uroot -proot --silent && break
+          # mysqladmin ping 在初始化阶段（root 密码未就绪）也返回存活——必须用
+          # 真实认证探测就绪，否则首个 DROP DATABASE 即 1045，全部模块迁移假失败
+          ready=0
+          for i in $(seq 1 60); do
+            if docker exec clean-db mysql -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
+              ready=1; break
+            fi
             sleep 2
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::clean-db 120s 内未就绪（真实认证探测失败）"; exit 1
+          fi
           failed=0
           for dir in mall-*/src/main/resources/db/migration; do
             module=$(echo "$dir" | cut -d/ -f1)
