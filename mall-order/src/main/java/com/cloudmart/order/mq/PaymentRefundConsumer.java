@@ -38,7 +38,9 @@ public class PaymentRefundConsumer implements RocketMQListener<Map<String, Objec
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
-        Object eventRaw = message.get("event");
+        // T02：投递侧（PaymentOutboxDelivery.deliver）写键为 eventType——原读 "event"
+        // 恒为 null，退款成功事件全部被形状守卫拒绝 ACK，事件驱动退款推进从未工作过
+        Object eventRaw = message.get("eventType");
         String event = eventRaw == null ? null : String.valueOf(eventRaw);
         if (!"REFUND_SUCCEEDED".equals(event)) {
             // LC03：非本业务事件（旧 PAYMENT_REFUND 生产者已删除）→ 拒绝，不执行任何业务

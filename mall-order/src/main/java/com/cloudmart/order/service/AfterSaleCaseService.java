@@ -29,6 +29,9 @@ public interface AfterSaleCaseService {
     /** 运营拒绝：PENDING → REJECTED */
     AfterSaleCaseVO reject(Long adminId, Long caseId, String rejectReason);
 
+    /** T11：本订单已批准售后案件退款金额合计（APPROVED 占用中 + REFUNDED 已退）；无案件返回 null */
+    java.math.BigDecimal sumApprovedRefundAmounts(Long orderId);
+
     /** T02 退款完成事件回填：APPROVED → REFUNDED（消费者按 refundNo 幂等） */
     void onRefundCompleted(String refundNo);
 

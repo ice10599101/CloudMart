@@ -212,6 +212,17 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     }
 
     @Override
+    public java.math.BigDecimal sumApprovedRefundAmounts(Long orderId) {
+        return caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
+                        .eq(AfterSaleCase::getOrderId, orderId)
+                        .in(AfterSaleCase::getStatus, AfterSaleCase.STATUS_APPROVED, AfterSaleCase.STATUS_REFUNDED))
+                .stream()
+                .map(AfterSaleCase::getRefundAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+    }
+
+    @Override
     @Transactional
     public void onRefundCompleted(String refundNo) {
         if (caseMapper.markRefunded(refundNo) == 1) {

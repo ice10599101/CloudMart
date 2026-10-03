@@ -612,7 +612,11 @@ public class OrderServiceImpl implements OrderService {
         Map<String, Object> refundRequest = new java.util.HashMap<>();
         refundRequest.put("refundNo", refundNo);
         refundRequest.put("orderId", orderId);
-        refundRequest.put("amount", order.getPayAmount());
+        // T11：退款金额权威=已批准售后案件金额合计（部分退款，双闸门已保证 ≤实付）；
+        // 无售后案件的系统审批路径保持订单实付全额
+        java.math.BigDecimal caseAmount = afterSaleCaseService.sumApprovedRefundAmounts(orderId);
+        refundRequest.put("amount", caseAmount != null && caseAmount.compareTo(java.math.BigDecimal.ZERO) > 0
+                ? caseAmount : order.getPayAmount());
         refundRequest.put("currency", "CNY");
         refundRequest.put("reasonCode", "ORDER_REFUND");
         ApiResponse<Map<String, Object>> refundResp = refundFeignClient.createRefund(refundRequest);
