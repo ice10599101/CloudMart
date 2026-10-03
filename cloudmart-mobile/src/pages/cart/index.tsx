@@ -29,6 +29,10 @@ export default function CartPage() {
 
   const handleCheckItem = (index: number) => {
     const newItems = [...items]
+    if (!newItems[index].checked && newItems[index].invalid) {
+      Taro.showToast({ title: newItems[index].invalidReason || '该商品已失效，无法结算', icon: 'none' })
+      return
+    }
     newItems[index] = { ...newItems[index], checked: !newItems[index].checked }
     setItems(newItems)
     recalculate(newItems)
@@ -36,7 +40,8 @@ export default function CartPage() {
 
   const handleCheckAll = () => {
     const newChecked = !allChecked
-    const newItems = items.map(item => ({ ...item, checked: newChecked }))
+    // T08：失效项不参与全选
+    const newItems = items.map(item => ({ ...item, checked: newChecked && !item.invalid }))
     setItems(newItems)
     setAllChecked(newChecked)
     recalculate(newItems)
@@ -45,7 +50,7 @@ export default function CartPage() {
   const recalculate = (newItems: CartItem[]) => {
     const total = newItems.filter(i => i.checked).reduce((sum, i) => sum + i.price * i.quantity, 0)
     setTotalPrice(total)
-    setAllChecked(newItems.length > 0 && newItems.every(i => i.checked))
+    setAllChecked(newItems.filter(i => !i.invalid).length > 0 && newItems.filter(i => !i.invalid).every(i => i.checked))
   }
 
   const handleQuantityChange = async (index: number, delta: number) => {
@@ -131,6 +136,12 @@ export default function CartPage() {
       Taro.showToast({ title: '请选择商品', icon: 'none' })
       return
     }
+    // T08：失效项不可结算——先拦在购物车，下单侧服务端强校验兜底
+    const invalidItem = checkedItems.find(i => i.invalid)
+    if (invalidItem) {
+      Taro.showToast({ title: `「${invalidItem.productName}」${invalidItem.invalidReason || '已失效，无法结算'}`, icon: 'none' })
+      return
+    }
     Taro.navigateTo({ url: '/pages/checkout/index' })
   }
 
@@ -155,14 +166,17 @@ export default function CartPage() {
           </View>
         ) : (
           items.map((item, index) => (
-            <View key={item.id} className={styles.cartItem}>
+            <View key={item.id} className={styles.cartItem} style={item.invalid ? { opacity: 0.55 } : undefined}>
               <View className={styles.checkbox} onClick={() => handleCheckItem(index)}>
-                <Text>{item.checked ? '☑️' : '⬜'}</Text>
+                <Text>{item.checked && !item.invalid ? '☑️' : '⬜'}</Text>
               </View>
-              <Image className={styles.itemImage} src={item.productImage} mode='aspectFill' />
+              <Image className={styles.itemImage} src={item.productImage} mode='aspectFill'
+                style={item.invalid ? { filter: 'grayscale(1)' } : undefined} />
               <View className={styles.itemInfo}>
                 <Text className={styles.itemName}>{item.productName}</Text>
-                {item.skuName && <Text className={styles.skuName}>{item.skuName}</Text>}
+                {item.invalid ? (
+                  <Text style={{ color: '#FF4D4F', fontSize: 12 }}>{item.invalidReason || '商品已失效'}</Text>
+                ) : item.skuName && <Text className={styles.skuName}>{item.skuName}</Text>}
                 <View className={styles.itemBottom}>
                   <Text className={styles.itemPrice}>¥{item.price}</Text>
                   <View className={styles.quantityControl}>

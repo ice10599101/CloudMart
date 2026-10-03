@@ -115,7 +115,7 @@ function CartItemCard({
         ...theme.shadowCard,
       }}
     >
-      <Checkbox checked={item.checked} onPress={onToggleCheck} theme={theme} />
+      <Checkbox checked={item.checked && !item.invalid} onPress={onToggleCheck} theme={theme} />
 
       {item.productImage ? (
         <Image
@@ -140,13 +140,19 @@ function CartItemCard({
 
       <View style={{ flex: 1, marginLeft: Spacing.md, justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Text numberOfLines={2} style={{ flex: 1, fontSize: FontSize.md, color: theme.text, fontWeight: '500', lineHeight: 20 }}>
+          <Text
+            numberOfLines={2}
+            style={{ flex: 1, fontSize: FontSize.md, color: theme.text, fontWeight: '500', lineHeight: 20, opacity: item.invalid ? 0.5 : 1 }}
+          >
             {item.productName}
           </Text>
           <TouchableOpacity onPress={onRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={{ fontSize: 16, color: theme.textTertiary, marginLeft: Spacing.sm }}>✕</Text>
           </TouchableOpacity>
         </View>
+        {item.invalid ? (
+          <Text style={{ color: '#FF4D4F', fontSize: 12, marginTop: 4 }}>{item.invalidReason || '商品已失效'}</Text>
+        ) : null}
 
         {item.skuName ? (
           <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.textTertiary, marginTop: Spacing.xs }}>
@@ -211,7 +217,9 @@ export default function CartScreen() {
     fetchCart()
   }, [fetchCart])
 
-  const isAllChecked = useMemo(() => cartItems.length > 0 && cartItems.every((item) => item.checked), [cartItems])
+  // T08：失效项不参与全选/结算
+  const selectableItems = useMemo(() => cartItems.filter((item) => !item.invalid), [cartItems])
+  const isAllChecked = useMemo(() => selectableItems.length > 0 && selectableItems.every((item) => item.checked), [selectableItems])
 
   const checkedCount = useMemo(() => cartItems.filter((item) => item.checked).length, [cartItems])
 
@@ -221,6 +229,11 @@ export default function CartScreen() {
   )
 
   const handleToggleCheck = useCallback(async (id: number) => {
+    const target = cartItems.find((i) => i.id === id)
+    if (target && !target.checked && target.invalid) {
+      Alert.alert('提示', target.invalidReason || '该商品已失效，无法结算')
+      return
+    }
     setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)))
     const item = cartItems.find((i) => i.id === id)
     if (item) {
@@ -235,13 +248,13 @@ export default function CartScreen() {
 
   const handleToggleAll = useCallback(async () => {
     const newChecked = !isAllChecked
-    setCartItems((prev) => prev.map((item) => ({ ...item, checked: newChecked })))
+    setCartItems((prev) => prev.map((item) => ({ ...item, checked: newChecked && !item.invalid })))
     try {
-      await Promise.all(cartItems.map((item) => cartApi.updateItem(item.skuId ?? item.id, { checked: newChecked })))
+      await Promise.all(selectableItems.map((item) => cartApi.updateItem(item.skuId ?? item.id, { checked: newChecked })))
     } catch {
-      setCartItems((prev) => prev.map((item) => ({ ...item, checked: !newChecked })))
+      setCartItems((prev) => prev.map((item) => ({ ...item, checked: !newChecked && !item.invalid })))
     }
-  }, [isAllChecked, cartItems])
+  }, [isAllChecked, selectableItems])
 
   const handleUpdateQuantity = useCallback(async (id: number, quantity: number) => {
     setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
@@ -278,6 +291,12 @@ export default function CartScreen() {
     const checkedItems = cartItems.filter((item) => item.checked)
     if (checkedItems.length === 0) {
       Alert.alert('提示', '请先选择商品')
+      return
+    }
+    // T08：失效项不可结算——先拦在购物车，下单侧服务端强校验兜底
+    const invalidItem = checkedItems.find((item) => item.invalid)
+    if (invalidItem) {
+      Alert.alert('提示', `「${invalidItem.productName}」${invalidItem.invalidReason || '已失效，无法结算'}`)
       return
     }
     router.push('/checkout')
