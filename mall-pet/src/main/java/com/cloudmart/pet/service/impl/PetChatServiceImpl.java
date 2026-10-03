@@ -63,6 +63,9 @@ public class PetChatServiceImpl implements PetChatService {
      * 记忆抽取规则（结构化记忆：key 规范化，正则捕获组 1 为记忆值）。
      * key 前缀 {@code favorite_*} → FAVORITE；key 后缀 {@code *_habit} → HABIT；其余 → FACT。
      */
+    /** R22：占键在途窗口（秒）——超过视为执行者崩溃残留，允许同键重执行 */
+    private static final long CHAT_CLAIM_STALE_SECONDS = 60;
+
     private static final Map<String, Pattern[]> MEMORY_RULES = Map.of(
             "owner_nickname", new Pattern[]{Pattern.compile("我(?:叫|的名字是|是)([\\u4e00-\\u9fa5a-zA-Z0-9]{1,12})")},
             "favorite_food", new Pattern[]{Pattern.compile("(?:我)?(?:爱|喜欢)吃([\\u4e00-\\u9fa5a-zA-Z0-9]{1,10})")},
@@ -148,28 +151,28 @@ public class PetChatServiceImpl implements PetChatService {
             throw new BusinessException(PetErrorCodes.PET_CHAT_MESSAGE_INVALID, "说点什么吧");
         }
         String requestId = PetRequestContext.idempotencyKey();
+        PetChatSession session = requireSession(userId, pet.getId());
+
+        // R22 占键先行：带键请求先落 USER 行（uk session+request+role 原子占键）——
+        // 并发同键只有一个执行者能通过（其余按在途/重放/异参分流），AI 至多被调用一次；
+        // 原实现在回复落库后才查重，重复在途请求会各调一次 AI
+        PetChatMessage claimedUserRow;
+        try {
+            claimedUserRow = claimUserMessage(session, userId, message, requestId);
+        } catch (ChatReplayException replay) {
+            // R22：同键重放——直接返回既有回复（不重复扣额度/不调 AI）
+            return toVo(replay.reply());
+        }
 
         consumeMessageQuota(userId);
-
-        // 幂等重放：同 (session, request_id) 已有回复对则原样返回
-        if (requestId != null && !requestId.isBlank()) {
-            PetChatSession existingSession = requireSession(userId, pet.getId());
-            PetChatMessage existingReply = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
-                    .eq(PetChatMessage::getSessionId, existingSession.getId())
-                    .eq(PetChatMessage::getRequestId, requestId)
-                    .eq(PetChatMessage::getRole, PetChatRole.PET.name())
-                    .last("LIMIT 1"));
-            if (existingReply != null) {
-                return toVo(existingReply);
-            }
-        }
 
         // 危机词本地拦截（P0-1：改走内容安全服务，配置词兜底）：不发送大模型服务，
         // 直接安抚 + 热线资源，并自动生成一条举报记录进入管理端处理队列
         if (safetyService.isCrisis(message)) {
             String reply = "主人别怕，我一直在你身边。如果心里很难受，可以拨打心理援助热线 12356，"
                     + "会有专业的叔叔阿姨帮助你。我们先一起深呼吸一下好不好？";
-            PersistedChatPair pair = persistChatPair(userId, pet, message, reply, false, requestId);
+            PersistedChatPair pair = persistChatPair(session, userId, pet, claimedUserRow,
+                    message, reply, false, requestId);
             reportCrisisContent(userId, pair.userMessageId());
             return pair.reply();
         }
@@ -180,7 +183,8 @@ public class PetChatServiceImpl implements PetChatService {
         // 第一层：固定行为（名字/在干嘛/游戏状态意图，模板直接回复省 token，不耗 AI 额度）
         String fixedReply = fixedIntentReply(message, pet, context);
         if (fixedReply != null) {
-            return persistChatPair(userId, pet, message, fixedReply, false, requestId).reply();
+            return persistChatPair(session, userId, pet, claimedUserRow,
+                    message, fixedReply, false, requestId).reply();
         }
 
         // 第二/三层：AI 生成——在事务外执行（慢 AI 不占数据库连接），失败降级模板；
@@ -207,7 +211,63 @@ public class PetChatServiceImpl implements PetChatService {
             reply = fallbackReply(pet, context);
             isAiReply = false;
         }
-        return persistChatPair(userId, pet, message, reply, isAiReply, requestId).reply();
+        return persistChatPair(session, userId, pet, claimedUserRow,
+                message, reply, isAiReply, requestId).reply();
+    }
+
+    /**
+     * R22 占键（uk session+request+role=USER 原子）：占用成功返回新行；
+     * 撞键分流——同键 USER 行内容不同 → 409 异参；相同 → 查 PET 回复：
+     * 已存在返回重放，不存在且新鲜（60s 内）→ 在途 409；超过视为崩溃残留可重执行。
+     */
+    private PetChatMessage claimUserMessage(PetChatSession session, Long userId,
+                                            String message, String requestId) {
+        if (requestId == null || requestId.isBlank()) {
+            return null;
+        }
+        PetChatMessage claim = new PetChatMessage();
+        claim.setSessionId(session.getId());
+        claim.setRole(PetChatRole.USER.name());
+        claim.setContent(message);
+        claim.setTokenCount(message.length() / 2);
+        claim.setIsAiReply(false);
+        claim.setRequestId(requestId);
+        try {
+            messageMapper.insert(claim);
+            return claim;
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            PetChatMessage existingUser = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
+                    .eq(PetChatMessage::getSessionId, session.getId())
+                    .eq(PetChatMessage::getRequestId, requestId)
+                    .eq(PetChatMessage::getRole, PetChatRole.USER.name())
+                    .last("LIMIT 1"));
+            if (existingUser != null && !existingUser.getContent().equals(message)) {
+                // R22/§7.3：同键异参禁止静默执行，返回可解释冲突
+                throw new BusinessException(PetErrorCodes.PET_IDEMPOTENCY_CONFLICT,
+                        "请求键已存在但消息内容不同，请确认后使用新键重新发起");
+            }
+            PetChatMessage existingReply = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
+                    .eq(PetChatMessage::getSessionId, session.getId())
+                    .eq(PetChatMessage::getRequestId, requestId)
+                    .eq(PetChatMessage::getRole, PetChatRole.PET.name())
+                    .last("LIMIT 1"));
+            if (existingReply != null) {
+                throw new ChatReplayException(existingReply);
+            }
+            boolean stale = existingUser == null || existingUser.getCreatedAt() == null
+                    || existingUser.getCreatedAt().isBefore(
+                            java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+                                    .minusSeconds(CHAT_CLAIM_STALE_SECONDS));
+            if (stale) {
+                // 崩溃残留（执行者消失未落回复）：允许本次重执行（AI 至多一次语义在
+                // 正常在途窗口内成立；残留行保持原样，回复行落库后重放收敛）
+                log.info("聊天占键残留超时，允许重执行: sessionId={}, requestId={}",
+                        session.getId(), requestId);
+                return existingUser;
+            }
+            throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+                    "消息还在处理中，请稍等片刻再看回复～");
+        }
     }
 
     /** 危机词自动举报（P0-1）：进入管理端处理队列；失败不阻断聊天主流程 */
@@ -230,14 +290,33 @@ public class PetChatServiceImpl implements PetChatService {
     private record PersistedChatPair(PetChatMessageVO reply, Long userMessageId) {
     }
 
-    /** 短事务 2：保存回复消息 + 亲密度/任务/成就奖励（聊天成长额度在此生效） */
-    private PersistedChatPair persistChatPair(Long userId, Pet pet, String userMessage,
+    /** R22 占键重放控制流：携带既有回复，chat() 捕获后直接返回 */
+    private static final class ChatReplayException extends RuntimeException {
+        private final PetChatMessage reply;
+
+        private ChatReplayException(PetChatMessage reply) {
+            super(null, null, false, false);
+            this.reply = reply;
+        }
+
+        private PetChatMessage reply() {
+            return reply;
+        }
+    }
+
+    /**
+     * 短事务 2：保存回复消息 + 亲密度/任务/成就奖励（聊天成长额度在此生效）。
+     * R22：带键请求的 USER 行已在占键步骤落库（claimedUserRow 非 null 时不重复插入，
+     * 消除同键双行撞唯一键的隐性缺陷）；无键请求沿用原两行落库。
+     */
+    private PersistedChatPair persistChatPair(PetChatSession session, Long userId, Pet pet,
+                                              PetChatMessage claimedUserRow, String userMessage,
                                               String reply, boolean isAiReply, String requestId) {
         return transactionTemplate.execute(status -> {
             // 会话归属以 chat 开始时冻结的主宠为准（BE-05：AI 调用后切宠不影响写回归属）
-            PetChatSession session = requireSession(userId, pet.getId());
-            PetChatMessage userMessageRow = saveMessage(session.getId(), userId, PetChatRole.USER.name(),
-                    userMessage, isAiReply, requestId);
+            PetChatMessage userMessageRow = claimedUserRow != null ? claimedUserRow
+                    : saveMessage(session.getId(), userId, PetChatRole.USER.name(),
+                            userMessage, isAiReply, null);
             PetChatMessage petMessage = saveMessage(session.getId(), userId, PetChatRole.PET.name(),
                     reply, isAiReply, requestId);
             // 聊天亲密度原子落库（B05 gain 语义）+ 每日任务进度

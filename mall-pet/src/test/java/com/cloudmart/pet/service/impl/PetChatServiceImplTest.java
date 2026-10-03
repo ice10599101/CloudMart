@@ -2,10 +2,14 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.dto.PetChatRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetChatSession;
+import com.cloudmart.pet.entity.PetChatMessage;
+import com.cloudmart.pet.enums.PetChatRole;
+import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.repository.PetChatMessageMapper;
 import com.cloudmart.pet.repository.PetChatSessionMapper;
 import com.cloudmart.pet.repository.PetMapper;
@@ -33,8 +37,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 /**
@@ -233,6 +241,98 @@ class PetChatServiceImplTest {
         assertThat(captor.getValue().getMemoryValue()).isEqualTo("小冰");
         assertThat(captor.getValue().getSource()).isEqualTo("AUTO");
         assertThat(captor.getValue().getEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("R22 同键重放：回复已存在 → 原样返回，不调 AI、不重复扣额度")
+    void keyedReplayReturnsStoredReply() {
+        Pet p = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(p);
+        when(sessionMapper.selectOne(any())).thenReturn(session());
+        when(contextService.buildContext(any(), any())).thenReturn(new PetContextService.PetContext(
+                "小橘", 3, "LIVELY", 80, 90, 70, 80, "空闲中", 0, 0, 0, 0, false, java.util.List.of()));
+        // 占键撞键 → 查 USER 行与 PET 回复行：都存在 → 重放
+        when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_chat_request_role"));
+        com.cloudmart.pet.entity.PetChatMessage existingUser = new com.cloudmart.pet.entity.PetChatMessage();
+        existingUser.setSessionId(9L);
+        existingUser.setRole(PetChatRole.USER.name());
+        existingUser.setContent("你好呀");
+        existingUser.setCreatedAt(LocalDateTime.now(ZoneId.of("UTC")));
+        com.cloudmart.pet.entity.PetChatMessage existingReply = new com.cloudmart.pet.entity.PetChatMessage();
+        existingReply.setSessionId(9L);
+        existingReply.setRole(PetChatRole.PET.name());
+        existingReply.setContent("上次已经回答过啦");
+        when(messageMapper.selectOne(any()))
+                .thenReturn(existingUser)
+                .thenReturn(existingReply);
+
+        PetRequestContext.setIdempotencyKey("req-key-chat-replay-01");
+        try {
+            PetChatMessageVO vo = chatService.chat(100L, new PetChatRequest("你好呀"));
+
+            assertThat(vo.content()).isEqualTo("上次已经回答过啦");
+            verify(aiClient, never()).generateReply(anyString(), anyString());
+        } finally {
+            PetRequestContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("R22 同键在途：USER 行新鲜且无回复 → 409 PET_REQUEST_IN_PROGRESS，不调 AI")
+    void keyedInFlightRejected() {
+        Pet p = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(p);
+        when(sessionMapper.selectOne(any())).thenReturn(session());
+        // 占键撞键 → USER 行存在且新鲜、无 PET 回复 → 在途
+        when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_chat_request_role"));
+        com.cloudmart.pet.entity.PetChatMessage existingUser = new com.cloudmart.pet.entity.PetChatMessage();
+        existingUser.setSessionId(9L);
+        existingUser.setRole(PetChatRole.USER.name());
+        existingUser.setContent("你好呀");
+        existingUser.setCreatedAt(LocalDateTime.now(ZoneId.of("UTC")));
+        when(messageMapper.selectOne(any()))
+                .thenReturn(existingUser)
+                .thenReturn(null);
+
+        PetRequestContext.setIdempotencyKey("req-key-chat-inflight-1");
+        try {
+            assertThatThrownBy(() -> chatService.chat(100L, new PetChatRequest("你好呀")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_REQUEST_IN_PROGRESS);
+        } finally {
+            PetRequestContext.clear();
+        }
+        verify(aiClient, never()).generateReply(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("R22 同键异参：消息内容不同 → 409 PET_IDEMPOTENCY_CONFLICT")
+    void keyedDifferentContentRejected() {
+        Pet p = pet();
+        when(petService.requireOwnedPet(100L)).thenReturn(p);
+        when(sessionMapper.selectOne(any())).thenReturn(session());
+        when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_chat_request_role"));
+        com.cloudmart.pet.entity.PetChatMessage existingUser = new com.cloudmart.pet.entity.PetChatMessage();
+        existingUser.setSessionId(9L);
+        existingUser.setRole(PetChatRole.USER.name());
+        existingUser.setContent("完全不同的历史消息");
+        existingUser.setCreatedAt(LocalDateTime.now(ZoneId.of("UTC")));
+        when(messageMapper.selectOne(any())).thenReturn(existingUser);
+
+        PetRequestContext.setIdempotencyKey("req-key-chat-conflict-1");
+        try {
+            assertThatThrownBy(() -> chatService.chat(100L, new PetChatRequest("你好呀")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_IDEMPOTENCY_CONFLICT);
+        } finally {
+            PetRequestContext.clear();
+        }
+        verify(aiClient, never()).generateReply(anyString(), anyString());
     }
 
     @Test
