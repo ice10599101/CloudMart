@@ -50,7 +50,7 @@ class CartControllerTest {
     }
 
     private CartVO buildCartVO() {
-        CartItemVO itemVO = new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 2, new BigDecimal("1998.00"), true);
+        CartItemVO itemVO = new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 2, new BigDecimal("1998.00"), true, false, null);
         return new CartVO(List.of(itemVO), 2, new BigDecimal("1998.00"));
     }
 
@@ -84,7 +84,7 @@ class CartControllerTest {
             CartItemDTO itemDTO = new CartItemDTO(null, 1L, 100L, 10L, 1, 1, "Phone", "phone.jpg", "Red", new BigDecimal("999.00"));
             when(cartService.addItem(eq(1L), any(AddCartItemRequest.class))).thenReturn(itemDTO);
             when(cartConverter.cartItemDtoToVO(itemDTO)).thenReturn(
-                    new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 1, new BigDecimal("999.00"), true));
+                    new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 1, new BigDecimal("999.00"), true, false, null));
 
             AddCartItemRequest request = new AddCartItemRequest(100L, 10L, 1);
 
@@ -107,7 +107,7 @@ class CartControllerTest {
             CartItemDTO itemDTO = new CartItemDTO(null, 1L, 100L, 10L, 5, 0, "Phone", "phone.jpg", "Red", new BigDecimal("999.00"));
             when(cartService.updateItem(eq(1L), eq(10L), any(UpdateCartItemRequest.class))).thenReturn(itemDTO);
             when(cartConverter.cartItemDtoToVO(itemDTO)).thenReturn(
-                    new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 5, new BigDecimal("4995.00"), false));
+                    new CartItemVO(null, 100L, "Phone", "phone.jpg", 10L, "Red", new BigDecimal("999.00"), 5, new BigDecimal("4995.00"), false, false, null));
 
             UpdateCartItemRequest request = new UpdateCartItemRequest(5, 0);
 

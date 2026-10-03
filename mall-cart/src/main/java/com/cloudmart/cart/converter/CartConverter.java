@@ -36,7 +36,7 @@ public interface CartConverter {
                         base.productImage(), base.skuId(), base.skuAttributes(),
                         base.price(), base.quantity(),
                         base.price().multiply(java.math.BigDecimal.valueOf(base.quantity())),
-                        base.selected());
+                        base.selected(), base.invalid(), base.invalidReason());
             }
             return base;
         }).toList();

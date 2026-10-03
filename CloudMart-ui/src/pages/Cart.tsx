@@ -9,10 +9,10 @@ import { getThemeTokens } from '@/theme/tokens'
 import type { ThemeTokens } from '@/theme/tokens'
 import type { CartItem } from '@/types'
 
-function Checkbox({ checked, indeterminate, onChange, tokens }: { checked: boolean; indeterminate?: boolean; onChange: (checked: boolean) => void; tokens: ThemeTokens }) {
+function Checkbox({ checked, indeterminate, disabled, onChange, tokens }: { checked: boolean; indeterminate?: boolean; disabled?: boolean; onChange: (checked: boolean) => void; tokens: ThemeTokens }) {
   return (
     <div
-      onClick={() => onChange(!checked)}
+      onClick={() => { if (!disabled) onChange(!checked) }}
       style={{
         width: 18,
         height: 18,
@@ -30,7 +30,8 @@ function Checkbox({ checked, indeterminate, onChange, tokens }: { checked: boole
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
         transition: 'all 0.2s ease',
         flexShrink: 0,
       }}
@@ -129,6 +130,7 @@ function CartItemRow({
   tokens: ThemeTokens
 }) {
   const [hovered, setHovered] = useState(false)
+  const isInvalid = Boolean(item.invalid)
 
   return (
     <div
@@ -141,6 +143,7 @@ function CartItemRow({
         borderRadius: 10,
         border: `1px solid ${hovered ? `rgba(${tokens.colorPrimaryRgb}, 0.2)` : tokens.colorBorder}`,
         transition: 'all 0.3s ease',
+        opacity: isInvalid ? 0.55 : 1,
         boxShadow: hovered
           ? `0 8px 40px rgba(0,0,0,0.4), 0 0 20px rgba(${tokens.colorPrimaryRgb}, 0.08)`
           : '0 4px 24px rgba(0,0,0,0.3)',
@@ -148,7 +151,7 @@ function CartItemRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Checkbox checked={selected} onChange={onSelect} tokens={tokens} />
+      <Checkbox checked={selected && !isInvalid} onChange={onSelect} disabled={isInvalid} tokens={tokens} />
 
       <img
         alt={item.productName}
@@ -161,6 +164,7 @@ function CartItemRow({
           background: tokens.colorBgFooter,
           cursor: 'pointer',
           flexShrink: 0,
+          filter: isInvalid ? 'grayscale(1)' : undefined,
         }}
         onClick={() => history.push(`/products/${item.productId}`)}
       />
@@ -181,7 +185,20 @@ function CartItemRow({
         >
           {item.productName}
         </div>
-        {item.skuAttributes && (
+        {isInvalid ? (
+          <div
+            style={{
+              display: 'inline-block',
+              padding: '2px 10px',
+              background: 'rgba(255,77,79,0.12)',
+              borderRadius: 4,
+              color: '#FF4D4F',
+              fontSize: 12,
+            }}
+          >
+            {item.invalidReason ?? '商品已失效'}
+          </div>
+        ) : item.skuAttributes && (
           <div
             style={{
               display: 'inline-block',
@@ -326,13 +343,19 @@ export default function Cart() {
   const checkedItems = items.filter((item) => selectedSkuIds.includes(item.skuId))
   const totalPrice = checkedItems.reduce((sum, item) => sum + (item.price ?? 0) * item.quantity, 0)
   const totalQuantity = checkedItems.reduce((sum, item) => sum + item.quantity, 0)
-  const isAllSelected = items.length > 0 && selectedSkuIds.length === items.length
+  // T08：失效项（下架/删除/变价）不可选中、不可结算
+  const selectableItems = items.filter((item) => !item.invalid)
+  const isAllSelected = selectableItems.length > 0 && selectedSkuIds.length === selectableItems.length
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedSkuIds(checked ? items.map((item) => item.skuId) : [])
+    setSelectedSkuIds(checked ? selectableItems.map((item) => item.skuId) : [])
   }
 
-  const handleSelectItem = (skuId: number, checked: boolean) => {
+  const handleSelectItem = (skuId: number, checked: boolean, invalid?: boolean | null, invalidReason?: string | null) => {
+    if (checked && invalid) {
+      message.warning(invalidReason || '该商品已失效，无法结算')
+      return
+    }
     setSelectedSkuIds((prev) =>
       checked ? [...prev, skuId] : prev.filter((id) => id !== skuId)
     )
@@ -370,6 +393,12 @@ export default function Cart() {
   const handleCheckout = () => {
     if (checkedItems.length === 0) {
       message.warning('请选择要结算的商品')
+      return
+    }
+    // T08：失效项不可结算——先拦在购物车，下单侧服务端强校验兜底
+    const invalidItem = checkedItems.find((item) => item.invalid)
+    if (invalidItem) {
+      message.warning(`「${invalidItem.productName}」${invalidItem.invalidReason ?? '已失效，无法结算'}`)
       return
     }
     const skuIds = checkedItems.map((item) => item.skuId).join(',')
@@ -455,7 +484,7 @@ export default function Cart() {
                       key={item.skuId}
                       item={item}
                       selected={selectedSkuIds.includes(item.skuId)}
-                      onSelect={(checked) => handleSelectItem(item.skuId, checked)}
+                      onSelect={(checked) => handleSelectItem(item.skuId, checked, item.invalid, item.invalidReason)}
                       onQuantityChange={(qty) => handleQuantityChange(item.skuId, qty)}
                       onRemove={() => handleRemove(item.skuId)}
                       tokens={tokens}

@@ -184,6 +184,9 @@ export interface CartItem {
   price: number | null
   quantity: number
   checked: number
+  /** T08 失效项（下架/删除/变价），后端 fail-open 时缺省视为有效 */
+  invalid?: boolean | null
+  invalidReason?: string | null
 }
 
 export interface Cart {

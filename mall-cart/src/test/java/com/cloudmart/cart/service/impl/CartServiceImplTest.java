@@ -95,6 +95,61 @@ class CartServiceImplTest {
             assertThat(result.totalQuantity()).isEqualTo(2);
             assertThat(result.totalPrice()).isEqualByComparingTo(new BigDecimal("1998.00"));
         }
+
+        @Test
+        @DisplayName("T08：SKU 已删/已下架/变价 → 打失效标；正常项不打标")
+        void getCart_InvalidSkus_Marked() throws Exception {
+            CartItemDTO deleted = buildCartItemDTO(10L, 1, 1);
+            CartItemDTO offSale = buildCartItemDTO(20L, 1, 0);
+            CartItemDTO priceChanged = buildCartItemDTO(30L, 1, 1);
+            CartItemDTO normal = buildCartItemDTO(40L, 1, 1);
+
+            Map<Object, Object> entries = Map.of(
+                    "10", objectMapper.writeValueAsString(deleted),
+                    "20", objectMapper.writeValueAsString(offSale),
+                    "30", objectMapper.writeValueAsString(priceChanged),
+                    "40", objectMapper.writeValueAsString(normal)
+            );
+            when(hashOperations.entries("cart:user:1")).thenReturn(entries);
+            when(productFeignClient.getSkusBatch(any())).thenReturn(ApiResponse.ok(List.of(
+                    Map.of("skuId", 20L, "status", 0, "price", "999.00"),
+                    Map.of("skuId", 30L, "status", 1, "price", "1299.00"),
+                    Map.of("skuId", 40L, "status", 1, "price", "999.00")
+            )));
+
+            CartDTO result = cartService.getCart(1L);
+
+            assertThat(result.items()).hasSize(4);
+            assertThat(result.items().stream()
+                    .filter(i -> i.skuId().equals(10L)).findFirst().orElseThrow())
+                    .extracting(CartItemDTO::invalid, CartItemDTO::invalidReason)
+                    .containsExactly(true, "商品已失效，请移除");
+            assertThat(result.items().stream()
+                    .filter(i -> i.skuId().equals(20L)).findFirst().orElseThrow())
+                    .extracting(CartItemDTO::invalidReason).isEqualTo("商品已下架");
+            assertThat(result.items().stream()
+                    .filter(i -> i.skuId().equals(30L)).findFirst().orElseThrow())
+                    .extracting(CartItemDTO::invalidReason).isEqualTo("价格已变更，请重新确认");
+            assertThat(result.items().stream()
+                    .filter(i -> i.skuId().equals(40L)).findFirst().orElseThrow())
+                    .extracting(CartItemDTO::invalid).isNull();
+        }
+
+        @Test
+        @DisplayName("T08：批量校验失败（商品服务不可用）→ fail-open 不打标不阻塞")
+        void getCart_BatchUnavailable_FailOpen() throws Exception {
+            CartItemDTO item = buildCartItemDTO(10L, 2, 1);
+            Map<Object, Object> entries = Map.of(
+                    "10", objectMapper.writeValueAsString(item));
+            when(hashOperations.entries("cart:user:1")).thenReturn(entries);
+            when(productFeignClient.getSkusBatch(any())).thenThrow(new RuntimeException("connection refused"));
+
+            CartDTO result = cartService.getCart(1L);
+
+            assertThat(result.items()).hasSize(1);
+            assertThat(result.items().get(0).invalid()).isNull();
+            assertThat(result.totalQuantity()).isEqualTo(2);
+        }
     }
 
     @Nested

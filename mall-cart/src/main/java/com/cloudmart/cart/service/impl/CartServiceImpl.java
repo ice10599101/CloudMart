@@ -89,6 +89,10 @@ public class CartServiceImpl implements CartService {
             }
         }
 
+        // T08：失效项标记（下架/删除/变价）——展示层提前可见，前端据此禁选；
+        // 勾选结算的强校验兜底在 mall-order（SKU_OFF_SALE/价格权威覆盖/STOCK_INSUFFICIENT）
+        markInvalidItems(items);
+
         return new CartDTO(items, totalQuantity, totalPrice);
     }
 
@@ -286,6 +290,75 @@ public class CartServiceImpl implements CartService {
                 productInfo.name(), skuImage,
                 matchedSku != null ? matchedSku.attributes() : null,
                 matchedSku != null ? matchedSku.price() : null);
+    }
+
+    /**
+     * T08：批量核销购物车项与商品权威状态——单次 getSkusBatch 调用，逐项打失效标。
+     * 商品服务不可用/返回失败时 fail-open 不打标：浏览路径不被基础设施故障拖垮，
+     * 误结算由下单侧 SKU_OFF_SALE/价格覆盖/库存校验兜底，此处只负责"提前可见"。
+     */
+    private void markInvalidItems(List<CartItemDTO> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> skuIds = items.stream().map(CartItemDTO::skuId).distinct().toList();
+        ApiResponse<List<Map<String, Object>>> response;
+        try {
+            response = productFeignClient.getSkusBatch(skuIds);
+        } catch (Exception e) {
+            log.warn("购物车失效项校验跳过（商品服务不可用）: {}", e.getMessage());
+            return;
+        }
+        if (response == null || !response.success() || response.data() == null) {
+            return;
+        }
+        Map<Long, Map<String, Object>> skuMap = new java.util.HashMap<>();
+        for (Map<String, Object> sku : response.data()) {
+            if (sku.get("skuId") instanceof Number n) {
+                skuMap.put(n.longValue(), sku);
+            }
+        }
+        for (int i = 0; i < items.size(); i++) {
+            CartItemDTO item = items.get(i);
+            String reason = invalidReasonOf(skuMap.get(item.skuId()), item);
+            if (reason != null) {
+                items.set(i, new CartItemDTO(item.id(), item.userId(), item.productId(), item.skuId(),
+                        item.quantity(), item.checked(), item.productName(), item.skuImage(),
+                        item.skuAttributes(), item.price(), true, reason));
+            }
+        }
+    }
+
+    /** 失效判定：SKU 已删 / 已下架 / 无有效价格 / 快照价与权威价不一致；有效返回 null */
+    private String invalidReasonOf(Map<String, Object> sku, CartItemDTO item) {
+        if (sku == null) {
+            return "商品已失效，请移除";
+        }
+        if (!Integer.valueOf(1).equals(sku.get("status"))) {
+            return "商品已下架";
+        }
+        BigDecimal livePrice = toBigDecimalQuietly(sku.get("price"));
+        if (livePrice == null) {
+            return "商品暂不可售";
+        }
+        if (item.price() != null && livePrice.compareTo(item.price()) != 0) {
+            return "价格已变更，请重新确认";
+        }
+        return null;
+    }
+
+    private BigDecimal toBigDecimalQuietly(Object raw) {
+        if (raw instanceof Number n) {
+            return new BigDecimal(n.toString());
+        }
+        if (raw instanceof String s && !s.isBlank()) {
+            try {
+                return new BigDecimal(s.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private void serializeAndPut(String key, String field, CartItemDTO item, Long userId) {

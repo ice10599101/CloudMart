@@ -47,7 +47,7 @@ class AdminCartControllerTest {
 
         given(cartService.getCart(1L)).willReturn(dto);
 
-        CartItemVO itemVO = new CartItemVO(1L, 100L, "商品A", "img.jpg", 200L, "红色", new BigDecimal("99.00"), 2, new BigDecimal("198.00"), true);
+        CartItemVO itemVO = new CartItemVO(1L, 100L, "商品A", "img.jpg", 200L, "红色", new BigDecimal("99.00"), 2, new BigDecimal("198.00"), true, false, null);
         CartVO vo = new CartVO(List.of(itemVO), 2, new BigDecimal("198.00"));
         given(cartConverter.cartDtoToVOWithItems(dto)).willReturn(vo);
 

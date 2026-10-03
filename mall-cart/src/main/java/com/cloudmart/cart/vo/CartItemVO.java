@@ -15,5 +15,7 @@ public record CartItemVO(
     @Schema(description = "单价") BigDecimal price,
     @Schema(description = "数量") Integer quantity,
     @Schema(description = "小计") BigDecimal subtotal,
-    @Schema(description = "是否选中") Boolean selected
+    @Schema(description = "是否选中") Boolean selected,
+    @Schema(description = "T08 是否失效（下架/删除/变价），false/null 视为有效") Boolean invalid,
+    @Schema(description = "失效原因（invalid=true 时展示）") String invalidReason
 ) {}

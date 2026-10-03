@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+
 @Component
 @Slf4j
 public class ProductFeignClientFallbackFactory implements FallbackFactory<ProductFeignClient> {
@@ -16,6 +19,12 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
             @Override
             public ApiResponse<ProductInfo> getProductById(Long id) {
                 log.warn("商品服务降级, productId={}: {}", id, cause.getMessage());
+                return ApiResponse.ok(null);
+            }
+
+            @Override
+            public ApiResponse<List<Map<String, Object>>> getSkusBatch(List<Long> ids) {
+                log.warn("商品服务降级, getSkusBatch ids={}: {}", ids, cause.getMessage());
                 return ApiResponse.ok(null);
             }
         };
