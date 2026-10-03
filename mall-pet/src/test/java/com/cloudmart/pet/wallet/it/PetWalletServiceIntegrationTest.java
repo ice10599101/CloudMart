@@ -97,7 +97,7 @@ class PetWalletServiceIntegrationTest {
     @ImportAutoConfiguration({DataSourceAutoConfiguration.class, DataSourceTransactionManagerAutoConfiguration.class,
             FlywayAutoConfiguration.class, MybatisPlusAutoConfiguration.class})
     @MapperScan("com.cloudmart.pet.repository")
-    @Import(PetWalletServiceImpl.class)
+    @Import({PetWalletServiceImpl.class, com.cloudmart.pet.config.MyBatisPlusConfig.class})
     @EnableTransactionManagement
     static class WalletItConfig {
         @Bean

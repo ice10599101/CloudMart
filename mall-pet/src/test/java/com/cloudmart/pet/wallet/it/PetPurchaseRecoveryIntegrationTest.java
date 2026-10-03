@@ -94,13 +94,20 @@ class PetPurchaseRecoveryIntegrationTest {
             FlywayAutoConfiguration.class, MybatisPlusAutoConfiguration.class})
     @MapperScan("com.cloudmart.pet.repository")
     @Import({PetWalletServiceImpl.class, PetRequestDedupServiceImpl.class,
-            PetPurchaseApplicationService.class, PetPurchaseRecoveryService.class})
+            PetPurchaseApplicationService.class, PetPurchaseRecoveryService.class,
+            com.cloudmart.pet.config.MyBatisPlusConfig.class})
     @EnableTransactionManagement
     static class PurchaseItConfig {
 
         @Bean
         TransactionTemplate transactionTemplate(PlatformTransactionManager transactionManager) {
             return new TransactionTemplate(transactionManager);
+        }
+
+        /** 采购归属校验依赖 PetService；IT 只验钱包事实，归属恒真即可 */
+        @Bean
+        com.cloudmart.pet.service.PetService petService() {
+            return org.mockito.Mockito.mock(com.cloudmart.pet.service.PetService.class);
         }
 
         /** 测试目录：服务端权威价格，FOOD 可重复购买 */
