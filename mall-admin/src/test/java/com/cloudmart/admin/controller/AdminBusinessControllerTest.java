@@ -68,7 +68,8 @@ class AdminBusinessControllerTest {
                 brandFeignClient,
                 mock(NotificationQueryFeignClient.class),
                 mock(PaymentReconciliationFeignClient.class),
-                mock(ExchangeCodeFeignClient.class)
+                mock(ExchangeCodeFeignClient.class),
+                mock(com.cloudmart.admin.feign.ProductEsFeignClient.class)
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
