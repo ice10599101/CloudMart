@@ -147,13 +147,56 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         if (refundNo == null || refundNo.isBlank()) {
             throw new BusinessException("AFTER_SALE_REFUND_NO_REQUIRED", "受理必须关联退款单号（T02）");
         }
+        // T11 部分退款金额上限（资金安全）：校验依据写入事件时间线供人工追溯
+        BigDecimal orderPayAmount = validateRefundAmount(entity, refundAmount);
         if (caseMapper.approve(caseId, refundAmount, refundNo, adminId) == 0) {
             throw new BusinessException("AFTER_SALE_STATUS_ERROR", "案件状态已变更，无法受理");
         }
         appendEvent(caseId, "APPROVE", "admin:" + adminId,
-                "{\"refundNo\":\"" + refundNo + "\",\"refundAmount\":" + refundAmount.toPlainString() + "}");
+                "{\"refundNo\":\"" + refundNo + "\",\"refundAmount\":" + refundAmount.toPlainString()
+                        + ",\"orderPayAmount\":" + orderPayAmount.toPlainString() + "}");
         log.info("[T11] 售后案件已受理 caseNo={} refundNo={} amount={}", entity.getCaseNo(), refundNo, refundAmount);
         return toVO(requireCase(caseId), orderNoOf(entity.getOrderId()));
+    }
+
+    /**
+     * T11 部分退款金额上限（P1 资金安全）：
+     * ① 行级——RETURN_REFUND 案件批准金额 ≤ 该订单项小计（price × quantity），
+     *    退货退的是这一行，不得超出行金额；
+     * ② 订单级——同订单其他售后案件（APPROVED 资金占用中 / REFUNDED 已退）
+     *    批准金额合计 + 本案 ≤ 订单实付，防多案件叠加超退。
+     * @return 订单实付金额（事件时间线记录校验依据用）
+     */
+    private BigDecimal validateRefundAmount(AfterSaleCase entity, BigDecimal refundAmount) {
+        Order order = orderMapper.selectById(entity.getOrderId());
+        if (order == null || order.getPayAmount() == null) {
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在或金额缺失，无法受理退款");
+        }
+        if (AfterSaleCase.TYPE_RETURN_REFUND.equals(entity.getType()) && entity.getItemId() != null) {
+            OrderItem item = orderItemMapper.selectById(entity.getItemId());
+            if (item == null || item.getPrice() == null || item.getQuantity() == null) {
+                throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "订单项缺失，无法核定退货退款金额");
+            }
+            BigDecimal itemSubtotal = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            if (refundAmount.compareTo(itemSubtotal) > 0) {
+                throw new BusinessException("AFTER_SALE_AMOUNT_EXCEEDED",
+                        "退款金额超过该商品行小计 ¥" + itemSubtotal.toPlainString());
+            }
+        }
+        BigDecimal approvedElsewhere = caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
+                        .eq(AfterSaleCase::getOrderId, entity.getOrderId())
+                        .ne(AfterSaleCase::getId, entity.getId())
+                        .in(AfterSaleCase::getStatus, AfterSaleCase.STATUS_APPROVED, AfterSaleCase.STATUS_REFUNDED))
+                .stream()
+                .map(AfterSaleCase::getRefundAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (approvedElsewhere.add(refundAmount).compareTo(order.getPayAmount()) > 0) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_EXCEEDED",
+                    "同订单累计退款将超过实付金额 ¥" + order.getPayAmount().toPlainString()
+                            + "（其他案件已占用 ¥" + approvedElsewhere.toPlainString() + "）");
+        }
+        return order.getPayAmount();
     }
 
     @Override
