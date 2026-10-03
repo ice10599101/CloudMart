@@ -95,10 +95,27 @@ class SeckillRequestStateMachineIntegrationTest {
 
     private static final BigDecimal PRICE = new BigDecimal("199.00");
 
-    private long newProduct(int stock) {
+    /** T09/QA17：共享容器跨用例复库——活动/SKU/用户用原子递增 ID 隔离，避免 uk_activity_sku 冲突 */
+    private static final java.util.concurrent.atomic.AtomicLong ACTIVITY_SEQ = new java.util.concurrent.atomic.AtomicLong(99001);
+    private static final java.util.concurrent.atomic.AtomicLong SKU_SEQ = new java.util.concurrent.atomic.AtomicLong(88001);
+    private static final java.util.concurrent.atomic.AtomicLong USER_SEQ = new java.util.concurrent.atomic.AtomicLong(1001);
+
+    private long newActivity() {
+        return ACTIVITY_SEQ.getAndIncrement();
+    }
+
+    private long newSkuId() {
+        return SKU_SEQ.getAndIncrement();
+    }
+
+    private long newUserId() {
+        return USER_SEQ.getAndIncrement();
+    }
+
+    private long newProduct(long activityId, long skuId, int stock) {
         SeckillProduct product = new SeckillProduct();
-        product.setActivityId(99001L);
-        product.setSkuId(88001L);
+        product.setActivityId(activityId);
+        product.setSkuId(skuId);
         product.setSeckillPrice(PRICE);
         product.setOriginalPrice(new BigDecimal("298.00"));
         product.setTotalStock(stock);
@@ -116,9 +133,12 @@ class SeckillRequestStateMachineIntegrationTest {
     @Test
     @DisplayName("T09：占用→终态失败释放→重发起换新 requestId（远程 500 路径的真实 MySQL 复现）")
     void holdSettleFail_reinitiateWithNewRequestId() {
-        long productId = newProduct(5);
+        long activityId = newActivity();
+        long skuId = newSkuId();
+        long userId = newUserId();
+        long productId = newProduct(activityId, skuId, 5);
 
-        SeckillRequest held = requestService.holdSeat(1001L, 99001L, productId, 88001L, PRICE, 1);
+        SeckillRequest held = requestService.holdSeat(userId, activityId, productId, skuId, PRICE, 1);
         assertThat(held.getStatus()).isEqualTo("PENDING");
         assertThat(availableOf(productId)).isEqualTo(4);
 
@@ -128,7 +148,7 @@ class SeckillRequestStateMachineIntegrationTest {
         assertThat(availableOf(productId)).isEqualTo(5);
 
         // 终态失败重发起：复用原行换新 requestId（execute 500 的分支）
-        SeckillRequest reheld = requestService.holdSeat(1001L, 99001L, productId, 88001L, PRICE, 1);
+        SeckillRequest reheld = requestService.holdSeat(userId, activityId, productId, skuId, PRICE, 1);
 
         assertThat(reheld.getId()).isEqualTo(held.getId());
         assertThat(reheld.getRequestId()).isNotEqualTo(held.getRequestId());
@@ -141,7 +161,9 @@ class SeckillRequestStateMachineIntegrationTest {
     @Test
     @DisplayName("QA17：100 线程同 (activity,product,user) → 恰好一席位，库存只减 1")
     void hundredConcurrentSameUser_exactlyOneSeat() throws Exception {
-        long productId = newProduct(50);
+        long activityId = newActivity();
+        long skuId = newSkuId();
+        long productId = newProduct(activityId, skuId, 50);
         int threads = 100;
         List<SeckillRequest> winners = new CopyOnWriteArrayList<>();
         Set<String> failureCodes = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -154,7 +176,7 @@ class SeckillRequestStateMachineIntegrationTest {
                     start.await();
                     try {
                         synchronized (winners) {
-                            winners.add(requestService.holdSeat(2001L, 99001L, productId, 88001L, PRICE, 1));
+                            winners.add(requestService.holdSeat(newUserId(), activityId, productId, skuId, PRICE, 1));
                         }
                         return true;
                     } catch (SeckillRequestService.SeatExistsException e) {
@@ -180,7 +202,9 @@ class SeckillRequestStateMachineIntegrationTest {
     @Test
     @DisplayName("QA17：库存 2、3 用户并发 → 恰好 2 成功，第 3 个 DB 口径售罄")
     void threeConcurrentUsersOnTwoStock_exactlyTwoSeats() throws Exception {
-        long productId = newProduct(2);
+        long activityId = newActivity();
+        long skuId = newSkuId();
+        long productId = newProduct(activityId, skuId, 2);
         List<Long> userIds = List.of(3001L, 3002L, 3003L);
         List<SeckillRequest> winners = new CopyOnWriteArrayList<>();
         Set<String> failures = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -193,7 +217,7 @@ class SeckillRequestStateMachineIntegrationTest {
                     start.await();
                     try {
                         synchronized (winners) {
-                            winners.add(requestService.holdSeat(userId, 99001L, productId, 88001L, PRICE, 1));
+                            winners.add(requestService.holdSeat(userId, activityId, productId, skuId, PRICE, 1));
                         }
                         return true;
                     } catch (SeckillRequestService.SeatSoldOutException e) {
@@ -216,8 +240,10 @@ class SeckillRequestStateMachineIntegrationTest {
     @Test
     @DisplayName("T09：成功 CAS 结算关联订单；重复结算不二次生效")
     void settleSuccess_casAndIdempotent() {
-        long productId = newProduct(5);
-        SeckillRequest held = requestService.holdSeat(4001L, 99001L, productId, 88001L, PRICE, 1);
+        long activityId = newActivity();
+        long skuId = newSkuId();
+        long productId = newProduct(activityId, skuId, 5);
+        SeckillRequest held = requestService.holdSeat(newUserId(), activityId, productId, skuId, PRICE, 1);
 
         assertThat(requestService.settleSuccess(held.getRequestId(), 777L)).isTrue();
         assertThat(requestService.settleSuccess(held.getRequestId(), 888L)).isFalse();
@@ -230,9 +256,11 @@ class SeckillRequestStateMachineIntegrationTest {
     @Test
     @DisplayName("T09：恢复扫描只捞到 PENDING 到期行，终态行不被重放")
     void findPendingDue_onlyPendingRows() {
-        long productId = newProduct(5);
-        SeckillRequest pending = requestService.holdSeat(5001L, 99001L, productId, 88001L, PRICE, 1);
-        SeckillRequest done = requestService.holdSeat(5002L, 99001L, productId, 88001L, PRICE, 1);
+        long activityId = newActivity();
+        long skuId = newSkuId();
+        long productId = newProduct(activityId, skuId, 5);
+        SeckillRequest pending = requestService.holdSeat(newUserId(), activityId, productId, skuId, PRICE, 1);
+        SeckillRequest done = requestService.holdSeat(newUserId(), activityId, productId, skuId, PRICE, 1);
         requestService.settleSuccess(done.getRequestId(), 900L);
 
         List<SeckillRequest> due = requestService.findPendingDue(java.time.LocalDateTime.now().plusMinutes(1), 100);
