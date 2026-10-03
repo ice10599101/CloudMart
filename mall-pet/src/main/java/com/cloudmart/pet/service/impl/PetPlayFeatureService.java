@@ -210,8 +210,12 @@ public class PetPlayFeatureService {
     public Map<String, Object> confirmOfflineDigest(Long userId, java.time.LocalDateTime throughAt) {
         requireActivePet(userId);
         java.time.LocalDateTime now = petClock.nowUtc();
-        // 上界合法性：不能超过当前时刻（防伪造未来游标）；未提供时按展示上界=确认时刻语义兜底
-        java.time.LocalDateTime target = throughAt == null || throughAt.isAfter(now) ? now : throughAt;
+        // R40：上界合法性——未来值拒绝（不伪装成 now）；未提供时游标不动
+        //（原实现把缺失/未来值改为 now，会跳过尚未展示的事件，T76）
+        if (throughAt != null && throughAt.isAfter(now)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "确认上界不能晚于当前时刻");
+        }
+        java.time.LocalDateTime target = throughAt;
         com.cloudmart.pet.entity.PetOfflineCursor cursor = offlineCursorMapper.selectOne(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetOfflineCursor>()
                         .eq(com.cloudmart.pet.entity.PetOfflineCursor::getUserId, userId)
@@ -228,10 +232,16 @@ public class PetPlayFeatureService {
                                 .eq(com.cloudmart.pet.entity.PetOfflineCursor::getUserId, userId));
             }
         }
-        // 游标不倒退：仅当目标晚于当前游标才推进（幂等）
-        if (cursor.getLastConfirmedAt() == null || target.isAfter(cursor.getLastConfirmedAt())) {
-            cursor.setLastConfirmedAt(target);
-            offlineCursorMapper.updateById(cursor);
+        // R40：游标原子推进——SQL 条件 MAX（并发确认不倒退，替代读-比-写竞态）
+        if (target != null) {
+            int advanced = offlineCursorMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.pet.entity.PetOfflineCursor>()
+                            .set(com.cloudmart.pet.entity.PetOfflineCursor::getLastConfirmedAt, target)
+                            .eq(com.cloudmart.pet.entity.PetOfflineCursor::getId, cursor.getId())
+                            .and(w -> w.isNull(com.cloudmart.pet.entity.PetOfflineCursor::getLastConfirmedAt)
+                                    .or().lt(com.cloudmart.pet.entity.PetOfflineCursor::getLastConfirmedAt, target)));
+            cursor.setLastConfirmedAt(advanced > 0 || cursor.getLastConfirmedAt() == null
+                    ? target : cursor.getLastConfirmedAt());
         }
         Map<String, Object> result = new HashMap<>();
         result.put("confirmedAt", cursor.getLastConfirmedAt());

@@ -103,8 +103,27 @@ public class PetAnniversaryController {
         return new AnniversaryVO.Milestone(key, title, daysToGo);
     }
 
-    /** 供提醒服务复用的里程碑判定（同口径）：满百日或整周年当天 */
-    public static boolean isMilestoneDay(long adoptionDays) {
-        return adoptionDays == MILESTONE_100_DAYS || adoptionDays % 365 == 0;
+    /**
+     * R40 里程碑日判定（供提醒服务复用）：满百日，或领养周年当天——
+     * 周年按领养日期 +N 年的日历日递推（原实现 days%365 在闰年与第 0 天上失真：
+     * 领养当天 days=0 满足 %365==0 被误判为"周年"）。
+     *
+     * @param adoptedAt 领养日期（业务时区口径由调用方保证）
+     * @param today     当前日期
+     */
+    public static boolean isMilestoneDay(java.time.LocalDate adoptedAt, java.time.LocalDate today) {
+        if (adoptedAt == null || today == null || today.isBefore(adoptedAt)) {
+            return false;
+        }
+        long days = java.time.temporal.ChronoUnit.DAYS.between(adoptedAt, today);
+        if (days == MILESTONE_100_DAYS) {
+            return true;
+        }
+        for (int years = 1; years <= 20; years++) {
+            if (adoptedAt.plusYears(years).equals(today)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
