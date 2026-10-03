@@ -35,7 +35,8 @@ import java.util.Map;
 @Slf4j
 public class PetRankingServiceImpl implements PetRankingService {
 
-    private static final int TOP_N = 20;
+    /** R06：赛季页需要真实 Top50（top20 字段名保留为已发布契约，内容扩为前 50） */
+    private static final int TOP_N = 50;
     private static final String OWNER_PLACEHOLDER = "匿名训练家";
 
     private final PetMapper petMapper;

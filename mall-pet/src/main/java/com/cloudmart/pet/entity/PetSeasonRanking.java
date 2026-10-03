@@ -34,6 +34,12 @@ public class PetSeasonRanking {
 
     private Integer exp;
 
+    /** R06 奖励状态：NULL 未发 / SUCCEEDED 已发（CAS 一次性发奖事实） */
+    private String rewardStatus;
+
+    /** R06 发奖时间（UTC） */
+    private LocalDateTime rewardedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

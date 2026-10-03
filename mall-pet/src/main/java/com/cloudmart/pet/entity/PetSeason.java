@@ -29,10 +29,16 @@ public class PetSeason {
     /** 结束时间（UTC） */
     private LocalDateTime endsAt;
 
-    /** ACTIVE / SETTLED */
+    /** ACTIVE / FREEZING / SETTLING / SETTLED（R06：SETTLED 只在全量发奖后写，失败不回退 ACTIVE） */
     private String status;
 
     private LocalDateTime settledAt;
+
+    /** R06 冻榜完成时间（延迟冻榜时≠endsAt，界面须展示实际值） */
+    private LocalDateTime freezeAt;
+
+    /** R06 排名快照是否完整（1=完整；SETTLED 前置条件） */
+    private Integer snapshotComplete;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

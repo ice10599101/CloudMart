@@ -89,15 +89,9 @@ public class AdminPetSeasonController {
             season.setStatus(existing.getStatus());
             seasonMapper.updateById(season);
         } else {
-            long activeCount = seasonMapper.selectCount(new LambdaQueryWrapper<PetSeason>()
-                    .eq(PetSeason::getStatus, "ACTIVE")
-                    .gt(PetSeason::getEndsAt, LocalDateTime.now(ZoneOffset.UTC)));
-            if (activeCount > 0) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                        "已有进行中的赛季，先等它结算或结束");
-            }
+            // R06：创建在 pet_season_guard 行锁内复验——先 count 后 insert 的读快照竞态不再产生双 ACTIVE
             season.setStatus("ACTIVE");
-            seasonMapper.insert(season);
+            settlementService.createSeasonGuarded(season);
         }
         governance.snapshotAndRecord("pet_season", season.getId(),
                 PetConfigGovernanceService.currentOperator());
@@ -148,30 +142,10 @@ public class AdminPetSeasonController {
     }
 
     @PostMapping("/{id}/settle")
-    @Operation(summary = "手动触发结算", description = "仅对已到期且仍 ACTIVE 的赛季生效；幂等（快照 uk + 入账幂等键）")
+    @Operation(summary = "手动触发结算（R06）", description = "把到期 ACTIVE 赛季推进 FREEZING→SETTLING，异步按作业游标完成；"
+            + "失败不回退 ACTIVE——作业行记录错误，续跑/接管收敛；SETTLED 只在全量发奖后写")
     public ApiResponse<Void> settle(@PathVariable("id") Long id) {
-        int claimed = seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
-                .set(PetSeason::getStatus, "SETTLED")
-                .set(PetSeason::getSettledAt, LocalDateTime.now(ZoneOffset.UTC))
-                .eq(PetSeason::getId, id)
-                .eq(PetSeason::getStatus, "ACTIVE")
-                .le(PetSeason::getEndsAt, LocalDateTime.now(ZoneOffset.UTC)));
-        if (claimed == 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                    "赛季不存在、未到期或已结算");
-        }
-        PetSeason season = seasonMapper.selectById(id);
-        try {
-            settlementService.settleExpiredSeasonsFor(season);
-        } catch (Exception e) {
-            // 回退 ACTIVE 待重试（与调度器同一收敛路径）
-            seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
-                    .set(PetSeason::getStatus, "ACTIVE")
-                    .set(PetSeason::getSettledAt, null)
-                    .eq(PetSeason::getId, id)
-                    .eq(PetSeason::getStatus, "SETTLED"));
-            throw e;
-        }
+        settlementService.requestSettlement(id);
         return ApiResponse.ok(null);
     }
 }
