@@ -14,7 +14,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -23,6 +25,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * T08 版本驱动投影：索引管理端点——蓝绿重建编排、别名状态与版本清单。
+ */
 class ProductReindexControllerTest {
 
     private MockMvc mockMvc;
@@ -42,7 +47,7 @@ class ProductReindexControllerTest {
     class ReindexAll {
 
         @Test
-        @DisplayName("全量重建数据成功")
+        @DisplayName("全量重建数据成功（别名路由当前写索引）")
         void shouldReindexAll() throws Exception {
             given(productSyncService.reindexAll()).willReturn(100);
 
@@ -73,7 +78,7 @@ class ProductReindexControllerTest {
     class IndexStatus {
 
         @Test
-        @DisplayName("索引存在时应返回 mapping 与 settings")
+        @DisplayName("别名存在时应返回写索引与 mapping")
         void shouldReturnStatusWhenIndexExists() throws Exception {
             Map<String, Object> mapping = new HashMap<>();
             mapping.put("properties", Map.of("name", Map.of("type", "text")));
@@ -81,82 +86,97 @@ class ProductReindexControllerTest {
             settings.put("number_of_shards", "1");
 
             given(indexManager.indexExists()).willReturn(true);
+            given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v2"));
+            given(indexManager.legacyIndexExists()).willReturn(false);
             given(indexManager.getIndexMapping()).willReturn(mapping);
             given(indexManager.getIndexSettings()).willReturn(settings);
 
             mockMvc.perform(get("/products/es/index/status"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.exists").value(true))
+                    .andExpect(jsonPath("$.data.aliasExists").value(true))
+                    .andExpect(jsonPath("$.data.writeIndex").value("products_v2"))
                     .andExpect(jsonPath("$.data.mapping.properties.name.type").value("text"));
         }
 
         @Test
-        @DisplayName("索引不存在时应返回 exists=false")
+        @DisplayName("别名不存在时应返回 aliasExists=false")
         void shouldReturnNotExistsWhenIndexMissing() throws Exception {
             given(indexManager.indexExists()).willReturn(false);
+            given(indexManager.legacyIndexExists()).willReturn(false);
+            given(indexManager.currentWriteIndex()).willReturn(Optional.empty());
 
             mockMvc.perform(get("/products/es/index/status"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.exists").value(false));
+                    .andExpect(jsonPath("$.data.aliasExists").value(false));
         }
     }
 
     @Nested
-    @DisplayName("POST /products/es/index/recreate - 重建索引结构")
-    class RecreateIndex {
-
-        @Test
-        @DisplayName("重建索引结构成功")
-        void shouldRecreateIndex() throws Exception {
-            given(indexManager.recreateIndex()).willReturn(true);
-
-            mockMvc.perform(post("/products/es/index/recreate"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").value(true));
-        }
-    }
-
-    @Nested
-    @DisplayName("POST /products/es/index/full-rebuild - 完全重建")
+    @DisplayName("POST /products/es/index/full-rebuild - 蓝绿全量重建")
     class FullRebuild {
 
         @Test
-        @DisplayName("完全重建应先重建索引结构再同步数据")
+        @DisplayName("常规蓝绿重建：建 v{n+1} → 写入 → 原子切换")
         void shouldFullRebuild() throws Exception {
-            given(indexManager.recreateIndex()).willReturn(true);
-            given(productSyncService.reindexAll()).willReturn(50);
+            given(indexManager.indexExists()).willReturn(true);
+            given(indexManager.nextVersionIndexName()).willReturn("products_v3");
+            given(indexManager.createVersionedIndex("products_v3")).willReturn(true);
+            given(productSyncService.reindexAll("products_v3")).willReturn(50);
+            given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v3"));
+            given(indexManager.switchAliasTo("products_v3")).willReturn(true);
 
             mockMvc.perform(post("/products/es/index/full-rebuild"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.indexRecreated").value(true))
-                    .andExpect(jsonPath("$.data.documentsSynced").value(50));
+                    .andExpect(jsonPath("$.data.targetIndex").value("products_v3"))
+                    .andExpect(jsonPath("$.data.documentsSynced").value(50))
+                    .andExpect(jsonPath("$.data.aliasSwitched").value(true));
         }
 
         @Test
-        @DisplayName("索引重建失败时不应同步数据")
-        void shouldNotSyncWhenRecreateFailed() throws Exception {
-            given(indexManager.recreateIndex()).willReturn(false);
+        @DisplayName("版本索引创建失败时不同步数据，返回业务错误")
+        void shouldNotSyncWhenCreateFailed() throws Exception {
+            given(indexManager.indexExists()).willReturn(true);
+            given(indexManager.nextVersionIndexName()).willReturn("products_v3");
+            given(indexManager.createVersionedIndex("products_v3")).willReturn(false);
 
             mockMvc.perform(post("/products/es/index/full-rebuild"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.indexRecreated").value(false))
-                    .andExpect(jsonPath("$.data.documentsSynced").value(0));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value("ES_INDEX_CREATE_FAILED"));
+            Mockito.verify(productSyncService, Mockito.never()).reindexAll(anyString());
         }
     }
 
     @Nested
-    @DisplayName("DELETE /products/es/index - 删除索引")
+    @DisplayName("GET /products/es/index/versions - 版本清单")
+    class IndexVersions {
+
+        @Test
+        @DisplayName("返回当前写索引与别名指向")
+        void shouldReturnVersions() throws Exception {
+            given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v2"));
+            given(indexManager.legacyIndexExists()).willReturn(false);
+
+            mockMvc.perform(get("/products/es/index/versions"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.writeIndex").value("products_v2"));
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /products/es/index - 清理")
     class DeleteIndex {
 
         @Test
-        @DisplayName("删除索引成功")
-        void shouldDeleteIndex() throws Exception {
-            given(indexManager.deleteIndex()).willReturn(true);
+        @DisplayName("破坏性删除已移除：返回引导信息而非删除")
+        void shouldNotDelete() throws Exception {
+            given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v2"));
 
             mockMvc.perform(delete("/products/es/index"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").value(true));
+                    .andExpect(jsonPath("$.data.removed").value(false));
+            Mockito.verifyNoInteractions(productSyncService);
         }
     }
 }

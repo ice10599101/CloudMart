@@ -11,6 +11,8 @@ import com.cloudmart.product.repository.ProductSkuMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -29,15 +31,18 @@ public class ProductSyncService {
     private static final int REINDEX_PAGE_SIZE = 500;
 
     private final ProductSearchRepository searchRepository;
+    private final ElasticsearchOperations operations;
     private final ProductMapper productMapper;
     private final ProductSkuMapper skuMapper;
     private final ProductReviewMapper reviewMapper;
 
     public ProductSyncService(ProductSearchRepository searchRepository,
+                              ElasticsearchOperations operations,
                               ProductMapper productMapper,
                               ProductSkuMapper skuMapper,
                               ProductReviewMapper reviewMapper) {
         this.searchRepository = searchRepository;
+        this.operations = operations;
         this.productMapper = productMapper;
         this.skuMapper = skuMapper;
         this.reviewMapper = reviewMapper;
@@ -80,6 +85,18 @@ public class ProductSyncService {
      * @return 同步的商品文档数量
      */
     public int reindexAll() {
+        return reindexAll(null);
+    }
+
+    /**
+     * 全量重建到指定目标索引（T08 蓝绿切换用）：写入直指版本化实体索引
+     * （此时读仍走别名=旧版本，重建期间搜索不受影响），完成后由调用方原子切换别名。
+     * targetIndex 为 null 时写入默认别名路由（当前 write index）。
+     *
+     * @param targetIndex 目标实体索引名（如 products_v2）；null = 默认别名路由
+     * @return 同步的商品文档数量
+     */
+    public int reindexAll(String targetIndex) {
         int count = 0;
         int totalPages = Integer.MAX_VALUE;
 
@@ -102,9 +119,14 @@ public class ProductSyncService {
                             avgRatingMap.getOrDefault(p.getId(), 0.0)))
                     .toList();
 
-            searchRepository.saveAll(docs);
+            if (targetIndex == null || targetIndex.isBlank()) {
+                searchRepository.saveAll(docs);
+            } else {
+                operations.save(docs, IndexCoordinates.of(targetIndex));
+            }
             count += docs.size();
-            log.info("Reindexed page {}/{} ({} docs, total: {})", pageNum, totalPages, docs.size(), count);
+            log.info("Reindexed page {}/{} ({} docs, total: {}, target: {})",
+                    pageNum, totalPages, docs.size(), count, targetIndex == null ? "(alias route)" : targetIndex);
         }
 
         log.info("Reindexed {} products to ES", count);

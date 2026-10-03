@@ -49,11 +49,14 @@ class ProductSyncServiceTest {
     @Mock
     private ProductReviewMapper reviewMapper;
 
+    @Mock
+    private org.springframework.data.elasticsearch.core.ElasticsearchOperations operations;
+
     private ProductSyncService productSyncService;
 
     @BeforeEach
     void setUp() {
-        productSyncService = new ProductSyncService(searchRepository, productMapper, skuMapper, reviewMapper);
+        productSyncService = new ProductSyncService(searchRepository, operations, productMapper, skuMapper, reviewMapper);
     }
 
     private Product buildProduct(Long id, String name, String brand, Long categoryId) {
