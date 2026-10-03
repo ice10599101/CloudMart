@@ -63,6 +63,13 @@ jobs:
       # CI runner 不持有其授权，排除该模块——wish IT 仅在授权环境以 -Dwish.it.enabled=true 执行
       - name: 集成测试（-Pintegration-test → failsafe verify；mall-wish 除外）
         run: ./mvnw -B -ntp -Pintegration-test verify -pl '!mall-wish'
+      - name: 上传集成测试报告（失败排障）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-reports
+          path: '**/target/failsafe-reports/**'
+          retention-days: 7
       - name: 集成测试执行数校验（防止 IT 被静默跳过）
         run: |
           total=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')
