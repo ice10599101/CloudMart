@@ -44,6 +44,8 @@ public class PetFriendFeedService {
     private final PetFriendMapper friendMapper;
     private final PetFriendFeedMapper feedMapper;
     private final PetFriendFeedCursorMapper cursorMapper;
+    /** R21：屏蔽贯通——已互相拉黑的好友不再接收新动态扇出，读取时过滤历史行 */
+    private final com.cloudmart.pet.service.PetUserBlockService blockService;
 
     /**
      * 扇出写一条动态给 actor 的全部好友（调用方事务内执行）。
@@ -61,7 +63,10 @@ public class PetFriendFeedService {
                             .eq(PetFriend::getStatus, PetFriendStatus.ACTIVE.name())
                             .select(PetFriend::getFriendUserId)
                             .last("LIMIT " + (MAX_FANOUT + 1)))
-                    .stream().map(PetFriend::getFriendUserId).toList();
+                    .stream().map(PetFriend::getFriendUserId)
+                    // R21：拉黑后不再扇出新动态（历史行为存储优化另行异步清理）
+                    .filter(friendId -> !blockService.isBlockedEitherWay(actorUserId, friendId))
+                    .toList();
             if (friendIds.size() > MAX_FANOUT) {
                 log.warn("好友数超过扇出上限，截断: actor={}, count>{}", actorUserId, MAX_FANOUT);
                 friendIds = friendIds.subList(0, MAX_FANOUT);
@@ -105,7 +110,13 @@ public class PetFriendFeedService {
         if (beforeId != null) {
             wrapper.lt(PetFriendFeed::getId, beforeId);
         }
-        return feedMapper.selectList(wrapper).stream()
+        // R21：读取时复验屏蔽——取消好友/拉黑后历史动态即时不可见（异步清理只是存储优化）
+        List<PetFriendFeed> rows = feedMapper.selectList(wrapper);
+        List<Long> blockedActors = rows.stream().map(PetFriendFeed::getActorUserId).distinct()
+                .filter(actorId -> blockService.isBlockedEitherWay(userId, actorId))
+                .toList();
+        return rows.stream()
+                .filter(row -> !blockedActors.contains(row.getActorUserId()))
                 .map(this::toVo)
                 .toList();
     }
