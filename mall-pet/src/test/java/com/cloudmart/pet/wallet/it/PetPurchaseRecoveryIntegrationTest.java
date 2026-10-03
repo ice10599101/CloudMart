@@ -176,6 +176,19 @@ class PetPurchaseRecoveryIntegrationTest {
 
     private static final String REQUEST_KEY = "it-purchase-key-0001";
 
+    @Autowired
+    private PetWalletService walletService;
+    @Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+    /** 采购即扣款：钱包余额 0 无法下单，测试前按用户种子入账（账本行隔离） */
+    private void seedWallet(long userId, long amount) {
+        transactionTemplate.executeWithoutResult(status -> walletService.credit(
+                new com.cloudmart.pet.wallet.PetWalletService.PetWalletCommand(userId, 5L, "EARN",
+                        "SEED", "seed:" + userId, amount, "pw_seed_" + userId, "hash_seed_" + userId,
+                        null, "v1", null)));
+    }
+
     private PurchaseResult purchase(long userId, String requestKey) {
         return purchaseService.purchase(userId, 5L, "FOOD", "cake", requestKey, "v1");
     }
@@ -217,6 +230,7 @@ class PetPurchaseRecoveryIntegrationTest {
     @DisplayName("正常购买与同键重放：一订单/一扣款/一资产授予，重放返回原结果")
     void purchaseAndReplay_oneFactEach() {
         long userId = 3001;
+        seedWallet(userId, 100);
 
         PurchaseResult first = purchase(userId, REQUEST_KEY);
         assertThat(first.duplicate()).isFalse();
@@ -242,6 +256,7 @@ class PetPurchaseRecoveryIntegrationTest {
     @DisplayName("QA35 业务提交后执行者丢失：恢复扫描器按事实收敛，不重扣不重发")
     void crashedAfterCommit_recoveredByFacts() {
         long userId = 3002;
+        seedWallet(userId, 100);
         PurchaseResult first = purchase(userId, REQUEST_KEY);
         assertThat(countDebits(userId)).isEqualTo(1);
 
@@ -269,6 +284,7 @@ class PetPurchaseRecoveryIntegrationTest {
     @DisplayName("QA35 claim 后业务事务前崩溃：租约到期接管后同键重试，无悬挂残留")
     void crashedBeforeCommit_retryAfterTakeover() {
         long userId = 3003;
+        seedWallet(userId, 100);
         // 模拟崩溃：仅占键（REQUIRES_NEW 已提交），业务事务从未开始
         dedupService.claim(userId, "PURCHASE", REQUEST_KEY,
                 dedupService.canonicalHash(userId, "5", "FOOD", "cake", "v1"));
@@ -287,6 +303,7 @@ class PetPurchaseRecoveryIntegrationTest {
     @DisplayName("QA35 业务回滚无事实：恢复置 FAILED，同键重试安全重建")
     void rolledBackNoFact_recoveryMarksRetryable() {
         long userId = 3004;
+        seedWallet(userId, 100);
         dedupService.claim(userId, "PURCHASE", REQUEST_KEY,
                 dedupService.canonicalHash(userId, "5", "FOOD", "cake", "v1"));
         expireLeaseAsIfCrashed(userId);

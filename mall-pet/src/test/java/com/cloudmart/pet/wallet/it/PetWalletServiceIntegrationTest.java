@@ -272,7 +272,7 @@ class PetWalletServiceIntegrationTest {
         long userId = newUser(100);
         debitInTx(userId, "order-1_" + userId, 10, "pw_op_a_" + userId);
 
-        assertThatThrownBy(() -> debitInTx(userId, "order-1", 20, "pw_op_a"))
+        assertThatThrownBy(() -> debitInTx(userId, "order-1_" + userId, 20, "pw_op_a_" + userId))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_OPERATION_CONFLICT));
 
