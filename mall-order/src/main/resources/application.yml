@@ -165,3 +165,11 @@ cloudmart:
       mall-marketing: marketing:internal
       # T09/T10：系统建单（秒杀/拼团消费者）取用户默认收货地址
       mall-user: user:internal
+
+# E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
+# SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}

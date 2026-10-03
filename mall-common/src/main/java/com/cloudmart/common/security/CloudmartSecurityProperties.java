@@ -44,6 +44,10 @@ public class CloudmartSecurityProperties {
     /** 服务令牌共享密钥（HS256，≥32 字节；部署环境变量 CLOUDMART_SERVICE_TOKEN_SECRET） */
     private String serviceTokenSecret = "";
 
+    /** S05 轮换过渡期的上一代密钥（可空）：验签时先当前后旧代，签发永远只用当前密钥。
+     * 轮换流程：全量注入新密钥+旧密钥为 previous → 滚动重启 → 撤掉 previous。 */
+    private String serviceTokenSecretPrevious = "";
+
     /** mall-auth JWKS 地址（RS256 用户/管理员令牌验签公钥） */
     private String jwksUri = "http://127.0.0.1:9001/oauth2/jwks";
 
@@ -89,6 +93,14 @@ public class CloudmartSecurityProperties {
 
     public void setServiceTokenSecret(String serviceTokenSecret) {
         this.serviceTokenSecret = serviceTokenSecret;
+    }
+
+    public String getServiceTokenSecretPrevious() {
+        return serviceTokenSecretPrevious;
+    }
+
+    public void setServiceTokenSecretPrevious(String serviceTokenSecretPrevious) {
+        this.serviceTokenSecretPrevious = serviceTokenSecretPrevious;
     }
 
     public String getJwksUri() {

@@ -163,4 +163,56 @@ class ServiceTokenAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
     }
+
+    @Test
+    @DisplayName("S05 轮换：当前密钥签发的令牌正常通过")
+    void rotation_currentSecret_accepted() throws ServletException, IOException {
+        String newSecret = "rotation-new-secret-0123456789abcdef0123456789";
+        properties.setServiceTokenSecret(newSecret);
+        properties.setServiceTokenSecretPrevious(SECRET);
+        String token = ServiceTokenCodec.sign("mall-admin", "mall-order", "order:admin",
+                java.time.Duration.ofSeconds(120), newSecret, NOW);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request("/admin/orders", token), response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication())
+                .isNotNull()
+                .extracting(a -> a.getAuthorities().iterator().next().getAuthority())
+                .isEqualTo("ROLE_INTERNAL");
+    }
+
+    @Test
+    @DisplayName("S05 轮换：过渡窗口内旧密钥令牌仍可验签通过（可消费）")
+    void rotation_previousSecret_acceptedDuringWindow() throws ServletException, IOException {
+        String newSecret = "rotation-new-secret-0123456789abcdef0123456789";
+        properties.setServiceTokenSecret(newSecret);
+        properties.setServiceTokenSecretPrevious(SECRET);
+        // 令牌由旧代密钥签发（滚动重启完成前的存量调用方）
+        String token = ServiceTokenCodec.sign("mall-admin", "mall-order", "order:admin",
+                java.time.Duration.ofSeconds(120), SECRET, NOW);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request("/admin/orders", token), response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication())
+                .isNotNull()
+                .extracting(a -> a.getAuthorities().iterator().next().getAuthority())
+                .isEqualTo("ROLE_INTERNAL");
+    }
+
+    @Test
+    @DisplayName("S05 轮换：未配置旧代密钥时旧密钥令牌被拒绝（轮换完成后撤密钥即失效）")
+    void rotation_previousRevoked_rejected() throws ServletException, IOException {
+        String newSecret = "rotation-new-secret-0123456789abcdef0123456789";
+        properties.setServiceTokenSecret(newSecret);
+        // 不配置 previous：轮换已完成的稳态
+        String token = ServiceTokenCodec.sign("mall-admin", "mall-order", "order:admin",
+                java.time.Duration.ofSeconds(120), SECRET, NOW);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request("/admin/orders", token), response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
 }

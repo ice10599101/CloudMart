@@ -70,10 +70,8 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
                 }
             } else if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
-                    ServiceTokenCodec.ServiceTokenClaims claims = ServiceTokenCodec.verify(
-                            token, properties.getServiceTokenSecret(), properties.getServiceId(),
-                            null, requirement.scope(),
-                            clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
+                    ServiceTokenCodec.ServiceTokenClaims claims = verifyWithRotation(
+                            token, requirement, request.getRequestURI());
                     if (!requirement.issuers().contains(claims.issuer())) {
                         log.warn("[SEC01 REJECT] 服务令牌签发方不在允许列表 path={} issuer={} allowed={}",
                                 request.getRequestURI(), claims.issuer(), requirement.issuers());
@@ -100,6 +98,39 @@ public class ServiceTokenAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * S05 密钥轮换：先用当前密钥验签；失败且配置了上一代密钥（≥32 字节）时
+     * 以旧代密钥重验——旧代令牌在过渡窗口内仍可消费，签发侧永远只用当前
+     * 密钥，滚动重启完成后撤掉 previous 即完成轮换。
+     */
+    private ServiceTokenCodec.ServiceTokenClaims verifyWithRotation(
+            String token, CloudmartSecurityProperties.ServiceTokenPath requirement, String requestUri)
+            throws ServiceTokenCodec.ServiceTokenException {
+        try {
+            return ServiceTokenCodec.verify(
+                    token, properties.getServiceTokenSecret(), properties.getServiceId(),
+                    null, requirement.scope(),
+                    clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
+        } catch (ServiceTokenCodec.ServiceTokenException primary) {
+            String previous = properties.getServiceTokenSecretPrevious();
+            if (previous == null || previous.length() < ServiceTokenCodec.MIN_SECRET_LENGTH) {
+                throw primary;
+            }
+            try {
+                ServiceTokenCodec.ServiceTokenClaims legacy = ServiceTokenCodec.verify(
+                        token, previous, properties.getServiceId(),
+                        null, requirement.scope(),
+                        clock.instant(), Duration.ofSeconds(properties.getClockSkewSeconds()));
+                log.warn("[SEC01 ROTATION] 令牌由上一代密钥签发（验签通过，轮换过渡中） path={} issuer={}",
+                        requestUri, legacy.issuer());
+                return legacy;
+            } catch (ServiceTokenCodec.ServiceTokenException ignored) {
+                // 新旧密钥均验签失败：按当前密钥的原始失败语义处理
+                throw primary;
+            }
+        }
     }
 
     /**

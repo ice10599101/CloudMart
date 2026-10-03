@@ -131,7 +131,11 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+    # E03：生产注入 SPRINGDOC_SWAGGER_UI_ENABLED=false 关闭
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
   api-docs:
+    # E03：生产注入 SPRINGDOC_API_DOCS_ENABLED=false 关闭
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
     path: /v3/api-docs
   default-flat-param-object: true
 

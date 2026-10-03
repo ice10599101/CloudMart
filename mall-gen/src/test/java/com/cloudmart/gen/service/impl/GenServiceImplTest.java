@@ -163,7 +163,7 @@ class GenServiceImplTest {
 
             assertThat(result).isNotEmpty();
             assertThat(result.stream().map(GenPreviewResponse::templateName).toList())
-                    .contains("entity.java", "mapper.java", "service.java", "controller.java", "index.vue");
+                    .contains("entity.java", "mapper.java", "service.java", "controller.java", "api.ts");
         }
 
         @Test

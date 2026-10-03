@@ -114,6 +114,7 @@ public class ReconciliationService {
 
         try {
             int checked = 0;
+            int skipped = 0;
             int diffs = 0;
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
 
@@ -132,7 +133,6 @@ public class ReconciliationService {
                 }
                 for (PaymentAttempt attempt : batch) {
                     lastId = attempt.getId();
-                    checked++;
                     String orderStatus;
                     try {
                         ApiResponse<OrderInternalInfoDTO> orderResp =
@@ -140,11 +140,14 @@ public class ReconciliationService {
                         orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
                                 ? orderResp.data().status() : "UNREACHABLE";
                     } catch (Exception queryError) {
-                        // 订单服务不可达：该条跳过不误报（差异必须两侧状态可核验才成立）
+                        // T11：依赖服务不可达计 skipped 不计 checked——差异必须两侧可核验，
+                        // 运营据此区分"核对干净"与"没查到"
+                        skipped++;
                         log.warn("[OPS01] 订单状态查询失败，跳过该条 attemptId={}: {}",
                                 attempt.getId(), queryError.getMessage());
                         continue;
                     }
+                    checked++;
                     if (isPaidOrBeyond(orderStatus)) {
                         continue;
                     }
@@ -191,10 +194,11 @@ public class ReconciliationService {
 
             run.setTotalChecked(checked);
             run.setTotalDiff(diffs);
+            run.setTotalSkipped(skipped);
             run.setStatus("DONE");
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
-            log.info("[OPS01] 对账完成 run={} checked={} diffs={}", run.getId(), checked, diffs);
+            log.info("[OPS01] 对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
             return run;
         } catch (Exception e) {
             run.setStatus("FAILED");
@@ -221,6 +225,7 @@ public class ReconciliationService {
 
         try {
             int checked = 0;
+            int skipped = 0;
             int diffs = 0;
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
 
@@ -237,7 +242,6 @@ public class ReconciliationService {
                     if (!"SUCCEEDED".equals(refund.getStatus())) {
                         continue;
                     }
-                    checked++;
                     String orderStatus;
                     try {
                         ApiResponse<OrderInternalInfoDTO> orderResp =
@@ -245,10 +249,13 @@ public class ReconciliationService {
                         orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
                                 ? orderResp.data().status() : "UNREACHABLE";
                     } catch (Exception queryError) {
+                        // T11：依赖服务不可达计 skipped，不计入已核对
+                        skipped++;
                         log.warn("[T11] 退款对账订单查询失败，跳过 refundNo={}: {}",
                                 refund.getRefundNo(), queryError.getMessage());
                         continue;
                     }
+                    checked++;
                     if ("REFUNDED".equals(orderStatus)) {
                         continue;
                     }
@@ -298,10 +305,11 @@ public class ReconciliationService {
 
             run.setTotalChecked(checked);
             run.setTotalDiff(diffs);
+            run.setTotalSkipped(skipped);
             run.setStatus("DONE");
             run.setFinishedAt(java.time.LocalDateTime.now());
             runMapper.updateById(run);
-            log.info("[T11] 退款对账完成 run={} checked={} diffs={}", run.getId(), checked, diffs);
+            log.info("[T11] 退款对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
             return run;
         } catch (Exception e) {
             run.setStatus("FAILED");
@@ -330,6 +338,7 @@ public class ReconciliationService {
 
         try {
             int checked = 0;
+            int skipped = 0;
             int diffs = 0;
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
             long lastId = 0;
@@ -349,7 +358,6 @@ public class ReconciliationService {
                 }
                 for (com.cloudmart.payment.dto.ReservationScanDTO row : batch) {
                     lastId = Math.max(lastId, row.orderId() == null ? lastId : row.orderId());
-                    checked++;
                     String orderStatus;
                     try {
                         ApiResponse<OrderInternalInfoDTO> orderResp =
@@ -357,13 +365,17 @@ public class ReconciliationService {
                         orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
                                 ? orderResp.data().status() : "UNREACHABLE";
                     } catch (Exception queryError) {
+                        skipped++;
                         log.warn("[T11] 库存对账订单查询失败，跳过 orderId={}: {}",
                                 row.orderId(), queryError.getMessage());
                         continue;
                     }
                     if ("UNREACHABLE".equals(orderStatus)) {
+                        // 状态不可核验：计 skipped，与"核对一致"分开统计
+                        skipped++;
                         continue;
                     }
+                    checked++;
                     if ("RESERVED".equals(row.status()) && !row.createdAt().isBefore(LocalDateTime.now().minusHours(24))) {
                         continue; // 24h 内的新预占：正常在途
                     }
@@ -394,10 +406,11 @@ public class ReconciliationService {
 
             run.setTotalChecked(checked);
             run.setTotalDiff(diffs);
+            run.setTotalSkipped(skipped);
             run.setStatus("DONE");
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
-            log.info("[T11] 库存对账完成 run={} checked={} diffs={}", run.getId(), checked, diffs);
+            log.info("[T11] 库存对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
             return run;
         } catch (Exception e) {
             run.setStatus("FAILED");

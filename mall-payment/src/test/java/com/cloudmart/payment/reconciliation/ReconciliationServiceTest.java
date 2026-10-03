@@ -136,6 +136,9 @@ class ReconciliationServiceTest {
 
         assertThat(run.getStatus()).isEqualTo("DONE");
         assertThat(run.getTotalDiff()).isZero();
+        // T11：不可核验行计 skipped，与"核对一致"分开
+        assertThat(run.getTotalSkipped()).isEqualTo(1);
+        assertThat(run.getTotalChecked()).isZero();
         verify(differenceMapper, never()).insert(any(ReconciliationDifference.class));
     }
 

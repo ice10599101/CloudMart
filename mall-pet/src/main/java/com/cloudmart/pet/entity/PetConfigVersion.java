@@ -26,7 +26,7 @@ public class PetConfigVersion {
     private Integer version;
     private String snapshot;
     private String operation;
-    private String operator;;
+    private String operator;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

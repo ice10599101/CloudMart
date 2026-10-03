@@ -25,6 +25,9 @@ public class ReconciliationRun {
 
     private Integer totalDiff;
 
+    /** T11：不可核验跳过条数（依赖服务不可达等）——区分"干净"与"没查到" */
+    private Integer totalSkipped;
+
     /** RUNNING / DONE / FAILED */
     private String status;
 

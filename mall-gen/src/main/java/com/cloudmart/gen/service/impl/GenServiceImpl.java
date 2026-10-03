@@ -81,7 +81,7 @@ public class GenServiceImpl implements GenService {
             velocityEngine.evaluate(context, writer, entry.getKey(), entry.getValue());
             previews.add(new GenPreviewResponse(
                     entry.getKey(),
-                    getFileName(entry.getKey(), context),
+                    safeEntryName(getFileName(entry.getKey(), context)),
                     writer.toString()
             ));
         }
@@ -100,7 +100,7 @@ public class GenServiceImpl implements GenService {
                 StringWriter writer = new StringWriter();
                 velocityEngine.evaluate(context, writer, entry.getKey(), entry.getValue());
 
-                String fileName = getFileName(entry.getKey(), context);
+                String fileName = safeEntryName(getFileName(entry.getKey(), context));
                 zip.putNextEntry(new ZipEntry(fileName));
                 zip.write(writer.toString().getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
@@ -334,61 +334,34 @@ public class ${BusinessName}Controller {
 }
 """);
 
-        templates.put("index.vue", """
-<script setup lang="ts">
-import request from '@/utils/admin-request'
+        templates.put("api.ts", """
+// E04 生成物：React API 客户端（types + CRUD）——页面组件按项目规范人工编写
+import request from '@/utils/request'
 
-const loading = ref(false)
-const tableData = ref([])
-const dialogVisible = ref(false)
-const form = ref({})
-
-async function loadList() {
-  loading.value = true
-  try {
-    const res = await request.get('/${moduleName}/${businessName}/list')
-    tableData.value = res.data || []
-  } finally {
-    loading.value = false
-  }
+export interface ${BusinessName}Record {
+  id: number | string
+  [key: string]: unknown
 }
 
-function handleAdd() {
-  form.value = {}
-  dialogVisible.value = true
+export function list${BusinessName}(params: { page?: number; pageSize?: number }) {
+  return request.get('/${moduleName}/${businessName}/list', { params })
 }
 
-function handleEdit(row: any) {
-  form.value = { ...row }
-  dialogVisible.value = true
+export function get${BusinessName}(id: number | string) {
+  return request.get(`/${moduleName}/${businessName}/${'$'}{id}`)
 }
 
-async function handleDelete(id: number) {
-  await request.delete('/${moduleName}/${businessName}/' + id)
-  loadList()
+export function create${BusinessName}(data: Partial<${BusinessName}Record>) {
+  return request.post('/${moduleName}/${businessName}', data)
 }
 
-onMounted(loadList)
-</script>
+export function update${BusinessName}(id: number | string, data: Partial<${BusinessName}Record>) {
+  return request.put(`/${moduleName}/${businessName}/${'$'}{id}`, data)
+}
 
-<template>
-  <div class="p-4">
-    <div class="mb-4 flex justify-between">
-      <h2 class="text-lg font-bold text-text">${functionName}管理</h2>
-      <el-button type="primary" @click="handleAdd">新增</el-button>
-    </div>
-    <el-table :data="tableData" v-loading="loading" class="w-full">
-      <el-table-column type="index" label="#" width="60" />
-      <el-table-column prop="id" label="ID" width="180" />
-      <el-table-column label="操作" width="200" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button link type="danger" @click="handleDelete(row.id)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-  </div>
-</template>
+export function delete${BusinessName}(id: number | string) {
+  return request.delete(`/${moduleName}/${businessName}/${'$'}{id}`)
+}
 """);
 
         return templates;
@@ -406,8 +379,21 @@ onMounted(loadList)
             case "mapper.java" -> String.format("java/%s/%s/repository/%sMapper.java", packagePath, moduleName, BusinessName);
             case "service.java" -> String.format("java/%s/%s/service/%sService.java", packagePath, moduleName, BusinessName);
             case "controller.java" -> String.format("java/%s/%s/controller/%sController.java", packagePath, moduleName, BusinessName);
-            case "index.vue" -> String.format("vue/%s/%s/index.vue", moduleName, businessName);
+            // E04：三端均为 React——原 index.vue 模板已删除，改为生成 API 客户端
+            case "api.ts" -> String.format("web/api/%s/%s.ts", moduleName, businessName);
             default -> templateName;
         };
+    }
+
+    /** E04：ZIP entry 兜底校验——拒绝路径穿越/绝对路径/反斜杠/控制字符 */
+    private String safeEntryName(String name) {
+        if (name == null || name.isBlank()
+                || name.startsWith("/") || name.startsWith("\\")
+                || name.contains("..") || name.contains("\\")
+                || name.indexOf(':') >= 0
+                || name.indexOf('\r') >= 0 || name.indexOf('\n') >= 0) {
+            throw new BusinessException("GEN_PATH_INVALID", "生成文件路径非法: " + name);
+        }
+        return name;
     }
 }

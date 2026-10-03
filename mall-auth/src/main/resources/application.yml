@@ -108,3 +108,11 @@ cloudmart:
       # SEC-04：/internal/users/validate 凭据验证经服务令牌调用
       mall-user: user:internal
     user-jwt-verification-enabled: false
+
+# E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
+# SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
