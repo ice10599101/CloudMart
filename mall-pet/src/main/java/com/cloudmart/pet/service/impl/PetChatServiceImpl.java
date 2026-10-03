@@ -198,12 +198,12 @@ public class PetChatServiceImpl implements PetChatService {
         try {
             reply = aiClient.generateReply(systemPrompt, aiInput);
             long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
-            metrics.add("pet_chat_ai_latency_ms", elapsedMs, "outcome", "success");
+            metrics.record("pet_chat_ai_latency_ms", elapsedMs, "outcome", "success");
             // 估算 token（与落库口径一致：chars/2；输入+输出全量）
             metrics.add("pet_chat_ai_cost_tokens",
                     (systemPrompt.length() + aiInput.length() + reply.length()) / 2.0);
         } catch (BusinessException e) {
-            metrics.add("pet_chat_ai_latency_ms", (System.nanoTime() - startNanos) / 1_000_000,
+            metrics.record("pet_chat_ai_latency_ms", (System.nanoTime() - startNanos) / 1_000_000,
                     "outcome", "fallback");
             metrics.increment("pet_chat_ai_fallback_total", "code",
                     e.getCode() != null ? e.getCode() : "unknown");

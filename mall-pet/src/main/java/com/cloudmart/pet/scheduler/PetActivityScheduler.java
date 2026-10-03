@@ -38,6 +38,8 @@ import java.util.List;
 public class PetActivityScheduler {
 
     private static final int SCAN_BATCH = 100;
+    /** R25：本实例持有的锁 token（key→token），释放时比较删除 */
+    private final java.util.Map<String, String> LOCK_TOKENS = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** P1-5：多实例互斥锁（抢不到直接返回；Redis 故障 Fail-Open 退化为无害重扫） */
     static final String LOCK_SETTLE = "pet:lock:activity-settle";
@@ -123,20 +125,36 @@ public class PetActivityScheduler {
         }
     }
 
-    /** SET NX EX 抢锁；Redis 故障 Fail-Open（返回 true 继续执行，靠下游 CAS 幂等兜底） */
+    /** SET NX EX 抢锁（携带随机 token）；Redis 故障 Fail-Open（返回 true 继续执行，靠下游 CAS 幂等兜底） */
     private boolean tryLock(String key, Duration ttl) {
         try {
-            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, "1", ttl);
-            return !Boolean.FALSE.equals(acquired);
+            String token = java.util.UUID.randomUUID().toString();
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, token, ttl);
+            if (!Boolean.FALSE.equals(acquired)) {
+                LOCK_TOKENS.put(key, token);
+                return true;
+            }
+            return false;
         } catch (Exception e) {
             log.warn("调度分布式锁不可用（Fail-Open 继续执行）: key={}", key, e);
             return true;
         }
     }
 
+    /**
+     * R25：Lua 比较删除——仅当锁值仍为本执行者 token 才删除。
+     * 原实现固定值 "1" 直接 delete：长任务超 TTL 后，旧持有者 finally 会删掉
+     * 新持有者刚抢到的锁，互斥窗口失效（T40 调度锁有效性）。
+     */
     private void unlock(String key) {
         try {
-            redisTemplate.delete(key);
+            String token = LOCK_TOKENS.remove(key);
+            if (token == null) {
+                return;
+            }
+            redisTemplate.execute(new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+                    Long.class), java.util.List.of(key), token);
         } catch (Exception ignored) {
             // TTL 兜底过期，无需处理
         }
