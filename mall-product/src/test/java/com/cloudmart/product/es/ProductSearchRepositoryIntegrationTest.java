@@ -49,7 +49,13 @@ class ProductSearchRepositoryIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         Rest5Client rest5Client = Rest5Client.builder(HttpHost.create(ES_CONTAINER.getHttpHostAddress())).build();
-        Rest5ClientTransport transport = new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper());
+        // JacksonJsonpMapper 默认 ObjectMapper 不支持 JSR-310——LocalDateTime 序列化
+        // 直接抛错（CI 集成 job 首次真实执行暴露）；注册 JavaTimeModule 并输出 ISO 字符串
+        com.fasterxml.jackson.databind.ObjectMapper jackson2 =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                        .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        Rest5ClientTransport transport = new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper(jackson2));
         client = new ElasticsearchClient(transport);
 
         client.indices().delete(d -> d.index(INDEX_NAME).ignoreUnavailable(true));
