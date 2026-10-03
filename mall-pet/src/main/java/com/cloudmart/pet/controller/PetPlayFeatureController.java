@@ -4,6 +4,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.vo.PetMinigameRoundVO;
+import com.cloudmart.pet.service.impl.PetMinigameService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +30,8 @@ import java.util.Map;
 public class PetPlayFeatureController {
 
     private final PetPlayFeatureService playService;
+    /** R27：小游戏拆分为独立应用服务 */
+    private final PetMinigameService minigameService;
 
     // ---------------- N04 ----------------
 
@@ -39,7 +42,7 @@ public class PetPlayFeatureController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "宠物 ID") @PathVariable("petId") Long petId) {
         // FE-04/§7.4：路径 petId 必须传入服务并验证归属，不能忽略后回退主宠
-        return ApiResponse.ok(playService.startRound(userId, petId));
+        return ApiResponse.ok(minigameService.startRound(userId, petId));
     }
 
     public record RoundOpsRequest(List<Map<String, Object>> ops) {
@@ -51,7 +54,7 @@ public class PetPlayFeatureController {
     public ApiResponse<java.util.Map<String, Object>> currentRound(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "宠物 ID") @RequestParam(value = "petId", required = false) Long petId) {
-        return ApiResponse.ok(playService.currentRound(userId));
+        return ApiResponse.ok(minigameService.currentRound(userId));
     }
 
     @PostMapping("/minigames/{roundId}/ops")
@@ -60,7 +63,7 @@ public class PetPlayFeatureController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("roundId") Long roundId,
             @RequestBody RoundOpsRequest request) {
-        return ApiResponse.ok(playService.submitOps(userId, roundId, request.ops()));
+        return ApiResponse.ok(minigameService.submitOps(userId, roundId, request.ops()));
     }
 
     @PostMapping("/minigames/{roundId}/settle")
@@ -69,7 +72,7 @@ public class PetPlayFeatureController {
     public ApiResponse<Map<String, Object>> settleRound(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("roundId") Long roundId) {
-        return ApiResponse.ok(playService.settle(userId, roundId));
+        return ApiResponse.ok(minigameService.settle(userId, roundId));
     }
 
     @GetMapping("/minigames")
@@ -78,7 +81,7 @@ public class PetPlayFeatureController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return ApiResponse.ok(playService.history(userId, page, size));
+        return ApiResponse.ok(minigameService.history(userId, page, size));
     }
 
     // ---------------- N05 ----------------

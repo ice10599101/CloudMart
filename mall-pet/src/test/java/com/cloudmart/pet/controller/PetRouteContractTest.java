@@ -3,6 +3,7 @@ package com.cloudmart.pet.controller;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.service.impl.PetCompanionFeatureService;
+import com.cloudmart.pet.service.impl.PetMinigameService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
@@ -55,7 +56,8 @@ class PetRouteContractTest {
                 .build();
 
         playMockMvc = MockMvcBuilders.standaloneSetup(
-                        new PetPlayFeatureController(mock(PetPlayFeatureService.class)))
+                        new PetPlayFeatureController(mock(PetPlayFeatureService.class),
+                        mock(PetMinigameService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
