@@ -46,6 +46,9 @@ public class PetDailyQuest {
     /** 目标值（生成时快照） */
     private Integer targetValue;
 
+    /** R32 生成时奖励快照 JSON（普通任务: name/questType/expReward/currencyReward/actionTarget；宝箱行: chestExp/chestCurrency） */
+    private String rewardSnapshot;
+
     /** 状态：IN_PROGRESS/COMPLETE/CLAIMED */
     private String status;
 

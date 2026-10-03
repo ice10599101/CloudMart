@@ -225,6 +225,72 @@ class PetDailyQuestServiceImplTest {
     }
 
     @Test
+    @DisplayName("R32 快照冻结：运营把奖励调低后，领取仍按生成时快照发放")
+    void claimUsesFrozenSnapshotNotCurrentConfig() {
+        PetDailyQuest row = quest("COMPLETE");
+        // 生成时快照：exp=20/currency=20；当前配置已被运营改为 exp=5/currency=5
+        row.setRewardSnapshot(PetDailyQuestServiceImpl.questSnapshot(config()));
+        PetDailyQuestConfig nerfed = config();
+        nerfed.setExpReward(5);
+        nerfed.setCurrencyReward(5);
+        when(questMapper.selectOne(any())).thenReturn(row);
+        when(configMapper.selectOne(any())).thenReturn(nerfed);
+        when(questMapper.update(any(), any())).thenReturn(1);
+
+        questService.claim(100L, QUEST_CODE);
+
+        // 按快照入账，不按被改低的当前配置
+        verify(stateService).grantExp(any(), eq(20));
+    }
+
+    @Test
+    @DisplayName("R32 宝箱快照：开箱奖励按生成时快照（原实现实时读 properties）")
+    void chestUsesFrozenSnapshot() {
+        PetDailyQuest row = quest("CLAIMED");
+        row.setRewardSnapshot(PetDailyQuestServiceImpl.questSnapshot(config()));
+        PetDailyQuest chest = chest("IN_PROGRESS");
+        properties.getDailyQuest().setChestExp(60);
+        properties.getDailyQuest().setChestCurrency(80);
+        // 生成时冻结的宝箱奖励：exp=600/currency=800（与当前配置不同）
+        chest.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(
+                java.util.Map.of("chestExp", 600, "chestCurrency", 800)));
+        when(questMapper.selectList(any())).thenReturn(List.of(row, chest));
+        when(questMapper.update(any(), any())).thenReturn(1);
+
+        questService.claimChest(100L);
+
+        verify(stateService).grantExp(any(), eq(600));
+        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(800L),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+    }
+
+    @Test
+    @DisplayName("R32 宝箱门槛：全部任务被取消 → 宝箱不可白领（空 required 集合拒绝）")
+    void chestReadyFalseWhenAllCancelled() {
+        assertThat(PetDailyQuestServiceImpl.chestReady(List.of(quest("CANCELLED")))).isFalse();
+        assertThat(PetDailyQuestServiceImpl.chestReady(List.of())).isFalse();
+        assertThat(PetDailyQuestServiceImpl.chestReady(
+                List.of(quest("CANCELLED"), quest("CLAIMED")))).isTrue();
+    }
+
+    @Test
+    @DisplayName("R32 快照生成：任务快照含名称/类型/奖励/引导动作")
+    void questSnapshotContainsContractFields() {
+        var snapshot = com.cloudmart.pet.util.PetJsonUtils.parse(
+                PetDailyQuestServiceImpl.questSnapshot(config()),
+                new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {
+                });
+        org.assertj.core.api.Assertions.assertThat(snapshot)
+                .containsEntry("name", "好好吃饭")
+                .containsEntry("questType", "FEED")
+                .containsEntry("expReward", 20)
+                .containsEntry("currencyReward", 20);
+        org.assertj.core.api.Assertions.assertThat(String.valueOf(snapshot.get("actionTarget"))).isNotBlank();
+    }
+
+    @Test
     @DisplayName("R13 一键领奖：逐项独立终态——第二项 ALREADY_CLAIMED 不掩盖，宝箱按真实状态评估为 NOT_READY")
     void claimAllPerItemOutcomes() {
         PetDailyQuest first = quest("COMPLETE");

@@ -6,6 +6,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
+import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetDailyQuest;
@@ -125,8 +126,20 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             throw new BusinessException(PetErrorCodes.PET_QUEST_ALREADY_CLAIMED, "这个任务奖励已经领过啦");
         }
         PetDailyQuestConfig config = configByCode(questCode);
-        int expReward = config != null ? orZero(config.getExpReward()) : 0;
-        int currencyReward = config != null ? orZero(config.getCurrencyReward()) : 0;
+        // R32：领取按生成时快照入账（运营改配置不改变已生成任务的经济结果，§5.1 不变量 5）；
+        // 存量无快照行回退当前配置（迁移兼容，WARN 留痕）
+        Map<String, Object> snapshot = parseSnapshot(quest.getRewardSnapshot());
+        int expReward;
+        int currencyReward;
+        if (snapshot != null) {
+            expReward = intOf(snapshot.get("expReward"));
+            currencyReward = intOf(snapshot.get("currencyReward"));
+        } else {
+            log.warn("任务行缺奖励快照，回退当前配置（存量兼容）: questId={}, code={}",
+                    quest.getId(), questCode);
+            expReward = config != null ? orZero(config.getExpReward()) : 0;
+            currencyReward = config != null ? orZero(config.getCurrencyReward()) : 0;
+        }
         // 亲密度在写库前先叠加（与经验同一次乐观锁写入）
         intimacyService.gain(pet, PetIntimacySource.QUEST);
         int levelups = stateService.grantExp(pet, expReward);
@@ -227,11 +240,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (PetQuestStatus.CLAIMED.name().equals(chest.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_CLAIMED, "今天的宝箱已经领过啦");
         }
-        boolean chestReady = !normalQuests.isEmpty()
-                && normalQuests.stream()
-                .filter(q -> !PetQuestStatus.CANCELLED.name().equals(q.getStatus()))
-                .allMatch(q -> PetQuestStatus.CLAIMED.name().equals(q.getStatus()));
-        if (!chestReady) {
+        // R32：宝箱门槛统一计算器——同一 requiredQuestIds 语义（取消项不计门槛、
+        // 全部任务被取消/原集合为空时宝箱不可白领）
+        if (!chestReady(normalQuests)) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_NOT_READY, "把今天的任务都领完才能开宝箱哦");
         }
         // 宝箱可领：先用 CAS 抢占（COMPLETE → CLAIMED），再发奖（与任务领奖同一幂等口径）
@@ -254,10 +265,14 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (claimed == 0) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_CLAIMED, "今天的宝箱已经领过啦");
         }
-        int levelups = stateService.grantExp(pet, cfg.getChestExp());
-        if (cfg.getChestCurrency() > 0) {
+        // R32：宝箱奖励读生成时快照（存量无快照回退当前配置）
+        Map<String, Object> chestSnapshot = parseSnapshot(chest.getRewardSnapshot());
+        int chestExp = chestSnapshot != null ? intOf(chestSnapshot.get("chestExp")) : cfg.getChestExp();
+        int chestCurrency = chestSnapshot != null ? intOf(chestSnapshot.get("chestCurrency")) : cfg.getChestCurrency();
+        int levelups = stateService.grantExp(pet, chestExp);
+        if (chestCurrency > 0) {
             PetOperationService.WalletSettlement settlement = economyService.earn(
-                    userId, pet.getId(), "QUEST_CHEST", chest.getId(), cfg.getChestCurrency(), null,
+                    userId, pet.getId(), "QUEST_CHEST", chest.getId(), chestCurrency, null,
                     userId, chest.getId());
             if (!settlement.isCompleted()) {
                 log.info("宝箱奖励星光结算中, chestId={}, status={}", chest.getId(), settlement.status());
@@ -306,7 +321,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
 
     // ---------------- 内部 ----------------
 
-    /** 生成/加载当日任务行（含宝箱行），返回当日全部行 */
+    /** 生成/加载当日任务行（含宝箱行），返回当日全部行。
+     * R32：生成时冻结奖励快照（运营改配置不改变已生成任务的经济结果）；
+     * 接入 cancelDisabledQuests——配置停用/缺失的未完成项显式转 CANCELLED（原方法无调用方）。 */
     private List<PetDailyQuest> ensureToday(Pet pet) {
         LocalDate today = petClock.businessDate();
         List<PetDailyQuest> existing = questMapper.selectList(todayWrapper(pet));
@@ -324,6 +341,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             quest.setProgress(0);
             quest.setTargetValue(config.getTargetValue());
             quest.setStatus(PetQuestStatus.IN_PROGRESS.name());
+            quest.setRewardSnapshot(questSnapshot(config));
             try {
                 questMapper.insert(quest);
                 existing.add(quest);
@@ -341,6 +359,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             chest.setProgress(0);
             chest.setTargetValue(configs.size());
             chest.setStatus(PetQuestStatus.IN_PROGRESS.name());
+            // R32：宝箱奖励生成时冻结（原实现实时读 properties，运营编辑改变进行中结果）
+            chest.setRewardSnapshot(chestSnapshot(properties.getDailyQuest()));
             try {
                 questMapper.insert(chest);
                 existing.add(chest);
@@ -348,7 +368,30 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 log.debug("每日宝箱并发生成，忽略: petId={}", pet.getId());
             }
         }
+        List<PetDailyQuest> rows = questMapper.selectList(todayWrapper(pet));
+        // R32：配置停用/下架 → 未完成项显式 CANCELLED（已完成未领保留快照奖励）
+        cancelDisabledQuests(rows,
+                configs.stream().map(PetDailyQuestConfig::getCode).collect(java.util.stream.Collectors.toSet()));
         return questMapper.selectList(todayWrapper(pet));
+    }
+
+    /** R32 任务奖励快照（§16.2：名称/类型/奖励/引导动作冻结） */
+    static String questSnapshot(PetDailyQuestConfig config) {
+        return PetJsonUtils.toJson(Map.of(
+                "name", config.getName() == null ? "" : config.getName(),
+                "description", config.getDescription() == null ? "" : config.getDescription(),
+                "icon", config.getIcon() == null ? "" : config.getIcon(),
+                "questType", config.getQuestType() == null ? "" : config.getQuestType(),
+                "expReward", config.getExpReward() != null ? config.getExpReward() : 0,
+                "currencyReward", config.getCurrencyReward() != null ? config.getCurrencyReward() : 0,
+                "actionTarget", actionTargetOf(config) == null ? "" : actionTargetOf(config)));
+    }
+
+    /** R32 宝箱奖励快照（生成时冻结） */
+    static String chestSnapshot(PetProperties.DailyQuest cfg) {
+        return PetJsonUtils.toJson(Map.of(
+                "chestExp", cfg.getChestExp(),
+                "chestCurrency", cfg.getChestCurrency()));
     }
 
     private LambdaQueryWrapper<PetDailyQuest> todayWrapper(Pet pet) {
@@ -395,6 +438,32 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             }
         }
         return cancelled;
+    }
+
+    /** R32：解析奖励快照（缺失/损坏返回 null，调用方回退当前配置） */
+    private static Map<String, Object> parseSnapshot(String snapshot) {
+        if (snapshot == null || snapshot.isBlank()) {
+            return null;
+        }
+        return PetJsonUtils.parse(snapshot,
+                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                });
+    }
+
+    private static int intOf(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    /**
+     * R32 宝箱门槛统一计算器（与 buildVo 展示同语义）：required = 非取消的普通任务行；
+     * required 为空（全部任务取消/无任务）→ 宝箱不可白领；否则 required 全部 CLAIMED 才可开。
+     */
+    static boolean chestReady(List<PetDailyQuest> normalQuests) {
+        List<PetDailyQuest> required = normalQuests.stream()
+                .filter(q -> !PetQuestStatus.CANCELLED.name().equals(q.getStatus()))
+                .toList();
+        return !required.isEmpty()
+                && required.stream().allMatch(q -> PetQuestStatus.CLAIMED.name().equals(q.getStatus()));
     }
 
     private PetDailyQuest requireQuest(Pet pet, String questCode) {
@@ -452,7 +521,11 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             }
             items.add(toItemVo(quest, config));
         }
-        boolean allClaimed = !items.isEmpty() && claimed >= items.size();
+        // R32：宝箱资格分母 = required（非取消项）——取消项不算分母，与 claimChest 同一计算器
+        long required = items.stream()
+                .filter(item -> !"已取消".equals(item.statusLabel()))
+                .count();
+        boolean allClaimed = required > 0 && claimed >= required;
         boolean chestClaimed = chest != null && PetQuestStatus.CLAIMED.name().equals(chest.getStatus());
         // 宝箱进度实时对齐（列表是只读入口，不做状态翻转，只展示真实进度）
         if (chest != null && !chestClaimed) {
