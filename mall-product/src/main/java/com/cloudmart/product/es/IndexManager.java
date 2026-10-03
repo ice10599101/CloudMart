@@ -79,8 +79,13 @@ public class IndexManager {
 
     /** @return 别名指向的全部实体索引（key=实体索引名，value=别名详情） */
     public Map<String, Set<AliasData>> aliasTargets() {
-        Map<String, Set<AliasData>> aliases = indexOpsForAlias().getAliases(ALIAS_NAME);
-        return aliases != null ? aliases : Map.of();
+        try {
+            Map<String, Set<AliasData>> aliases = indexOpsForAlias().getAliases(ALIAS_NAME);
+            return aliases != null ? aliases : Map.of();
+        } catch (org.springframework.data.elasticsearch.ResourceNotFoundException e) {
+            // 别名不存在是首次启用/迁移前的正常状态（ES get-alias 对缺失别名返回 404）
+            return Map.of();
+        }
     }
 
     /**
