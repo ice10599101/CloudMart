@@ -103,9 +103,20 @@ public class PetEventServiceImpl implements PetEventService {
         }
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
         return configs.stream()
-                .filter(config -> inWindow(config, now))
+                // R33：宽限期内（endsAt ~ endsAt+24h）仍展示"已结束，可领奖"——
+                // 原实现 endsAt 一到活动即从列表消失，已达成未领的奖励失去入口
+                .filter(config -> inWindow(config, now) || inClaimGrace(config, now))
                 .map(config -> toVo(pet, config, now))
                 .toList();
+    }
+
+    /** R33：宽限期（WINDOW 结束后 24h 内）——已达成未领的奖励在此窗口内仍可领 */
+    private boolean inClaimGrace(PetEventConfig config, LocalDateTime now) {
+        if (!"WINDOW".equals(config.getEventMode()) || config.getEndsAt() == null) {
+            return false;
+        }
+        return now.isAfter(config.getEndsAt())
+                && !now.isAfter(config.getEndsAt().plusHours(CLAIM_GRACE_HOURS));
     }
 
     @Override
@@ -207,8 +218,12 @@ public class PetEventServiceImpl implements PetEventService {
                 .eq(PetInventory::getItemType, PetItemType.EQUIPMENT.name())
                 .eq(PetInventory::getItemCode, itemCode)) > 0;
         if (!owned) {
-            grantRewardItem(pet, itemCode, now);
-            return;
+            boolean inserted = grantRewardItem(pet, itemCode, now);
+            if (inserted) {
+                return;
+            }
+            // R33：插入撞唯一键（并发同来源已发同一物品）→ 转替代星光一次，
+            // 不再只记日志把替代奖吞掉（T60：一份 ITEM 或一次 ALTERNATIVE，结果可解释）
         }
         int alt = orZero(config.getRewardAltStarlight());
         if (alt <= 0) {
@@ -223,9 +238,10 @@ public class PetEventServiceImpl implements PetEventService {
         }
     }
 
-    private void grantRewardItem(Pet pet, String itemCode, LocalDateTime now) {
+    /** @return true=物品已入包；false=撞唯一键（并发重复，调用方转替代奖励） */
+    private boolean grantRewardItem(Pet pet, String itemCode, LocalDateTime now) {
         if (itemCode == null || itemCode.isBlank()) {
-            return;
+            return true;
         }
         PetInventory item = new PetInventory();
         item.setPetId(pet.getId());
@@ -237,9 +253,11 @@ public class PetEventServiceImpl implements PetEventService {
         item.setAcquiredAt(now);
         try {
             inventoryMapper.insert(item);
+            return true;
         } catch (DuplicateKeyException e) {
-            // B16：唯一物品已拥有 → 按活动快照发固定替代星光（0=不发），走 B01 幂等操作
-            log.debug("活动奖励物品已拥有，改发替代星光: petId={}, item={}", pet.getId(), itemCode);
+            // R33：并发同来源已发同一物品 → 调用方转替代星光（不再只记日志吞掉替代奖）
+            log.debug("活动奖励物品插入撞唯一键，转替代奖励: petId={}, item={}", pet.getId(), itemCode);
+            return false;
         }
     }
 
@@ -257,7 +275,10 @@ public class PetEventServiceImpl implements PetEventService {
         int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
         boolean claimed = claimedAt != null;
         boolean completed = progress >= target;
-        boolean claimable = completed && !claimed;
+        // R33：claimable 与实际领取调用同一资格函数（宽限外不可领，列表按钮不误导）
+        boolean graceOver = "WINDOW".equals(config.getEventMode()) && config.getEndsAt() != null
+                && now.isAfter(config.getEndsAt().plusHours(CLAIM_GRACE_HOURS));
+        boolean claimable = completed && !claimed && !graceOver;
         boolean expired = !completed && config.getEndsAt() != null && now.isAfter(config.getEndsAt());
         return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getEventType(), target, progress, completed, claimable, claimed, expired,
@@ -274,20 +295,32 @@ public class PetEventServiceImpl implements PetEventService {
             log.warn("未知活动统计口径: code={}, type={}", config.getCode(), config.getEventType());
             return 0;
         }
+        // R33：WINDOW 模式按 [startsAt, endsAt) 统计窗口内事实（原实现统计历史全量，
+        // 活动开始前的成绩也计入限时目标）；LIFETIME 才统计累积总量。
+        // 事实时间列：捞瓶 finishedAt / 对战 finishedAt / 活动 finishedAt（完成事实，非领取时间）
+        boolean windowed = "WINDOW".equals(config.getEventMode());
+        LocalDateTime from = windowed ? config.getStartsAt() : null;
+        LocalDateTime to = windowed ? config.getEndsAt() : null;
         return switch (type) {
             // B16：BOTTLE 默认只统计 CAUGHT（远程失败/空手不计入成功）；如运营要统计参与次数，新增明确事件类型
             case BOTTLE -> toInt(bottleRecordMapper.selectCount(new LambdaQueryWrapper<PetBottleRecord>()
                     .eq(PetBottleRecord::getPetId, pet.getId())
-                    .eq(PetBottleRecord::getOutcome, "CAUGHT")));
+                    .eq(PetBottleRecord::getOutcome, "CAUGHT")
+                    .ge(from != null, PetBottleRecord::getFinishedAt, from)
+                    .lt(to != null, PetBottleRecord::getFinishedAt, to)));
             case BATTLE -> toInt(battleMapper.selectCount(new LambdaQueryWrapper<PetBattle>()
                     .eq(PetBattle::getWinnerPetId, pet.getId())
-                    .eq(PetBattle::getStatus, PetBattleStatus.FINISHED.name())));
+                    .eq(PetBattle::getStatus, PetBattleStatus.FINISHED.name())
+                    .ge(from != null, PetBattle::getFinishedAt, from)
+                    .lt(to != null, PetBattle::getFinishedAt, to)));
             case WORK, STUDY, FEED, PLAY, VISIT ->
                     toInt(activityMapper.selectCount(new LambdaQueryWrapper<PetActivity>()
                             .eq(PetActivity::getPetId, pet.getId())
                             .eq(PetActivity::getActivityType, type.name())
                             .in(PetActivity::getStatus, Set.of(
-                                    PetActivityStatus.CLAIMED.name(), PetActivityStatus.COMPLETED.name()))));
+                                    PetActivityStatus.CLAIMED.name(), PetActivityStatus.COMPLETED.name()))
+                            .ge(from != null, PetActivity::getFinishedAt, from)
+                            .lt(to != null, PetActivity::getFinishedAt, to)));
         };
     }
 
