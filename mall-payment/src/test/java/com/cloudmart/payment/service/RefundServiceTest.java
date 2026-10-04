@@ -108,6 +108,69 @@ class RefundServiceTest {
     }
 
     @Test
+    @DisplayName("T03 回归：调用方不传 attemptId 时落库恒为权威解析的尝试 ID（旧实现写 NULL→默认 0）")
+    void createAndSubmit_writesAuthoritativeAttemptId() {
+        service.createAndSubmit("RF9001", ORDER_ID, null, PAID, "CNY", "ORDER_REFUND");
+
+        ArgumentCaptor<Long> attemptIdCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(refundMapper).insertRefund(eq("RF9001"), attemptIdCaptor.capture(),
+                eq(ORDER_ID), eq(PAID), eq("CNY"), eq("ORDER_REFUND"));
+        assertThat(attemptIdCaptor.getValue()).isEqualTo(ATTEMPT_ID);
+    }
+
+    @Test
+    @DisplayName("T03 锁内重放：先锁支付尝试行，再命中同号重放——不核算余额不插入")
+    void createAndSubmit_lockWaitReplay_returnsOriginalWithoutBalanceCheck() {
+        // 并发锁等待方：锁内重检命中首请求已落库的原单
+        when(refundMapper.findByRefundNo("RF9001")).thenReturn(persisted("RF9001"));
+        // 余额桩故意给超额值——证明重放路径根本不核算余额，不会被误报超退
+        when(refundMapper.sumActiveRefundAmount(ATTEMPT_ID)).thenReturn(new BigDecimal("999.00"));
+
+        RefundOrder result = service.createAndSubmit("RF9001", ORDER_ID, null,
+                PAID, "CNY", "ORDER_REFUND");
+
+        assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
+        verify(attemptMapper).selectLatestSuccessByOrderForUpdate(ORDER_ID);
+        verify(refundMapper, never()).insertRefund(anyString(), any(), any(), any(), any(), any());
+        verify(refundMapper, never()).markSucceeded(anyString(), anyString());
+        verify(outboxService, never()).record(any());
+    }
+
+    @Test
+    @DisplayName("T03 历史自愈：旧行 attempt 关联为 0，重放时按订单事实回填权威 attemptId")
+    void createAndSubmit_legacyRowWithoutAttempt_backfills() {
+        RefundOrder legacy = persisted("RF9001");
+        legacy.setPaymentAttemptId(0L);
+        when(refundMapper.findByRefundNo("RF9001")).thenReturn(legacy);
+        when(refundMapper.backfillAttemptId("RF9001", ATTEMPT_ID)).thenReturn(1);
+
+        RefundOrder result = service.createAndSubmit("RF9001", ORDER_ID, null,
+                PAID, "CNY", "ORDER_REFUND");
+
+        assertThat(result.getPaymentAttemptId()).isEqualTo(ATTEMPT_ID);
+        verify(refundMapper).backfillAttemptId("RF9001", ATTEMPT_ID);
+        verify(refundMapper, never()).insertRefund(anyString(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("T03 并发同号竞态：插入命中唯一键冲突后回读原单，同事实幂等返回（异常不当成功也不误报）")
+    void createAndSubmit_duplicateKeyRace_replaysWinner() {
+        // 锁内重检为 null（对手尚未提交），插入瞬间被抢
+        when(refundMapper.findByRefundNo("RF9001")).thenReturn(null, persisted("RF9001"));
+        when(refundMapper.insertRefund(anyString(), any(), any(), any(), any(), any()))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_refund_order_no"));
+
+        RefundOrder result = service.createAndSubmit("RF9001", ORDER_ID, null,
+                PAID, "CNY", "ORDER_REFUND");
+
+        assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
+        // 冲突路径不得继续推进状态或发事件（原单已由胜者处理）
+        verify(refundMapper, never()).markProcessing(anyString());
+        verify(refundMapper, never()).markSucceeded(anyString(), anyString());
+        verify(outboxService, never()).record(any());
+    }
+
+    @Test
     @DisplayName("refundNo 幂等重放：同号同参返回原结果，不再提交渠道/重复发事件")
     void createAndSubmit_sameRefundNo_replays() {
         when(refundMapper.findByRefundNo("RF9001")).thenReturn(persisted("RF9001"));

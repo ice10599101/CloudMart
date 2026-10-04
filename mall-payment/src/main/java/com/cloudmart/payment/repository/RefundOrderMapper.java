@@ -17,8 +17,12 @@ import java.math.BigDecimal;
 @Mapper
 public interface RefundOrderMapper extends BaseMapper<RefundOrder> {
 
-    /** 幂等插入：uk(refund_no) 冲突返回 0 行 */
-    @Insert("INSERT IGNORE INTO refund_order (refund_no, payment_attempt_id, order_id, refund_amount, "
+    /**
+     * 幂等插入（T03）：uk(refund_no) 冲突抛 DuplicateKeyException 由服务层做同号重放
+     * 判定——不再 INSERT IGNORE 吞掉数据错误（NOT NULL 列缺省被静默写 0 的隐患）。
+     * attemptId 恒为服务层权威解析值。
+     */
+    @Insert("INSERT INTO refund_order (refund_no, payment_attempt_id, order_id, refund_amount, "
             + "currency, reason_code, status) VALUES (#{refundNo}, #{attemptId}, #{orderId}, #{amount}, "
             + "#{currency}, #{reasonCode}, 'REQUESTED')")
     int insertRefund(@Param("refundNo") String refundNo,
@@ -27,6 +31,14 @@ public interface RefundOrderMapper extends BaseMapper<RefundOrder> {
                      @Param("amount") BigDecimal amount,
                      @Param("currency") String currency,
                      @Param("reasonCode") String reasonCode);
+
+    /**
+     * T03 历史数据自愈：旧行 payment_attempt_id 为 0 时回填权威支付尝试（仅命中
+     * 缺失/0 行，指向其他 attempt 的异常行不受影响，留给人工核查）。
+     */
+    @Update("UPDATE refund_order SET payment_attempt_id = #{attemptId} "
+            + "WHERE refund_no = #{refundNo} AND (payment_attempt_id IS NULL OR payment_attempt_id = 0)")
+    int backfillAttemptId(@Param("refundNo") String refundNo, @Param("attemptId") Long attemptId);
 
     /** REQUESTED → PROCESSING（渠道提交）：0 行 = 已提交/已终态 */
     @Update("UPDATE refund_order SET status = 'PROCESSING', version = version + 1 "
