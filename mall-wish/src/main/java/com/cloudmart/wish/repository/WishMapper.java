@@ -25,4 +25,8 @@ public interface WishMapper extends BaseMapper<Wish> {
             + "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>"
             + "</script>")
     List<Wish> selectBatchIdsIncludingDeleted(@Param("ids") Collection<Long> ids);
+
+    /** T12：心愿行锁——目标新增/排序以父心愿行为串行化锚点（20 步上限并发安全） */
+    @org.apache.ibatis.annotations.Select("SELECT * FROM wish WHERE id = #{id} FOR UPDATE")
+    Wish selectByIdForUpdate(@org.apache.ibatis.annotations.Param("id") Long id);
 }

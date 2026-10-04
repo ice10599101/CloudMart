@@ -22,11 +22,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 /**
- * 心愿目标计划（N04，/api/wish/v2/**）：用户可直接建/编辑/勾选步骤（AI 仅草案）；
- * 全部作者权限 + version CAS；步骤完成与心愿还愿是两件事，不因勾选发奖励。
+ * 心愿目标计划（N04/T12，/api/wish/v2/**）：用户可直接建/编辑/勾选步骤（AI 仅草案）；
+ * 全部作者权限 + version CAS（Integer）；步骤完成与心愿还愿是两件事，不因勾选发奖励。
+ * 状态枚举 PENDING/IN_PROGRESS/COMPLETED/CANCELLED（三端统一，见方案 T12）。
  */
 @RestController
 @RequestMapping("/v2")
@@ -40,7 +40,12 @@ public class GoalPlanController {
                                     Integer priority, Integer sortOrder) {
     }
 
-    public record UpdateGoalRequest(String title, String description, GoalStatus status, Long version) {
+    /** T12：版本端到端统一非负 Integer（旧 Long 与实体 Integer 比较恒不等） */
+    public record UpdateGoalRequest(String title, String description, GoalStatus status, Integer version) {
+    }
+
+    /** T12 排序契约：全集显式版本项（version=0 的新建目标也参与 CAS） */
+    public record ReorderGoalsRequest(java.util.List<GoalPlanService.ReorderItem> items) {
     }
 
     @GetMapping("/wishes/{id}/goals")
@@ -80,19 +85,20 @@ public class GoalPlanController {
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long goalId,
-            @RequestParam(required = false) Long version) {
+            @RequestParam Integer version) {
         goalPlanService.deleteGoal(userId, goalId, version);
         return ApiResponse.ok(null);
     }
 
     @PutMapping("/wishes/{id}/goal-order")
-    @Operation(summary = "批量排序", description = "goalOrder={goalId:sortOrder}；集合必须完整且同心愿")
+    @Operation(summary = "批量排序", description = "T12：items=[{goalId,version,sortOrder}]；全集、唯一连续"
+            + "排序号（0..n-1）、同一心愿、逐项版本 CAS（含 version=0），任一冲突整批回滚")
     public ApiResponse<Void> reorder(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long wishId,
-            @RequestBody Map<Long, Integer> goalOrder) {
-        goalPlanService.reorder(userId, wishId, goalOrder);
+            @RequestBody ReorderGoalsRequest request) {
+        goalPlanService.reorder(userId, wishId, request.items());
         return ApiResponse.ok(null);
     }
 }

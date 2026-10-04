@@ -1760,7 +1760,8 @@ export interface WishGoalStep {
   priority: number | null
   sortOrder: number
   version: number
-  status: 'IDLE' | 'IN_PROGRESS' | 'DONE' | 'GIVEN_UP'
+  /** T12：与后端 GoalStatus 枚举统一（三端一致） */
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
   startedAt: string | null
   completedAt?: string | null
 }
@@ -1783,13 +1784,17 @@ export function updateWishGoal(
   return request.patch<ApiResponse<WishGoalStep>>(`/wish/v2/goals/${goalId}`, data)
 }
 
-export function deleteWishGoal(goalId: number | string) {
-  return request.delete<ApiResponse<void>>(`/wish/v2/goals/${goalId}`)
+/** T12：删除须带版本（版本条件软删 CAS；冲突 409 提示刷新） */
+export function deleteWishGoal(goalId: number | string, version: number) {
+  return request.delete<ApiResponse<void>>(`/wish/v2/goals/${goalId}`, { params: { version } })
 }
 
-/** 批量排序（goalOrder={goalId:sortOrder}；集合必须完整且同心愿） */
-export function reorderWishGoals(wishId: number | string, goalOrder: Record<string, number>) {
-  return request.put<ApiResponse<void>>(`/wish/v2/wishes/${wishId}/goal-order`, { goalOrder })
+/** T12 批量排序：全集显式版本项（含 version=0 新建目标），任一冲突整批 409 回滚 */
+export function reorderWishGoals(
+  wishId: number | string,
+  items: Array<{ goalId: number; version: number; sortOrder: number }>,
+) {
+  return request.put<ApiResponse<void>>(`/wish/v2/wishes/${wishId}/goal-order`, { items })
 }
 
 // ---- 治理：举报 / 我的举报 / 申诉 ----

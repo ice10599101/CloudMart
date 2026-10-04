@@ -356,14 +356,20 @@ export default function WishDetail() {
   }
 
   const toggleGoalDone = async (goal: WishGoalStep) => {
-    const nextStatus = goal.status === 'DONE' ? 'IDLE' : 'DONE'
+    // T12：完成/恢复（恢复清理完成时间，后端首次完成事实不被重写）
+    const nextStatus = goal.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED'
     const res = await updateWishGoal(goal.id, { status: nextStatus, version: goal.version })
     if (res.data.success) loadGoals()
   }
 
   const removeGoal = async (goal: WishGoalStep) => {
-    const res = await deleteWishGoal(goal.id)
-    if (res.data.success) loadGoals()
+    try {
+      const res = await deleteWishGoal(goal.id, goal.version)
+      if (res.data.success) loadGoals()
+    } catch {
+      message.warning('步骤已被其他设备修改，已刷新最新状态')
+      loadGoals()
+    }
   }
 
   const moveGoal = async (index: number, direction: -1 | 1) => {
@@ -371,12 +377,19 @@ export default function WishDetail() {
     if (target < 0 || target >= goals.length) return
     const next = [...goals]
     ;[next[index], next[target]] = [next[target], next[index]]
-    const goalOrder: Record<string, number> = {}
-    next.forEach((goal, order) => {
-      goalOrder[String(goal.id)] = order
-    })
-    const res = await reorderWishGoals(wishId, goalOrder)
-    if (res.data.success) loadGoals()
+    // T12：全集显式版本项（version=0 新建目标也参与 CAS），冲突整批刷新
+    const items = next.map((goal, order) => ({
+      goalId: goal.id,
+      version: goal.version,
+      sortOrder: order,
+    }))
+    try {
+      const res = await reorderWishGoals(wishId, items)
+      if (res.data.success) loadGoals()
+    } catch {
+      message.warning('排序冲突：步骤已被其他设备修改，已刷新最新状态')
+      loadGoals()
+    }
   }
 
   const handleArchive = async () => {
@@ -884,12 +897,12 @@ export default function WishDetail() {
             ) : (
               <Timeline
                 items={goals.map((goal, index) => ({
-                  color: goal.status === 'DONE' ? 'green' : 'blue',
+                  color: goal.status === 'COMPLETED' ? 'green' : 'blue',
                   children: (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <Input
                         size="small"
-                        style={{ width: 220, textDecoration: goal.status === 'DONE' ? 'line-through' : 'none', opacity: goal.status === 'DONE' ? 0.6 : 1 }}
+                        style={{ width: 220, textDecoration: goal.status === 'COMPLETED' ? 'line-through' : 'none', opacity: goal.status === 'COMPLETED' ? 0.6 : 1 }}
                         defaultValue={goal.title}
                         onPressEnter={(e) => {
                           const title = (e.target as HTMLInputElement).value.trim()
@@ -899,7 +912,7 @@ export default function WishDetail() {
                         }}
                       />
                       <Button size="small" onClick={() => toggleGoalDone(goal)}>
-                        {goal.status === 'DONE' ? '取消完成' : '完成'}
+                        {goal.status === 'COMPLETED' ? '取消完成' : '完成'}
                       </Button>
                       <Button size="small" disabled={index === 0} onClick={() => moveGoal(index, -1)}>
                         ↑

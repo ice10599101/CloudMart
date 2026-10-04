@@ -15,15 +15,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 心愿目标计划服务（N04）：每心愿最多 20 步；用户可直接建步骤（AI 仅草案）；
+ * 心愿目标计划服务（N04/T12）：每心愿最多 20 步；用户可直接建步骤（AI 仅草案）；
  * 编辑/勾选完成走 version CAS；批量排序校验集合完整且同心愿。
+ *
+ * <p>T12 修复：</p>
+ * <ul>
+ *   <li>版本类型端到端统一为非负 Integer——旧请求 DTO 用 Long、实体用 Integer，
+ *       {@code Long.equals(Integer)} 永不相等导致编辑/删除必然 409；</li>
+ *   <li>删除为版本条件软删（CAS）——旧实现"先查后删"存在检查与删除之间的竞态；</li>
+ *   <li>排序含 version=0 的目标（旧实现 {@code version > 0} 跳过新建目标），
+ *       整批锁父心愿行后校验+更新，任一冲突全部回滚；</li>
+ *   <li>新增步骤在父心愿行锁内计数，20 步上限并发安全（旧 count-then-insert
+ *       两个并发创建可越过上限）；</li>
+ *   <li>首次完成事实不被重写：COMPLETED→COMPLETED 不再改写 completedAt，
+ *       恢复时正确清理 completedAt。</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -59,6 +73,11 @@ public class GoalPlanService {
         if (title == null || title.isBlank() || title.length() > 120) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "目标标题须为1-120字");
         }
+        // T12：锁父心愿行后计数——并发创建不能越过 20 步上限
+        Wish locked = wishMapper.selectByIdForUpdate(wishId);
+        if (locked == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
         Long count = goalMapper.selectCount(new LambdaQueryWrapper<WishAiGoal>()
                 .eq(WishAiGoal::getWishId, wishId)
                 .isNull(WishAiGoal::getDeletedAt));
@@ -81,12 +100,16 @@ public class GoalPlanService {
 
     @Transactional
     public WishAiGoal updateGoal(Long userId, Long goalId, String title, String description,
-                                 GoalStatus status, Long version) {
+                                 GoalStatus status, Integer version) {
         WishAiGoal goal = requireOwnedGoal(userId, goalId);
         requireOwnedWish(userId, goal.getWishId());
+        // T12：Integer 与 Integer 比较（旧 Long.equals(Integer) 恒 false）
         if (version == null || goal.getVersion() == null || !version.equals(goal.getVersion())) {
             throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "目标已被并发修改，请刷新");
         }
+        boolean completing = status == GoalStatus.COMPLETED && goal.getStatus() != GoalStatus.COMPLETED;
+        boolean restoring = status != null && status != GoalStatus.COMPLETED
+                && goal.getStatus() == GoalStatus.COMPLETED;
         int affected = goalMapper.update(null, new LambdaUpdateWrapper<WishAiGoal>()
                 .eq(WishAiGoal::getId, goalId)
                 .eq(WishAiGoal::getVersion, version)
@@ -94,48 +117,97 @@ public class GoalPlanService {
                 .set(title != null, WishAiGoal::getTitle, title)
                 .set(description != null, WishAiGoal::getDescription, description)
                 .set(status != null, WishAiGoal::getStatus, status)
-                .set(status == GoalStatus.COMPLETED,
-                        WishAiGoal::getCompletedAt, LocalDateTime.now(java.time.ZoneId.of("UTC"))));
+                // 首次完成事实不被重写；恢复时清理完成时间
+                .set(completing, WishAiGoal::getCompletedAt, LocalDateTime.now(ZoneId.of("UTC")))
+                .set(restoring, WishAiGoal::getCompletedAt, null));
         if (affected == 0) {
             throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "目标已被并发修改，请刷新");
         }
         return goalMapper.selectById(goalId);
     }
 
+    /** 版本条件软删（T12）：删除与版本校验同一条 CAS，无检查-执行竞态。 */
     @Transactional
-    public void deleteGoal(Long userId, Long goalId, Long version) {
+    public void deleteGoal(Long userId, Long goalId, Integer version) {
         WishAiGoal goal = requireOwnedGoal(userId, goalId);
         if (version == null || goal.getVersion() == null || !version.equals(goal.getVersion())) {
             throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "目标已被并发修改，请刷新");
         }
-        // 软删（@TableLogic）
-        goalMapper.deleteById(goalId);
+        int affected = goalMapper.update(null, new LambdaUpdateWrapper<WishAiGoal>()
+                .eq(WishAiGoal::getId, goalId)
+                .eq(WishAiGoal::getVersion, version)
+                .isNull(WishAiGoal::getDeletedAt)
+                .set(WishAiGoal::getDeletedAt, LocalDateTime.now(ZoneId.of("UTC")))
+                .setSql("version = version + 1"));
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "目标已被并发修改，请刷新");
+        }
     }
 
-    /** 批量排序：集合必须完整且属于同一心愿（N04 验收）。 */
+    /** 排序请求项：显式版本 CAS（含 version=0 的新建目标） */
+    public record ReorderItem(Long goalId, Integer version, Integer sortOrder) {
+    }
+
+    /**
+     * 批量排序（T12 重构）：锁父心愿行 → 全集/同心愿/唯一连续排序号校验 →
+     * 逐项版本 CAS（version=0 也参与）→ 任一冲突抛异常整批回滚。
+     */
     @Transactional
-    public void reorder(Long userId, Long wishId, Map<Long, Integer> goalOrder) {
+    public void reorder(Long userId, Long wishId, List<ReorderItem> items) {
         requireOwnedWish(userId, wishId);
+        // 锁父心愿行：与新增/删除步骤竞争时整批校验在同一快照上进行
+        Wish locked = wishMapper.selectByIdForUpdate(wishId);
+        if (locked == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
+        }
         List<WishAiGoal> existing = goalMapper.selectList(new LambdaQueryWrapper<WishAiGoal>()
                 .eq(WishAiGoal::getWishId, wishId)
                 .isNull(WishAiGoal::getDeletedAt));
         Set<Long> existingIds = existing.stream().map(WishAiGoal::getId).collect(Collectors.toSet());
-        if (goalOrder == null || goalOrder.isEmpty() || !existingIds.equals(goalOrder.keySet())) {
+        if (items == null || items.isEmpty() || existingIds.size() != items.size()) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
                     "排序集合必须与当前目标集合完全一致");
         }
-        Map<Long, WishAiGoal> byId = existing.stream()
-                .collect(Collectors.toMap(WishAiGoal::getId, Function.identity()));
-        goalOrder.forEach((goalId, order) -> {
-            WishAiGoal goal = byId.get(goalId);
-            if (goal.getVersion() != null && goal.getVersion() > 0) {
-                goalMapper.update(null, new LambdaUpdateWrapper<WishAiGoal>()
-                        .eq(WishAiGoal::getId, goalId)
-                        .eq(WishAiGoal::getVersion, goal.getVersion())
-                        .set(WishAiGoal::getSortOrder, order)
-                        .setSql("version = version + 1"));
+        Set<Long> itemIds = new HashSet<>();
+        Set<Integer> sortOrders = new HashSet<>();
+        for (ReorderItem item : items) {
+            if (item == null || item.goalId() == null || !existingIds.contains(item.goalId())
+                    || item.version() == null || item.version() < 0 || item.sortOrder() == null) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                        "排序项非法（须为当前心愿目标，版本与排序号必填）");
             }
-        });
+            if (!itemIds.add(item.goalId()) || !sortOrders.add(item.sortOrder())) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                        "排序项不得重复（goalId 与 sortOrder 均须唯一）");
+            }
+        }
+        if (sortOrders.stream().min(Integer::compareTo).orElse(0) != 0
+                || sortOrders.stream().max(Integer::compareTo).orElse(0) != items.size() - 1) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                    "排序号必须为 0 起连续整数（0..n-1）");
+        }
+        if (sortOrders.size() != items.size()) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "排序号重复");
+        }
+        java.util.Map<Long, WishAiGoal> byId = existing.stream()
+                .collect(Collectors.toMap(WishAiGoal::getId, Function.identity()));
+        for (ReorderItem item : items) {
+            WishAiGoal goal = byId.get(item.goalId());
+            if (!item.version().equals(goal.getVersion())) {
+                // 任一冲突整批回滚（@Transactional）
+                throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT,
+                        "目标已被并发修改，请刷新后重新排序");
+            }
+            int affected = goalMapper.update(null, new LambdaUpdateWrapper<WishAiGoal>()
+                    .eq(WishAiGoal::getId, item.goalId())
+                    .eq(WishAiGoal::getVersion, item.version())
+                    .set(WishAiGoal::getSortOrder, item.sortOrder())
+                    .setSql("version = version + 1"));
+            if (affected == 0) {
+                throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT,
+                        "目标已被并发修改，请刷新后重新排序");
+            }
+        }
     }
 
     private WishAiGoal requireOwnedGoal(Long userId, Long goalId) {
