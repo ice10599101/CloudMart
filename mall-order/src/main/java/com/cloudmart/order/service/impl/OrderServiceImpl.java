@@ -226,6 +226,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // T04：明细实付分摊先算后插——按价×量占比分摊订单实付，余数归属末项（固定规则），
+        // 明细和恒等于实付；售后金额上限据此按申请数量核定
+        List<OrderItem> newOrderItems = new java.util.ArrayList<>();
         for (CreateOrderRequest.OrderItemInput item : request.items()) {
             OrderItem orderItem = new OrderItem();
             orderItem.setOrderId(order.getId());
@@ -236,6 +239,10 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setSkuAttributes(item.skuAttributes());
             orderItem.setPrice(item.price());
             orderItem.setQuantity(item.quantity());
+            newOrderItems.add(orderItem);
+        }
+        allocateItemPayAmounts(newOrderItems, order.getPayAmount());
+        for (OrderItem orderItem : newOrderItems) {
             orderItemMapper.insert(orderItem);
         }
 
@@ -550,6 +557,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO requestRefund(Long userId, Long orderId, String refundReason) {
+        // T04：旧整单退款入口适配为整单售后案件——订单状态不再推入 REFUNDING，
+        // 资金只经 case 退款通路（RFC{caseId}）发出，禁止旧、新两条通路同时独立发款
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
@@ -557,25 +566,10 @@ public class OrderServiceImpl implements OrderService {
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("ORDER_ACCESS_DENIED", "无权操作此订单");
         }
-        if (!"PAID".equals(order.getStatus()) && !"SHIPPED".equals(order.getStatus())) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许申请退款");
-        }
-
-        String previousStatus = order.getStatus();
-        int updated = orderMapper.updateStatusToRefunding(orderId, previousStatus, "REFUNDING", refundReason);
-        if (updated == 0) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "订单状态已变更，请刷新重试");
-        }
-
-        publishOutboxEvent(new OrderStatusChangeMessage(
-                orderId, userId, previousStatus, "REFUNDING"
-        ));
-
-        Order refundingOrder = orderMapper.selectById(orderId);
-        List<OrderItem> items = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, orderId)
-        );
-        return orderConverter.toDTO(refundingOrder, orderConverter.toItemDTOList(items));
+        afterSaleCaseService.apply(userId, new com.cloudmart.order.dto.CreateAfterSaleRequest(
+                orderId, null, com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY,
+                refundReason, null, 0));
+        return buildOrderDto(orderId);
     }
 
     @Override
@@ -585,6 +579,11 @@ public class OrderServiceImpl implements OrderService {
         return approveRefund(orderId);
     }
 
+    /**
+     * T04：旧整单退款审批入口适配——委托给整单售后案件的 case 审批（服务端生成
+     * RFC{caseId} 退款号、订单行锁内核定额度），审批通过后经 AFTER_SALE_REFUND_SUBMIT
+     * Outbox 异步提交支付退款；订单状态由退款完成事件按"已退累计=实付"推进。
+     */
     @Override
     @Transactional
     public OrderDTO approveRefund(Long orderId) {
@@ -592,61 +591,22 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
-        if (!"REFUNDING".equals(order.getStatus())) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不允许审批退款");
+        com.cloudmart.order.entity.AfterSaleCase pendingCase =
+                afterSaleCaseService.findPendingWholeOrderCase(orderId);
+        if (pendingCase == null) {
+            throw new BusinessException("ORDER_STATUS_ERROR",
+                    "订单无待审批的整单退款申请，请经售后案件流程受理");
         }
-
-        // T02：审批经内部退款接口提交渠道退款单（refundNo 稳定 = RF+orderId，审批重复不重复退钱）。
-        // 审批只提交，渠道确认才 SUCCEEDED——返回状态是渠道事实，不是审批结果：
-        //   SUCCEEDED（MOCK 同构同步确认）→ 本事务推进 REFUNDED + 释放库存 + 退券；
-        //   PROCESSING/UNKNOWN → 订单停留 REFUNDING，由 REFUND_SUCCEEDED 事件驱动推进；
-        //   支付服务不可用/渠道未接入 → 明确失败，不改订单状态（QA06）。
-        String refundNo = "RF" + orderId;
-        // T11：受理阶段未回填 refundNo 的售后案件在此关联（案件 APPROVED + 本单），
-        // 使 REFUND_SUCCEEDED→onRefundCompleted 能按 refundNo 命中回填 REFUNDED
-        com.cloudmart.order.entity.AfterSaleCase pendingCase = afterSaleCaseService
-                .findApprovedWithoutRefundNo(orderId);
-        if (pendingCase != null) {
-            afterSaleCaseService.bindRefundNo(pendingCase.getId(), refundNo);
-        }
-        Map<String, Object> refundRequest = new java.util.HashMap<>();
-        refundRequest.put("refundNo", refundNo);
-        refundRequest.put("orderId", orderId);
-        // T11：退款金额权威=已批准售后案件金额合计（部分退款，双闸门已保证 ≤实付）；
-        // 无售后案件的系统审批路径保持订单实付全额
-        java.math.BigDecimal caseAmount = afterSaleCaseService.sumApprovedRefundAmounts(orderId);
-        refundRequest.put("amount", caseAmount != null && caseAmount.compareTo(java.math.BigDecimal.ZERO) > 0
-                ? caseAmount : order.getPayAmount());
-        refundRequest.put("currency", "CNY");
-        refundRequest.put("reasonCode", "ORDER_REFUND");
-        ApiResponse<Map<String, Object>> refundResp = refundFeignClient.createRefund(refundRequest);
-        if (refundResp == null || !refundResp.success() || refundResp.data() == null) {
-            throw new BusinessException("REFUND_SUBMIT_FAILED", "退款提交失败，请稍后重试");
-        }
-        String refundStatus = String.valueOf(refundResp.data().get("status"));
-        if (!"SUCCEEDED".equals(refundStatus)) {
-            // PROCESSING/UNKNOWN：订单停留 REFUNDING，事件驱动收敛
-            log.info("[T02] 退款处理中, orderId={}, refundNo={}, channelStatus={}", orderId, refundNo, refundStatus);
+        // 整单案件金额 = 实付 - 其他案件已占用（case 审批在订单行锁内还会二次核定）
+        BigDecimal wholeAmount = order.getPayAmount() == null ? BigDecimal.ZERO
+                : order.getPayAmount().subtract(afterSaleCaseService.occupiedRefundAmount(
+                        orderId, pendingCase.getId()));
+        if (wholeAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            // 已被案件退款覆盖：幂等收敛，不再发款
+            log.info("[T04] 整单退款额度已被案件占用，审批幂等返回, orderId={}", orderId);
             return buildOrderDto(orderId);
         }
-
-        int updated = orderMapper.updateStatusToRefunded(orderId, "REFUNDING", "REFUNDED");
-        if (updated == 0) {
-            // 已被事件驱动路径推进：审批重放幂等收敛（QA07）
-            log.info("订单已推进为 REFUNDED（事件先行），审批幂等返回, orderId={}", orderId);
-            return buildOrderDto(orderId);
-        }
-
-        publishOutboxEvent(new OrderStatusChangeMessage(
-                orderId, order.getUserId(), "REFUNDING", "REFUNDED"
-        ));
-
-        releaseStockForOrder(orderId);
-
-        if (order.getCouponId() != null) {
-            returnCouponForOrder(order.getCouponId(), orderId);
-        }
-
+        afterSaleCaseService.approve(null, pendingCase.getId(), wholeAmount);
         return buildOrderDto(orderId);
     }
 
@@ -657,6 +617,37 @@ public class OrderServiceImpl implements OrderService {
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, orderId)
         );
         return orderConverter.toDTO(current, orderConverter.toItemDTOList(items));
+    }
+
+    /**
+     * T04：明细实付分摊——按价×量占比分摊订单实付（2 位小数向下截断，余数归属末项
+     * 固定规则），保证明细和恒等于订单实付。报价异常（gross≤0）不猜测，留 NULL
+     * 走人工规则。
+     */
+    private void allocateItemPayAmounts(List<OrderItem> items, BigDecimal payAmount) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        BigDecimal gross = items.stream()
+                .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (gross.compareTo(BigDecimal.ZERO) <= 0 || payAmount == null || payAmount.compareTo(BigDecimal.ZERO) < 0) {
+            log.warn("[T04] 明细分摊跳过（报价或实付异常）, payAmount={}, gross={}", payAmount, gross);
+            return;
+        }
+        BigDecimal allocated = BigDecimal.ZERO;
+        for (int i = 0; i < items.size(); i++) {
+            OrderItem item = items.get(i);
+            if (i == items.size() - 1) {
+                item.setPayAmount(payAmount.subtract(allocated));
+            } else {
+                BigDecimal share = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
+                        .multiply(payAmount)
+                        .divide(gross, 2, java.math.RoundingMode.DOWN);
+                allocated = allocated.add(share);
+                item.setPayAmount(share);
+            }
+        }
     }
 
     /**
@@ -1412,9 +1403,56 @@ public class OrderServiceImpl implements OrderService {
         return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
     }
 
+    /**
+     * T04：case 退款完成结算（REFUND_SUCCEEDED 事件驱动，Inbox 幂等）。
+     *
+     * <p>① 案件 CAS APPROVED → REFUNDED（重复/乱序通知幂等返回）；② 订单行锁内
+     * 累计已退金额并推进退款汇总（NONE/PARTIAL/FULL）——部分退款不覆盖履约状态；
+     * ③ 已退累计 = 实付才按履约事实整单推进 REFUNDED：未发货（PAID）释放预占库存，
+     * 已确认销售不走金钱退款回库（实际退货入库由 WMS 负责）；整单全退按政策返券，
+     * 部分退款不返整张券。</p>
+     */
     @Override
+    @Transactional
     public void onAfterSaleRefundCompleted(String refundNo) {
-        afterSaleCaseService.onRefundCompleted(refundNo);
+        com.cloudmart.order.entity.AfterSaleCase refunded =
+                afterSaleCaseService.markRefundedReturning(refundNo);
+        if (refunded == null || refunded.getRefundAmount() == null) {
+            return;
+        }
+        Order order = orderMapper.selectByIdForUpdate(refunded.getOrderId());
+        if (order == null) {
+            log.warn("[T04] 退款完成但订单不存在, orderId={}, refundNo={}", refunded.getOrderId(), refundNo);
+            return;
+        }
+        BigDecimal refundedTotal = (order.getRefundedAmount() == null ? BigDecimal.ZERO : order.getRefundedAmount())
+                .add(refunded.getRefundAmount());
+        BigDecimal payAmount = order.getPayAmount() == null ? BigDecimal.ZERO : order.getPayAmount();
+        String refundSummary = refundedTotal.compareTo(payAmount) >= 0 ? "FULL" : "PARTIAL";
+        orderMapper.updateRefundSummary(order.getId(), refundedTotal, refundSummary);
+
+        if (!"FULL".equals(refundSummary)) {
+            log.info("[T04] 部分退款回填, orderId={}, refundNo={}, refunded={}/{}",
+                    order.getId(), refundNo, refundedTotal, payAmount);
+            return;
+        }
+        // 全额退款：履约状态推进 + 按履约事实处理库存/券（CAS 失败 = 已被推进，幂等收敛）
+        if (orderMapper.updateStatusToRefundedForFullRefund(order.getId()) == 0) {
+            log.info("[T04] 全额退款订单状态已推进（幂等跳过）, orderId={}", order.getId());
+            return;
+        }
+        publishOutboxEvent(new OrderStatusChangeMessage(
+                order.getId(), order.getUserId(), order.getStatus(), "REFUNDED"
+        ));
+        if ("PAID".equals(order.getStatus())) {
+            // 未发货整单全退：预占库存未确认销售，释放回可售；已发货订单的实际退货
+            // 库存由 WMS 验收入库闭环（T19），金钱退款不自动回库
+            releaseStockForOrder(order.getId());
+        }
+        if (order.getCouponId() != null) {
+            returnCouponForOrder(order.getCouponId(), order.getId());
+        }
+        log.info("[T04] 全额退款订单推进 REFUNDED, orderId={}, refunded={}", order.getId(), refundedTotal);
     }
 
     @Override

@@ -61,6 +61,7 @@ class OrderServiceImplTest {
     private com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
     private CompensationTaskService compensationTaskService;
     private com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
+    private com.cloudmart.order.service.AfterSaleCaseService afterSaleCaseService;
     private OrderServiceImpl orderService;
 
     @BeforeAll
@@ -102,7 +103,7 @@ class OrderServiceImplTest {
                 wmsShippingFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.SeckillFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.MarketingFeignClient.class),
-                mock(com.cloudmart.order.service.AfterSaleCaseService.class),
+                afterSaleCaseService = mock(com.cloudmart.order.service.AfterSaleCaseService.class),
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
@@ -383,63 +384,41 @@ class OrderServiceImplTest {
     }
 
     @Nested
-    @DisplayName("requestRefund")
+    @DisplayName("requestRefund（T04：适配为整单售后案件，不改订单状态）")
     class RequestRefundTests {
 
         @Test
-        @DisplayName("paid order -> requests refund successfully")
-        void requestRefund_PaidOrder_ShouldRequestRefund() {
+        @DisplayName("PAID 订单 → 创建整单售后案件（委托 case 服务），订单状态不变")
+        void requestRefund_PaidOrder_CreatesWholeOrderCase() {
             Order order = buildOrder(1L, 100L, "PAID");
             when(orderMapper.selectById(1L)).thenReturn(order);
-            when(orderMapper.updateStatusToRefunding(1L, "PAID", "REFUNDING", "defective")).thenReturn(1);
-
-            Order refundingOrder = buildOrder(1L, 100L, "REFUNDING");
-            OrderItem item = buildOrderItem(1L, 1L);
-            when(orderMapper.selectById(1L)).thenReturn(order).thenReturn(refundingOrder);
-            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
-
-            OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "REFUNDING", "张三", "13800138000", "北京市", null, null, "defective", null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null);
-            when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
-            when(orderConverter.toDTO(refundingOrder, List.of(itemDTO))).thenReturn(expected);
+            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+            when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
+            when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
 
             OrderDTO result = orderService.requestRefund(100L, 1L, "defective");
 
-            assertThat(result.status()).isEqualTo("REFUNDING");
-            verify(outboxService).record(any(EventEnvelope.class));
+            assertThat(result.status()).isEqualTo("PAID");
+            var caseCaptor = org.mockito.ArgumentCaptor.forClass(
+                    com.cloudmart.order.dto.CreateAfterSaleRequest.class);
+            verify(afterSaleCaseService).apply(org.mockito.ArgumentMatchers.eq(100L), caseCaptor.capture());
+            assertThat(caseCaptor.getValue().orderId()).isEqualTo(1L);
+            assertThat(caseCaptor.getValue().itemId()).isNull();
+            assertThat(caseCaptor.getValue().type()).isEqualTo(
+                    com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY);
+            // 订单状态不再推入 REFUNDING（资金只走 case 通路）
+            verify(orderMapper, never()).updateStatusToRefunding(anyLong(), anyString(), anyString(), anyString());
         }
 
         @Test
-        @DisplayName("shipped order -> can also request refund")
-        void requestRefund_ShippedOrder_ShouldRequestRefund() {
-            Order order = buildOrder(1L, 100L, "SHIPPED");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-            when(orderMapper.updateStatusToRefunding(1L, "SHIPPED", "REFUNDING", "wrong item")).thenReturn(1);
-
-            Order refundingOrder = buildOrder(1L, 100L, "REFUNDING");
-            OrderItem item = buildOrderItem(1L, 1L);
-            when(orderMapper.selectById(1L)).thenReturn(order).thenReturn(refundingOrder);
-            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
-
-            OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
-            when(orderConverter.toDTO(refundingOrder, List.of(itemDTO))).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "REFUNDING", "张三", "13800138000", "北京市", null, null, "wrong item", null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null));
-
-            OrderDTO result = orderService.requestRefund(100L, 1L, "wrong item");
-
-            assertThat(result.status()).isEqualTo("REFUNDING");
-        }
-
-        @Test
-        @DisplayName("pending payment order -> throws ORDER_STATUS_ERROR")
-        void requestRefund_PendingPayment_ShouldThrowBusinessException() {
-            Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
-            when(orderMapper.selectById(1L)).thenReturn(order);
+        @DisplayName("order missing -> throws ORDER_NOT_FOUND")
+        void requestRefund_OrderMissing_ShouldThrowBusinessException() {
+            when(orderMapper.selectById(1L)).thenReturn(null);
 
             assertThatThrownBy(() -> orderService.requestRefund(100L, 1L, "reason"))
                     .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_STATUS_ERROR"));
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_NOT_FOUND"));
         }
 
         @Test
@@ -529,59 +508,151 @@ class OrderServiceImplTest {
     }
 
     @Nested
-    @DisplayName("approveRefund")
+    @DisplayName("approveRefund（T04：委托整单案件审批，异步提交退款）")
     class ApproveRefundTests {
 
         @Test
-        @DisplayName("T02：审批提交退款单 → MOCK 渠道同步 SUCCEEDED → 推进 REFUNDED + 释放库存 + 退券")
-        void approveRefund_RefundingOrder_ChannelSucceeded_advances() {
-            Order order = buildOrder(1L, 100L, "REFUNDING");
-            order.setCouponId(50L);
+        @DisplayName("存在 PENDING 整单案件 → 按实付-占用金额委托 case 审批")
+        void approveRefund_pendingWholeOrderCase_delegatesApproval() {
+            Order order = buildOrder(1L, 100L, "PAID");
+            order.setPayAmount(new BigDecimal("100.00"));
             when(orderMapper.selectById(1L)).thenReturn(order);
-            when(orderMapper.updateStatusToRefunded(1L, "REFUNDING", "REFUNDED")).thenReturn(1);
-
-            java.util.Map<String, Object> refundView = java.util.Map.of(
-                    "refundNo", "RF1", "status", "SUCCEEDED", "providerRefundNo", "MOCKRFND1");
-            when(refundFeignClient.createRefund(any())).thenReturn(ApiResponse.ok(refundView));
-
-            Order refundedOrder = buildOrder(1L, 100L, "REFUNDED");
-            when(orderMapper.selectById(1L)).thenReturn(order).thenReturn(refundedOrder);
+            var pendingCase = new com.cloudmart.order.entity.AfterSaleCase();
+            pendingCase.setId(11L);
+            pendingCase.setOrderId(1L);
+            pendingCase.setStatus(com.cloudmart.order.entity.AfterSaleCase.STATUS_PENDING);
+            when(afterSaleCaseService.findPendingWholeOrderCase(1L)).thenReturn(pendingCase);
+            when(afterSaleCaseService.occupiedRefundAmount(1L, 11L)).thenReturn(BigDecimal.ZERO);
+            when(afterSaleCaseService.approve(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(11L),
+                    org.mockito.ArgumentMatchers.eq(new BigDecimal("100.00")))).thenReturn(null);
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
             when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
             when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, 50L, "REFUNDED", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
 
-            OrderDTO result = orderService.approveRefund(1L);
+            orderService.approveRefund(1L);
 
-            assertThat(result.status()).isEqualTo("REFUNDED");
-            verify(refundFeignClient).createRefund(any());
-            verify(orderMapper).updateStatusToRefunded(1L, "REFUNDING", "REFUNDED");
-            verify(outboxService).record(any(EventEnvelope.class));
+            verify(afterSaleCaseService).approve(org.mockito.ArgumentMatchers.isNull(),
+                    org.mockito.ArgumentMatchers.eq(11L), org.mockito.ArgumentMatchers.eq(new BigDecimal("100.00")));
         }
 
         @Test
-        @DisplayName("T02/QA06：退款提交失败 → REFUND_SUBMIT_FAILED，不推进订单")
-        void approveRefund_submitFailed_throwsAndKeepsRefunding() {
-            Order order = buildOrder(1L, 100L, "REFUNDING");
-            when(orderMapper.selectById(1L)).thenReturn(order);
-            when(refundFeignClient.createRefund(any())).thenReturn(ApiResponse.ok(null));
-
-            assertThatThrownBy(() -> orderService.approveRefund(1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
-                            .isEqualTo("REFUND_SUBMIT_FAILED"));
-            verify(orderMapper, never()).updateStatusToRefunded(anyLong(), anyString(), anyString());
-        }
-
-        @Test
-        @DisplayName("not refunding order -> throws ORDER_STATUS_ERROR")
-        void approveRefund_NotRefunding_ShouldThrowBusinessException() {
+        @DisplayName("无待审批整单案件 → ORDER_STATUS_ERROR（不再直接发款）")
+        void approveRefund_noPendingCase_throws() {
             Order order = buildOrder(1L, 100L, "PAID");
             when(orderMapper.selectById(1L)).thenReturn(order);
+            when(afterSaleCaseService.findPendingWholeOrderCase(1L)).thenReturn(null);
 
             assertThatThrownBy(() -> orderService.approveRefund(1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_STATUS_ERROR"));
+            verify(refundFeignClient, never()).createRefund(any());
+        }
+
+        @Test
+        @DisplayName("额度已被其他案件占用 → 幂等返回，不再发款")
+        void approveRefund_quotaOccupied_idempotent() {
+            Order order = buildOrder(1L, 100L, "PAID");
+            order.setPayAmount(new BigDecimal("100.00"));
+            when(orderMapper.selectById(1L)).thenReturn(order);
+            var pendingCase = new com.cloudmart.order.entity.AfterSaleCase();
+            pendingCase.setId(11L);
+            when(afterSaleCaseService.findPendingWholeOrderCase(1L)).thenReturn(pendingCase);
+            when(afterSaleCaseService.occupiedRefundAmount(1L, 11L)).thenReturn(new BigDecimal("100.00"));
+            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+            when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
+            when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+
+            orderService.approveRefund(1L);
+
+            verify(afterSaleCaseService, never()).approve(org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
         }
     }
+    @Nested
+    @DisplayName("onAfterSaleRefundCompleted（T04：案件退款完成结算）")
+    class AfterSaleRefundSettlementTests {
+
+        private com.cloudmart.order.entity.AfterSaleCase refundedCase(BigDecimal amount) {
+            var c = new com.cloudmart.order.entity.AfterSaleCase();
+            c.setId(11L);
+            c.setOrderId(1L);
+            c.setRefundNo("RFC11");
+            c.setRefundAmount(amount);
+            c.setStatus(com.cloudmart.order.entity.AfterSaleCase.STATUS_APPROVED);
+            return c;
+        }
+
+        @Test
+        @DisplayName("部分退款：案件回填 + 已退累计 PARTIAL，履约状态/库存/券均不动")
+        void partialRefund_accumulatesOnly() {
+            Order order = buildOrder(1L, 100L, "PAID");
+            order.setPayAmount(new BigDecimal("100.00"));
+            order.setCouponId(50L);
+            when(orderMapper.selectByIdForUpdate(1L)).thenReturn(order);
+            when(afterSaleCaseService.markRefundedReturning("RFC11"))
+                    .thenReturn(refundedCase(new BigDecimal("40.00")));
+
+            orderService.onAfterSaleRefundCompleted("RFC11");
+
+            verify(orderMapper).updateRefundSummary(1L, new BigDecimal("40.00"), "PARTIAL");
+            verify(orderMapper, never()).updateStatusToRefundedForFullRefund(anyLong());
+            verify(inventoryFeignClient, never()).releaseStock(any());
+            verify(couponFeignClient, never()).returnCoupon(any());
+        }
+
+        @Test
+        @DisplayName("全额退款（未发货）：订单推进 REFUNDED + 释放预占库存 + 整单返券")
+        void fullRefund_unshipped_releasesStockAndCoupon() {
+            Order order = buildOrder(1L, 100L, "PAID");
+            order.setPayAmount(new BigDecimal("100.00"));
+            order.setCouponId(50L);
+            when(orderMapper.selectByIdForUpdate(1L)).thenReturn(order);
+            when(afterSaleCaseService.markRefundedReturning("RFC11"))
+                    .thenReturn(refundedCase(new BigDecimal("100.00")));
+            when(orderMapper.updateStatusToRefundedForFullRefund(1L)).thenReturn(1);
+            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(List.of(buildOrderItem(1L, 1L)));
+
+            orderService.onAfterSaleRefundCompleted("RFC11");
+
+            verify(orderMapper).updateRefundSummary(1L, new BigDecimal("100.00"), "FULL");
+            verify(orderMapper).updateStatusToRefundedForFullRefund(1L);
+            verify(outboxService).record(any(EventEnvelope.class));
+            verify(inventoryFeignClient).releaseStock(any());
+            verify(couponFeignClient).returnCoupon(any());
+        }
+
+        @Test
+        @DisplayName("全额退款（已发货）：不释放库存（已确认销售走 WMS 退货入库），仍整单返券")
+        void fullRefund_shipped_noStockRelease() {
+            Order order = buildOrder(1L, 100L, "SHIPPED");
+            order.setPayAmount(new BigDecimal("100.00"));
+            order.setCouponId(50L);
+            when(orderMapper.selectByIdForUpdate(1L)).thenReturn(order);
+            when(afterSaleCaseService.markRefundedReturning("RFC11"))
+                    .thenReturn(refundedCase(new BigDecimal("100.00")));
+            when(orderMapper.updateStatusToRefundedForFullRefund(1L)).thenReturn(1);
+            when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+            orderService.onAfterSaleRefundCompleted("RFC11");
+
+            verify(orderMapper).updateStatusToRefundedForFullRefund(1L);
+            verify(inventoryFeignClient, never()).releaseStock(any());
+            verify(couponFeignClient).returnCoupon(any());
+        }
+
+        @Test
+        @DisplayName("重复/乱序通知：案件未命中 → 幂等无操作")
+        void duplicateNotification_idempotent() {
+            when(afterSaleCaseService.markRefundedReturning("RFC11")).thenReturn(null);
+
+            orderService.onAfterSaleRefundCompleted("RFC11");
+
+            verify(orderMapper, never()).selectByIdForUpdate(anyLong());
+            verify(orderMapper, never()).updateRefundSummary(anyLong(), any(), any());
+        }
+    }
+
 }

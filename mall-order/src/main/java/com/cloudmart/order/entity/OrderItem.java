@@ -35,5 +35,8 @@ public class OrderItem {
 
     private Integer quantity;
 
+    /** 明细实付分摊（T04）：=成交价×数量-优惠分摊；NULL=历史单未准确分摊 */
+    private BigDecimal payAmount;
+
     private LocalDateTime createdAt;
 }

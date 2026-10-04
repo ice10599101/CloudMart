@@ -55,6 +55,7 @@ public class OrderOutboxDelivery implements OutboxDelivery {
             case "ORDER_PAID" -> RocketMQConfig.ORDER_TAG_PAID;
             case "SECKILL_RESULT" -> RocketMQConfig.ORDER_TAG_SECKILL_RESULT;
             case "AFTER_SALE_INSPECT_PASSED" -> RocketMQConfig.TAG_AFTER_SALE;
+            case "AFTER_SALE_REFUND_SUBMIT" -> RocketMQConfig.TAG_AFTER_SALE;
             default -> throw new IllegalArgumentException("未知的订单事件类型: " + eventType);
         };
     }

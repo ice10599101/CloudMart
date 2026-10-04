@@ -54,12 +54,18 @@ public class PaymentRefundConsumer implements RocketMQListener<Map<String, Objec
             return;
         }
         try {
-            orderService.notifyRefundSucceeded(orderId);
-            // T11：售后案件回填（refundNo 关联；无关联案件时幂等无操作）
+            // T04：case 结算优先——案件回填 + 订单已退累计 + 全额才推进履约状态；
+            // 部分退款不再把整单推成 REFUNDED/释放整单库存/返整张券
             Object refundNoRaw = ((Map<?, ?>) message.get("payload")) == null ? null
                     : ((java.util.Map<?, ?>) message.get("payload")).get("refundNo");
-            if (refundNoRaw != null) {
-                orderService.onAfterSaleRefundCompleted(String.valueOf(refundNoRaw));
+            String refundNo = refundNoRaw == null ? null : String.valueOf(refundNoRaw);
+            if (refundNo != null) {
+                orderService.onAfterSaleRefundCompleted(refundNo);
+            }
+            // 兼容历史 RF{orderId} 整单退款（订单侧老单据在途收敛）；新退款号
+            // RFC{caseId} 与订单雪花 ID 空间不重叠，绝不误入此分支
+            if (("RF" + orderId).equals(refundNo)) {
+                orderService.notifyRefundSucceeded(orderId);
             }
             inboxService.completeConsume(CONSUMER, envelope);
         } catch (Exception e) {

@@ -302,24 +302,25 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "REFUNDING", "张三", "13800138000", "地址", null, null, refundReason, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "地址", null, null, refundReason, null, List.of(itemDto), null, null);
 
         when(orderMapper.selectById(orderId)).thenReturn(order);
-        when(orderMapper.updateStatusToRefunding(orderId, "PAID", "REFUNDING", refundReason)).thenReturn(1);
         when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
         when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of(itemDto));
         when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(expectedDto);
 
         OrderDTO result = orderService.requestRefund(userId, orderId, refundReason);
 
+        // T04：旧入口适配为整单售后案件——订单状态不变，资金只走 case 退款通路
         assertThat(result).isEqualTo(expectedDto);
-        verify(orderMapper).updateStatusToRefunding(orderId, "PAID", "REFUNDING", refundReason);
-        verify(outboxService).record(argThat(evt ->
-                "ORDER_STATUS_CHANGE".equals(evt.eventType())
-                        && evt.aggregateId().equals(String.valueOf(orderId))
-                        && evt.payload().contains("\"oldStatus\":\"PAID\"")
-                        && evt.payload().contains("\"newStatus\":\"REFUNDING\"")
-        ));
+        verify(afterSaleCaseService).apply(org.mockito.ArgumentMatchers.eq(userId),
+                org.mockito.ArgumentMatchers.argThat(r -> r.orderId().equals(orderId)
+                        && r.itemId() == null
+                        && com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY.equals(r.type())));
+        verify(orderMapper, never()).updateStatusToRefunding(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
+        verify(outboxService, never()).record(any(EventEnvelope.class));
     }
 
     @Test
@@ -329,18 +330,25 @@ class OrderServiceTest {
         Order order = new Order();
         order.setId(orderId);
         order.setUserId(1L);
-        order.setStatus("REFUNDING");
+        order.setStatus("PAID");
+        order.setPayAmount(new BigDecimal("100.00"));
         when(orderMapper.selectById(orderId)).thenReturn(order);
 
-        // T02/QA06：支付服务不可用（拒绝型 fallback 抛 REFUND_SERVICE_UNAVAILABLE）时审批不上推进订单
-        when(refundFeignClient.createRefund(any())).thenThrow(
-                new BusinessException("REFUND_SERVICE_UNAVAILABLE", "退款服务不可用，请稍后重试"));
+        // T04：审批委托 case 服务——案件受理后资金经 Outbox 异步提交；
+        // 支付侧拒绝（如渠道未接入）在提交消费者重试，案件保持 APPROVED 可人工处置
+        var pendingCase = new com.cloudmart.order.entity.AfterSaleCase();
+        pendingCase.setId(11L);
+        pendingCase.setOrderId(orderId);
+        when(afterSaleCaseService.findPendingWholeOrderCase(orderId)).thenReturn(pendingCase);
+        when(afterSaleCaseService.occupiedRefundAmount(orderId, 11L)).thenReturn(BigDecimal.ZERO);
+        when(afterSaleCaseService.approve(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(11L), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new BusinessException("AFTER_SALE_AMOUNT_EXCEEDED", "超退"));
+
         assertThatThrownBy(() -> orderService.approveRefund(orderId))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
-                        .isEqualTo("REFUND_SERVICE_UNAVAILABLE"));
+                .isInstanceOf(BusinessException.class);
+        verify(refundFeignClient, never()).createRefund(any());
         verify(orderMapper, never()).updateStatusToRefunded(anyLong(), anyString(), anyString());
-        verify(outboxService, never()).record(any(EventEnvelope.class));
     }
 
     @Test

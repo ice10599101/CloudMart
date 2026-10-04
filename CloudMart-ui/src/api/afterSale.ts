@@ -58,11 +58,10 @@ export function pageAfterSaleCases(params: {
   return request.get<ApiResponse<AfterSaleCase[]>>('/admin/business/orders/after-sale', { params })
 }
 
-/** T11 后台：受理（批准金额 + 关联 T02 退款单） */
-export function approveAfterSaleCase(caseId: number, refundAmount: number, refundNo: string) {
+/** T04 后台：受理（批准金额；退款号服务端派生 RFC{caseId}，退款经 Outbox 异步提交） */
+export function approveAfterSaleCase(caseId: number, refundAmount: number) {
   return request.post<ApiResponse<AfterSaleCase>>(`/admin/business/orders/after-sale/${caseId}/approve`, {
     refundAmount,
-    refundNo,
   })
 }
 

@@ -72,4 +72,20 @@ public interface OrderMapper extends BaseMapper<Order> {
     int updateStatusRejectRefund(@Param("orderId") Long orderId,
                                  @Param("expectedStatus") String expectedStatus,
                                  @Param("rejectReason") String rejectReason);
+
+    /** T04：订单行锁——售后额度预占/全额推进以订单行为串行化锚点（锁顺序：订单行→案件行） */
+    @Select("SELECT * FROM orders WHERE id = #{orderId} FOR UPDATE")
+    Order selectByIdForUpdate(@Param("orderId") Long orderId);
+
+    /** T04：退款汇总回填（已退累计 + NONE/PARTIAL/FULL；调用方持订单行锁） */
+    @Update("UPDATE orders SET refunded_amount = #{refundedAmount}, refund_status = #{refundStatus}, updated_at = NOW() " +
+            "WHERE id = #{orderId}")
+    int updateRefundSummary(@Param("orderId") Long orderId,
+                            @Param("refundedAmount") java.math.BigDecimal refundedAmount,
+                            @Param("refundStatus") String refundStatus);
+
+    /** T04：全额退款完成推进履约状态（部分退款绝不触发——调用方已按实付核算） */
+    @Update("UPDATE orders SET status = 'REFUNDED', updated_at = NOW() " +
+            "WHERE id = #{orderId} AND status IN ('PAID', 'SHIPPED', 'REFUNDING')")
+    int updateStatusToRefundedForFullRefund(@Param("orderId") Long orderId);
 }

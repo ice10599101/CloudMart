@@ -57,6 +57,12 @@ public class Order {
 
     private String refundRejectReason;
 
+    /** 退款汇总状态（T04）：NONE/PARTIAL/FULL——履约状态不被部分退款覆盖 */
+    private String refundStatus;
+
+    /** 已退累计金额（T04）：case 退款成功回填，与 refund_status 同事务推进 */
+    private BigDecimal refundedAmount;
+
     private LocalDateTime completedAt;
 
     @TableField(fill = FieldFill.INSERT)

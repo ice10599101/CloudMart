@@ -54,10 +54,9 @@ export default function AfterSaleCasesPage() {
     async (c: AfterSaleCase) => {
       const input = window.prompt('批准退款金额（≤订单应付）：', c.refundAmount ?? '')
       if (input === null) return
-      const refundNo = window.prompt('关联 T02 退款单号（RF+orderId）：', `RF${c.orderId}`)
-      if (refundNo === null) return
+      // T04：退款号由服务端派生（RFC{caseId}），后台仅核定金额——不再手填关联 ID
       try {
-        await approveAfterSaleCase(c.id, Number(input), refundNo.trim())
+        await approveAfterSaleCase(c.id, Number(input))
         message.success('售后已受理')
         fetchCases()
       } catch {

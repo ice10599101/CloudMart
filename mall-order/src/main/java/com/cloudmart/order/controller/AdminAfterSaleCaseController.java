@@ -21,8 +21,9 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * 售后案件运营端（T11）：mall-admin 经服务令牌转发（order:admin 可达）。
- * 受理必须关联/创建 T02 退款单（refundNo 必填）——案件批准与资金退款分离。
+ * 售后案件运营端（T11/T04）：mall-admin 经服务令牌转发（order:admin 可达）。
+ * 受理核定金额上限并冻结额度，退款号由服务端生成（RFC{caseId}）——案件批准与
+ * 资金退款分离，资金经 AFTER_SALE_REFUND_SUBMIT Outbox 异步提交。
  */
 @RestController
 @RequestMapping("/admin/orders/after-sale")
@@ -33,7 +34,8 @@ public class AdminAfterSaleCaseController {
 
     private final AfterSaleCaseService afterSaleCaseService;
 
-    public record ApproveRequest(BigDecimal refundAmount, String refundNo) {}
+    /** T04：退款号由服务端生成（RFC{caseId}），后台不再输入/手填关联 ID */
+    public record ApproveRequest(BigDecimal refundAmount) {}
 
     public record RejectRequest(String rejectReason) {}
 
@@ -54,7 +56,7 @@ public class AdminAfterSaleCaseController {
             @Parameter(description = "案件ID", required = true) @PathVariable Long caseId,
             @RequestBody ApproveRequest request) {
         return ApiResponse.ok(afterSaleCaseService.approve(operatorId(), caseId,
-                request.refundAmount(), request.refundNo()));
+                request.refundAmount()));
     }
 
     @PostMapping("/{caseId}/reject")
