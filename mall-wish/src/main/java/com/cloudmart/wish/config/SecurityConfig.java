@@ -2,6 +2,8 @@ package com.cloudmart.wish.config;
 
 import com.cloudmart.common.filter.RequestIdFilter;
 import com.cloudmart.common.security.JsonAuthenticationEntryPoint;
+import com.cloudmart.common.security.ServiceTokenAuthenticationFilter;
+import com.cloudmart.common.security.UserJwtAuthenticationFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,14 +21,19 @@ import java.time.Clock;
 /**
  * 心愿宇宙模块 Spring Security 配置。
  *
- * <p>身份边界（B01）：双轨认证，不再存在"头即身份"。</p>
+ * <p>身份边界（T02）：用户/管理员/服务三种主体全部由公共安全组件建立，
+ * 心愿模块不再持有本地 JWT 验签实现。</p>
  * <ul>
- *   <li>用户：网关透传的 Bearer JWT 由 {@link WishJwtAuthenticationFilter} 直接验签
- *       （RS256/mall-auth JWKS），建立 ROLE_USER；网关注入的 {@code X-User-Id}
- *       仅作为数据字段被 Controller 读取，不再作为身份源。</li>
- *   <li>服务：mall-admin/mall-job/mall-pet 的内部调用必须携带短期签名服务令牌，
- *       由 {@link ServiceTokenAuthenticationFilter} 按路径强校验 iss/aud/scope，
- *       建立 ROLE_INTERNAL；用户令牌永远不会得到该角色。</li>
+ *   <li>用户/管理员：网关透传的 Bearer JWT 由公共 {@link UserJwtAuthenticationFilter}
+ *       完整验签（RS256/mall-auth JWKS、iss/aud/exp/nbf、身份域 scope、会话撤销
+ *       authVersion），建立 ROLE_USER / ROLE_ADMIN；认证成功后 X-User-Id 被强制
+ *       改写为令牌主体，直连伪造头失效。</li>
+ *   <li>用户域护栏：{@link UserIdentityHeaderGuardFilter} 对未建立 JWT 身份的
+ *       用户域请求剥离 X-User-Id——匿名伪造头在 permitAll 公开端点同样失效。</li>
+ *   <li>服务：mall-admin/mall-job/mall-pet/mall-user 的内部调用必须携带短期签名
+ *       服务令牌，由公共 {@link ServiceTokenAuthenticationFilter} 按 application.yml
+ *       中 {@code cloudmart.security.service-token-paths} 的路径强映射校验
+ *       iss/scope，建立 ROLE_INTERNAL；用户令牌永远不会得到该角色。</li>
  *   <li>匿名：公开端点（下方 permitAll）不依赖任何身份即可浏览。</li>
  * </ul>
  *
@@ -39,12 +46,15 @@ import java.time.Clock;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final WishSecurityProperties securityProperties;
+    private final UserJwtAuthenticationFilter userJwtAuthenticationFilter;
+    private final ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter;
     private final RequestIdFilter requestIdFilter;
 
-    public SecurityConfig(WishSecurityProperties securityProperties,
+    public SecurityConfig(UserJwtAuthenticationFilter userJwtAuthenticationFilter,
+                          ServiceTokenAuthenticationFilter serviceTokenAuthenticationFilter,
                           RequestIdFilter requestIdFilter) {
-        this.securityProperties = securityProperties;
+        this.userJwtAuthenticationFilter = userJwtAuthenticationFilter;
+        this.serviceTokenAuthenticationFilter = serviceTokenAuthenticationFilter;
         this.requestIdFilter = requestIdFilter;
     }
 
@@ -53,11 +63,10 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // 顺序：先验用户 JWT，再验服务令牌（二者互斥建立身份）
-            .addFilterBefore(new WishJwtAuthenticationFilter(securityProperties.getJwksUri()),
-                    UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(new ServiceTokenAuthenticationFilter(securityProperties, wishClock()),
-                    UsernamePasswordAuthenticationFilter.class)
+            // 顺序：先验用户 JWT，再验服务令牌（二者互斥建立身份）；最后跑用户域身份头护栏
+            .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new UserIdentityHeaderGuardFilter(), ServiceTokenAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // 公开浏览：心愿列表、详情、分类字典、首页聚合
                 .requestMatchers(HttpMethod.GET, "/wishes").permitAll()

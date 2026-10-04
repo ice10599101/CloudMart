@@ -222,3 +222,29 @@ cloudmart:
     username: ${CLOUDMART_MAIL_USERNAME:${WISH_MAIL_USERNAME:}}
     password: ${CLOUDMART_MAIL_PASSWORD:${WISH_MAIL_PASSWORD:}}
     from: ${CLOUDMART_MAIL_FROM:${WISH_MAIL_FROM:}}
+  security:
+    # T02：心愿接入统一身份边界——用户/管理员 JWT 由公共 UserJwtAuthenticationFilter
+    # 完整验签（iss/aud/exp/nbf/身份域/会话撤销 authVersion），service-id 触发公共
+    # 过滤器装配；管理员令牌不再被本地过滤器视作普通用户
+    service-id: mall-wish
+    # 密钥/JWKS/时钟偏移沿用 wish.security.* 原配置源（环境变量或 Nacos 覆盖），部署零切换
+    service-token-secret: ${wish.security.service-token-secret:}
+    jwks-uri: ${wish.security.jwks-uri:http://127.0.0.1:9001/oauth2/jwks}
+    clock-skew-seconds: ${wish.security.clock-skew-seconds:30}
+    # 入站服务令牌路径强映射（原 wish-local 过滤器 PATH_REQUIREMENTS 平移，最长前缀优先）
+    service-token-paths:
+      - prefix: /admin
+        issuers: [mall-admin]
+        scope: wish:admin
+      - prefix: /internal/jobs
+        issuers: [mall-job]
+        scope: wish:jobs
+      - prefix: /internal/tree-env
+        issuers: [mall-job]
+        scope: wish:jobs
+      - prefix: /internal/pet-support
+        issuers: [mall-pet]
+        scope: wish:pet
+      - prefix: /internal/account-erasure
+        issuers: [mall-user]
+        scope: wish:erasure
