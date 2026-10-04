@@ -62,6 +62,13 @@ export function getGroupOrders(activityId?: number, page = 1, size = 10) {
   return request.get<ApiResponse<GroupOrderPage>>('/marketing/group/orders', { params: { activityId, page, size } })
 }
 
+/** T10：我的拼团（服务端按当前身份过滤，含本人建单结果） */
+export function getMyGroups(page = 1, size = 10, status?: string) {
+  return request.get<ApiResponse<GroupOrderPage>>('/marketing/group/orders/my', {
+    params: { page, size, status },
+  })
+}
+
 export function getGroupOrder(groupOrderId: number) {
   return request.get<ApiResponse<GroupOrder>>(`/marketing/group/orders/${groupOrderId}`)
 }

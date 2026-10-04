@@ -47,6 +47,9 @@ export const marketingApi = {
   getGroupActivity: (id: number) => request<GroupActivity>({ url: `/marketing/group/activities/${id}` }),
   joinGroup: (data: { activityId: number; groupOrderId?: number }) =>
     request<GroupOrder>({ url: '/marketing/group/join', method: 'POST', data }),
+  // T10：我的拼团（服务端身份过滤）
+  getMyGroups: (params?: { page?: number; pageSize?: number; status?: string }) =>
+    request({ url: `/marketing/group/orders/my${buildQuery(params as Record<string, unknown>)}` }),
   getGroupOrders: (params?: { activityId?: number; page?: number; pageSize?: number }) =>
     request<PaginatedResult<GroupOrder>>({ url: `/marketing/group/orders${buildQuery(params as Record<string, unknown>)}` }),
   // Tiered Promotion

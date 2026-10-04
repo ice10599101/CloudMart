@@ -2,6 +2,7 @@ package com.cloudmart.marketing.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.marketing.converter.MarketingConverter;
 import com.cloudmart.marketing.dto.*;
 import com.cloudmart.marketing.service.GroupActivityService;
@@ -64,6 +65,19 @@ public class GroupActivityController {
             @Parameter(description = "拼团组ID") @PathVariable Long groupOrderId) {
         GroupOrderDTO dto = groupActivityService.getGroupOrder(groupOrderId);
         return ApiResponse.ok(marketingConverter.groupOrderDtoToVO(dto));
+    }
+
+    /** T10：本人参团查询（服务端从当前身份过滤；公开团列表另保留） */
+    @Operation(summary = "我的拼团", description = "本人为团长或成员的团实例，含本人建单结果；服务端身份过滤")
+    @GetMapping("/orders/my")
+    public ApiResponse<IPage<GroupOrderVO>> listMyGroups(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
+        IPage<GroupOrderDTO> dtoPage = groupActivityService.listMyGroups(userId, status, page, size);
+        IPage<GroupOrderVO> voPage = dtoPage.convert(marketingConverter::groupOrderDtoToVO);
+        return ApiResponse.ok(voPage);
     }
 
     @Operation(summary = "查询拼团组列表")

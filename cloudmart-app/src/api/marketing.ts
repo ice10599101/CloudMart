@@ -32,6 +32,9 @@ export const marketingApi = {
     request({ url: '/marketing/group/join', method: 'POST', data }),
   getGroupOrders: (params?: { page?: number; pageSize?: number }) =>
     request({ url: `/marketing/group/orders${buildQuery(params as Record<string, unknown>)}` }),
+  // T10：我的拼团（服务端身份过滤，不依赖活动 ID）
+  getMyGroups: (params?: { page?: number; pageSize?: number; status?: string }) =>
+    request({ url: `/marketing/group/orders/my${buildQuery(params as Record<string, unknown>)}` }),
 
   // 优惠券推荐与兑换码
   recommendCoupons: (orderAmount: number) =>

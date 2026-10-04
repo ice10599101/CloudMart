@@ -21,5 +21,8 @@ public interface GroupActivityService {
 
     IPage<GroupOrderDTO> listGroupOrders(Long activityId, String status, int page, int size);
 
+    /** T10：本人参团查询——服务端从当前身份过滤（成员或团长），不暴露他人订单/地址 */
+    IPage<GroupOrderDTO> listMyGroups(Long userId, String status, int page, int size);
+
     void handleGroupExpiration();
 }

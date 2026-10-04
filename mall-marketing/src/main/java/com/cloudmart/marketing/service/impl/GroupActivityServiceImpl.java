@@ -421,6 +421,29 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         return dtoPage;
     }
 
+    /** T10：本人参团查询——本人为团长或成员的组实例（服务端身份过滤，不收 userId 参数）。 */
+    @Override
+    public IPage<GroupOrderDTO> listMyGroups(Long userId, String status, int page, int size) {
+        // 成员事实表按 userId 查组 ID 集合（本人参与的全部组，含团长）
+        List<Long> myGroupIds = memberMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.marketing.entity.GroupMember>()
+                        .eq(com.cloudmart.marketing.entity.GroupMember::getUserId, userId))
+                .stream().map(com.cloudmart.marketing.entity.GroupMember::getGroupOrderId).distinct().toList();
+        if (myGroupIds.isEmpty()) {
+            return new Page<>(page, size, 0);
+        }
+        LambdaQueryWrapper<GroupOrder> wrapper = new LambdaQueryWrapper<GroupOrder>()
+                .in(GroupOrder::getId, myGroupIds);
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(GroupOrder::getStatus, status);
+        }
+        wrapper.orderByDesc(GroupOrder::getCreatedAt);
+        IPage<GroupOrder> pageResult = groupOrderMapper.selectPage(new Page<>(page, size), wrapper);
+        Page<GroupOrderDTO> dtoPage = new Page<>(pageResult.getCurrent(), pageResult.getSize(), pageResult.getTotal());
+        dtoPage.setRecords(pageResult.getRecords().stream().map(this::buildGroupOrderDTO).toList());
+        return dtoPage;
+    }
+
     /**
      * T10 超时处理（mall-job 定时触发）：CAS 逐组过期 + 成员释放预留权益。
      *
