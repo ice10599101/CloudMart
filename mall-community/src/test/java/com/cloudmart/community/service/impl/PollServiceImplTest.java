@@ -38,6 +38,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PollServiceImplTest {
 
+    private static final Long OTHER_ID = 5555L;
+
     private static final Long CREATOR_ID = 10001L;
     private static final Long VOTER_ID = 20002L;
 
@@ -47,6 +49,9 @@ class PollServiceImplTest {
     private CommunityPollOptionMapper optionMapper;
     @Mock
     private CommunityPollVoteMapper voteMapper;
+
+    @Mock
+    private com.cloudmart.community.repository.PostMapper postMapper;
 
     private PollServiceImpl pollService;
 
@@ -66,11 +71,22 @@ class PollServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        pollService = new PollServiceImpl(pollMapper, optionMapper, voteMapper);
+        pollService = new PollServiceImpl(pollMapper, optionMapper, voteMapper,
+                new com.cloudmart.community.service.impl.HostAccessResolver(postMapper));
     }
 
     private CreatePollRequest createRequest(String id) {
         return new CreatePollRequest(id, "POST", "9001", "周末去哪？", false, List.of("爬山", "看电影"));
+    }
+
+    /** T21：宿主解析桩——POST 9001 归 CREATOR_ID 且公开可见 */
+    private void stubOwnedHost() {
+        com.cloudmart.community.entity.Post host = new com.cloudmart.community.entity.Post();
+        host.setId(9001L);
+        host.setUserId(CREATOR_ID);
+        host.setStatus(1);
+        host.setReviewStatus(1);
+        when(postMapper.selectById(9001L)).thenReturn(host);
     }
 
     private CommunityPollOption option(long id, String content, int sort) {
@@ -105,8 +121,11 @@ class PollServiceImplTest {
             when(pollMapper.selectById("poll-1")).thenReturn(null).thenReturn(persisted);
             when(optionMapper.selectList(any())).thenReturn(List.of(
                     option(1L, "爬山", 0), option(2L, "看电影", 1)));
-            when(voteMapper.selectList(any())).thenReturn(List.of());
+            when(voteMapper.countByOption("poll-1")).thenReturn(List.of());
+            when(voteMapper.countDistinctVoters("poll-1")).thenReturn(0L);
+            when(voteMapper.selectMyOptionIds("poll-1", CREATOR_ID)).thenReturn(List.of());
 
+            stubOwnedHost();
             PollVO vo = pollService.createPoll(CREATOR_ID, createRequest("poll-1"));
 
             assertThat(vo.question()).isEqualTo("周末去哪？");
@@ -129,7 +148,6 @@ class PollServiceImplTest {
             existing.setIsMultiple(false);
             when(pollMapper.selectById("poll-1")).thenReturn(existing);
             when(optionMapper.selectList(any())).thenReturn(List.of());
-            when(voteMapper.selectList(any())).thenReturn(List.of());
 
             pollService.createPoll(CREATOR_ID, createRequest("poll-1"));
 
@@ -154,6 +172,7 @@ class PollServiceImplTest {
         @DisplayName("有效选项不足 2 个 - 拒绝创建")
         void shouldRejectWhenTooFewValidOptions() {
             when(pollMapper.selectById("poll-1")).thenReturn(null);
+            stubOwnedHost();
 
             assertThatThrownBy(() -> pollService.createPoll(CREATOR_ID,
                     new CreatePollRequest("poll-1", "POST", "9001", "q", false, List.of("  ", ""))))
@@ -242,10 +261,15 @@ class PollServiceImplTest {
         poll.setQuestion("q");
         poll.setIsMultiple(true);
         when(pollMapper.selectById("poll-1")).thenReturn(poll);
+        // T21：未绑定宿主（targetId 空）→ 宿主校验直通
         when(optionMapper.selectList(any())).thenReturn(List.of(
                 option(1L, "爬山", 0), option(2L, "看电影", 1)));
-        when(voteMapper.selectList(any())).thenReturn(List.of(
-                vote(1L, VOTER_ID), vote(1L, 30003L), vote(2L, 30003L)));
+        // T21：统计改 SQL 聚合
+        when(voteMapper.countByOption("poll-1")).thenReturn(List.of(
+                java.util.Map.of("optionId", 1L, "cnt", 2L),
+                java.util.Map.of("optionId", 2L, "cnt", 1L)));
+        when(voteMapper.countDistinctVoters("poll-1")).thenReturn(2L);
+        when(voteMapper.selectMyOptionIds("poll-1", VOTER_ID)).thenReturn(List.of(1L));
 
         PollVO vo = pollService.getPoll("poll-1", VOTER_ID);
 
@@ -253,5 +277,96 @@ class PollServiceImplTest {
         assertThat(vo.options().get(0).voteCount()).isEqualTo(2);
         assertThat(vo.options().get(1).voteCount()).isEqualTo(1);
         assertThat(vo.myOptionIds()).containsExactly(1L);
+    }
+
+    @Nested
+    @DisplayName("T21 宿主权限继承")
+    class HostAccessTests {
+
+        private com.cloudmart.community.entity.Post post(Long ownerId, int status, int reviewStatus) {
+            com.cloudmart.community.entity.Post host = new com.cloudmart.community.entity.Post();
+            host.setId(9001L);
+            host.setUserId(ownerId);
+            host.setStatus(status);
+            host.setReviewStatus(reviewStatus);
+            return host;
+        }
+
+        @Test
+        @DisplayName("他人不能把投票挂到我的帖子上（FORBIDDEN）")
+        void create_mountOnOthersPost_rejected() {
+            when(pollMapper.selectById("poll-x")).thenReturn(null);
+            when(postMapper.selectById(9001L)).thenReturn(post(OTHER_ID, 1, 1));
+
+            assertThatThrownBy(() -> pollService.createPoll(CREATOR_ID,
+                    new CreatePollRequest("poll-x", "POST", "9001", "q", false, List.of("a", "b"))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("FORBIDDEN");
+            verify(pollMapper, never()).insert(any(CommunityPoll.class));
+        }
+
+        @Test
+        @DisplayName("私密宿主（待审）的投票不能被旁路读取（RESOURCE_NOT_VISIBLE）")
+        void getPoll_privateHost_rejected() {
+            CommunityPoll poll = new CommunityPoll();
+            poll.setId("poll-1");
+            poll.setTargetType("POST");
+            poll.setTargetId("9001");
+            poll.setCreatorId(OTHER_ID);
+            when(pollMapper.selectById("poll-1")).thenReturn(poll);
+            when(postMapper.selectById(9001L)).thenReturn(post(OTHER_ID, 1, 0));
+
+            assertThatThrownBy(() -> pollService.getPoll("poll-1", CREATOR_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("RESOURCE_NOT_VISIBLE");
+        }
+
+        @Test
+        @DisplayName("宿主已删除（逻辑删除查不到）→ 按不存在处理")
+        void getPoll_deletedHost_notVisible() {
+            CommunityPoll poll = new CommunityPoll();
+            poll.setId("poll-1");
+            poll.setTargetType("POST");
+            poll.setTargetId("9001");
+            when(pollMapper.selectById("poll-1")).thenReturn(poll);
+            when(postMapper.selectById(9001L)).thenReturn(null);
+
+            assertThatThrownBy(() -> pollService.getPoll("poll-1", OTHER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("RESOURCE_NOT_VISIBLE");
+        }
+
+        @Test
+        @DisplayName("宿主作者本人可读自己私密帖子的附件")
+        void getPoll_ownerReadable() {
+            CommunityPoll poll = new CommunityPoll();
+            poll.setId("poll-1");
+            poll.setTargetType("POST");
+            poll.setTargetId("9001");
+            poll.setQuestion("q");
+            poll.setIsMultiple(true);
+            poll.setCreatorId(CREATOR_ID);
+            when(pollMapper.selectById("poll-1")).thenReturn(poll);
+            when(postMapper.selectById(9001L)).thenReturn(post(CREATOR_ID, 1, 0));
+            when(optionMapper.selectList(any())).thenReturn(List.of());
+            when(voteMapper.countByOption("poll-1")).thenReturn(List.of());
+            when(voteMapper.countDistinctVoters("poll-1")).thenReturn(0L);
+            when(voteMapper.selectMyOptionIds("poll-1", CREATOR_ID)).thenReturn(List.of());
+
+            var vo = pollService.getPoll("poll-1", CREATOR_ID);
+
+            assertThat(vo.question()).isEqualTo("q");
+        }
+
+        @Test
+        @DisplayName("WISH/CAPSULE 等未接入宿主域明确拒绝（不猜测他域可见性）")
+        void create_unsupportedHostType_rejected() {
+            when(pollMapper.selectById("poll-x")).thenReturn(null);
+
+            assertThatThrownBy(() -> pollService.createPoll(CREATOR_ID,
+                    new CreatePollRequest("poll-x", "WISH", "123", "q", false, List.of("a", "b"))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("HOST_TYPE_UNSUPPORTED");
+        }
     }
 }

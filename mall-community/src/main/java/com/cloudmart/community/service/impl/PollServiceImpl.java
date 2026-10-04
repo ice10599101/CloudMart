@@ -36,6 +36,7 @@ public class PollServiceImpl implements PollService {
     private final CommunityPollMapper pollMapper;
     private final CommunityPollOptionMapper optionMapper;
     private final CommunityPollVoteMapper voteMapper;
+    private final HostAccessResolver hostAccessResolver;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -48,6 +49,8 @@ public class PollServiceImpl implements PollService {
             // 幂等：发布重试/草稿反复保存时直接返回既有投票
             return getPoll(existing.getId(), userId);
         }
+        // T21：挂载宿主校验——他人不能把投票挂到我的帖子上
+        hostAccessResolver.requireHostEditable(request.targetType(), request.targetId(), userId);
 
         List<String> options = request.options().stream().map(String::trim).filter(option -> !option.isEmpty()).toList();
         if (options.size() < 2) {
@@ -81,21 +84,23 @@ public class PollServiceImpl implements PollService {
         if (poll == null) {
             throw new BusinessException("POLL_NOT_FOUND", "投票不存在");
         }
+        // T21：宿主可见性继承——私密/待审/已删宿主的附件不能凭 pollId 旁路访问
+        hostAccessResolver.requireHostReadable(poll.getTargetType(), poll.getTargetId(), userId);
         List<CommunityPollOption> options = optionMapper.selectList(new LambdaQueryWrapper<CommunityPollOption>()
                 .eq(CommunityPollOption::getPollId, pollId)
                 .orderByAsc(CommunityPollOption::getSort)
                 .orderByAsc(CommunityPollOption::getId));
 
-        List<CommunityPollVote> votes = voteMapper.selectList(new LambdaQueryWrapper<CommunityPollVote>()
-                .eq(CommunityPollVote::getPollId, pollId));
-        Map<Long, Long> voteCountByOption = votes.stream()
-                .collect(Collectors.groupingBy(CommunityPollVote::getOptionId, Collectors.counting()));
-        long distinctVoters = votes.stream().map(CommunityPollVote::getUserId).distinct().count();
+        // T21：统计改 SQL 聚合（GROUP BY）——不随总票数线性增长
+        Map<Long, Long> voteCountByOption = new java.util.HashMap<>();
+        for (Map<String, Object> row : voteMapper.countByOption(pollId)) {
+            voteCountByOption.put(((Number) row.get("optionId")).longValue(),
+                    ((Number) row.get("cnt")).longValue());
+        }
+        long distinctVoters = voteMapper.countDistinctVoters(pollId);
 
-        Set<Long> myOptionIds = userId == null ? Set.of() : votes.stream()
-                .filter(vote -> vote.getUserId().equals(userId))
-                .map(CommunityPollVote::getOptionId)
-                .collect(Collectors.toSet());
+        Set<Long> myOptionIds = userId == null ? Set.of()
+                : Set.copyOf(voteMapper.selectMyOptionIds(pollId, userId));
 
         List<PollVO.PollOptionVO> optionVOs = options.stream()
                 .map(option -> new PollVO.PollOptionVO(
@@ -113,6 +118,8 @@ public class PollServiceImpl implements PollService {
         if (poll == null) {
             throw new BusinessException("POLL_NOT_FOUND", "投票不存在");
         }
+        // T21：作答继承宿主可见性——不能凭 pollId 给私密内容投票
+        hostAccessResolver.requireHostReadable(poll.getTargetType(), poll.getTargetId(), userId);
         List<Long> distinctOptionIds = List.copyOf(new HashSet<>(optionIds));
         Set<Long> pollOptionIds = optionMapper.selectList(new LambdaQueryWrapper<CommunityPollOption>()
                         .eq(CommunityPollOption::getPollId, pollId))

@@ -49,6 +49,7 @@ public class SurveyServiceImpl implements SurveyService {
     private final CommunitySurveyQuestionMapper questionMapper;
     private final CommunitySurveyAnswerMapper answerMapper;
     private final ObjectMapper objectMapper;
+    private final HostAccessResolver hostAccessResolver;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -60,6 +61,8 @@ public class SurveyServiceImpl implements SurveyService {
             }
             return getSurvey(existing.getId(), userId);
         }
+        // T21：挂载宿主校验——他人不能把问卷挂到我的帖子上
+        hostAccessResolver.requireHostEditable(request.targetType(), request.targetId(), userId);
 
         CommunitySurvey survey = new CommunitySurvey();
         survey.setId(request.id());
@@ -99,50 +102,61 @@ public class SurveyServiceImpl implements SurveyService {
         if (survey == null) {
             throw new BusinessException("SURVEY_NOT_FOUND", "问卷不存在");
         }
+        // T21：宿主可见性继承——私密/待审/已删宿主的问卷不能凭 surveyId 旁路访问
+        hostAccessResolver.requireHostReadable(survey.getTargetType(), survey.getTargetId(), userId);
         List<CommunitySurveyQuestion> questions = questionMapper.selectList(
                 new LambdaQueryWrapper<CommunitySurveyQuestion>()
                         .eq(CommunitySurveyQuestion::getSurveyId, surveyId)
                         .orderByAsc(CommunitySurveyQuestion::getSort)
                         .orderByAsc(CommunitySurveyQuestion::getId));
-        List<CommunitySurveyAnswer> answers = answerMapper.selectList(
-                new LambdaQueryWrapper<CommunitySurveyAnswer>()
-                        .eq(CommunitySurveyAnswer::getSurveyId, surveyId));
-        long respondentCount = answers.stream().map(CommunitySurveyAnswer::getUserId).distinct().count();
 
-        Map<Long, List<CommunitySurveyAnswer>> answersByQuestion = answers.stream()
-                .collect(Collectors.groupingBy(CommunitySurveyAnswer::getQuestionId));
+        // T21：统计改 SQL 聚合（GROUP BY/JSON_TABLE）——查询量不随答卷总量线性增长
+        long respondentCount = answerMapper.countRespondents(surveyId);
+        Map<Long, Long> rowsByQuestion = new HashMap<>();
+        for (var row : answerMapper.countByQuestion(surveyId)) {
+            rowsByQuestion.put(((Number) row.get("questionId")).longValue(),
+                    ((Number) row.get("cnt")).longValue());
+        }
+        // 选择题逐选项下标计数（optionIds JSON 数组经 JSON_TABLE 展开）
+        Map<Long, Map<Integer, Long>> choiceCountsByQuestion = new HashMap<>();
+        for (var row : answerMapper.countChoiceByIndex(surveyId)) {
+            choiceCountsByQuestion.computeIfAbsent(
+                            ((Number) row.get("questionId")).longValue(), k -> new HashMap<>())
+                    .merge(((Number) row.get("optionIndex")).intValue(),
+                            ((Number) row.get("cnt")).longValue(), Long::sum);
+        }
+        Map<Long, Long> textCountsByQuestion = new HashMap<>();
+        for (var row : answerMapper.countTextByQuestion(surveyId)) {
+            textCountsByQuestion.put(((Number) row.get("questionId")).longValue(),
+                    ((Number) row.get("cnt")).longValue());
+        }
 
         Map<Long, CommunitySurveyAnswer> myAnswersByQuestion = userId == null
                 ? Map.of()
-                : answers.stream()
-                        .filter(answer -> answer.getUserId().equals(userId))
+                : answerMapper.selectList(new LambdaQueryWrapper<CommunitySurveyAnswer>()
+                        .eq(CommunitySurveyAnswer::getSurveyId, surveyId)
+                        .eq(CommunitySurveyAnswer::getUserId, userId))
+                        .stream()
                         .collect(Collectors.toMap(CommunitySurveyAnswer::getQuestionId, answer -> answer,
                                 (first, second) -> second));
 
         List<SurveyVO.SurveyQuestionVO> questionVOs = questions.stream().map(question -> {
             List<String> options = readJson(question.getOptions(), STRING_LIST_TYPE);
-            List<CommunitySurveyAnswer> questionAnswers =
-                    answersByQuestion.getOrDefault(question.getId(), List.of());
+            long answerCount = rowsByQuestion.getOrDefault(question.getId(), 0L);
             // 选择题：选项文本存题目 JSON（无独立行），答案记录选项下标（0 基）——票数按下标对齐输出
             if ("SINGLE".equals(question.getType()) || "MULTI".equals(question.getType())) {
-                Map<Integer, Long> countsByIndex = new HashMap<>();
-                for (CommunitySurveyAnswer answer : questionAnswers) {
-                    for (Long optionIndex : readJson(answer.getOptionIds(), LONG_LIST_TYPE)) {
-                        countsByIndex.merge(optionIndex.intValue(), 1L, Long::sum);
-                    }
-                }
+                Map<Integer, Long> countsByIndex =
+                        choiceCountsByQuestion.getOrDefault(question.getId(), Map.of());
                 List<Long> optionCounts = new ArrayList<>(options.size());
                 for (int index = 0; index < options.size(); index++) {
                     optionCounts.add(countsByIndex.getOrDefault(index, 0L));
                 }
                 return new SurveyVO.SurveyQuestionVO(question.getId(), question.getContent(), question.getType(),
-                        options, question.getIsRequired(), optionCounts, (long) questionAnswers.size());
+                        options, question.getIsRequired(), optionCounts, answerCount);
             }
-            long textAnswerCount = questionAnswers.stream()
-                    .filter(answer -> answer.getTextContent() != null && !answer.getTextContent().isBlank())
-                    .count();
             return new SurveyVO.SurveyQuestionVO(question.getId(), question.getContent(), question.getType(),
-                    options, question.getIsRequired(), List.of(), textAnswerCount);
+                    options, question.getIsRequired(), List.of(),
+                    textCountsByQuestion.getOrDefault(question.getId(), 0L));
         }).toList();
 
         List<SurveyVO.MyAnswerVO> myAnswers = myAnswersByQuestion.entrySet().stream()
@@ -163,6 +177,8 @@ public class SurveyServiceImpl implements SurveyService {
         if (survey == null) {
             throw new BusinessException("SURVEY_NOT_FOUND", "问卷不存在");
         }
+        // T21：作答继承宿主可见性——不能凭 surveyId 给私密内容答卷
+        hostAccessResolver.requireHostReadable(survey.getTargetType(), survey.getTargetId(), userId);
         List<CommunitySurveyQuestion> questions = questionMapper.selectList(
                 new LambdaQueryWrapper<CommunitySurveyQuestion>()
                         .eq(CommunitySurveyQuestion::getSurveyId, surveyId));
