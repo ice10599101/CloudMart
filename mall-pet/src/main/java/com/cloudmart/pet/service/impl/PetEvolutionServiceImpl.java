@@ -92,7 +92,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
     @Override
     public PetEvolutionVO status(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        return buildStatus(pet, starlightBalanceQuietly(userId));
+        return buildStatus(pet, balanceQuietly(userId));
     }
 
     @Override
@@ -232,7 +232,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
                         "宠物进化啦！",
                         pet.getName() + " 完成了「" + next.getName() + "」，快去看看它的新样子吧！",
                         String.valueOf(pet.getId()), "PET_EVOLVED"));
-        return buildStatus(pet, starlightBalanceQuietly(userId));
+        return buildStatus(pet, balanceQuietly(userId));
     }
 
     /** 进化本地效果（R28 条件更新）：{@code WHERE evolution_stage=fromStage AND version=?}——
@@ -369,7 +369,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
     }
 
     /** 余额查询：展示型数据 Fail-Open（null=不参与"星光是否足够"判定） */
-    private Long starlightBalanceQuietly(Long userId) {
+    private Long balanceQuietly(Long userId) {
         try {
             return economyService.balanceOf(userId);
         } catch (Exception e) {

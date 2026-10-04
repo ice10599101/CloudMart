@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 /**
- * B22/P2-5 数据保留策略：SENT outbox 事件保留 30 天后清理（审计依赖 pet_operation 不清理）；
+ * B22/P2-5 数据保留策略：SENT outbox 事件保留 30 天后清理；
  * 钱包账本（pet_wallet_ledger）按月归档汇总——只写不删：物理清理涉及对账基线联动改造
  * （PetWalletReconcileJob 以全量 SUM(delta) 为基线），删除策略需产品确认后另行启用。
  */
