@@ -155,6 +155,31 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     }
 
     @Override
+    public Page<AfterSaleCaseVO> pageForUser(Long userId, String status, long page, long size) {
+        LambdaQueryWrapper<AfterSaleCase> wrapper = new LambdaQueryWrapper<AfterSaleCase>()
+                .eq(AfterSaleCase::getUserId, userId)
+                .eq(status != null && !status.isBlank(), AfterSaleCase::getStatus, status)
+                .orderByDesc(AfterSaleCase::getId);
+        Page<AfterSaleCase> result = caseMapper.selectPage(new Page<>(page, size), wrapper);
+        Page<AfterSaleCaseVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream().map(c -> toVO(c, orderNoOf(c.getOrderId()))).toList());
+        return voPage;
+    }
+
+    @Override
+    public java.util.List<AfterSaleCaseVO> listByOrderForUser(Long userId, Long orderId) {
+        // T05：归属校验——订单必须是本人订单（防越权枚举他人订单售后）
+        Order order = orderMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
+        }
+        return caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
+                        .eq(AfterSaleCase::getOrderId, orderId)
+                        .orderByAsc(AfterSaleCase::getId))
+                .stream().map(c -> toVO(c, order.getOrderNo())).toList();
+    }
+
+    @Override
     public AfterSaleCaseVO detail(Long userId, Long caseId) {
         AfterSaleCase entity = requireCase(caseId);
         if (!entity.getUserId().equals(userId)) {

@@ -48,6 +48,16 @@ export function getAfterSaleDetail(caseId: number) {
   return request.get<ApiResponse<AfterSaleCase>>(`/order/orders/after-sale/${caseId}`)
 }
 
+/** T05：我的售后分页（服务端归属过滤；进详情可看时间线/寄回/退款进度） */
+export function pageMyAfterSales(params: { page?: number; pageSize?: number; status?: string }) {
+  return request.get<ApiResponse<AfterSaleCase[]>>('/order/orders/after-sale/my', { params })
+}
+
+/** T05：订单下全部售后案件（本人归属校验；订单详情展示各明细 case） */
+export function listOrderAfterSales(orderId: number) {
+  return request.get<ApiResponse<AfterSaleCase[]>>(`/order/orders/${orderId}/after-sale/cases`)
+}
+
 /** T11 后台：售后案件分页（business:order:refund） */
 export function pageAfterSaleCases(params: {
   page?: number

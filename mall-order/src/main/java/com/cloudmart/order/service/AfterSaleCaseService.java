@@ -17,6 +17,12 @@ public interface AfterSaleCaseService {
     /** 用户撤销 PENDING 申请 */
     void cancel(Long userId, Long caseId);
 
+    /** T05：本人售后分页列表（服务端归属过滤；状态筛选可选） */
+    Page<AfterSaleCaseVO> pageForUser(Long userId, String status, long page, long size);
+
+    /** T05：订单下全部售后案件（本人归属校验；供订单详情展示各明细 case 与累计退款） */
+    java.util.List<AfterSaleCaseVO> listByOrderForUser(Long userId, Long orderId);
+
     /** 用户自己的案件详情（含时间线） */
     AfterSaleCaseVO detail(Long userId, Long caseId);
 
