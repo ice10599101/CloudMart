@@ -36,19 +36,21 @@ class InternalFileControllerTest {
     @Mock
     private FileAssetService fileAssetService;
     @Mock
+    private com.cloudmart.file.repository.FileAssetMapper fileAssetMapper;
+    @Mock
     private FileReferenceMapper fileReferenceMapper;
 
     private InternalFileController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new InternalFileController(fileAssetService, fileReferenceMapper);
+        controller = new InternalFileController(fileAssetService, fileAssetMapper, fileReferenceMapper);
     }
 
     @Test
     @DisplayName("绑定成功：约束全部满足，登记引用并返回资产事实摘要")
     void bindReferenceSuccess() {
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "READY"));
         when(fileReferenceMapper.insert(any(FileReference.class))).thenReturn(1);
 
         var result = controller.bindReference(55L, request(100L)).data();
@@ -64,7 +66,7 @@ class InternalFileControllerTest {
     @Test
     @DisplayName("幂等重试：同引用键 DuplicateKey → alreadyBound=true，仍返回成功")
     void bindReferenceIdempotent() {
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "READY"));
         when(fileReferenceMapper.insert(any(FileReference.class)))
                 .thenThrow(new DuplicateKeyException("uk_file_reference_biz"));
 
@@ -76,7 +78,7 @@ class InternalFileControllerTest {
     @Test
     @DisplayName("他人文件拒绝：ownerUserId 与台账归属不符 → FILE_FORBIDDEN")
     void bindForeignFileRejected() {
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 999L, "image/jpeg", 1024L, "PRIVATE", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 999L, "image/jpeg", 1024L, "PRIVATE", "READY"));
 
         assertThatThrownBy(() -> controller.bindReference(55L, request(100L)))
                 .isInstanceOf(BusinessException.class)
@@ -86,22 +88,22 @@ class InternalFileControllerTest {
     @Test
     @DisplayName("约束裁决：MIME 不在白名单 / 超限 / 可见性不符 / 非 READY 分别拒绝")
     void bindConstraintViolations() {
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "application/pdf", 1024L, "PRIVATE", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "application/pdf", 1024L, "PRIVATE", "READY"));
         assertThatThrownBy(() -> controller.bindReference(55L, request(100L)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_TYPE_NOT_ALLOWED");
 
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 10L * 1024 * 1024, "PRIVATE", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 10L * 1024 * 1024, "PRIVATE", "READY"));
         assertThatThrownBy(() -> controller.bindReference(55L, request(100L)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_TOO_LARGE");
 
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PUBLIC", "READY"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PUBLIC", "READY"));
         assertThatThrownBy(() -> controller.bindReference(55L, request(100L)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_VISIBILITY_MISMATCH");
 
-        when(fileAssetService.requireAsset(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "DELETING"));
+        when(fileAssetMapper.selectByIdForUpdate(55L)).thenReturn(asset(55L, 100L, "image/jpeg", 1024L, "PRIVATE", "DELETING"));
         assertThatThrownBy(() -> controller.bindReference(55L, request(100L)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "FILE_NOT_READY");

@@ -86,7 +86,9 @@ public class FileAssetService {
      * 物理文件删除由调用方（FileService）按 storageKey 执行。
      */
     public FileAsset authorizeDelete(Long fileId, Long requesterId, boolean isAdmin) {
-        FileAsset asset = fileAssetMapper.selectById(fileId);
+        // T15：资产行锁内检查——与 bindReference 同一行锁协议，"查引用后、删除前"
+        // 新增引用的竞争窗口被锁序列化关闭
+        FileAsset asset = fileAssetMapper.selectByIdForUpdate(fileId);
         if (asset == null || "DELETED".equals(asset.getStatus()) || "DELETING".equals(asset.getStatus())) {
             throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
         }

@@ -6,6 +6,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.file.entity.FileAsset;
 import com.cloudmart.file.entity.FileReference;
 import com.cloudmart.file.repository.FileReferenceMapper;
+import com.cloudmart.file.repository.FileAssetMapper;
 import com.cloudmart.file.service.FileAssetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +43,7 @@ import java.util.Map;
 public class InternalFileController {
 
     private final FileAssetService fileAssetService;
+    private final com.cloudmart.file.repository.FileAssetMapper fileAssetMapper;
     private final FileReferenceMapper fileReferenceMapper;
 
     /** 绑定请求：约束由调用方声明、文件服务按台账裁决 */
@@ -72,7 +74,12 @@ public class InternalFileController {
             @PathVariable("id") Long id,
             @RequestBody BindReferenceRequest request) {
         validateRequest(request);
-        FileAsset asset = fileAssetService.requireAsset(id);
+        // T15：资产行锁内检查——与 authorizeDelete 同一行锁协议；"先读 READY 再插引用"
+        // 的检查-执行竞态由锁序列化关闭（绑定与删除并发只能成功一边）
+        FileAsset asset = fileAssetMapper.selectByIdForUpdate(id);
+        if (asset == null || "DELETED".equals(asset.getStatus())) {
+            throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
+        }
         if (!"READY".equals(asset.getStatus())) {
             throw new BusinessException("FILE_NOT_READY", "文件未处于可用状态: " + asset.getStatus());
         }

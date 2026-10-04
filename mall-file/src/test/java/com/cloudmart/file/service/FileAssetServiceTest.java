@@ -97,7 +97,7 @@ class FileAssetServiceTest {
     @Test
     @DisplayName("归属者可删除；无引用时物理文件删除放行")
     void authorizeDelete_owner_ok() {
-        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(ownedAsset(42L));
         when(fileReferenceMapper.selectCount(any())).thenReturn(0L);
         when(fileAssetMapper.markDeleting(100L)).thenReturn(1);
 
@@ -110,7 +110,7 @@ class FileAssetServiceTest {
     @Test
     @DisplayName("非归属者删除被拒（404/403 语义，绝不以 URL 决定删除对象）")
     void authorizeDelete_nonOwner_forbidden() {
-        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(ownedAsset(42L));
 
         assertThatThrownBy(() -> service.authorizeDelete(100L, 99L, false))
                 .isInstanceOf(BusinessException.class)
@@ -120,7 +120,7 @@ class FileAssetServiceTest {
     @Test
     @DisplayName("无主（LEGACY_UNCLAIMED 类）资产仅管理员可删")
     void authorizeDelete_unclaimed_adminOnly() {
-        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(null));
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(ownedAsset(null));
         when(fileAssetMapper.markDeleting(100L)).thenReturn(1);
 
         assertThatThrownBy(() -> service.authorizeDelete(100L, 42L, false))
@@ -134,7 +134,7 @@ class FileAssetServiceTest {
     @Test
     @DisplayName("被业务引用的文件删除返回 409 FILE_REFERENCED")
     void authorizeDelete_referenced_conflict() {
-        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(ownedAsset(42L));
         when(fileReferenceMapper.selectCount(any())).thenReturn(2L);
 
         assertThatThrownBy(() -> service.authorizeDelete(100L, 42L, false))
@@ -145,7 +145,7 @@ class FileAssetServiceTest {
     @Test
     @DisplayName("S01 竞态关闭：CAS READY→DELETING 0 行（并发删除/已推进）→ FILE_DELETE_CONFLICT")
     void authorizeDelete_casLost_conflict() {
-        when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(ownedAsset(42L));
         when(fileReferenceMapper.selectCount(any())).thenReturn(0L);
         when(fileAssetMapper.markDeleting(100L)).thenReturn(0);
 

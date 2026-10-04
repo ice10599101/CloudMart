@@ -13,4 +13,8 @@ public interface FileAssetMapper extends BaseMapper<FileAsset> {
     @Update("UPDATE file_asset SET status = 'DELETING', updated_at = NOW(3) "
             + "WHERE id = #{fileId} AND status = 'READY'")
     int markDeleting(@Param("fileId") Long fileId);
+
+    /** T15：资产行锁——绑定与删除在同一行锁协议内执行（检查-执行竞态窗口关闭） */
+    @org.apache.ibatis.annotations.Select("SELECT * FROM file_asset WHERE id = #{fileId} FOR UPDATE")
+    FileAsset selectByIdForUpdate(@Param("fileId") Long fileId);
 }
