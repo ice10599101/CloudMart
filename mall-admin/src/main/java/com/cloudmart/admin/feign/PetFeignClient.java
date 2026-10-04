@@ -94,6 +94,16 @@ public interface PetFeignClient {
     @PutMapping("/configs/events/{id}/enabled")
     ApiResponse<Object> toggleEvent(@PathVariable("id") Long id, @RequestParam("enabled") Boolean enabled);
 
+    @org.springframework.web.bind.annotation.GetMapping("/configs/events/{code}/occurrences")
+    ApiResponse<Object> listEventOccurrences(@org.springframework.web.bind.annotation.PathVariable("code") String code);
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/events/{code}/occurrences")
+    ApiResponse<Object> publishEventOccurrence(@org.springframework.web.bind.annotation.PathVariable("code") String code,
+                                               @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/event-occurrences/{id}/close")
+    ApiResponse<Object> closeEventOccurrence(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
     // ---------------- 三期配置：职业 / 家具 / 每日任务 ----------------
 
     @GetMapping("/pet/careers")

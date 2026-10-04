@@ -202,6 +202,31 @@ public class AdminPetController {
         return petFeignClient.toggleEvent(id, enabled);
     }
 
+    @GetMapping("/configs/events/{code}/occurrences")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "活动期次列表（R33）", description = "按期号倒序；occurrence 驱动的限时活动发布记录")
+    public ApiResponse<Object> listEventOccurrences(@PathVariable("code") String code) {
+        return petFeignClient.listEventOccurrences(code);
+    }
+
+    @PostMapping("/configs/events/{code}/occurrences")
+    @OperLog(title = "宠物活动期次发布", businessType = 1)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "发布活动期次（R33）", description = "occurrence_index 自动递增；奖励快照冻结；"
+            + "同一活动同时至多一个进行中期次")
+    public ApiResponse<Object> publishEventOccurrence(@PathVariable("code") String code,
+                                                      @RequestBody Map<String, Object> body) {
+        return petFeignClient.publishEventOccurrence(code, body);
+    }
+
+    @PostMapping("/configs/event-occurrences/{id}/close")
+    @OperLog(title = "宠物活动期次关闭", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "关闭活动期次（R33）", description = "CAS ACTIVE→CLOSED；已入领奖事实不变")
+    public ApiResponse<Object> closeEventOccurrence(@PathVariable("id") Long id) {
+        return petFeignClient.closeEventOccurrence(id);
+    }
+
     // ---------------- 三期配置：职业 / 家具 / 每日任务 ----------------
 
     @GetMapping("/careers")

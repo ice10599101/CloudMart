@@ -56,6 +56,7 @@ public class AdminPetContentConfigController {
     private final PetSkillConfigMapper skillConfigMapper;
     private final PetEvolutionConfigMapper evolutionConfigMapper;
     private final PetEventConfigMapper eventConfigMapper;
+    private final com.cloudmart.pet.repository.PetEventOccurrenceMapper occurrenceMapper;
     private final com.cloudmart.pet.repository.PetContentSensitiveWordMapper sensitiveWordMapper;
     private final com.cloudmart.pet.service.impl.PetContentSafetyService contentSafetyService;
     private final com.cloudmart.pet.repository.PetFoodConfigMapper foodConfigMapper;
@@ -657,4 +658,93 @@ public class AdminPetContentConfigController {
     private static int orOne(Integer value) {
         return value != null ? value : 1;
     }
+
+    // ---------------- 活动期次（R33：occurrence 发布/关闭） ----------------
+
+    public record OccurrencePublishRequest(java.time.LocalDateTime startAt,
+                                           java.time.LocalDateTime endAt,
+                                           Integer graceHours) {
+    }
+
+    /** 期次领奖宽限默认 24h（与用户侧 PetEventServiceImpl.CLAIM_GRACE_HOURS 口径一致） */
+    private static final int OCCURRENCE_CLAIM_GRACE_HOURS_DEFAULT = 24;
+
+    @GetMapping("/events/{code}/occurrences")
+    @Operation(summary = "活动期次列表（R33）", description = "按期号倒序；status=ACTIVE/CLOSED")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetEventOccurrence>> listOccurrence(
+            @PathVariable("code") String code) {
+        return ApiResponse.ok(occurrenceMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getEventCode, code)
+                        .orderByDesc(com.cloudmart.pet.entity.PetEventOccurrence::getOccurrenceIndex)));
+    }
+
+    @PostMapping("/events/{code}/occurrences")
+    @Operation(summary = "发布活动期次（R33）", description = "occurrence_index=当前最大+1；奖励快照从当前配置冻结；"
+            + "同一 code 同时至多一个进行中期次（领奖截止未过），避免旧 eventCode 入口歧义")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<com.cloudmart.pet.entity.PetEventOccurrence> publishOccurrence(
+            @PathVariable("code") String code, @RequestBody OccurrencePublishRequest request) {
+        PetEventConfig config = eventConfigMapper.selectOne(new LambdaQueryWrapper<PetEventConfig>()
+                .eq(PetEventConfig::getCode, code).last("LIMIT 1"));
+        if (config == null) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在");
+        }
+        if (request.startAt() == null || request.endAt() == null
+                || !request.startAt().isBefore(request.endAt())) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "窗口时间非法（需 startAt < endAt）");
+        }
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+        com.cloudmart.pet.entity.PetEventOccurrence live = occurrenceMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getEventCode, code)
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getStatus, "ACTIVE")
+                        .gt(com.cloudmart.pet.entity.PetEventOccurrence::getClaimDeadlineAt, now)
+                        .last("LIMIT 1"));
+        if (live != null) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
+                    "该活动已有进行中期次（领奖截止 " + live.getClaimDeadlineAt() + "），请先关闭或等其截止");
+        }
+        com.cloudmart.pet.entity.PetEventOccurrence last = occurrenceMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getEventCode, code)
+                        .orderByDesc(com.cloudmart.pet.entity.PetEventOccurrence::getOccurrenceIndex)
+                        .last("LIMIT 1"));
+        int graceHours = request.graceHours() == null || request.graceHours() <= 0
+                ? OCCURRENCE_CLAIM_GRACE_HOURS_DEFAULT : request.graceHours();
+        com.cloudmart.pet.entity.PetEventOccurrence occurrence = new com.cloudmart.pet.entity.PetEventOccurrence();
+        occurrence.setEventCode(code);
+        occurrence.setOccurrenceIndex(last == null ? 1 : last.getOccurrenceIndex() + 1);
+        occurrence.setStartAt(request.startAt());
+        occurrence.setEndAt(request.endAt());
+        occurrence.setClaimDeadlineAt(request.endAt().plusHours(graceHours));
+        // 奖励快照：发布时冻结当前配置的奖励字段（后续改配置不影响本期）
+        occurrence.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                "targetValue", config.getTargetValue() == null ? 1 : config.getTargetValue(),
+                "rewardStarlight", config.getRewardStarlight() == null ? 0 : config.getRewardStarlight(),
+                "rewardExp", config.getRewardExp() == null ? 0 : config.getRewardExp(),
+                "rewardItemCode", config.getRewardItemCode() == null ? "" : config.getRewardItemCode())));
+        occurrence.setStatus("ACTIVE");
+        occurrenceMapper.insert(occurrence);
+        return ApiResponse.ok(occurrence);
+    }
+
+    @PostMapping("/event-occurrences/{id}/close")
+    @Operation(summary = "关闭期次（R33）", description = "CAS ACTIVE→CLOSED；关闭后统计/发布入口不再解析该期，"
+            + "已入期次领奖事实不变（期次入口到 claimDeadline 前仍可领）")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> closeOccurrence(@PathVariable("id") Long id) {
+        int updated = occurrenceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .set(com.cloudmart.pet.entity.PetEventOccurrence::getStatus, "CLOSED")
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getId, id)
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getStatus, "ACTIVE"));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "期次不存在或已关闭");
+        }
+        return ApiResponse.ok(null);
+    }
+
+    // ---------------- 记忆管理（管理端） ----------------
 }
