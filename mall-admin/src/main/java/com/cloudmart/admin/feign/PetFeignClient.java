@@ -155,12 +155,30 @@ public interface PetFeignClient {
                                        @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
                                        @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
 
-    @org.springframework.web.bind.annotation.PutMapping("/pet/reports/{id}/handle")
-    ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
-                                      @org.springframework.web.bind.annotation.RequestParam("action") String action);
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/reports/{id}/resolve")
     ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                       @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    // ---------------- R05 处罚事实 / R04 相册审核（下游 mall-pet 新端点） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/sanctions")
+    ApiResponse<Object> listPetSanctions(@org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+                                         @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+                                         @org.springframework.web.bind.annotation.RequestParam(value = "scope", required = false) String scope,
+                                         @org.springframework.web.bind.annotation.RequestParam("page") int page,
+                                         @org.springframework.web.bind.annotation.RequestParam("size") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/sanctions/{id}/revoke")
+    ApiResponse<Void> revokePetSanction(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                        @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.GetMapping("/pet/album/reviews")
+    ApiResponse<Object> petAlbumReviewQueue(
+            @org.springframework.web.bind.annotation.RequestParam(value = "auditStatus", required = false) String auditStatus);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/album/{assetId}/reject")
+    ApiResponse<Object> rejectPetAlbum(@org.springframework.web.bind.annotation.PathVariable("assetId") Long assetId,
                                        @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 
     // ---------------- F1 食物配置 / F8 口头禅（下游 /admin/configs/**） ----------------

@@ -375,14 +375,8 @@ public class AdminPetController {
         return petFeignClient.listPetReports(status, page, size);
     }
 
-    @org.springframework.web.bind.annotation.PutMapping("/reports/{id}/handle")
-    @OperLog(title = "宠物举报处理", businessType = 2)
-    @RequiresPermission("business:pet:edit")
-    @Operation(summary = "处理举报", description = "action=HANDLED/REJECTED；处理人取当前登录管理员（X-User-Id 由 Feign 拦截器从认证上下文透传，不接受客户端自填）")
-    public ApiResponse<Void> handlePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
-                                             @org.springframework.web.bind.annotation.RequestParam("action") String action) {
-        return petFeignClient.handlePetReport(id, action);
-    }
+    // R05：旧 PUT /reports/{id}/handle 代理已删除——下游 mall-pet 旁路已停用，
+    // 统一走 POST /reports/{id}/resolve（含处罚矩阵与审计）
 
     @org.springframework.web.bind.annotation.PostMapping("/reports/{id}/resolve")
     @OperLog(title = "宠物举报处理闭环", businessType = 2)
@@ -391,6 +385,52 @@ public class AdminPetController {
     public ApiResponse<Void> resolvePetReport(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                               @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
         return petFeignClient.resolvePetReport(id, body);
+    }
+
+    // ---------------- R05 处罚事实 / R04 相册审核（转发 mall-pet） ----------------
+
+    @org.springframework.web.bind.annotation.GetMapping("/sanctions")
+    @Operation(summary = "处罚列表（R05）", description = "userId/status/scope 筛选；封禁范围、期限、理由与来源举报可追溯")
+    @RequiresPermission("business:pet:edit")
+    public ApiResponse<Object> listPetSanctions(
+            @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+            @org.springframework.web.bind.annotation.RequestParam(value = "scope", required = false) String scope,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
+        return petFeignClient.listPetSanctions(userId, status, scope, page, size);
+    }
+
+    public record RevokeSanctionRequest(@jakarta.validation.constraints.NotBlank String reason) {
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/sanctions/{id}/revoke")
+    @OperLog(title = "宠物处罚撤销", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "撤销处罚（R05）", description = "理由必填留痕；撤销保留历史不物理删除；立即恢复对应写入能力")
+    public ApiResponse<Void> revokePetSanction(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                               @org.springframework.web.bind.annotation.RequestBody RevokeSanctionRequest request) {
+        return petFeignClient.revokePetSanction(id, java.util.Map.of("reason", request.reason()));
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/album/reviews")
+    @Operation(summary = "相册审核队列（R04）", description = "PENDING 且 BOUND 的条目，按时间正序；auditStatus 可选过滤")
+    @RequiresPermission("business:pet:edit")
+    public ApiResponse<Object> petAlbumReviewQueue(
+            @org.springframework.web.bind.annotation.RequestParam(value = "auditStatus", required = false) String auditStatus) {
+        return petFeignClient.petAlbumReviewQueue(auditStatus);
+    }
+
+    public record AlbumRejectRequest(@jakarta.validation.constraints.NotBlank String reason) {
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/album/{assetId}/reject")
+    @OperLog(title = "宠物相册驳回", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "相册资源审核驳回（R04）", description = "理由必填留痕；被驳回条目保留在相册且不可公开")
+    public ApiResponse<Object> rejectPetAlbum(@org.springframework.web.bind.annotation.PathVariable("assetId") Long assetId,
+                                              @org.springframework.web.bind.annotation.RequestBody AlbumRejectRequest request) {
+        return petFeignClient.rejectPetAlbum(assetId, java.util.Map.of("reason", request.reason()));
     }
 
     // ---------------- F2 赛季管理 ----------------
