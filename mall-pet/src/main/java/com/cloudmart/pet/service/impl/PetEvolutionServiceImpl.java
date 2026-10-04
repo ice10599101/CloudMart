@@ -57,7 +57,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
     private final PetActivityMapper activityMapper;
     private final PetAchievementService achievementService;
     private final PetEconomyService economyService;
-    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+    private final PetCooperationService cooperationService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
     private final com.cloudmart.pet.wallet.PetRequestDedupService dedupService;
@@ -70,7 +70,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
                                    PetActivityMapper activityMapper,
                                    PetAchievementService achievementService,
                                    PetEconomyService economyService,
-                                   com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
+                                   com.cloudmart.pet.service.impl.PetCooperationService cooperationService,
                                    PetOutboxService outboxService,
                                    PetClock petClock,
                                    com.cloudmart.pet.wallet.PetRequestDedupService dedupService,
@@ -82,7 +82,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
         this.activityMapper = activityMapper;
         this.achievementService = achievementService;
         this.economyService = economyService;
-        this.playFeatureService = playFeatureService;
+        this.cooperationService = cooperationService;
         this.outboxService = outboxService;
         this.petClock = petClock;
         this.dedupService = dedupService;
@@ -219,7 +219,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
         // 2. 条件推进阶段（属性一次性提升 + 阶段 CAS + 可选皮肤解锁）
         applyEvolution(pet, next, fromStage);
         // B02/BE-12：进化事实接入图鉴投影（阶段条目）
-        playFeatureService.unlockCollection(userId, pet.getId(),
+        cooperationService.unlockCollection(userId, pet.getId(),
                 "SPECIES", pet.getSpecies() + ":S" + next.getStageTo(),
                 "EVOLVE:" + pet.getId() + ":" + next.getStageTo());
         recordEvolutionActivity(pet);

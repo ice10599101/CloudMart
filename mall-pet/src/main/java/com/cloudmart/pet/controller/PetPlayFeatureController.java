@@ -5,6 +5,7 @@ import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.vo.PetMinigameRoundVO;
 import com.cloudmart.pet.service.impl.PetMinigameService;
+import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.service.impl.PetCustodyCareService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,6 +36,8 @@ public class PetPlayFeatureController {
     private final PetMinigameService minigameService;
     /** R27：托管拆分为独立应用服务 */
     private final PetCustodyCareService custodyCareService;
+    /** R27：合作/图鉴拆分为独立应用服务 */
+    private final PetCooperationService cooperationService;
 
     // ---------------- N04 ----------------
 
@@ -149,7 +152,7 @@ public class PetPlayFeatureController {
     public ApiResponse<Map<String, Object>> createCooperation(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @org.springframework.web.bind.annotation.RequestBody CooperationCreateRequest request) {
-        return ApiResponse.ok(playService.createCooperation(userId, request.inviteeUserId()));
+        return ApiResponse.ok(cooperationService.createCooperation(userId, request.inviteeUserId()));
     }
 
     @PostMapping("/cooperation/{cooperationId}/accept")
@@ -158,14 +161,14 @@ public class PetPlayFeatureController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("cooperationId") Long cooperationId) {
         // BE-02：inviter 身份以合作单为准（服务端权威，客户端不再传）
-        return ApiResponse.ok(playService.acceptCooperation(userId, cooperationId));
+        return ApiResponse.ok(cooperationService.acceptCooperation(userId, cooperationId));
     }
 
     @GetMapping("/cooperation")
     @Operation(summary = "我的合作任务（N06）", description = "当前+历史；对方隐私最小化（仅贡献次数与宠物摘要）")
     public ApiResponse<List<PetCooperation>> cooperations(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.cooperations(userId));
+        return ApiResponse.ok(cooperationService.cooperations(userId));
     }
 
     @PostMapping("/cooperation/{cooperationId}/leave")
@@ -173,7 +176,7 @@ public class PetPlayFeatureController {
     public ApiResponse<Void> leaveCooperation(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("cooperationId") Long cooperationId) {
-        playService.leaveCooperation(userId, cooperationId);
+        cooperationService.leaveCooperation(userId, cooperationId);
         return ApiResponse.ok(null);
     }
 
@@ -186,13 +189,13 @@ public class PetPlayFeatureController {
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return ApiResponse.ok(playService.collection(userId, category, page, size));
+        return ApiResponse.ok(cooperationService.collection(userId, category, page, size));
     }
 
     @GetMapping("/collection/stats")
     @Operation(summary = "收藏统计与进度（N07）")
     public ApiResponse<Map<String, Object>> collectionStats(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.collectionStats(userId));
+        return ApiResponse.ok(cooperationService.collectionStats(userId));
     }
 }

@@ -7,7 +7,7 @@ import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.repository.PetEquipmentConfigMapper;
 import com.cloudmart.pet.repository.PetFurnitureConfigMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
-import com.cloudmart.pet.service.impl.PetPlayFeatureService;
+import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog.CatalogEntry;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog.PetAssetDeliverer;
@@ -35,7 +35,7 @@ public class PetInventoryDeliverer implements PetAssetDeliverer {
     private final PetInventoryMapper inventoryMapper;
     private final PetEquipmentConfigMapper equipmentConfigMapper;
     private final PetFurnitureConfigMapper furnitureConfigMapper;
-    private final PetPlayFeatureService playFeatureService;
+    private final PetCooperationService cooperationService;
 
     @Override
     public boolean supports(String itemType) {
@@ -62,7 +62,7 @@ public class PetInventoryDeliverer implements PetAssetDeliverer {
             throw new PetPurchaseCatalog.AlreadyOwnedException(
                     context.itemType() + ":" + context.itemCode());
         }
-        playFeatureService.unlockCollection(context.userId(), context.petId(),
+        cooperationService.unlockCollection(context.userId(), context.petId(),
                 context.itemType(), context.itemCode(),
                 "ORDER:" + context.orderId() + ":" + context.itemType() + ":" + context.itemCode());
         return List.of(context.itemCode());

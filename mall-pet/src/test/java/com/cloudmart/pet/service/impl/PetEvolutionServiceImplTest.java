@@ -71,7 +71,7 @@ class PetEvolutionServiceImplTest {
     @Mock
     private PetEventProducer eventProducer;
     @org.mockito.Mock
-    private com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+    private PetCooperationService cooperationService;
     @org.mockito.Mock
     private PetRequestDedupMapper dedupMapper;
 
@@ -111,7 +111,7 @@ class PetEvolutionServiceImplTest {
                         .doInTransaction(org.mockito.Mockito.mock(org.springframework.transaction.TransactionStatus.class)));
         evolutionService = new PetEvolutionServiceImpl(petService, evolutionConfigMapper, petMapper,
                 inventoryMapper, activityMapper, achievementService, economyService,
-                playFeatureService, org.mockito.Mockito.mock(PetOutboxService.class), petClock,
+                cooperationService, org.mockito.Mockito.mock(PetOutboxService.class), petClock,
                 dedupService, txTemplate);
         lenient().when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
         lenient().when(activityMapper.insert(any(PetActivity.class))).thenReturn(1);

@@ -57,7 +57,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final PetProperties properties;
     private final PetQuotaService quotaService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
-    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+    private final PetCooperationService cooperationService;
     private final PetOutboxService outboxService;
     private final PetClock petClock;
     private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
@@ -82,7 +82,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetFriendFeedService friendFeedService,
                                      PetItemCatalog itemCatalog,
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
-                                     com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
+                                     com.cloudmart.pet.service.impl.PetCooperationService cooperationService,
                                      PetActivityMutex activityMutex) {
         this.petService = petService;
         this.stateService = stateService;
@@ -100,7 +100,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.friendFeedService = friendFeedService;
         this.itemCatalog = itemCatalog;
         this.companionFeatureService = companionFeatureService;
-        this.playFeatureService = playFeatureService;
+        this.cooperationService = cooperationService;
         this.activityMutex = activityMutex;
     }
 
@@ -135,7 +135,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         // N01/N06 辅助钩子：失败不拖垮喂食主事务（B22 可降级原则）
         try {
             companionFeatureService.recordStep(userId, "FEED");
-            playFeatureService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+            cooperationService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
         } catch (Exception e) {
             log.warn("喂食辅助钩子失败（不阻断）: userId={}", userId, e);
         }
@@ -230,7 +230,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             log.warn("玩耍引导钩子失败（不阻断）: userId={}", userId, e);
         }
         if (rewardable) {
-            playFeatureService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+            cooperationService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
             intimacyService.gain(pet, PetIntimacySource.PLAY);
             int levelups = stateService.grantExp(pet, cfg.getPlayExp());
             dailyQuestService.record(pet, PetQuestType.PLAY, 1);

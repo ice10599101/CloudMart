@@ -113,7 +113,7 @@ class PetInteractionServiceImplTest {
                 petMapper, achievementService, dailyQuestService, intimacyService, homeService,
                 properties, quotaService, outboxService, petClock, inventoryMapper, friendFeedService,
                 itemCatalog,
-                org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetPlayFeatureService.class),
+                org.mockito.Mockito.mock(PetCompanionFeatureService.class), org.mockito.Mockito.mock(PetCooperationService.class),
                 org.mockito.Mockito.mock(PetActivityMutex.class));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(petService.getMyPet(any())).thenReturn(petVo());

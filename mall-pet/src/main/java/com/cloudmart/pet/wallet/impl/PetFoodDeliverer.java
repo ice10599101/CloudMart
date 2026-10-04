@@ -3,7 +3,7 @@ package com.cloudmart.pet.wallet.impl;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.repository.PetInventoryMapper;
-import com.cloudmart.pet.service.impl.PetPlayFeatureService;
+import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog.PetAssetDeliverer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,7 @@ import java.util.List;
 public class PetFoodDeliverer implements PetAssetDeliverer {
 
     private final PetInventoryMapper inventoryMapper;
-    private final PetPlayFeatureService playFeatureService;
+    private final PetCooperationService cooperationService;
 
     @Override
     public boolean supports(String itemType) {
@@ -59,7 +59,7 @@ public class PetFoodDeliverer implements PetAssetDeliverer {
                         .eq(PetInventory::getItemCode, context.itemCode()));
             }
         }
-        playFeatureService.unlockCollection(context.userId(), context.petId(),
+        cooperationService.unlockCollection(context.userId(), context.petId(),
                 context.itemType(), context.itemCode(),
                 "ORDER:" + context.orderId() + ":" + context.itemType() + ":" + context.itemCode());
         return List.of(context.itemCode());

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
+import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,7 +37,7 @@ class PetPurchaseDelivererTest {
     @Mock
     private PetInventoryMapper inventoryMapper;
     @Mock
-    private PetPlayFeatureService playFeatureService;
+    private PetCooperationService cooperationService;
 
     @BeforeAll
     static void initEntityMeta() {
@@ -47,7 +48,7 @@ class PetPurchaseDelivererTest {
     @Test
     @DisplayName("食物堆叠：无行 insert quantity=1，图鉴投影推进")
     void foodDelivererInserts() {
-        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, playFeatureService);
+        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, cooperationService);
         when(inventoryMapper.update(any(), any())).thenReturn(0);
         when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
 
@@ -55,13 +56,13 @@ class PetPurchaseDelivererTest {
 
         assertThat(slots).containsExactly("apple");
         verify(inventoryMapper).insert(any(PetInventory.class));
-        verify(playFeatureService).unlockCollection(any(), any(), any(), any(), any());
+        verify(cooperationService).unlockCollection(any(), any(), any(), any(), any());
     }
 
     @Test
     @DisplayName("食物堆叠：已有行条件更新 +1，不 insert")
     void foodDelivererStacksExistingRow() {
-        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, playFeatureService);
+        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, cooperationService);
         when(inventoryMapper.update(any(), any())).thenReturn(1);
 
         deliverer.deliver(context("FOOD", "apple"));
@@ -72,7 +73,7 @@ class PetPurchaseDelivererTest {
     @Test
     @DisplayName("食物堆叠：并发首购 uk 冲突转堆叠，不抛出")
     void foodDelivererDuplicateKeyFallsBackToStack() {
-        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, playFeatureService);
+        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, cooperationService);
         when(inventoryMapper.update(any(), any())).thenReturn(0)
                 .thenReturn(1);
         when(inventoryMapper.insert(any(PetInventory.class)))
@@ -89,7 +90,7 @@ class PetPurchaseDelivererTest {
         com.cloudmart.pet.repository.PetFurnitureConfigMapper furnitureConfigMapper =
                 org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetFurnitureConfigMapper.class);
         PetInventoryDeliverer deliverer = new PetInventoryDeliverer(inventoryMapper,
-                equipmentConfigMapper, furnitureConfigMapper, playFeatureService);
+                equipmentConfigMapper, furnitureConfigMapper, cooperationService);
         when(inventoryMapper.insert(any(PetInventory.class))).thenReturn(1);
 
         assertThat(deliverer.deliver(context("EQUIPMENT", "straw_hat"))).containsExactly("straw_hat");

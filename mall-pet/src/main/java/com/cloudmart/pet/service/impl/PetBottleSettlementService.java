@@ -71,7 +71,7 @@ public class PetBottleSettlementService {
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
     private final PetEconomyService economyService;
-    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
+    private final PetCooperationService cooperationService;
     private final PetOutboxService outboxService;
     private final PetProperties properties;
     private final PetClock petClock;
@@ -88,7 +88,7 @@ public class PetBottleSettlementService {
                                       PetDailyQuestService dailyQuestService,
                                       PetIntimacyService intimacyService,
                                       PetEconomyService economyService,
-                                      com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
+                                      com.cloudmart.pet.service.impl.PetCooperationService cooperationService,
                                       PetOutboxService outboxService,
                                       PetProperties properties,
                                       PetClock petClock) {
@@ -104,7 +104,7 @@ public class PetBottleSettlementService {
         this.dailyQuestService = dailyQuestService;
         this.intimacyService = intimacyService;
         this.economyService = economyService;
-        this.playFeatureService = playFeatureService;
+        this.cooperationService = cooperationService;
         this.outboxService = outboxService;
         this.properties = properties;
         this.petClock = petClock;
@@ -273,7 +273,7 @@ public class PetBottleSettlementService {
         achievementService.evaluate(pet, PetAchievementService.Event.BOTTLE_SETTLED);
         if (outcome == PetBottleOutcome.CAUGHT) {
             // B02/BE-12：捞瓶结果事实接入图鉴投影
-            playFeatureService.unlockCollection(activity.getUserId(), activity.getPetId(),
+            cooperationService.unlockCollection(activity.getUserId(), activity.getPetId(),
                     "BOTTLE", rarity.name(), "BOTTLE_CAUGHT:" + activity.getId());
         }
         if (outcome == PetBottleOutcome.CAUGHT) {
