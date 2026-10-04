@@ -77,6 +77,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final WishGrowthRecordMapper growthRecordMapper;
     private final UserStatService userStatService;
     private final StringRedisTemplate redisTemplate;
+    private final com.cloudmart.wish.policy.WishAccessPolicy wishAccessPolicy;
 
     // ---------------- 浏览 ----------------
 
@@ -137,6 +138,11 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional
     public void join(Long userId, Long activityId) {
         CommunityActivity activity = requireActivity(activityId);
+        // T13：搭子协作活动只能申请→审批进组，直接 join 一律拒绝（绕过审批缺陷）
+        if (activity.getType() == ActivityType.WISH_PARTNER) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                    "搭子协作活动须提交申请并通过审批后进组");
+        }
         requireJoinable(activity);
         ActivityParticipant participant = participantMapper.selectOne(new LambdaQueryWrapper<ActivityParticipant>()
                 .eq(ActivityParticipant::getActivityId, activityId)
@@ -207,10 +213,15 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     @Transactional
-    public void reviewApplication(Long userId, Long activityId, Long applicantUserId, boolean approved) {
+    public void reviewApplication(Long operatorAdminId, Long activityId, Long applicantUserId, boolean approved) {
         CommunityActivity activity = requireActivity(activityId);
-        if (!activity.getCreatedBy().equals(userId)) {
-            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "仅招募发起人可审批");
+        // T13：审批操作者与管理员创建者同属管理员身份域——旧实现拿"用户 JWT 主体"与
+        // createdBy 比较，管理员 ID 恰好等于某用户 ID 时会误授权
+        if (!activity.getCreatedBy().equals(operatorAdminId)) {
+            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "仅活动创建管理员可审批");
+        }
+        if (activity.getType() != ActivityType.WISH_PARTNER) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "非搭子协作活动无审批流");
         }
         ActivityParticipant participant = participantMapper.selectOne(new LambdaQueryWrapper<ActivityParticipant>()
                 .eq(ActivityParticipant::getActivityId, activityId)
@@ -241,16 +252,14 @@ public class ActivityServiceImpl implements ActivityService {
         if (activity.getType() != ActivityType.WISH_PARTNER) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "非合伙人活动");
         }
-        // 仅组内可见（LEADER=创建者 或 APPROVED 成员）
-        boolean isLeader = activity.getCreatedBy().equals(viewerId);
-        if (!isLeader) {
-            ActivityParticipant self = participantMapper.selectOne(new LambdaQueryWrapper<ActivityParticipant>()
-                    .eq(ActivityParticipant::getActivityId, activityId)
-                    .eq(ActivityParticipant::getUserId, viewerId)
-                    .last("LIMIT 1"));
-            if (self == null || self.getStatus() != ActivityParticipantStatus.APPROVED) {
-                throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "仅组内成员可查看看板");
-            }
+        // T13：活动由管理员创建（无用户"发起人"身份域）——看板仅 APPROVED 成员可见，
+        // 不再以 createdBy（管理员 ID）与 viewerId（用户 ID）比较判定"发起人"
+        ActivityParticipant self = participantMapper.selectOne(new LambdaQueryWrapper<ActivityParticipant>()
+                .eq(ActivityParticipant::getActivityId, activityId)
+                .eq(ActivityParticipant::getUserId, viewerId)
+                .last("LIMIT 1"));
+        if (self == null || self.getStatus() != ActivityParticipantStatus.APPROVED) {
+            throw new BusinessException(WishErrorCodes.WISH_FORBIDDEN, "仅组内成员可查看看板");
         }
         List<ActivityParticipant> members = participantMapper.selectList(new LambdaQueryWrapper<ActivityParticipant>()
                 .eq(ActivityParticipant::getActivityId, activityId)
@@ -275,7 +284,8 @@ public class ActivityServiceImpl implements ActivityService {
         String title = null;
         if (member.getWishId() != null) {
             Wish wish = wishMapper.selectById(member.getWishId());
-            if (wish != null) {
+            // T13：私密/隐藏心愿不因组成员身份自动解锁——标题仅对可公开读的心愿展示
+            if (wish != null && wishAccessPolicy.isPublicReadable(wish)) {
                 title = wish.getTitle();
                 var progress = progressMapper.selectOne(
                         new LambdaQueryWrapper<com.cloudmart.wish.entity.WishProgress>()
@@ -289,9 +299,15 @@ public class ActivityServiceImpl implements ActivityService {
                         .eq(WishGrowthRecord::getWishId, wish.getId())
                         .orderByDesc(WishGrowthRecord::getCreatedAt)
                         .last("LIMIT 1"));
-                if (!growth.isEmpty()) {
-                    latestGrowth = growth.get(0).getContent();
-                    latestAt = growth.get(0).getCreatedAt();
+                // T13：日记/成长内容不得直接返回原始内容——仅审核通过且可见的记录出板
+                var visibleGrowth = growth.stream()
+                        .filter(g -> g.getDeletedAt() == null
+                                && g.getAuditStatus() == com.cloudmart.wish.enums.AuditStatus.APPROVED
+                                && Boolean.TRUE.equals(g.getIsVisible()))
+                        .findFirst();
+                if (visibleGrowth.isPresent()) {
+                    latestGrowth = visibleGrowth.get().getContent();
+                    latestAt = visibleGrowth.get().getCreatedAt();
                 }
             }
         }
@@ -560,6 +576,10 @@ public class ActivityServiceImpl implements ActivityService {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
         if (activity.getValidFrom() != null && now.isBefore(activity.getValidFrom())) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "活动尚未开始");
+        }
+        // T13：已结束/已取消活动不能加入或领取新资格
+        if (activity.getValidTo() != null && now.isAfter(activity.getValidTo())) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "活动已结束");
         }
     }
 

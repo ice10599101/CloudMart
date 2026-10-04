@@ -4,7 +4,6 @@ import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.wish.dto.ApplyPartnerRequest;
-import com.cloudmart.wish.dto.ReviewApplicationRequest;
 import com.cloudmart.wish.entity.ActivityParticipant;
 import com.cloudmart.wish.entity.CommunityActivity;
 import com.cloudmart.wish.service.ActivityService;
@@ -87,20 +86,6 @@ public class ActivityController {
             @Parameter(description = "活动 ID", required = true) @PathVariable Long id,
             @Valid @RequestBody ApplyPartnerRequest request) {
         activityService.applyPartner(userId, id, request.wishId(), request.skills());
-        return ApiResponse.ok(null);
-    }
-
-    @PutMapping("/{id}/participants/{userId}/review")
-    @Operation(summary = "审批合伙人申请", description = "仅招募发起人（活动创建者）可审批；"
-            + "approved=true 进组（进度+1）/false 驳回")
-    @SentinelResource("WISH_ACTIVITY_REVIEW")
-    public ApiResponse<Void> reviewApplication(
-            @Parameter(description = "当前用户 ID（网关注入）", required = true)
-            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Parameter(description = "活动 ID", required = true) @PathVariable Long id,
-            @Parameter(description = "申请者用户 ID", required = true) @PathVariable Long applicantUserId,
-            @Valid @RequestBody ReviewApplicationRequest request) {
-        activityService.reviewApplication(userId, id, applicantUserId, request.approved());
         return ApiResponse.ok(null);
     }
 

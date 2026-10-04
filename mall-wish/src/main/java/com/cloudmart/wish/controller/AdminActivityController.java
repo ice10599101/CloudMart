@@ -40,6 +40,26 @@ public class AdminActivityController {
 
     private final ActivityService activityService;
 
+    public record ReviewRequest(boolean approved) {
+    }
+
+    /**
+     * T13：搭子申请审批（管理员域）——操作者取 AdminSecurityContext（管理员 JWT 主体），
+     * 仅活动创建管理员可审批；显式 @PathVariable 绑定（旧用户端 {userId} 与
+     * applicantUserId 未显式绑定会请求时解析失败）。
+     */
+    @PutMapping("/{id}/participants/{applicantUserId}/review")
+    @Operation(summary = "审批搭子申请", description = "T13：仅活动创建管理员；approved=true 进组/false 驳回")
+    public ApiResponse<Void> reviewApplication(
+            @Parameter(description = "活动 ID", required = true) @PathVariable("id") Long id,
+            @Parameter(description = "申请者用户 ID", required = true) @PathVariable("applicantUserId") Long applicantUserId,
+            @RequestBody ReviewRequest request) {
+        var ctx = com.cloudmart.common.context.AdminSecurityContext.get();
+        Long operatorAdminId = ctx == null ? null : ctx.userId();
+        activityService.reviewApplication(operatorAdminId, id, applicantUserId, request.approved());
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/list")
     @Operation(summary = "活动列表（全状态）", description = "status/type 过滤可选，分页")
     public ApiResponse<List<CommunityActivity>> listForAdmin(
