@@ -52,8 +52,10 @@ class PaymentAttemptServiceTest {
         notifyLogMapper = mock(PaymentNotifyLogMapper.class);
         outboxService = mock(OutboxService.class);
         orderFeignClient = mock(OrderFeignClient.class);
+        // T07：测试走 MOCK 白名单（mock-channel-enabled 默认 true）
         service = new PaymentAttemptService(attemptMapper, notifyLogMapper, outboxService,
-                orderFeignClient, SECRET);
+                orderFeignClient, new com.cloudmart.payment.channel.ChannelRegistry(java.util.List.of(), true),
+                SECRET);
     }
 
     private OrderInternalInfoDTO payableOrder() {
@@ -191,5 +193,17 @@ class PaymentAttemptServiceTest {
 
         assertThat(result).isEqualTo("REJECTED");
         verify(attemptMapper, never()).confirmSuccess(org.mockito.ArgumentMatchers.anyString(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("T07：未知渠道在创建尝试前拒绝（不产生\"看似可支付\"记录）")
+    void createAttempt_unknownChannel_rejected() {
+        when(orderFeignClient.getOrderInfo(ORDER_ID)).thenReturn(ApiResponse.ok(payableOrder()));
+
+        assertThatThrownBy(() -> service.createAttempt(USER_ID, ORDER_ID, "ALIPAY"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "PAYMENT_CHANNEL_UNAVAILABLE");
+        verify(attemptMapper, never()).insertSingleActive(anyLong(), anyString(), anyString(),
+                any(BigDecimal.class), anyString());
     }
 }

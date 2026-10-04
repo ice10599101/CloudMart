@@ -41,22 +41,30 @@ public class PaymentAttemptService {
     private final OutboxService outboxService;
     private final OrderFeignClient orderFeignClient;
     private final MockChannelSigner signer;
+    private final com.cloudmart.payment.channel.ChannelRegistry channelRegistry;
 
     public PaymentAttemptService(PaymentAttemptMapper attemptMapper,
                                  PaymentNotifyLogMapper notifyLogMapper,
                                  OutboxService outboxService,
                                  OrderFeignClient orderFeignClient,
+                                 com.cloudmart.payment.channel.ChannelRegistry channelRegistry,
                                  @Value("${payment.mock-channel-secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret) {
         this.attemptMapper = attemptMapper;
         this.notifyLogMapper = notifyLogMapper;
         this.outboxService = outboxService;
         this.orderFeignClient = orderFeignClient;
+        this.channelRegistry = channelRegistry;
         this.signer = new MockChannelSigner(secret);
     }
 
     /** 创建支付尝试（PAY-01）：只收 orderId + channel——归属/状态/金额全部服务端判定。 */
     @Transactional
     public PaymentAttempt createAttempt(Long userId, Long orderId, String channel) {
+        // T07：渠道白名单前置——未知/未配置渠道在创建尝试前拒绝（不产生"看似可支付"记录）
+        if (!channelRegistry.isChannelAllowed(channel)) {
+            throw new BusinessException("PAYMENT_CHANNEL_UNAVAILABLE",
+                    "支付渠道不可用或未接入: " + channel);
+        }
         // 归属 + 可支付状态 + 服务端金额（权威）
         OrderInternalInfoDTO order = requireOwnedOrder(userId, orderId);
         if (!"PENDING_PAYMENT".equals(order.status())) {
