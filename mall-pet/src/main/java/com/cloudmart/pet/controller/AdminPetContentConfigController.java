@@ -746,5 +746,42 @@ public class AdminPetContentConfigController {
         return ApiResponse.ok(null);
     }
 
+    /** V66 §8.2：关闭报名/停止计数/停止领奖分段控制——当前模型无报名环节，实现计数与领奖两段 */
+    @PostMapping("/event-occurrences/{id}/stop-counting")
+    @Operation(summary = "停止期次计数（V66）", description = "CAS 置 counting_stopped_at=now；"
+            + "停止前的事实仍按窗口计入（不追溯清零），此后事实不再计入")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> stopOccurrenceCounting(@PathVariable("id") Long id) {
+        int updated = occurrenceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .set(com.cloudmart.pet.entity.PetEventOccurrence::getCountingStoppedAt,
+                                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getId, id)
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getStatus, "ACTIVE")
+                        .isNull(com.cloudmart.pet.entity.PetEventOccurrence::getCountingStoppedAt));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "期次不存在、已关闭或计数已停止");
+        }
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/event-occurrences/{id}/stop-claim")
+    @Operation(summary = "停止期次领奖（V66）", description = "CAS 置 claim_stopped_at=now；到点即拒绝领取，"
+            + "已入领奖事实不变")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> stopOccurrenceClaim(@PathVariable("id") Long id) {
+        int updated = occurrenceMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()
+                        .set(com.cloudmart.pet.entity.PetEventOccurrence::getClaimStoppedAt,
+                                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getId, id)
+                        .eq(com.cloudmart.pet.entity.PetEventOccurrence::getStatus, "ACTIVE")
+                        .isNull(com.cloudmart.pet.entity.PetEventOccurrence::getClaimStoppedAt));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "期次不存在、已关闭或领奖已停止");
+        }
+        return ApiResponse.ok(null);
+    }
+
     // ---------------- 记忆管理（管理端） ----------------
 }

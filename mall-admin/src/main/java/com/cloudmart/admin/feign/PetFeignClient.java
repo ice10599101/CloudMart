@@ -114,6 +114,18 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PostMapping("/pet/quests/receipts/{id}/replay")
     ApiResponse<Object> replayQuestReceipt(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 
+    @org.springframework.web.bind.annotation.PostMapping("/configs/event-occurrences/{id}/stop-counting")
+    ApiResponse<Object> stopEventOccurrenceCounting(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.PostMapping("/configs/event-occurrences/{id}/stop-claim")
+    ApiResponse<Object> stopEventOccurrenceClaim(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.PostMapping("/quests/instances/{petId}/{questDate}/{questCode}/cancel")
+    ApiResponse<Object> cancelQuestInstance(@org.springframework.web.bind.annotation.PathVariable("petId") Long petId,
+                                            @org.springframework.web.bind.annotation.PathVariable("questDate") String questDate,
+                                            @org.springframework.web.bind.annotation.PathVariable("questCode") String questCode,
+                                            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
     // ---------------- 三期配置：职业 / 家具 / 每日任务 ----------------
 
     @GetMapping("/pet/careers")

@@ -49,8 +49,14 @@ public class PetDailyQuest {
     /** R32 生成时奖励快照 JSON（普通任务: name/questType/expReward/currencyReward/actionTarget；宝箱行: chestExp/chestCurrency） */
     private String rewardSnapshot;
 
-    /** 状态：IN_PROGRESS/COMPLETE/CLAIMED */
+    /** 状态：IN_PROGRESS/COMPLETE/CLAIMED/CANCELLED */
     private String status;
+
+    /** 取消原因（管理端受审计命令必填，§8.2） */
+    private String cancelReason;
+
+    /** 取消操作管理员（服务令牌 admin_username，P0-3） */
+    private String cancelledBy;
 
     /** 完成时间（UTC） */
     private LocalDateTime completedAt;

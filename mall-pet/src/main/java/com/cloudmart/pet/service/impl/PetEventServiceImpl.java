@@ -146,8 +146,11 @@ public class PetEventServiceImpl implements PetEventService {
                     if (occurrence == null) {
                         return toVo(pet, config, now);
                     }
+                    LocalDateTime countEnd = occurrence.getCountingStoppedAt() != null
+                            && occurrence.getCountingStoppedAt().isBefore(occurrence.getEndAt())
+                            ? occurrence.getCountingStoppedAt() : occurrence.getEndAt();
                     int progress = countProgressBetween(pet, resolveEventType(config),
-                            occurrence.getStartAt(), occurrence.getEndAt());
+                            occurrence.getStartAt(), countEnd);
                     return buildOccurrenceVo(config, occurrence, pet.getId(), now, progress, null);
                 })
                 .toList();
@@ -340,6 +343,10 @@ public class PetEventServiceImpl implements PetEventService {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动期次不存在");
         }
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        // V66：停止领奖与截止双闸——运营 stop-claim 到点即拒
+        if (occurrence.getClaimStoppedAt() != null && now.isAfter(occurrence.getClaimStoppedAt())) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "本期领奖已停止");
+        }
         if (now.isAfter(occurrence.getClaimDeadlineAt())) {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "本期领奖已截止");
         }
@@ -350,8 +357,12 @@ public class PetEventServiceImpl implements PetEventService {
         if (config == null) {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在或已下架");
         }
+        // V66：计数停止后窗口按停止时刻截断（停止前的事实仍计入，不追溯清零）
+        LocalDateTime countEnd = occurrence.getCountingStoppedAt() != null
+                && occurrence.getCountingStoppedAt().isBefore(occurrence.getEndAt())
+                ? occurrence.getCountingStoppedAt() : occurrence.getEndAt();
         int progress = countProgressBetween(pet, resolveEventType(config),
-                occurrence.getStartAt(), occurrence.getEndAt());
+                occurrence.getStartAt(), countEnd);
         int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
         if (progress < target) {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED,
@@ -406,7 +417,10 @@ public class PetEventServiceImpl implements PetEventService {
                 .eq(PetEventOccurrenceClaim::getPetId, petId));
         boolean claimed = claimedRows != null && claimedRows > 0;
         boolean completed = progress >= target;
-        boolean claimable = completed && !claimed && !now.isAfter(occurrence.getClaimDeadlineAt());
+        boolean claimStopped = occurrence.getClaimStoppedAt() != null
+                && now.isAfter(occurrence.getClaimStoppedAt());
+        boolean claimable = completed && !claimed && !claimStopped
+                && !now.isAfter(occurrence.getClaimDeadlineAt());
         boolean expired = !completed && now.isAfter(occurrence.getEndAt());
         return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getEventType(), target, progress, completed, claimable, claimed, expired,

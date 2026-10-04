@@ -249,6 +249,34 @@ public class AdminPetController {
         return petFeignClient.replayQuestReceipt(id);
     }
 
+    @PostMapping("/configs/event-occurrences/{id}/stop-counting")
+    @OperLog(title = "宠物活动期次停止计数", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "停止期次计数（V66）", description = "停止前事实仍计入，不追溯清零")
+    public ApiResponse<Object> stopEventOccurrenceCounting(@PathVariable("id") Long id) {
+        return petFeignClient.stopEventOccurrenceCounting(id);
+    }
+
+    @PostMapping("/configs/event-occurrences/{id}/stop-claim")
+    @OperLog(title = "宠物活动期次停止领奖", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "停止期次领奖（V66）", description = "到点即拒绝领取，已入领奖事实不变")
+    public ApiResponse<Object> stopEventOccurrenceClaim(@PathVariable("id") Long id) {
+        return petFeignClient.stopEventOccurrenceClaim(id);
+    }
+
+    @PostMapping("/quests/instances/{petId}/{questDate}/{questCode}/cancel")
+    @OperLog(title = "宠物任务实例取消", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "取消某日任务实例（§8.2 受审计命令）", description = "reason 必填；CLAIMED 拒绝，"
+            + "奖励收回走调账补偿链路")
+    public ApiResponse<Object> cancelQuestInstance(@PathVariable("petId") Long petId,
+                                                   @PathVariable("questDate") String questDate,
+                                                   @PathVariable("questCode") String questCode,
+                                                   @RequestBody Map<String, Object> body) {
+        return petFeignClient.cancelQuestInstance(petId, questDate, questCode, body);
+    }
+
     // ---------------- 三期配置：职业 / 家具 / 每日任务 ----------------
 
     @GetMapping("/careers")

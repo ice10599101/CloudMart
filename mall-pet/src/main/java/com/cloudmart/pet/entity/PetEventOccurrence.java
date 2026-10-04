@@ -45,6 +45,12 @@ public class PetEventOccurrence {
     /** ACTIVE / CLOSED */
     private String status;
 
+    /** 计数停止时刻(UTC)：此前事实仍按窗口计入，此后不计（V66 §8.2 分段控制） */
+    private LocalDateTime countingStoppedAt;
+
+    /** 领奖停止时刻(UTC)：到点即拒绝领取 */
+    private LocalDateTime claimStoppedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

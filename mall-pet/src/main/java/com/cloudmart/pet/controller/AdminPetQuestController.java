@@ -53,4 +53,21 @@ public class AdminPetQuestController {
             @Parameter(description = "回执 ID") @PathVariable("id") Long id) {
         return ApiResponse.ok(questService.replayReceipt(id));
     }
+
+    public record QuestCancelRequest(String reason) {
+    }
+
+    @PostMapping("/instances/{petId}/{questDate}/{questCode}/cancel")
+    @Operation(summary = "取消某日任务实例（§8.2 受审计命令）", description = "IN_PROGRESS/COMPLETE 可取消；"
+            + "CLAIMED 拒绝（奖励已发出，收回走调账补偿链路）；reason 必填随行落库")
+    public ApiResponse<com.cloudmart.pet.entity.PetDailyQuest> cancelInstance(
+            @Parameter(description = "宠物 ID") @PathVariable("petId") Long petId,
+            @Parameter(description = "业务日（ISO 串）") @PathVariable("questDate") String questDate,
+            @Parameter(description = "任务 code") @PathVariable("questCode") String questCode,
+            @org.springframework.web.bind.annotation.RequestBody QuestCancelRequest request) {
+        // 操作者取服务令牌声明（P0-3：不信任可伪造请求头）
+        return ApiResponse.ok(questService.cancelQuestInstance(petId,
+                java.time.LocalDate.parse(questDate), questCode,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(), request.reason()));
+    }
 }

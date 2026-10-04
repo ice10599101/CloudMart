@@ -405,6 +405,50 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         return receiptMapper.selectList(wrapper);
     }
 
+    @Override
+    public com.cloudmart.pet.entity.PetDailyQuest cancelQuestInstance(Long petId, LocalDate questDate,
+                                                                      String questCode, String operatorName, String reason) {
+        if (operatorName == null || operatorName.isBlank() || "unknown".equals(operatorName)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "管理员身份缺失（服务令牌未携带操作者）");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "取消原因必填");
+        }
+        if (petId == null || questDate == null || questCode == null || questCode.isBlank()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "实例定位参数缺失");
+        }
+        if (questCode.equals(CHEST_CODE)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "全清宝箱不支持实例取消");
+        }
+        PetDailyQuest existing = questMapper.selectOne(new LambdaQueryWrapper<PetDailyQuest>()
+                .eq(PetDailyQuest::getPetId, petId)
+                .eq(PetDailyQuest::getQuestDate, questDate)
+                .eq(PetDailyQuest::getQuestCode, questCode)
+                .last("LIMIT 1"));
+        if (existing == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "任务实例不存在");
+        }
+        if (PetQuestStatus.CLAIMED.name().equals(existing.getStatus())) {
+            // 奖励已发出：收回属资金操作，必须走调账补偿审批链，不在本命令范围
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "该实例奖励已领取，收回请走调账补偿链路");
+        }
+        String trimmedReason = reason.strip();
+        int updated = questMapper.update(null, new LambdaUpdateWrapper<PetDailyQuest>()
+                .set(PetDailyQuest::getStatus, PetQuestStatus.CANCELLED.name())
+                .set(PetDailyQuest::getCancelReason, trimmedReason.length() > 200
+                        ? trimmedReason.substring(0, 200) : trimmedReason)
+                .set(PetDailyQuest::getCancelledBy, operatorName)
+                .eq(PetDailyQuest::getId, existing.getId())
+                .in(PetDailyQuest::getStatus, PetQuestStatus.IN_PROGRESS.name(), PetQuestStatus.COMPLETE.name()));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "实例状态已变更，请刷新后重试");
+        }
+        log.info("任务实例取消（受审计）: petId={}, questDate={}, code={}, operator={}",
+                petId, questDate, questCode, operatorName);
+        return questMapper.selectById(existing.getId());
+    }
+
     /** 当前启用配置中该类型的任务 code 集（与 record/recordFact 同一口径） */
     private List<String> codesOfType(Pet pet, PetQuestType type) {
         return activeConfigs(pet).stream()

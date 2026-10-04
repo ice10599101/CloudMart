@@ -56,4 +56,11 @@ public interface PetDailyQuestService {
     /** R32 管理端：收据查询（userId/questCode/status 过滤 + 分页） */
     java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
             Long userId, String questCode, String status, int page, int size);
+
+    /**
+     * §8.2 管理后台：取消某日任务实例（受审计命令）——IN_PROGRESS/COMPLETE 可取消，
+     * CLAIMED 拒绝（奖励已发出，收回须走调账补偿链路）；reason 必填随行落库。
+     */
+    com.cloudmart.pet.entity.PetDailyQuest cancelQuestInstance(Long petId, java.time.LocalDate questDate,
+                                                               String questCode, String operatorName, String reason);
 }
