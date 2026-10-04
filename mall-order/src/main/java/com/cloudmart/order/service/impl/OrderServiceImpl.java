@@ -281,6 +281,12 @@ public class OrderServiceImpl implements OrderService {
 
         orderEventProducer.sendOrderTimeoutCheck(order.getOrderNo());
 
+        // T18：零元订单——应付为 0 时不创建 0 元渠道支付尝试（PaymentAttemptService
+        // 拒绝非正金额），经唯一推进入口直接完成 PENDING_PAYMENT → PAID（金额 0=0
+        // 天然一致，库存确认/履约事件照常）；ZERO_PAY 结算事实经 Outbox 留痕供审计。
+        // applyPaymentSucceeded CAS 幂等，重复结算无害；零元订单不需要支付超时取消
+        settleZeroPayIfNeeded(order);
+
         List<OrderItem> orderItems = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, order.getId())
         );
@@ -1243,18 +1249,6 @@ public class OrderServiceImpl implements OrderService {
         if (quote == null || !quote.getUserId().equals(userId)) {
             throw new BusinessException("QUOTE_NOT_FOUND", "报价不存在");
         }
-        // T03：版本一致性——报价创建后不可变，expectedQuoteVersion 不匹配说明用户看到的
-        // 报价已过期或被并发修改，返回明确 409 让前端重新报价（不静默按新金额下单）
-        if (expectedQuoteVersion != null && !expectedQuoteVersion.equals(quote.getVersion())) {
-            throw new BusinessException("QUOTE_STALE", "报价已更新，请重新获取报价后确认");
-        }
-        if ("ACTIVE".equals(quote.getStatus()) && quote.getExpiresAt() != null
-                && quote.getExpiresAt().isBefore(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))) {
-            throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已过期，请重新报价");
-        }
-
-        // T03：可售/价格/优惠复核——报价是快照权威，但现实变化必须显式 STALE（QA09）
-        verifyQuoteFreshness(userId, quote);
 
         // 幂等键：客户端 X-Idempotency-Key 优先；缺省绑定报价（同报价重试收敛同一单）
         String effectiveRequestKey = requestKey != null && !requestKey.isBlank()
@@ -1263,7 +1257,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("IDEMPOTENCY_KEY_INVALID", "幂等键过长（<=64）");
         }
 
-        // 服务端构造下单请求：金额/商品信息全部取报价快照（freshness 已核），无客户端价格字段
+        // 服务端构造下单请求：金额/商品信息全部取报价快照，无客户端价格字段
         List<com.cloudmart.order.entity.OrderQuoteItem> quoteItems = orderQuoteItemMapper.selectList(
                 new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
                         .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quoteId));
@@ -1276,8 +1270,8 @@ public class OrderServiceImpl implements OrderService {
                 effectiveRequestKey, items, receiverName, receiverPhone,
                 receiverAddress, quote.getCouponId(), null, quote.getId(), null, null);
 
-        // 同键重放：与 createOrder 使用同一 orderPayloadHash 公式（共享 request_key 命名空间，
-        // 两个公式会在重放比对时必然失配——QA10 缺陷修复）；同键同参返回原单，异参 409
+        // T18：幂等重放先于时效/新鲜度校验——已成功创建订单的重试必须返回原单，
+        // 不得因报价此后过期/商品下架/价格变化被拒（旧实现重放前校验，重试永远 409）
         String payloadHash = orderPayloadHash(userId, request);
         Order replayed = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
                 .eq(Order::getUserId, userId)
@@ -1285,6 +1279,19 @@ public class OrderServiceImpl implements OrderService {
         if (replayed != null) {
             return resolveIdempotentReplay(replayed, payloadHash);
         }
+
+        // T03：版本一致性（仅新执行校验）——报价创建后不可变，expectedQuoteVersion
+        // 不匹配说明用户看到的报价已过期或被并发修改，409 让前端重新报价
+        if (expectedQuoteVersion != null && !expectedQuoteVersion.equals(quote.getVersion())) {
+            throw new BusinessException("QUOTE_STALE", "报价已更新，请重新获取报价后确认");
+        }
+        if ("ACTIVE".equals(quote.getStatus()) && quote.getExpiresAt() != null
+                && quote.getExpiresAt().isBefore(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))) {
+            throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已过期，请重新报价");
+        }
+
+        // T03：可售/价格/优惠复核——报价是快照权威，但现实变化必须显式 STALE（QA09）
+        verifyQuoteFreshness(userId, quote);
 
         // CAS 消费报价（与建单同事务：建单失败回滚后报价自动恢复 ACTIVE）；
         // 并发重复下单同一报价只有一个赢家
@@ -1303,6 +1310,26 @@ public class OrderServiceImpl implements OrderService {
             // 同键并发败者：重放胜者结果（报价消费同事务回滚，无半消费状态）
             return replayWinnerOrConflict(race);
         }
+    }
+
+    /**
+     * T18：零元订单结算——应付为 0 时不创建 0 元渠道支付尝试（PaymentAttemptService
+     * 拒绝非正金额），由订单域以 applyPaymentSucceeded（唯一推进入口）直接完成
+     * PENDING_PAYMENT → PAID：金额一致性校验天然通过（0=0），库存确认/事件照常发生；
+     * ZERO_PAY 结算事实经 Outbox 留痕供审计。
+     */
+    private void settleZeroPayIfNeeded(Order order) {
+        if (order == null || order.getId() == null || order.getPayAmount() == null
+                || order.getPayAmount().compareTo(BigDecimal.ZERO) != 0) {
+            return;
+        }
+        Long orderId = order.getId();
+        outboxService.record(new EventEnvelope(
+                "zero-pay-" + orderId, "ORDER_ZERO_PAY", 1, String.valueOf(orderId), 1,
+                System.currentTimeMillis(), null,
+                "{\"orderId\":" + orderId + ",\"payAmount\":\"0.00\",\"currency\":\"CNY\"}"));
+        applyPaymentSucceeded(orderId, "0.00", "CNY");
+        log.info("[T18] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
     }
 
     /** T03：报价新鲜度复核——价格/上架状态/优惠券重算；任一变化抛 QUOTE_STALE（409） */

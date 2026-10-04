@@ -9,6 +9,7 @@ import com.cloudmart.order.repository.OrderQuoteMapper;
 import com.cloudmart.order.service.QuoteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -77,7 +78,7 @@ class QuoteServiceImplTest {
         assertThat(quote.getPayAmount()).isEqualByComparingTo(new BigDecimal("89.70"));
         assertThat(quote.getStatus()).isEqualTo("ACTIVE");
         assertThat(quote.getUserId()).isEqualTo(USER_ID);
-        assertThat(quote.getExpiresAt()).isAfter(java.time.LocalDateTime.now().plusSeconds(240));
+        assertThat(quote.getExpiresAt()).isAfter(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(240));
 
         ArgumentCaptor<com.cloudmart.order.entity.OrderQuoteItem> itemCaptor =
                 ArgumentCaptor.forClass(com.cloudmart.order.entity.OrderQuoteItem.class);
@@ -161,5 +162,35 @@ class QuoteServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "QUOTE_NOT_FOUND");
         verify(quoteItemMapper, never()).selectList(any());
+    }
+
+    @Nested
+    @DisplayName("T18 合并数量复检与 UTC 有效期")
+    class T18MergeAndExpiryTests {
+
+        @Test
+        @DisplayName("同 SKU 多行合并后超过单行上限 → INVALID_QUANTITY（聚合复检）")
+        void createQuote_mergedTotalOverLimit_rejected() {
+            var line1 = new QuoteService.QuoteItemInput(10L, 999);
+            var line2 = new QuoteService.QuoteItemInput(10L, 999);
+
+            assertThatThrownBy(() -> quoteService.createQuote(1L, List.of(line1, line2), null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("INVALID_QUANTITY");
+            verify(productFeignClient, never()).getSkusBatch(any());
+        }
+
+        @Test
+        @DisplayName("报价有效期以 UTC 基准生成（与下单侧 UTC 比较一致）")
+        void createQuote_expiryUtc() {
+            when(productFeignClient.getSkusBatch(any())).thenReturn(ApiResponse.ok(List.of(
+                    sku(10L, 100L, "10.00", 1))));
+            var quote = quoteService.createQuote(1L, List.of(new QuoteService.QuoteItemInput(10L, 2)), null);
+
+            // UTC 基准：服务器默认时区为 UTC+8 时，本地 now() 会比 UTC now() 大 8 小时——
+            // 旧实现用本地 now 生成有效期，UTC 比较侧看到的有效期偏短 8 小时
+            assertThat(quote.getExpiresAt())
+                    .isAfter(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(200));
+        }
     }
 }

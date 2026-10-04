@@ -78,6 +78,15 @@ public class QuoteServiceImpl implements QuoteService {
             }
             merged.merge(item.skuId(), item.quantity(), Integer::sum);
         }
+        // T18：合并后总量复检——单行各自合法但同 SKU 多行合并后可越过单行上限
+        // （如 999+999），聚合数量必须再次校验
+        for (Map.Entry<Long, Integer> entry : merged.entrySet()) {
+            if (entry.getValue() > MAX_QUANTITY_PER_LINE) {
+                throw new BusinessException("INVALID_QUANTITY",
+                        "SKU " + entry.getKey() + " 合并数量超过单行上限（" + entry.getValue()
+                                + " > " + MAX_QUANTITY_PER_LINE + "）");
+            }
+        }
 
         // 服务端权威取价（fail-closed：商品服务不可用即拒绝）
         ApiResponse<List<Map<String, Object>>> response = productFeignClient.getSkusBatch(List.copyOf(merged.keySet()));
@@ -97,7 +106,10 @@ public class QuoteServiceImpl implements QuoteService {
         quote.setVersion(1);
         quote.setStatus("ACTIVE");
         quote.setCouponId(couponId);
-        quote.setExpiresAt(LocalDateTime.now().plusSeconds(quoteTtlSeconds));
+        // T18：有效期统一 UTC（下游 createOrderFromQuote 以 UTC 比较——服务器默认
+        // 时区非 UTC 时 TTL 会偏移数小时）
+        quote.setExpiresAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+                .plusSeconds(quoteTtlSeconds));
 
         BigDecimal total = BigDecimal.ZERO;
         List<OrderQuoteItem> quoteItems = new ArrayList<>();
