@@ -39,9 +39,12 @@ import java.util.TreeMap;
  * 扣费/兑换/送礼等资源操作的最终幂等由 {@code wish_operation}（与领域写同事务的
  * 持久操作记录）保证，Redis 清空或本层故障不产生重复扣费。</p>
  *
- * <p>相对旧实现的修复（任务书 B04）：</p>
+ * <p>相对旧实现的修复（任务书 B04/T17）：</p>
  * <ul>
- *   <li>作用域键包含 method+path+规范化 query——不同接口/不同 query 不再串用结果；</li>
+ *   <li>T17：Redis 键只由 身份+X-Idempotency-Key 组成，请求规范化 hash 仅存值中——
+ *       旧实现把 hash 拼进键，"同键异参"落到不同键上根本不会相遇，
+ *       同一 intentId 换请求体重放无法被识别（重复扣费/重复发奖入口）；
+ *       method+path+query+body 的差异在值比对阶段判 IDEMPOTENCY_KEY_REUSED；</li>
  *   <li>摘要覆盖 method+path+query+body（旧实现仅 body）；</li>
  *   <li>处理中状态与结果统一 JSON 存储——修复旧"processing|hash"被误判为
  *       异请求并把哈希当响应体重放的解析缺陷；</li>
@@ -96,7 +99,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
         String canonicalQuery = canonicalQuery(request.getParameterMap());
         String requestHash = sha256((method + "\n" + path + "\n" + canonicalQuery + "\n")
                 .getBytes(StandardCharsets.UTF_8), wrappedRequest.cachedBody());
-        String redisKey = KEY_PREFIX + userId + ":" + idemKey + ":" + requestHash;
+        // T17：键 = 身份 + intentId；hash 在值中——同键异参必然命中同一键并被拒绝
+        String redisKey = KEY_PREFIX + userId + ":" + idemKey;
 
         try {
             String stored = redisTemplate.opsForValue().get(redisKey);

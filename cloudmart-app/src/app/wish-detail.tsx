@@ -103,9 +103,10 @@ export default function WishDetailScreen() {
   // 离线打卡队列：网络恢复时静默补传（Sprint 1.3 APP 验收）
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
-      if (state.isConnected && state.isInternetReachable) {
-        void flushQueue((wishId, ok) => {
-          if (ok && wishId === wishId) {
+      if (state.isConnected && state.isInternetReachable && user?.id) {
+        // T17：仅冲洗当前账号队列（切账号不提交原账号意图）
+        void flushQueue(user.id, (wId, ok) => {
+          if (ok && wId === wishId) {
             // 打卡补传成功后刷新对应详情
           }
         })
@@ -121,7 +122,8 @@ export default function WishDetailScreen() {
     setCheckinSaving(true)
     try {
       if (!(await isOnline())) {
-        await enqueueCheckin(wishId, checkinContent.trim() || null)
+        // T17：队列按账号分区
+        await enqueueCheckin(user?.id ?? 0, wishId, checkinContent.trim() || null)
         Alert.alert('已离线保存 📴', '当前无网络，打卡已存入离线队列，联网后自动补传')
         setCheckinOpen(false)
         setCheckinContent('')

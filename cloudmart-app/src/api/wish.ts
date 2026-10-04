@@ -326,11 +326,13 @@ export const wishApi = {
     getFulfillmentDetail: (wishId: number | string) =>
         request<WishFulfillmentDetail>({ url: `/wish/wishes/${wishId}/fulfillment` }),
     /** 心愿每日打卡（仅作者 + ACTIVE；每日一次幂等，星光 +2） */
-    checkinWish: (wishId: number | string, content?: string) =>
+    checkinWish: (wishId: number | string, content?: string, intentId?: string) =>
         request<CheckinResult>({
             url: `/wish/wishes/${wishId}/checkin`,
             method: 'POST',
             data: { content },
+            // T17：离线补传复用稳定 intentId——服务端按身份+键去重，重试不重复打卡
+            header: intentId ? { 'X-Idempotency-Key': intentId } : undefined,
         }),
 
     // ---- 成长记录（Sprint 1.3，B1）----
