@@ -248,3 +248,6 @@ cloudmart:
       - prefix: /internal/account-erasure
         issuers: [mall-user]
         scope: wish:erasure
+    # T09：跨域经验发奖出站签名（iss=mall-wish, aud=mall-community, scope=community:internal）
+    outbound-scopes:
+      mall-community: community:internal

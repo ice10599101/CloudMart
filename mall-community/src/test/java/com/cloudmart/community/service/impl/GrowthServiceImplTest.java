@@ -141,6 +141,16 @@ class GrowthServiceImplTest {
         return userBadge;
     }
 
+    
+        private java.util.List<com.cloudmart.community.entity.DailyCheckIn> dbRecords(LocalDate... dates) {
+            return java.util.Arrays.stream(dates).map(d -> {
+                com.cloudmart.community.entity.DailyCheckIn c = new com.cloudmart.community.entity.DailyCheckIn();
+                c.setUserId(USER_ID);
+                c.setCheckInDate(d);
+                return c;
+            }).toList();
+        }
+
     @Nested
     @DisplayName("checkIn")
     class CheckInTests {
@@ -148,14 +158,16 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should check in successfully for first time today")
         void checkIn_firstTimeToday() {
-            // C05：DB 事实先行——insert 成功后再置位 Bitmap
+            // T09：DB 事实先行——连续天数从 DB 计算，位图投影在提交后置位
+            LocalDate today = LocalDate.now();
             when(dailyCheckInMapper.insert(any(DailyCheckIn.class))).thenAnswer(invocation -> {
                 DailyCheckIn checkIn = invocation.getArgument(0);
                 checkIn.setId(1L);
                 return 1;
             });
+            when(dailyCheckInMapper.selectList(any()))
+                    .thenReturn(dbRecords(today));
             when(checkInBitMapService.setBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
-            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(1);
             when(dailyCheckInMapper.updateById(any(DailyCheckIn.class))).thenReturn(1);
 
             UserLevel userLevel = buildUserLevel();
@@ -166,7 +178,7 @@ class GrowthServiceImplTest {
             growthService.checkIn(USER_ID);
 
             verify(dailyCheckInMapper).insert(any(DailyCheckIn.class));
-            // C05：Bitmap 在 DB 事实之后置位（投影）
+            // T09：Bitmap 在 DB 事实之后置位（无事务同步上下文时同步执行投影）
             org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(dailyCheckInMapper, checkInBitMapService);
             inOrder.verify(dailyCheckInMapper).insert(any(DailyCheckIn.class));
             inOrder.verify(checkInBitMapService).setBit(eq(USER_ID), any(LocalDate.class));
@@ -202,7 +214,11 @@ class GrowthServiceImplTest {
                 checkIn.setId(2L);
                 return 1;
             });
-            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(6);
+            // T09：连续 6 天以 DB 日期事实计算（含今天）
+            LocalDate today = LocalDate.now();
+            when(dailyCheckInMapper.selectList(any())).thenReturn(dbRecords(
+                    today, today.minusDays(1), today.minusDays(2), today.minusDays(3),
+                    today.minusDays(4), today.minusDays(5)));
             when(dailyCheckInMapper.updateById(any(DailyCheckIn.class))).thenReturn(1);
             when(userLevelMapper.selectOne(any())).thenReturn(buildUserLevel());
             when(userLevelMapper.incrementExp(eq(USER_ID), anyInt())).thenReturn(1);
@@ -226,7 +242,8 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return true when user has checked in")
         void isCheckedInToday_true() {
-            when(checkInBitMapService.getBit(eq(USER_ID), any(LocalDate.class))).thenReturn(true);
+            // T09：今日签到状态以 DB 唯一事实为准（位图仅投影）
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(1L);
 
             boolean result = growthService.isCheckedInToday(USER_ID);
 
@@ -236,7 +253,7 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return false when user has not checked in")
         void isCheckedInToday_false() {
-            when(checkInBitMapService.getBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(0L);
 
             boolean result = growthService.isCheckedInToday(USER_ID);
 
@@ -389,12 +406,9 @@ class GrowthServiceImplTest {
         @DisplayName("should return check-in dates for given month")
         void getCheckInCalendar_success() {
             // 假设2026年5月有31天，第1天和第15天签到了
-            List<Integer> bits = new java.util.ArrayList<>(Collections.nCopies(31, 0));
-            bits.set(0, 1);  // 第1天签到
-            bits.set(14, 1); // 第15天签到
-
-            when(checkInBitMapService.getMonthBits(eq(USER_ID), eq(2026), eq(5), anyInt()))
-                    .thenReturn(bits);
+            // T09：日历从数据库取得（35 天位图 TTL 无法支撑历史日历）
+            when(dailyCheckInMapper.selectList(any()))
+                    .thenReturn(dbRecords(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 15)));
 
             List<LocalDate> result = growthService.getCheckInCalendar(USER_ID, 2026, 5);
 
@@ -412,8 +426,12 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return continuous days when checked in today")
         void getContinuousDays_checkedInToday() {
-            when(checkInBitMapService.getBit(eq(USER_ID), any(LocalDate.class))).thenReturn(true);
-            when(checkInBitMapService.countContinuousDays(eq(USER_ID), any(LocalDate.class))).thenReturn(5);
+            // T09：连续天数走 DB 事实（今天已签从今天起算）
+            LocalDate today = LocalDate.now();
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(1L);
+            when(dailyCheckInMapper.selectList(any())).thenReturn(dbRecords(
+                    today, today.minusDays(1), today.minusDays(2),
+                    today.minusDays(3), today.minusDays(4)));
 
             int result = growthService.getContinuousDays(USER_ID);
 
@@ -421,9 +439,22 @@ class GrowthServiceImplTest {
         }
 
         @Test
+        @DisplayName("T09：今天未签但昨天已签 → 展示可延续天数（签到后延续）")
+        void getContinuousDays_yesterdaySigned_extendable() {
+            LocalDate today = LocalDate.now();
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(0L, 1L);
+            when(dailyCheckInMapper.selectList(any())).thenReturn(dbRecords(
+                    today.minusDays(1), today.minusDays(2)));
+
+            int result = growthService.getContinuousDays(USER_ID);
+
+            assertThat(result).isEqualTo(2);
+        }
+
+        @Test
         @DisplayName("should return 0 when not checked in today")
         void getContinuousDays_noCheckInToday() {
-            when(checkInBitMapService.getBit(eq(USER_ID), any(LocalDate.class))).thenReturn(false);
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(0L);
 
             int result = growthService.getContinuousDays(USER_ID);
 

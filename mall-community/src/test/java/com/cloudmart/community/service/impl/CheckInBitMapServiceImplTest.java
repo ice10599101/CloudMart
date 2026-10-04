@@ -193,115 +193,67 @@ class CheckInBitMapServiceImplTest {
     // ======================== countContinuousDays ========================
 
     @Nested
-    @DisplayName("countContinuousDays")
+    @DisplayName("countContinuousDays（T09 逐日回溯：跨月自动切键）")
     class CountContinuousDaysTests {
 
+        private void stubGetBit(String key, Long offset, boolean value) {
+            when(valueOperations.getBit(eq(key), eq(offset))).thenReturn(value);
+        }
+
         @Test
-        @DisplayName("should count continuous days from today backwards")
+        @DisplayName("从锚点逐日回溯：9/10/11 日连续，8 日未签 → 3 天")
         void countContinuousDays_normal() {
-            // 7月11日，连续签到3天（9、10、11日）
-            // bit 8 = 1 (9日), bit 9 = 1 (10日), bit 10 = 1 (11日), bit 7 = 0 (8日)
-            // 整数 = 2^8 + 2^9 + 2^10 = 256 + 512 + 1024 = 1792
-            LocalDate date = LocalDate.of(2026, 7, 11);
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.bitField(anyString(), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(1792L));
+            stubGetBit("checkin:bitmap:1:202607", 10L, true);  // 11日
+            stubGetBit("checkin:bitmap:1:202607", 9L, true);   // 10日
+            stubGetBit("checkin:bitmap:1:202607", 8L, true);   // 9日
+            stubGetBit("checkin:bitmap:1:202607", 7L, false);  // 8日
 
-            int result = checkInBitMapService.countContinuousDays(USER_ID, date);
+            int result = checkInBitMapService.countContinuousDays(USER_ID, LocalDate.of(2026, 7, 11));
 
             assertThat(result).isEqualTo(3);
         }
 
         @Test
-        @DisplayName("should stop at first 0 when counting backwards")
-        void countContinuousDays_broken() {
-            // 7月5日，签到了1、2、4、5日（3日没签）
-            // bit 0 = 1, bit 1 = 1, bit 2 = 0, bit 3 = 1, bit 4 = 1
-            // 整数 = 1 + 2 + 8 + 16 = 27
-            LocalDate date = LocalDate.of(2026, 7, 5);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.bitField(anyString(), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(27L));
-
-            int result = checkInBitMapService.countContinuousDays(USER_ID, date);
-
-            assertThat(result).isEqualTo(2); // 5日和4日
-        }
-
-        @Test
-        @DisplayName("should return 0 when BITFIELD returns null")
-        void countContinuousDays_nullResult() {
-            LocalDate date = LocalDate.of(2026, 7, 11);
-            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.bitField(anyString(), any(BitFieldSubCommands.class)))
-                    .thenReturn(null);
-
-            int result = checkInBitMapService.countContinuousDays(USER_ID, date);
-
-            assertThat(result).isEqualTo(0);
-        }
-
-        @Test
-        @DisplayName("should return 0 when today is not checked in")
+        @DisplayName("锚点当天未签到 → 0（连续链不预支未来）")
         void countContinuousDays_todayNotCheckedIn() {
-            // 7月11日，只签到了1-10日，11日没签
-            // bit 10 = 0 → 从最高位开始就是0 → 返回0
-            // 整数 = 2^0 + 2^1 + ... + 2^9 = 1023
-            LocalDate date = LocalDate.of(2026, 7, 11);
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.bitField(anyString(), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(1023L));
+            stubGetBit("checkin:bitmap:1:202607", 10L, false); // 11日未签
 
-            int result = checkInBitMapService.countContinuousDays(USER_ID, date);
+            int result = checkInBitMapService.countContinuousDays(USER_ID, LocalDate.of(2026, 7, 11));
 
             assertThat(result).isEqualTo(0);
         }
 
         @Test
-        @DisplayName("should handle cross-month when today is 1st and prev month last day signed")
+        @DisplayName("T09 回归：跨月不再限于本月第 1 天——7月29-31日 + 8月1日 → 4 天")
         void countContinuousDays_crossMonth() {
-            // 8月1日，已签到（bit 0 = 1 → 整数 = 1）
-            // 需要查上月7月31日是否签到 → getBit 返回 true
-            // 然后查7月的 BITFIELD，假设7月29、30、31日连续签到
-            // 7月31日：bit 30 = 1 (31日), bit 29 = 1 (30日), bit 28 = 1 (29日), bit 27 = 0 (28日)
-            // 整数 = 2^30 + 2^29 + 2^28 = 1073741824 + 536870912 + 268435456 = 1879048192
-            LocalDate augFirst = LocalDate.of(2026, 8, 1);
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            // 8月 BITFIELD 返回 1（8月1日签到了）
-            when(valueOperations.bitField(eq("checkin:bitmap:1:202608"), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(1L));
-            // 7月31日 getBit 返回 true
-            when(valueOperations.getBit(eq("checkin:bitmap:1:202607"), eq(30L))).thenReturn(true);
-            // 7月 BITFIELD 返回 1879048192（29、30、31日签到了）
-            when(valueOperations.bitField(eq("checkin:bitmap:1:202607"), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(1879048192L));
+            // 8月1日已签（旧实现只在本月第 1 天跨月，8月2日查连续会漏 7月31日）
+            stubGetBit("checkin:bitmap:1:202608", 1L, true);   // 8月2日
+            stubGetBit("checkin:bitmap:1:202608", 0L, true);   // 8月1日
+            stubGetBit("checkin:bitmap:1:202607", 30L, true);  // 7月31日
+            stubGetBit("checkin:bitmap:1:202607", 29L, true);  // 7月30日
+            stubGetBit("checkin:bitmap:1:202607", 28L, true);  // 7月29日
+            stubGetBit("checkin:bitmap:1:202607", 27L, false); // 7月28日
 
-            int result = checkInBitMapService.countContinuousDays(USER_ID, augFirst);
+            int result = checkInBitMapService.countContinuousDays(USER_ID, LocalDate.of(2026, 8, 2));
 
-            // 8月1日（1天）+ 7月30、31日（2天，不含31日本身已在调用方计数）
-            // 等等，countContinuousDaysPrevMonth 从倒数第2天开始统计
-            // 7月31日已签到（调用方计1），countContinuousDaysPrevMonth 统计 7月30日、29日
-            // 7月 BITFIELD 整数 = 2^30 + 2^29 + 2^28
-            // 从 bit 29（30日）开始向前：bit 29 = 1 → count++, bit 28 = 1 → count++, bit 27 = 0 → 停止
-            // 所以 countContinuousDaysPrevMonth 返回 2
-            // 总计 = 1（8月1日） + 2（7月30、29日） = 3
-            assertThat(result).isEqualTo(3);
+            assertThat(result).isEqualTo(5); // 7月29-31日 + 8月1-2日（旧实现返回 4）
         }
 
         @Test
-        @DisplayName("should not check prev month when today is 1st but not signed")
-        void countContinuousDays_firstDayNotSigned() {
-            // 8月1日没签到 → 整数 = 0 → count = 0 → 不触发跨月检查
-            LocalDate augFirst = LocalDate.of(2026, 8, 1);
+        @DisplayName("跨年边界：12月31日 → 1月1日 切年键")
+        void countContinuousDays_crossYear() {
             when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-            when(valueOperations.bitField(anyString(), any(BitFieldSubCommands.class)))
-                    .thenReturn(List.of(0L));
+            stubGetBit("checkin:bitmap:1:202701", 0L, true);    // 2027-01-01
+            stubGetBit("checkin:bitmap:1:202612", 30L, true);   // 2026-12-31
+            stubGetBit("checkin:bitmap:1:202612", 29L, false);  // 2026-12-30
 
-            int result = checkInBitMapService.countContinuousDays(USER_ID, augFirst);
+            int result = checkInBitMapService.countContinuousDays(USER_ID, LocalDate.of(2027, 1, 1));
 
-            assertThat(result).isEqualTo(0);
-            // 不应该查上月的 getBit
-            verify(valueOperations, never()).getBit(eq("checkin:bitmap:1:202607"), anyLong());
+            assertThat(result).isEqualTo(2);
         }
     }
+
 }

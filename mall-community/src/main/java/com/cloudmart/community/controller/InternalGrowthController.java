@@ -32,6 +32,13 @@ public class InternalGrowthController {
 
     private final GrowthService growthService;
 
+    /** T09：跨域发奖来源白名单——稳定业务 ID 必填，唯一键 (user,source,bizId) 保证同事实只发一次 */
+    private static final Map<String, String> ALLOWED_SOURCES = Map.of(
+            "WISH_SIGNIN", "心愿每日签到",
+            "WISH_MILESTONE", "心愿签到里程碑");
+    private static final int MIN_GRANT_EXP = 1;
+    private static final int MAX_GRANT_EXP = 500;
+
     /**
      * 发放经验并返回最新等级信息。
      *
@@ -43,10 +50,29 @@ public class InternalGrowthController {
     public ApiResponse<Map<String, Object>> grantExp(@RequestBody Map<String, Object> body) {
         Long userId = ((Number) body.get("userId")).longValue();
         int exp = ((Number) body.get("exp")).intValue();
-        String source = body.get("source") != null ? (String) body.get("source") : "CHECK_IN";
-        String description = body.get("description") != null ? (String) body.get("description") : "每日签到";
+        String sourceBizId = body.get("sourceBizId") == null ? null
+                : String.valueOf(body.get("sourceBizId")).trim();
+        if (sourceBizId == null || sourceBizId.isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "EXP_GRANT_INVALID", "缺少稳定业务 ID sourceBizId（重试幂等依据）");
+        }
+        // sourceBizId 形如 {SOURCE}:{numericId}:EXP——source 服务端从其派生，不信任调用方自报
+        String[] parts = sourceBizId.split(":");
+        if (parts.length != 3 || !parts[2].equals("EXP")
+                || !ALLOWED_SOURCES.containsKey(parts[0]) || !parts[1].matches("\\d{1,19}")) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "EXP_GRANT_INVALID", "sourceBizId 非法或来源不在白名单");
+        }
+        String source = parts[0];
+        Long bizId = Long.valueOf(parts[1]);
+        if (exp < MIN_GRANT_EXP || exp > MAX_GRANT_EXP) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "EXP_GRANT_INVALID", "经验数额越界（" + MIN_GRANT_EXP + "-" + MAX_GRANT_EXP + "）");
+        }
+        String description = body.get("description") != null
+                ? String.valueOf(body.get("description")) : ALLOWED_SOURCES.get(source);
 
-        growthService.addExp(userId, exp, source, null, description);
+        growthService.addExp(userId, exp, source, bizId, description);
         UserLevelVO level = growthService.getUserLevel(userId);
 
         log.info("内部经验发放成功, userId={}, exp={}, source={}, level={}", userId, exp, source, level.level());

@@ -88,69 +88,22 @@ public class CheckInBitMapServiceImpl implements CheckInBitMapService {
         return bitList;
     }
 
+    /**
+     * T09 修复：连续天数按"逐日回溯"计算——锚点当天必须已签到，否则返回 0。
+     * 跨月/跨年自动切换月键（旧实现仅在本月第 1 天跨月，2月2日会漏掉 1月31日）。
+     * 逐日 GETBIT 次数 = 连续链长度（位图 35 天 TTL 天然封顶），可接受。
+     */
     @Override
     public int countContinuousDays(Long userId, LocalDate date) {
-        int dayOfMonth = date.getDayOfMonth();
-        List<Long> result = redisTemplate.opsForValue().bitField(
-                buildKey(userId, date),
-                BitFieldSubCommands.create()
-                        .get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth))
-                        .valueAt(0)
-        );
-
-        if (result == null || result.isEmpty() || result.get(0) == null) {
-            return 0;
-        }
-
-        int num = result.get(0).intValue();
-        // BITFIELD 返回整数：bit 0 (LSB) = 第1天，bit (dayOfMonth-1) = 当天
-        // 从当天（最高有效位）开始向低位遍历，遇 0 停止
         int count = 0;
-        for (int i = dayOfMonth - 1; i >= 0; i--) {
-            if ((num >> i & 1) == 1) {
-                count++;
-            } else {
+        LocalDate cursor = date;
+        // 上限 40 天：超过位图 TTL 的历史位已不可信，连续链由 DB 事实负责（GrowthServiceImpl）
+        for (int i = 0; i < 40; i++) {
+            if (!getBit(userId, cursor)) {
                 break;
             }
-        }
-
-        // 跨月处理：本月第1天且已签到时，检查上月最后一天
-        if (dayOfMonth == 1 && count == 1) {
-            LocalDate lastDayOfPrevMonth = date.minusDays(1);
-            if (getBit(userId, lastDayOfPrevMonth)) {
-                count += countContinuousDaysPrevMonth(userId, lastDayOfPrevMonth);
-            }
-        }
-
-        return count;
-    }
-
-    /**
-     * 统计上月从最后一天开始向前的连续签到天数（不含最后一天本身）。
-     * 调用前提：上月最后一天已签到。
-     */
-    private int countContinuousDaysPrevMonth(Long userId, LocalDate lastDayOfPrevMonth) {
-        int dayOfMonth = lastDayOfPrevMonth.getDayOfMonth();
-        List<Long> result = redisTemplate.opsForValue().bitField(
-                buildKey(userId, lastDayOfPrevMonth),
-                BitFieldSubCommands.create()
-                        .get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth))
-                        .valueAt(0)
-        );
-
-        if (result == null || result.isEmpty() || result.get(0) == null) {
-            return 0;
-        }
-
-        int num = result.get(0).intValue();
-        // 从倒数第2天开始统计（最后一天已在调用方计为1）
-        int count = 0;
-        for (int i = dayOfMonth - 2; i >= 0; i--) {
-            if ((num >> i & 1) == 1) {
-                count++;
-            } else {
-                break;
-            }
+            count++;
+            cursor = cursor.minusDays(1);
         }
         return count;
     }

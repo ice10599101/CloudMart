@@ -94,7 +94,9 @@ public class DailySigninServiceImpl implements DailySigninService {
         int credited = userStatService.earnStarlight(
                 userId, SIGNIN_REWARD, ResourceLogSource.SIGNIN, signin.getId());
         // 经验 +10（mall-community 成长体系；community 不可用时不影响星光）
-        boolean expGranted = grantExp(userId, SIGNIN_EXP_REWARD, EXP_SOURCE_SIGNIN, "每日签到");
+        // T09：稳定业务 ID——唯一键 (user, WISH_SIGNIN, signinId) 保证失败重试不重复发
+        boolean expGranted = grantExp(userId, SIGNIN_EXP_REWARD, EXP_SOURCE_SIGNIN,
+                "WISH_SIGNIN:" + signin.getId() + ":EXP", "每日签到");
         // 签到瞬间等级提升检测（文档 6.5，只升不降；未提升返回 null）
         LevelUpVO levelUp = userStatService.checkAndLevelUp(userId);
         int consecutiveDays = wishDailySigninMapper.countConsecutiveDays(userId, today);
@@ -155,7 +157,9 @@ public class DailySigninServiceImpl implements DailySigninService {
 
         int credited = userStatService.earnStarlight(
                 userId, milestone.starlight(), ResourceLogSource.SIGNIN_MILESTONE, claim.getId());
+        // T09：稳定业务 ID（里程碑 claimId）——同事实只发一次
         boolean expGranted = grantExp(userId, milestone.exp(), EXP_SOURCE_MILESTONE,
+                "WISH_MILESTONE:" + claim.getId() + ":EXP",
                 "连续签到 " + milestone.days() + " 天里程碑");
         LevelUpVO levelUp = userStatService.checkAndLevelUp(userId);
 
@@ -168,10 +172,11 @@ public class DailySigninServiceImpl implements DailySigninService {
      * 经 mall-community 内部接口发放经验；community 不可用/失败时返回 false，
      * 不阻断签到与星光主链路（经验为增强奖励，可下轮重试由用户手动触发补发）。
      */
-    private boolean grantExp(Long userId, int exp, String source, String description) {
+    private boolean grantExp(Long userId, int exp, String source, String sourceBizId, String description) {
         try {
             ApiResponse<Map<String, Object>> res = communityFeignClient.grantExp(
-                    Map.of("userId", userId, "exp", exp, "source", source, "description", description));
+                    Map.of("userId", userId, "exp", exp,
+                            "sourceBizId", sourceBizId, "description", description));
             return res != null && res.success();
         } catch (Exception e) {
             log.warn("经验发放失败, userId={}, exp={}, source={}, err={}", userId, exp, source, e.getMessage());

@@ -39,6 +39,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GrowthServiceImpl implements GrowthService {
 
+    /** T09：DB 连续天数行走窗口（天）——覆盖里程碑 30 天语义与跨月历史 */
+    private static final int DB_WALK_WINDOW_DAYS = 400;
+
+
     private static final int BASE_CHECK_IN_EXP = 10;
     private static final int CONTINUOUS_BONUS_PER_DAY = 5;
     private static final int MAX_CONTINUOUS_BONUS = 50;
@@ -72,13 +76,12 @@ public class GrowthServiceImpl implements GrowthService {
             throw new BusinessException("ALREADY_CHECKED_IN", "今日已签到");
         }
 
-        // DB 事实成立后再置位 Bitmap（含今日位，连续天数计算才正确）
-        boolean bitmapAlreadySet = checkInBitMapService.setBit(userId, today);
-        if (bitmapAlreadySet) {
-            // DB/Bitmap 不一致（此前签到失败残留）：以 DB 为准，重建今日位已完成
-            log.warn("签到 Bitmap 与 DB 不一致（位已置而 DB 无事实），已按 DB 收敛, userId={}", userId);
-        }
-        int continuousDays = checkInBitMapService.countContinuousDays(userId, today);
+        // T09：连续天数以数据库事实计算（跨月/跨年/闰年由日期行走保证，不依赖
+        // Redis 投影）；Redis 位图降级为提交后的可重建投影
+        int continuousDays = countContinuousDaysFromDb(userId, today);
+        // T09：Bitmap 置位移到事务提交后——旧实现同步写 Redis 在事务内，缓存异常
+        // 会回滚签到主流程，DB 回滚后还会留下位图残影
+        registerBitmapProjection(userId, today);
 
         int bonus = Math.min((continuousDays - 1) * CONTINUOUS_BONUS_PER_DAY, MAX_CONTINUOUS_BONUS);
         int expReward = BASE_CHECK_IN_EXP + bonus;
@@ -102,9 +105,13 @@ public class GrowthServiceImpl implements GrowthService {
         );
     }
 
+    /** T09：今日签到状态以数据库唯一事实为准（位图仅投影）。 */
     @Override
     public boolean isCheckedInToday(Long userId) {
-        return checkInBitMapService.getBit(userId, LocalDate.now());
+        Long count = dailyCheckInMapper.selectCount(new LambdaQueryWrapper<DailyCheckIn>()
+                .eq(DailyCheckIn::getUserId, userId)
+                .eq(DailyCheckIn::getCheckInDate, LocalDate.now()));
+        return count != null && count > 0;
     }
 
     @Override
@@ -326,35 +333,83 @@ public class GrowthServiceImpl implements GrowthService {
     }
 
     @Override
+    /** T09：日历/历史查询从数据库取得（35 天位图 TTL 无法支撑历史日历）。 */
     public List<LocalDate> getCheckInCalendar(Long userId, int year, int month) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
-        int daysInMonth = firstDay.lengthOfMonth();
-
-        // 如果查询的是当前月份，只返回到今天为止的记录
-        LocalDate today = LocalDate.now();
-        int dayCount = (year == today.getYear() && month == today.getMonthValue())
-                ? today.getDayOfMonth()
-                : daysInMonth;
-
-        List<Integer> bits = checkInBitMapService.getMonthBits(userId, year, month, dayCount);
-
-        List<LocalDate> checkInDates = new java.util.ArrayList<>(dayCount);
-        for (int i = 0; i < bits.size(); i++) {
-            if (bits.get(i) == 1) {
-                checkInDates.add(firstDay.plusDays(i));
-            }
-        }
-        return checkInDates;
+        LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
+        return dailyCheckInMapper.selectList(new LambdaQueryWrapper<DailyCheckIn>()
+                        .eq(DailyCheckIn::getUserId, userId)
+                        .ge(DailyCheckIn::getCheckInDate, firstDay)
+                        .le(DailyCheckIn::getCheckInDate, lastDay)
+                        .orderByAsc(DailyCheckIn::getCheckInDate))
+                .stream()
+                .map(DailyCheckIn::getCheckInDate)
+                .toList();
     }
 
+    /**
+     * T09：数据库事实连续天数——从锚点（已签到日）向前按日期行走，跨月/跨年/
+     * 闰年天然正确；查询窗口 400 天覆盖里程碑语义。
+     */
+    private int countContinuousDaysFromDb(Long userId, LocalDate anchor) {
+        java.util.Set<LocalDate> dates = dailyCheckInMapper.selectList(
+                        new LambdaQueryWrapper<DailyCheckIn>()
+                                .eq(DailyCheckIn::getUserId, userId)
+                                .ge(DailyCheckIn::getCheckInDate, anchor.minusDays(DB_WALK_WINDOW_DAYS))
+                                .le(DailyCheckIn::getCheckInDate, anchor))
+                .stream()
+                .map(DailyCheckIn::getCheckInDate)
+                .collect(java.util.stream.Collectors.toSet());
+        int count = 0;
+        LocalDate cursor = anchor;
+        while (dates.contains(cursor)) {
+            count++;
+            cursor = cursor.minusDays(1);
+        }
+        return count;
+    }
+
+    /** 位图投影注册：事务提交后置位（失败仅记录，可由管理端重建）。 */
+    private void registerBitmapProjection(Long userId, LocalDate date) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager
+                .isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                checkInBitMapService.setBit(userId, date);
+                            } catch (Exception ex) {
+                                log.warn("签到位图投影失败（不影响签到事实，可重建）: userId={}, {}",
+                                        userId, ex.getMessage());
+                            }
+                        }
+                    });
+        } else {
+            try {
+                checkInBitMapService.setBit(userId, date);
+            } catch (Exception ex) {
+                log.warn("签到位图投影失败（不影响签到事实，可重建）: userId={}, {}",
+                        userId, ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * T09：当前连续天数——今天已签到从今天起算；今天未签到但昨天已签到时展示
+     * 可延续天数（签到后延续），连续中断返回 0。
+     */
     @Override
     public int getContinuousDays(Long userId) {
         LocalDate today = LocalDate.now();
-        // 今天已签到 → 从今天向前统计
-        if (checkInBitMapService.getBit(userId, today)) {
-            return checkInBitMapService.countContinuousDays(userId, today);
+        if (isCheckedInToday(userId)) {
+            return countContinuousDaysFromDb(userId, today);
         }
-        // 今天未签到 → 返回 0（连续签到中断）
+        if (dailyCheckInMapper.selectCount(new LambdaQueryWrapper<DailyCheckIn>()
+                .eq(DailyCheckIn::getUserId, userId)
+                .eq(DailyCheckIn::getCheckInDate, today.minusDays(1))) > 0) {
+            return countContinuousDaysFromDb(userId, today.minusDays(1));
+        }
         return 0;
     }
 }
