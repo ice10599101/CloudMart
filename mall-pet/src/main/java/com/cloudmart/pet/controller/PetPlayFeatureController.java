@@ -8,7 +8,6 @@ import com.cloudmart.pet.service.impl.PetMinigameService;
 import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.service.impl.PetDigestService;
 import com.cloudmart.pet.service.impl.PetCustodyCareService;
-import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,7 +31,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PetPlayFeatureController {
 
-    private final PetPlayFeatureService playService;
     /** R27：小游戏拆分为独立应用服务 */
     private final PetMinigameService minigameService;
     /** R27：托管拆分为独立应用服务 */

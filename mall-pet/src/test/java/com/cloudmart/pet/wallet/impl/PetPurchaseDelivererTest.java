@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.repository.PetInventoryMapper;
-import com.cloudmart.pet.service.impl.PetPlayFeatureService;
+import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog;
 import org.apache.ibatis.builder.MapperBuilderAssistant;

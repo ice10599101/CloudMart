@@ -78,7 +78,6 @@ class PetShopServiceImplTest {
         shopService = new PetShopServiceImpl(petService, itemCatalog, equipmentConfigMapper, skinConfigMapper,
                 skillConfigMapper, inventoryMapper, skillMapper,
                 org.mockito.Mockito.mock(PetEconomyService.class),
-                org.mockito.Mockito.mock(PetPlayFeatureService.class),
                 org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class),
                 purchaseApplicationService);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());

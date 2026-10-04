@@ -96,7 +96,6 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final PetEconomyService economyService;
     private final com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper;
     private final PetQuotaService quotaService;
-    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
@@ -126,7 +125,6 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetEconomyService economyService,
                               com.cloudmart.pet.repository.PetRoomLikeMapper roomLikeMapper,
                               PetQuotaService quotaService,
-                              com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                               com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
                               com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
@@ -143,7 +141,6 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.economyService = economyService;
         this.roomLikeMapper = roomLikeMapper;
         this.quotaService = quotaService;
-        this.playFeatureService = playFeatureService;
         this.visitApplicationService = visitApplicationService;
         this.userBlockService = userBlockService;
         this.companionFeatureService = companionFeatureService;

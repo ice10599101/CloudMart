@@ -62,7 +62,6 @@ public class PetShopServiceImpl implements PetShopService {
     private final PetInventoryMapper inventoryMapper;
     private final PetSkillMapper skillMapper;
     private final PetEconomyService economyService;
-    private final com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService;
     private final PetClock petClock;
     private final PetPurchaseApplicationService purchaseApplicationService;
 
@@ -74,7 +73,6 @@ public class PetShopServiceImpl implements PetShopService {
                               PetInventoryMapper inventoryMapper,
                               PetSkillMapper skillMapper,
                               PetEconomyService economyService,
-                    com.cloudmart.pet.service.impl.PetPlayFeatureService playFeatureService,
                               PetClock petClock,
                               PetPurchaseApplicationService purchaseApplicationService) {
         this.petService = petService;
@@ -85,7 +83,6 @@ public class PetShopServiceImpl implements PetShopService {
         this.inventoryMapper = inventoryMapper;
         this.skillMapper = skillMapper;
         this.economyService = economyService;
-        this.playFeatureService = playFeatureService;
         this.petClock = petClock;
         this.purchaseApplicationService = purchaseApplicationService;
     }

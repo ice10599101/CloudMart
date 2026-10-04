@@ -7,7 +7,6 @@ import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.service.impl.PetDigestService;
 import com.cloudmart.pet.service.impl.PetCustodyCareService;
 import com.cloudmart.pet.service.impl.PetMinigameService;
-import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import org.junit.jupiter.api.AfterEach;
@@ -59,8 +58,7 @@ class PetRouteContractTest {
                 .build();
 
         playMockMvc = MockMvcBuilders.standaloneSetup(
-                        new PetPlayFeatureController(mock(PetPlayFeatureService.class),
-                        mock(PetMinigameService.class),
+                        new PetPlayFeatureController(mock(PetMinigameService.class),
                         mock(PetCustodyCareService.class),
                         mock(PetCooperationService.class),
                         mock(PetDigestService.class)))
