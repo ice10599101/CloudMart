@@ -22,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.scheduling.support.CronTrigger;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.ScheduledFuture;
@@ -50,10 +52,23 @@ class SysJobServiceImplTest {
     @Mock
     private JobInvoker jobInvoker;
 
+    @Mock
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
+    @Mock
+    private org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
+
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void allowRegisteredTargets() {
         // 门禁判定由 JobInvokerTest 覆盖；service 流程测试放行白名单校验
         org.mockito.Mockito.lenient().when(jobInvoker.isRegistered(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+        org.mockito.Mockito.lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        org.mockito.Mockito.lenient().when(valueOperations.setIfAbsent(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
                 .thenReturn(true);
     }
 
@@ -76,7 +91,7 @@ class SysJobServiceImplTest {
         job.setCronExpression("0/10 * * * * ?");
         job.setMisfirePolicy(1);
         job.setConcurrent(1);
-        job.setStatus(0);
+        job.setStatus(1);
         job.setRemark("test");
         job.setCreatedAt(LocalDateTime.now());
         job.setUpdatedAt(LocalDateTime.now());
@@ -84,8 +99,9 @@ class SysJobServiceImplTest {
     }
 
     private SysJobRequest buildRequest() {
+        // T14：状态语义统一 1=启用 0=暂停
         return new SysJobRequest("测试任务", "DEFAULT", "testTask.execute()",
-                "0/10 * * * * ?", 1, 1, 0, "test");
+                "0/10 * * * * ?", 1, 1, 1, "test");
     }
 
     @Nested
@@ -116,7 +132,7 @@ class SysJobServiceImplTest {
         @DisplayName("创建任务 - 状态为暂停时不调度")
         void shouldCreateWithoutScheduleWhenPaused() {
             SysJobRequest request = new SysJobRequest("暂停任务", "DEFAULT", "testTask.execute()",
-                    "0/10 * * * * ?", 1, 1, 1, null);
+                    "0/10 * * * * ?", 1, 1, 0, null);
 
             when(sysJobMapper.insert(any(SysJob.class))).thenAnswer(invocation -> {
                 SysJob job = invocation.getArgument(0);
@@ -234,15 +250,16 @@ class SysJobServiceImplTest {
         @Test
         @DisplayName("切换状态 - 启用时调度任务")
         void shouldScheduleWhenEnabling() {
+            // T14：1=启用 → 调度（旧实现以 0=调度，与前端/恢复语义反转）
             SysJob job = buildJob();
-            job.setStatus(1);
+            job.setStatus(0);
             ScheduledFuture<?> future = mock(ScheduledFuture.class);
 
             when(sysJobMapper.selectById(1L)).thenReturn(job);
             when(sysJobMapper.updateById(any(SysJob.class))).thenReturn(1);
             doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
 
-            sysJobService.changeStatus(1L, 0);
+            sysJobService.changeStatus(1L, 1);
 
             verify(taskScheduler).schedule(any(Runnable.class), any(Trigger.class));
             verify(sysJobMapper).updateById(any(SysJob.class));
@@ -266,10 +283,20 @@ class SysJobServiceImplTest {
             when(sysJobMapper.selectById(1L)).thenReturn(buildJob());
             when(sysJobMapper.updateById(any(SysJob.class))).thenReturn(1);
 
-            sysJobService.changeStatus(1L, 1);
+            sysJobService.changeStatus(1L, 0);
 
             verify(future).cancel(false);
             verify(sysJobMapper).updateById(any(SysJob.class));
+        }
+
+        @Test
+        @DisplayName("T14：非法状态值拒绝（仅 0/1）")
+        void shouldRejectInvalidStatus() {
+            when(sysJobMapper.selectById(1L)).thenReturn(buildJob());
+
+            assertThatThrownBy(() -> sysJobService.changeStatus(1L, 2))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("JOB_STATUS_INVALID");
         }
 
         @Test
@@ -386,6 +413,79 @@ class SysJobServiceImplTest {
             sysJobService.cleanJobLogs();
 
             verify(sysJobLogMapper).delete(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("T14 多实例互斥与调度时机")
+    class MutexTests {
+
+        @Test
+        @DisplayName("触发锁赢者执行：SET NX 成功 → invoke；输者静默跳过")
+        void mutex_winnerInvokes_loserSkips() {
+            SysJob job = buildJob();
+            CronTrigger trigger = new CronTrigger("0/10 * * * * ?");
+
+            // 赢者：两把锁都拿到
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    sysJobService, "invokeWithMutex", job, trigger);
+            verify(jobInvoker).invoke(job);
+
+            // 输者：触发锁拿不到 → 不执行
+            org.mockito.Mockito.reset(jobInvoker);
+            when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.any(java.time.Duration.class))).thenReturn(false);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    sysJobService, "invokeWithMutex", job, trigger);
+            verify(jobInvoker, org.mockito.Mockito.never()).invoke(any(SysJob.class));
+        }
+
+        @Test
+        @DisplayName("不并发：触发锁赢但运行锁被持有 → 跳过本轮（错过合并）")
+        void mutex_runLockHeld_skips() {
+            SysJob job = buildJob();
+            CronTrigger trigger = new CronTrigger("0/10 * * * * ?");
+            // 第一把（触发锁）成功，第二把（运行锁）失败
+            when(valueOperations.setIfAbsent(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
+                    .thenReturn(true, false);
+
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    sysJobService, "invokeWithMutex", job, trigger);
+
+            verify(jobInvoker, org.mockito.Mockito.never()).invoke(any(SysJob.class));
+        }
+
+        @Test
+        @DisplayName("Redis 故障 fail-open：照常执行并告警，不静默丢调度")
+        void mutex_redisDown_failOpen() {
+            SysJob job = buildJob();
+            CronTrigger trigger = new CronTrigger("0/10 * * * * ?");
+            when(redisTemplate.opsForValue()).thenThrow(new RuntimeException("redis down"));
+
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    sysJobService, "invokeWithMutex", job, trigger);
+
+            verify(jobInvoker).invoke(job);
+        }
+
+        @Test
+        @DisplayName("T14：不支持的策略配置明确拒绝（misfire≠1 或 concurrent≠1）")
+        void create_unsupportedPolicy_rejected() {
+            SysJobRequest misfire = new SysJobRequest("t", "DEFAULT", "testTask.execute()",
+                    "0/10 * * * * ?", 2, 1, 1, null);
+            assertThatThrownBy(() -> sysJobService.create(misfire))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("JOB_POLICY_UNSUPPORTED");
+
+            SysJobRequest concurrent = new SysJobRequest("t", "DEFAULT", "testTask.execute()",
+                    "0/10 * * * * ?", 1, 0, 1, null);
+            assertThatThrownBy(() -> sysJobService.create(concurrent))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("JOB_POLICY_UNSUPPORTED");
+            verify(sysJobMapper, org.mockito.Mockito.never()).insert(any(SysJob.class));
         }
     }
 }
