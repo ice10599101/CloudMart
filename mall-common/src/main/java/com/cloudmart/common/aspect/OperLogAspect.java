@@ -68,6 +68,7 @@ public class OperLogAspect {
         }
 
         if (operLog.isSaveRequestData()) {
+            // T24：审计脱敏——密码/令牌/地址等敏感字段不入审计表
             record.setOperParam(buildRequestParam(joinPoint));
         }
 
@@ -76,12 +77,14 @@ public class OperLogAspect {
             result = joinPoint.proceed();
             record.setStatus(0);
             if (operLog.isSaveResponseData() && result != null) {
-                String jsonResult = truncate(String.valueOf(result), MAX_PARAM_LENGTH);
+                String jsonResult = OperLogSanitizer.sanitizeSerialized(
+                        truncate(String.valueOf(result), MAX_PARAM_LENGTH));
                 record.setJsonResult(jsonResult);
             }
         } catch (Exception e) {
             record.setStatus(1);
-            record.setErrorMsg(truncate(e.getMessage(), MAX_PARAM_LENGTH));
+            record.setErrorMsg(OperLogSanitizer.sanitizeSerialized(
+                    truncate(e.getMessage(), MAX_PARAM_LENGTH)));
             throw e;
         } finally {
             record.setCostTime(System.currentTimeMillis() - startTime);
@@ -102,9 +105,12 @@ public class OperLogAspect {
                     || paramValues[i] instanceof MultipartFile) {
                 continue;
             }
-            params.put(paramNames[i], paramValues[i]);
+            // T24：参数名命中敏感名单 → 整值打码（不保留长度/形态）
+            params.put(paramNames[i],
+                    OperLogSanitizer.isSensitiveParamName(paramNames[i]) ? "***" : paramValues[i]);
         }
-        return truncate(String.valueOf(params), MAX_PARAM_LENGTH);
+        // 串级兜底：record/Map toString 展开后的 password=/token=/address= 再打码
+        return OperLogSanitizer.sanitizeSerialized(truncate(String.valueOf(params), MAX_PARAM_LENGTH));
     }
 
     private String getRemoteIp(HttpServletRequest request) {
