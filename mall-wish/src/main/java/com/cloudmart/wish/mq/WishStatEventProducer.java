@@ -40,6 +40,7 @@ public class WishStatEventProducer {
      *
      * @param userId 点亮者用户 ID
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public record HelpedEventMessage(Long userId, String eventId) implements Serializable {
         @Serial
         private static final long serialVersionUID = 1L;

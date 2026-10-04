@@ -8,12 +8,15 @@ import com.cloudmart.wish.repository.WishOutboxMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,6 +39,8 @@ public class WishOutboxService {
     /** 事件退避序列（秒）：1s/5s/30s/2min/10min，之后按 10min 循环直至 DEAD */
     static final long[] BACKOFF_SECONDS = {1, 5, 30, 120, 600};
     static final int MAX_ATTEMPTS = 10;
+    /** 事件 envelope 版本：新增/变更 envelope 字段时递增，消费端据此兼容 */
+    static final int SCHEMA_VERSION = 1;
     private static final int RELAY_BATCH = 100;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
@@ -54,25 +59,51 @@ public class WishOutboxService {
 
     /**
      * 在当前事务内登记一条事件（不直接发送）。payload 只允许最小 ID/版本/展示字段。
+     *
+     * <p>T01：调用方常传 {@code Map.of} 等不可变 Map——本方法对 payload 做防御性复制后
+     * 写入 envelope，绝不修改调用方对象（旧实现直接 {@code payload.put} 会抛
+     * {@code UnsupportedOperationException} 并连带回滚审核/还愿/胶囊等业务事务）。
+     * null payload 归一为空 body。投递体除调用方字段外包含标准 envelope：
+     * {@code eventId/eventType/schemaVersion/aggregateType/aggregateId/aggregateVersion/
+     * occurredAt/traceId}；{@code eventId} 恒为行主键，重试投递不变，消费端按其去重
+     * （类型化旧消费端以 {@code ignoreUnknown=true} 兼容 envelope 扩展字段）。</p>
      */
     public void publish(String aggregateType, Long aggregateId, long aggregateVersion,
                         String eventType, Map<String, Object> payload) {
         WishOutboxEvent event = new WishOutboxEvent();
         event.setEventId(UUID.randomUUID().toString());
-        // W05：eventId 注入 payload——消费端以 eventId 做通知去重（payload 为投递体）
-        if (payload != null) {
-            payload.put("eventId", event.getEventId());
-        }
         event.setAggregateType(aggregateType);
         event.setAggregateId(aggregateId);
         event.setAggregateVersion(aggregateVersion);
         event.setEventType(eventType);
-        event.setPayload(toJson(payload));
+        Map<String, Object> body = payload == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(payload);
+        // envelope 字段后写——调用方同名字段被 envelope 权威值覆盖，避免伪造/漂移
+        body.put("eventId", event.getEventId());
+        body.put("eventType", eventType);
+        body.put("schemaVersion", SCHEMA_VERSION);
+        body.put("aggregateType", aggregateType);
+        body.put("aggregateId", aggregateId);
+        body.put("aggregateVersion", aggregateVersion);
+        body.put("occurredAt", Instant.now());
+        body.put("traceId", currentTraceId());
+        event.setPayload(toJson(body));
         event.setStatus("PENDING");
         event.setAttempts(0);
         event.setNextAttemptAt(LocalDateTime.now(ZoneId.of("UTC")));
         event.setCreatedAt(LocalDateTime.now(ZoneId.of("UTC")));
         outboxMapper.insert(event);
+    }
+
+    /** SkyWalking traceId（agent 未挂载时为空）；可观测字段缺失不影响事件发布主流程。 */
+    private static String currentTraceId() {
+        try {
+            String traceId = TraceContext.traceId();
+            return traceId == null || traceId.isBlank() ? null : traceId;
+        } catch (Throwable ex) {
+            return null;
+        }
     }
 
     /**

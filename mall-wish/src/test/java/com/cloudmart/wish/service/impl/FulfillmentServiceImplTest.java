@@ -84,17 +84,23 @@ class FulfillmentServiceImplTest {
     @BeforeEach
     void setUp() {
         contentSanitizer = new WishContentSanitizer(List.of());
+        fulfillmentService = buildService(
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class));
+    }
+
+    /** 按生产构造器组装被测服务，允许注入真实/模拟 WishOutboxService。 */
+    private FulfillmentServiceImpl buildService(com.cloudmart.wish.service.impl.WishOutboxService outboxService) {
         org.springframework.transaction.support.TransactionTemplate txTemplate =
                 org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
         org.mockito.Mockito.lenient().when(txTemplate.execute(org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
                         .doInTransaction(null));
-        fulfillmentService = new FulfillmentServiceImpl(
+        return new FulfillmentServiceImpl(
                 wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService,
                 new com.cloudmart.wish.policy.WishAccessPolicy(),
                 new com.cloudmart.wish.service.impl.WishOperationExecutor(
                         org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), txTemplate),
-                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class)
+                outboxService
         );
     }
 
@@ -518,5 +524,52 @@ class FulfillmentServiceImplTest {
                 "avatar", avatar
         );
         return ApiResponse.ok(new ArrayList<>(List.of(user)));
+    }
+
+    @Nested
+    @DisplayName("T01 - 真实 Outbox 调用路径（不 Mock WishOutboxService）")
+    class RealOutboxEventTests {
+
+        @Test
+        @DisplayName("还愿成功：真实 WishOutboxService 落库 WishFulfilled 事件，payload 含业务 ID 与 envelope")
+        void submitFulfillment_persistsOutboxEventWithEnvelope() throws Exception {
+            com.cloudmart.wish.repository.WishOutboxMapper outboxMapper = org.mockito.Mockito
+                    .mock(com.cloudmart.wish.repository.WishOutboxMapper.class);
+            WishOutboxService realOutbox = new WishOutboxService(outboxMapper,
+                    org.mockito.Mockito.mock(org.apache.rocketmq.spring.core.RocketMQTemplate.class), "t01-it");
+            FulfillmentServiceImpl service = buildService(realOutbox);
+
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishFulfillmentMapper.insert(any(WishFulfillment.class))).thenAnswer(invocation -> {
+                WishFulfillment fulfillment = invocation.getArgument(0);
+                fulfillment.setId(FULFILLMENT_ID);
+                fulfillment.setCreatedAt(LocalDateTime.now());
+                return 1;
+            });
+            when(wishMapper.update(any(), any())).thenReturn(1);
+            when(userStatService.incrementOnFulfilled(USER_ID)).thenReturn(Collections.emptyList());
+            when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(STARLIGHT_REWARD);
+
+            // 旧实现在此抛 UnsupportedOperationException（还愿提交连带回滚）——本测试即回归用例
+            var result = service.submitFulfillment(USER_ID, WISH_ID, buildRequest(), null);
+            assertThat(result.status()).isEqualTo(WishStatus.FULFILLED);
+
+            ArgumentCaptor<com.cloudmart.wish.entity.WishOutboxEvent> captor =
+                    ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishOutboxEvent.class);
+            verify(outboxMapper).insert(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.getEventType()).isEqualTo("WishFulfilled");
+            assertThat(event.getAggregateType()).isEqualTo("FULFILLMENT");
+            assertThat(event.getStatus()).isEqualTo("PENDING");
+            var body = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(event.getPayload());
+            assertThat(body.get("wishId").asLong()).isEqualTo(WISH_ID);
+            assertThat(body.get("userId").asLong()).isEqualTo(USER_ID);
+            assertThat(body.get("fulfillmentId").asLong()).isEqualTo(FULFILLMENT_ID);
+            assertThat(body.get("eventId").asText()).isEqualTo(event.getEventId());
+            assertThat(body.get("schemaVersion").asInt()).isEqualTo(1);
+            assertThat(body.get("eventType").asText()).isEqualTo("WishFulfilled");
+        }
     }
 }

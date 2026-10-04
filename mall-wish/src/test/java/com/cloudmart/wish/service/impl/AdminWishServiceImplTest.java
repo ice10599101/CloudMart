@@ -424,6 +424,50 @@ class AdminWishServiceImplTest {
         }
     }
 
+    @Nested
+    @DisplayName("T01 - 真实 Outbox 调用路径（不 Mock WishOutboxService）")
+    class RealOutboxEventTests {
+
+        @Test
+        @DisplayName("审核通过：真实 WishOutboxService 落库 WishModerated 事件，payload 含审核事实与 envelope")
+        void auditWish_persistsOutboxEventWithEnvelope() throws Exception {
+            com.cloudmart.wish.repository.WishOutboxMapper outboxMapper = org.mockito.Mockito
+                    .mock(com.cloudmart.wish.repository.WishOutboxMapper.class);
+            var realOutbox = new com.cloudmart.wish.service.impl.WishOutboxService(outboxMapper,
+                    org.mockito.Mockito.mock(org.apache.rocketmq.spring.core.RocketMQTemplate.class), "t01-it");
+            var service = new AdminWishServiceImpl(wishMapper, wishCategoryMapper,
+                    wishCheckinMapper, wishInteractionMapper,
+                    org.mockito.Mockito.mock(com.cloudmart.wish.service.UserStatService.class), realOutbox);
+
+            Wish wish = buildWish();
+            wish.setAuditStatus(AuditStatus.PENDING);
+            Wish approvedWish = buildWish();
+            approvedWish.setAuditStatus(AuditStatus.APPROVED);
+            approvedWish.setIsVisible(true);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish, approvedWish);
+            when(wishMapper.update(any(), any())).thenReturn(1);
+            when(wishCategoryMapper.selectBatchIds(any())).thenReturn(List.of(buildCategory()));
+
+            // 旧实现在此抛 UnsupportedOperationException（管理员审核连带回滚）——本测试即回归用例
+            var result = service.auditWish(WISH_ID, new AdminAuditWishRequest(AuditStatus.APPROVED, null), 9001L);
+            assertThat(result.auditStatus()).isEqualTo(AuditStatus.APPROVED);
+
+            var captor = org.mockito.ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishOutboxEvent.class);
+            verify(outboxMapper).insert(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.getEventType()).isEqualTo("WishModerated");
+            assertThat(event.getAggregateType()).isEqualTo("WISH");
+            assertThat(event.getAggregateId()).isEqualTo(WISH_ID);
+            var body = new com.fasterxml.jackson.databind.ObjectMapper().readTree(event.getPayload());
+            assertThat(body.get("wishId").asLong()).isEqualTo(WISH_ID);
+            assertThat(body.get("auditStatus").asText()).isEqualTo("APPROVED");
+            assertThat(body.get("actorId").asLong()).isEqualTo(9001L);
+            assertThat(body.get("rejected").asBoolean()).isFalse();
+            assertThat(body.get("eventId").asText()).isEqualTo(event.getEventId());
+            assertThat(body.get("schemaVersion").asInt()).isEqualTo(1);
+        }
+    }
+
     // ========== Helper methods ==========
 
     private WishCategory buildCategory() {

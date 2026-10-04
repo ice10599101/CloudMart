@@ -476,6 +476,38 @@ class CapsuleServiceImplTest {
             verify(wishOutboxService, times(500))
                     .publish(eq("CAPSULE"), anyLong(), eq(1L), eq("CAPSULE_AVAILABLE"), any());
         }
+
+        @Test
+        @DisplayName("T01 - 真实 Outbox：CAS 赢家事件落库，payload 含胶囊事实与 envelope")
+        void scan_realOutbox_persistsEventForCasWinner() throws Exception {
+            com.cloudmart.wish.repository.WishOutboxMapper outboxMapper = org.mockito.Mockito
+                    .mock(com.cloudmart.wish.repository.WishOutboxMapper.class);
+            var realOutbox = new com.cloudmart.wish.service.impl.WishOutboxService(outboxMapper,
+                    org.mockito.Mockito.mock(org.apache.rocketmq.spring.core.RocketMQTemplate.class), "t01-it");
+            var service = new CapsuleServiceImpl(timeCapsuleMapper, wishUserStatMapper,
+                    userStatService, realOutbox, transactionTemplate, contentSanitizer);
+            TimeCapsule c1 = buildCapsule(CapsuleStatus.SEALED, LocalDateTime.now().minusDays(2));
+            c1.setId(3001L);
+            when(timeCapsuleMapper.selectList(any())).thenReturn(List.of(c1));
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            // 旧实现在此抛 UnsupportedOperationException（胶囊到期扫描中断）——本测试即回归用例
+            var result = service.scanAvailableCapsules();
+            assertThat(result.available()).isEqualTo(1);
+
+            var captor = org.mockito.ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishOutboxEvent.class);
+            verify(outboxMapper).insert(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.getEventType()).isEqualTo("CAPSULE_AVAILABLE");
+            assertThat(event.getAggregateType()).isEqualTo("CAPSULE");
+            assertThat(event.getAggregateId()).isEqualTo(3001L);
+            var body = new com.fasterxml.jackson.databind.ObjectMapper().readTree(event.getPayload());
+            assertThat(body.get("capsuleId").asLong()).isEqualTo(3001L);
+            assertThat(body.get("userId").asLong()).isEqualTo(USER_ID);
+            assertThat(body.get("title").asText()).isEqualTo("写给一年后的自己");
+            assertThat(body.get("eventId").asText()).isEqualTo(event.getEventId());
+            assertThat(body.get("schemaVersion").asInt()).isEqualTo(1);
+        }
     }
 
     // ========== reportTimezone ==========
