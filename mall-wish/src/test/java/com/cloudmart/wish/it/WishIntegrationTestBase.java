@@ -11,6 +11,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,11 +82,45 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("it")
 public abstract class WishIntegrationTestBase {
 
+    /**
+     * T26 基础设施双模式：
+     * <ul>
+     *   <li>默认（CI/本地有 Docker）：Testcontainers 自给自足——真实 MySQL 9 + Redis
+     *       按用例 JVM 独占启动，不依赖私人远程机器；天然隔离，无需授权标志与跨运行锁；</li>
+     *   <li>外部容器（WISH_IT_MYSQL_HOST 显式设置）：沿用授权环境 mysql-it:8307 /
+     *       redis-it:8380 共享实例——保留 B23 显式启用标志与跨运行互斥锁
+     *       （共享实例靠 TRUNCATE/FLUSHDB 隔离，并发运行互踩）。</li>
+     * </ul>
+     */
+    static final boolean USE_EXTERNAL_INFRA = System.getenv("WISH_IT_MYSQL_HOST") != null;
+
+    static final MySQLContainer<?> MYSQL = USE_EXTERNAL_INFRA ? null : new MySQLContainer<>("mysql:9.4.0")
+            .withStartupTimeout(Duration.ofMinutes(5));
+    static final GenericContainer<?> REDIS = USE_EXTERNAL_INFRA ? null : new GenericContainer<>(
+            DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void infrastructure(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        if (USE_EXTERNAL_INFRA) {
+            // 外部容器模式：连接信息来自 application-it.yml 的环境变量默认值，不覆盖
+            return;
+        }
+        MYSQL.start();
+        REDIS.start();
+        registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+    }
+
     @BeforeAll
     static void requireExplicitItEnvironment() {
-        // B23：IT 不混入默认 mvn test（surefire 已排除 it/），必须经 failsafe 显式启用
-        // （-Dwish.it.enabled=true）执行。目标为与业务实例隔离的远程 IT 容器
-        // （mysql-it:8307 / redis-it:8380，可随时销毁重建），已获运维授权。
+        // B23 防误跑守卫仅约束外部共享实例（TRUNCATE/FLUSHDB 会清共享库）——
+        // Testcontainers 模式容器独占，无需人工授权
+        if (!USE_EXTERNAL_INFRA) {
+            return;
+        }
         String enabled = System.getProperty("wish.it.enabled", System.getenv("WISH_IT_ENABLED"));
         if (!"true".equals(enabled)) {
             throw new IllegalStateException("IT 未显式启用：请以 -Dwish.it.enabled=true 显式触发（B23 防误跑）");
@@ -118,6 +155,9 @@ public abstract class WishIntegrationTestBase {
 
     @BeforeAll
     static void acquireRunLock() throws InterruptedException {
+        if (!USE_EXTERNAL_INFRA) {
+            return; // Testcontainers 独占实例，无跨运行互踩问题
+        }
         String host = System.getenv().getOrDefault("WISH_IT_REDIS_HOST", "129.204.152.168");
         int port = Integer.parseInt(System.getenv().getOrDefault("WISH_IT_REDIS_PORT", "8380"));
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
@@ -147,6 +187,9 @@ public abstract class WishIntegrationTestBase {
 
     @AfterAll
     static void releaseRunLock() {
+        if (!USE_EXTERNAL_INFRA) {
+            return;
+        }
         if (lockTemplate != null && lockToken != null) {
             lockTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(RUN_LOCK_KEY), lockToken);
         }

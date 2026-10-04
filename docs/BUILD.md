@@ -11,8 +11,9 @@
 ## 一键构建（新机器）
 
 ```bash
-# 后端：22 个范围内模块编译 + 单测（mvnw 首次运行自动下载 Maven 3.9.9）
-./mvnw -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am test
+# 后端：根 POM 全模块编译 + 单测（T26：与 CI 唯一口径，禁止维护模块子集清单；
+# mvnw 首次运行自动下载 Maven 3.9.9）
+./mvnw -B test
 
 # 三端前端（锁文件严格安装 → 类型检查 → Web 单测）
 (cd CloudMart-ui && npm ci && npx tsc --noEmit && npx vitest run)

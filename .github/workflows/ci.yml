@@ -57,12 +57,12 @@ jobs:
           if [ "$count" -eq 0 ]; then
             echo "::error::未发现任何 *IntegrationTest.java，集成测试门禁失效"; exit 1
           fi
-      # E01：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
-      # 其余模块 IT 均为 Testcontainers 自给自足（runner 自带 Docker）。
-      # mall-wish IT 依赖远程 IT 容器（mysql-it 8307 / redis-it 8380，B23 显式授权环境），
-      # CI runner 不持有其授权，排除该模块——wish IT 仅在授权环境以 -Dwish.it.enabled=true 执行
-      - name: 集成测试（-Pintegration-test → failsafe verify；mall-wish 除外）
-        run: ./mvnw -B -ntp -Pintegration-test verify -pl '!mall-wish'
+      # E01/T26：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
+      # 全部模块 IT 均为 Testcontainers 自给自足（runner 自带 Docker）——
+      # mall-wish 已改造为双模式（默认 Testcontainers；WISH_IT_MYSQL_HOST 显式
+      # 设置时走授权环境共享实例 + B23 授权标志），不再依赖私人远程机器
+      - name: 集成测试（-Pintegration-test → failsafe verify，全模块）
+        run: ./mvnw -B -ntp -Pintegration-test verify
       - name: 上传集成测试报告（失败排障）
         if: failure()
         uses: actions/upload-artifact@v4

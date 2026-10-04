@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "=== [1/2] backend: 22 in-scope modules compile + unit tests ==="
-./mvnw -B -pl 'mall-common,mall-gateway,mall-auth,mall-user,mall-product,mall-order,mall-payment,mall-inventory,mall-coupon,mall-risk,mall-cart,mall-seckill,mall-notification,mall-ai,mall-marketing,mall-live,mall-wms,mall-admin,mall-file,mall-job,mall-gen,mall-community' -am test
+echo "=== [1/2] backend: full-module compile + unit tests（根 POM 单一口径，与 CI 一致） ==="
+./mvnw -B test
 
 echo "=== [2/2] frontends: lockfile install + typecheck + web tests ==="
 for dir in CloudMart-ui cloudmart-app cloudmart-mobile; do
