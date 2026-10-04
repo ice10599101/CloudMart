@@ -145,6 +145,11 @@ public class PetShopServiceImpl implements PetShopService {
         PetPurchaseApplicationService.PurchaseResult result = purchaseApplicationService.purchase(
                 userId, request.petId(), request.itemType(), request.itemCode(),
                 PetRequestContext.idempotencyKey(), request.expectedConfigVersion());
+        // R02/§8.2：同键重放返回原拒绝（errorCode 非空=存储的拒绝终态）——
+        // 真实环境发现：拒绝重放继续组装 VO 会误报"结算中"503，与首次 400 不一致
+        if (result.errorCode() != null) {
+            throw new BusinessException(result.errorCode(), "购买未成功：" + result.errorCode());
+        }
         PetInventory item = inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
                 .eq(PetInventory::getPetId, result.petId())
                 .eq(PetInventory::getItemType, request.itemType())

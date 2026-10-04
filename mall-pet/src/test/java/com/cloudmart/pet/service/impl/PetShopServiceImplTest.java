@@ -139,6 +139,21 @@ class PetShopServiceImplTest {
     }
 
     @Test
+    @DisplayName("R02 拒绝终态重放：errorCode 非空 → 门面转抛同码拒绝（不得继续组装 VO 误报 503）")
+    void replayedRejectionPropagates() {
+        var rejected = new PetPurchaseApplicationService.PurchaseResult(
+                null, "pw_x", null, null, 1L, "FOOD", "apple", List.of(), false,
+                "PET_WALLET_INSUFFICIENT");
+        when(purchaseApplicationService.purchase(eq(100L), any(), any(), any(), any(), any()))
+                .thenReturn(rejected);
+
+        assertThatThrownBy(() -> shopService.buy(100L, new BuyItemRequest("FOOD", "apple", 1L, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo("PET_WALLET_INSUFFICIENT");
+    }
+
+    @Test
     @DisplayName("R02 防伪装成功：订单成功但背包行不可读 → PET_SETTLEMENT_PENDING 而非返回 null")
     void missingInventoryRowFailsLoudly() {
         var result = new PetPurchaseApplicationService.PurchaseResult(
