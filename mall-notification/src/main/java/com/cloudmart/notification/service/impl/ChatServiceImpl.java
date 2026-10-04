@@ -129,16 +129,26 @@ public class ChatServiceImpl implements ChatService {
         if (beforeId != null) {
             Message pivot = messageMapper.selectById(beforeId);
             if (pivot != null) {
-                wrapper.lt(Message::getCreatedAt, pivot.getCreatedAt());
+                // T20：游标绑定所属会话——他会话的 beforeId 不得影响本会话分页
+                if (!pivot.getConversationId().equals(conversationId)) {
+                    throw new BusinessException("CHAT_CURSOR_INVALID", "分页游标不属于该会话");
+                }
+                // T20：(createdAt,id) 复合键集分页——同毫秒消息不再因严格小于
+                // createdAt 而跨页遗漏
+                wrapper.and(w -> w.lt(Message::getCreatedAt, pivot.getCreatedAt())
+                        .or(x -> x.eq(Message::getCreatedAt, pivot.getCreatedAt())
+                                .lt(Message::getId, beforeId)));
             }
         }
 
         wrapper.last("LIMIT " + pageSize);
 
         List<Message> messages = messageMapper.selectList(wrapper);
-        Collections.reverse(messages);
+        // T20：防御性拷贝后再反转为时间正序（不假设 mapper 返回可变列表）
+        List<Message> ordered = new java.util.ArrayList<>(messages);
+        Collections.reverse(ordered);
 
-        return chatConverter.toMessageDTOList(messages);
+        return chatConverter.toMessageDTOList(ordered);
     }
 
     @Override
@@ -168,6 +178,13 @@ public class ChatServiceImpl implements ChatService {
                     .eq(Message::getClientMessageId, clientMessageId)
                     .last("LIMIT 1"));
             if (existing != null) {
+                // T20：同键重放校验内容一致性——同键异内容/异类型为幂等冲突（409），
+                // 不静默返回原消息掩盖客户端 bug
+                if (!existing.getContent().equals(content)
+                        || !existing.getType().equals(msgType)) {
+                    throw new BusinessException("MESSAGE_IDEMPOTENCY_CONFLICT",
+                            "消息幂等键已绑定不同内容");
+                }
                 return chatConverter.toMessageDTO(existing);
             }
         }

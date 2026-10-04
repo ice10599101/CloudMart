@@ -10,6 +10,7 @@ import {
   getConversations,
   getMessages,
   sendMessage,
+  newClientMessageId,
   createConversation,
   markConversationRead,
   recallMessage,
@@ -209,10 +210,32 @@ export default function Chat() {
     setShowNewChat(false)
   }, [])
 
+  /** T20：失败消息重发——复用原幂等键，服务端同键重放返回原消息不重复 */
+  const handleRetryMessage = useCallback(async (msg: ChatMessage) => {
+    if (!msg.clientMessageId || !msg.conversationId) return
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msg.id ? { ...m, sendFailed: false } : m)),
+    )
+    try {
+      const res = await sendMessage(msg.conversationId, msg.content, 'TEXT', msg.clientMessageId)
+      const serverMessage = res.data.data
+      if (serverMessage) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msg.id ? { ...serverMessage, isRecalled: serverMessage.isRecalled ?? false } : m)),
+        )
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msg.id ? { ...m, sendFailed: true } : m)),
+      )
+    }
+  }, [])
+
   const handleSendMessage = useCallback(async () => {
     const text = inputText.trim()
     if (!text || !activeConversationId || sending) return
 
+    // T20：幂等键随消息意图生成——失败重试复用同键，用户重试不会产生第二条消息
     const optimisticMessage: ChatMessage = {
       id: Date.now(),
       conversationId: activeConversationId,
@@ -223,6 +246,7 @@ export default function Chat() {
       type: 'TEXT',
       isRecalled: false,
       createdAt: new Date().toISOString(),
+      clientMessageId: newClientMessageId(),
     }
 
     setMessages((prev) => [...prev, optimisticMessage])
@@ -231,7 +255,7 @@ export default function Chat() {
 
     setSending(true)
     try {
-      const res = await sendMessage(activeConversationId, text)
+      const res = await sendMessage(activeConversationId, text, 'TEXT', optimisticMessage.clientMessageId)
       const serverMessage = res.data.data
       if (serverMessage) {
         setMessages((prev) =>
@@ -239,7 +263,10 @@ export default function Chat() {
         )
       }
     } catch {
-      // keep optimistic message
+      // T20：发送失败保留乐观消息并标记——点击可复用同键重发
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticMessage.id ? { ...m, sendFailed: true } : m)),
+      )
     } finally {
       setSending(false)
     }
@@ -387,14 +414,18 @@ export default function Chat() {
               }}
               trigger={['contextMenu']}
             >
-              <div>
+              <div
+                onClick={isSelf && msg.sendFailed ? () => handleRetryMessage(msg) : undefined}
+                style={isSelf && msg.sendFailed ? { cursor: 'pointer', opacity: 0.6 } : undefined}
+                title={isSelf && msg.sendFailed ? '发送失败，点击重发' : undefined}
+              >
                 {msg.type === 'IMAGE' ? (
                   <div className={styles.messageImage}>
                     <img src={msg.content} alt="图片消息" />
                   </div>
                 ) : (
                   <div className={`${styles.messageBubble} ${isSelf ? styles.messageBubbleSelf : styles.messageBubbleOther}`}>
-                    {msg.content}
+                    {msg.sendFailed ? `[发送失败·点击重发] ${msg.content}` : msg.content}
                   </div>
                 )}
               </div>

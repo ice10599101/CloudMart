@@ -21,6 +21,10 @@ export interface ChatMessage {
   type: 'TEXT' | 'IMAGE' | 'PRODUCT'
   isRecalled: boolean
   createdAt: string
+  /** T20：客户端幂等键（乐观消息持有，重试复用同键） */
+  clientMessageId?: string
+  /** T20：发送失败标记（失败消息可点击重发，重发复用同幂等键） */
+  sendFailed?: boolean
 }
 
 export function getConversations() {
@@ -33,13 +37,22 @@ export function getMessages(conversationId: number, beforeId?: number, pageSize 
   })
 }
 
-export function sendMessage(conversationId: number, content: string, type = 'TEXT') {
-  // N01：客户端幂等键——同键重发返回原消息，不产生重复
-  const clientMessageId = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
+/** T20：幂等键随消息意图生成（进入发送队列时），重试复用同键而非每次调用新键 */
+export function newClientMessageId(): string {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+}
+
+export function sendMessage(
+  conversationId: number,
+  content: string,
+  type = 'TEXT',
+  clientMessageId?: string,
+) {
+  // N01/T20：同键重发返回原消息（同键异内容 409），不产生重复
   return request.post<ApiResponse<ChatMessage>>(`/notification/conversations/${conversationId}/messages`, {
     content,
     type,
-    clientMessageId,
+    clientMessageId: clientMessageId ?? newClientMessageId(),
   })
 }
 

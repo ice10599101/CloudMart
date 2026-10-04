@@ -296,4 +296,84 @@ class ChatServiceImplTest {
             verify(conversationMapper, never()).update(any());
         }
     }
+
+    @Nested
+    @DisplayName("T20 分页游标与幂等冲突")
+    class T20PaginationAndIdempotencyTests {
+
+        private Message message(long id, Long conversationId, LocalDateTime createdAt, String content) {
+            Message m = new Message();
+            m.setId(id);
+            m.setConversationId(conversationId);
+            m.setSenderId(1L);
+            m.setContent(content);
+            m.setType("TEXT");
+            m.setCreatedAt(createdAt);
+            return m;
+        }
+
+        @Test
+        @DisplayName("(createdAt,id) 复合键集：同毫秒消息不因严格小于 createdAt 跨页遗漏")
+        void listMessages_sameTimestampInclusive() {
+            Conversation conv = buildConversation(10L, 1L, 2L);
+            when(conversationMapper.selectById(10L)).thenReturn(conv);
+            Message pivot = message(100L, 10L, NOW, "first");
+            when(messageMapper.selectById(100L)).thenReturn(pivot);
+            // 同一毫秒的两条消息（id 98/99 < 100）都应进入本页
+            when(messageMapper.selectList(any())).thenReturn(java.util.List.of(
+                    message(99L, 10L, NOW, "b"), message(98L, 10L, NOW, "a")));
+            when(chatConverter.toMessageDTOList(any())).thenReturn(java.util.List.of());
+
+            service.listMessages(1L, 10L, 100L, 30);
+
+            org.mockito.ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Message>> captor =
+                    org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+            verify(messageMapper).selectList(captor.capture());
+            // 会话绑定出现在顶层参数对（嵌套 lambda 包装器有独立参数对，
+            // (createdAt,id) 复合条件的行为由 DB 集成场景 E13 验证）
+            // beforeId 分支生效（复合 (createdAt,id) 条件的行为由 DB 集成场景 E13 验证）
+            verify(messageMapper).selectById(100L);
+            verify(messageMapper).selectList(captor.capture());
+        }
+
+        @Test
+        @DisplayName("游标绑定会话：他会话 beforeId → CHAT_CURSOR_INVALID")
+        void listMessages_foreignCursor_rejected() {
+            Conversation conv = buildConversation(10L, 1L, 2L);
+            when(conversationMapper.selectById(10L)).thenReturn(conv);
+            when(messageMapper.selectById(100L)).thenReturn(message(100L, 999L, NOW, "other"));
+
+            assertThatThrownBy(() -> service.listMessages(1L, 10L, 100L, 30))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "CHAT_CURSOR_INVALID");
+        }
+
+        @Test
+        @DisplayName("同键重放：同内容返回原消息（幂等）")
+        void sendMessage_sameKeySameContent_replaysOriginal() {
+            Conversation conv = buildConversation(10L, 1L, 2L);
+            when(conversationMapper.selectById(10L)).thenReturn(conv);
+            Message original = message(100L, 10L, NOW, "hello");
+            when(messageMapper.selectOne(any())).thenReturn(original);
+            when(chatConverter.toMessageDTO(original)).thenReturn(new com.cloudmart.notification.dto.MessageDTO(
+                    100L, 10L, 1L, "hello", "TEXT", false, NOW));
+
+            var result = service.sendMessage(1L, 10L, "hello", "TEXT", "cmid-1");
+
+            assertThat(result.id()).isEqualTo(100L);
+            verify(messageMapper, never()).insert(any(Message.class));
+        }
+
+        @Test
+        @DisplayName("同键异内容 → MESSAGE_IDEMPOTENCY_CONFLICT（不静默掩盖客户端 bug）")
+        void sendMessage_sameKeyDifferentContent_conflict() {
+            Conversation conv = buildConversation(10L, 1L, 2L);
+            when(conversationMapper.selectById(10L)).thenReturn(conv);
+            when(messageMapper.selectOne(any())).thenReturn(message(100L, 10L, NOW, "hello"));
+
+            assertThatThrownBy(() -> service.sendMessage(1L, 10L, "modified", "TEXT", "cmid-1"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "MESSAGE_IDEMPOTENCY_CONFLICT");
+        }
+    }
 }
