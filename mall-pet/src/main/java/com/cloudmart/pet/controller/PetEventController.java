@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,11 +31,24 @@ public class PetEventController {
     private final PetEventService eventService;
 
     @GetMapping("/events")
-    @Operation(summary = "活动列表", description = "进度由既有业务表惰性统计（捞瓶流水/胜场/行为留痕），不设计数器")
+    @Operation(summary = "活动列表", description = "进度由既有业务表惰性统计（捞瓶流水/胜场/行为留痕），不设计数器；"
+            + "status 可选 AVAILABLE/CLAIMABLE/HISTORY；期次驱动活动返回 occurrenceId/claimDeadlineAt")
     @SentinelResource("PET_QUERY")
     public ApiResponse<List<PetEventVO>> events(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(eventService.events(userId));
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "状态过滤 AVAILABLE/CLAIMABLE/HISTORY（缺省全部）")
+            @RequestParam(value = "status", required = false) String status) {
+        return ApiResponse.ok(eventService.events(userId, status));
+    }
+
+    @PostMapping("/event-occurrences/{occurrenceId}/claim")
+    @Operation(summary = "按期次领取活动奖励（R33）", description = "唯一领奖事实 uk(petId, occurrenceId)；"
+            + "进度按期次窗口统计；超过 claimDeadline 拒绝；本期未完成 409")
+    @SentinelResource("PET_EVENT")
+    public ApiResponse<PetEventVO> claimByOccurrence(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("occurrenceId") Long occurrenceId) {
+        return ApiResponse.ok(eventService.claimByOccurrence(userId, occurrenceId));
     }
 
     @PostMapping("/events/{eventCode}/claim")

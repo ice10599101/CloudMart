@@ -17,9 +17,21 @@ public interface PetEventService {
     /** 活动列表（含我的进度与可领奖状态） */
     List<PetEventVO> events(Long userId);
 
+    /**
+     * R33 §7.2：按状态过滤的活动列表——AVAILABLE（进行中未达成）/ CLAIMABLE（可领奖）/
+     * HISTORY（已领取或已过期含宽限外）；occurrence 驱动的活动返回 occurrenceId 与 claimDeadline。
+     */
+    List<PetEventVO> events(Long userId, String status);
+
     /** 活动列表（按已加载的宠物；供提醒服务在用户访问时评估"达成可领奖"，避免重复加载宠物） */
     List<PetEventVO> eventsForPet(Pet pet);
 
     /** 领取活动奖励（未完成 409 / 已领 409 / 活动已结束 409；星光发放走 mall-wish） */
     PetEventVO claim(Long userId, String eventCode);
+
+    /**
+     * R33 §7.2：按期次领取——唯一领奖事实 (petId, occurrenceId)，复用 code 新一期独立领奖；
+     * 旧 eventCode 入口仅当能唯一解析当前一期时委托本方法，歧义明确拒绝。
+     */
+    PetEventVO claimByOccurrence(Long userId, Long occurrenceId);
 }

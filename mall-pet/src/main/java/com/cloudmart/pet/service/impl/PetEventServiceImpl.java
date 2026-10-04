@@ -11,6 +11,8 @@ import com.cloudmart.pet.entity.PetActivity;
 import com.cloudmart.pet.entity.PetBattle;
 import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.entity.PetEventConfig;
+import com.cloudmart.pet.entity.PetEventOccurrence;
+import com.cloudmart.pet.entity.PetEventOccurrenceClaim;
 import com.cloudmart.pet.entity.PetEventProgress;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.enums.PetActivityStatus;
@@ -23,6 +25,8 @@ import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetBattleMapper;
 import com.cloudmart.pet.repository.PetBottleRecordMapper;
 import com.cloudmart.pet.repository.PetEventConfigMapper;
+import com.cloudmart.pet.repository.PetEventOccurrenceClaimMapper;
+import com.cloudmart.pet.repository.PetEventOccurrenceMapper;
 import com.cloudmart.pet.repository.PetEventProgressMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.service.PetAchievementService;
@@ -55,6 +59,9 @@ public class PetEventServiceImpl implements PetEventService {
     private final PetStateService stateService;
     private final PetEventConfigMapper eventConfigMapper;
     private final PetEventProgressMapper progressMapper;
+    /** R33：期次（occurrence）驱动领奖 */
+    private final PetEventOccurrenceMapper occurrenceMapper;
+    private final PetEventOccurrenceClaimMapper occurrenceClaimMapper;
     private final PetActivityMapper activityMapper;
     private final PetBottleRecordMapper bottleRecordMapper;
     private final PetBattleMapper battleMapper;
@@ -67,6 +74,8 @@ public class PetEventServiceImpl implements PetEventService {
     public PetEventServiceImpl(PetStateService stateService,
                                PetEventConfigMapper eventConfigMapper,
                                PetEventProgressMapper progressMapper,
+                               PetEventOccurrenceMapper occurrenceMapper,
+                               PetEventOccurrenceClaimMapper occurrenceClaimMapper,
                                PetActivityMapper activityMapper,
                                PetBottleRecordMapper bottleRecordMapper,
                                PetBattleMapper battleMapper,
@@ -78,6 +87,8 @@ public class PetEventServiceImpl implements PetEventService {
         this.stateService = stateService;
         this.eventConfigMapper = eventConfigMapper;
         this.progressMapper = progressMapper;
+        this.occurrenceMapper = occurrenceMapper;
+        this.occurrenceClaimMapper = occurrenceClaimMapper;
         this.activityMapper = activityMapper;
         this.bottleRecordMapper = bottleRecordMapper;
         this.battleMapper = battleMapper;
@@ -94,6 +105,23 @@ public class PetEventServiceImpl implements PetEventService {
     }
 
     @Override
+    public List<PetEventVO> events(Long userId, String status) {
+        List<PetEventVO> all = events(userId);
+        if (status == null || status.isBlank()) {
+            return all;
+        }
+        return switch (status.toUpperCase()) {
+            case "AVAILABLE" -> all.stream().filter(e -> !Boolean.TRUE.equals(e.completed())
+                    && !Boolean.TRUE.equals(e.claimed()) && !Boolean.TRUE.equals(e.expired())).toList();
+            case "CLAIMABLE" -> all.stream().filter(e -> Boolean.TRUE.equals(e.claimable())).toList();
+            case "HISTORY" -> all.stream().filter(e -> Boolean.TRUE.equals(e.claimed())
+                    || Boolean.TRUE.equals(e.expired())).toList();
+            default -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "status 仅支持 AVAILABLE/CLAIMABLE/HISTORY");
+        };
+    }
+
+    @Override
     public List<PetEventVO> eventsForPet(Pet pet) {
         List<PetEventConfig> configs = eventConfigMapper.selectList(new LambdaQueryWrapper<PetEventConfig>()
                 .eq(PetEventConfig::getEnabled, true)
@@ -106,7 +134,22 @@ public class PetEventServiceImpl implements PetEventService {
                 // R33：宽限期内（endsAt ~ endsAt+24h）仍展示"已结束，可领奖"——
                 // 原实现 endsAt 一到活动即从列表消失，已达成未领的奖励失去入口
                 .filter(config -> inWindow(config, now) || inClaimGrace(config, now))
-                .map(config -> toVo(pet, config, now))
+                .map(config -> {
+                    // R33：期次驱动的活动以期次窗口/领奖截止为准（occurrenceId 返回给三端）
+                    PetEventOccurrence occurrence = occurrenceMapper.selectOne(
+                            new LambdaQueryWrapper<PetEventOccurrence>()
+                                    .eq(PetEventOccurrence::getEventCode, config.getCode())
+                                    .eq(PetEventOccurrence::getStatus, "ACTIVE")
+                                    .ge(PetEventOccurrence::getClaimDeadlineAt, now)
+                                    .orderByDesc(PetEventOccurrence::getOccurrenceIndex)
+                                    .last("LIMIT 1"));
+                    if (occurrence == null) {
+                        return toVo(pet, config, now);
+                    }
+                    int progress = countProgressBetween(pet, resolveEventType(config),
+                            occurrence.getStartAt(), occurrence.getEndAt());
+                    return buildOccurrenceVo(config, occurrence, pet.getId(), now, progress, null);
+                })
                 .toList();
     }
 
@@ -131,6 +174,18 @@ public class PetEventServiceImpl implements PetEventService {
             throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在或已下架");
         }
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        // R33：旧 eventCode 入口仅当能唯一解析当前一期时使用——多期并存歧义明确拒绝
+        List<PetEventOccurrence> current = occurrenceMapper.selectList(new LambdaQueryWrapper<PetEventOccurrence>()
+                .eq(PetEventOccurrence::getEventCode, config.getCode())
+                .eq(PetEventOccurrence::getStatus, "ACTIVE")
+                .ge(PetEventOccurrence::getClaimDeadlineAt, now));
+        if (current.size() > 1) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND,
+                    "该活动存在多期可领记录，请按期次入口领取");
+        }
+        if (current.size() == 1) {
+            return claimByOccurrence(userId, current.get(0).getId());
+        }
         // B16：开始前不能领；结束后 24h 内仍可领取已达成奖励
         requireClaimWindow(config, now);
         int progress = countProgress(pet, config);
@@ -271,6 +326,95 @@ public class PetEventServiceImpl implements PetEventService {
     }
 
     /** 活动 VO 组装（读路径与领奖路径共用同一口径） */
+    /**
+     * R33 §7.2：按期次领取。唯一领奖事实 uk(occurrence_id, pet_id)——同宠同期至多一次；
+     * 期限：now ≤ claimDeadlineAt（结束+宽限）；进度按期次窗口 [startAt, endAt) 统计；
+     * 奖励按发布期次时的快照（rewardSnapshot）优先，缺省回退当前配置。
+     */
+    @Override
+    @Transactional
+    public PetEventVO claimByOccurrence(Long userId, Long occurrenceId) {
+        Pet pet = stateService.requireActivePet(userId);
+        PetEventOccurrence occurrence = occurrenceMapper.selectById(occurrenceId);
+        if (occurrence == null) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动期次不存在");
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        if (now.isAfter(occurrence.getClaimDeadlineAt())) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "本期领奖已截止");
+        }
+        PetEventConfig config = eventConfigMapper.selectOne(new LambdaQueryWrapper<PetEventConfig>()
+                .eq(PetEventConfig::getCode, occurrence.getEventCode())
+                .eq(PetEventConfig::getEnabled, true)
+                .last("LIMIT 1"));
+        if (config == null) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在或已下架");
+        }
+        int progress = countProgressBetween(pet, resolveEventType(config),
+                occurrence.getStartAt(), occurrence.getEndAt());
+        int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
+        if (progress < target) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED,
+                    "还差 " + (target - progress) + " 次就能完成啦");
+        }
+        // 唯一领奖事实：同宠同期重复领取撞 uk 明确拒绝
+        PetEventOccurrenceClaim fact = new PetEventOccurrenceClaim();
+        fact.setOccurrenceId(occurrence.getId());
+        fact.setEventCode(occurrence.getEventCode());
+        fact.setPetId(pet.getId());
+        fact.setUserId(userId);
+        fact.setRewardSnapshot(occurrence.getRewardSnapshot());
+        try {
+            occurrenceClaimMapper.insert(fact);
+        } catch (DuplicateKeyException duplicate) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_ALREADY_CLAIMED, "本期奖励已经领取过啦");
+        }
+
+        int expReward = orZero(config.getRewardExp());
+        if (expReward > 0) {
+            int levelups = stateService.grantExp(pet, expReward);
+            if (levelups > 0) {
+                achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
+                eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
+                        "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
+                        String.valueOf(userId), "PET_LEVEL_UP",
+                        "宠物升级啦！",
+                        pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
+                        String.valueOf(pet.getId()), "PET_LEVEL_UP"), pet.getId());
+            }
+        }
+        int starlight = orZero(config.getRewardStarlight());
+        if (starlight > 0) {
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
+                    userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null,
+                    pet.getId(), config.getCode() + ":" + occurrence.getOccurrenceIndex(), now.toLocalDate());
+            if (!settlement.isCompleted()) {
+                log.info("活动奖励星光结算中, eventCode={}, occurrence={}, status={}",
+                        config.getCode(), occurrence.getOccurrenceIndex(), settlement.status());
+            }
+        }
+        grantRewardWithAlternative(pet, config, now);
+        return buildOccurrenceVo(config, occurrence, pet.getId(), now, progress, now);
+    }
+
+    /** 期次视角 VO：claimed 取本期领奖事实；claimable 按 claimDeadline 判定 */
+    private PetEventVO buildOccurrenceVo(PetEventConfig config, PetEventOccurrence occurrence, Long petId,
+                                         LocalDateTime now, int progress, LocalDateTime claimedAt) {
+        int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
+        Long claimedRows = occurrenceClaimMapper.selectCount(new LambdaQueryWrapper<PetEventOccurrenceClaim>()
+                .eq(PetEventOccurrenceClaim::getOccurrenceId, occurrence.getId())
+                .eq(PetEventOccurrenceClaim::getPetId, petId));
+        boolean claimed = claimedRows != null && claimedRows > 0;
+        boolean completed = progress >= target;
+        boolean claimable = completed && !claimed && !now.isAfter(occurrence.getClaimDeadlineAt());
+        boolean expired = !completed && now.isAfter(occurrence.getEndAt());
+        return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
+                config.getEventType(), target, progress, completed, claimable, claimed, expired,
+                config.getRewardStarlight(), config.getRewardExp(), config.getRewardItemCode(),
+                occurrence.getStartAt(), occurrence.getEndAt(), claimedAt,
+                String.valueOf(occurrence.getId()), occurrence.getClaimDeadlineAt());
+    }
+
     private PetEventVO buildVo(PetEventConfig config, LocalDateTime now, int progress, LocalDateTime claimedAt) {
         int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
         boolean claimed = claimedAt != null;
@@ -283,10 +427,20 @@ public class PetEventServiceImpl implements PetEventService {
         return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getEventType(), target, progress, completed, claimable, claimed, expired,
                 config.getRewardStarlight(), config.getRewardExp(), config.getRewardItemCode(),
-                config.getStartsAt(), config.getEndsAt(), claimedAt);
+                config.getStartsAt(), config.getEndsAt(), claimedAt, null, null);
     }
 
     /** 进度统计（惰性，不落计数器）：按统计口径 COUNT 既有业务表 */
+    /** 统计口径解析（未知类型返回 null，由 countProgressBetween 归 0） */
+    private PetEventType resolveEventType(PetEventConfig config) {
+        try {
+            return PetEventType.valueOf(config.getEventType());
+        } catch (IllegalArgumentException e) {
+            log.warn("未知活动统计口径: code={}, type={}", config.getCode(), config.getEventType());
+            return null;
+        }
+    }
+
     int countProgress(Pet pet, PetEventConfig config) {
         PetEventType type;
         try {
@@ -297,10 +451,17 @@ public class PetEventServiceImpl implements PetEventService {
         }
         // R33：WINDOW 模式按 [startsAt, endsAt) 统计窗口内事实（原实现统计历史全量，
         // 活动开始前的成绩也计入限时目标）；LIFETIME 才统计累积总量。
-        // 事实时间列：捞瓶 finishedAt / 对战 finishedAt / 活动 finishedAt（完成事实，非领取时间）
         boolean windowed = "WINDOW".equals(config.getEventMode());
         LocalDateTime from = windowed ? config.getStartsAt() : null;
         LocalDateTime to = windowed ? config.getEndsAt() : null;
+        return countProgressBetween(pet, type, from, to);
+    }
+
+    /** R33：按显式窗口统计（occurrence 期次用自身窗口覆盖配置窗口） */
+    int countProgressBetween(Pet pet, PetEventType type, LocalDateTime from, LocalDateTime to) {
+        if (type == null) {
+            return 0;
+        }
         return switch (type) {
             // B16：BOTTLE 默认只统计 CAUGHT（远程失败/空手不计入成功）；如运营要统计参与次数，新增明确事件类型
             case BOTTLE -> toInt(bottleRecordMapper.selectCount(new LambdaQueryWrapper<PetBottleRecord>()

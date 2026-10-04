@@ -27,6 +27,8 @@ public record PetEventVO(
         @Schema(description = "额外奖励物品编码（可空）") String rewardItemCode,
         LocalDateTime startsAt,
         LocalDateTime endsAt,
-        LocalDateTime claimedAt
+        LocalDateTime claimedAt,
+        @Schema(description = "期次 ID（R33：occurrence 驱动的活动返回；null=配置直读兼容）") String occurrenceId,
+        @Schema(description = "领奖截止时间（期次发布时冻结）") LocalDateTime claimDeadlineAt
 ) {
 }

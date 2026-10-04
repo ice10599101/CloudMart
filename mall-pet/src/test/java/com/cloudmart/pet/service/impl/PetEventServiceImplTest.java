@@ -60,6 +60,10 @@ class PetEventServiceImplTest {
     @Mock
     private PetEventProgressMapper progressMapper;
     @Mock
+    private com.cloudmart.pet.repository.PetEventOccurrenceMapper occurrenceMapper;
+    @Mock
+    private com.cloudmart.pet.repository.PetEventOccurrenceClaimMapper occurrenceClaimMapper;
+    @Mock
     private PetActivityMapper activityMapper;
     @Mock
     private PetBottleRecordMapper bottleRecordMapper;
@@ -98,6 +102,8 @@ class PetEventServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
         eventService = new PetEventServiceImpl(stateService, eventConfigMapper, progressMapper,
+                occurrenceMapper,
+                occurrenceClaimMapper,
                 activityMapper, bottleRecordMapper, battleMapper, inventoryMapper, wishFeignClient,
                 economyService, achievementService, eventProducer);
         lenient().when(stateService.requireActivePet(100L)).thenReturn(pet());
@@ -204,5 +210,53 @@ class PetEventServiceImplTest {
         pet.setName("小橘");
         pet.setLevel(5);
         return pet;
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R33 按期次领取：进度按期次窗口统计，领奖事实 uk(petId,occurrenceId)")
+    void claimByOccurrenceUsesOccurrenceWindow() {
+        com.cloudmart.pet.entity.PetEventOccurrence occurrence = new com.cloudmart.pet.entity.PetEventOccurrence();
+        occurrence.setId(900L);
+        occurrence.setEventCode("BOTTLE_RUSH");
+        occurrence.setOccurrenceIndex(2);
+        occurrence.setStartAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3));
+        occurrence.setEndAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        occurrence.setClaimDeadlineAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusHours(23));
+        occurrence.setStatus("ACTIVE");
+        when(occurrenceMapper.selectById(900L)).thenReturn(occurrence);
+        when(eventConfigMapper.selectOne(any())).thenReturn(bottleEvent(3));
+        when(bottleRecordMapper.selectCount(any())).thenReturn(3L);
+        when(occurrenceClaimMapper.selectCount(any())).thenReturn(0L);
+
+        PetEventVO vo = eventService.claimByOccurrence(100L, 900L);
+        org.assertj.core.api.Assertions.assertThat(vo.occurrenceId()).isEqualTo("900");
+        org.assertj.core.api.Assertions.assertThat(vo.claimable()).isTrue();
+        // 领奖事实写入
+        org.mockito.Mockito.verify(occurrenceClaimMapper).insert(
+                org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.PetEventOccurrenceClaim.class));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R33 按期次领取：同宠同期重复领取撞 uk → ALREADY_CLAIMED")
+    void claimByOccurrenceRejectsDuplicate() {
+        com.cloudmart.pet.entity.PetEventOccurrence occurrence = new com.cloudmart.pet.entity.PetEventOccurrence();
+        occurrence.setId(900L);
+        occurrence.setEventCode("BOTTLE_RUSH");
+        occurrence.setOccurrenceIndex(2);
+        occurrence.setStartAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3));
+        occurrence.setEndAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        occurrence.setClaimDeadlineAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusHours(23));
+        occurrence.setStatus("ACTIVE");
+        when(occurrenceMapper.selectById(900L)).thenReturn(occurrence);
+        when(eventConfigMapper.selectOne(any())).thenReturn(bottleEvent(3));
+        when(bottleRecordMapper.selectCount(any())).thenReturn(3L);
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DuplicateKeyException("uk_occurrence_claim"))
+                .when(occurrenceClaimMapper).insert(
+                        org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.PetEventOccurrenceClaim.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> eventService.claimByOccurrence(100L, 900L))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                .extracting(e -> ((com.cloudmart.common.exception.BusinessException) e).getCode())
+                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_EVENT_ALREADY_CLAIMED);
     }
 }

@@ -63,4 +63,52 @@ public class PetDailyQuestController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(dailyQuestService.claimChest(userId));
     }
+
+    // ---------------- 任务集路由（R32 §7.2：与按 code/当日路径委托同一服务） ----------------
+
+    /**
+     * setId 即任务集实例（当日 businessDate 的 ISO 串）：归属+时间校验后委托同一服务，
+     * 请求键与 setId 绑定由网关/客户端 Idempotency-Key 语义承接；过期集明确拒绝。
+     */
+    private void requireSetMatchesToday(Long userId, String setId) {
+        java.time.LocalDate questDate = dailyQuestService.list(userId).questDate();
+        if (questDate == null || !questDate.toString().equals(setId)) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR,
+                    "任务集不存在或已过期（setId 需为当日 questDate）");
+        }
+    }
+
+    @PostMapping("/daily-quest-sets/{setId}/quests/{questId}/claim")
+    @Operation(summary = "按任务集领取单项（R32）", description = "setId=当日 questDate（ISO 串）；"
+            + "归属+时间校验后与 /daily-quests/{code}/claim 同一服务、同一幂等语义")
+    @SentinelResource("PET_ACTIVITY_CLAIM")
+    public ApiResponse<PetDailyQuestItemVO> claimInSet(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("setId") String setId,
+            @PathVariable("questId") String questId) {
+        requireSetMatchesToday(userId, setId);
+        return ApiResponse.ok(dailyQuestService.claim(userId, questId));
+    }
+
+    @PostMapping("/daily-quest-sets/{setId}/claim-all")
+    @Operation(summary = "按任务集一键领取（R32）", description = "与 /daily-quests/claim-all 同一服务；"
+            + "含最后宝箱独立评估，逐项返回终态")
+    @SentinelResource("PET_QUEST_CLAIM")
+    public ApiResponse<com.cloudmart.pet.vo.ClaimAllResult> claimAllInSet(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("setId") String setId) {
+        requireSetMatchesToday(userId, setId);
+        return ApiResponse.ok(dailyQuestService.claimAll(userId));
+    }
+
+    @PostMapping("/daily-quest-sets/{setId}/chest/claim")
+    @Operation(summary = "按任务集领取宝箱（R32）", description = "与 /daily-quests/chest/claim 同一服务、同一 CAS 幂等")
+    @SentinelResource("PET_ACTIVITY_CLAIM")
+    public ApiResponse<PetDailyQuestVO> claimChestInSet(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("setId") String setId) {
+        requireSetMatchesToday(userId, setId);
+        return ApiResponse.ok(dailyQuestService.claimChest(userId));
+    }
 }
