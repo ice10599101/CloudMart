@@ -128,6 +128,31 @@ public class CommunityFeignClientFallbackFactory implements FallbackFactory<Comm
             }
 
             @Override
+            public ApiResponse<Void> revokeBadge(Long id, Map<String, Object> data) {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> currentRankings() {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listSeasons(Map<String, Object> params) {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> seasonDetail(Long seasonId) {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> updateSeasonStatus(Long seasonId, Map<String, Integer> body) {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
+
+            @Override
             public ApiResponse<Object> listLevelConfigs(Map<String, Object> params) {
                 throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
             }

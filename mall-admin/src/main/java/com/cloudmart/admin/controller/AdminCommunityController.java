@@ -196,6 +196,47 @@ public class AdminCommunityController {
         return communityFeignClient.grantBadge(id, data);
     }
 
+    @PostMapping("/community/badges/{id}/revoke")
+    @OperLog(title = "徽章管理", businessType = 2)
+    @RequiresPermission("community:badge:grant")
+    @Operation(summary = "撤销徽章", description = "T23：撤销原因必填（审计）；授予历史保留")
+    public ApiResponse<Void> revokeBadge(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        if (data.get("reason") == null || String.valueOf(data.get("reason")).isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException("VALIDATION_ERROR", "撤销原因必填");
+        }
+        return communityFeignClient.revokeBadge(id, data);
+    }
+
+    @GetMapping("/community/rankings/current")
+    @RequiresPermission("community:ranking:read")
+    @Operation(summary = "当期榜单", description = "T23：脱敏视图；区分社区榜与心愿榜")
+    public ApiResponse<Object> currentRankings() {
+        return communityFeignClient.currentRankings();
+    }
+
+    @GetMapping("/community/rankings/seasons")
+    @RequiresPermission("community:ranking:read")
+    @Operation(summary = "赛季列表", description = "T23：赛季时间/规则/状态/快照版本")
+    public ApiResponse<Object> listSeasons(@RequestParam Map<String, Object> params) {
+        return communityFeignClient.listSeasons(params);
+    }
+
+    @GetMapping("/community/rankings/seasons/{seasonId}")
+    @RequiresPermission("community:ranking:read")
+    @Operation(summary = "赛季详情", description = "T23：含历史结果与快照版本")
+    public ApiResponse<Object> seasonDetail(@PathVariable Long seasonId) {
+        return communityFeignClient.seasonDetail(seasonId);
+    }
+
+    @PutMapping("/community/rankings/seasons/{seasonId}/status")
+    @OperLog(title = "赛季管理", businessType = 2)
+    @RequiresPermission("community:ranking:manage")
+    @Operation(summary = "赛季启停", description = "T23：0 进行中/1 已归档；已结算规则不可原地修改（社区服务约束）")
+    public ApiResponse<Void> updateSeasonStatus(@PathVariable Long seasonId,
+                                                @RequestBody Map<String, Integer> body) {
+        return communityFeignClient.updateSeasonStatus(seasonId, body);
+    }
+
     @GetMapping("/community/growth/level-configs")
     @Operation(summary = "等级配置列表")
     public ApiResponse<Object> listLevelConfigs(@RequestParam Map<String, Object> params) {

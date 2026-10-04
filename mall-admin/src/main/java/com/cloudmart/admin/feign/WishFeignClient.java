@@ -304,6 +304,11 @@ public interface WishFeignClient {
     ApiResponse<Object> auditWishBrand(@PathVariable("id") Long id,
                                        @RequestParam("status") String status);
 
+    /** T23：创建品牌奖池（预算/奖项库存/规则版本由 wish 服务端校验） */
+    @PostMapping("/brand/{brandId}/pools")
+    ApiResponse<Object> createBrandPool(@PathVariable("brandId") Long brandId,
+                                        @RequestBody Map<String, Object> body);
+
     // ---- 擦肩而过风控（Sprint 3.3 管理后台，代理 /admin/encounter）----
 
     @GetMapping("/encounter/suspicious")

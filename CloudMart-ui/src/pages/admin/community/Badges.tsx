@@ -16,6 +16,7 @@ import {
   updateAdminBadge,
   deleteAdminBadge,
   grantBadge,
+  revokeBadge,
   updateBadgeStatus,
 } from '@/api/admin/community'
 import type { AdminBadgeRecord } from '@/api/admin/community'
@@ -51,6 +52,26 @@ export default function Badges() {
     await deleteAdminBadge(id)
     message.success('删除成功')
     actionRef.current?.reload()
+  }
+
+  // T23：撤销徽章（原因必填审计；授予历史保留）
+  const handleRevoke = async (record: AdminBadgeRecord) => {
+    const reason = window.prompt('撤销徽章——请填写撤销原因（必填，留审计）')
+    if (reason === null) return
+    if (!reason.trim()) {
+      message.warning('撤销原因必填')
+      return
+    }
+    const userId = Number(window.prompt('被撤销用户的用户 ID：'))
+    if (!Number.isFinite(userId) || userId <= 0) {
+      message.warning('用户 ID 非法')
+      return
+    }
+    return confirmSubmit2(async () => {
+      await revokeBadge(record.id, { userId, reason: reason.trim() })
+      message.success('已撤销（授予历史保留）')
+      actionRef.current?.reload()
+    })
   }
 
   const handleGrant = async (values: Record<string, any>) => {
@@ -145,6 +166,15 @@ export default function Badges() {
           }}
         >
           授予
+        </Button>,
+        <Button
+          key="revoke"
+          type="link"
+          size="small"
+          danger
+          onClick={() => handleRevoke(record)}
+        >
+          撤销
         </Button>,
       ],
     },

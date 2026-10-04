@@ -153,6 +153,31 @@ export function grantBadge(id: number | string, data: Record<string, any>) {
   return request.post(`/admin/community/badges/${id}/grant`, data)
 }
 
+/** T23：撤销徽章（原因必填审计；授予历史保留） */
+export function revokeBadge(id: number, data: { userId: number; reason: string }) {
+  return request.post(`/admin/community/badges/${id}/revoke`, data)
+}
+
+/** T23：当期榜单（脱敏视图） */
+export function getCurrentRankings() {
+  return request.get('/admin/community/rankings/current')
+}
+
+/** T23：赛季列表 */
+export function listRankingSeasons(params?: { page?: number; pageSize?: number }) {
+  return request.get('/admin/community/rankings/seasons', { params })
+}
+
+/** T23：赛季详情 */
+export function getRankingSeason(id: number) {
+  return request.get(`/admin/community/rankings/seasons/${id}`)
+}
+
+/** T23：赛季启停（0 进行中/1 已归档） */
+export function updateRankingSeasonStatus(id: number, status: number) {
+  return request.put(`/admin/community/rankings/seasons/${id}/status`, { status })
+}
+
 export interface AdminGrowthLevelConfig {
   id: number
   level: number

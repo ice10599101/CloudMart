@@ -77,6 +77,27 @@ public interface CommunityFeignClient {
     @PostMapping("/badges/{id}/grant")
     ApiResponse<Void> grantBadge(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
 
+    /** T23：撤销徽章（留撤销原因/审计，不删除历史授予事实） */
+    @PostMapping("/badges/{id}/revoke")
+    ApiResponse<Void> revokeBadge(@PathVariable("id") Long id, @RequestBody Map<String, Object> data);
+
+    /** T23：当期榜单（脱敏视图） */
+    @GetMapping("/rankings/current")
+    ApiResponse<Object> currentRankings();
+
+    /** T23：赛季列表 */
+    @GetMapping("/rankings/seasons")
+    ApiResponse<Object> listSeasons(@SpringQueryMap Map<String, Object> params);
+
+    /** T23：赛季详情（含快照版本） */
+    @GetMapping("/rankings/seasons/{seasonId}")
+    ApiResponse<Object> seasonDetail(@PathVariable("seasonId") Long seasonId);
+
+    /** T23：赛季启停（0 进行中/1 已归档；结算幂等由社区服务保证） */
+    @PutMapping("/rankings/seasons/{seasonId}/status")
+    ApiResponse<Void> updateSeasonStatus(@PathVariable("seasonId") Long seasonId,
+                                         @RequestBody Map<String, Integer> body);
+
     @GetMapping("/growth/level-configs")
     ApiResponse<Object> listLevelConfigs(@SpringQueryMap Map<String, Object> params);
 

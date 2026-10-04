@@ -584,6 +584,15 @@ public class AdminWishController {
         return wishFeignClient.auditWishBrand(id, status);
     }
 
+    /** T23：创建品牌奖池（后台专属——用户端不开放创建，防绕过预算校验） */
+    @PostMapping("/wish/brand/{brandId}/pools")
+    @OperLog(title = "品牌奖池", businessType = 1)
+    @Operation(summary = "创建品牌奖池", description = "T23：预算/奖项库存/有效期/规则版本服务端校验")
+    public ApiResponse<Object> createBrandPool(@PathVariable Long brandId,
+                                               @RequestBody Map<String, Object> body) {
+        return wishFeignClient.createBrandPool(brandId, body);
+    }
+
     // ---- 擦肩而过风控（Sprint 3.3 管理后台）----
 
     @GetMapping("/wish/encounter/suspicious")
