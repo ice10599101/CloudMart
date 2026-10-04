@@ -16,7 +16,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.time.Clock;
 
 /**
  * 心愿宇宙模块 Spring Security 配置。
@@ -124,11 +123,10 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** 供时间相关校验注入的 UTC 时钟（后续 B09 等任务统一复用）。 */
-    @Bean
-    public Clock wishClock() {
-        return Clock.systemUTC();
-    }
+    // T02 修复：Clock bean 不在 SecurityConfig 内定义——公共自动配置
+    // （cloudmartSecurityClock，@ConditionalOnMissingBean）向 userJwtAuthenticationFilter
+    // 提供时钟；Clock 定义在本类会形成 securityConfig → userJwtAuthenticationFilter →
+    // Clock → securityConfig 循环依赖，应用无法启动。
 
     @Bean
     public FilterRegistrationBean<RequestIdFilter> requestIdFilterRegistration() {
