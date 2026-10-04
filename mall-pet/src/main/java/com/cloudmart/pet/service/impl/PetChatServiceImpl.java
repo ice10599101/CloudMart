@@ -321,7 +321,9 @@ public class PetChatServiceImpl implements PetChatService {
                     reply, isAiReply, requestId);
             // 聊天亲密度原子落库（B05 gain 语义）+ 每日任务进度
             intimacyService.gain(pet, PetIntimacySource.CHAT);
-            dailyQuestService.record(pet, PetQuestType.CHAT, 1);
+            // R32：事实驱动——以 PET 回复行 messageId 为事实键，重放不重复计数
+            dailyQuestService.recordFact(pet, PetQuestType.CHAT, "CHAT:" + petMessage.getId(),
+                    petMessage.getCreatedAt(), 1);
             // B17：成就评估在消息保存之后——第 N 次聊天当次达成
             achievementService.evaluate(pet, PetAchievementService.Event.CHAT);
             // 记忆抽取为附加行为，失败不影响消息持久化

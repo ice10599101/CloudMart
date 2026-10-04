@@ -330,8 +330,11 @@ public class PetCareerServiceImpl implements PetCareerService {
                 "intelligenceBonus", intelligenceBonus,
                 "careerCode", careerCode != null ? careerCode : (config != null ? config.getCode() : ""))));
         activityMapper.updateById(activity);
-        dailyQuestService.record(pet, PetQuestType.WORK, 1);
-        dailyQuestService.record(pet, PetQuestType.CAREER_WORK, 1);
+        // R32：事实驱动——同一事实两个任务类型各持一条回执（uk 按 quest_code+event_id）
+        dailyQuestService.recordFact(pet, PetQuestType.WORK, "CAREER_CLAIM:" + activity.getId(),
+                activity.getFinishedAt(), 1);
+        dailyQuestService.recordFact(pet, PetQuestType.CAREER_WORK, "CAREER_CLAIM:" + activity.getId(),
+                activity.getFinishedAt(), 1);
         achievementService.evaluate(pet, PetAchievementService.Event.WORK_CLAIMED);
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);

@@ -227,6 +227,28 @@ public class AdminPetController {
         return petFeignClient.closeEventOccurrence(id);
     }
 
+    // ---------------- 任务事件回执（R32） ----------------
+
+    @GetMapping("/quests/receipts")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "任务收据查询（R32）", description = "按用户/任务类型/状态过滤；APPLIED/SKIPPED_STALE")
+    public ApiResponse<Object> listQuestReceipts(@RequestParam(value = "userId", required = false) Long userId,
+                                                 @RequestParam(value = "questCode", required = false) String questCode,
+                                                 @RequestParam(value = "status", required = false) String status,
+                                                 @RequestParam(value = "page", defaultValue = "1") int page,
+                                                 @RequestParam(value = "size", defaultValue = "20") int size) {
+        return petFeignClient.listQuestReceipts(userId, questCode, status, page, size);
+    }
+
+    @PostMapping("/quests/receipts/{id}/replay")
+    @OperLog(title = "宠物任务收据重放", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "重放任务收据（R32 补算）", description = "仅 SKIPPED_STALE 可重放，按事实日补记；"
+            + "只允许重放已有事实，不能手工改进度发奖")
+    public ApiResponse<Object> replayQuestReceipt(@PathVariable("id") Long id) {
+        return petFeignClient.replayQuestReceipt(id);
+    }
+
     // ---------------- 三期配置：职业 / 家具 / 每日任务 ----------------
 
     @GetMapping("/careers")

@@ -263,7 +263,11 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             com.cloudmart.pet.service.PetDailyQuestService questServiceBean = questService.getIfAvailable();
             if (questMinutesDelta > 0 && questServiceBean != null) {
                 try {
-                    questServiceBean.record(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION, questMinutesDelta);
+                    // R32：事实驱动——segmentId 取累计分钟数（单调递增保证每段唯一），
+                    // sourceTime 为段结束时间，进度归段所属业务日（跨日段不入今天）
+                    String segmentId = "COMPANION:" + pet.getId() + ":" + date + ":" + (already + accepted) / 60;
+                    questServiceBean.recordFact(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION,
+                            segmentId, segEndUtc, questMinutesDelta);
                 } catch (Exception questError) {
                     log.warn("COMPANION 任务事件失败（不阻断陪伴入账）: petId={}", pet.getId(), questError);
                 }

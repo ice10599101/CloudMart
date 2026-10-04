@@ -72,12 +72,16 @@ class PetDailyQuestServiceImplTest {
 
     private final PetProperties properties = new PetProperties();
     private PetDailyQuestServiceImpl questService;
+    private com.cloudmart.pet.config.PetClock petClock;
+    private com.cloudmart.pet.repository.PetQuestEventReceiptMapper receiptMapper;
+    private com.cloudmart.pet.repository.PetMapper petMapperMock;
 
     /** LambdaWrapper 需要实体元数据（与既有测试同一口径：不启动 Spring 也能构造条件） */
     @BeforeAll
     static void initEntityMeta() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PetDailyQuest.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetQuestEventReceipt.class);
     }
 
     @BeforeEach
@@ -88,8 +92,13 @@ class PetDailyQuestServiceImplTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+        petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
+        receiptMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetQuestEventReceiptMapper.class);
+        petMapperMock = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMapper.class);
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
-                wishFeignClient, economyService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class), intimacyService, achievementService, properties,
+                receiptMapper,
+                petMapperMock,
+                wishFeignClient, economyService, petClock, intimacyService, achievementService, properties,
                 // R13：自代理提供者——测试中直通返回本实例（事务由生产代理承担，单测验证编排语义）
                 new org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService>() {
                     @Override
@@ -342,5 +351,91 @@ class PetDailyQuestServiceImplTest {
 
         verify(questMapper, org.mockito.Mockito.never())
                 .update(ArgumentMatchers.<PetDailyQuest>isNull(), any());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R32 recordFact：同事实幂等——uk 撞键返回 false 不重复计数")
+    void recordFactDedupsSameEventId() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(questMapper.update(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        // 第二次插入撞 uk
+        org.mockito.Mockito.when(receiptMapper.insert(org.mockito.ArgumentMatchers
+                        .any(com.cloudmart.pet.entity.PetQuestEventReceipt.class)))
+                .thenReturn(1)
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_quest_event_receipt"));
+
+        boolean first = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:1", now, 1);
+        boolean second = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:1", now, 1);
+        org.assertj.core.api.Assertions.assertThat(first).isTrue();
+        org.assertj.core.api.Assertions.assertThat(second).isFalse();
+        // 进度累加只发生一次
+        org.mockito.Mockito.verify(questMapper, org.mockito.Mockito.times(1))
+                .update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R32 recordFact：历史事实当日任务行不存在 → SKIPPED_STALE 不涌入今天")
+    void recordFactSkipsStaleFact() {
+        java.time.LocalDateTime past = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3);
+        java.time.LocalDate today = java.time.LocalDate.now();
+        org.mockito.Mockito.when(petClock.businessDate()).thenReturn(today);
+        org.mockito.Mockito.when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(today.minusDays(3));
+        // 历史日无任务行：credit 命中 0
+        org.mockito.Mockito.when(questMapper.update(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(0);
+
+        boolean applied = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:old", past, 1);
+        org.assertj.core.api.Assertions.assertThat(applied).isFalse();
+        org.mockito.ArgumentCaptor<com.cloudmart.pet.entity.PetQuestEventReceipt> captor =
+                org.mockito.ArgumentCaptor.forClass(com.cloudmart.pet.entity.PetQuestEventReceipt.class);
+        org.mockito.Mockito.verify(receiptMapper).updateById(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getStatus()).isEqualTo("SKIPPED_STALE");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R32 replayReceipt：SKIPPED_STALE 重放成功置 APPLIED")
+    void replayReceiptAppliesStaleReceipt() {
+        com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
+        receipt.setId(900L);
+        receipt.setPetId(1L);
+        receipt.setUserId(100L);
+        receipt.setQuestCode("FEED");
+        receipt.setEventId("F:old");
+        receipt.setAmount(1);
+        receipt.setBusinessDate(java.time.LocalDate.now().minusDays(1));
+        receipt.setStatus("SKIPPED_STALE");
+        // 模拟 DB：重放后的第二次读返回已置 APPLIED 的行
+        org.mockito.Mockito.when(receiptMapper.selectById(900L)).thenReturn(receipt)
+                .thenAnswer(inv -> {
+                    receipt.setStatus("APPLIED");
+                    return receipt;
+                });
+        org.mockito.Mockito.when(receiptMapper.update(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        org.mockito.Mockito.when(petMapperMock.selectById(1L)).thenReturn(pet());
+        org.mockito.Mockito.when(questMapper.update(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+
+        com.cloudmart.pet.entity.PetQuestEventReceipt replayed = questService.replayReceipt(900L);
+        org.assertj.core.api.Assertions.assertThat(replayed.getStatus()).isEqualTo("APPLIED");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("R32 replayReceipt：APPLIED 回执拒绝重放")
+    void replayReceiptRejectsApplied() {
+        com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
+        receipt.setId(901L);
+        receipt.setQuestCode("FEED");
+        receipt.setStatus("APPLIED");
+        org.mockito.Mockito.when(receiptMapper.selectById(901L)).thenReturn(receipt);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.replayReceipt(901L))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                .extracting(e -> ((com.cloudmart.common.exception.BusinessException) e).getCode())
+                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_STATE_CONFLICT);
     }
 }

@@ -62,6 +62,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final PetStateService stateService;
     private final PetDailyQuestConfigMapper configMapper;
     private final PetDailyQuestMapper questMapper;
+    /** R32：任务事件回执（事实去重与补算账） */
+    private final com.cloudmart.pet.repository.PetQuestEventReceiptMapper receiptMapper;
     private final WishFeignClient wishFeignClient;
     private final PetEconomyService economyService;
     private final PetClock petClock;
@@ -71,10 +73,14 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     /** R13：自代理提供者——批量编排经代理调用单项事务方法（同类 this 调用事务不生效） */
     private final org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider;
 
+    private final com.cloudmart.pet.repository.PetMapper petMapper;
+
     public PetDailyQuestServiceImpl(PetService petService,
                                     PetStateService stateService,
                                     PetDailyQuestConfigMapper configMapper,
                                     PetDailyQuestMapper questMapper,
+                                    com.cloudmart.pet.repository.PetQuestEventReceiptMapper receiptMapper,
+                                    com.cloudmart.pet.repository.PetMapper petMapper,
                                     WishFeignClient wishFeignClient,
                                     PetEconomyService economyService,
                                     PetClock petClock,
@@ -86,6 +92,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.stateService = stateService;
         this.configMapper = configMapper;
         this.questMapper = questMapper;
+        this.receiptMapper = receiptMapper;
+        this.petMapper = petMapper;
         this.wishFeignClient = wishFeignClient;
         this.economyService = economyService;
         this.petClock = petClock;
@@ -292,31 +300,135 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         try {
             ensureToday(pet);
-            List<PetDailyQuestConfig> configs = activeConfigs(pet);
-            List<String> codes = configs.stream()
-                    .filter(c -> type.name().equals(c.getQuestType()))
-                    .map(PetDailyQuestConfig::getCode)
-                    .toList();
-            if (codes.isEmpty()) {
-                return;
-            }
-            for (String code : codes) {
-                // 原子累加 + 状态翻转（progress 先赋值，后续 CASE 读到的是新值）
-                questMapper.update(null, new LambdaUpdateWrapper<PetDailyQuest>()
-                        .setSql("progress = LEAST(progress + " + amount + ", target_value)")
-                        .setSql("status = CASE WHEN status = 'IN_PROGRESS' AND progress >= target_value "
-                                + "THEN 'COMPLETE' ELSE status END")
-                        .setSql("completed_at = CASE WHEN completed_at IS NULL AND progress >= target_value "
-                                + "THEN UTC_TIMESTAMP() ELSE completed_at END")
-                        .eq(PetDailyQuest::getPetId, pet.getId())
-                        .eq(PetDailyQuest::getQuestDate, petClock.businessDate())
-                        .eq(PetDailyQuest::getQuestCode, code)
-                        .eq(PetDailyQuest::getStatus, PetQuestStatus.IN_PROGRESS.name()));
-            }
+            credit(pet, codesOfType(pet, type), amount, petClock.businessDate());
         } catch (Exception e) {
             // 埋点失败不影响主玩法（进度可丢，玩法不可断）
             log.warn("每日任务埋点失败（忽略）: petId={}, type={}, amount={}", pet.getId(), type, amount, e);
         }
+    }
+
+    @Override
+    public boolean recordFact(Pet pet, PetQuestType type, String eventId,
+                              java.time.LocalDateTime sourceTime, int amount) {
+        if (pet == null || type == null || eventId == null || eventId.isBlank()
+                || sourceTime == null || amount <= 0) {
+            return false;
+        }
+        try {
+            LocalDate factDate = petClock.businessDateOf(sourceTime);
+            // 收据先行：uk(quest_type, event_id) 数据库权威去重——与进度累加同事务，回滚一起回滚
+            com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
+            receipt.setUserId(pet.getUserId());
+            receipt.setPetId(pet.getId());
+            receipt.setQuestCode(type.name());
+            receipt.setEventId(eventId);
+            receipt.setAmount(amount);
+            receipt.setSourceTime(sourceTime);
+            receipt.setBusinessDate(factDate);
+            receipt.setStatus("APPLIED");
+            try {
+                receiptMapper.insert(receipt);
+            } catch (DuplicateKeyException duplicate) {
+                log.debug("任务事实已消费（幂等跳过）: type={}, eventId={}", type, eventId);
+                return false;
+            }
+            if (factDate.equals(petClock.businessDate())) {
+                ensureToday(pet);
+                credit(pet, codesOfType(pet, type), amount, factDate);
+                return true;
+            }
+            // 历史事实补算：仅当该日任务行已存在（证明当天参与过）才补记——
+            // 不为历史日凭空生成任务行，也不把历史行为加到今天（§13.4）
+            int credited = credit(pet, codesOfType(pet, type), amount, factDate);
+            if (credited == 0) {
+                receipt.setStatus("SKIPPED_STALE");
+                receiptMapper.updateById(receipt);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("任务事实埋点失败（忽略）: petId={}, type={}, eventId={}", pet.getId(), type, eventId, e);
+            return false;
+        }
+    }
+
+    @Override
+    public com.cloudmart.pet.entity.PetQuestEventReceipt replayReceipt(Long receiptId) {
+        com.cloudmart.pet.entity.PetQuestEventReceipt receipt = receiptMapper.selectById(receiptId);
+        if (receipt == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "回执不存在");
+        }
+        if (!"SKIPPED_STALE".equals(receipt.getStatus())) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "仅 SKIPPED_STALE 回执可重放（APPLIED 已计入，重放会重复发奖）");
+        }
+        // CAS SKIPPED_STALE → APPLIED：并发重放单胜
+        int updated = receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED")
+                .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receiptId)
+                .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "SKIPPED_STALE"));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "回执已被其他操作员处理");
+        }
+        Pet pet = petMapper.selectById(receipt.getPetId());
+        int credited = pet == null ? 0 : credit(pet, codesOfType(pet, PetQuestType.valueOf(receipt.getQuestCode())),
+                receipt.getAmount(), receipt.getBusinessDate());
+        if (credited == 0) {
+            // 该日任务行仍不存在：回滚到 SKIPPED_STALE，重放未生效
+            receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                    .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "SKIPPED_STALE")
+                    .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receiptId)
+                    .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED"));
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                    "该日任务行不存在，无法补算（不允许为历史日凭空生成）");
+        }
+        return receiptMapper.selectById(receiptId);
+    }
+
+    @Override
+    public java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
+            Long userId, String questCode, String status, int page, int size) {
+        int pageSize = Math.min(Math.max(size, 1), 50);
+        LambdaQueryWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt> wrapper =
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                        .orderByDesc(com.cloudmart.pet.entity.PetQuestEventReceipt::getId)
+                        .last("LIMIT " + pageSize + " OFFSET " + (long) (Math.max(page, 1) - 1) * pageSize);
+        if (userId != null) {
+            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getUserId, userId);
+        }
+        if (questCode != null && !questCode.isBlank()) {
+            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getQuestCode, questCode.toUpperCase());
+        }
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, status.toUpperCase());
+        }
+        return receiptMapper.selectList(wrapper);
+    }
+
+    /** 当前启用配置中该类型的任务 code 集（与 record/recordFact 同一口径） */
+    private List<String> codesOfType(Pet pet, PetQuestType type) {
+        return activeConfigs(pet).stream()
+                .filter(c -> type.name().equals(c.getQuestType()))
+                .map(PetDailyQuestConfig::getCode)
+                .toList();
+    }
+
+    /** 原子累加 + 状态翻转（progress 先赋值，后续 CASE 读到的是新值）；@return 命中行数 */
+    private int credit(Pet pet, List<String> codes, int amount, LocalDate businessDate) {
+        int hit = 0;
+        for (String code : codes) {
+            hit += questMapper.update(null, new LambdaUpdateWrapper<PetDailyQuest>()
+                    .setSql("progress = LEAST(progress + " + amount + ", target_value)")
+                    .setSql("status = CASE WHEN status = 'IN_PROGRESS' AND progress >= target_value "
+                            + "THEN 'COMPLETE' ELSE status END")
+                    .setSql("completed_at = CASE WHEN completed_at IS NULL AND progress >= target_value "
+                            + "THEN UTC_TIMESTAMP() ELSE completed_at END")
+                    .eq(PetDailyQuest::getPetId, pet.getId())
+                    .eq(PetDailyQuest::getQuestDate, businessDate)
+                    .eq(PetDailyQuest::getQuestCode, code)
+                    .eq(PetDailyQuest::getStatus, PetQuestStatus.IN_PROGRESS.name()));
+        }
+        return hit;
     }
 
     // ---------------- 内部 ----------------

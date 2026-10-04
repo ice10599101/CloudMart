@@ -38,4 +38,22 @@ public interface PetDailyQuestService {
      * 不抛业务异常——埋点失败绝不能影响主玩法。
      */
     void record(Pet pet, PetQuestType type, int amount);
+
+    /**
+     * R32：事实驱动的进度埋点（pet_quest_event_receipt）——
+     * uk(questType, eventId) 保证同一业务事实至多消费一次；进度计入事实归属业务日：
+     * 事实日=今天走常规累加；历史事实仅在该日任务行已存在时补算（不为历史日凭空生成、
+     * 不把历史行为加到今天）；事实过期收据置 SKIPPED_STALE 可由管理端重放。
+     *
+     * @return true=本次实际计入进度；false=重复事实/过期跳过/埋点失败
+     */
+    boolean recordFact(Pet pet, PetQuestType type, String eventId,
+                       java.time.LocalDateTime sourceTime, int amount);
+
+    /** R32 管理端补算：重放一条 SKIPPED_STALE 收据（只允许重放已有事实，不能手工改进度） */
+    com.cloudmart.pet.entity.PetQuestEventReceipt replayReceipt(Long receiptId);
+
+    /** R32 管理端：收据查询（userId/questCode/status 过滤 + 分页） */
+    java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
+            Long userId, String questCode, String status, int page, int size);
 }

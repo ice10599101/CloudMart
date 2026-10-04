@@ -335,7 +335,9 @@ public class PetActivityServiceImpl implements PetActivityService {
                 "intelligenceBonus", intelligenceBonus,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
-        dailyQuestService.record(pet, PetQuestType.WORK, 1);
+        // R32：事实驱动——uk(pet_quest_event_receipt) 幂等，进度归 finishedAt 事实日
+        dailyQuestService.recordFact(pet, PetQuestType.WORK, "ACT_CLAIM:" + activity.getId(),
+                activity.getFinishedAt(), 1);
 
         achievementService.evaluate(pet, PetAchievementService.Event.WORK_CLAIMED);
         companionFeatureService.recordStep(pet.getUserId(), "WORK");
@@ -378,7 +380,8 @@ public class PetActivityServiceImpl implements PetActivityService {
                 "skillBonus", skillBonusPercent,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
-        dailyQuestService.record(pet, PetQuestType.STUDY, 1);
+        dailyQuestService.recordFact(pet, PetQuestType.STUDY, "ACT_CLAIM:" + activity.getId(),
+                activity.getFinishedAt(), 1);
 
         achievementService.evaluate(pet, PetAchievementService.Event.STUDY_CLAIMED);
         notifyLevelUp(pet, levelups);
