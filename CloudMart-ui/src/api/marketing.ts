@@ -49,7 +49,8 @@ export function getGroupActivity(id: number) {
   return request.get<ApiResponse<GroupActivity>>(`/marketing/group/activities/${id}`)
 }
 
-export function joinGroup(data: { activityId: number; groupOrderId?: number }) {
+export function joinGroup(data: { activityId: number; groupOrderId?: number; addressId?: number }) {
+  // T11：addressId 为参团地址快照权威（成团建单使用参团时地址）
   return request.post<ApiResponse<GroupOrder>>('/marketing/group/join', data)
 }
 

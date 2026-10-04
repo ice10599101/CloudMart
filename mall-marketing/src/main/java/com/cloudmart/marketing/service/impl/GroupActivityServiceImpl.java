@@ -55,11 +55,17 @@ public class GroupActivityServiceImpl implements GroupActivityService {
     private final GroupActivityMapper activityMapper;
     private final GroupOrderMapper groupOrderMapper;
     private final GroupMemberMapper memberMapper;
+
+    /** T11：参团地址快照解析（mall-user 内部端点） */
+    private final com.cloudmart.marketing.feign.UserAddressFeignClient userAddressFeignClient;
     private final MarketingConverter converter;
     private final StringRedisTemplate redisTemplate;
     private final OutboxService outboxService;
     private final tools.jackson.databind.ObjectMapper objectMapper;
     private final DefaultRedisScript<List> joinGroupScript;
+
+    /** T11：DB 提交后投影重建脚本（构造器内初始化） */
+    private DefaultRedisScript<Long> groupCommitScript;
 
     public GroupActivityServiceImpl(GroupActivityMapper activityMapper,
                                     GroupOrderMapper groupOrderMapper,
@@ -67,7 +73,8 @@ public class GroupActivityServiceImpl implements GroupActivityService {
                                     MarketingConverter converter,
                                     StringRedisTemplate redisTemplate,
                                     OutboxService outboxService,
-                                    tools.jackson.databind.ObjectMapper objectMapper) {
+                                    tools.jackson.databind.ObjectMapper objectMapper,
+                                    com.cloudmart.marketing.feign.UserAddressFeignClient userAddressFeignClient) {
         this.activityMapper = activityMapper;
         this.groupOrderMapper = groupOrderMapper;
         this.memberMapper = memberMapper;
@@ -75,12 +82,17 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         this.redisTemplate = redisTemplate;
         this.outboxService = outboxService;
         this.objectMapper = objectMapper;
+        this.userAddressFeignClient = userAddressFeignClient;
 
-        // 加载 Lua 原子拼团脚本（预筛）
+        // 加载 Lua 脚本（T11：预筛只读；投影重建在 DB 提交后）
         this.joinGroupScript = new DefaultRedisScript<>();
         this.joinGroupScript.setScriptSource(
-                new ResourceScriptSource(new ClassPathResource("scripts/group_join.lua")));
+                new ResourceScriptSource(new ClassPathResource("scripts/group_join_check.lua")));
         this.joinGroupScript.setResultType(List.class);
+        this.groupCommitScript = new DefaultRedisScript<>();
+        this.groupCommitScript.setScriptSource(
+                new ResourceScriptSource(new ClassPathResource("scripts/group_join_commit.lua")));
+        this.groupCommitScript.setResultType(Long.class);
     }
 
     @Override
@@ -170,6 +182,13 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         GroupOrder groupOrder;
         boolean isLeader;
 
+        // T11：perUserLimit 与 uk(activity,user) 单次唯一约束对齐——本轮默认每活动
+        // 每人一次，配置 >1 的记录拒绝参团（表约束与规则不得冲突）
+        if (activity.getPerUserLimit() == null || activity.getPerUserLimit() != 1) {
+            throw new BusinessException("GROUP_PER_USER_LIMIT_UNSUPPORTED",
+                    "当前仅支持每活动限参 1 次（perUserLimit=1）");
+        }
+
         if (request.groupOrderId() != null) {
             // 参团：加入已有拼团组——T10：组必须属于请求的活动（活动 A 不接受活动 B 的组）
             groupOrder = groupOrderMapper.selectById(request.groupOrderId());
@@ -222,7 +241,8 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         }
 
         int resultCode = ((Number) luaResult.getFirst()).intValue();
-        // -1 组已结束 / -2 已在组 / -3 已参过活动 / -4 满员：预筛拒绝，DB 事实随后可核
+        // -1 组已结束 / -2 已在组 / -3 已参过活动 / -4 满员：预筛拒绝（只读，无残留）
+        // T11：写投影移至 DB 提交后——此处不再产生任何 Redis 写
         if (resultCode < 0) {
             throw switch (resultCode) {
                 case -1 -> new BusinessException("GROUP_NOT_PENDING", "拼团组已结束");
@@ -232,6 +252,9 @@ public class GroupActivityServiceImpl implements GroupActivityService {
             };
         }
 
+        // T11：参团时解析并保存地址快照——成团建单用参团地址，不被建单时刻的
+        // 新默认地址替换；无地址成员登记 ABSENT_ADDRESS（返回补充地址动作）
+        var snapshot = resolveAddressSnapshot(userId, request.addressId());
         // DB 权威：成员事实落库（uk(group,user) 防重复入组；uk(activity,user) 活动限购事实）
         GroupMember member = new GroupMember();
         member.setGroupOrderId(groupOrder.getId());
@@ -240,6 +263,15 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         member.setIsLeader(isLeader);
         member.setStatus("JOINED");
         member.setJoinedAt(now);
+        member.setOrderTaskStatus("PENDING");
+        if (snapshot != null) {
+            member.setAddressId(snapshot.id());
+            member.setReceiverName(snapshot.receiverName());
+            member.setReceiverPhone(snapshot.phone());
+            member.setReceiverAddress(fullAddressOf(snapshot));
+        } else {
+            member.setOrderTaskStatus("ABSENT_ADDRESS");
+        }
         try {
             memberMapper.insert(member);
         } catch (DuplicateKeyException e) {
@@ -252,7 +284,13 @@ public class GroupActivityServiceImpl implements GroupActivityService {
             throw new BusinessException("GROUP_FULL", "拼团组已满");
         }
 
-        // 成团判定：CAS PENDING→SUCCESS（与超时扫描竞争只允许一方生效）
+        // T11：投影重建（HINCRBY/SADD）在 DB 事实递增后、事务提交前注册——
+        // 事务回滚则投影不写，Redis 残留不再永久拒绝参团；缓存缺失可由成员台账重建
+        String finalStatus = groupOrderMapper.selectById(groupOrder.getId()).getStatus();
+        registerProjectionCommit(groupOrder.getId(), activity.getId(), userId, finalStatus);
+
+        // 成团判定：CAS PENDING→SUCCESS（与超时扫描竞争只允许一方生效；
+        // T11：CAS 绑定 expire_time > now——到期同时加入不得把过期团推进成功）
         GroupOrder current = groupOrderMapper.selectById(groupOrder.getId());
         if (groupOrderMapper.markSuccess(groupOrder.getId(), now) == 1) {
             log.info("[T10] 拼团成团 groupOrderId={} members={}", groupOrder.getId(), current.getCurrentNumber());
@@ -260,7 +298,9 @@ public class GroupActivityServiceImpl implements GroupActivityService {
             // 成团事件与成团 CAS 同事务登记（Outbox）：业务提交则事件必然可见，
             // 重复投递由消费侧稳定订单键幂等吸收
             List<Long> memberUserIds = getGroupMemberUserIds(groupOrder.getId());
-            outboxService.record(groupSuccessEvent(groupOrder.getId(), activity, memberUserIds));
+            outboxService.record(groupSuccessEvent(groupOrder.getId(), activity, memberUserIds,
+                    memberMapper.selectList(new LambdaQueryWrapper<com.cloudmart.marketing.entity.GroupMember>()
+                            .eq(com.cloudmart.marketing.entity.GroupMember::getGroupOrderId, groupOrder.getId()))));
             current.setStatus("SUCCESS");
             current.setSuccessTime(now);
         } else {
@@ -270,8 +310,65 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         return buildGroupOrderDTO(current);
     }
 
+    /** T11：DB 提交后重建参团投影（无事务上下文时立即执行，兼容测试）。 */
+    private void registerProjectionCommit(Long groupOrderId, Long activityId, Long userId, String finalStatus) {
+        Runnable rebuild = () -> redisTemplate.execute(groupCommitScript,
+                List.of(
+                        GROUP_KEY_PREFIX + groupOrderId,
+                        GROUP_USER_SET_PREFIX + groupOrderId,
+                        ACTIVITY_USER_SET_PREFIX + activityId
+                ),
+                userId.toString(),
+                activityId.toString(),
+                String.valueOf(GROUP_TTL.toSeconds()),
+                finalStatus
+        );
+        if (org.springframework.transaction.support.TransactionSynchronizationManager
+                .isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            rebuild.run();
+                        }
+                    });
+        } else {
+            rebuild.run();
+        }
+    }
+
     /** 成团事件（稳定 eventId：group-success-{id}，Outbox/消费侧双端幂等） */
-    private EventEnvelope groupSuccessEvent(Long groupOrderId, GroupActivity activity, List<Long> memberUserIds) {
+    /** T11：地址快照解析——addressId 优先（归属校验），缺省默认地址；均无返回 null */
+    private com.cloudmart.marketing.feign.UserAddressFeignClient.AddressSnapshot resolveAddressSnapshot(
+            Long userId, Long addressId) {
+        try {
+            if (addressId != null) {
+                var resp = userAddressFeignClient.getAddress(userId, addressId);
+                if (resp != null && resp.success() && resp.data() != null) {
+                    return resp.data();
+                }
+                throw new BusinessException("ADDRESS_INVALID", "参团地址无效或不属于本人");
+            }
+            var resp = userAddressFeignClient.getDefaultAddress(userId);
+            if (resp != null && resp.success() && resp.data() != null) {
+                return resp.data();
+            }
+            return null;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            // 地址服务不可用不阻断参团主流程——成团建单时按 ABSENT_ADDRESS 补充
+            log.warn("[T11] 参团地址解析失败（不阻断参团） userId={}: {}", userId, e.getMessage());
+            return null;
+        }
+    }
+
+    private static String fullAddressOf(com.cloudmart.marketing.feign.UserAddressFeignClient.AddressSnapshot a) {
+        return a.province() + a.city() + a.district() + a.detailAddress();
+    }
+
+    private EventEnvelope groupSuccessEvent(Long groupOrderId, GroupActivity activity, List<Long> memberUserIds,
+                                            List<com.cloudmart.marketing.entity.GroupMember> members) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("groupOrderId", groupOrderId);
         payload.put("activityId", activity.getId());
@@ -279,6 +376,16 @@ public class GroupActivityServiceImpl implements GroupActivityService {
         payload.put("skuId", activity.getSkuId());
         payload.put("groupPrice", activity.getGroupPrice().toPlainString());
         payload.put("memberUserIds", memberUserIds);
+        // T11：成员地址快照与建单任务状态随事件携带（缺地址成员由消费侧返回补充动作）
+        payload.put("members", members.stream().map(m -> {
+            Map<String, Object> mm = new HashMap<>();
+            mm.put("userId", m.getUserId());
+            mm.put("receiverName", m.getReceiverName());
+            mm.put("receiverPhone", m.getReceiverPhone());
+            mm.put("receiverAddress", m.getReceiverAddress());
+            mm.put("orderTaskStatus", m.getOrderTaskStatus());
+            return mm;
+        }).toList());
         try {
             String json = objectMapper.writeValueAsString(payload);
             return new EventEnvelope("group-success-" + groupOrderId, "GROUP_SUCCESS", 1,

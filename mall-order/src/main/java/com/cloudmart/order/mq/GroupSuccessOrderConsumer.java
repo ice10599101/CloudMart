@@ -70,19 +70,35 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
         log.info("[T10] 处理成团建单 eventId={} groupOrderId={} skuId={} members={}",
                 eventId, groupOrderId, skuId, memberUserIds.size());
 
+        // T11：成员地址快照（参团时冻结）——建单用快照，不被建单时刻的新默认地址替换；
+        // ABSENT_ADDRESS 成员返回"补充地址"动作（建单失败事件 reason 稳定可运营处置）
+        Map<Long, Map<String, Object>> snapshots = new java.util.HashMap<>();
+        Object membersRaw = payload.get("members");
+        if (membersRaw instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m) {
+                    Object uid = m.get("userId");
+                    if (uid instanceof Number n) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> casted = (Map<String, Object>) m;
+                        snapshots.put(n.longValue(), casted);
+                    }
+                }
+            }
+        }
+
         for (Number userIdNum : memberUserIds) {
             Long userId = userIdNum.longValue();
             // 稳定成员订单键：group-{groupOrderId}-{userId}
             String requestKey = "group-" + groupOrderId + "-" + userId;
             try {
-                // T10：系统单收货人（同秒杀）——无默认地址按业务失败登记事件后继续其余成员
-                String[] receiver;
-                try {
-                    receiver = resolveDefaultReceiver(userId, requestKey);
-                } catch (BusinessException e) {
-                    log.warn("[T10] 成团建单业务失败 requestKey={} code={} reason={}",
-                            requestKey, e.getCode(), e.getMessage());
-                    outboxService.record(groupOrderFailedEvent(groupOrderId, userId, e.getMessage()));
+                // T11：优先参团快照；旧事件无快照回退默认地址（兼容在途消息）
+                String[] receiver = resolveReceiver(userId, requestKey, snapshots.get(userId));
+                if (receiver == null) {
+                    log.warn("[T11] 成员缺收货地址（补充地址动作） requestKey={} userId={}",
+                            requestKey, userId);
+                    outboxService.record(groupOrderFailedEvent(groupOrderId, userId,
+                            "ABSENT_ADDRESS:请补充收货地址后重试"));
                     continue;
                 }
                 CreateOrderRequest.OrderItemInput item = new CreateOrderRequest.OrderItemInput(
@@ -110,15 +126,41 @@ public class GroupSuccessOrderConsumer implements RocketMQListener<Map<String, O
         }
     }
 
-    /** 系统单收货人解析（同秒杀）：无默认地址抛 ADDRESS_REQUIRED */
-    private String[] resolveDefaultReceiver(Long userId, String requestKey) {
-        var resp = userAddressFeignClient.getDefaultAddress(userId);
-        if (resp == null || !resp.success() || resp.data() == null) {
-            throw new BusinessException("ADDRESS_REQUIRED", "请先设置收货地址");
+    /**
+     * T11：收货人解析——快照优先（参团时冻结）；快照缺失/字段不全返回 null
+     * （补充地址动作）；旧事件无快照回退默认地址（兼容在途消息）。
+     */
+    private String[] resolveReceiver(Long userId, String requestKey, Map<String, Object> snapshot) {
+        if (snapshot != null) {
+            String name = snapshot.get("receiverName") == null ? null
+                    : String.valueOf(snapshot.get("receiverName"));
+            String phone = snapshot.get("receiverPhone") == null ? null
+                    : String.valueOf(snapshot.get("receiverPhone"));
+            String address = snapshot.get("receiverAddress") == null ? null
+                    : String.valueOf(snapshot.get("receiverAddress"));
+            if (snapshot.get("orderTaskStatus") != null
+                    && "ABSENT_ADDRESS".equals(String.valueOf(snapshot.get("orderTaskStatus")))) {
+                return null;
+            }
+            if (name != null && !name.isBlank() && phone != null && !phone.isBlank()
+                    && address != null && !address.isBlank()) {
+                log.info("[T11] 成团建单使用参团地址快照 requestKey={} userId={}", requestKey, userId);
+                return new String[]{name, phone, address};
+            }
+            return null;
         }
-        var addr = resp.data();
-        log.info("[T10] 系统单收货人已解析 requestKey={} userId={} addressId={}", requestKey, userId, addr.id());
-        return new String[]{addr.receiverName(), addr.phone(), addr.fullAddress()};
+        // 兼容在途旧事件：默认地址（T10 语义）
+        try {
+            var resp = userAddressFeignClient.getDefaultAddress(userId);
+            if (resp == null || !resp.success() || resp.data() == null) {
+                return null;
+            }
+            var addr = resp.data();
+            log.info("[T10] 系统单收货人已解析 requestKey={} userId={} addressId={}", requestKey, userId, addr.id());
+            return new String[]{addr.receiverName(), addr.phone(), addr.fullAddress()};
+        } catch (BusinessException e) {
+            return null;
+        }
     }
 
     /** 建单失败事件（稳定 eventId，运营处置依据） */

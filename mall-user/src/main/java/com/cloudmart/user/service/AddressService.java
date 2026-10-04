@@ -19,4 +19,7 @@ public interface AddressService {
     ShippingAddressVO setDefaultAddress(Long userId, Long addressId);
 
     ShippingAddressVO getDefaultAddress(Long userId);
+
+    /** T11：按 ID 取本人地址（归属校验；成团建单地址快照用） */
+    com.cloudmart.user.vo.ShippingAddressVO getAddressOwned(Long userId, Long addressId);
 }

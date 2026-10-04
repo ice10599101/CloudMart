@@ -67,6 +67,7 @@ class GroupActivityServiceImplTest {
     private HashOperations<String, Object, Object> hashOperations;
 
     private GroupActivityServiceImpl groupActivityService;
+    private com.cloudmart.marketing.feign.UserAddressFeignClient userAddressFeignClient;
 
     private static final Long USER_ID = 1001L;
     private static final Long ACTIVITY_ID = 2001L;
@@ -77,10 +78,17 @@ class GroupActivityServiceImplTest {
     private GroupActivity enabledActivity;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
+        userAddressFeignClient = org.mockito.Mockito.mock(com.cloudmart.marketing.feign.UserAddressFeignClient.class);
+        org.mockito.Mockito.lenient()
+                .when(userAddressFeignClient.getDefaultAddress(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                        new com.cloudmart.marketing.feign.UserAddressFeignClient.AddressSnapshot(
+                                5L, "张三", "13800000000", "广东", "深圳", "南山", "科技园", true)));
         groupActivityService = new GroupActivityServiceImpl(
                 activityMapper, groupOrderMapper, memberMapper, converter,
-                redisTemplate, outboxService, new ObjectMapper());
+                redisTemplate, outboxService, new ObjectMapper(), userAddressFeignClient);
 
         enabledActivity = new GroupActivity();
         enabledActivity.setId(ACTIVITY_ID);
@@ -136,7 +144,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("活动不存在 → ACTIVITY_NOT_FOUND")
         void joinGroup_activityNotFound_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID, null);
             when(activityMapper.selectById(ACTIVITY_ID)).thenReturn(null);
 
             assertThatThrownBy(() -> groupActivityService.joinGroup(USER_ID, request))
@@ -148,7 +156,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("活动未启用/未在进行中 → 拒绝")
         void joinGroup_activityNotAvailable_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID, null);
             enabledActivity.setStatus("DISABLED");
 
             assertThatThrownBy(() -> groupActivityService.joinGroup(USER_ID, request))
@@ -167,7 +175,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：参团组不属于该活动 → GROUP_ACTIVITY_MISMATCH（活动 A 不接受活动 B 的组）")
         void joinGroup_groupActivityMismatch_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             GroupOrder otherActivityResult = pendingGroup();
             otherActivityResult.setActivityId(9999L);
             when(groupOrderMapper.selectById(GROUP_ORDER_ID)).thenReturn(otherActivityResult);
@@ -181,7 +189,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：参团组已终态（非 PENDING）→ GROUP_NOT_PENDING")
         void joinGroup_groupNotPending_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             GroupOrder settled = pendingGroup();
             settled.setStatus("SUCCESS");
             when(groupOrderMapper.selectById(GROUP_ORDER_ID)).thenReturn(settled);
@@ -195,7 +203,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：开团数原子递增 0 行 → MAX_GROUPS_REACHED（不再读改写）")
         void openGroup_maxGroupsReached_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(null, ACTIVITY_ID, null);
             enabledActivity.setMaxGroups(2);
             when(groupOrderMapper.incrementActivityGroups(ACTIVITY_ID)).thenReturn(0);
 
@@ -208,7 +216,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("Redis 预筛拒绝（-3 已参过活动）→ USER_ALREADY_JOINED_ACTIVITY")
         void joinGroup_luaPrefilterAlreadyJoined_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString(), anyString(), anyString(), anyString()))
                     .thenReturn(List.of(-3));
 
@@ -221,7 +229,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：成员唯一键冲突（预筛投影陈旧）→ DB 裁决 USER_ALREADY_JOINED_ACTIVITY")
         void joinGroup_duplicateMemberInsert_dbAuthorityRejects() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             when(memberMapper.insert(any(GroupMember.class)))
                     .thenThrow(new DuplicateKeyException("uk_group_members_activity_user"));
 
@@ -234,7 +242,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：DB 人数递增 0 行（满员/已终态）→ GROUP_FULL")
         void joinGroup_memberCountIncrementFails_throwsException() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             when(groupOrderMapper.incrementMemberCount(GROUP_ORDER_ID)).thenReturn(0);
 
             assertThatThrownBy(() -> groupActivityService.joinGroup(USER_ID, request))
@@ -246,7 +254,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("参团成功（未成团）→ CAS 成团不生效（人数不足），无成团事件")
         void joinGroup_successNoGroupFormation_returnsDto() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             // 未成团：markSuccess CAS 返回 0（真实 SQL 由 current_number >= target_number 裁决）
             when(groupOrderMapper.markSuccess(eq(GROUP_ORDER_ID), any())).thenReturn(0);
 
@@ -262,7 +270,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：成团 → CAS 落 SUCCESS + 同事务 Outbox 事件（稳定 eventId、价格快照）")
         void joinGroup_groupSuccess_recordsOutboxEvent() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             GroupOrder full = pendingGroup();
             full.setCurrentNumber(3);
             when(groupOrderMapper.selectById(GROUP_ORDER_ID)).thenReturn(pendingGroup(), full);
@@ -285,7 +293,7 @@ class GroupActivityServiceImplTest {
         @Test
         @DisplayName("T10：成团 CAS 失败（超时方已过期）→ 不发事件，正常返回")
         void joinGroup_successCasLost_noEvent() {
-            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID);
+            JoinGroupRequest request = new JoinGroupRequest(GROUP_ORDER_ID, ACTIVITY_ID, null);
             when(groupOrderMapper.markSuccess(eq(GROUP_ORDER_ID), any())).thenReturn(0);
 
             GroupOrderDTO result = groupActivityService.joinGroup(USER_ID, request);

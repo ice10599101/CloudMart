@@ -42,6 +42,18 @@ public class InternalUserController {
      * T09/T10：系统建单（秒杀/拼团消费者）取用户默认收货地址——无默认地址
      * 返回 null（调用方以 ADDRESS_REQUIRED 业务失败处置）。
      */
+    /**
+     * T11：按 ID 查地址（参团快照权威）——校验归属后返回；地址必须存在且属于该用户。
+     */
+    @GetMapping("/{userId}/addresses/{addressId}")
+    @Operation(summary = "按 ID 查地址", description = "T11 参团地址快照：归属校验通过后返回完整地址")
+    public ApiResponse<com.cloudmart.user.vo.ShippingAddressVO> addressById(
+            @PathVariable("userId") Long userId,
+            @PathVariable("addressId") Long addressId) {
+        var address = addressService.getAddressOwned(userId, addressId);
+        return ApiResponse.ok(address);
+    }
+
     @GetMapping("/{userId}/default-address")
     @Operation(summary = "默认收货地址", description = "按用户 ID 查询默认收货地址；无则返回 null（服务令牌可达）")
     public ApiResponse<ShippingAddressVO> defaultAddress(@PathVariable("userId") Long userId) {

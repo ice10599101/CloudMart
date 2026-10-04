@@ -151,4 +151,10 @@ public class AddressServiceImpl implements AddressService {
                         .set(ShippingAddress::getIsDefault, 0)
         );
     }
+
+    @Override
+    public com.cloudmart.user.vo.ShippingAddressVO getAddressOwned(Long userId, Long addressId) {
+        ShippingAddress entity = getAddressAndVerifyOwnership(userId, addressId);
+        return addressConverter.toVO(entity);
+    }
 }

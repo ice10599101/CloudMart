@@ -20,14 +20,21 @@ public interface GroupOrderMapper extends BaseMapper<GroupOrder> {
             + "WHERE id = #{activityId} AND (max_groups = 0 OR current_groups < max_groups)")
     int incrementActivityGroups(@Param("activityId") Long activityId);
 
-    /** 参团人数原子递增（0 行 = 组已满或已终态）——DB 权威计数，Redis 投影只做预筛 */
+    /** 参团人数原子递增（0 行 = 组已满/已终态/已到期）——DB 权威计数，Redis 投影只做预筛。
+     * T11：条件含 status=OPEN 语义（PENDING）且未到期，到期同时加入被拒绝。 */
     @Update("UPDATE group_orders SET current_number = current_number + 1 "
-            + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number < target_number")
+            + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number < target_number "
+            + "AND expire_time > NOW()")
     int incrementMemberCount(@Param("groupOrderId") Long groupOrderId);
 
-    /** CAS PENDING → SUCCESS 成团（0 = 已终态/人数不足，重复成团消息无害） */
+    /**
+     * CAS PENDING → SUCCESS 成团（0 = 已终态/人数不足，重复成团消息无害）。
+     * T11：绑定 expire_time > now——最后一人加入与到期扫描竞争时，过期团只能
+     * 走 EXPIRED 终态，不得被并发加入推进成成功。
+     */
     @Update("UPDATE group_orders SET status = 'SUCCESS', success_time = #{successTime} "
-            + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number >= target_number")
+            + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number >= target_number "
+            + "AND expire_time > NOW()")
     int markSuccess(@Param("groupOrderId") Long groupOrderId, @Param("successTime") LocalDateTime successTime);
 
     /** CAS PENDING → EXPIRED 过期（0 = 已终态；与成团竞争只允许一方生效） */
