@@ -46,9 +46,14 @@ public interface OutboxEventMapper {
                                           @Param("leaseSeconds") int leaseSeconds,
                                           @Param("batch") int batch);
 
+    /**
+     * T16 fencing：认领即递增 lease_version——回写按 (owner, leaseVersion) 校验，
+     * 失去租约的旧实例迟到回写 0 行被拒。
+     */
     @Update("""
             UPDATE outbox_event
-            SET status = 'SENDING', locked_by = #{workerId}, locked_at = NOW(3), updated_at = NOW(3)
+            SET status = 'SENDING', locked_by = #{workerId}, locked_at = NOW(3),
+                lease_version = lease_version + 1, updated_at = NOW(3)
             WHERE (status IN ('PENDING', 'FAILED') AND next_retry_at <= NOW(3))
                OR (status = 'SENDING' AND locked_at < DATE_SUB(NOW(3), INTERVAL #{leaseSeconds} SECOND))
             ORDER BY id
@@ -58,12 +63,18 @@ public interface OutboxEventMapper {
                    @Param("leaseSeconds") int leaseSeconds,
                    @Param("batch") int batch);
 
+    /**
+     * T16 fencing：SENT 回写绑定租约持有者与版本——租约过期被其他实例接管后，
+     * 旧实例的迟到回写 0 行被拒（不覆盖新执行者的事实）。
+     */
     @Update("""
             UPDATE outbox_event
             SET status = 'SENT', sent_at = NOW(3), updated_at = NOW(3)
-            WHERE id = #{id}
+            WHERE id = #{id} AND status = 'SENDING'
+              AND locked_by = #{workerId} AND lease_version = #{leaseVersion}
             """)
-    int markSent(@Param("id") Long id);
+    int markSent(@Param("id") Long id, @Param("workerId") String workerId,
+                 @Param("leaseVersion") Integer leaseVersion);
 
     @Update("""
             UPDATE outbox_event
@@ -76,8 +87,11 @@ public interface OutboxEventMapper {
                 locked_at = NULL,
                 updated_at = NOW(3)
             WHERE id = #{id} AND status = 'SENDING'
+              AND locked_by = #{workerId} AND lease_version = #{leaseVersion}
             """)
     int markFailure(@Param("id") Long id,
+                    @Param("workerId") String workerId,
+                    @Param("leaseVersion") Integer leaseVersion,
                     @Param("maxAttempts") int maxAttempts,
                     @Param("backoffMillis") long backoffMillis,
                     @Param("lastError") String lastError);

@@ -123,17 +123,30 @@ public class WishOutboxService {
         }
     }
 
-    /** 条件 UPDATE 抢租约：只有占用成功的实例投递（fencing 语义）。 */
+    /**
+     * 条件 UPDATE 抢租约：只有占用成功的实例投递；认领递增 leaseVersion（T16 fencing），
+     * 认领成功后回读权威租约版本（内存实体版本落后于 DB 自增，不能直接用于回写校验）。
+     */
     private boolean tryLease(WishOutboxEvent event) {
         LocalDateTime leaseUntil = LocalDateTime.now(ZoneId.of("UTC")).plusSeconds(30);
         int claimed = outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
                 .set(WishOutboxEvent::getLeaseOwner, instanceId)
                 .set(WishOutboxEvent::getLeaseUntil, leaseUntil)
+                .setSql("lease_version = lease_version + 1")
                 .eq(WishOutboxEvent::getEventId, event.getEventId())
                 .eq(WishOutboxEvent::getStatus, "PENDING")
                 .and(w -> w.isNull(WishOutboxEvent::getLeaseUntil)
                         .or().lt(WishOutboxEvent::getLeaseUntil, LocalDateTime.now(ZoneId.of("UTC")))));
-        return claimed == 1;
+        if (claimed != 1) {
+            return false;
+        }
+        WishOutboxEvent leased = outboxMapper.selectOne(new LambdaQueryWrapper<WishOutboxEvent>()
+                .eq(WishOutboxEvent::getEventId, event.getEventId()));
+        if (leased == null || !instanceId.equals(leased.getLeaseOwner())) {
+            return false;
+        }
+        event.setLeaseVersion(leased.getLeaseVersion());
+        return true;
     }
 
     private void deliver(WishOutboxEvent event) {
@@ -146,36 +159,55 @@ public class WishOutboxService {
         }
     }
 
+    /** T16 fencing：回写绑定租约持有者与版本——失去租约的旧实例迟到回写 0 行被拒。 */
     private void markPublished(WishOutboxEvent event) {
-        outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
+        int updated = outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
                 .set(WishOutboxEvent::getStatus, "PUBLISHED")
                 .set(WishOutboxEvent::getPublishedAt, LocalDateTime.now(ZoneId.of("UTC")))
                 .eq(WishOutboxEvent::getEventId, event.getEventId())
-                .eq(WishOutboxEvent::getStatus, "PENDING"));
+                .eq(WishOutboxEvent::getStatus, "PENDING")
+                .eq(WishOutboxEvent::getLeaseOwner, instanceId)
+                .eq(WishOutboxEvent::getLeaseVersion, event.getLeaseVersion() == null ? 0 : event.getLeaseVersion()));
+        if (updated == 0) {
+            log.warn("[T16] 迟到 PUBLISHED 回写被拒（租约已被接管） eventId={}", event.getEventId());
+        }
     }
 
     private void markRetryOrDead(WishOutboxEvent event, Exception cause) {
         int attempts = (event.getAttempts() == null ? 0 : event.getAttempts()) + 1;
+        int expectedLeaseVersion = event.getLeaseVersion() == null ? 0 : event.getLeaseVersion();
         if (attempts >= MAX_ATTEMPTS) {
-            outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
+            int updated = outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
                     .set(WishOutboxEvent::getStatus, "DEAD")
                     .set(WishOutboxEvent::getAttempts, attempts)
                     .set(WishOutboxEvent::getLeaseOwner, instanceId)
                     .set(WishOutboxEvent::getLeaseUntil, null)
                     .eq(WishOutboxEvent::getEventId, event.getEventId())
-                    .eq(WishOutboxEvent::getStatus, "PENDING"));
+                    .eq(WishOutboxEvent::getStatus, "PENDING")
+                    .eq(WishOutboxEvent::getLeaseOwner, instanceId)
+                    .eq(WishOutboxEvent::getLeaseVersion, expectedLeaseVersion));
+            if (updated == 0) {
+                log.warn("[T16] 迟到 DEAD 回写被拒（租约已被接管） eventId={}", event.getEventId());
+                return;
+            }
             log.error("[OUTBOX DEAD] eventId={} type={} aggregate={}/{}——需人工按原 eventId 重试",
                     event.getEventId(), event.getEventType(), event.getAggregateType(), event.getAggregateId(), cause);
             return;
         }
         long backoff = BACKOFF_SECONDS[Math.min(attempts - 1, BACKOFF_SECONDS.length - 1)];
-        outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
+        int updated = outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
                 .set(WishOutboxEvent::getAttempts, attempts)
                 .set(WishOutboxEvent::getNextAttemptAt,
                         LocalDateTime.now(ZoneId.of("UTC")).plusSeconds(backoff))
                 .set(WishOutboxEvent::getLeaseUntil, null)
                 .eq(WishOutboxEvent::getEventId, event.getEventId())
-                .eq(WishOutboxEvent::getStatus, "PENDING"));
+                .eq(WishOutboxEvent::getStatus, "PENDING")
+                .eq(WishOutboxEvent::getLeaseOwner, instanceId)
+                .eq(WishOutboxEvent::getLeaseVersion, expectedLeaseVersion));
+        if (updated == 0) {
+            log.warn("[T16] 迟到 RETRY 回写被拒（租约已被接管） eventId={}", event.getEventId());
+            return;
+        }
         log.warn("[OUTBOX RETRY] eventId={} type={} attempts={} next={}s cause={}",
                 event.getEventId(), event.getEventType(), attempts, backoff, exMessage(cause));
     }

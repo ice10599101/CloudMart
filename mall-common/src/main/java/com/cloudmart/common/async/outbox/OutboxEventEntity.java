@@ -56,6 +56,10 @@ public class OutboxEventEntity {
     @TableField("locked_at")
     private LocalDateTime lockedAt;
 
+    /** 租约版本（T16 fencing：每次认领 +1，状态回写校验，旧实例迟到回写被拒） */
+    @TableField("lease_version")
+    private Integer leaseVersion;
+
     @TableField("sent_at")
     private LocalDateTime sentAt;
 
@@ -92,6 +96,8 @@ public class OutboxEventEntity {
     public String getLockedBy() { return lockedBy; }
     public void setLockedBy(String lockedBy) { this.lockedBy = lockedBy; }
     public LocalDateTime getLockedAt() { return lockedAt; }
+    public Integer getLeaseVersion() { return leaseVersion; }
+    public void setLeaseVersion(Integer leaseVersion) { this.leaseVersion = leaseVersion; }
     public void setLockedAt(LocalDateTime lockedAt) { this.lockedAt = lockedAt; }
     public LocalDateTime getSentAt() { return sentAt; }
     public void setSentAt(LocalDateTime sentAt) { this.sentAt = sentAt; }

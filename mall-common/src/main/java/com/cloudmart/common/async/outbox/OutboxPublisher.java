@@ -71,20 +71,28 @@ public class OutboxPublisher {
                 event.getPayload());
         try {
             delivery.deliver(envelope);
-            mapper.markSent(event.getId());
+            // T16 fencing：回写绑定 (owner, leaseVersion)——租约被接管后迟到回写 0 行被拒
+            int updated = mapper.markSent(event.getId(), workerId, event.getLeaseVersion());
+            if (updated == 0) {
+                log.warn("[ASYNC01] 迟到 SENT 回写被拒（租约已被接管，不覆盖新执行者） eventId={}",
+                        envelope.eventId());
+                return;
+            }
             log.info("[ASYNC01] 事件投递成功 type={} eventId={} aggregate={}",
                     envelope.eventType(), envelope.eventId(), envelope.aggregateId());
         } catch (Exception e) {
             long backoff = retryPolicy.nextBackoffMillis(
                     event.getAttempts() == null ? 0 : event.getAttempts());
-            int updated = mapper.markFailure(event.getId(), retryPolicy.maxAttempts(), backoff,
-                    sanitize(e.getMessage()));
-            if (updated > 0) {
-                log.warn("[ASYNC01] 事件投递失败 type={} eventId={} attempts={} backoff={}ms error={}",
-                        envelope.eventType(), envelope.eventId(),
-                        (event.getAttempts() == null ? 0 : event.getAttempts()) + 1, backoff,
-                        sanitize(e.getMessage()));
+            int updated = mapper.markFailure(event.getId(), workerId, event.getLeaseVersion(),
+                    retryPolicy.maxAttempts(), backoff, sanitize(e.getMessage()));
+            if (updated == 0) {
+                log.warn("[ASYNC01] 迟到 FAILED 回写被拒（租约已被接管） eventId={}", envelope.eventId());
+                return;
             }
+            log.warn("[ASYNC01] 事件投递失败 type={} eventId={} attempts={} backoff={}ms error={}",
+                    envelope.eventType(), envelope.eventId(),
+                    (event.getAttempts() == null ? 0 : event.getAttempts()) + 1, backoff,
+                    sanitize(e.getMessage()));
         }
     }
 

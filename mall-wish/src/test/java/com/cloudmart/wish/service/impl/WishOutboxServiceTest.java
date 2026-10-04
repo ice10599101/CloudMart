@@ -164,6 +164,9 @@ class WishOutboxServiceTest {
             outboxService.publish("WALLET", 1001L, 0L, "HelpedRecorded", Map.of("userId", 1001L));
             WishOutboxEvent event = captureInsertedEvent();
             when(outboxMapper.selectList(any())).thenReturn(List.of(event));
+            // T16：tryLease 认领成功后回读权威租约版本（回读行已带持有者）
+            event.setLeaseOwner("test-instance");
+            when(outboxMapper.selectOne(any())).thenReturn(event);
             when(outboxMapper.update(any(), any())).thenReturn(1);
 
             ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
@@ -190,6 +193,8 @@ class WishOutboxServiceTest {
                     Map.of("wishId", 2001L, "actorId", 1L));
             WishOutboxEvent event = captureInsertedEvent();
             when(outboxMapper.selectList(any())).thenReturn(List.of(event));
+            event.setLeaseOwner("test-instance");
+            when(outboxMapper.selectOne(any())).thenReturn(event);
             when(outboxMapper.update(any(), any())).thenReturn(1);
 
             outboxService.relayDueEvents();

@@ -51,6 +51,7 @@ class OutboxTest {
         e.setAttempts(attempts);
         e.setLockedBy("worker");
         e.setLockedAt(LocalDateTime.now());
+        e.setLeaseVersion(7);
         e.setCreatedAt(LocalDateTime.now());
         return e;
     }
@@ -75,7 +76,7 @@ class OutboxTest {
     }
 
     @Test
-    @DisplayName("投递成功标记 SENT")
+    @DisplayName("投递成功标记 SENT（回写绑定租约 owner+leaseVersion，T16 fencing）")
     void publishPending_success_marksSent() {
         when(mapper.claimBatch(anyString(), anyInt(), anyInt())).thenReturn(1);
         when(mapper.selectClaimed(anyString(), anyInt(), anyInt()))
@@ -84,8 +85,8 @@ class OutboxTest {
         publisher.publishPending();
 
         verify(delivery).deliver(any(EventEnvelope.class));
-        verify(mapper).markSent(1L);
-        verify(mapper, never()).markFailure(anyLong(), anyInt(), anyLong(), anyString());
+        verify(mapper).markSent(eq(1L), anyString(), eq(7));
+        verify(mapper, never()).markFailure(anyLong(), anyString(), anyInt(), anyInt(), anyLong(), anyString());
     }
 
     @Test
@@ -100,9 +101,23 @@ class OutboxTest {
         publisher.publishPending();
 
         ArgumentCaptor<String> errorCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mapper).markFailure(eq(2L), eq(12), anyLong(), errorCaptor.capture());
+        verify(mapper).markFailure(eq(2L), anyString(), eq(7), eq(12), anyLong(), errorCaptor.capture());
         assertThat(errorCaptor.getValue()).doesNotContain("super-secret");
         assertThat(errorCaptor.getValue()).contains("password=***");
+    }
+
+    @Test
+    @DisplayName("T16 fencing：租约被接管后旧实例迟到 SENT 回写 0 行被拒，不重复标记")
+    void publishPending_staleLease_sentWriteRejected() {
+        when(mapper.claimBatch(anyString(), anyInt(), anyInt())).thenReturn(1);
+        when(mapper.selectClaimed(anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of(event(3L, "evt-3", 0, "SENDING")));
+        when(mapper.markSent(anyLong(), anyString(), anyInt())).thenReturn(0);
+
+        publisher.publishPending();
+
+        verify(delivery).deliver(any(EventEnvelope.class));
+        verify(mapper, never()).markFailure(anyLong(), anyString(), anyInt(), anyInt(), anyLong(), anyString());
     }
 
     @Test

@@ -45,6 +45,9 @@ public class WishOutboxEvent {
 
     private LocalDateTime leaseUntil;
 
+    /** 租约版本（T16 fencing：每次认领 +1，回写校验，旧实例迟到回写被拒） */
+    private Integer leaseVersion;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime publishedAt;
