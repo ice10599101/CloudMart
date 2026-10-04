@@ -6,6 +6,7 @@ import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.vo.PetMinigameRoundVO;
 import com.cloudmart.pet.service.impl.PetMinigameService;
 import com.cloudmart.pet.service.impl.PetCooperationService;
+import com.cloudmart.pet.service.impl.PetDigestService;
 import com.cloudmart.pet.service.impl.PetCustodyCareService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +39,8 @@ public class PetPlayFeatureController {
     private final PetCustodyCareService custodyCareService;
     /** R27：合作/图鉴拆分为独立应用服务 */
     private final PetCooperationService cooperationService;
+    /** R27：离线摘要拆分为独立应用服务 */
+    private final PetDigestService digestService;
 
     // ---------------- N04 ----------------
 
@@ -110,7 +113,7 @@ public class PetPlayFeatureController {
     @Operation(summary = "离线摘要（N05）", description = "按上次确认游标聚合离线变化/待领取/来访/里程碑；查询不重发奖励")
     public ApiResponse<Map<String, Object>> offlineDigest(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(playService.offlineDigest(userId));
+        return ApiResponse.ok(digestService.offlineDigest(userId));
     }
 
     @PostMapping("/offline-digest/confirm")
@@ -122,7 +125,7 @@ public class PetPlayFeatureController {
         java.time.LocalDateTime throughAt = body == null || body.get("throughAt") == null ? null
                 : java.time.OffsetDateTime.parse(String.valueOf(body.get("throughAt")))
                         .atZoneSameInstant(java.time.ZoneOffset.UTC).toLocalDateTime();
-        return ApiResponse.ok(playService.confirmOfflineDigest(userId, throughAt));
+        return ApiResponse.ok(digestService.confirmOfflineDigest(userId, throughAt));
     }
 
     @PostMapping("/cooperation/{cooperationId}/claim")
@@ -130,7 +133,7 @@ public class PetPlayFeatureController {
     public ApiResponse<Map<String, Object>> claimCooperation(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("cooperationId") Long cooperationId) {
-        return ApiResponse.ok(playService.claimCooperationReward(userId, cooperationId));
+        return ApiResponse.ok(cooperationService.claimCooperationReward(userId, cooperationId));
     }
 
     @PostMapping("/custody/end")

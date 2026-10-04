@@ -11,6 +11,10 @@ import com.cloudmart.pet.entity.PetCooperation;
 import com.cloudmart.pet.entity.PetCooperationContribution;
 import com.cloudmart.pet.entity.PetCollectionEntry;
 import com.cloudmart.pet.entity.PetCollectionRecord;
+import com.cloudmart.pet.entity.PetInventory;
+import com.cloudmart.pet.entity.PetRewardClaim;
+import com.cloudmart.pet.entity.PetWallMessage;
+import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.enums.PetQuestType;
 import com.cloudmart.pet.repository.PetCooperationMapper;
 import com.cloudmart.pet.repository.PetCooperationContributionMapper;
@@ -391,4 +395,98 @@ public class PetCooperationService {
         }
         return pet;
     }
+
+    /**
+     * N06 个人领取（B02/BE-01）：pet_reward_claim 唯一事实裁决——同一合作每人至多领取一次，
+     * 奖励类型在首次领取时冻结（无装饰则发物品；已拥有则固定替代币），只能其一；
+     * 重放（换 Idempotency-Key 再领）返回冻结的原结果，杜绝"先领物再领币"双领；
+     * 奖励归属合作参与时绑定的宠物（inviter/invitee petId），切换主宠不改变。
+     */
+    @Transactional
+    public Map<String, Object> claimCooperationReward(Long userId, Long cooperationId) {
+        PetCooperation coop = cooperationMapper.selectById(cooperationId);
+        if (coop == null || (!userId.equals(coop.getInviterUserId()) && !userId.equals(coop.getInviteeUserId()))) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_NOT_FOUND, "合作任务不存在");
+        }
+        if (!"COMPLETED".equals(coop.getStatus())) {
+            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED, "合作任务尚未达成");
+        }
+        guardService.lockGuard(userId);
+        Long boundPetId = userId.equals(coop.getInviterUserId())
+                ? coop.getInviterPetId() : coop.getInviteePetId();
+        com.cloudmart.pet.entity.PetRewardClaim claim = new com.cloudmart.pet.entity.PetRewardClaim();
+        claim.setUserId(userId);
+        claim.setPetId(boundPetId);
+        claim.setBizType("COOP_REWARD");
+        claim.setBizId(String.valueOf(cooperationId));
+        claim.setRewardSlot("MAIN");
+        claim.setWalletDomain("PET");
+        claim.setStatus("PROCESSING");
+        boolean first;
+        try {
+            rewardClaimMapper.insert(claim);
+            first = true;
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            first = false;
+            claim = rewardClaimMapper.selectOne(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetRewardClaim>()
+                    .eq(com.cloudmart.pet.entity.PetRewardClaim::getUserId, userId)
+                    .eq(com.cloudmart.pet.entity.PetRewardClaim::getBizType, "COOP_REWARD")
+                    .eq(com.cloudmart.pet.entity.PetRewardClaim::getBizId, String.valueOf(cooperationId))
+                    .eq(com.cloudmart.pet.entity.PetRewardClaim::getRewardSlot, "MAIN"));
+            if (claim == null) {
+                throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS, "奖励领取处理中，请稍后查询");
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("cooperationId", cooperationId);
+        if (!first) {
+            if (!"COMPLETED".equals(claim.getStatus())) {
+                throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS, "奖励领取处理中，请稍后查询");
+            }
+            result.put("reward", PetJsonUtils.parse(claim.getResultJson(),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    }));
+            result.put("duplicate", true);
+            return result;
+        }
+
+        boolean owned = inventoryMapper.selectCount(
+                new LambdaQueryWrapper<PetInventory>()
+                        .eq(PetInventory::getUserId, userId)
+                        .eq(PetInventory::getItemType, "FURNITURE")
+                        .eq(PetInventory::getItemCode, COOP_DECOR_CODE)) > 0;
+        Map<String, Object> reward;
+        if (!owned) {
+            com.cloudmart.pet.entity.PetInventory decor = new com.cloudmart.pet.entity.PetInventory();
+            decor.setPetId(boundPetId);
+            decor.setUserId(userId);
+            decor.setItemType("FURNITURE");
+            decor.setItemCode(COOP_DECOR_CODE);
+            decor.setQuantity(1);
+            decor.setEquipped(false);
+            decor.setAcquiredAt(petClock.nowUtc());
+            try {
+                inventoryMapper.insert(decor);
+                reward = Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                reward = Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE, "duplicate", true);
+            }
+        } else {
+            PetEconomyService.WalletSettlement settlement = economyService.earn(
+                    userId, boundPetId, "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null,
+                    cooperationId, userId);
+            if (!settlement.isCompleted()) {
+                throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING, "替代星光结算中，稍后按原操作查询");
+            }
+            reward = Map.of("type", "STARLIGHT", "amount", settlement.credited());
+        }
+        claim.setStatus("COMPLETED");
+        claim.setRewardSnapshot(PetJsonUtils.toJson(Map.of("policy", "ITEM_FIRST_ELSE_COIN")));
+        claim.setResultJson(PetJsonUtils.toJson(reward));
+        rewardClaimMapper.updateById(claim);
+        result.put("reward", reward);
+        return result;
+    }
+
 }

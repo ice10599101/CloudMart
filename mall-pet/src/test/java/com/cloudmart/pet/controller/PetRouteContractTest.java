@@ -4,6 +4,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.service.impl.PetCompanionFeatureService;
 import com.cloudmart.pet.service.impl.PetCooperationService;
+import com.cloudmart.pet.service.impl.PetDigestService;
 import com.cloudmart.pet.service.impl.PetCustodyCareService;
 import com.cloudmart.pet.service.impl.PetMinigameService;
 import com.cloudmart.pet.service.impl.PetPlayFeatureService;
@@ -61,7 +62,8 @@ class PetRouteContractTest {
                         new PetPlayFeatureController(mock(PetPlayFeatureService.class),
                         mock(PetMinigameService.class),
                         mock(PetCustodyCareService.class),
-                        mock(PetCooperationService.class)))
+                        mock(PetCooperationService.class),
+                        mock(PetDigestService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
