@@ -63,6 +63,8 @@ class PetIntimacyServiceImplTest {
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, Pet.class);
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, PetCompanionSession.class);
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, PetCompanionDaily.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant,
+                com.cloudmart.pet.entity.PetCompanionDailyPet.class);
     }
 
     @BeforeEach
@@ -77,6 +79,7 @@ class PetIntimacyServiceImplTest {
         org.mockito.Mockito.lenient().when(guardService.lockGuard(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new com.cloudmart.pet.entity.PetUserGuard());
         intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetCompanionDailyPetMapper.class),
                 properties, eventProducer, outboxService, org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), petClock, guardService,
                 // R36：COMPANION 任务事件桩——捕获调用供断言（getIfAvailable 返回 null 也不抛）
                 new org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService>() {

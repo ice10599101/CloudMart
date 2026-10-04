@@ -323,6 +323,8 @@ public class PetProperties {
         private int companionDailyPointCap = 8;
         /** 陪伴：每日计入的秒数上限（超出不计，防止挂机） */
         private int companionDailyCapSeconds = 7200;
+        /** 陪伴：本宠当日有效陪伴达到该秒数才计一个陪伴日/连续天数（R36，0 秒/超额不加日） */
+        private int companionQualifiedDayThresholdSeconds = 60;
         /** 陪伴心跳会话失效间隔（秒）：超过该间隔无有效心跳则会话失效，不补计中断区间（B05） */
         private long companionSessionTimeoutSeconds = 90;
         /** 亲密度等级阈值（升序，首项 0） */

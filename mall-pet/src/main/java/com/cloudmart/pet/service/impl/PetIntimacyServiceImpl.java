@@ -7,6 +7,7 @@ import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetCompanionDaily;
+import com.cloudmart.pet.entity.PetCompanionDailyPet;
 import com.cloudmart.pet.entity.PetCompanionSession;
 import com.cloudmart.pet.enums.PetIntimacySource;
 import com.cloudmart.pet.mq.PetEventProducer;
@@ -48,6 +49,8 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     private final PetMapper petMapper;
     private final PetCompanionSessionMapper sessionMapper;
     private final PetCompanionDailyMapper dailyMapper;
+    /** R36：按宠物可审计日分账（pet_companion_daily_pet） */
+    private final com.cloudmart.pet.repository.PetCompanionDailyPetMapper petDailyMapper;
     private final PetProperties properties;
     private final PetEventProducer eventProducer;
     private final PetOutboxService outboxService;
@@ -60,6 +63,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     public PetIntimacyServiceImpl(PetMapper petMapper,
                                   PetCompanionSessionMapper sessionMapper,
                                   PetCompanionDailyMapper dailyMapper,
+                                  com.cloudmart.pet.repository.PetCompanionDailyPetMapper petDailyMapper,
                                   PetProperties properties,
                                   PetEventProducer eventProducer,
                                   PetOutboxService outboxService,
@@ -70,6 +74,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
         this.petMapper = petMapper;
         this.sessionMapper = sessionMapper;
         this.dailyMapper = dailyMapper;
+        this.petDailyMapper = petDailyMapper;
         this.properties = properties;
         this.eventProducer = eventProducer;
         this.outboxService = outboxService;
@@ -249,15 +254,16 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             petMapper.update(null, petWrapper);
             pet.setCompanionSeconds((pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L) + accepted);
 
-            // R36：COMPANION 任务按新增完整 60 秒产生事件（floor 差值——30s+30s 应计 1 分钟，
-            // 不按心跳次数累计；原实现无 record(COMPANION) 调用，任务进度永远不可达）
-            int oldSeconds = already;
-            int newSeconds = oldSeconds + accepted;
-            int minutesDelta = newSeconds / 60 - oldSeconds / 60;
+            // R36：按宠物可审计日分账——用户日总额照旧，本宠明细独立累计（不复制用户总额）；
+            // 分钟任务事件按本宠分账的 floor 差值产生（30s+30s 应计 1 分钟，不按心跳次数），
+            // qualifiedDay 达到阈值才计有效陪伴日
+            int questMinutesDelta = recordPetDailyLedger(userId, pet.getId(), date, accepted);
+
+            // R36：COMPANION 任务事件按本宠分账新增完整分钟数触发
             com.cloudmart.pet.service.PetDailyQuestService questServiceBean = questService.getIfAvailable();
-            if (minutesDelta > 0 && questServiceBean != null) {
+            if (questMinutesDelta > 0 && questServiceBean != null) {
                 try {
-                    questServiceBean.record(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION, minutesDelta);
+                    questServiceBean.record(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION, questMinutesDelta);
                 } catch (Exception questError) {
                     log.warn("COMPANION 任务事件失败（不阻断陪伴入账）: petId={}", pet.getId(), questError);
                 }
@@ -285,6 +291,52 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             maintainLifetimeCounters(pet, petClock.businessDate());
         }
         return totalCredited;
+    }
+
+    /**
+     * R36：本宠当日分账 upsert（V55 pet_companion_daily_pet）。
+     * 返回本次新增的完整任务分钟数（floor 差值）；qualifiedDay 首次达标置 1。
+     * 并发撞 uk(pet_id, business_date) 时按已存在行重算（不重复计秒）。
+     */
+    private int recordPetDailyLedger(Long userId, Long petId, LocalDate businessDate, int acceptedSeconds) {
+        int threshold = Math.max(1, properties.getIntimacy().getCompanionQualifiedDayThresholdSeconds());
+        PetCompanionDailyPet ledger = petDailyMapper.selectOne(new LambdaQueryWrapper<PetCompanionDailyPet>()
+                .eq(PetCompanionDailyPet::getPetId, petId)
+                .eq(PetCompanionDailyPet::getBusinessDate, businessDate)
+                .last("LIMIT 1"));
+        int already = ledger != null && ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
+        int minutesDelta = (already + acceptedSeconds) / 60 - already / 60;
+        if (ledger == null) {
+            PetCompanionDailyPet fresh = new PetCompanionDailyPet();
+            fresh.setUserId(userId);
+            fresh.setPetId(petId);
+            fresh.setBusinessDate(businessDate);
+            fresh.setAcceptedSeconds(acceptedSeconds);
+            fresh.setGrantedMinutes(Math.max(0, minutesDelta));
+            fresh.setQualifiedDay(already + acceptedSeconds >= threshold ? 1 : 0);
+            try {
+                petDailyMapper.insert(fresh);
+                return Math.max(0, minutesDelta);
+            } catch (DuplicateKeyException concurrent) {
+                ledger = petDailyMapper.selectOne(new LambdaQueryWrapper<PetCompanionDailyPet>()
+                        .eq(PetCompanionDailyPet::getPetId, petId)
+                        .eq(PetCompanionDailyPet::getBusinessDate, businessDate)
+                        .last("LIMIT 1"));
+                if (ledger == null) {
+                    return 0;
+                }
+                already = ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
+                minutesDelta = (already + acceptedSeconds) / 60 - already / 60;
+            }
+        }
+        // 先用旧值判定达标再累加，避免依赖 MySQL SET 从左到右求值的隐式行为
+        petDailyMapper.update(null, new LambdaUpdateWrapper<PetCompanionDailyPet>()
+                .setSql("granted_minutes = granted_minutes + " + Math.max(0, minutesDelta))
+                .setSql("qualified_day = IF(accepted_seconds + " + acceptedSeconds + " >= " + threshold
+                        + ", 1, qualified_day)")
+                .setSql("accepted_seconds = accepted_seconds + " + acceptedSeconds)
+                .eq(PetCompanionDailyPet::getId, ledger.getId()));
+        return Math.max(0, minutesDelta);
     }
 
     private void maintainLifetimeCounters(Pet pet, LocalDate businessDate) {

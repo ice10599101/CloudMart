@@ -58,6 +58,8 @@ public class PetCooperationService {
     private final PetClock petClock;
     private final PetCooperationMapper cooperationMapper;
     private final PetCooperationContributionMapper contributionMapper;
+    /** R35：周成员名额表（UNIQUE user+week，接受时原子写入双方） */
+    private final com.cloudmart.pet.repository.PetCooperationMemberMapper memberMapper;
     private final PetCollectionEntryMapper collectionEntryMapper;
     private final PetCollectionRecordMapper collectionRecordMapper;
     private final com.cloudmart.pet.config.PetProperties properties;
@@ -73,6 +75,7 @@ public class PetCooperationService {
     public PetCooperationService(PetMapper petMapper, PetClock petClock,
                                  PetCooperationMapper cooperationMapper,
                                  PetCooperationContributionMapper contributionMapper,
+                                 com.cloudmart.pet.repository.PetCooperationMemberMapper memberMapper,
                                  PetCollectionEntryMapper collectionEntryMapper,
                                  PetCollectionRecordMapper collectionRecordMapper,
                                  com.cloudmart.pet.config.PetProperties properties,
@@ -87,6 +90,7 @@ public class PetCooperationService {
         this.petClock = petClock;
         this.cooperationMapper = cooperationMapper;
         this.contributionMapper = contributionMapper;
+        this.memberMapper = memberMapper;
         this.collectionEntryMapper = collectionEntryMapper;
         this.collectionRecordMapper = collectionRecordMapper;
         this.properties = properties;
@@ -140,9 +144,12 @@ public class PetCooperationService {
         // R35：周末口径统一——周五（剩余 3 个业务日：五/六/日）可组队，周六起新队禁止
         //（原实现创建分支先算 plusDays(2) 又内嵌 >=FRIDAY，放过周六/日）
         if (today.getDayOfWeek().getValue() >= DayOfWeek.SATURDAY.getValue()) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
                     "本周剩余时间不足，下周一再来组队吧");
         }
+        // R35：成员表周名额预检——本周已正式参与（无论 inviter/invitee 角色）不得再发起；
+        // uk_cooperation_inviter 只覆盖发起角色，挡不住"当周既已受邀入队又另起一队"
+        requireCooperationWeekSlotFree(userId, weekStart);
         PetCooperation cooperation = new PetCooperation();
         cooperation.setWeekStart(weekStart);
         cooperation.setInviterUserId(userId);
@@ -216,9 +223,40 @@ public class PetCooperationService {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "该邀请已被接受");
         }
+        // R35：周名额成员表——接受时原子写入双方（UNIQUE user+week 数据库权威）；
+        // 任一方本周已正式参与则整体回滚（含上方 CAS 状态迁移），不产生半队
+        insertCooperationMember(cooperation.getInviterUserId(), cooperation.getWeekStart(),
+                cooperation.getId(), "INVITER", cooperation.getInviterPetId());
+        insertCooperationMember(userId, cooperation.getWeekStart(),
+                cooperation.getId(), "INVITEE", pet.getId());
         Map<String, Object> result = new HashMap<>();
         result.put("status", "ACTIVE");
         return result;
+    }
+
+    private void requireCooperationWeekSlotFree(Long userId, LocalDate weekStart) {
+        Long memberRows = memberMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetCooperationMember>()
+                .eq(com.cloudmart.pet.entity.PetCooperationMember::getUserId, userId)
+                .eq(com.cloudmart.pet.entity.PetCooperationMember::getWeekStart, weekStart));
+        if (memberRows != null && memberRows > 0) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "本周已经参加过合作任务啦");
+        }
+    }
+
+    /** 邀请未接受不写成员表（不消耗周名额）；已组队退出也不删行（名额不恢复） */
+    private void insertCooperationMember(Long memberUserId, LocalDate weekStart,
+                                         Long cooperationId, String role, Long petId) {
+        com.cloudmart.pet.entity.PetCooperationMember member = new com.cloudmart.pet.entity.PetCooperationMember();
+        member.setUserId(memberUserId);
+        member.setWeekStart(weekStart);
+        member.setCooperationId(cooperationId);
+        member.setRole(role);
+        member.setPetId(petId);
+        try {
+            memberMapper.insert(member);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT, "本周已经参加过合作任务啦");
+        }
     }
 
     /**
