@@ -71,6 +71,8 @@ public class PetRelationServiceImpl implements PetRelationService {
     private final PetAchievementService achievementService;
     private final PetProperties properties;
     private final StringRedisTemplate redisTemplate;
+    /** R05：社交写入门控 */
+    private final PetAccessPolicy accessPolicy;
 
     public PetRelationServiceImpl(PetService petService,
                                   PetMapper petMapper,
@@ -80,7 +82,8 @@ public class PetRelationServiceImpl implements PetRelationService {
                                   PetEventProducer eventProducer,
                                   PetAchievementService achievementService,
                                   PetProperties properties,
-                                  StringRedisTemplate redisTemplate) {
+                                  StringRedisTemplate redisTemplate,
+        PetAccessPolicy accessPolicy) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.relationMapper = relationMapper;
@@ -90,6 +93,7 @@ public class PetRelationServiceImpl implements PetRelationService {
         this.achievementService = achievementService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
+        this.accessPolicy = accessPolicy;
     }
 
     @Override
@@ -156,6 +160,11 @@ public class PetRelationServiceImpl implements PetRelationService {
     @Override
     @Transactional
     public PetRelationVO request(Long userId, RequestRelationRequest request) {
+        // R05：SOCIAL_MUTE 处罚生效时禁止新社交写入（查看/历史不受影响）
+        if (accessPolicy.isSociallyMuted(userId)) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED,
+                    "你的账号因违反社区规范被限制社交，如有疑问请联系客服申诉");
+        }
         Pet pet = petService.requireOwnedPet(userId);
         Pet target = petMapper.selectById(request.toPetId());
         if (target == null || !Boolean.TRUE.equals(target.getIsPublic())) {

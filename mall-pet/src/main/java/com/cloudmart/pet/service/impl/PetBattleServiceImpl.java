@@ -78,6 +78,8 @@ public class PetBattleServiceImpl implements PetBattleService {
     private final PetProperties properties;
     private final PetStatsService statsService;
     private final PetDailyQuestService dailyQuestService;
+    /** R05：社交写入门控 */
+    private final PetAccessPolicy accessPolicy;
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
     private final PetEconomyService economyService;
@@ -105,7 +107,8 @@ public class PetBattleServiceImpl implements PetBattleService {
                                 PetQuotaService quotaService,
                                 PetRankingCache rankingCache,
                                 PetFriendFeedService friendFeedService,
-                                com.cloudmart.pet.repository.PetActivityMapper activityMapper) {
+                                com.cloudmart.pet.repository.PetActivityMapper activityMapper,
+        PetAccessPolicy accessPolicy) {
         this.petService = petService;
         this.stateService = stateService;
         this.battleMapper = battleMapper;
@@ -125,6 +128,7 @@ public class PetBattleServiceImpl implements PetBattleService {
         this.rankingCache = rankingCache;
         this.friendFeedService = friendFeedService;
         this.activityMapper = activityMapper;
+        this.accessPolicy = accessPolicy;
     }
 
     @Override
@@ -151,6 +155,11 @@ public class PetBattleServiceImpl implements PetBattleService {
     @Override
     @Transactional
     public PetBattleVO challenge(Long userId, ChallengeBattleRequest request) {
+        // R05：SOCIAL_MUTE 处罚生效时禁止发起新对战
+        if (accessPolicy.isSociallyMuted(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED,
+                    "你的账号因违反社区规范被限制对战，如有疑问请联系客服申诉");
+        }
         Pet attacker = petService.requireOwnedPet(userId);
         // F4：虚弱状态禁止对战
         if (stateService.isWeak(attacker)) {

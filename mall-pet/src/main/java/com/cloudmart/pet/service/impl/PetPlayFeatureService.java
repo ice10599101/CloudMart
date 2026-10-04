@@ -63,6 +63,8 @@ public class PetPlayFeatureService {
     private final PetActivityMutex activityMutex;
     /** R12：托管照顾公开事务应用服务 */
     private final PetCustodyCareService custodyCareService;
+    /** R05：社交写入门控 */
+    private final PetAccessPolicy accessPolicy;
     private final PetQuotaService quotaService;
     private final PetCustodyRecordMapper custodyMapper;
     private final PetCooperationMapper cooperationMapper;
@@ -101,7 +103,8 @@ public class PetPlayFeatureService {
                                  com.cloudmart.pet.repository.PetFriendMapper friendMapper,
                                  com.cloudmart.pet.repository.PetRewardClaimMapper rewardClaimMapper,
                                  com.cloudmart.pet.service.impl.PetStateService stateService,
-                                 com.cloudmart.pet.service.PetIntimacyService intimacyService) {
+                                 com.cloudmart.pet.service.PetIntimacyService intimacyService,
+                                 PetAccessPolicy accessPolicy) {
         this.petMapper = petMapper;
         this.petClock = petClock;
         this.activityMutex = activityMutex;
@@ -124,6 +127,7 @@ public class PetPlayFeatureService {
         this.rewardClaimMapper = rewardClaimMapper;
         this.stateService = stateService;
         this.intimacyService = intimacyService;
+        this.accessPolicy = accessPolicy;
     }
 
     // ---------------- N05 离线摘要 ----------------
@@ -343,6 +347,11 @@ public class PetPlayFeatureService {
     @Transactional
     public Map<String, Object> createCooperation(Long userId, Long inviteeUserId) {
         requireFeature(properties.getFeatureSwitches().isCooperation());
+        // R05：SOCIAL_MUTE 处罚生效时禁止发起新合作
+        if (accessPolicy.isSociallyMuted(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_BLOCKED,
+                    "你的账号因违反社区规范被限制合作，如有疑问请联系客服申诉");
+        }
         Pet pet = requireActivePet(userId);
         if (inviteeUserId == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "请选择要邀请的好友");
