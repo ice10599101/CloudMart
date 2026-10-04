@@ -23,12 +23,15 @@ public class AccountDeletionTask {
 
     private Long userId;
 
-    /** PENDING / EXECUTING / EXECUTED / FAILED / CANCELED */
+    /** PENDING等待期 / PRECHECK预检 / EXECUTING执行中 / COMPLETED全域完成 / BLOCKED阻断可重试 / CANCELED已撤销 / EXECUTED旧语义(需补核查) */
     private String status;
 
     private String reason;
 
     private String serviceProgress;
+
+    /** 阻断原因（T06：OPEN_ORDERS/ERASURE_DOMAIN_NOT_WIRED 等，脱敏展示） */
+    private String blockReason;
 
     private LocalDateTime requestedAt;
 

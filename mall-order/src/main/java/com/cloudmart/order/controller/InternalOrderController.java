@@ -59,6 +59,17 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.autoConfirmReceipts(days));
     }
 
+    /**
+     * T06：注销去标识化——交易/财务记录按保留策略留存，收货人 PII 就地脱敏
+     * （幂等：重复调用返回原结果；已脱敏行不再改写）。
+     */
+    @PostMapping("/erasure/anonymize-receiver")
+    @Operation(summary = "订单收货人去标识化", description = "T06 注销编排：留存交易记录，脱敏收货人姓名/电话/地址")
+    public ApiResponse<Integer> anonymizeReceiverForErasure(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId) {
+        return ApiResponse.ok(orderService.anonymizeReceiverForErasure(userId));
+    }
+
     /** USER-01：注销阻塞核验——用户是否存在未结订单（PENDING_PAYMENT/PAID/SHIPPED） */
     @GetMapping("/has-open-orders")
     @Operation(summary = "未结订单核验", description = "注销编排前置：有未结订单返回 true（阻塞注销）")

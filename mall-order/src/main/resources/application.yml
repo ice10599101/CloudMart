@@ -147,7 +147,7 @@ cloudmart:
         issuers: [mall-admin]
         scope: order:admin
       - prefix: /internal
-        issuers: [mall-payment, mall-product, mall-job, mall-seckill]
+        issuers: [mall-payment, mall-product, mall-job, mall-seckill, mall-user]
         scope: order:internal
     outbound-scopes:
       mall-product: product:read

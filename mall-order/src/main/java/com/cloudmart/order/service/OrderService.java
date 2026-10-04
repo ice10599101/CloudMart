@@ -72,6 +72,9 @@ public interface OrderService {
     /** T11：售后案件退款完成回填（payment refund 事件消费者调用，按 refundNo 幂等） */
     void onAfterSaleRefundCompleted(String refundNo);
 
+    /** T06：注销去标识化——收货人 PII 就地脱敏（幂等），交易记录按保留策略留存；返回改写行数 */
+    int anonymizeReceiverForErasure(Long userId);
+
     /** T09：按 requestId（订单 request_key）查订单 ID；不存在返回 null（秒杀恢复对账用） */
     Long findOrderIdByRequestId(String requestId);
 

@@ -1,6 +1,7 @@
 package com.cloudmart.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.api.ApiResponse.Meta;
@@ -55,6 +56,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
+
+    /** T06 注销去标识化占位（幂等锚点：占位值本身不再被改写） */
+    static final String ERASURE_PLACEHOLDER_NAME = "已注销用户";
+    static final String ERASURE_PLACEHOLDER_CONTACT = "-";
+    static final String ERASURE_PLACEHOLDER_ADDRESS = "已注销（隐私保护）";
+
 
     private static final String ORDER_TIMEOUT_KEY_PREFIX = "order:timeout:";
     private static final Duration ORDER_TIMEOUT = Duration.ofMinutes(15);
@@ -1336,6 +1343,21 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+
+    /**
+     * T06：注销去标识化——交易/财务记录按保留策略留存（金额/状态/时间不删），
+     * 收货人 PII 就地脱敏为固定占位（幂等：仅命中尚未脱敏的行）。
+     */
+    @Override
+    @Transactional
+    public int anonymizeReceiverForErasure(Long userId) {
+        return orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .ne(Order::getReceiverName, ERASURE_PLACEHOLDER_NAME)
+                .set(Order::getReceiverName, ERASURE_PLACEHOLDER_NAME)
+                .set(Order::getReceiverPhone, ERASURE_PLACEHOLDER_CONTACT)
+                .set(Order::getReceiverAddress, ERASURE_PLACEHOLDER_ADDRESS));
+    }
 
     @Override
     public boolean hasOpenOrders(Long userId) {

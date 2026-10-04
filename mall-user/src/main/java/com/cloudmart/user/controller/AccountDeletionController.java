@@ -2,6 +2,7 @@ package com.cloudmart.user.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.entity.AccountDeletionTask;
 import com.cloudmart.user.service.AccountDeletionOrchestrationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,8 +79,32 @@ public class AccountDeletionController {
         }
         return ApiResponse.ok(Map.of(
                 "status", task.getStatus() == null ? "NONE" : task.getStatus(),
+                "blockReason", task.getBlockReason() == null ? "" : task.getBlockReason(),
                 "executeAfter", task.getExecuteAfter() == null ? "" : task.getExecuteAfter(),
                 "serviceProgress", task.getServiceProgress() == null ? "{}" : task.getServiceProgress(),
-                "executedAt", task.getExecutedAt() == null ? "" : task.getExecutedAt()));
+                "executedAt", task.getExecutedAt() == null ? "" : task.getExecutedAt(),
+                // T06：分域步骤台账（脱敏——仅状态/次数/错误码，无 PII/堆栈）
+                "steps", orchestrationService.stepsOf(task.getId())));
+    }
+
+    /**
+     * T06 内部端点（SEC-04：仅服务令牌可达，mall-admin 运营代理调用）：
+     * 失败步骤立即重试（清零退避），不跳过资金阻断——OPEN_ORDER_CHECK 未通过时
+     * 重试只会再次被预检拦下。
+     */
+    @PostMapping("/internal/tasks/{taskId}/retry")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "重试失败步骤（运营）", description = "按步骤台账立即重试；不提供跳过资金检查能力")
+    public ApiResponse<Void> retryFailedSteps(
+            @Parameter(description = "注销任务ID", required = true) @org.springframework.web.bind.annotation.PathVariable Long taskId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) RetryRequest request) {
+        if (request == null || request.reason() == null || request.reason().isBlank()) {
+            throw new BusinessException("VALIDATION_ERROR", "重试必须填写运营原因（审计）");
+        }
+        orchestrationService.retryFailedSteps(taskId, request.reason());
+        return ApiResponse.ok(null);
+    }
+
+    public record RetryRequest(String reason) {
     }
 }
