@@ -8,7 +8,7 @@ import request from '@/utils/request'
 import {
   listLiveRooms, getLiveRoom, enterLiveRoom,
   executeLiveSeckill, getLiveSeckillActivity,
-  getWebrtcSignals, postWebrtcSignal, publishIceCandidate,
+  issueWebrtcTicket, getWebrtcSignals, postWebrtcSignal, publishIceCandidate,
 } from './live'
 
 describe('live API', () => {
@@ -64,31 +64,39 @@ describe('live API', () => {
     expect(request.get).toHaveBeenCalledWith('/live/seckill/rooms/1/activity')
   })
 
-  it('getWebrtcSignals() calls GET /live/webrtc/signal/:roomId/:role', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-
-    await getWebrtcSignals(1, 'HOST')
-
-    expect(request.get).toHaveBeenCalledWith('/live/webrtc/signal/1/HOST')
-  })
-
-  it('postWebrtcSignal() posts envelope aligned with WebrtcSignalRequest', async () => {
+  it('issueWebrtcTicket() posts roomId and returns ticket envelope', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await postWebrtcSignal(1, 'VIEWER', 'ANSWER', 'sdp-data')
+    await issueWebrtcTicket(1)
+
+    expect(request.post).toHaveBeenCalledWith('/live/webrtc/tickets', { roomId: 1 })
+  })
+
+  it('getWebrtcSignals() calls GET /live/webrtc/signal/:roomId/:role with ticket param', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getWebrtcSignals(1, 'HOST', 'tk-1')
+
+    expect(request.get).toHaveBeenCalledWith('/live/webrtc/signal/1/HOST', { params: { ticket: 'tk-1' } })
+  })
+
+  it('postWebrtcSignal() posts ticket envelope aligned with WebrtcSignalRequest (T08)', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    await postWebrtcSignal(1, 'tk-1', 'ANSWER', 'sdp-data')
 
     expect(request.post).toHaveBeenCalledWith('/live/webrtc/signal', {
-      roomId: 1, role: 'VIEWER', type: 'ANSWER', payload: 'sdp-data',
+      roomId: 1, ticket: 'tk-1', type: 'ANSWER', payload: 'sdp-data',
     })
   })
 
-  it('publishIceCandidate() posts ICE_CANDIDATE envelope aligned with WebrtcSignalRequest', async () => {
+  it('publishIceCandidate() posts ICE_CANDIDATE envelope with ticket', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await publishIceCandidate({ roomId: 1, role: 'VIEWER', payload: 'ice-candidate' })
+    await publishIceCandidate({ roomId: 1, ticket: 'tk-1', payload: 'ice-candidate' })
 
     expect(request.post).toHaveBeenCalledWith('/live/webrtc/ice', {
-      roomId: 1, role: 'VIEWER', type: 'ICE_CANDIDATE', payload: 'ice-candidate',
+      roomId: 1, ticket: 'tk-1', type: 'ICE_CANDIDATE', payload: 'ice-candidate',
     })
   })
 })

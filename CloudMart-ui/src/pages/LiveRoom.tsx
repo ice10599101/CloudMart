@@ -7,6 +7,7 @@ import {
   getWebrtcSignals,
   postWebrtcSignal,
   publishIceCandidate,
+  issueWebrtcTicket,
   getWebrtcIceCandidates,
 } from '@/api/live'
 import type { LiveRoom } from '@/api/live'
@@ -202,13 +203,32 @@ export default function LiveRoomPage() {
     let cancelled = false
     let iceTimer: ReturnType<typeof setInterval> | null = null
     let seenIceCount = 0
+    // T08：信令票据（服务端派生角色 + peerSessionId 会话隔离）；失效后重新签发新会话
+    let signalTicket: string | null = null
+
+    const ensureTicket = async (): Promise<string | null> => {
+      if (signalTicket) return signalTicket
+      try {
+        const { data: res } = await issueWebrtcTicket(numericRoomId)
+        signalTicket = res.data?.ticket ?? null
+      } catch {
+        signalTicket = null
+      }
+      return signalTicket
+    }
+
+    const invalidateTicket = () => {
+      signalTicket = null
+    }
 
     // 拉取主播 ICE 候选（增量处理，列表只增不清）
     const startIceExchange = (pc: RTCPeerConnection) => {
       iceTimer = setInterval(async () => {
         if (cancelled) return
         try {
-          const { data: res } = await getWebrtcIceCandidates(numericRoomId, 'HOST')
+          const ticket = await ensureTicket()
+          if (!ticket) return
+          const { data: res } = await getWebrtcIceCandidates(numericRoomId, 'HOST', ticket)
           const candidates = res.data ?? []
           for (let i = seenIceCount; i < candidates.length; i++) {
             try {
@@ -221,7 +241,8 @@ export default function LiveRoomPage() {
             seenIceCount = candidates.length
           }
         } catch {
-          // 拉取失败静默进入下一轮（弱网恢复后继续）
+          // 票据过期等失败：作废重签，下一轮继续
+          invalidateTicket()
         }
       }, 2000)
     }
@@ -238,19 +259,29 @@ export default function LiveRoomPage() {
         }
       }
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          // 自己的候选发到 VIEWER 键，由发布端拉取
-          publishIceCandidate({
-            roomId: numericRoomId,
-            role: 'VIEWER',
-            payload: JSON.stringify(event.candidate.toJSON()),
-          }).catch(() => undefined)
+        const candidate = event.candidate
+        if (candidate) {
+          // 自己的候选发到自身会话键（票据绑定 peerSessionId），由发布端聚合拉取
+          ensureTicket()
+            .then((ticket) => {
+              if (ticket) {
+                return publishIceCandidate({
+                  roomId: numericRoomId,
+                  ticket,
+                  payload: JSON.stringify(candidate.toJSON()),
+                })
+              }
+              return undefined
+            })
+            .catch(() => invalidateTicket())
         }
       }
       await pc.setRemoteDescription({ type: 'offer', sdp: offerSdp })
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      await postWebrtcSignal(numericRoomId, 'VIEWER', 'ANSWER', pc.localDescription!.sdp)
+      const ticket = await ensureTicket()
+      if (!ticket) return
+      await postWebrtcSignal(numericRoomId, ticket, 'ANSWER', pc.localDescription!.sdp)
       startIceExchange(pc)
     }
 
@@ -258,14 +289,18 @@ export default function LiveRoomPage() {
     const pollOfferLoop = async () => {
       while (!cancelled) {
         try {
-          const { data: res } = await getWebrtcSignals(numericRoomId, 'HOST')
-          const offer = (res.data ?? []).find((signal) => signal.type === 'OFFER')
-          if (offer) {
-            await setupViewerConnection(offer.payload)
-            return
+          const ticket = await ensureTicket()
+          if (ticket) {
+            const { data: res } = await getWebrtcSignals(numericRoomId, 'HOST', ticket)
+            const offer = (res.data ?? []).find((signal) => signal.type === 'OFFER')
+            if (offer) {
+              await setupViewerConnection(offer.payload)
+              return
+            }
           }
         } catch {
-          // 信令不可用：占位降级，不打扰用户
+          // 票据过期/信令失败：作废重签，占位降级，不打扰用户
+          invalidateTicket()
         }
         await new Promise((resolve) => {
           setTimeout(resolve, 3000)

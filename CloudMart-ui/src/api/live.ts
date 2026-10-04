@@ -46,7 +46,7 @@ export function getLiveSeckillActivity(roomId: number) {
   return request.get<ApiResponse<Record<string, unknown>>>(`/live/seckill/rooms/${roomId}/activity`)
 }
 
-// ==================== WebRTC 信令（与 mall-live WebrtcController/WebrtcSignalRequest 对齐） ====================
+// ==================== WebRTC 信令（T08：票据鉴权，角色服务端派生） ====================
 
 export type WebrtcRole = 'HOST' | 'VIEWER'
 
@@ -57,32 +57,49 @@ export interface WebrtcSignal {
   role: string
 }
 
-/** 拉取指定角色已发布的信令（观看端拉 HOST 的 OFFER；发布端拉 VIEWER 的 ANSWER） */
-export function getWebrtcSignals(roomId: number | string, role: WebrtcRole) {
-  return request.get<ApiResponse<WebrtcSignal[]>>(`/live/webrtc/signal/${roomId}/${role}`)
+/** 信令票据（60s 滑动续期；绑定服务端派生角色与 peerSessionId） */
+export interface WebrtcSignalTicket {
+  ticket: string
+  role: WebrtcRole
+  peerSessionId: string
+  expiresAt: string
 }
 
-/** 发布信令（主播发 OFFER / 观众回 ANSWER，payload 为 SDP 文本） */
-export function postWebrtcSignal(roomId: number | string, role: WebrtcRole, type: 'OFFER' | 'ANSWER', payload: string) {
-  return request.post<ApiResponse<void>>('/live/webrtc/signal', { roomId, role, type, payload })
+/** 签发信令票据（进入直播间建立 WebRTC 会话前调用；过期/断网重连后重新签发新会话） */
+export function issueWebrtcTicket(roomId: number | string) {
+  return request.post<ApiResponse<WebrtcSignalTicket>>('/live/webrtc/tickets', { roomId })
+}
+
+/** 拉取指定角色已发布的信令（观看端拉 HOST 的 OFFER；发布端拉 VIEWER 的 ANSWER 聚合） */
+export function getWebrtcSignals(roomId: number | string, role: WebrtcRole, ticket: string) {
+  return request.get<ApiResponse<WebrtcSignal[]>>(`/live/webrtc/signal/${roomId}/${role}`, {
+    params: { ticket },
+  })
+}
+
+/** 发布信令（主播发 OFFER / 观众回 ANSWER，payload 为 SDP 文本；身份以票据为准） */
+export function postWebrtcSignal(roomId: number | string, ticket: string, type: 'OFFER' | 'ANSWER', payload: string) {
+  return request.post<ApiResponse<void>>('/live/webrtc/signal', { roomId, ticket, type, payload })
 }
 
 /** 发布 ICE 候选者（type 固定 ICE_CANDIDATE，payload 为候选者 JSON 字符串） */
-export function publishIceCandidate(data: { roomId: number | string; role: WebrtcRole; payload: string }) {
+export function publishIceCandidate(data: { roomId: number | string; ticket: string; payload: string }) {
   return request.post<ApiResponse<void>>('/live/webrtc/ice', {
     roomId: data.roomId,
-    role: data.role,
+    ticket: data.ticket,
     type: 'ICE_CANDIDATE',
     payload: data.payload,
   })
 }
 
 /** 拉取指定角色的 ICE 候选者列表（发布端与观看端各自拉对端候选） */
-export function getWebrtcIceCandidates(roomId: number | string, role: WebrtcRole) {
-  return request.get<ApiResponse<string[]>>(`/live/webrtc/ice/${roomId}/${role}`)
+export function getWebrtcIceCandidates(roomId: number | string, role: WebrtcRole, ticket: string) {
+  return request.get<ApiResponse<string[]>>(`/live/webrtc/ice/${roomId}/${role}`, {
+    params: { ticket },
+  })
 }
 
-/** 清除直播间信令缓存（直播结束/切换时由发布端调用） */
-export function clearWebrtcSignals(roomId: number | string) {
-  return request.delete<ApiResponse<void>>(`/live/webrtc/signal/${roomId}`)
+/** 清除直播间信令缓存（仅房主票据可用；直播结束/切换时由发布端调用） */
+export function clearWebrtcSignals(roomId: number | string, ticket: string) {
+  return request.delete<ApiResponse<void>>(`/live/webrtc/signal/${roomId}`, { params: { ticket } })
 }
