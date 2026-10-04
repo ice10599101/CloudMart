@@ -32,6 +32,9 @@ public class PetDiaryEntry {
     /** OWNER_ONLY / PUBLIC */
     private String visibility;
 
+    /** 乐观版本（可见性 PATCH CAS）：并发编辑冲突时 409 */
+    private Integer version;
+
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

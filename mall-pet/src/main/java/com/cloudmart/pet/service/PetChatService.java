@@ -21,6 +21,17 @@ public interface PetChatService {
     List<PetChatMessageVO> history(Long userId, Long cursor, Integer pageSize);
 
     /**
+     * R22 §7.2：按请求键查询本人聊天请求状态（意图恢复）——
+     * UNKNOWN（键未见过，可重发）/ PROCESSING（在途）/ SUCCEEDED（已完成，附回复）/
+     * FAILED（执行者残留超时，可重试）。不向客户端透出模型内部信息。
+     */
+    PetChatRequestStatusVO requestStatus(Long userId, String requestKey);
+
+    /** 请求状态 VO：canRetry 指示客户端能否用原键重试 */
+    record PetChatRequestStatusVO(String status, boolean canRetry, PetChatMessageVO reply) {
+    }
+
+    /**
      * 宠物人设摘要（F8）：与注入 AI prompt 的身份信息同源——前端人设卡展示内容
      * 与 AI 实际"知道"的身份一致（验收要求）。
      */

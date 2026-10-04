@@ -30,6 +30,12 @@ public class PetReport {
 
     private String reason;
 
+    /** 补充说明（1~1000 字符，可选，§7.2） */
+    private String description;
+
+    /** 举报自然日（每日配额统计/审计） */
+    private java.time.LocalDate reportDate;
+
     private String status;
 
     private Long handledBy;

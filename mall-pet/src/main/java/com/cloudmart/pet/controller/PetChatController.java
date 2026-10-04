@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -59,5 +60,15 @@ public class PetChatController {
             @RequestParam(value = "cursor", required = false) Long cursor,
             @RequestParam(value = "pageSize", defaultValue = "20") Integer pageSize) {
         return ApiResponse.ok(chatService.history(userId, cursor, pageSize));
+    }
+
+    @GetMapping("/chat/requests/{requestKey}")
+    @Operation(summary = "聊天请求状态查询（R22）", description = "PROCESSING/SUCCEEDED/FAILED/UNKNOWN；"
+            + "SUCCEEDED 附已完成回复，FAILED/UNKNOWN 可用原键重试；意图恢复用，不透出模型内部信息")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<com.cloudmart.pet.service.PetChatService.PetChatRequestStatusVO> requestStatus(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "发起聊天时携带的请求键") @PathVariable("requestKey") String requestKey) {
+        return ApiResponse.ok(chatService.requestStatus(userId, requestKey));
     }
 }

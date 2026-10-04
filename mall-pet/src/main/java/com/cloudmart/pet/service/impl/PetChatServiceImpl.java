@@ -346,6 +346,48 @@ public class PetChatServiceImpl implements PetChatService {
         return messageMapper.selectList(wrapper).stream().map(this::toVo).toList();
     }
 
+    /**
+     * R22 §7.2 请求状态查询：与 {@link #claimUserMessage} 共用同一在途阈值与分流语义——
+     * USER 行存在且有 PET 回复 → SUCCEEDED；无回复且在窗口内 → PROCESSING；
+     * 超窗即崩溃残留（chat 会允许重执行）→ FAILED 可重试；无 USER 行 → UNKNOWN。
+     * 只读：无会话/无行时不产生建会话副作用。
+     */
+    @Override
+    public PetChatRequestStatusVO requestStatus(Long userId, String requestKey) {
+        if (requestKey == null || requestKey.isBlank()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "请求键必填");
+        }
+        Pet pet = petService.requireOwnedPet(userId);
+        PetChatSession session = sessionMapper.selectOne(new LambdaQueryWrapper<PetChatSession>()
+                .eq(PetChatSession::getUserId, userId)
+                .eq(PetChatSession::getPetId, pet.getId()));
+        if (session == null) {
+            return new PetChatRequestStatusVO("UNKNOWN", true, null);
+        }
+        PetChatMessage userRow = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
+                .eq(PetChatMessage::getSessionId, session.getId())
+                .eq(PetChatMessage::getRequestId, requestKey)
+                .eq(PetChatMessage::getRole, PetChatRole.USER.name())
+                .last("LIMIT 1"));
+        if (userRow == null) {
+            return new PetChatRequestStatusVO("UNKNOWN", true, null);
+        }
+        PetChatMessage replyRow = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
+                .eq(PetChatMessage::getSessionId, session.getId())
+                .eq(PetChatMessage::getRequestId, requestKey)
+                .eq(PetChatMessage::getRole, PetChatRole.PET.name())
+                .last("LIMIT 1"));
+        if (replyRow != null) {
+            return new PetChatRequestStatusVO("SUCCEEDED", false, toVo(replyRow));
+        }
+        boolean stale = userRow.getCreatedAt() == null
+                || userRow.getCreatedAt().isBefore(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+                        .minusSeconds(CHAT_CLAIM_STALE_SECONDS));
+        return stale
+                ? new PetChatRequestStatusVO("FAILED", true, null)
+                : new PetChatRequestStatusVO("PROCESSING", false, null);
+    }
+
     // ---------------- 内部实现 ----------------
 
     /** 消息频控（B18：Fail-Open，Redis 故障放行——所有消息路径共用，含固定/危机回复） */

@@ -29,6 +29,12 @@ public class PetAlbumAsset {
     private String auditStatus;
     /** R04 远程文件引用绑定状态：BINDING/BOUND/FAILED */
     private String bindStatus;
+    /** 用户说明（≤200 字，仅 owner 本人可改） */
+    private String caption;
+    /** OWNER_ONLY / PUBLIC：访客仅见 PUBLIC+APPROVED+BOUND */
+    private String visibility;
+    /** 乐观版本（caption/visibility PATCH CAS） */
+    private Integer version;
     /** 审核处理人（adminUserId） */
     private Long reviewerId;
     /** 审核理由（驳回必填） */

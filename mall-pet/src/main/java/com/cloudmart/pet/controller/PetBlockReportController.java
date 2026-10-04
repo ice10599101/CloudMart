@@ -29,7 +29,7 @@ import java.util.List;
 public class PetBlockReportController {
 
     private final PetUserBlockService blockService;
-    private final com.cloudmart.pet.repository.PetReportMapper reportMapper;
+    private final com.cloudmart.pet.service.impl.PetReportSubmissionService reportSubmissionService;
 
     @PostMapping("/blocks/{blockedUserId}")
     @Operation(summary = "屏蔽用户", description = "幂等；屏蔽后双方不能新增拜访收益/挑战/留言/申请")
@@ -59,31 +59,27 @@ public class PetBlockReportController {
         return ApiResponse.ok(blockService.blockedUserIds(userId));
     }
 
-    /** 举报请求体 */
-    public record ReportRequest(String targetType, Long targetId, String reason) {
+    /** 举报请求体：description 为可选补充说明（1~1000 字符，§7.2） */
+    public record ReportRequest(String targetType, Long targetId, String reason, String description) {
     }
 
     @PostMapping("/reports")
-    @Operation(summary = "提交举报", description = "targetType: WALL_MESSAGE/BOTTLE_CONTENT/NICKNAME；进入管理员处理队列")
+    @Operation(summary = "提交举报", description = "targetType: WALL_MESSAGE/BOTTLE_CONTENT/NICKNAME；"
+            + "同用户同对象未结案幂等返回既有举报（deduped=true），每日提交有配额")
     @SentinelResource("PET_SOCIAL_UPDATE")
-    public ApiResponse<Void> report(
+    public ApiResponse<com.cloudmart.pet.service.impl.PetReportSubmissionService.ReportSummary> report(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestBody ReportRequest request) {
-        java.util.Set<String> allowed = java.util.Set.of("WALL_MESSAGE", "BOTTLE_CONTENT", "NICKNAME");
-        if (request.targetType() == null || !allowed.contains(request.targetType().toUpperCase())
-                || request.targetId() == null
-                || request.reason() == null || request.reason().isBlank()
-                || request.reason().length() > 200) {
-            throw new com.cloudmart.common.exception.BusinessException(
-                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "举报参数非法");
-        }
-        com.cloudmart.pet.entity.PetReport report = new com.cloudmart.pet.entity.PetReport();
-        report.setReporterUserId(userId);
-        report.setTargetType(request.targetType().toUpperCase());
-        report.setTargetId(request.targetId());
-        report.setReason(request.reason().strip());
-        report.setStatus("PENDING");
-        reportMapper.insert(report);
-        return ApiResponse.ok(null);
+        return ApiResponse.ok(reportSubmissionService.create(
+                userId, request.targetType(), request.targetId(), request.reason(), request.description()));
+    }
+
+    @GetMapping("/reports/mine")
+    @Operation(summary = "我的举报（R05）", description = "本人举报状态与公开处置摘要、提交时间；"
+            + "不含被举报者敏感资料与内部审核备注")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<List<com.cloudmart.pet.service.impl.PetReportSubmissionService.ReportMineVO>> myReports(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(reportSubmissionService.listMine(userId));
     }
 }

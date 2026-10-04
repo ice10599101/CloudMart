@@ -52,6 +52,7 @@ public class PetProperties {
     private final SkillSlots skillSlots = new SkillSlots();
     private final FeatureSwitches featureSwitches = new FeatureSwitches();
     private final Alert alert = new Alert();
+    private final Moderation moderation = new Moderation();
 
     /** 状态自然变化速率（每小时） */
     @Getter
@@ -368,5 +369,15 @@ public class PetProperties {
     @Setter
     public static class Alert {
         private long adminUserId = 1;
+    }
+
+    /** 内容治理（R05）：用户侧举报创建约束——配额为数据库权威（pet_daily_quota） */
+    @Getter
+    @Setter
+    public static class Moderation {
+        /** 每用户每日举报提交上限（全部 targetType 合计；命中上限当日不再受理） */
+        private int reportDailyLimit = 10;
+        /** 补充说明最大长度（§7.2：限制说明 1~1000 字符） */
+        private int reportDescriptionMaxLength = 1000;
     }
 }

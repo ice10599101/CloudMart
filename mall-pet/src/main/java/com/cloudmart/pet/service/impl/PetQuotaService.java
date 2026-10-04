@@ -27,7 +27,9 @@ public class PetQuotaService {
         WALL_POST, WALL_REPLY, VISIT_REWARD, FRIEND_VISIT_REWARD,
         LIKE_REWARD, MINIGAME, DECORATE, HOST_CARE, HOME_ENTER, BATTLE_DEFEAT_TARGET,
         /** 对战放弃/被拒/过期计数（P1-3：24h 内 ≥3 次进入发起冷却，仅计数无上限） */
-        BATTLE_ABORT
+        BATTLE_ABORT,
+        /** 内容举报每日提交上限（R05：防刷举报队列；系统自动举报不计入） */
+        REPORT
     }
 
     private final PetDailyQuotaMapper quotaMapper;

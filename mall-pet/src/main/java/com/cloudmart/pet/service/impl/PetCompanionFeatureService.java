@@ -1,6 +1,7 @@
 package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
@@ -276,6 +277,46 @@ public class PetCompanionFeatureService {
         return result;
     }
 
+    /**
+     * §7.2 PATCH /pets/{petId}/diary/{entryId}：统一可见性入口——仅本人，expectedVersion CAS
+     * 防多端互相覆盖。客户端枚举无 OWNER_ONLY：入参 PRIVATE 按兼容映射为 OWNER_ONLY
+     * （与查询出参的 OWNER_ONLY→PRIVATE 映射对称）。
+     */
+    @Transactional
+    public Map<String, Object> updateDiaryVisibility(Long userId, Long petId, Long entryId,
+                                                     String visibility, Integer expectedVersion) {
+        requireFeature(properties.getFeatureSwitches().isDiary());
+        Pet pet = petMapper.selectById(petId);
+        if (pet == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "宠物不存在");
+        }
+        if (!pet.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的日记");
+        }
+        String targetVisibility = switch (visibility == null ? "" : visibility) {
+            case "PUBLIC" -> "PUBLIC";
+            case "OWNER_ONLY", "PRIVATE" -> "OWNER_ONLY";
+            default -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "visibility 仅支持 PUBLIC/OWNER_ONLY");
+        };
+        if (expectedVersion == null || expectedVersion < 1) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "expectedVersion 必填（先 GET 再编辑）");
+        }
+        PetDiaryEntry entry = diaryMapper.selectById(entryId);
+        if (entry == null || !entry.getPetId().equals(petId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "日记条目不存在");
+        }
+        int updated = diaryMapper.update(null, new LambdaUpdateWrapper<PetDiaryEntry>()
+                .set(PetDiaryEntry::getVisibility, targetVisibility)
+                .setSql("version = version + 1")
+                .eq(PetDiaryEntry::getId, entryId)
+                .eq(PetDiaryEntry::getVersion, expectedVersion));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "日记已被其他端修改，请刷新后重试");
+        }
+        return Map.of("entryId", entryId, "visibility", targetVisibility, "version", expectedVersion + 1);
+    }
+
     /** R04 相册文件约束：PRIVATE、图片三类、≤5MiB——由文件服务按台账裁决，本地不做正则放行 */
     private static final List<String> ALBUM_ALLOWED_MIMES = List.of("image/jpeg", "image/png", "image/webp");
     private static final long ALBUM_MAX_SIZE_BYTES = 5L * 1024 * 1024;
@@ -289,11 +330,12 @@ public class PetCompanionFeatureService {
      * 100 张配额含 BINDING 行（守卫行锁内串行化，T27）。
      */
     @Transactional
-    public PetAlbumAsset uploadAlbumAsset(Long userId, Long petId, String fileId, Long diaryEntryId) {
+    public PetAlbumAsset uploadAlbumAsset(Long userId, Long petId, String fileId, Long diaryEntryId, String caption) {
         Pet pet = petMapper.selectById(petId);
         if (pet == null || !pet.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的相册");
         }
+        String normalizedCaption = normalizeCaption(caption);
         Long fileAssetId = parseFileAssetId(fileId);
         if (diaryEntryId != null) {
             com.cloudmart.pet.entity.PetDiaryEntry diary = diaryMapper.selectById(diaryEntryId);
@@ -315,6 +357,9 @@ public class PetCompanionFeatureService {
         asset.setFileId(String.valueOf(fileAssetId));
         asset.setAuditStatus("PENDING");
         asset.setBindStatus("BINDING");
+        // 默认私有（OWNER_ONLY）：PUBLIC 需审核通过后由 PATCH 显式开启
+        asset.setVisibility("OWNER_ONLY");
+        asset.setCaption(normalizedCaption);
         try {
             albumMapper.insert(asset);
         } catch (DuplicateKeyException e) {
@@ -463,9 +508,10 @@ public class PetCompanionFeatureService {
                 .eq(PetAlbumAsset::getPetId, petId)
                 .orderByDesc(PetAlbumAsset::getId);
         if (!owner) {
-            // 访客：仅审核通过且已绑定完成的条目可预览
+            // 访客：审核通过 + 绑定完成 + 主人显式公开（默认私有，§7.2 album visibility）
             wrapper.eq(PetAlbumAsset::getAuditStatus, "APPROVED")
-                    .eq(PetAlbumAsset::getBindStatus, "BOUND");
+                    .eq(PetAlbumAsset::getBindStatus, "BOUND")
+                    .eq(PetAlbumAsset::getVisibility, "PUBLIC");
         }
         List<PetAlbumAsset> assets = albumMapper.selectList(wrapper);
         return assets.stream().map(asset -> toAlbumVo(asset, owner)).toList();
@@ -488,13 +534,82 @@ public class PetCompanionFeatureService {
                 asset.getDiaryEntryId() == null ? null : String.valueOf(asset.getDiaryEntryId()),
                 String.valueOf(asset.getFileId()), asset.getAuditStatus(), asset.getBindStatus(),
                 asset.getReviewReason(), previewUrl,
-                asset.getCreatedAt() == null ? null : asset.getCreatedAt().toString());
+                asset.getCreatedAt() == null ? null : asset.getCreatedAt().toString(),
+                asset.getCaption(), asset.getVisibility(), asset.getVersion());
     }
 
-    /** R04 相册条目 VO：fileId 为不透明 ID 字符串，预览地址为短期授权路径（禁止持久化） */
+    /** R04 相册条目 VO：fileId 为不透明 ID 字符串，预览地址为短期授权路径（禁止持久化）；
+     *  caption/visibility/version 供三端按"先 GET 再 PATCH（expectedVersion CAS）"编辑 */
     public record AlbumAssetVO(String assetId, String petId, String diaryEntryId, String fileId,
                                String auditStatus, String bindStatus, String reviewReason,
-                               String previewUrl, String createdAt) {
+                               String previewUrl, String createdAt,
+                               String caption, String visibility, Integer version) {
+    }
+
+    /**
+     * §7.2 PATCH /pets/{petId}/album/{assetId}：修改说明/可见性（expectedVersion CAS）。
+     * 审核通过前 PUBLIC 被拒绝（上传默认私有待审）；字段缺省 = 不修改（部分更新语义）。
+     */
+    @Transactional
+    public PetAlbumAsset updateAlbumAsset(Long userId, Long petId, Long assetId, String caption,
+                                          String visibility, Integer expectedVersion) {
+        PetAlbumAsset asset = requireOwnedAlbumAsset(userId, assetId);
+        if (!petId.equals(asset.getPetId())) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "相册资源不存在");
+        }
+        if (expectedVersion == null || expectedVersion < 1) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "expectedVersion 必填（先 GET 再编辑）");
+        }
+        String targetVisibility = null;
+        if (visibility != null) {
+            targetVisibility = switch (visibility) {
+                case "PUBLIC" -> "PUBLIC";
+                case "OWNER_ONLY", "PRIVATE" -> "OWNER_ONLY";
+                default -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                        "visibility 仅支持 PUBLIC/OWNER_ONLY");
+            };
+            if ("PUBLIC".equals(targetVisibility) && !"APPROVED".equals(asset.getAuditStatus())) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "审核通过后才能设为公开");
+            }
+        }
+        LambdaUpdateWrapper<PetAlbumAsset> wrapper = new LambdaUpdateWrapper<PetAlbumAsset>()
+                .setSql("version = version + 1")
+                .eq(PetAlbumAsset::getId, assetId)
+                .eq(PetAlbumAsset::getVersion, expectedVersion);
+        if (targetVisibility != null) {
+            wrapper.set(PetAlbumAsset::getVisibility, targetVisibility);
+        }
+        if (caption != null) {
+            wrapper.set(PetAlbumAsset::getCaption, normalizeCaption(caption));
+        }
+        int updated = albumMapper.update(null, wrapper);
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "相册已被其他端修改，请刷新后重试");
+        }
+        return albumMapper.selectById(assetId);
+    }
+
+    /** 说明规范化：空白视为清除（NULL），上限 200 字符 */
+    private String normalizeCaption(String caption) {
+        if (caption == null) {
+            return null;
+        }
+        String normalized = caption.strip();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() > 200) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "照片说明不超过 200 字");
+        }
+        return normalized;
+    }
+
+    private PetAlbumAsset requireOwnedAlbumAsset(Long userId, Long assetId) {
+        PetAlbumAsset asset = albumMapper.selectById(assetId);
+        if (asset == null || !asset.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "相册资源不存在或无权操作");
+        }
+        return asset;
     }
 
     // ---------------- N03 记忆管理 ----------------
@@ -578,7 +693,7 @@ public class PetCompanionFeatureService {
      */
     public record DiaryEntryVO(Long id, Long petId, String type, String content, String visibility,
                                java.util.List<Long> assetIds, java.time.LocalDateTime createdAt,
-                               java.time.LocalDateTime occurredAt) {
+                               java.time.LocalDateTime occurredAt, Integer version) {
 
         static DiaryEntryVO of(PetDiaryEntry entry) {
             Map<String, Object> payload = PetJsonUtils.parse(entry.getSnapshot(),
@@ -595,7 +710,7 @@ public class PetCompanionFeatureService {
                     : java.util.List.of();
             String visibility = "PUBLIC".equals(entry.getVisibility()) ? "PUBLIC" : "PRIVATE";
             return new DiaryEntryVO(entry.getId(), entry.getPetId(), entry.getEventType(), content,
-                    visibility, assetIdList, entry.getCreatedAt(), entry.getOccurredAt());
+                    visibility, assetIdList, entry.getCreatedAt(), entry.getOccurredAt(), entry.getVersion());
         }
     }
 

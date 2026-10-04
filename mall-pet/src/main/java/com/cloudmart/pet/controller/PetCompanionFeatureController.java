@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -62,26 +63,58 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.diary(userId, petId, cursor, size));
     }
 
-    public record AlbumUploadRequest(String fileId, Long diaryEntryId) {
+    public record DiaryVisibilityRequest(String visibility, Integer expectedVersion) {
+    }
+
+    @PatchMapping("/pets/{petId}/diary/{entryId}")
+    @Operation(summary = "编辑日记可见性（§7.2）", description = "统一可见性入口：visibility 取 PUBLIC/OWNER_ONLY"
+            + "（旧 PRIVATE 值兼容映射）；expectedVersion 必填 CAS，冲突返回 PET_STATE_CONFLICT")
+    public ApiResponse<Map<String, Object>> updateDiaryVisibility(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId,
+            @PathVariable("entryId") Long entryId,
+            @RequestBody DiaryVisibilityRequest request) {
+        return ApiResponse.ok(featureService.updateDiaryVisibility(userId, petId, entryId,
+                request.visibility(), request.expectedVersion()));
+    }
+
+    public record AlbumUploadRequest(String fileId, Long diaryEntryId, String caption) {
     }
 
     @PostMapping("/pets/{petId}/album")
     @Operation(summary = "上传相册资源（N02/R04）", description = "fileId 为 mall-file PRIVATE 资产 ID（数字串，不是 URL）；"
-            + "远程校验归属/类型/大小（JPEG/PNG/WebP ≤5MiB）后登记幂等引用；每用户 100 张；失败留 BINDING 可重试")
+            + "远程校验归属/类型/大小（JPEG/PNG/WebP ≤5MiB）后登记幂等引用；每用户 100 张；失败留 BINDING 可重试；"
+            + "默认私有，caption 可选（≤200 字）")
     public ApiResponse<PetAlbumAsset> uploadAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId,
             @RequestBody AlbumUploadRequest request) {
-        return ApiResponse.ok(featureService.uploadAlbumAsset(userId, petId, request.fileId(), request.diaryEntryId()));
+        return ApiResponse.ok(featureService.uploadAlbumAsset(userId, petId,
+                request.fileId(), request.diaryEntryId(), request.caption()));
     }
 
     @GetMapping("/pets/{petId}/album")
-    @Operation(summary = "相册列表（R04）", description = "本人返回全部条目（含审核状态与驳回理由），访客仅见 APPROVED+BOUND；"
-            + "预览为 60 秒短期授权地址，禁止持久化")
+    @Operation(summary = "相册列表（R04）", description = "本人返回全部条目（含审核状态与驳回理由），"
+            + "访客仅见 APPROVED+BOUND+PUBLIC；预览为 60 秒短期授权地址，禁止持久化")
     public ApiResponse<List<com.cloudmart.pet.service.impl.PetCompanionFeatureService.AlbumAssetVO>> albumList(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId) {
         return ApiResponse.ok(featureService.albumList(userId, petId));
+    }
+
+    public record AlbumUpdateRequest(String caption, String visibility, Integer expectedVersion) {
+    }
+
+    @PatchMapping("/pets/{petId}/album/{assetId}")
+    @Operation(summary = "编辑相册资源（§7.2）", description = "caption/visibility 部分更新（缺省不改）；"
+            + "expectedVersion 必填 CAS 防多端覆盖；审核通过前 PUBLIC 被拒绝")
+    public ApiResponse<PetAlbumAsset> updateAlbum(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId,
+            @PathVariable("assetId") Long assetId,
+            @RequestBody AlbumUpdateRequest request) {
+        return ApiResponse.ok(featureService.updateAlbumAsset(userId, petId, assetId,
+                request.caption(), request.visibility(), request.expectedVersion()));
     }
 
     @PostMapping("/pets/{petId}/album/{assetId}/retry-binding")
