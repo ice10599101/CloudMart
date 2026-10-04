@@ -137,11 +137,21 @@ public class AdminPetWalletController {
         return petFeignClient.walletReconciliationOf(runId);
     }
 
-    @PostMapping("/reconciliations/run")
-    @OperLog(title = "宠物钱包对账触发", businessType = 2)
+    @GetMapping("/reconciliations/{runId}/diffs")
     @RequiresPermission("business:pet:wallet:read")
-    @Operation(summary = "触发对账", description = "运维手动触发一轮对账（每日另有定时）")
-    public ApiResponse<Void> triggerReconcile() {
-        return petFeignClient.triggerWalletReconcile();
+    @Operation(summary = "差异明细（§8.2）", description = "按处置状态过滤 OPEN/RESOLVED；只读")
+    public ApiResponse<Object> reconciliationDiffs(@PathVariable("runId") Long runId,
+                                                   @RequestParam(value = "status", required = false) String status) {
+        return petFeignClient.walletReconciliationDiffs(runId, status);
+    }
+
+    @PostMapping("/reconciliation-diffs/{id}/resolve")
+    @OperLog(title = "宠物钱包差异处置", businessType = 2)
+    @RequiresPermission("business:pet:wallet:adjust:approve")
+    @Operation(summary = "差异人工处置（§8.2）", description = "记录调查结论/关联补偿单并置 RESOLVED；"
+            + "不直接改账本——余额修复只能经调账补偿走正常审批链")
+    public ApiResponse<Object> resolveDiff(@PathVariable("id") Long id,
+                                           @RequestBody(required = false) Map<String, Object> body) {
+        return petFeignClient.resolveWalletReconciliationDiff(id, body);
     }
 }

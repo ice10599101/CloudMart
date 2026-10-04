@@ -37,6 +37,8 @@ import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -369,5 +371,37 @@ class PetActivityServiceImplTest {
             // pet.intelligence=10 → min(25, 10/2)=5
             assertThat(snapshot.get("intelligenceBonus")).isEqualTo(5);
         }
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("§7.2 批量领取：数量/重复校验")
+    void claimBatchValidatesInput() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        activityService.claimBatch(1L, java.util.List.of(1L, 2L, 1L)))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        activityService.claimBatch(1L, java.util.Collections.nCopies(21, 1L)))
+                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("§7.2 批量领取：逐项终态映射且单项失败不中断批次")
+    void claimBatchMapsPerItemOutcomes() {
+        // 未知 ID → FAILED；未完成（finishedAt 在未来）→ NOT_READY
+        com.cloudmart.pet.entity.PetActivity unfinished = new com.cloudmart.pet.entity.PetActivity();
+        unfinished.setId(42L);
+        unfinished.setUserId(1L);
+        unfinished.setStatus(com.cloudmart.pet.enums.PetActivityStatus.IN_PROGRESS.name());
+        unfinished.setFinishedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusHours(1));
+        org.mockito.Mockito.when(activityMapper.selectById(42L)).thenReturn(unfinished);
+        org.mockito.Mockito.when(activityMapper.selectById(43L)).thenReturn(null);
+
+        java.util.List<java.util.Map<String, Object>> results =
+                activityService.claimBatch(1L, java.util.List.of(42L, 43L));
+        org.assertj.core.api.Assertions.assertThat(results).hasSize(2);
+        org.assertj.core.api.Assertions.assertThat(results.get(0).get("status")).isEqualTo("NOT_READY");
+        org.assertj.core.api.Assertions.assertThat(results.get(0).get("errorCode"))
+                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_ACTIVITY_NOT_FINISHED);
+        org.assertj.core.api.Assertions.assertThat(results.get(1).get("status")).isEqualTo("FAILED");
     }
 }

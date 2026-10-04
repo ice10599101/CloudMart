@@ -231,6 +231,33 @@ public class AdminPetWalletController {
                         .orderByDesc(PetWalletReconcileItem::getDiff)));
     }
 
+    @GetMapping("/reconciliations/{runId}/diffs")
+    @Operation(summary = "差异明细（§8.2）", description = "按处置状态过滤 OPEN/RESOLVED；只读")
+    public ApiResponse<List<PetWalletReconcileItem>> reconciliationDiffs(
+            @PathVariable("runId") Long runId,
+            @RequestParam(value = "status", required = false) String status) {
+        LambdaQueryWrapper<PetWalletReconcileItem> wrapper = new LambdaQueryWrapper<PetWalletReconcileItem>()
+                .eq(PetWalletReconcileItem::getRunId, runId)
+                .orderByDesc(PetWalletReconcileItem::getDiff);
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(PetWalletReconcileItem::getStatus, status.toUpperCase());
+        }
+        return ApiResponse.ok(reconcileItemMapper.selectList(wrapper));
+    }
+
+    public record DiffResolveRequest(String note, String resolutionRef) {
+    }
+
+    @PostMapping("/reconciliation-diffs/{id}/resolve")
+    @Operation(summary = "差异人工处置（§8.2）", description = "记录调查结论/关联补偿单并置 RESOLVED；"
+            + "CAS OPEN→RESOLVED；不直接改账本——余额修复只能经调账补偿走正常审批链")
+    public ApiResponse<PetWalletReconcileItem> resolveDiff(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long operatorAdminId,
+            @PathVariable("id") Long id,
+            @RequestBody DiffResolveRequest request) {
+        return ApiResponse.ok(reconcileJob.resolveDiff(id, operatorAdminId, request.note(), request.resolutionRef()));
+    }
+
     @PostMapping("/reconciliations/run")
     @Operation(summary = "触发对账", description = "运维触发一轮对账（每日定时另有调度）")
     public ApiResponse<Void> triggerReconcile() {

@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -224,6 +225,52 @@ public class PetActivityServiceImpl implements PetActivityService {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_EXPIRED,
                     "奖励超过 " + CLAIM_EXPIRE_HOURS + " 小时未领取，已经过期啦");
         }
+    }
+
+    /**
+     * §7.2 批量领取（≤20）：本方法<b>非事务</b>——逐项经事务代理的 {@link #claimActivity}
+     * 各自成独立事务，单项失败/回滚不影响其他项；返回每个 ID 的终态而非单一 success 提示。
+     */
+    @Override
+    public List<java.util.Map<String, Object>> claimBatch(Long userId, List<Long> activityIds) {
+        if (activityIds == null || activityIds.isEmpty() || activityIds.size() > 20) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "activityIds 需为 1~20 个");
+        }
+        if (activityIds.stream().distinct().count() != activityIds.size()) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "activityIds 不能重复");
+        }
+        List<java.util.Map<String, Object>> results = new ArrayList<>();
+        for (Long activityId : activityIds) {
+            java.util.Map<String, Object> item = new HashMap<>();
+            item.put("activityId", activityId);
+            try {
+                PetActivityVO claimed = claimActivity(userId, activityId);
+                item.put("status", "CLAIMED");
+                item.put("activity", claimed);
+            } catch (BusinessException e) {
+                item.put("status", mapClaimFailure(e.getCode()));
+                item.put("errorCode", e.getCode());
+                item.put("message", e.getMessage());
+            } catch (Exception unexpected) {
+                log.warn("批量领取单项异常: userId={}, activityId={}", userId, activityId, unexpected);
+                item.put("status", "FAILED");
+                item.put("errorCode", PetErrorCodes.PET_ACTIVITY_CONFLICT);
+                item.put("message", "领取失败，请稍后重试");
+            }
+            results.add(item);
+        }
+        return results;
+    }
+
+    /** 单项失败 → 终态映射：已领取幂等、未完成可再来、过期/未知为失败 */
+    private String mapClaimFailure(String errorCode) {
+        if (PetErrorCodes.PET_ACTIVITY_ALREADY_CLAIMED.equals(errorCode)) {
+            return "ALREADY_CLAIMED";
+        }
+        if (PetErrorCodes.PET_ACTIVITY_NOT_FINISHED.equals(errorCode)) {
+            return "NOT_READY";
+        }
+        return "FAILED";
     }
 
     @Override

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 打工/读书接口（统一 pet_activity 状态机：开工→倒计时→领取，原文档 §11/§12/§74）。
@@ -84,6 +85,19 @@ public class PetActivityController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "活动 ID") @PathVariable("activityId") Long activityId) {
         return ApiResponse.ok(activityService.claimActivity(userId, activityId));
+    }
+
+    public record ClaimBatchRequest(List<Long> activityIds) {
+    }
+
+    @PostMapping("/activities/claim-batch")
+    @Operation(summary = "批量领取奖励（§7.2）", description = "最多 20 个，逐项独立事务；"
+            + "返回每个 ID 的终态 CLAIMED/ALREADY_CLAIMED/NOT_READY/FAILED 与实际奖励，不忽略单项失败")
+    @SentinelResource("PET_ACTIVITY_CLAIM")
+    public ApiResponse<List<Map<String, Object>>> claimBatch(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestBody ClaimBatchRequest request) {
+        return ApiResponse.ok(activityService.claimBatch(userId, request.activityIds()));
     }
 
     @GetMapping("/studies")

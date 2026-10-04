@@ -314,6 +314,14 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/reconciliations/run")
     ApiResponse<Void> triggerWalletReconcile();
 
+    @org.springframework.web.bind.annotation.GetMapping("/pet/wallet/reconciliations/{runId}/diffs")
+    ApiResponse<Object> walletReconciliationDiffs(@org.springframework.web.bind.annotation.PathVariable("runId") Long runId,
+                                                  @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status);
+
+    @org.springframework.web.bind.annotation.PostMapping("/pet/wallet/reconciliation-diffs/{id}/resolve")
+    ApiResponse<Object> resolveWalletReconciliationDiff(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                                        @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
     // ---------------- BE-11 相册资源审核（下游 /admin/pet/album/**） ----------------
 
     @org.springframework.web.bind.annotation.PostMapping("/pet/album/{assetId}/approve")

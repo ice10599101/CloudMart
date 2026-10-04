@@ -44,6 +44,15 @@ public class PetWalletReconcileItem {
     /** 状态：OPEN/RESOLVED */
     private String status;
 
+    /** 处置结论（调查说明或关联补偿单号，§8.2 resolve 必填） */
+    private String resolutionNote;
+
+    /** 处置管理员（mall-admin 认证主体） */
+    private Long resolvedBy;
+
+    /** 处置时间(UTC) */
+    private LocalDateTime resolvedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

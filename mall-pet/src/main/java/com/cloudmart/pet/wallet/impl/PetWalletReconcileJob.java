@@ -197,4 +197,44 @@ public class PetWalletReconcileJob {
                 Long.class, accountId, versionUpperBound);
         return sum != null ? sum : 0L;
     }
+    /**
+     * §8.2 差异人工处置：记录调查结论/关联补偿单并置 RESOLVED——只更新差异行，
+     * 不改账本不改余额（余额修复只能经调账补偿走正常审批链）。
+     * CAS（OPEN → RESOLVED）：并发重复处置只有一方生效，其余返回原状态。
+     *
+     * @return 处置后的差异行
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public PetWalletReconcileItem resolveDiff(Long itemId, Long operatorAdminId,
+                                              String note, String resolutionRef) {
+        if (operatorAdminId == null || operatorAdminId <= 0) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "管理员身份缺失");
+        }
+        if (note == null || note.isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "处置结论必填");
+        }
+        PetWalletReconcileItem item = itemMapper.selectById(itemId);
+        if (item == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "差异记录不存在");
+        }
+        String resolvedNote = note.strip() + (resolutionRef != null && !resolutionRef.isBlank()
+                ? "（关联单号: " + resolutionRef.strip() + "）" : "");
+        int updated = itemMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetWalletReconcileItem>()
+                .set(PetWalletReconcileItem::getStatus, "RESOLVED")
+                .set(PetWalletReconcileItem::getResolutionNote, resolvedNote.length() > 500
+                        ? resolvedNote.substring(0, 500) : resolvedNote)
+                .set(PetWalletReconcileItem::getResolvedBy, operatorAdminId)
+                .set(PetWalletReconcileItem::getResolvedAt, LocalDateTime.now(ZoneOffset.UTC))
+                .eq(PetWalletReconcileItem::getId, itemId)
+                .eq(PetWalletReconcileItem::getStatus, "OPEN"));
+        if (updated == 0) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_STATE_CONFLICT, "差异已被处置，请刷新后重试");
+        }
+        log.info("对账差异人工处置完成, itemId={}, diff={}, operator={}", itemId, item.getDiff(), operatorAdminId);
+        return itemMapper.selectById(itemId);
+    }
 }

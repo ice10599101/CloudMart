@@ -42,6 +42,12 @@ public interface PetActivityService {
     /** 统一活动列表（B09）：进行中/待领取/已领取/已过期，支持宠物过滤与分页 */
     List<PetActivityVO> listActivities(Long userId, String status, Long petId, int page, int size);
 
+    /**
+     * §7.2 批量领取：最多 20 个，逐项独立事务——单项失败不影响其他项，
+     * 返回每个 ID 的终态（CLAIMED/ALREADY_CLAIMED/NOT_READY/FAILED/UNKNOWN_ID）与实际奖励。
+     */
+    List<java.util.Map<String, Object>> claimBatch(Long userId, List<Long> activityIds);
+
     /** 过期清理：COMPLETED 超时未领取置 EXPIRED（定时器兜底调用，返回处理条数） */
     int expireStaleClaims();
 }
