@@ -1,5 +1,7 @@
 package com.cloudmart.wms.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wms.converter.WmsConverter;
@@ -24,6 +26,7 @@ import java.util.Map;
 @Tag(name = "仓储管理", description = "仓储管理端接口")
 @RestController
 @RequestMapping("/admin/wms")
+@PreAuthorize("hasRole('INTERNAL')")
 public class AdminWmsController {
 
     private final PickOrderService pickOrderService;

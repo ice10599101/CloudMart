@@ -30,6 +30,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/internal/groups")
 @Tag(name = "内部-拼团快照", description = "mall-order 建成团订单回查（服务令牌可达）")
+@PreAuthorize("hasRole('INTERNAL')")
 public class InternalGroupController {
 
     private final GroupOrderMapper groupOrderMapper;

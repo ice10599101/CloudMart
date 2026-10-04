@@ -1,0 +1,654 @@
+{
+  "comment": "T25 存量未归类写路由基线（生成于本轮审计）——治理目标清零：修复一条删一条；新增未归类路由将被 CI 阻断，禁止把新条目加入本文件。",
+  "generatedIn": "CloudMart 全栈审计改造（T25）",
+  "entries": [
+    {
+      "module": "mall-cart",
+      "method": "POST",
+      "path": "/items",
+      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
+    },
+    {
+      "module": "mall-cart",
+      "method": "PUT",
+      "path": "/items/{skuId}",
+      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
+    },
+    {
+      "module": "mall-cart",
+      "method": "DELETE",
+      "path": "/items/{skuId}",
+      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
+    },
+    {
+      "module": "mall-cart",
+      "method": "DELETE",
+      "path": "/清空购物车",
+      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
+    },
+    {
+      "module": "mall-cart",
+      "method": "DELETE",
+      "path": "/checked/skus",
+      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/browse-history/上报浏览足迹",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/BrowseHistoryController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/comments/{commentId}/like",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/CommentController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/comments/{commentId}/like",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/CommentController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/growth/check-in",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/GrowthController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "PUT",
+      "path": "/growth/avatar-frame",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/GrowthController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/polls/创建投票",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PollController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/polls/{pollId}/vote",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PollController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/posts/{postId}/comments/发表评论",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostCommentController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/posts/{postId}/comments/{commentId}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostCommentController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/posts/发布帖子",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "PUT",
+      "path": "/posts/{id}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/posts/{id}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/posts/{id}/like",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/posts/{id}/like",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/posts/{id}/collect",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/posts/{id}/collect",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/posts/{id}/share",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/reports/提交举报",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/ReportController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/search/history",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/SearchController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/surveys/创建问卷",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/SurveyController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/surveys/{surveyId}/responses",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/SurveyController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/tags/resolve",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/TagController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/tags/subscriptions/{tagId}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/TagSubscriptionController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/tags/subscriptions/{tagId}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/TagSubscriptionController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/blocks/{userId}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserBlockController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/blocks/{userId}",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserBlockController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "POST",
+      "path": "/users/{userId}/follow",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserCommunityController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "DELETE",
+      "path": "/users/{userId}/follow",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserCommunityController.java"
+    },
+    {
+      "module": "mall-community",
+      "method": "PUT",
+      "path": "/settings/更新用户设置",
+      "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserSettingController.java"
+    },
+    {
+      "module": "mall-coupon",
+      "method": "POST",
+      "path": "/coupon-templates/创建优惠券模板",
+      "file": "mall-coupon/src/main/java/com/cloudmart/coupon/controller/CouponController.java"
+    },
+    {
+      "module": "mall-coupon",
+      "method": "PUT",
+      "path": "/coupon-templates/{id}/disable",
+      "file": "mall-coupon/src/main/java/com/cloudmart/coupon/controller/CouponController.java"
+    },
+    {
+      "module": "mall-coupon",
+      "method": "POST",
+      "path": "/user-coupons/exchange",
+      "file": "mall-coupon/src/main/java/com/cloudmart/coupon/controller/CouponUserController.java"
+    },
+    {
+      "module": "mall-inventory",
+      "method": "POST",
+      "path": "/tcc/try",
+      "file": "mall-inventory/src/main/java/com/cloudmart/inventory/controller/InventoryTccController.java"
+    },
+    {
+      "module": "mall-inventory",
+      "method": "POST",
+      "path": "/tcc/confirm/{xid}",
+      "file": "mall-inventory/src/main/java/com/cloudmart/inventory/controller/InventoryTccController.java"
+    },
+    {
+      "module": "mall-inventory",
+      "method": "POST",
+      "path": "/tcc/cancel/{xid}",
+      "file": "mall-inventory/src/main/java/com/cloudmart/inventory/controller/InventoryTccController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/rooms/{roomId}/enter",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/LiveRoomController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/rooms/{roomId}/leave",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/LiveRoomController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/seckill/rooms/{roomId}/execute",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/LiveSeckillController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/webrtc/tickets",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/WebrtcController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/webrtc/signal",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/WebrtcController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "POST",
+      "path": "/webrtc/ice",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/WebrtcController.java"
+    },
+    {
+      "module": "mall-live",
+      "method": "DELETE",
+      "path": "/webrtc/signal/{roomId}",
+      "file": "mall-live/src/main/java/com/cloudmart/live/controller/WebrtcController.java"
+    },
+    {
+      "module": "mall-marketing",
+      "method": "POST",
+      "path": "/group/join",
+      "file": "mall-marketing/src/main/java/com/cloudmart/marketing/controller/GroupActivityController.java"
+    },
+    {
+      "module": "mall-marketing",
+      "method": "POST",
+      "path": "/tiered/calculate",
+      "file": "mall-marketing/src/main/java/com/cloudmart/marketing/controller/TieredPromotionController.java"
+    },
+    {
+      "module": "mall-notification",
+      "method": "POST",
+      "path": "/conversations/创建会话",
+      "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/ChatController.java"
+    },
+    {
+      "module": "mall-notification",
+      "method": "POST",
+      "path": "/conversations/{conversationId}/messages",
+      "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/ChatController.java"
+    },
+    {
+      "module": "mall-notification",
+      "method": "PUT",
+      "path": "/conversations/{conversationId}/read",
+      "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/ChatController.java"
+    },
+    {
+      "module": "mall-notification",
+      "method": "PUT",
+      "path": "/conversations/messages/{messageId}/recall",
+      "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/ChatController.java"
+    },
+    {
+      "module": "mall-notification",
+      "method": "PUT",
+      "path": "/notifications/{notificationId}/read",
+      "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/NotificationController.java"
+    },
+    {
+      "module": "mall-order",
+      "method": "POST",
+      "path": "/orders/{orderId}/after-sale",
+      "file": "mall-order/src/main/java/com/cloudmart/order/controller/AfterSaleCaseController.java"
+    },
+    {
+      "module": "mall-order",
+      "method": "POST",
+      "path": "/orders/after-sale/{caseId}/cancel",
+      "file": "mall-order/src/main/java/com/cloudmart/order/controller/AfterSaleCaseController.java"
+    },
+    {
+      "module": "mall-order",
+      "method": "POST",
+      "path": "/orders/after-sale/{caseId}/return-shipping",
+      "file": "mall-order/src/main/java/com/cloudmart/order/controller/AfterSaleCaseController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "POST",
+      "path": "/brands",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/BrandController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "PUT",
+      "path": "/brands/{id}",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/BrandController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "DELETE",
+      "path": "/brands/{id}",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/BrandController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "POST",
+      "path": "/reviews/提交评价",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/ReviewController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "POST",
+      "path": "/wishlists/{productId}",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/WishlistController.java"
+    },
+    {
+      "module": "mall-product",
+      "method": "DELETE",
+      "path": "/wishlists/{productId}",
+      "file": "mall-product/src/main/java/com/cloudmart/product/controller/WishlistController.java"
+    },
+    {
+      "module": "mall-risk",
+      "method": "POST",
+      "path": "/check/执行风控检查",
+      "file": "mall-risk/src/main/java/com/cloudmart/risk/controller/RiskCheckController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "POST",
+      "path": "/users/account-deletion/申请全账号注销",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AccountDeletionController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "DELETE",
+      "path": "/users/account-deletion/取消注销",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AccountDeletionController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "POST",
+      "path": "/users/account-deletion/internal/tasks/{taskId}/retry",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AccountDeletionController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "POST",
+      "path": "/users/addresses/新增收货地址",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AddressController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "PUT",
+      "path": "/users/addresses/{addressId}",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AddressController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "DELETE",
+      "path": "/users/addresses/{addressId}",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AddressController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "PUT",
+      "path": "/users/addresses/{addressId}/default",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/AddressController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "PUT",
+      "path": "/users/profile",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/UserController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "PUT",
+      "path": "/users/nickname",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/UserController.java"
+    },
+    {
+      "module": "mall-user",
+      "method": "PUT",
+      "path": "/users/password",
+      "file": "mall-user/src/main/java/com/cloudmart/user/controller/UserController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/activities/{id}/join",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/ActivityController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/collections/spark/{wishId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/CollectionController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/my/active-skin/{assetId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/CollectionController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/my/active-bgm/{assetId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/CollectionController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/brands/{brandId}/pools/{poolId}/join",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/CollectionController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/my/export",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/DataExportController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/drift-bottles/{id}/collect",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/DriftBottleController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/encounter-letters/{id}/read",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/EncounterController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/v2/wishes/{id}/goals",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/GoalPlanController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PATCH",
+      "path": "/v2/goals/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/GoalPlanController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/v2/goals/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/GoalPlanController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/live/widget/widgets/config",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/LiveWidgetController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/match/groups/{id}/dissolution",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/MatchGroupController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/map/warm-events/{eventId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WarmMapController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/collections/{wishId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishCollectionController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/wishes/{wishId}/comments/{commentId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishCommentController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/wishes/发布心愿",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/wishes/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/wishes/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/wishes/{id}/progress",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PUT",
+      "path": "/wishes/{id}/growth-records/{recordId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/wishes/{id}/growth-records/{recordId}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "PATCH",
+      "path": "/v2/drafts/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishDraftController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "DELETE",
+      "path": "/v2/drafts/{id}",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishDraftController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/v2/wishes/{id}/reschedule",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishLifecycleController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/v2/wishes/{id}/archive",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishLifecycleController.java"
+    },
+    {
+      "module": "mall-wish",
+      "method": "POST",
+      "path": "/v2/wishes/{id}/unarchive",
+      "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishLifecycleController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "POST",
+      "path": "/shipping/hasRole('INTERNAL')",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/ShippingController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "PUT",
+      "path": "/shipping/{id}/status",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/ShippingController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "POST",
+      "path": "/warehouses/创建仓库",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "PUT",
+      "path": "/warehouses/{id}",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "DELETE",
+      "path": "/warehouses/{id}",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "POST",
+      "path": "/warehouses/pick-orders",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
+    },
+    {
+      "module": "mall-wms",
+      "method": "POST",
+      "path": "/warehouses/inbound-orders",
+      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
+    }
+  ]
+}

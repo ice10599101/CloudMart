@@ -41,6 +41,7 @@ import java.util.Map;
 @RequestMapping("/internal/jobs")
 @Tag(name = "心愿宇宙·定时任务内部", description = "mall-job XXL-Job 定时任务专用（外部不可达）")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('INTERNAL')")
 public class InternalJobController {
     private final MaintenanceService maintenanceService;
     private final CollectionService collectionService;

@@ -1,5 +1,7 @@
 package com.cloudmart.coupon.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.coupon.service.CouponService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/internal/coupons")
 @Tag(name = "优惠券内部接口", description = "供 XXL-JOB 等内部系统调用的优惠券接口（E02：统一 /internal 路由）")
+@PreAuthorize("hasRole('INTERNAL')")
 public class CouponInternalController {
 
     private final CouponService couponService;

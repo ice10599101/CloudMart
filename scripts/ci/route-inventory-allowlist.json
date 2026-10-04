@@ -1,0 +1,7 @@
+{
+  "comment": "T25 路由门禁豁免：合法匿名写入口（逐条审计理由）。新增豁免必须附 reason 与负责人。",
+  "entries": [
+    { "method": "POST", "path": "/admin/login", "module": "mall-auth", "reason": "管理员登录入口（ANON 合法；SecurityConfig /admin/** permitAll；网关 /api/auth/** 剥离凭据）" },
+    { "method": "POST", "path": "/admin/refresh", "module": "mall-auth", "reason": "管理员令牌刷新入口（凭 refresh_token 换发，ANON 合法）" }
+  ]
+}

@@ -1,5 +1,7 @@
 package com.cloudmart.auth.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.cloudmart.auth.dto.LoginRequest;
 import com.cloudmart.auth.dto.LoginResponse;
 import com.cloudmart.auth.dto.RefreshRequest;
@@ -39,6 +41,7 @@ public class AdminAuthController {
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<Void> logout(@AuthenticationPrincipal Jwt jwt) {
         // SEC-02：登出必须由已验签的管理员域令牌驱动；匿名登出一律拒绝而非伪成功
         requireAdminDomain(jwt);
@@ -48,6 +51,7 @@ public class AdminAuthController {
 
     /** SEC-02：退出全部设备——认证状态版本递增 + 撤销全部管理员刷新家族 */
     @PostMapping("/logout-all")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<Void> logoutAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdminDomain(jwt);
         adminAuthService.logoutAll(Long.valueOf(jwt.getSubject()));

@@ -1,5 +1,7 @@
 package com.cloudmart.live.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -22,6 +24,7 @@ import java.util.Map;
 @Tag(name = "直播间管理(后台)", description = "管理后台直播间管理接口，仅供内部服务调用")
 @RestController
 @RequestMapping("/admin/live/rooms")
+@PreAuthorize("hasRole('INTERNAL')")
 public class AdminLiveRoomController {
 
     private final LiveRoomService liveRoomService;

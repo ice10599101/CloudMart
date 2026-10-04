@@ -1,5 +1,7 @@
 package com.cloudmart.ai.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.cloudmart.ai.service.ProductVectorSyncService;
 import com.cloudmart.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +16,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/admin")
 @ConditionalOnProperty(name = "ai.vector.enabled", havingValue = "true")
+@PreAuthorize("hasRole('INTERNAL')")
 public class AdminAiController {
 
     private final ProductVectorSyncService vectorSyncService;

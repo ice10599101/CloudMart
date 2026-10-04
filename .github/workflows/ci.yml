@@ -185,6 +185,8 @@ jobs:
           node-version: '26'
       - name: 路由权限清单 lint（S05：重复键/非法 YAML/必填字段）
         run: node scripts/ci/route-policy-lint.mjs
+      - name: 路由清单对照真实 Controller（T25：新增未归类写路由阻断；存量欠账见 baseline）
+        run: node scripts/ci/route-inventory.mjs
       - name: 密钥泄漏扫描（gitleaks）
         uses: gitleaks/gitleaks-action@v2
         env:
