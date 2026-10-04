@@ -294,7 +294,7 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
     }
 
     /**
-     * R36：本宠当日分账 upsert（V55 pet_companion_daily_pet）。
+     * R36：本宠当日分账 upsert（V62 pet_companion_daily_pet）。
      * 返回本次新增的完整任务分钟数（floor 差值）；qualifiedDay 首次达标置 1。
      * 并发撞 uk(pet_id, business_date) 时按已存在行重算（不重复计秒）。
      */

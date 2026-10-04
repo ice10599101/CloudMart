@@ -25,7 +25,7 @@ import java.util.Set;
 /**
  * 用户举报创建（R05 §7.2）：目标存在性核验 + 每日配额 + 未结案同人同对象幂等。
  *
- * <p>「同用户同目标未结案返回已有举报，不重复入队」由 V54 生成列 open_key + 唯一键
+ * <p>「同用户同目标未结案返回已有举报，不重复入队」由 V61 生成列 open_key + 唯一键
  * uk_pet_report_open 数据库权威约束（PENDING 时非空、结案自动置 NULL），应用层
  * DuplicateKeyException 转幂等返回；系统自动举报（危机词，isAuto=1）不走本服务、不占配额。</p>
  */

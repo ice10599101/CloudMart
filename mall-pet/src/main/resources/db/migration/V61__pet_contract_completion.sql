@@ -1,4 +1,4 @@
--- V54 (R23 尾/R05 尾): 契约补齐——日记版本号、相册说明/可见性/版本、举报创建加固
+-- V61 (R23 尾/R05 尾): 契约补齐——日记版本号、相册说明/可见性/版本、举报创建加固
 
 -- 1) 日记可见性 PATCH 需要 expectedVersion（§7.2：{visibility, expectedVersion}）
 ALTER TABLE `pet_diary_entry`
