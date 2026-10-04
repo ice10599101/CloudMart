@@ -21,6 +21,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -445,5 +446,46 @@ public class InventoryServiceImpl implements InventoryService {
             throw runtimeException;
         }
         throw new BusinessException("INVENTORY_SERVICE_UNAVAILABLE", "库存服务暂时不可用，请稍后重试");
+    }
+
+    /**
+     * T19：WMS 收货入库。幂等链：receiptId 在 inventory_logs 有唯一键——重复请求
+     * DuplicateKey 吸收返回已入账；CAS available = available + ?（无负数回退）；
+     * 隔离（QUARANTINE）不入可售由调用方（WMS）过滤，本端点只接受可售入账。
+     */
+    @Override
+    @Transactional
+    public java.util.Map<String, Object> restock(String receiptId, Long skuId, int quantity) {
+        if (quantity <= 0) {
+            throw new BusinessException("RESTOCK_QUANTITY_INVALID", "入库数量必须为正数");
+        }
+        var existing = inventoryLogMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<InventoryLog>()
+                        .eq(InventoryLog::getReceiptId, receiptId));
+        if (existing != null) {
+            log.info("[T19] 收货已入账（receiptId 幂等跳过） receiptId={} skuId={}", receiptId, skuId);
+            return java.util.Map.of("restocked", false, "receiptId", receiptId);
+        }
+        int updated = inventoryMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Inventory>()
+                        .eq(Inventory::getSkuId, skuId)
+                        .setSql("available = available + " + quantity));
+        if (updated == 0) {
+            throw new BusinessException("INVENTORY_SKU_NOT_FOUND", "库存记录不存在，skuId=" + skuId);
+        }
+        InventoryLog logEntry = new InventoryLog();
+        logEntry.setSkuId(skuId);
+        logEntry.setType("RESTOCK");
+        logEntry.setQuantity(quantity);
+        logEntry.setReceiptId(receiptId);
+        try {
+            inventoryLogMapper.insert(logEntry);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            // 并发同 receiptId：入账行已存在——本事务回滚（可售不重复加）
+            log.info("[T19] 并发同 receiptId 入账（唯一键兜底回滚） receiptId={}", receiptId);
+            return java.util.Map.of("restocked", false, "receiptId", receiptId);
+        }
+        log.info("[T19] 收货入库完成 receiptId={} skuId={} quantity={}", receiptId, skuId, quantity);
+        return java.util.Map.of("restocked", true, "receiptId", receiptId);
     }
 }

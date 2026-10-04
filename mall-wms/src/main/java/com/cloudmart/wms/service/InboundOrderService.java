@@ -18,4 +18,9 @@ public interface InboundOrderService {
     InboundOrderDTO findByTypeAndReferenceNo(String type, String referenceNo);
 
     IPage<InboundOrderDTO> listInboundOrders(String status, Long warehouseId, int page, int size);
+
+    /** T19：收货（receiptId 幂等 + 正数/超收约束 + 收货流水 + 库存入账） */
+    com.cloudmart.wms.dto.InboundOrderDTO receiveItem(Long inboundOrderId, Long itemId, Integer receivedQuantity,
+                                                      String receiptId, Long operatorId,
+                                                      String qualityResult, String bizSource);
 }

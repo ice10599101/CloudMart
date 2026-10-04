@@ -21,4 +21,7 @@ public interface InventoryService {
             java.time.LocalDateTime since, long lastId, int limit);
 
     void initStock(Long skuId, Long productId, Integer stock);
+
+    /** T19：WMS 收货入库（receiptId 幂等；PASSED 加可售并写流水），返回 {restocked, receiptId} */
+    java.util.Map<String, Object> restock(String receiptId, Long skuId, int quantity);
 }

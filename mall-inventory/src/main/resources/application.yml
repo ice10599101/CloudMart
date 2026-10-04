@@ -140,7 +140,7 @@ cloudmart:
         issuers: [mall-product]
         scope: inventory:admin
       - prefix: /internal
-        issuers: [mall-order, mall-payment]
+        issuers: [mall-order, mall-payment, mall-wms]
         scope: inventory:trade
 
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与

@@ -134,8 +134,12 @@ cloudmart:
         issuers: [mall-admin, mall-order]
         scope: wms:admin
       - prefix: /internal
-        issuers: [mall-job]
+        issuers: [mall-job, mall-wms]
         scope: wms:jobs
+
+    # T19：收货入库出站签名（iss=mall-wms, aud=mall-inventory, scope=inventory:trade）
+    outbound-scopes:
+      mall-inventory: inventory:trade
 
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
 # SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启

@@ -103,6 +103,23 @@ public class InternalInventoryController {
      * T11：预占台账对账扫描——某时间后创建的预占，id 游标全量（跨服务对账用，
      * 返回 (orderId,status) 聚合视图）。scope=inventory 时 mall-payment 对账服务调用。
      */
+    public record RestockRequest(@jakarta.validation.constraints.NotBlank String receiptId,
+                                 @jakarta.validation.constraints.NotNull Long skuId,
+                                 @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(1) Integer quantity) {
+    }
+
+    /**
+     * T19：WMS 收货入库——PASSED 验收才加可售；receiptId 幂等（uk(inventory_logs.receipt_id)
+     * 兜底），重复调用返回原结果不重复加库存。隔离（QUARANTINE）不入可售，走人工处置。
+     */
+    @PostMapping("/restock")
+    @Operation(summary = "收货入库", description = "T19：receiptId 幂等；PASSED 验收加可售数量并写流水")
+    public ApiResponse<java.util.Map<String, Object>> restock(
+            @jakarta.validation.Valid @RequestBody RestockRequest request) {
+        return ApiResponse.ok(inventoryService.restock(request.receiptId(), request.skuId(),
+                request.quantity()));
+    }
+
     @GetMapping("/reservations/reconcile-scan")
     @Operation(summary = "预占台账对账扫描", description = "since 之后创建、id>lastId 的预占订单级聚合")
     public ApiResponse<java.util.List<ReservationScanDTO>> reconcileScan(

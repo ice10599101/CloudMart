@@ -24,6 +24,9 @@ public class InventoryLog {
 
     private Long orderId;
 
+    /** T19：来源收货流水 ID（RESTOCK 入账幂等键，uk 兜底重复入账） */
+    private String receiptId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

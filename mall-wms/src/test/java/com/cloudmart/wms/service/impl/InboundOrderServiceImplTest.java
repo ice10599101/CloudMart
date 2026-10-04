@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,14 @@ class InboundOrderServiceImplTest {
 
     @Mock
     private InboundOrderItemMapper inboundOrderItemMapper;
+    @Mock
+    private com.cloudmart.wms.repository.InboundReceiptMapper receiptMapper;
+    @Mock
+    private com.cloudmart.common.async.outbox.OutboxService outboxService;
+    @Mock
+    private com.cloudmart.wms.feign.InventoryRestockFeignClient inventoryRestockFeignClient;
+    @Mock
+    private com.cloudmart.common.async.compensation.CompensationTaskService compensationTaskService;
 
     @InjectMocks
     private InboundOrderServiceImpl inboundOrderService;
@@ -199,13 +208,127 @@ class InboundOrderServiceImplTest {
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
             when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(item);
             when(inboundOrderItemMapper.selectList(any())).thenReturn(List.of(item));
+            // T19：流水幂等登记成功 + 行级 CAS 命中
+            when(receiptMapper.insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class)))
+                    .thenReturn(1);
+            when(inboundOrderItemMapper.receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                    .thenReturn(1);
 
             inboundOrderService.receiveItem(1L, 10L, 5);
 
-            verify(inboundOrderItemMapper).updateById(any(InboundOrderItem.class));
+            // T19：收货流水落库 + 数量 CAS 累加 + 订单进度更新（不再整字段覆盖明细）
+            verify(receiptMapper).insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class));
+            verify(inboundOrderItemMapper).receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt());
             verify(inboundOrderMapper).updateById(any(InboundOrder.class));
         }
+
+        @Test
+        @DisplayName("T19 幂等：同 receiptId 重放返回原收货，数量不二次累计")
+        void receive_sameReceiptId_idempotent() {
+            InboundOrder order = buildInboundOrder();
+            InboundOrderItem item = buildInboundOrderItem();
+            when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
+            when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(item);
+            when(receiptMapper.insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class)))
+                    .thenReturn(0);
+
+            inboundOrderService.receiveItem(1L, 10L, 5, "RCP-DUP", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE);
+
+            verify(inboundOrderItemMapper, never()).receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt());
+            verify(inboundOrderMapper, never()).updateById(any(InboundOrder.class));
+        }
+
+        @Test
+        @DisplayName("T19 超收拒绝：received+delta > expected → RECEIVE_OVER_RECEIVED")
+        void receive_overReceived_rejected() {
+            InboundOrder order = buildInboundOrder();
+            InboundOrderItem item = buildInboundOrderItem();
+            item.setExpectedQuantity(10);
+            item.setReceivedQuantity(8);
+            when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
+            when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(item);
+            when(receiptMapper.insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class)))
+                    .thenReturn(1);
+            when(inboundOrderItemMapper.receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5, "RCP-OVER", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("RECEIVE_OVER_RECEIVED");
+        }
+
+        @Test
+        @DisplayName("T19 非正数拒绝：0/负数 → RECEIVE_QUANTITY_INVALID，不落任何事实")
+        void receive_nonPositive_rejected() {
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 0, "RCP-ZERO", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("RECEIVE_QUANTITY_INVALID");
+            verify(receiptMapper, never()).insertIfAbsent(any());
+        }
+
+        @Test
+        @DisplayName("T19 隔离验收：QUARANTINE 不触发库存入账（不入可售）")
+        void receive_quarantine_noRestock() {
+            InboundOrder order = buildInboundOrder();
+            InboundOrderItem item = buildInboundOrderItem();
+            when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
+            when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(item);
+            when(receiptMapper.insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class)))
+                    .thenReturn(1);
+            when(inboundOrderItemMapper.receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                    .thenReturn(1);
+
+            inboundOrderService.receiveItem(1L, 10L, 5, "RCP-Q", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_QUARANTINE,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE);
+
+            verify(inventoryRestockFeignClient, never()).restock(any());
+        }
     }
+
+    @Nested
+    @DisplayName("T19 完成收货收齐校验")
+    class CompleteShortageTests {
+
+        @Test
+        @DisplayName("明细未收齐 → INBOUND_SHORTAGE（缺量收尾需差异审批，不默认放行）")
+        void complete_shortage_rejected() {
+            InboundOrder order = buildInboundOrder();
+            InboundOrderItem item = buildInboundOrderItem();
+            item.setExpectedQuantity(10);
+            item.setReceivedQuantity(6);
+            when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
+            when(inboundOrderItemMapper.selectList(any())).thenReturn(List.of(item));
+
+            assertThatThrownBy(() -> inboundOrderService.completeInbound(1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("INBOUND_SHORTAGE");
+            verify(inboundOrderMapper, never()).markCompleted(anyLong());
+        }
+
+        @Test
+        @DisplayName("全部收齐 → markCompleted CAS")
+        void complete_allReceived_casCompleted() {
+            InboundOrder order = buildInboundOrder();
+            InboundOrderItem item = buildInboundOrderItem();
+            item.setExpectedQuantity(10);
+            item.setReceivedQuantity(10);
+            when(inboundOrderMapper.selectById(anyLong())).thenReturn(order, order);
+            when(inboundOrderItemMapper.selectList(any())).thenReturn(List.of(item));
+            when(inboundOrderMapper.markCompleted(1L)).thenReturn(1);
+
+            inboundOrderService.completeInbound(1L);
+
+            verify(inboundOrderMapper).markCompleted(1L);
+        }
+    }
+
 
     @Nested
     @DisplayName("completeInbound 方法")
@@ -227,10 +350,12 @@ class InboundOrderServiceImplTest {
             InboundOrder order = buildInboundOrder();
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
             when(inboundOrderItemMapper.selectList(any())).thenReturn(List.of());
+            when(inboundOrderMapper.markCompleted(1L)).thenReturn(1);
 
             inboundOrderService.completeInbound(1L);
 
-            verify(inboundOrderMapper).updateById(any(InboundOrder.class));
+            // T19：状态 CAS（不再整字段覆盖）；缺量明细拒绝由 T19 新增用例覆盖
+            verify(inboundOrderMapper).markCompleted(1L);
         }
     }
 
