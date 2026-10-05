@@ -257,6 +257,24 @@ export default function WishDetailScreen() {
     }
   }
 
+  // T22：还愿撤回（API 封装此前无 App 入口；作者本人，后端状态机校验：
+  // 已进入社区流转/审核中的撤回被拒绝并回显原因，成功后刷新详情）
+  const handleWithdrawFulfillment = async () => {
+    try {
+      const res = await wishApi.withdrawFulfillment(wishId)
+      if (res.data?.success) {
+        Alert.alert('还愿已撤回', '心愿回到可还愿状态，可重新提交')
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data?.success) setWish(detailRes.data.data)
+        setFulfillment(null)
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      Alert.alert('撤回失败', msg ?? '可能已进入社区流转，请稍后查看')
+    }
+  }
+
   /** 传承给同路人（Sprint 2.7）：还愿后定向推曾同求用户 */
   const [legacySaving, setLegacySaving] = useState(false)
   const handleLegacy = () => {
@@ -661,7 +679,15 @@ export default function WishDetailScreen() {
             borderColor: 'rgba(255,107,107,0.35)',
           }}
         >
-          <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>🌸 还愿故事</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>🌸 还愿故事</Text>
+            {/* T22：作者可撤回还愿故事（允许状态下重新提交；后端状态机校验） */}
+            {isAuthor && (
+                <TouchableOpacity onPress={handleWithdrawFulfillment}>
+                    <Text style={{ fontSize: FontSize.sm, color: '#ff6b6b' }}>撤回还愿</Text>
+                </TouchableOpacity>
+            )}
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md }}>
             {fulfillment.authorAvatar ? (
               <Image source={{ uri: fulfillment.authorAvatar }} style={{ width: 32, height: 32, borderRadius: 16 }} />
