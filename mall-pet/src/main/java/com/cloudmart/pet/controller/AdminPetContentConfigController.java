@@ -719,12 +719,14 @@ public class AdminPetContentConfigController {
         occurrence.setStartAt(request.startAt());
         occurrence.setEndAt(request.endAt());
         occurrence.setClaimDeadlineAt(request.endAt().plusHours(graceHours));
-        // 奖励快照：发布时冻结当前配置的奖励字段（后续改配置不影响本期）
+        // 奖励快照：发布时冻结当前配置的奖励字段与统计口径（后续改配置不影响本期，PET-11）
         occurrence.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
                 "targetValue", config.getTargetValue() == null ? 1 : config.getTargetValue(),
                 "rewardStarlight", config.getRewardStarlight() == null ? 0 : config.getRewardStarlight(),
                 "rewardExp", config.getRewardExp() == null ? 0 : config.getRewardExp(),
-                "rewardItemCode", config.getRewardItemCode() == null ? "" : config.getRewardItemCode())));
+                "rewardItemCode", config.getRewardItemCode() == null ? "" : config.getRewardItemCode(),
+                "rewardAltStarlight", config.getRewardAltStarlight() == null ? 0 : config.getRewardAltStarlight(),
+                "eventType", config.getEventType() == null ? "" : config.getEventType())));
         occurrence.setStatus("ACTIVE");
         occurrenceMapper.insert(occurrence);
         return ApiResponse.ok(occurrence);

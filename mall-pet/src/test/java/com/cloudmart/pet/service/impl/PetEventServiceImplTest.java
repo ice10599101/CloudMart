@@ -91,6 +91,8 @@ class PetEventServiceImplTest {
         TableInfoHelper.initTableInfo(assistant, PetBottleRecord.class);
         TableInfoHelper.initTableInfo(assistant, PetBattle.class);
         TableInfoHelper.initTableInfo(assistant, PetInventory.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetEventOccurrence.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetEventOccurrenceClaim.class);
     }
 
     @BeforeEach
@@ -188,6 +190,68 @@ class PetEventServiceImplTest {
         // B01：发薪经统一操作记录
         org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("EVENT_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(120L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         verify(stateService).grantExp(any(Pet.class), eq(40));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-11/T23：发布期次后修改模板，目标与奖励按发布时快照发放")
+    void claimByOccurrenceUsesFrozenSnapshot() {
+        com.cloudmart.pet.entity.PetEventOccurrence occurrence = occurrence(900L, 2);
+        // 发布时快照：目标 2、星光 999、经验 77（模板后来被改成 target=3/星光 120/经验 40）
+        occurrence.setRewardSnapshot("{\"targetValue\":2,\"rewardStarlight\":999,\"rewardExp\":77,"
+                + "\"rewardItemCode\":\"\",\"rewardAltStarlight\":15,\"eventType\":\"BOTTLE\"}");
+        when(occurrenceMapper.selectById(900L)).thenReturn(occurrence);
+        when(eventConfigMapper.selectOne(any())).thenReturn(bottleEvent(3));
+        when(bottleRecordMapper.selectCount(any())).thenReturn(2L);
+        when(occurrenceClaimMapper.selectCount(any())).thenReturn(0L);
+
+        PetEventVO vo = eventService.claimByOccurrence(100L, 900L);
+
+        assertThat(vo.targetValue()).isEqualTo(2);
+        assertThat(vo.rewardStarlight()).isEqualTo(999);
+        verify(stateService).grantExp(any(Pet.class), eq(77));
+        // 发奖幂等键含 occurrenceId（同日多期不合并）
+        org.mockito.Mockito.verify(economyService).earn(
+                org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("EVENT_CLAIM"), org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(999L), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("bottle_newbie"),
+                org.mockito.ArgumentMatchers.eq(900L));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-11/T24：同日两期各自结算一次，替代奖励幂等键不跨期合并")
+    void sameDayOccurrencesHaveIndependentRewardKeys() {
+        when(eventConfigMapper.selectOne(any())).thenReturn(bottleEvent(3));
+        when(bottleRecordMapper.selectCount(any())).thenReturn(3L);
+        when(occurrenceClaimMapper.selectCount(any())).thenReturn(0L);
+        when(occurrenceMapper.selectById(900L)).thenReturn(occurrence(900L, 1));
+        when(occurrenceMapper.selectById(901L)).thenReturn(occurrence(901L, 2));
+
+        eventService.claimByOccurrence(100L, 900L);
+        eventService.claimByOccurrence(100L, 901L);
+
+        org.mockito.ArgumentCaptor<Object[]> keys = org.mockito.ArgumentCaptor.forClass(Object[].class);
+        org.mockito.Mockito.verify(economyService, org.mockito.Mockito.times(2)).earn(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.eq("EVENT_CLAIM"), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.isNull(),
+                keys.capture());
+        org.assertj.core.api.Assertions.assertThat(keys.getAllValues())
+                .satisfiesExactly(
+                        first -> assertThat(first).containsExactly(1L, "bottle_newbie", 900L),
+                        second -> assertThat(second).containsExactly(1L, "bottle_newbie", 901L));
+    }
+
+    private com.cloudmart.pet.entity.PetEventOccurrence occurrence(Long id, int index) {
+        com.cloudmart.pet.entity.PetEventOccurrence occurrence = new com.cloudmart.pet.entity.PetEventOccurrence();
+        occurrence.setId(id);
+        occurrence.setEventCode("bottle_newbie");
+        occurrence.setOccurrenceIndex(index);
+        occurrence.setStartAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3));
+        occurrence.setEndAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        occurrence.setClaimDeadlineAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusHours(23));
+        occurrence.setStatus("ACTIVE");
+        return occurrence;
     }
 
     private PetEventConfig bottleEvent(int target) {
