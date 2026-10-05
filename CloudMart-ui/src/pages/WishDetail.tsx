@@ -22,6 +22,7 @@ import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import DOMPurify from 'dompurify'
 import RichText from '@/components/RichText'
 import {
+  withdrawFulfillment,
   updateGrowthRecord, deleteGrowthRecord,
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
@@ -336,6 +337,23 @@ export default function WishDetail() {
       if (res.data.success) setGoals(res.data.data ?? [])
     } finally {
       setGoalsLoading(false)
+    }
+  }
+
+  // T22：还愿撤回（API 封装此前无页面接线；作者本人入口，后端状态机校验：
+  // 已进入社区流转/审核中的撤回会被拒绝并回显原因，撤回成功刷新详情）
+  const handleWithdrawFulfillment = async () => {
+    try {
+      const res = await withdrawFulfillment(wishId)
+      if (res.data.success) {
+        message.success('还愿已撤回，可重新提交')
+        setRefreshTick((tick) => tick + 1)
+      }
+    } catch (error) {
+      const code = (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
+        ?.response?.data?.error
+      message.warning(code?.message ?? '撤回失败（可能已进入社区流转），已刷新')
+      setRefreshTick((tick) => tick + 1)
     }
   }
 
@@ -780,6 +798,17 @@ export default function WishDetail() {
               <div className={styles.fulfillmentFeeling}>
                 <span className={styles.feelingLabel}>💬 感悟</span>
                 <span className={styles.feelingText}>{fulfillment.feeling}</span>
+              </div>
+            )}
+            {/* T22：作者可撤回还愿故事（允许状态下重新提交；后端状态机校验） */}
+            {isAuthor && (
+              <div style={{ marginTop: 12, textAlign: 'right' }}>
+                <Popconfirm
+                  title="确认撤回还愿故事？撤回后心愿回到可还愿状态，可重新提交"
+                  onConfirm={() => handleWithdrawFulfillment()}
+                >
+                  <Button type="link" size="small" danger>撤回还愿</Button>
+                </Popconfirm>
               </div>
             )}
           </Card>
