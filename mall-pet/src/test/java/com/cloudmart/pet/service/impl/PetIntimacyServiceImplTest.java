@@ -228,6 +228,140 @@ class PetIntimacyServiceImplTest {
     }
 
     @Test
+    @DisplayName("PET-15/T37：跨午夜心跳分两日入账（23:59:30～00:00:30 分属两日）")
+    void crossMidnightHeartbeatSplitsByBusinessDate() {
+        stubPet(pet());
+        // 业务日边界前后各 30 秒：边界由 PetClock 换算（businessDateStartUtc），固定时钟落在边界+30s
+        LocalDateTime boundaryUtc = petClock.businessDateStartUtc(LocalDate.of(2026, 9, 26));
+        LocalDate prevDate = petClock.businessDateOf(boundaryUtc.minusSeconds(30));
+        LocalDate curDate = petClock.businessDateOf(boundaryUtc.plusSeconds(30));
+        org.assertj.core.api.Assertions.assertThat(prevDate).isNotEqualTo(curDate);
+
+        PetClock boundaryClock = new PetClock(java.time.Clock.fixed(
+                boundaryUtc.plusSeconds(30).atOffset(java.time.ZoneOffset.UTC).toInstant(),
+                java.time.ZoneOffset.UTC), properties);
+        stubActiveSession(activeSession(1L, boundaryUtc.minusSeconds(30)));
+        when(dailyMapper.selectOne(any())).thenReturn(null);
+        var petDailyMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetCompanionDailyPetMapper.class);
+        org.mockito.Mockito.lenient().when(petDailyMapper.selectOne(any())).thenReturn(null);
+        when(petDailyMapper.insert(any(com.cloudmart.pet.entity.PetCompanionDailyPet.class))).thenReturn(1);
+        reinstate(boundaryClock, petDailyMapper);
+
+        PetCompanionSessionVO vo = intimacyService.heartbeat(100L, 60, 2L);
+
+        assertThat(vo.creditedSeconds()).isEqualTo(60);
+        org.mockito.ArgumentCaptor<PetCompanionDaily> dailyRows =
+                org.mockito.ArgumentCaptor.forClass(PetCompanionDaily.class);
+        org.mockito.Mockito.verify(dailyMapper, org.mockito.Mockito.times(2))
+                .insert(dailyRows.capture());
+        org.assertj.core.api.Assertions.assertThat(dailyRows.getAllValues())
+                .extracting(PetCompanionDaily::getBusinessDate)
+                .containsExactly(prevDate, curDate);
+    }
+
+    @Test
+    @DisplayName("PET-15/T37：qualifiedDay 首次达标当日才增加累计/连续天数，已达标日不重复增加")
+    void lifetimeCountersOnlyOnQualifiedTransition() {
+        stubPet(pet());
+        stubActiveSession(activeSession(1L, now.minusSeconds(60)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(0, 0));
+        // 本宠日账：已有 30 秒未达标（阈值默认 60 秒）
+        com.cloudmart.pet.entity.PetCompanionDailyPet ledger =
+                new com.cloudmart.pet.entity.PetCompanionDailyPet();
+        ledger.setId(5L);
+        ledger.setPetId(1L);
+        ledger.setBusinessDate(LocalDate.of(2026, 9, 26));
+        ledger.setAcceptedSeconds(30);
+        ledger.setQualifiedDay(0);
+        reinstateWithLedger(ledger, 0);
+
+        intimacyService.heartbeat(100L, 60, 2L);
+
+        // 30 + 60 = 90 >= 60 首次达标 → companion_days 增长
+        org.assertj.core.api.Assertions.assertThat(petUpdatesWithSql("companion_days")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("PET-15/T37：已达标日再次心跳不重复增加天数")
+    void lifetimeCountersNotDuplicatedAfterQualified() {
+        stubPet(pet());
+        stubActiveSession(activeSession(1L, now.minusSeconds(60)));
+        when(dailyMapper.selectOne(any())).thenReturn(daily(0, 0));
+        com.cloudmart.pet.entity.PetCompanionDailyPet ledger =
+                new com.cloudmart.pet.entity.PetCompanionDailyPet();
+        ledger.setId(5L);
+        ledger.setPetId(1L);
+        ledger.setBusinessDate(LocalDate.of(2026, 9, 26));
+        ledger.setAcceptedSeconds(300);
+        ledger.setQualifiedDay(1);
+        reinstateWithLedger(ledger, 1);
+
+        intimacyService.heartbeat(100L, 60, 2L);
+
+        assertThat(petUpdatesWithSql("companion_days")).isZero();
+    }
+
+    /** 统计 petMapper.update 中 SQL 集合包含指定列片段的调用次数 */
+    private int petUpdatesWithSql(String fragment) {
+        org.mockito.ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Pet>> captor =
+                org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+        org.mockito.Mockito.verify(petMapper, org.mockito.Mockito.atLeast(0))
+                .update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
+        return (int) captor.getAllValues().stream()
+                .filter(w -> String.valueOf(w.getSqlSet()).contains(fragment))
+                .count();
+    }
+
+    /** 用给定 petDailyMapper 重建服务（其余依赖沿用 setUp 桩） */
+    private void reinstateWithPetDaily(com.cloudmart.pet.repository.PetCompanionDailyPetMapper mapper) {
+        reinstate(petClock, mapper);
+    }
+
+    /** 用给定时钟与 petDailyMapper 重建服务（其余依赖沿用 setUp 桩） */
+    private void reinstate(PetClock clock, com.cloudmart.pet.repository.PetCompanionDailyPetMapper mapper) {
+        com.cloudmart.pet.service.PetUserGuardService guardService =
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserGuardService.class);
+        org.mockito.Mockito.lenient().when(guardService.lockGuard(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.cloudmart.pet.entity.PetUserGuard());
+        intimacyService = new PetIntimacyServiceImpl(petMapper, sessionMapper, dailyMapper,
+                mapper, properties, eventProducer, outboxService,
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetAchievementService.class), clock,
+                guardService, nullProvider());
+    }
+
+    /** 用给定本宠日账行重建服务（selectOne 返回该行） */
+    private void reinstateWithLedger(com.cloudmart.pet.entity.PetCompanionDailyPet ledger, int qualifiedDay) {
+        var mapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetCompanionDailyPetMapper.class);
+        org.mockito.Mockito.lenient().when(mapper.selectOne(any())).thenReturn(ledger);
+        org.mockito.Mockito.lenient().when(mapper.update(any(), any())).thenReturn(1);
+        reinstateWithPetDaily(mapper);
+    }
+
+    private org.springframework.beans.factory.ObjectProvider<com.cloudmart.pet.service.PetDailyQuestService> nullProvider() {
+        return new org.springframework.beans.factory.ObjectProvider<>() {
+            @Override
+            public com.cloudmart.pet.service.PetDailyQuestService getObject(Object... args) {
+                return null;
+            }
+
+            @Override
+            public com.cloudmart.pet.service.PetDailyQuestService getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public com.cloudmart.pet.service.PetDailyQuestService getIfUnique() {
+                return null;
+            }
+
+            @Override
+            public java.util.stream.Stream<com.cloudmart.pet.service.PetDailyQuestService> stream() {
+                return java.util.stream.Stream.empty();
+            }
+        };
+    }
+
+    @Test
     @DisplayName("概览：当天未发心跳也显示正确的今日值（读业务日行）")
     void overviewShowsCorrectTodayValue() {
         stubPet(pet());

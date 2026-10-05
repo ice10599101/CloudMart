@@ -75,6 +75,8 @@ public class PetServiceImpl implements PetService {
     private final PetCareerConfigMapper careerConfigMapper;
     /** 背包 Mapper（B12：手动改外观同步卸皮肤穿戴标记） */
     private final PetInventoryMapper skinInventoryMapper;
+    /** PET-15：本宠陪伴日账（今日值按 businessDate 读取） */
+    private final com.cloudmart.pet.repository.PetCompanionDailyPetMapper companionDailyPetMapper;
     private final PetCompanionFeatureService companionFeatureService;
     private final PetContentSafetyService safetyService;
     private final PetRankingCache rankingCache;
@@ -396,7 +398,9 @@ public class PetServiceImpl implements PetService {
                 PetIntimacyMath.toNext(intimacy, properties.getIntimacy().getLevelThresholds()),
                 PetIntimacyMath.expBonusPercent(pet, properties.getIntimacy()),
                 pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L,
-                pet.getTodayCompanionSeconds() != null ? pet.getTodayCompanionSeconds() : 0,
+                // PET-15：今日陪伴按每日 ledger 的 businessDate 读取（pet.today_companion_seconds
+                // 无跨日重置链路已停写）——新业务日自然归零，历史累计不丢
+                petTodayCompanionSeconds(pet),
                 pet.getCompanionDays() != null ? pet.getCompanionDays() : 0,
                 pet.getCompanionStreak() != null ? pet.getCompanionStreak() : 0,
                 pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()),
@@ -404,6 +408,16 @@ public class PetServiceImpl implements PetService {
                 // R20：业务日重置点（JacksonConfig 统一输出 RFC3339 UTC 带 Z），客户端倒计时以服务端为准
                 petClock.nextBusinessResetUtc(),
                 actionRewarded, actionReasonCode);
+    }
+
+    /** PET-15：本宠今日有效陪伴秒数（pet_companion_daily_pet 当前业务日行，无行按 0） */
+    private int petTodayCompanionSeconds(Pet pet) {
+        com.cloudmart.pet.entity.PetCompanionDailyPet ledger = companionDailyPetMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetCompanionDailyPet>()
+                        .eq(com.cloudmart.pet.entity.PetCompanionDailyPet::getPetId, pet.getId())
+                        .eq(com.cloudmart.pet.entity.PetCompanionDailyPet::getBusinessDate, petClock.businessDate())
+                        .last("LIMIT 1"));
+        return ledger != null && ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
     }
 
     /** 主人称呼（宠物对主人的叫法；未设置回落「主人」） */

@@ -242,32 +242,32 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             }
             totalCredited += accepted;
 
-            // R36：宠物维度累计写入（原实现只更新用户日账，pet.companionSeconds 无写入路径，
-            // 时长成就可达性断开）；当日段同步 todayCompanionSeconds
-            LocalDate currentBusinessDate = petClock.businessDate();
-            LambdaUpdateWrapper<com.cloudmart.pet.entity.Pet> petWrapper = new LambdaUpdateWrapper<com.cloudmart.pet.entity.Pet>()
-                    .setSql("companion_seconds = companion_seconds + " + accepted)
-                    .eq(com.cloudmart.pet.entity.Pet::getId, pet.getId());
-            if (date.equals(currentBusinessDate)) {
-                petWrapper.setSql("today_companion_seconds = LEAST(today_companion_seconds + " + accepted + ", 86400)");
-            }
-            petMapper.update(null, petWrapper);
-            pet.setCompanionSeconds((pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L) + accepted);
+            // R36：宠物维度累计写入（companion_seconds 为终身累计列；PET-15 起 today_companion_seconds
+            // 停止累加——该列无跨日重置链路，今日值统一按每日 ledger 的 businessDate 计算，新业务日自然归零）
+            petWrapperUnconditional(pet, accepted);
 
             // R36：按宠物可审计日分账——用户日总额照旧，本宠明细独立累计（不复制用户总额）；
             // 分钟任务事件按本宠分账的 floor 差值产生（30s+30s 应计 1 分钟，不按心跳次数），
             // qualifiedDay 达到阈值才计有效陪伴日
-            int questMinutesDelta = recordPetDailyLedger(userId, pet.getId(), date, accepted);
+            LedgerUpdate ledgerUpdate = recordPetDailyLedger(userId, pet.getId(), date, accepted);
+            // PET-15/T37：仅 qualifiedDay 首次达标的业务日增加累计/连续天数，且只对当前业务日维护
+            //（历史日期补录段不虚增今天的连续数）
+            if (ledgerUpdate.qualifiedTransition() && date.equals(petClock.businessDate())) {
+                maintainLifetimeCounters(pet, date);
+            }
 
             // R36：COMPANION 任务事件按本宠分账新增完整分钟数触发
             com.cloudmart.pet.service.PetDailyQuestService questServiceBean = questService.getIfAvailable();
-            if (questMinutesDelta > 0 && questServiceBean != null) {
+            if (ledgerUpdate.minutesDelta() > 0 && questServiceBean != null) {
                 try {
-                    // R32：事实驱动——segmentId 取累计分钟数（单调递增保证每段唯一），
-                    // sourceTime 为段结束时间，进度归段所属业务日（跨日段不入今天）
+                    // R32/PET-15：事实驱动——segmentId 取累计分钟数（单调递增保证每段唯一）；
+                    // sourceTime 必须落在段所属业务日内：拆分段恰好在午夜结束时回退 1ms，
+                    // 避免 businessDateOf(segEndUtc) 把前一日片段记入次日（进度归段所属业务日）
+                    LocalDateTime factTime = segEndUtc.equals(petClock.businessDateStartUtc(date.plusDays(1)))
+                            ? segEndUtc.minusNanos(1_000_000L) : segEndUtc;
                     String segmentId = "COMPANION:" + pet.getId() + ":" + date + ":" + (already + accepted) / 60;
                     questServiceBean.recordFact(pet, com.cloudmart.pet.enums.PetQuestType.COMPANION,
-                            segmentId, segEndUtc, questMinutesDelta);
+                            segmentId, factTime, ledgerUpdate.minutesDelta());
                 } catch (Exception questError) {
                     log.warn("COMPANION 任务事件失败（不阻断陪伴入账）: petId={}", pet.getId(), questError);
                 }
@@ -289,20 +289,25 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
             date = date.plusDays(1);
         }
 
-        // R36：累计陪伴天数/连续天数仅在本次有实际计入秒数时维护
-        //（0 秒/超额不加日——原实现 accepted=0 也执行，虚增陪伴天数）
-        if (totalCredited > 0) {
-            maintainLifetimeCounters(pet, petClock.businessDate());
-        }
+        // PET-15/T37：累计陪伴天数/连续天数仅在 qualifiedDay 首次达标（false→true）的业务日增加——
+        // 不足阈值不增长；历史日期的补录段不计入今天（maintain 在段所属日 == 当前业务日时才执行）
         return totalCredited;
     }
 
+    /** 终身累计秒数无条件累加（PET-15：today 列停写，今日值由 ledger 求和得出） */
+    private void petWrapperUnconditional(com.cloudmart.pet.entity.Pet pet, int accepted) {
+        petMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.Pet>()
+                .setSql("companion_seconds = companion_seconds + " + accepted)
+                .eq(com.cloudmart.pet.entity.Pet::getId, pet.getId()));
+        pet.setCompanionSeconds((pet.getCompanionSeconds() != null ? pet.getCompanionSeconds() : 0L) + accepted);
+    }
+
     /**
-     * R36：本宠当日分账 upsert（V62 pet_companion_daily_pet）。
-     * 返回本次新增的完整任务分钟数（floor 差值）；qualifiedDay 首次达标置 1。
+     * R36/PET-15：本宠当日分账 upsert（V62 pet_companion_daily_pet）。
+     * 返回本次新增完整任务分钟数与 qualifiedDay 是否发生 false→true 原子转换（有效陪伴日依据）；
      * 并发撞 uk(pet_id, business_date) 时按已存在行重算（不重复计秒）。
      */
-    private int recordPetDailyLedger(Long userId, Long petId, LocalDate businessDate, int acceptedSeconds) {
+    private LedgerUpdate recordPetDailyLedger(Long userId, Long petId, LocalDate businessDate, int acceptedSeconds) {
         int threshold = Math.max(1, properties.getIntimacy().getCompanionQualifiedDayThresholdSeconds());
         PetCompanionDailyPet ledger = petDailyMapper.selectOne(new LambdaQueryWrapper<PetCompanionDailyPet>()
                 .eq(PetCompanionDailyPet::getPetId, petId)
@@ -311,36 +316,44 @@ public class PetIntimacyServiceImpl implements PetIntimacyService {
         int already = ledger != null && ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
         int minutesDelta = (already + acceptedSeconds) / 60 - already / 60;
         if (ledger == null) {
+            boolean freshQualified = already + acceptedSeconds >= threshold;
             PetCompanionDailyPet fresh = new PetCompanionDailyPet();
             fresh.setUserId(userId);
             fresh.setPetId(petId);
             fresh.setBusinessDate(businessDate);
             fresh.setAcceptedSeconds(acceptedSeconds);
             fresh.setGrantedMinutes(Math.max(0, minutesDelta));
-            fresh.setQualifiedDay(already + acceptedSeconds >= threshold ? 1 : 0);
+            fresh.setQualifiedDay(freshQualified ? 1 : 0);
             try {
                 petDailyMapper.insert(fresh);
-                return Math.max(0, minutesDelta);
+                return new LedgerUpdate(Math.max(0, minutesDelta), freshQualified);
             } catch (DuplicateKeyException concurrent) {
                 ledger = petDailyMapper.selectOne(new LambdaQueryWrapper<PetCompanionDailyPet>()
                         .eq(PetCompanionDailyPet::getPetId, petId)
                         .eq(PetCompanionDailyPet::getBusinessDate, businessDate)
                         .last("LIMIT 1"));
                 if (ledger == null) {
-                    return 0;
+                    return new LedgerUpdate(0, false);
                 }
                 already = ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
                 minutesDelta = (already + acceptedSeconds) / 60 - already / 60;
             }
         }
-        // 先用旧值判定达标再累加，避免依赖 MySQL SET 从左到右求值的隐式行为
+        // 先用旧值判定达标再累加，避免依赖 MySQL SET 从左到右求值的隐式行为；
+        // qualifiedDay 只做 false→true 单向转换（PET-15：有效陪伴日唯一事实）
+        boolean wasQualified = ledger.getQualifiedDay() != null && ledger.getQualifiedDay() == 1;
+        boolean qualifiedTransition = !wasQualified && already + acceptedSeconds >= threshold;
         petDailyMapper.update(null, new LambdaUpdateWrapper<PetCompanionDailyPet>()
                 .setSql("granted_minutes = granted_minutes + " + Math.max(0, minutesDelta))
                 .setSql("qualified_day = IF(accepted_seconds + " + acceptedSeconds + " >= " + threshold
                         + ", 1, qualified_day)")
                 .setSql("accepted_seconds = accepted_seconds + " + acceptedSeconds)
                 .eq(PetCompanionDailyPet::getId, ledger.getId()));
-        return Math.max(0, minutesDelta);
+        return new LedgerUpdate(Math.max(0, minutesDelta), qualifiedTransition);
+    }
+
+    /** 本宠日账更新结果：新增完整任务分钟数 + qualifiedDay 是否首次达标 */
+    private record LedgerUpdate(int minutesDelta, boolean qualifiedTransition) {
     }
 
     private void maintainLifetimeCounters(Pet pet, LocalDate businessDate) {

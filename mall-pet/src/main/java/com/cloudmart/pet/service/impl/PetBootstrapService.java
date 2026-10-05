@@ -49,6 +49,8 @@ public class PetBootstrapService {
     private final PetWalletQueryService walletQueryService;
     private final PetStateService stateService;
     private final PetDailyQuestService questService;
+    /** PET-15：本宠陪伴日账（今日值按 businessDate 读取，替代无重置链路的累积列） */
+    private final com.cloudmart.pet.repository.PetCompanionDailyPetMapper companionDailyPetMapper;
     private final PetEventService eventService;
 
     /** §7.2 GET /bootstrap?petId=：启动聚合快照 */
@@ -129,7 +131,7 @@ public class PetBootstrapService {
         snapshot.put("isActive", Boolean.TRUE.equals(pet.getIsActive()));
         snapshot.put("intimacy", pet.getIntimacy());
         snapshot.put("companionSeconds", pet.getCompanionSeconds());
-        snapshot.put("todayCompanionSeconds", pet.getTodayCompanionSeconds());
+        snapshot.put("todayCompanionSeconds", petTodayCompanionSeconds(pet));
         snapshot.put("weak", stateService.isWeak(pet));
         snapshot.put("sick", stateService.isSick(pet));
         return snapshot;
@@ -315,5 +317,15 @@ public class PetBootstrapService {
             log.warn("bootstrap 合作摘要降级: userId={}", userId, e);
             return null;
         }
+    }
+
+    /** PET-15：本宠今日有效陪伴秒数（pet_companion_daily_pet 当前业务日行，无行按 0） */
+    private int petTodayCompanionSeconds(com.cloudmart.pet.entity.Pet pet) {
+        com.cloudmart.pet.entity.PetCompanionDailyPet ledger = companionDailyPetMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetCompanionDailyPet>()
+                        .eq(com.cloudmart.pet.entity.PetCompanionDailyPet::getPetId, pet.getId())
+                        .eq(com.cloudmart.pet.entity.PetCompanionDailyPet::getBusinessDate, petClock.businessDate())
+                        .last("LIMIT 1"));
+        return ledger != null && ledger.getAcceptedSeconds() != null ? ledger.getAcceptedSeconds() : 0;
     }
 }
