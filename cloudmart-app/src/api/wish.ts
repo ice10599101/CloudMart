@@ -1,4 +1,20 @@
 import request from '@/utils/request'
+
+/** T22：目标步骤（与后端 GoalPlanService/WishAiGoal 对齐） */
+export interface GoalStep {
+    id: number | string
+    wishId: number | string
+    title: string
+    description: string | null
+    estimatedDays: number | null
+    priority: number | null
+    sortOrder: number
+    version: number
+    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+    completedAt: string | null
+    createdAt: string
+}
+
 import type {
     AiConversationItem,
     BadgeDefinition,
@@ -657,6 +673,30 @@ export const wishApi = {
     /** 组队看板（仅组内成员；403 非成员） */
     getPartnerBoard: (id: number | string) =>
         request<PartnerBoard>({ url: `/wish/activities/${id}/board` }),
+
+    // ---- T22 玩法 v2 调用链（目标计划/还愿撤回/胶囊改期；与 Web 契约对齐）----
+
+    /** 目标清单（作者专用；按 sortOrder 排序；version CAS） */
+    listGoals: (wishId: number | string) =>
+        request<GoalStep[]>({ url: `/wish/v2/wishes/${wishId}/goals` }),
+    /** 创建目标（每心愿最多 20 步；description 可省略） */
+    createGoal: (wishId: number | string, data: { title: string; description?: string; sortOrder?: number }) =>
+        request<GoalStep>({ url: `/wish/v2/wishes/${wishId}/goals`, method: 'POST', data: data as unknown as Record<string, unknown> }),
+    /** 编辑/勾选目标（version CAS；409=并发冲突需刷新） */
+    updateGoal: (goalId: number | string, data: { title?: string; status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'; version: number }) =>
+        request<GoalStep>({ url: `/wish/v2/goals/${goalId}`, method: 'PATCH', data: data as unknown as Record<string, unknown> }),
+    /** 删除目标（版本条件软删） */
+    deleteGoal: (goalId: number | string, version: number) =>
+        request<null>({ url: `/wish/v2/goals/${goalId}?version=${version}`, method: 'DELETE' }),
+    /** 批量排序（全集显式版本项，任一冲突整批 409） */
+    reorderGoals: (wishId: number | string, items: Array<{ goalId: number | string; version: number; sortOrder: number }>) =>
+        request<null>({ url: `/wish/v2/wishes/${wishId}/goal-order`, method: 'PUT', data: { items } as unknown as Record<string, unknown> }),
+    /** 还愿撤回（作者本人；后端状态机校验，进入社区流转会被拒绝） */
+    withdrawFulfillment: (wishId: number | string) =>
+        request<null>({ url: `/wish/wishes/${wishId}/fulfillment`, method: 'DELETE' }),
+    /** 胶囊改期（SEALED；次数上限服务端权威；新开启时间须为未来） */
+    rescheduleCapsule: (capsuleId: number | string, data: { newOpenAt: string; timezone?: string }) =>
+        request<unknown>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
 }
 
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'
