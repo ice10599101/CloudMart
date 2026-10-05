@@ -84,7 +84,7 @@ public class PetServiceImpl implements PetService {
     @Override
     public PetVO getMyPet(Long userId) {
         Pet pet = requireOwnedPet(userId);
-        PetVO vo = toVo(pet, feedRemainingToday(userId));
+        PetVO vo = toVo(pet, feedRemainingToday(userId), null, null);
 
         // 主动消息触发器惰性评估（每日问候/长期未陪伴/饿了/社区播报/捞瓶完成），
         // 失败不阻断宠物页主流程（Fail-Open，实施文档 §1.10）
@@ -188,7 +188,7 @@ public class PetServiceImpl implements PetService {
         }
         // P1-4：新宠物立即进入等级榜缓存（Level 1 / exp 0），不等每日重建
         rankingCache.onPetCreated(pet.getId(), Boolean.TRUE.equals(pet.getIsPublic()));
-        return toVo(pet, null);
+        return toVo(pet, null, null, null);
     }
 
     @Override
@@ -245,7 +245,7 @@ public class PetServiceImpl implements PetService {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
         }
-        return toVo(pet, feedRemainingToday(userId));
+        return toVo(pet, feedRemainingToday(userId), null, null);
     }
 
     @Override
@@ -273,7 +273,7 @@ public class PetServiceImpl implements PetService {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
         }
         pet.setOwnerTitle(title);
-        return toVo(pet, feedRemainingToday(userId));
+        return toVo(pet, feedRemainingToday(userId), null, null);
     }
 
     @Override
@@ -294,7 +294,7 @@ public class PetServiceImpl implements PetService {
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "操作冲突，请刷新后重试");
         }
-        return toVo(pet, feedRemainingToday(userId));
+        return toVo(pet, feedRemainingToday(userId), null, null);
     }
 
     @Override
@@ -342,10 +342,19 @@ public class PetServiceImpl implements PetService {
     /** P2-1：互动链路复用入口——基于调用方事务内已同步状态的实体组装 VO，免二次全量查询 */
     @Override
     public PetVO toVo(Pet pet) {
-        return toVo(pet, feedRemainingToday(pet.getUserId()));
+        return toVo(pet, feedRemainingToday(pet.getUserId()), null, null);
     }
 
-    private PetVO toVo(Pet pet, Integer feedRemaining) {
+    /**
+     * PET-18：动作结果视图——动作类接口返回本次是否产生收益与原因码（如玩耍次数耗尽
+     * DAILY_LIMIT），普通状态读取不带该语义（null=不适用）。
+     */
+    @Override
+    public PetVO toVo(Pet pet, boolean actionRewarded, String actionReasonCode) {
+        return toVo(pet, feedRemainingToday(pet.getUserId()), actionRewarded, actionReasonCode);
+    }
+
+    private PetVO toVo(Pet pet, Integer feedRemaining, Boolean actionRewarded, String actionReasonCode) {
         // P2-1：进行中 + 可领取活动合并为一次查询（原两条 SELECT），按 id 降序取每状态最新一条。
         // R30：按 petId 过滤——活动归属开工宠物，A 在忙时 B 的 VO 不再显示 A 的活动（账号忙碌归属属账号级展示，由活动中心接口承载）
         List<PetActivity> recentActivities = activityMapper.selectList(new LambdaQueryWrapper<PetActivity>()
@@ -393,7 +402,8 @@ public class PetServiceImpl implements PetService {
                 pet.getCareerCode(), careerNameOf(pet.getCareerCode()), careerTierOf(pet.getCareerCode()),
                 ownerTitleOf(pet),
                 // R20：业务日重置点（JacksonConfig 统一输出 RFC3339 UTC 带 Z），客户端倒计时以服务端为准
-                petClock.nextBusinessResetUtc());
+                petClock.nextBusinessResetUtc(),
+                actionRewarded, actionReasonCode);
     }
 
     /** 主人称呼（宠物对主人的叫法；未设置回落「主人」） */

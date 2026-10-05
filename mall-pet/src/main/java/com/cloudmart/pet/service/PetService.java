@@ -58,4 +58,7 @@ public interface PetService {
      * 喂食余量按实体归属用户实时计算（Fail-Open 为 null）。
      */
     PetVO toVo(Pet pet);
+
+    /** PET-18：动作类响应——携带本次收益标志与原因码（DAILY_LIMIT 等） */
+    PetVO toVo(Pet pet, boolean actionRewarded, String actionReasonCode);
 }

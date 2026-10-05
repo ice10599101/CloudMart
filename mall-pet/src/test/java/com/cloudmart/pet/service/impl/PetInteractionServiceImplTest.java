@@ -38,6 +38,7 @@ import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -122,6 +123,54 @@ class PetInteractionServiceImplTest {
                 new PetItemCatalog.FoodItem("apple", "苹果", "🍎", "脆脆的苹果", 20, 15, 2, 0)));
     }
 
+    @Test
+    @DisplayName("PET-18/T43：玩耍奖励次数耗尽后不暗扣能量、不产生任务/活动事实，响应带 DAILY_LIMIT")
+    void playAfterQuotaExhaustedHasNoSideEffects() {
+        Pet testPet = pet();
+        testPet.setEnergy(100);
+        when(petService.requireOwnedPet(100L)).thenReturn(testPet);
+        when(activityMapper.selectCount(any())).thenReturn(0L);
+        when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.PLAY_REWARD), eq(0L), anyInt()))
+                .thenReturn(false);
+        lenient().when(petService.toVo(any(Pet.class), org.mockito.ArgumentMatchers.anyBoolean(), any()))
+                .thenReturn(petVo());
+
+        interactionService.play(100L);
+
+        org.mockito.ArgumentCaptor<Boolean> rewarded = org.mockito.ArgumentCaptor.forClass(Boolean.class);
+        org.mockito.ArgumentCaptor<String> reason = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(petService).toVo(any(Pet.class), rewarded.capture(), reason.capture());
+        org.assertj.core.api.Assertions.assertThat(rewarded.getValue()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(reason.getValue()).isEqualTo("DAILY_LIMIT");
+        // 无收益：不改属性（不暗扣能量）、不留 PLAY 活动事实、不推任务进度
+        verify(petMapper, never()).update(any(), any());
+        verify(activityMapper, never()).insert(any(PetActivity.class));
+        verify(dailyQuestService, never()).record(any(Pet.class),
+                eq(com.cloudmart.pet.enums.PetQuestType.PLAY), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("PET-18：奖励额度内玩耍正常扣能量加心情，响应 rewarded=true")
+    void playWithinQuotaRewards() {
+        Pet testPet = pet();
+        testPet.setEnergy(100);
+        when(petService.requireOwnedPet(100L)).thenReturn(testPet);
+        when(activityMapper.selectCount(any())).thenReturn(0L);
+        lenient().when(petService.toVo(any(Pet.class), org.mockito.ArgumentMatchers.anyBoolean(), any()))
+                .thenReturn(petVo());
+
+        interactionService.play(100L);
+
+        org.mockito.ArgumentCaptor<Boolean> rewarded = org.mockito.ArgumentCaptor.forClass(Boolean.class);
+        org.mockito.ArgumentCaptor<String> reason = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(petService).toVo(any(Pet.class), rewarded.capture(), reason.capture());
+        org.assertj.core.api.Assertions.assertThat(rewarded.getValue()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(reason.getValue()).isNull();
+        verify(petMapper).update(any(), any());
+        verify(dailyQuestService).record(any(Pet.class),
+                eq(com.cloudmart.pet.enums.PetQuestType.PLAY), org.mockito.ArgumentMatchers.eq(1));
+    }
+
     private Pet pet() {
         Pet pet = new Pet();
         pet.setId(1L);
@@ -142,7 +191,7 @@ class PetInteractionServiceImplTest {
                 80, 100, 60, 60, 100, 60, 5, 5, 5, 5, "IDLE", null, null, null,
                 true, null, LocalDateTime.now(ZoneId.of("UTC")),
                 0, null, 1, 3,
-                0, 1, "初识", 100, 0, 0L, 0, 0, 0, null, null, null, "主人", null);
+                0, 1, "初识", 100, 0, 0L, 0, 0, 0, null, null, null, "主人", null, null, null);
     }
 
     @Test

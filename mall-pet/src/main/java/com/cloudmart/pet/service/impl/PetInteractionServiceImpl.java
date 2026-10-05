@@ -211,9 +211,14 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             throw new BusinessException(PetErrorCodes.PET_ENERGY_INSUFFICIENT,
                     "宠物没有力气玩了，让它休息一下吧");
         }
-        // 收益额度（数据库权威）：超限转无收益动画互动——不推进经验/亲密度/任务/成就
+        // 收益额度（数据库权威）：超限转纯动画互动——PET-18/T43：不改属性（不暗扣能量）、
+        // 不生成可累积任务/活动/合作事实，响应明确 rewarded=false、reasonCode=DAILY_LIMIT
         boolean rewardable = quotaService.tryConsume(userId, PetQuotaService.QuotaType.PLAY_REWARD, 0,
                 cfg.getPlayRewardDailyLimit());
+        if (!rewardable) {
+            log.debug("玩耍今日收益额度已耗尽，转为无收益动画互动: userId={}", userId);
+            return petService.toVo(pet, false, "DAILY_LIMIT");
+        }
         // B02：原子增量（消耗与心情回填并发安全）
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
                 .setSql("energy = GREATEST(energy - {0}, 0)", cfg.getPlayEnergy())
@@ -223,23 +228,19 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setEnergy(Math.max(0, pet.getEnergy() - cfg.getPlayEnergy()));
         pet.setHappiness(Math.min(100, pet.getHappiness() + cfg.getPlayHappiness()));
         pet.setStatus(PetStatus.IDLE.name());
-        recordInstantActivity(pet, PetActivityType.PLAY, rewardable ? cfg.getPlayExp() : 0);
+        recordInstantActivity(pet, PetActivityType.PLAY, cfg.getPlayExp());
         try {
             companionFeatureService.recordStep(userId, "PLAY");
         } catch (Exception e) {
             log.warn("玩耍引导钩子失败（不阻断）: userId={}", userId, e);
         }
-        if (rewardable) {
-            cooperationService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
-            intimacyService.gain(pet, PetIntimacySource.PLAY);
-            int levelups = stateService.grantExp(pet, cfg.getPlayExp());
-            dailyQuestService.record(pet, PetQuestType.PLAY, 1);
-            achievementService.evaluate(pet, PetAchievementService.Event.PLAY);
-            notifyLevelUpIfAny(pet, levelups);
-        } else {
-            log.debug("玩耍今日收益额度已耗尽，转为无收益动画互动: userId={}", userId);
-        }
-        return petService.toVo(pet);
+        cooperationService.recordContribution(userId, "PLAY:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+        intimacyService.gain(pet, PetIntimacySource.PLAY);
+        int levelups = stateService.grantExp(pet, cfg.getPlayExp());
+        dailyQuestService.record(pet, PetQuestType.PLAY, 1);
+        achievementService.evaluate(pet, PetAchievementService.Event.PLAY);
+        notifyLevelUpIfAny(pet, levelups);
+        return petService.toVo(pet, true, null);
     }
 
     @Override

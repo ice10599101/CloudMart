@@ -57,6 +57,8 @@ public record PetVO(
         @Schema(description = "当前职业名（null = 未入职）") String careerName,
         @Schema(description = "当前职业阶段（1/2/3）") Integer careerTier,
         @Schema(description = "主人称呼（宠物对主人的叫法，默认主人）") String ownerTitle,
-        @Schema(description = "业务日重置点（R20：UTC，客户端倒计时以服务端为准）") java.time.LocalDateTime nextResetAt
+        @Schema(description = "业务日重置点（R20：UTC，客户端倒计时以服务端为准）") java.time.LocalDateTime nextResetAt,
+        @Schema(description = "PET-18：动作类响应本次是否产生收益（普通状态读取为 null 不适用）") Boolean actionRewarded,
+        @Schema(description = "PET-18：不产生收益的原因码（如 DAILY_LIMIT=今日奖励次数耗尽；null=不适用）") String actionReasonCode
 ) {
 }
