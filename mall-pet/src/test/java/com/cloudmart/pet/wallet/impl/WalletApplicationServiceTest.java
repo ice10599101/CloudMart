@@ -171,6 +171,97 @@ class WalletApplicationServiceTest {
         verify(walletService, never()).debit(any(PetWalletCommand.class));
     }
 
+    @Test
+    @DisplayName("PET-12/T30：拒绝终态的同键重放按首次语义抛出原错误码（不再装进成功 envelope）")
+    void purchase_sameKeyRefusal_replaysSameRejection() {
+        PetRequestDedupServiceStub dedup = dedup();
+        when(dedupMapper.insert(any(PetRequestDedup.class))).thenThrow(new DuplicateKeyException("uk"));
+        when(dedupMapper.selectOne(any())).thenAnswer(inv -> {
+            PetRequestDedup row = new PetRequestDedup();
+            row.setStatus("COMPLETED");
+            row.setPayloadHash(dedup.canonicalHash(1001L, "5", "FOOD", "cake", "v1"));
+            row.setResponseJson("{\"orderId\":null,\"operationId\":\"pw_x\",\"walletTransactionId\":null,"
+                    + "\"balanceAfter\":null,\"itemType\":\"FOOD\",\"itemCode\":\"cake\","
+                    + "\"deliveredSlots\":[],\"duplicate\":false,\"errorCode\":\"PET_WALLET_INSUFFICIENT\"}");
+            return row;
+        });
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+
+        assertThatThrownBy(() -> service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000003", "v1"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_WALLET_INSUFFICIENT));
+        verify(walletService, never()).debit(any(PetWalletCommand.class));
+    }
+
+    @Test
+    @DisplayName("PET-12/T28：购买完成填写 completedAt（购买记录显示实际时间）")
+    void purchase_success_fillsCompletedAt() {
+        PetRequestDedupServiceStub dedup = dedup();
+        when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
+        when(dedupMapper.update(any(), any())).thenReturn(1);
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+        when(catalog.load(any(), any(), any(), any(), any()))
+                .thenReturn(new CatalogEntry("FOOD", "cake", 20, "v1", "蛋糕", "r-key"));
+        when(catalog.isUniquePerPet("FOOD")).thenReturn(false);
+        when(orderMapper.insert(any(PetPurchaseOrder.class))).thenAnswer(inv -> {
+            inv.getArgument(0, PetPurchaseOrder.class).setId(700L);
+            return 1;
+        });
+        when(walletService.debit(any(PetWalletCommand.class))).thenReturn(
+                new PetWalletResult(900L, "pw_op", 80, 20, "COMMITTED", false));
+
+        service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000006", "v1");
+
+        ArgumentCaptor<PetPurchaseOrder> saved = ArgumentCaptor.forClass(PetPurchaseOrder.class);
+        verify(orderMapper).updateById(saved.capture());
+        assertThat(saved.getValue().getStatus()).isEqualTo("COMPLETED");
+        assertThat(saved.getValue().getCompletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("PET-12/T27：按请求键查询 COMPLETED 终态（恢复入口，不生成新键）")
+    void requestStatus_completedOrder() {
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+        PetPurchaseOrder order = new PetPurchaseOrder();
+        order.setId(700L);
+        order.setUserId(1001L);
+        order.setPetId(5L);
+        order.setItemType("FOOD");
+        order.setItemCode("cake");
+        order.setQuantity(1);
+        order.setTotalAmount(20L);
+        order.setStatus("COMPLETED");
+        order.setRequestKey("intent-key-000007");
+        order.setCompletedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        when(orderMapper.selectOne(any())).thenReturn(order);
+
+        var status = service.requestStatus(1001L, "intent-key-000007");
+
+        assertThat(status.status()).isEqualTo("COMPLETED");
+        assertThat(status.orderId()).isEqualTo("700");
+        assertThat(status.petId()).isEqualTo("5");
+        assertThat(status.completedAt()).isNotNull();
+        assertThat(status.retryable()).isFalse();
+        assertThat(status.errorCode()).isNull();
+    }
+
+    @Test
+    @DisplayName("PET-12：未知请求键 → UNKNOWN 可重试（客户端用原键再提交，不换键）")
+    void requestStatus_unknownKey() {
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, null,
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+        when(orderMapper.selectOne(any())).thenReturn(null);
+
+        var status = service.requestStatus(1001L, "intent-key-000008");
+
+        assertThat(status.status()).isEqualTo("UNKNOWN");
+        assertThat(status.retryable()).isTrue();
+        assertThat(status.orderId()).isNull();
+    }
+
     // ---------------- 领奖 ----------------
 
     private RewardClaimCommand rewardCommand() {

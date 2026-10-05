@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -75,6 +76,21 @@ public class PetPurchaseController {
         return ApiResponse.ok(purchaseApplicationService.purchase(userId, request.petId(),
                 request.itemType(), request.itemCode(), PetRequestContext.idempotencyKey(),
                 request.expectedConfigVersion()));
+    }
+
+    @GetMapping("/purchase-requests/{requestKey}")
+    @Operation(summary = "按请求键查询购买状态（PET-12）", description = "扣款后断网/超时/重启/切宠的恢复入口："
+            + "COMPLETED 返回订单与完成时间；PROCESSING 恢复扫描器接管中；UNKNOWN 仅表示无已提交订单——"
+            + "客户端用原键再提交，不生成新键")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<PetPurchaseApplicationService.PurchaseRequestStatus> purchaseRequestStatus(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("requestKey") String requestKey) {
+        if (!com.cloudmart.pet.wallet.PetRequestDedupService.isValidRequestKey(requestKey)) {
+            throw new com.cloudmart.common.exception.BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
+                    "请求键非法");
+        }
+        return ApiResponse.ok(purchaseApplicationService.requestStatus(userId, requestKey));
     }
 
     @GetMapping("/purchase-orders")

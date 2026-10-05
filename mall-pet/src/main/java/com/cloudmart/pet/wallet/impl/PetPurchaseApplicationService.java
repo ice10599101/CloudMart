@@ -96,16 +96,22 @@ public class PetPurchaseApplicationService {
                 userId, ENDPOINT_KEY, requestKey, payloadHash);
         switch (claim.outcome()) {
             case EXISTING -> {
-                // 同请求键：返回原终态结果（成功或业务拒绝），不重新算价（T05/T07）
+                // 同请求键：返回原终态结果（成功或业务拒绝），不重新算价（T05/T07）；
+                // PET-12/T30：拒绝终态按首次语义抛出（HTTP 错误 + 原 code）——
+                // 原实现把 errorCode 装进成功 envelope，首次与重放表现不一致
                 PurchaseResult stored = PetJsonUtils.parse(claim.responseJson(),
                         new com.fasterxml.jackson.core.type.TypeReference<PurchaseResult>() {
                         });
-                if (stored != null) {
-                    return new PurchaseResult(stored.orderId(), stored.operationId(), stored.walletTransactionId(),
-                            stored.balanceAfter(), stored.petId(), stored.itemType(), stored.itemCode(),
-                            stored.deliveredSlots(), true, stored.errorCode());
+                if (stored == null) {
+                    throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史购买结果快照损坏");
                 }
-                throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "历史购买结果快照损坏");
+                if (stored.errorCode() != null && !stored.errorCode().isBlank()) {
+                    throw new BusinessException(stored.errorCode(),
+                            "本次购买请求未成功（同键重放按首次结果返回）");
+                }
+                return new PurchaseResult(stored.orderId(), stored.operationId(), stored.walletTransactionId(),
+                        stored.balanceAfter(), stored.petId(), stored.itemType(), stored.itemCode(),
+                        stored.deliveredSlots(), true, null);
             }
             case IN_PROGRESS -> throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
                     "购买请求处理中，请稍后按原请求查询结果");
@@ -224,6 +230,7 @@ public class PetPurchaseApplicationService {
 
         order.setStatus("COMPLETED");
         order.setWalletTransactionId(wallet.transactionId());
+        order.setCompletedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         orderMapper.updateById(order);
 
         return new PurchaseResult(String.valueOf(order.getId()), operationId,
@@ -262,6 +269,42 @@ public class PetPurchaseApplicationService {
                 userId, petId, order.getId(), order.getItemType(), order.getItemCode(),
                 order.getQuantity(), entry));
         return delivered != null && !delivered.isEmpty() ? delivered : List.of(entry.itemCode());
+    }
+
+    /**
+     * PET-12/T27/T28：按请求键查询购买终态（恢复入口）——扣款后断网/超时/重启/切宠后
+     * 用原 key 查询，只按原键收敛，不生成新键。
+     *
+     * <p>状态语义：COMPLETED（含拒绝终态 errorCode）/PROCESSING（恢复扫描器接管中）/
+     * UNKNOWN（本键无已提交订单——仅表示没查到，客户端用原键再提交，不换键）。</p>
+     */
+    public PurchaseRequestStatus requestStatus(Long userId, String requestKey) {
+        PetPurchaseOrder order = orderMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PetPurchaseOrder>()
+                        .eq(PetPurchaseOrder::getUserId, userId)
+                        .eq(PetPurchaseOrder::getRequestKey, requestKey)
+                        .orderByDesc(PetPurchaseOrder::getId)
+                        .last("LIMIT 1"));
+        if (order == null) {
+            return new PurchaseRequestStatus(requestKey, "UNKNOWN", null, null, true,
+                    null, null, null, null, null, null);
+        }
+        String orderId = String.valueOf(order.getId());
+        String petId = order.getPetId() == null ? null : String.valueOf(order.getPetId());
+        boolean completed = "COMPLETED".equals(order.getStatus());
+        return new PurchaseRequestStatus(requestKey, order.getStatus(), orderId, petId,
+                !completed && !"PROCESSING".equals(order.getStatus()),
+                completed ? null : "PET_REQUEST_IN_PROGRESS",
+                order.getItemType(), order.getItemCode(),
+                order.getQuantity() == null ? null : String.valueOf(order.getQuantity()),
+                order.getTotalAmount() == null ? null : String.valueOf(order.getTotalAmount()),
+                order.getCompletedAt() == null ? null : order.getCompletedAt().toString());
+    }
+
+    /** 购买请求状态（PET-12：ID 为十进制字符串，R09 类型契约） */
+    public record PurchaseRequestStatus(String requestKey, String status, String orderId, String petId,
+                                        boolean retryable, String errorCode, String itemType, String itemCode,
+                                        String quantity, String totalAmount, String completedAt) {
     }
 
     private long currentBalance(Long userId) {
