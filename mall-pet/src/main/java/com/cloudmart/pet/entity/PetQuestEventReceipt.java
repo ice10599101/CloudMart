@@ -47,6 +47,18 @@ public class PetQuestEventReceipt {
     /** APPLIED / SKIPPED_STALE */
     private String status;
 
+    /** PET-10：投影已尝试次数（重放/调度重试累加） */
+    @TableField("attempts")
+    private Integer attempts;
+
+    /** PET-10：下次自动重试时间(UTC)；NULL 表示无待重试 */
+    @TableField("next_retry_at")
+    private LocalDateTime nextRetryAt;
+
+    /** PET-10：最近一次投影失败原因（截断 500 字符） */
+    @TableField("last_error")
+    private String lastError;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

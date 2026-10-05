@@ -76,6 +76,9 @@ public interface PetDailyQuestService {
     /** R32 管理端补算：重放一条 SKIPPED_STALE 收据（只允许重放已有事实，不能手工改进度） */
     com.cloudmart.pet.entity.PetQuestEventReceipt replayReceipt(Long receiptId);
 
+    /** PET-10：调度重试到期 FAILED 回执（投影与 APPLIED 同事务；单轮小批） */
+    int retryFailedReceipts();
+
     /** R32 管理端：收据查询（userId/questCode/status 过滤 + 分页） */
     java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
             Long userId, String questCode, String status, int page, int size);

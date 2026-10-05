@@ -248,6 +248,80 @@ class PetDailyQuestServiceImplTest {
                 .doesNotContain("HIGH_LEVEL");
     }
 
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-10/T20：进度投影失败 → 回执转 FAILED 排期重试，主动作不感知异常")
+    void projectionFailureMarksReceiptFailed() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.nowUtc())
+                .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        when(receiptMapper.insert(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.PetQuestEventReceipt.class)))
+                .thenReturn(1);
+        // 投影期间进度累加失败（如数据库瞬时故障）
+        when(questMapper.update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new RuntimeException("DB down"));
+        lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(quest("IN_PROGRESS"))));
+
+        boolean applied = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:fail", now, 1);
+
+        assertThat(applied).isFalse();
+        // 回执落 FAILED + 指数退避重试时间 + attempts=1（与进度失败同事务，此处验证编排）
+        org.mockito.ArgumentCaptor<com.cloudmart.pet.entity.PetQuestEventReceipt> saved =
+                org.mockito.ArgumentCaptor.forClass(com.cloudmart.pet.entity.PetQuestEventReceipt.class);
+        org.mockito.Mockito.verify(receiptMapper).updateById(saved.capture());
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getStatus()).isEqualTo("FAILED");
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getAttempts()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getNextRetryAt()).isNotNull();
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-10/T21：到期 FAILED 回执重放恰好计一次进度")
+    void retryFailedReceiptsAppliesDueReceipt() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+        org.mockito.Mockito.lenient().when(petClock.nowUtc()).thenReturn(now);
+        com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
+        receipt.setId(900L);
+        receipt.setPetId(1L);
+        receipt.setUserId(100L);
+        receipt.setQuestCode("FEED");
+        receipt.setEventId("F:due");
+        receipt.setAmount(1);
+        receipt.setBusinessDate(java.time.LocalDate.now());
+        receipt.setStatus("FAILED");
+        receipt.setAttempts(1);
+        receipt.setNextRetryAt(now.minusSeconds(1));
+        when(receiptMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of(receipt));
+        // CAS FAILED→APPLIED 单胜 + 进度累加命中
+        when(receiptMapper.update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(1);
+        when(questMapper.update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(1);
+        lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(quest("IN_PROGRESS"))));
+
+        int applied = questService.retryFailedReceipts();
+
+        assertThat(applied).isEqualTo(1);
+        // 进度累加恰好一次（CAS 胜者才投影，重放不翻倍）
+        org.mockito.Mockito.verify(questMapper, org.mockito.Mockito.times(1))
+                .update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-10：无到期 FAILED 回执 → 空转返回 0")
+    void retryFailedReceiptsNoopWithoutDue() {
+        org.mockito.Mockito.lenient().when(petClock.nowUtc())
+                .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        when(receiptMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of());
+
+        assertThat(questService.retryFailedReceipts()).isZero();
+    }
+
     /** 默认任务集（setUp 桩同一实例语义） */
     private com.cloudmart.pet.entity.PetDailyQuestSet set99() {
         com.cloudmart.pet.entity.PetDailyQuestSet set = new com.cloudmart.pet.entity.PetDailyQuestSet();
@@ -570,9 +644,10 @@ class PetDailyQuestServiceImplTest {
         receipt.setQuestCode("FEED");
         receipt.setStatus("APPLIED");
         org.mockito.Mockito.when(receiptMapper.selectById(901L)).thenReturn(receipt);
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.replayReceipt(901L))
-                .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
-                .extracting(e -> ((com.cloudmart.common.exception.BusinessException) e).getCode())
-                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_STATE_CONFLICT);
+        // PET-10/T21：APPLIED 重放幂等返回既有结果，不再加一次（原契约抛冲突）
+        com.cloudmart.pet.entity.PetQuestEventReceipt replayed = questService.replayReceipt(901L);
+        org.assertj.core.api.Assertions.assertThat(replayed.getStatus()).isEqualTo("APPLIED");
+        org.mockito.Mockito.verify(questMapper, org.mockito.Mockito.never())
+                .update(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 }

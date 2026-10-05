@@ -47,6 +47,7 @@ public class PetActivityScheduler {
     static final String LOCK_RANK_REBUILD = "pet:lock:rank-rebuild";
     static final String LOCK_SEASON_SETTLE = "pet:lock:season-settle";
     static final String LOCK_CUSTODY_EXPIRE = "pet:lock:custody-expire";
+    static final String LOCK_QUEST_RECEIPT_RETRY = "pet:lock:quest-receipt-retry";
 
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
@@ -60,6 +61,7 @@ public class PetActivityScheduler {
     private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService dashboardSnapshotService;
     private final com.cloudmart.pet.service.impl.PetSeasonSettlementService seasonSettlementService;
     private final com.cloudmart.pet.service.impl.PetCustodyCareService custodyCareService;
+    private final com.cloudmart.pet.service.PetDailyQuestService dailyQuestService;
     private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
     /** R15：完成 CAS 与 Outbox 登记同一事务——kill 窗口不再丢"任务完成"通知 */
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -133,6 +135,27 @@ public class PetActivityScheduler {
      * PET-08：托管到期兜底结算（5 分钟一轮）——到期记录不再只依赖用户打开托管状态页收尾；
      * 互斥玩法启动前的惰性收尾（Mutex.settleExpiredForUser）覆盖在线用户，本扫描兜底离线用户。
      */
+    /**
+     * PET-10/T20：任务事实投影失败重试（分钟级）——FAILED 回执按 next_retry_at 退避重放，
+     * 进度投影与 APPLIED 同事务；达上限留待管理重放。主动作不因投影失败回滚，也不丢进度。
+     */
+    @Scheduled(fixedDelay = 60_000)
+    public void retryFailedQuestReceipts() {
+        if (!tryLock(LOCK_QUEST_RECEIPT_RETRY, Duration.ofSeconds(55))) {
+            return;
+        }
+        try {
+            int applied = dailyQuestService.retryFailedReceipts();
+            if (applied > 0) {
+                log.info("任务事实投影重试完成: applied={}", applied);
+            }
+        } catch (Exception e) {
+            log.error("任务事实投影重试任务失败", e);
+        } finally {
+            unlock(LOCK_QUEST_RECEIPT_RETRY);
+        }
+    }
+
     @Scheduled(fixedDelay = 300_000)
     public void expireOverdueCustody() {
         if (!tryLock(LOCK_CUSTODY_EXPIRE, Duration.ofSeconds(240))) {

@@ -57,6 +57,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
 
     /** 全清宝箱的保留任务码（不对应配置表，只在 pet_daily_quest 中留一行审计） */
     static final String CHEST_CODE = "DAILY_CHEST";
+    /** PET-10：事实投影自动重试上限（超过后仅管理重放处置） */
+    private static final int RECEIPT_MAX_ATTEMPTS = 5;
 
     private final PetService petService;
     private final PetStateService stateService;
@@ -378,7 +380,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         try {
             LocalDate factDate = petClock.businessDateOf(sourceTime);
-            // 收据先行：uk(quest_type, event_id) 数据库权威去重——与进度累加同事务，回滚一起回滚
+            // PET-10：收据先行（uk(quest_type, event_id) 数据库权威去重），先以 PENDING 落库——
+            // 与主动作同事务提交；投影失败不回滚主动作，落 FAILED 交由调度重试/管理重放恢复
             com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
             receipt.setUserId(pet.getUserId());
             receipt.setPetId(pet.getId());
@@ -387,65 +390,165 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             receipt.setAmount(amount);
             receipt.setSourceTime(sourceTime);
             receipt.setBusinessDate(factDate);
-            receipt.setStatus("APPLIED");
+            receipt.setStatus("PENDING");
+            receipt.setAttempts(0);
             try {
                 receiptMapper.insert(receipt);
             } catch (DuplicateKeyException duplicate) {
                 log.debug("任务事实已消费（幂等跳过）: type={}, eventId={}", type, eventId);
                 return false;
             }
-            if (factDate.equals(petClock.businessDate())) {
-                ensureToday(pet);
-                credit(pet, codesOfType(pet, type), amount, factDate);
-                return true;
-            }
-            // 历史事实补算：仅当该日任务行已存在（证明当天参与过）才补记——
-            // 不为历史日凭空生成任务行，也不把历史行为加到今天（§13.4）
-            int credited = credit(pet, codesOfType(pet, type, factDate), amount, factDate);
-            if (credited == 0) {
-                receipt.setStatus("SKIPPED_STALE");
+            // PET-10/T20：投影与回执 APPLIED 同事务提交——credit 失败整事务回滚会连同主动作回滚，
+            // 因此投影异常在此转为 FAILED（同事务落库，主动作继续），进度由可靠重试恢复
+            try {
+                if (factDate.equals(petClock.businessDate())) {
+                    ensureToday(pet);
+                    credit(pet, codesOfType(pet, type), amount, factDate);
+                    receipt.setStatus("APPLIED");
+                    receiptMapper.updateById(receipt);
+                    return true;
+                }
+                // 历史事实补算：仅当该日任务行已存在（证明当天参与过）才补记——
+                // 不为历史日凭空生成任务行，也不把历史行为加到今天（§13.4）
+                int credited = credit(pet, codesOfType(pet, type, factDate), amount, factDate);
+                if (credited == 0) {
+                    receipt.setStatus("SKIPPED_STALE");
+                    receiptMapper.updateById(receipt);
+                    return false;
+                }
+                receipt.setStatus("APPLIED");
                 receiptMapper.updateById(receipt);
+                return true;
+            } catch (Exception projectionError) {
+                markReceiptFailed(receipt, projectionError);
+                log.warn("任务事实投影失败（转 FAILED 待重试）: petId={}, type={}, eventId={}",
+                        pet.getId(), type, eventId, projectionError);
                 return false;
             }
-            return true;
         } catch (Exception e) {
             log.warn("任务事实埋点失败（忽略）: petId={}, type={}, eventId={}", pet.getId(), type, eventId, e);
             return false;
         }
     }
 
+    /** PET-10：投影失败 → FAILED + 递增尝试次数 + 指数退避重试时间（同事务落库） */
+    private void markReceiptFailed(com.cloudmart.pet.entity.PetQuestEventReceipt receipt, Exception cause) {
+        int attempts = receipt.getAttempts() != null ? receipt.getAttempts() + 1 : 1;
+        receipt.setStatus("FAILED");
+        receipt.setAttempts(attempts);
+        // 达到最大尝试次数后停止自动重试（留待管理重放人工处置），不再排期
+        receipt.setNextRetryAt(attempts >= RECEIPT_MAX_ATTEMPTS ? null
+                : petClock.nowUtc().plusSeconds(Math.min(60L * (1L << Math.min(attempts, 6)), 3600L)));
+        receipt.setLastError(truncateError(String.valueOf(cause.getMessage())));
+        receiptMapper.updateById(receipt);
+    }
+
+    private static String truncateError(String message) {
+        if (message == null) {
+            return null;
+        }
+        return message.length() <= 500 ? message : message.substring(0, 500);
+    }
+
+    /**
+     * PET-10/T21/T22：管理重放——APPLIED 幂等返回既有结果（不加一次）；SKIPPED_STALE/FAILED
+     * 可重放：CAS 抢占 → 进度投影与回执 APPLIED 同事务 → 投影失败回到原状态并排期重试。
+     * 双管理员并发重放由 CAS 收敛单胜。
+     */
     @Override
+    @Transactional
     public com.cloudmart.pet.entity.PetQuestEventReceipt replayReceipt(Long receiptId) {
         com.cloudmart.pet.entity.PetQuestEventReceipt receipt = receiptMapper.selectById(receiptId);
         if (receipt == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "回执不存在");
         }
-        if (!"SKIPPED_STALE".equals(receipt.getStatus())) {
-            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
-                    "仅 SKIPPED_STALE 回执可重放（APPLIED 已计入，重放会重复发奖）");
+        if ("APPLIED".equals(receipt.getStatus())) {
+            // 幂等：已计入的回执重放返回既有结果，不加一次（T21）
+            return receipt;
         }
-        // CAS SKIPPED_STALE → APPLIED：并发重放单胜
+        String fromStatus = receipt.getStatus();
+        if (!"SKIPPED_STALE".equals(fromStatus) && !"FAILED".equals(fromStatus)) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "当前状态不可重放: " + fromStatus);
+        }
+        // CAS {SKIPPED_STALE|FAILED} → APPLIED：并发重放单胜
         int updated = receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
                 .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED")
+                .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getLastError, null)
+                .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getNextRetryAt, null)
+                .setSql("attempts = attempts + 1")
                 .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receiptId)
-                .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "SKIPPED_STALE"));
+                .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, fromStatus));
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "回执已被其他操作员处理");
         }
+        receipt.setStatus("APPLIED");
         Pet pet = petMapper.selectById(receipt.getPetId());
         int credited = pet == null ? 0 : credit(pet,
                 codesOfType(pet, PetQuestType.valueOf(receipt.getQuestCode()), receipt.getBusinessDate()),
                 receipt.getAmount(), receipt.getBusinessDate());
         if (credited == 0) {
-            // 该日任务行仍不存在：回滚到 SKIPPED_STALE，重放未生效
+            // 该日任务行仍不存在：按原状态回退（重放未生效），不允许为历史日凭空生成
             receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
-                    .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "SKIPPED_STALE")
+                    .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, fromStatus)
                     .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receiptId)
                     .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED"));
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
                     "该日任务行不存在，无法补算（不允许为历史日凭空生成）");
         }
         return receiptMapper.selectById(receiptId);
+    }
+
+    /**
+     * PET-10：调度重试到期 FAILED 回执（每轮一小批；指数退避排期，达上限留待管理重放）。
+     * 单条失败不阻断其余；进度投影与 APPLIED 同事务（调用方事务）。
+     *
+     * @return 本轮成功转为 APPLIED 的数量
+     */
+    @Override
+    @Transactional
+    public int retryFailedReceipts() {
+        java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> due = receiptMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                        .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "FAILED")
+                        .isNotNull(com.cloudmart.pet.entity.PetQuestEventReceipt::getNextRetryAt)
+                        .le(com.cloudmart.pet.entity.PetQuestEventReceipt::getNextRetryAt, petClock.nowUtc())
+                        .orderByAsc(com.cloudmart.pet.entity.PetQuestEventReceipt::getId)
+                        .last("LIMIT 50"));
+        int applied = 0;
+        for (com.cloudmart.pet.entity.PetQuestEventReceipt receipt : due) {
+            try {
+                // CAS FAILED → APPLIED（并发调度/管理重放单胜）
+                int claimed = receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                        .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED")
+                        .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getLastError, null)
+                        .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getNextRetryAt, null)
+                        .setSql("attempts = attempts + 1")
+                        .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receipt.getId())
+                        .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "FAILED"));
+                if (claimed == 0) {
+                    continue;
+                }
+                Pet pet = petMapper.selectById(receipt.getPetId());
+                int credited = pet == null ? 0 : credit(pet,
+                        codesOfType(pet, PetQuestType.valueOf(receipt.getQuestCode()), receipt.getBusinessDate()),
+                        receipt.getAmount(), receipt.getBusinessDate());
+                if (credited == 0) {
+                    // 该日任务行不存在：保持 FAILED 且不再自动排期（等待管理重放人工处置）
+                    receiptMapper.update(null, new LambdaUpdateWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
+                            .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "FAILED")
+                            .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getNextRetryAt, null)
+                            .set(com.cloudmart.pet.entity.PetQuestEventReceipt::getLastError, "重试时该日任务行不存在")
+                            .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getId, receipt.getId())
+                            .eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, "APPLIED"));
+                    continue;
+                }
+                applied++;
+            } catch (Exception e) {
+                markReceiptFailed(receipt, e);
+                log.warn("任务回执重试失败: receiptId={}, eventId={}", receipt.getId(), receipt.getEventId(), e);
+            }
+        }
+        return applied;
     }
 
     @Override
