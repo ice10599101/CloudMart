@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Ale
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { wishApi } from '@/api/wish'
+import { wishApi, type GoalStep } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import { fileApi } from '@/api/file'
 import * as ImagePicker from 'expo-image-picker'
@@ -255,6 +255,85 @@ export default function WishDetailScreen() {
     } catch {
       setGrowthUploads((prev) => prev.map((u) => (u.key === key ? { ...u, status: 'error' } : u)))
     }
+  }
+
+  // T22：目标计划区（方案"目标计划/AI 拆解"行 App 端交付）：
+  // 仅作者可见；勾选完成走 version CAS；409 提示刷新；离线打卡冲突无关联
+  const [goals, setGoals] = useState<GoalStep[]>([])
+  const [goalTitle, setGoalTitle] = useState('')
+  const [goalSaving, setGoalSaving] = useState(false)
+  const [reloadTickForGoals, setReloadTickForGoals] = useState(0)
+
+  const loadGoals = async () => {
+    try {
+      const res = await wishApi.listGoals(wishId)
+      if (res.data?.success) setGoals(res.data.data)
+    } catch {
+      // 目标加载失败不阻断详情主流程
+    }
+  }
+
+  useEffect(() => {
+    const authorMode = user?.id != null && wish != null && String(user.id) === String(wish.authorId)
+    if (authorMode && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
+      void loadGoals()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, wish?.id, wish?.status, reloadTickForGoals])
+
+  const handleAddGoal = async () => {
+    const title = goalTitle.trim()
+    if (!title) {
+      Alert.alert('提示', '请填写步骤标题')
+      return
+    }
+    setGoalSaving(true)
+    try {
+      const res = await wishApi.createGoal(wishId, {
+        title,
+        sortOrder: goals.length,
+      })
+      if (res.data?.success) {
+        setGoalTitle('')
+        void loadGoals()
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      Alert.alert('创建失败', msg ?? '请稍后重试')
+    } finally {
+      setGoalSaving(false)
+    }
+  }
+
+  const handleToggleGoal = async (goal: GoalStep) => {
+    const nextStatus = goal.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED'
+    try {
+      const res = await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
+      if (res.data?.success) void loadGoals()
+    } catch {
+      Alert.alert('步骤已被其他设备修改', '已刷新最新状态')
+      void loadGoals()
+    }
+  }
+
+  const handleDeleteGoal = async (goal: GoalStep) => {
+    Alert.alert('确认删除该步骤？', '删除后不可恢复', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await wishApi.deleteGoal(goal.id, goal.version)
+            if (res.data?.success) void loadGoals()
+          } catch {
+            Alert.alert('步骤已被其他设备修改', '已刷新最新状态')
+            void loadGoals()
+          }
+        },
+      },
+    ])
   }
 
   // T22：还愿撤回（API 封装此前无 App 入口；作者本人，后端状态机校验：
@@ -551,6 +630,99 @@ export default function WishDetailScreen() {
           {isAuthor && (
             <WishCheckinCalendar wishId={wishId} accentColor={FRUIT_COLORS[wish.fruitType]} />
           )}
+        </View>
+      )}
+
+      {/* T22：目标计划区（仅作者；ACTIVE/OVERDUE 心愿） */}
+      {isAuthor && goals.length > 0 && (
+        <View
+          style={{
+            marginTop: Spacing.md,
+            padding: Spacing.lg,
+            borderRadius: BorderRadius.lg,
+            backgroundColor: 'rgba(15,52,96,0.35)',
+            borderWidth: 1,
+            borderColor: 'rgba(107,203,255,0.35)',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>
+            🎯 目标计划（{goals.length}）
+          </Text>
+          {goals.map((goal) => (
+            <View
+              key={String(goal.id)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: Spacing.sm,
+                paddingVertical: 6,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255,255,255,0.06)',
+              }}
+            >
+              <TouchableOpacity
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                onPress={() => handleToggleGoal(goal)}
+              >
+                <Text
+                  style={{
+                    marginRight: 10,
+                    fontSize: 16,
+                    color: goal.status === 'COMPLETED' ? '#6bcbff' : WishColors.text,
+                  }}
+                >
+                  {goal.status === 'COMPLETED' ? '✅' : '⬜'}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: FontSize.sm,
+                    color: WishColors.text,
+                    textDecorationLine: goal.status === 'COMPLETED' ? 'line-through' : 'none',
+                    opacity: goal.status === 'COMPLETED' ? 0.6 : 1,
+                  }}
+                >
+                  {goal.title}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteGoal(goal)}>
+                <Text style={{ fontSize: FontSize.sm, color: '#ff6b6b' }}>删除</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', marginTop: Spacing.sm }}>
+            <TextInput
+              value={goalTitle}
+              onChangeText={setGoalTitle}
+              placeholder="添加下一步…"
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+                borderRadius: BorderRadius.sm,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                fontSize: FontSize.sm,
+                color: WishColors.text,
+              }}
+            />
+            <TouchableOpacity
+              onPress={handleAddGoal}
+              disabled={goalSaving}
+              style={{
+                marginLeft: 8,
+                paddingHorizontal: 14,
+                justifyContent: 'center',
+                borderRadius: BorderRadius.sm,
+                backgroundColor: 'rgba(107,203,255,0.25)',
+              }}
+            >
+              <Text style={{ color: '#6bcbff', fontSize: FontSize.sm }}>
+                {goalSaving ? '…' : '添加'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
