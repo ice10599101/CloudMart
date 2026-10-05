@@ -46,6 +46,12 @@ public class TimeCapsule {
     /** 创建时用户 IANA 时区（仅回溯展示/审计） */
     private String openAtTimezone;
 
+    /** T22：已改期次数（上限 rescheduleLimit，服务端权威） */
+    private Integer rescheduleCount;
+
+    /** T22：改期次数上限 */
+    private Integer rescheduleLimit;
+
     /** 实际开启时间（UTC，未开启为 null） */
     private LocalDateTime openedAt;
 

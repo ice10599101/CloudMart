@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, App, Tag, Image } from 'antd'
+import type { Dayjs } from 'dayjs'
+import { Button, Card, App, Tag, Image, Popconfirm, DatePicker, Modal } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history, useParams } from 'umi'
-import { getCapsuleDetail, openCapsule, type CapsuleItem } from '@/api/wish'
+import { getCapsuleDetail, openCapsule, rescheduleCapsule, type CapsuleItem } from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import styles from './CapsuleDetail.module.css'
@@ -55,6 +56,38 @@ export default function CapsuleDetail() {
     const [now, setNow] = useState(Date.now())
     const { message } = App.useApp()
     const { user, userLoading } = useAuthStore()
+    // T22：胶囊改期状态（允许规则下改期；次数上限服务端权威，超限 409 回显）
+    const [reloadKey, setReloadKey] = useState(0)
+    const [rescheduleOpen, setRescheduleOpen] = useState(false)
+    const [rescheduling, setRescheduling] = useState(false)
+    const [rescheduleAt, setRescheduleAt] = useState<Dayjs | null>(null)
+
+    const handleReschedule = async () => {
+        if (!rescheduleAt || !capsuleId) {
+            message.warning('请选择新的开启时间')
+            return
+        }
+        setRescheduling(true)
+        try {
+            const res = await rescheduleCapsule(capsuleId, {
+                newOpenAt: rescheduleAt.toISOString(),
+                timezone: capsule!.openAtTimezone,
+            })
+            if (res.data.success) {
+                message.success('改期成功')
+                setRescheduleOpen(false)
+                setRescheduleAt(null)
+                setReloadKey((k) => k + 1)
+            }
+        } catch (error) {
+            const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+                ?.response?.data?.error?.message
+            message.warning(msg ?? '改期失败（次数超限或状态已变更）')
+            setRescheduleOpen(false)
+        } finally {
+            setRescheduling(false)
+        }
+    }
 
     useEffect(() => {
         reportTimezoneIfNeeded()
@@ -76,7 +109,7 @@ export default function CapsuleDetail() {
                 // 错误已由 request 拦截器处理（404 = 不存在或非本人）
             })
             .finally(() => setLoading(false))
-    }, [user, capsuleId])
+    }, [user, capsuleId, reloadKey])
 
     // 封印中倒计时：每分钟刷新（到期瞬间亮出拆开按钮，容忍扫描间隙）
     useEffect(() => {
@@ -84,6 +117,9 @@ export default function CapsuleDetail() {
         const timer = window.setInterval(() => setNow(Date.now()), 30_000)
         return () => window.clearInterval(timer)
     }, [capsule, revealed])
+
+    const isOwner = user?.id != null && capsule?.userId != null
+        && String(user.id) === String(capsule.userId)
 
     const expired = useMemo(
         () => (capsule ? new Date(capsule.openAt).getTime() <= now : false),
@@ -150,6 +186,24 @@ export default function CapsuleDetail() {
                         </div>
                     </Card>
                 </div>
+                <Modal
+                    title="胶囊改期"
+                    open={rescheduleOpen}
+                    onCancel={() => setRescheduleOpen(false)}
+                    confirmLoading={rescheduling}
+                    onOk={handleReschedule}
+                >
+                    <DatePicker
+                        showTime
+                        style={{ width: '100%' }}
+                        value={rescheduleAt}
+                        onChange={(value) => setRescheduleAt(value)}
+                        placeholder="选择新的开启时间"
+                    />
+                    <p style={{ color: '#999', marginTop: 8 }}>
+                        改期次数上限由服务端控制（默认 3 次）；新开启时间须晚于当前时间且不超过 10 年。
+                    </p>
+                </Modal>
                 <WishBGM />
             </div>
         )
@@ -183,6 +237,14 @@ export default function CapsuleDetail() {
                                     <p className={styles.sealedMeta}>
                                         预定开启：{formatLocal(capsule.openAt)}（创建时区 {capsule.openAtTimezone}；按 UTC 判定，跨时区不影响到期）
                                     </p>
+                                    {/* T22：允许规则下改期（次数上限服务端权威；仅本人 SEALED 可见） */}
+                                    {isOwner && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <Button size="small" onClick={() => setRescheduleOpen(true)}>
+                                                改期
+                                            </Button>
+                                        </div>
+                                    )}
                                 </>
                             )}
                             {canOpen && !opening && (

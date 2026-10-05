@@ -38,6 +38,15 @@ public record CapsuleVO(
         LocalDateTime openedAt,
 
         @Schema(description = "创建时间（UTC）")
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "T22：作者用户 ID（本人判定）")
+        Long userId,
+
+        @Schema(description = "T22：已改期次数")
+        Integer rescheduleCount,
+
+        @Schema(description = "T22：改期次数上限")
+        Integer rescheduleLimit
 ) {
 }

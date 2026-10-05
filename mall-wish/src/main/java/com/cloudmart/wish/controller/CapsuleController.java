@@ -74,6 +74,22 @@ public class CapsuleController {
         return ApiResponse.ok(capsuleService.getCapsuleDetail(userId, id));
     }
 
+    /** T22 改期：作者本人、SEALED 状态、次数有界（服务端权威） */
+    @PostMapping("/{id}/reschedule")
+    @Operation(summary = "胶囊改期", description = "T22：允许规则下改期（SEALED；新开启时间须为未来且 ≤10 年；"
+            + "改期次数上限服务端权威，超限明确拒绝）")
+    public ApiResponse<com.cloudmart.wish.entity.TimeCapsule> reschedule(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "胶囊 ID", required = true) @PathVariable Long id,
+            @RequestBody RescheduleRequest request) {
+        return ApiResponse.ok(capsuleService.reschedule(userId, id,
+                request.newOpenAt(), request.timezone()));
+    }
+
+    public record RescheduleRequest(java.time.LocalDateTime newOpenAt, String timezone) {
+    }
+
     @PostMapping("/{id}/open")
     @Operation(summary = "到期开启", description = "SEALED/AVAILABLE 且已到期 → OPENED；"
             + "并发双开仅一次生效；重复调用幂等返回内容；未到期 409")

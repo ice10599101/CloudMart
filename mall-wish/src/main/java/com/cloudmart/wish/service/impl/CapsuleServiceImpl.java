@@ -92,6 +92,54 @@ public class CapsuleServiceImpl implements CapsuleService {
         return toVO(capsule);
     }
 
+    /**
+     * T22 改期：SEALED 且新 openAt 合法（未来、≤10 年）时可改期；改期次数上限
+     * 服务端权威（默认 3 次），CAS 防并发 + 次数原子递增；重复提交以 CAS 收敛。
+     */
+    @Override
+    public com.cloudmart.wish.entity.TimeCapsule reschedule(Long userId, Long capsuleId,
+                                                            LocalDateTime newOpenAt, String timezone) {
+        LocalDateTime now = LocalDateTime.now();
+        if (newOpenAt == null || !newOpenAt.isAfter(now)) {
+            throw new BusinessException(WishErrorCodes.WISH_OPEN_AT_PAST, "新的开启时间不能早于当前时间");
+        }
+        if (newOpenAt.isAfter(now.plus(MAX_OPEN_AHEAD))) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "开启时间最远不能超过10年");
+        }
+        String tz = requireValidIanaZone(timezone);
+
+        com.cloudmart.wish.entity.TimeCapsule capsule = timeCapsuleMapper.selectById(capsuleId);
+        if (capsule == null || !capsule.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "胶囊不存在");
+        }
+        if (capsule.getStatus() != com.cloudmart.wish.enums.CapsuleStatus.SEALED) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅封存中的胶囊可改期");
+        }
+        int limit = capsule.getRescheduleLimit() == null ? 3 : capsule.getRescheduleLimit();
+        int used = capsule.getRescheduleCount() == null ? 0 : capsule.getRescheduleCount();
+        if (used >= limit) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,
+                    "改期次数已达上限（" + limit + " 次）");
+        }
+
+        // CAS：SEALED 且次数未超 → 改期 + 计数递增（并发改期只有一个赢家）
+        int updated = timeCapsuleMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.wish.entity.TimeCapsule>()
+                        .eq(com.cloudmart.wish.entity.TimeCapsule::getId, capsuleId)
+                        .eq(com.cloudmart.wish.entity.TimeCapsule::getStatus,
+                                com.cloudmart.wish.enums.CapsuleStatus.SEALED)
+                        .le(com.cloudmart.wish.entity.TimeCapsule::getRescheduleCount, limit - 1)
+                        .set(com.cloudmart.wish.entity.TimeCapsule::getOpenAt, newOpenAt)
+                        .set(com.cloudmart.wish.entity.TimeCapsule::getOpenAtTimezone, tz)
+                        .setSql("reschedule_count = reschedule_count + 1"));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "胶囊状态已变更，无法改期");
+        }
+        log.info("[T22] 胶囊改期 capsuleId={} newOpenAt={} tz={} 第{}次",
+                capsuleId, newOpenAt, tz, used + 1);
+        return timeCapsuleMapper.selectById(capsuleId);
+    }
+
     @Override
     public CapsulePage listMyCapsules(Long userId, String status, String cursor, Integer pageSize) {
         CapsuleStatus statusFilter = parseStatusOrNull(status);
@@ -283,7 +331,10 @@ public class CapsuleServiceImpl implements CapsuleService {
                 capsule.getOpenAt(),
                 capsule.getOpenAtTimezone(),
                 capsule.getOpenedAt(),
-                capsule.getCreatedAt()
+                capsule.getCreatedAt(),
+                capsule.getUserId(),
+                capsule.getRescheduleCount(),
+                capsule.getRescheduleLimit()
         );
     }
 

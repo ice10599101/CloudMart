@@ -612,6 +612,11 @@ export interface CapsuleItem {
   openAtTimezone: string
   openedAt: string | null
   createdAt: string
+  /** T22：作者用户 ID（本人判定） */
+  userId: number
+  /** T22：已改期次数与上限（服务端权威；改期入口仅 SEALED 本人可见） */
+  rescheduleCount: number
+  rescheduleLimit: number
 }
 
 export function createCapsule(data: {
@@ -634,6 +639,11 @@ export function getCapsuleDetail(id: number | string) {
 
 export function openCapsule(id: number | string) {
   return request.post<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}/open`)
+}
+
+/** T22：胶囊改期（SEALED；次数上限服务端权威；新开启时间须为未来） */
+export function rescheduleCapsule(id: number | string, data: { newOpenAt: string; timezone?: string }) {
+  return request.post<ApiResponse<Record<string, unknown>>>(`/wish/capsules/${id}/reschedule`, data)
 }
 
 export function cancelCapsule(id: number | string) {

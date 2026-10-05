@@ -36,6 +36,13 @@ public interface CapsuleService {
     CapsuleVO getCapsuleDetail(Long userId, Long capsuleId);
 
     /**
+     * T22 改期：SEALED 状态且新 openAt 合法（未来、1 天~10 年边界）时可改期，
+     * 次数上限服务端权威（rescheduleLimit）；CAS 防并发，次数原子递增。
+     */
+    com.cloudmart.wish.entity.TimeCapsule reschedule(Long userId, Long capsuleId,
+                                                     java.time.LocalDateTime newOpenAt, String timezone);
+
+    /**
      * 到期开启（状态机 CAS：SEALED/AVAILABLE 且 openAt ≤ now → OPENED）。
      *
      * <p>未到期抛 WISH_CAPSULE_NOT_AVAILABLE(409)；已开启幂等返回内容
