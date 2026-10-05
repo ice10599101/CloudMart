@@ -32,7 +32,9 @@ public class LiveWidgetController {
 
     private final LiveWidgetService liveWidgetService;
 
-    @PostMapping("/widgets/config")
+    // T22：/live/widget/widgets/config 语义重复且与三端封装（/wish/live/widget/config）
+    // 断链——统一为 /live/widget/config
+    @PostMapping("/config")
     @Operation(summary = "主播自助配置挂件", description = "streamerId 强制为当前用户；403 WISH_FORBIDDEN 若非本人")
     public ApiResponse<com.cloudmart.wish.entity.LiveWidgetConfig> selfConfig(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)

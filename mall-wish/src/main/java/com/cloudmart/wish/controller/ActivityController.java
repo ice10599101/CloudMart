@@ -65,6 +65,20 @@ public class ActivityController {
         return ApiResponse.ok(activityService.getProgress(id));
     }
 
+    /**
+     * T22：参与者列表（受控查询）——JOINED/APPROVED 成员的最小信息，昵称脱敏为
+     * ID 尾号；分页限制服务端上限。对应 Web 已有封装 /wish/activities/{id}/participants。
+     */
+    @GetMapping("/{id}/participants")
+    @Operation(summary = "活动参与者列表", description = "T22：最小成员信息（昵称脱敏）；分页")
+    @SentinelResource("WISH_ACTIVITY_PARTICIPANTS")
+    public ApiResponse<java.util.List<java.util.Map<String, Object>>> participants(
+            @Parameter(description = "活动 ID", required = true) @PathVariable Long id,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(activityService.listParticipants(id, page, Math.min(size, 100)));
+    }
+
     @PostMapping("/{id}/join")
     @Operation(summary = "参与活动", description = "普通活动参与（进度 Redis INCR；重复参与幂等不重复计数）")
     @SentinelResource("WISH_ACTIVITY_JOIN")

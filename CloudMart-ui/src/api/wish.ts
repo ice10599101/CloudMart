@@ -1667,14 +1667,13 @@ export function getAssetDetail(assetId: number | string) {
 }
 
 export function selfConfigLiveWidget(data: { position: string; styleConfig?: string; isVisible?: boolean }) {
-  return request.post<ApiResponse<Record<string, unknown>>>('/wish/live/widgets/config', data)
+  // T22：对齐后端 /live/widget/config（原 /wish/live/widgets/config 为断链路径）
+  return request.post<ApiResponse<Record<string, unknown>>>('/wish/live/widget/config', data)
 }
 
-export function createBrandPool(brandId: number | string, data: {
-  name: string; targetCount: number; rewardJson?: string; endAt?: string
-}) {
-  return request.post<ApiResponse<Record<string, unknown>>>(`/wish/brands/${brandId}/pools`, data)
-}
+// T22/方案 3.1：品牌奖池创建属后台专属能力（mall-admin /wish/brand/{brandId}/pools
+// 代理已于 T23 补齐）——用户端不开放创建写接口（防绕过预算校验），此死封装移除；
+// 运营创建入口由后台页面接 /admin/business/wish/brand/{brandId}/pools（T23 代理）
 
 // ==================== 心愿 v2（草稿 / 生命周期 / 目标清单 / 治理申诉 / 成长时间轴） ====================
 
