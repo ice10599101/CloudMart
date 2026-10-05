@@ -2,7 +2,7 @@ import RichText from '@/components/RichText'
 import { useState, useEffect, useRef } from 'react'
 import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
-import { wishApi } from '@/api/wish'
+import { wishApi, type GoalStep } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
@@ -192,6 +192,96 @@ export default function WishDetailPage() {
     }
     fetchData()
   }, [wishId, user?.id])
+
+  // T22：目标计划区（方案"目标计划/AI 拆解"行 Taro 端交付）：
+  // 仅作者可见；勾选完成走 version CAS；409 提示刷新；仅 ACTIVE/OVERDUE 心愿可维护
+  const [goals, setGoals] = useState<GoalStep[]>([])
+  const [goalTitle, setGoalTitle] = useState('')
+  const [goalSaving, setGoalSaving] = useState(false)
+
+  const loadGoals = async () => {
+    try {
+      const res = await wishApi.listGoals(wishId)
+      if (res.data.success) setGoals(res.data.data)
+    } catch {
+      // 目标加载失败不阻断详情主流程
+    }
+  }
+
+  useEffect(() => {
+    const authorMode = user?.id != null && wish != null && String(user.id) === String(wish.authorId)
+    if (authorMode && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
+      void loadGoals()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, wish?.id, wish?.status])
+
+  const handleAddGoal = async () => {
+    const title = goalTitle.trim()
+    if (!title) {
+      Taro.showToast({ title: '请填写步骤标题', icon: 'none' })
+      return
+    }
+    setGoalSaving(true)
+    try {
+      const res = await wishApi.createGoal(wishId, { title, sortOrder: goals.length })
+      if (res.data.success) {
+        setGoalTitle('')
+        void loadGoals()
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '创建失败，请稍后重试', icon: 'none' })
+    } finally {
+      setGoalSaving(false)
+    }
+  }
+
+  const handleToggleGoal = async (goal: GoalStep) => {
+    const nextStatus = goal.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED'
+    try {
+      const res = await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
+      if (res.data.success) void loadGoals()
+    } catch {
+      Taro.showToast({ title: '步骤已被其他设备修改，已刷新最新状态', icon: 'none' })
+      void loadGoals()
+    }
+  }
+
+  const handleDeleteGoal = async (goal: GoalStep) => {
+    const res = await Taro.showModal({ title: '确认删除该步骤？', content: '删除后不可恢复' })
+    if (!res.confirm) return
+    try {
+      const result = await wishApi.deleteGoal(goal.id, goal.version)
+      if (result.data.success) void loadGoals()
+    } catch {
+      Taro.showToast({ title: '步骤已被其他设备修改，已刷新最新状态', icon: 'none' })
+      void loadGoals()
+    }
+  }
+
+  // T22：还愿撤回（API 封装此前无 Taro 入口；作者本人，后端状态机校验：
+  // 已进入社区流转/审核中的撤回被拒绝并回显原因，成功后刷新详情）
+  const handleWithdrawFulfillment = async () => {
+    const res = await Taro.showModal({
+      title: '撤回还愿',
+      content: '撤回后心愿回到可还愿状态，可重新提交。确定撤回吗？',
+    })
+    if (!res.confirm) return
+    try {
+      const result = await wishApi.withdrawFulfillment(wishId)
+      if (result.data.success) {
+        Taro.showToast({ title: '还愿已撤回', icon: 'success' })
+        setFulfillment(null)
+        const detailRes = await wishApi.getWishDetail(wishId)
+        if (detailRes.data.success) setWish(detailRes.data.data)
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '撤回失败，可能已进入社区流转', icon: 'none' })
+    }
+  }
+
 
   // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期选择
   useEffect(() => {
@@ -474,6 +564,11 @@ export default function WishDetailPage() {
                 <Text className={styles.fulfillmentFeelingText}>{fulfillment.feeling}</Text>
               </View>
             )}
+            {isAuthor && (
+              <View className={styles.withdrawRow} onClick={handleWithdrawFulfillment}>
+                <Text className={styles.withdrawText}>撤回本次还愿</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -542,6 +637,42 @@ export default function WishDetailPage() {
             {isAuthor && (
               <WishCheckinCalendar wishId={wishId} accentColor={FRUIT_COLORS[wish.fruitType]} />
             )}
+          </View>
+        )}
+
+        {/* T22：目标计划区（仅作者；ACTIVE/OVERDUE 心愿；勾选走 version CAS） */}
+        {isAuthor && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE') && (
+          <View className={styles.goalCard}>
+            <Text className={styles.cardTitle}>🎯 目标计划（{goals.length}）</Text>
+            {goals.map(goal => (
+              <View key={String(goal.id)} className={styles.goalItem}>
+                <View className={styles.goalToggle} onClick={() => handleToggleGoal(goal)}>
+                  <Text className={`${styles.goalCheckbox} ${goal.status === 'COMPLETED' ? styles.goalCheckboxDone : ''}`}>
+                    {goal.status === 'COMPLETED' ? '✓' : ''}
+                  </Text>
+                  <Text className={`${styles.goalText} ${goal.status === 'COMPLETED' ? styles.goalTextDone : ''}`}>
+                    {goal.title}
+                  </Text>
+                </View>
+                <Text className={styles.goalDelete} onClick={() => handleDeleteGoal(goal)}>删除</Text>
+              </View>
+            ))}
+            <View className={styles.goalAddRow}>
+              <Input
+                value={goalTitle}
+                onInput={(e) => setGoalTitle(e.detail.value)}
+                placeholder='添加下一步…'
+                placeholderClass={styles.goalInputPlaceholder}
+                className={styles.goalInput}
+                maxlength={100}
+              />
+              <View
+                className={`${styles.goalAddBtn} ${goalSaving ? styles.goalAddBtnDisabled : ''}`}
+                onClick={handleAddGoal}
+              >
+                <Text className={styles.goalAddBtnText}>{goalSaving ? '…' : '添加'}</Text>
+              </View>
+            </View>
           </View>
         )}
 

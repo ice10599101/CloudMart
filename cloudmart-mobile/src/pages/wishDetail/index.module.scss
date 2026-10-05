@@ -613,3 +613,116 @@
   background: rgba(74, 144, 217, 0.15);
   color: #4a90d9;
 }
+
+/* T22 还愿撤回（作者本人入口） */
+.withdrawRow {
+  margin-top: 24rpx;
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+
+.withdrawText {
+  color: rgba(255, 107, 107, 0.85);
+  font-size: 26rpx;
+}
+
+/* T22 目标计划区（仅作者；version CAS 勾选） */
+.goalCard {
+  margin-top: 24rpx;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(15, 52, 96, 0.35);
+  border: 1rpx solid rgba(107, 203, 255, 0.35);
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+
+.goalItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+
+.goalToggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.goalCheckbox {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 20rpx;
+  border: 2rpx solid rgba(107, 203, 255, 0.5);
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(107, 203, 255, 0.95);
+  font-size: 26rpx;
+}
+
+.goalCheckboxDone {
+  background: rgba(107, 203, 255, 0.2);
+}
+
+.goalText {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 28rpx;
+}
+
+.goalTextDone {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.goalDelete {
+  color: rgba(255, 107, 107, 0.85);
+  font-size: 26rpx;
+  padding: 8rpx 0 8rpx 24rpx;
+}
+
+.goalAddRow {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.goalInput {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 16rpx;
+  padding: 14rpx 20rpx;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 26rpx;
+}
+
+.goalInputPlaceholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.goalAddBtn {
+  background: rgba(107, 203, 255, 0.25);
+  border-radius: 16rpx;
+  padding: 14rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.goalAddBtnDisabled {
+  opacity: 0.5;
+}
+
+.goalAddBtnText {
+  color: rgba(107, 203, 255, 0.95);
+  font-size: 26rpx;
+}
