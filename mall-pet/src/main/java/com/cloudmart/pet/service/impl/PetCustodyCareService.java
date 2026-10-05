@@ -22,6 +22,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -43,6 +44,8 @@ public class PetCustodyCareService {
     private final PetProperties properties;
     private final PetUserGuardService guardService;
     private final PetActivityMutex activityMutex;
+    /** PET-08：照顾与结算的真实事务边界（独立 Bean，修复同类自调用 @Transactional 失效） */
+    private final PetCustodyCareTxWorker txWorker;
 
     /** 启动托管：每自然周 1 次（uk 幂等）；不收费不自动续。R12：守卫锁内复验互斥。 */
     @Transactional
@@ -114,49 +117,25 @@ public class PetCustodyCareService {
         }
     }
 
-    /** 照顾效果（阈值触发、有限次数）：宠物属性恢复与照顾计数同事务提交 */
-    @Transactional
+    /**
+     * 照顾效果（阈值触发、有限次数）：宠物属性恢复与照顾计数同事务提交（PET-08：
+     * 事务边界在 TxWorker，原同类自调用注解失效导致两条写各自提交）。
+     * 到期记录不在此照顾——最终照顾由结算路径负责。
+     */
     public void applyCare(PetCustodyRecord record) {
         if (record.getEndsAt() != null && record.getEndsAt().isBefore(petClock.nowUtc())) {
             return;
         }
-        Pet pet = petMapper.selectById(record.getPetId());
-        if (pet == null) {
-            return;
-        }
-        LambdaUpdateWrapper<Pet> wrapper = new LambdaUpdateWrapper<Pet>().eq(Pet::getId, pet.getId());
-        boolean changed = false;
-        if (pet.getHunger() < 30 && record.getCareFeedUsed() < 2) {
-            wrapper.setSql("hunger = 50");
-            record.setCareFeedUsed(record.getCareFeedUsed() + 1);
-            changed = true;
-        }
-        if (pet.getCleanliness() < 30 && record.getCareCleanUsed() < 1) {
-            wrapper.setSql("cleanliness = 50");
-            record.setCareCleanUsed(record.getCareCleanUsed() + 1);
-            changed = true;
-        }
-        if (changed) {
-            petMapper.update(null, wrapper);
-            custodyMapper.updateById(record);
-        }
+        txWorker.applyCareInTx(record);
     }
 
     /**
-     * 结算最后一段照顾并原子结束（CAS ACTIVE→ENDED，幂等；本周名额不恢复、不产出奖励）。
-     * 主动结束与到期结束共用此路径——照顾不因"没打开页面"消失，结束后不再照顾。
+     * 结算最后一段照顾并原子结束（PET-08/T18）：到期记录同样应用最终照顾
+     * （原实现 applyCare 对 endsAt 已过直接返回，最后一段照顾被跳过），
+     * 照顾 + CAS 转终态同事务；主动结束与到期结束共用此路径。
      */
-    @Transactional
     public void settleAndEnd(PetCustodyRecord record) {
-        applyCare(record);
-        int updated = custodyMapper.update(null, new LambdaUpdateWrapper<PetCustodyRecord>()
-                .set(PetCustodyRecord::getStatus, "ENDED")
-                .set(PetCustodyRecord::getEndedAt, petClock.nowUtc())
-                .eq(PetCustodyRecord::getId, record.getId())
-                .eq(PetCustodyRecord::getStatus, "ACTIVE"));
-        if (updated > 0) {
-            log.info("托管结束（照顾已结算）, custodyId={}, userId={}", record.getId(), record.getUserId());
-        }
+        txWorker.settleAndEndInTx(record);
     }
 
     /** 当前生效中的托管（无则 null） */
@@ -165,6 +144,28 @@ public class PetCustodyCareService {
                 .eq(PetCustodyRecord::getUserId, userId)
                 .eq(PetCustodyRecord::getStatus, "ACTIVE")
                 .last("LIMIT 1"));
+    }
+
+    /**
+     * PET-08：到期托管批量兜底清理（调度器调用）——到期记录不再只依赖用户打开状态页收尾；
+     * 单条失败不阻断其余（下轮重扫，CAS 幂等）。
+     */
+    public int expireOverdueBatch(int limit) {
+        List<PetCustodyRecord> overdue = custodyMapper.selectList(new LambdaQueryWrapper<PetCustodyRecord>()
+                .eq(PetCustodyRecord::getStatus, "ACTIVE")
+                .lt(PetCustodyRecord::getEndsAt, petClock.nowUtc())
+                .orderByAsc(PetCustodyRecord::getId)
+                .last("LIMIT " + Math.max(limit, 1)));
+        int settled = 0;
+        for (PetCustodyRecord record : overdue) {
+            try {
+                txWorker.settleAndEndInTx(record);
+                settled++;
+            } catch (Exception e) {
+                log.error("托管到期兜底结算失败: custodyId={}, userId={}", record.getId(), record.getUserId(), e);
+            }
+        }
+        return settled;
     }
 
     private Pet requireActivePet(Long userId) {

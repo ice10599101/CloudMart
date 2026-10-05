@@ -26,6 +26,8 @@ public class PetActivityMutex {
 
     private final PetActivityMapper activityMapper;
     private final PetCustodyRecordMapper custodyMapper;
+    /** PET-08：互斥判定前先把用户已到期的托管幂等收尾（不要求先打开托管状态页） */
+    private final PetCustodyCareTxWorker custodyCareTxWorker;
 
     /** @return 该用户是否有进行中的长期活动（打工/读书/职业/捞瓶/休息） */
     public boolean hasBusyActivity(Long userId) {
@@ -44,12 +46,15 @@ public class PetActivityMutex {
     /**
      * 开始长期活动前的互斥复验（R12：工作/读书/职业/捞瓶/休息与托管互斥）。
      * 必须在用户守卫锁/事务内调用——锁内重读，并发开始只有一个能通过。
+     * PET-08：到期 ACTIVE 托管先结算收尾再判互斥——"到期后直接打工可成功"，
+     * 收尾事务加入调用方事务/守卫锁，不存在互斥窗口。
      */
     public void requireFree(Long userId) {
         if (hasBusyActivity(userId)) {
             throw new BusinessException(PetErrorCodes.PET_ACTIVITY_CONFLICT,
                     "宠物一次只能做一件事，等当前任务结束吧");
         }
+        custodyCareTxWorker.settleExpiredForUser(userId);
         if (hasActiveCustody(userId)) {
             throw new BusinessException(PetErrorCodes.PET_USER_BUSY,
                     "宠物正在托管中，托管与任务不能同时进行");

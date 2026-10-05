@@ -46,6 +46,7 @@ public class PetActivityScheduler {
     static final String LOCK_HOUSEKEEPING = "pet:lock:activity-housekeeping";
     static final String LOCK_RANK_REBUILD = "pet:lock:rank-rebuild";
     static final String LOCK_SEASON_SETTLE = "pet:lock:season-settle";
+    static final String LOCK_CUSTODY_EXPIRE = "pet:lock:custody-expire";
 
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
@@ -58,6 +59,7 @@ public class PetActivityScheduler {
     private final com.cloudmart.pet.service.PetRankingService rankingService;
     private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService dashboardSnapshotService;
     private final com.cloudmart.pet.service.impl.PetSeasonSettlementService seasonSettlementService;
+    private final com.cloudmart.pet.service.impl.PetCustodyCareService custodyCareService;
     private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
     /** R15：完成 CAS 与 Outbox 登记同一事务——kill 窗口不再丢"任务完成"通知 */
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -124,6 +126,27 @@ public class PetActivityScheduler {
             log.error("宠物清扫任务失败", e);
         } finally {
             unlock(LOCK_HOUSEKEEPING);
+        }
+    }
+
+    /**
+     * PET-08：托管到期兜底结算（5 分钟一轮）——到期记录不再只依赖用户打开托管状态页收尾；
+     * 互斥玩法启动前的惰性收尾（Mutex.settleExpiredForUser）覆盖在线用户，本扫描兜底离线用户。
+     */
+    @Scheduled(fixedDelay = 300_000)
+    public void expireOverdueCustody() {
+        if (!tryLock(LOCK_CUSTODY_EXPIRE, Duration.ofSeconds(240))) {
+            return;
+        }
+        try {
+            int settled = custodyCareService.expireOverdueBatch(50);
+            if (settled > 0) {
+                log.info("托管到期兜底结算: settled={}", settled);
+            }
+        } catch (Exception e) {
+            log.error("托管到期兜底任务失败", e);
+        } finally {
+            unlock(LOCK_CUSTODY_EXPIRE);
         }
     }
 
