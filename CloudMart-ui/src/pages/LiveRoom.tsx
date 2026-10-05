@@ -14,6 +14,7 @@ import type { LiveRoom } from '@/api/live'
 import { getProductById } from '@/api/product'
 import type { Product } from '@/types'
 import WishLiveWidget from '@/components/WishLiveWidget'
+import WishLiveWidgetConfig from '@/components/WishLiveWidgetConfig'
 import { useAuthStore } from '@/stores/auth'
 import GiftPickerModal from '@/components/GiftPickerModal'
 import type { SendGiftResult } from '@/api/gift'
@@ -665,6 +666,12 @@ export default function LiveRoomPage() {
             <div>观看：{(room.viewerCount ?? 0) + likes}</div>
             {room.startTime && <div>开播：{new Date(room.startTime).toLocaleString()}</div>}
           </div>
+          {/* T22：主播本人挂件设置入口（观众不可见） */}
+          {user?.id != null && user.id === room.anchorUserId && (
+            <div style={{ marginTop: 10 }}>
+              <WishLiveWidgetConfig streamerId={room.anchorUserId} isAnchor />
+            </div>
+          )}
         </div>
       </div>
 
