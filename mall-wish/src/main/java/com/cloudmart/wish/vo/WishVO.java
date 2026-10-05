@@ -43,5 +43,10 @@ public record WishVO(
         @Schema(description = "更新时间") LocalDateTime updatedAt,
         @Schema(description = "最近成长记录列表（默认 10 条）") List<WishGrowthRecordVO> growthRecords,
         @Schema(description = "累计打卡天数") Integer checkinDays,
-        @Schema(description = "心愿进度") WishProgressVO progress
+        @Schema(description = "心愿进度") WishProgressVO progress,
+
+        @Schema(description = "T22：可申诉的最新治理决定 ID（仅作者本人且 7 日申诉窗口内返回，"
+                + "其余场景恒 null）") Long moderationDecisionId,
+
+        @Schema(description = "乐观锁版本（v2 生命周期操作 CAS 校验用）") Long version
 ) {}

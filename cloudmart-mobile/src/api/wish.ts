@@ -67,7 +67,6 @@ import type {
     MapCluster,
     FenceCheckResult,
     WarmEventItem,
-    EncounterLetterItem,
     DriftBottleItem,
     DriftBottleCommentItem,
     DriftBottleCandidateWish,
@@ -569,14 +568,6 @@ export const wishApi = {
     /** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
     reportTrace: (lat: number, lng: number) =>
         request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } }),
-    /** 信笺列表（PENDING 时 content=null） */
-    listEncounterLetters: () => request<EncounterLetterItem[]>({ url: '/wish/map/encounter-letters' }),
-    /** 拆信（DELIVERED → READ） */
-    readEncounterLetter: (letterId: number | string) =>
-        request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/read`, method: 'PUT' }),
-    /** 匿名互动（BLESS 免费 / LIGHT 扣星光 2；每信笺每日 1 次） */
-    interactEncounterLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT') =>
-        request<EncounterLetterItem>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type } }),
 
     // ---- 漂流瓶（Sprint，契约对齐 mall-wish DriftBottleController）----
     /** 可关联心愿候选（近 20 个自己发布的公开进行中心愿，投瓶下拉用） */

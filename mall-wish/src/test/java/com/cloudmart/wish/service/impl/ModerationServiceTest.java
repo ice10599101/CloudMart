@@ -81,6 +81,10 @@ class ModerationServiceTest {
                 new org.apache.ibatis.builder.MapperBuilderAssistant(
                         new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
                 com.cloudmart.wish.entity.WishReport.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                com.cloudmart.wish.entity.ModerationDecision.class);
     }
 
     @BeforeEach
@@ -269,5 +273,65 @@ class ModerationServiceTest {
 
         // 恢复动作未执行（不越过其他生效下架原因）
         verify(wishMapper, never()).update(any(), any());
+    }
+
+    // ---------------- T22 申诉闭环：appealableDecisionIdForWish ----------------
+
+    private ModerationCase wishCase() {
+        ModerationCase mc = new ModerationCase();
+        mc.setId(77L);
+        mc.setTargetType("WISH");
+        mc.setTargetId(TARGET_WISH);
+        mc.setStatus("IN_REVIEW");
+        return mc;
+    }
+
+    private ModerationDecision recentDecision(LocalDateTime createdAt) {
+        ModerationDecision d = new ModerationDecision();
+        d.setId(99L);
+        d.setCaseId(77L);
+        d.setDecision("HIDE");
+        d.setCreatedAt(createdAt);
+        return d;
+    }
+
+    @Test
+    @DisplayName("作者 + 7 日窗口内 → 返回最新决定 ID")
+    void appealable_authorInWindow_returnsDecisionId() {
+        when(wishMapper.selectById(TARGET_WISH)).thenReturn(publicWish());
+        when(caseMapper.selectOne(any())).thenReturn(wishCase());
+        when(decisionMapper.selectOne(any()))
+                .thenReturn(recentDecision(LocalDateTime.now(ZoneId.of("UTC")).minusDays(1)));
+
+        assertThat(service.appealableDecisionIdForWish(TARGET_WISH, AUTHOR)).isEqualTo(99L);
+    }
+
+    @Test
+    @DisplayName("非作者 → null 且不查决定")
+    void appealable_nonAuthor_returnsNull() {
+        when(wishMapper.selectById(TARGET_WISH)).thenReturn(publicWish());
+
+        assertThat(service.appealableDecisionIdForWish(TARGET_WISH, REPORTER)).isNull();
+        verify(caseMapper, never()).selectOne(any());
+    }
+
+    @Test
+    @DisplayName("7 日窗口已关闭 → null")
+    void appealable_windowClosed_returnsNull() {
+        when(wishMapper.selectById(TARGET_WISH)).thenReturn(publicWish());
+        when(caseMapper.selectOne(any())).thenReturn(wishCase());
+        when(decisionMapper.selectOne(any()))
+                .thenReturn(recentDecision(LocalDateTime.now(ZoneId.of("UTC")).minusDays(8)));
+
+        assertThat(service.appealableDecisionIdForWish(TARGET_WISH, AUTHOR)).isNull();
+    }
+
+    @Test
+    @DisplayName("无治理案件 → null")
+    void appealable_noCase_returnsNull() {
+        when(wishMapper.selectById(TARGET_WISH)).thenReturn(publicWish());
+        when(caseMapper.selectOne(any())).thenReturn(null);
+
+        assertThat(service.appealableDecisionIdForWish(TARGET_WISH, AUTHOR)).isNull();
     }
 }

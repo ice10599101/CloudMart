@@ -152,7 +152,7 @@ class WishControllerTest {
                 1L, "作者", "avatar.png",
                 0, 0, 0, 0, 0, 0,
                 null, null, LocalDateTime.now(), LocalDateTime.now(),
-                List.of(), 0, null
+                List.of(), 0, null, null, null
         );
         given(wishService.getWishDetail(eq(1L), any())).willReturn(vo);
 

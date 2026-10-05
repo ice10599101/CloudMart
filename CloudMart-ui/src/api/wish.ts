@@ -57,6 +57,10 @@ export interface WishDetail extends WishListItem {
   enableAiReply?: boolean
   /** 审核状态（PENDING=审核中，审核通过后才在广场可见） */
   auditStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'
+  /** T22：可申诉的最新治理决定 ID（仅作者本人且 7 日申诉窗口内返回，其余恒 null） */
+  moderationDecisionId?: number | string | null
+  /** 乐观锁版本（v2 生命周期操作 CAS 校验用） */
+  version?: number
 }
 
 export interface WishCreateResult {
@@ -1725,10 +1729,6 @@ export function saveWishDraft(data: WishDraftPayload) {
 
 export function listMyWishDrafts() {
   return request.get<ApiResponse<WishDraft[]>>('/wish/v2/drafts/my')
-}
-
-export function updateWishDraft(id: number | string, data: WishDraftPayload) {
-  return request.patch<ApiResponse<WishDraft>>(`/wish/v2/drafts/${id}`, data)
 }
 
 export function deleteWishDraft(id: number | string) {

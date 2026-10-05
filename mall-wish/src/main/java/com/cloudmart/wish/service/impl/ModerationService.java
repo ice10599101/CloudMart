@@ -254,6 +254,37 @@ public class ModerationService {
 
     // ---------------- 申诉（用户 + 复核） ----------------
 
+    /**
+     * T22 申诉闭环：返回该心愿可申诉的最新治理决定 ID；非作者、无决定或
+     * 7 日申诉窗口已关闭时返回 null（详情页据此渲染/隐藏申诉入口，
+     * 与 submitAppeal 的服务端校验保持同一判定口径）。
+     */
+    public Long appealableDecisionIdForWish(Long wishId, Long requesterId) {
+        if (wishId == null || requesterId == null) {
+            return null;
+        }
+        Wish wish = wishMapper.selectById(wishId);
+        if (wish == null || !requesterId.equals(wish.getUserId())) {
+            return null;
+        }
+        ModerationCase mc = caseMapper.selectOne(new LambdaQueryWrapper<ModerationCase>()
+                .eq(ModerationCase::getTargetType, "WISH")
+                .eq(ModerationCase::getTargetId, wishId)
+                .orderByDesc(ModerationCase::getId)
+                .last("LIMIT 1"));
+        if (mc == null) {
+            return null;
+        }
+        ModerationDecision decision = decisionMapper.selectOne(new LambdaQueryWrapper<ModerationDecision>()
+                .eq(ModerationDecision::getCaseId, mc.getId())
+                .orderByDesc(ModerationDecision::getId)
+                .last("LIMIT 1"));
+        if (decision == null || isAppealWindowClosed(decision)) {
+            return null;
+        }
+        return decision.getId();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public Long submitAppeal(Long decisionId, Long appellantId, String statement, List<String> evidenceRefs) {
         if (statement == null || statement.length() < 1 || statement.length() > 1000) {
@@ -275,8 +306,7 @@ public class ModerationService {
             }
         }
         // 7 日内
-        if (decision.getCreatedAt() != null
-                && decision.getCreatedAt().isBefore(LocalDateTime.now(ZoneId.of("UTC")).minus(Duration.ofDays(7)))) {
+        if (isAppealWindowClosed(decision)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "申诉窗口已关闭（7日）");
         }
         WishAppeal appeal = new WishAppeal();
@@ -361,6 +391,12 @@ public class ModerationService {
     }
 
     // ---------------- 内部 ----------------
+
+    /** 申诉窗口：决定落库时刻起 7 日内（与 appealableDecisionIdForWish 同一口径） */
+    private boolean isAppealWindowClosed(ModerationDecision decision) {
+        return decision.getCreatedAt() != null
+                && decision.getCreatedAt().isBefore(LocalDateTime.now(ZoneId.of("UTC")).minus(Duration.ofDays(7)));
+    }
 
     private String targetTypeOf(Long caseId) {
         ModerationCase mc = caseMapper.selectById(caseId);

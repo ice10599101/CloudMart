@@ -95,6 +95,7 @@ public class WishServiceImpl implements WishService {
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final WishOperationExecutor operationExecutor;
     private final WishOutboxService outboxService;
+    private final ModerationService moderationService;
     private final WishContentSanitizer contentSanitizer;
 
     @Override
@@ -424,7 +425,14 @@ public class WishServiceImpl implements WishService {
                 wish.getUpdatedAt(),
                 recordVOs,
                 checkinDays.intValue(),
-                progressVO
+                progressVO,
+                // T22 申诉闭环：作者本人 + 处理中状态才透出可申诉决定 ID（其余恒 null）
+                userId != null && wish.getUserId().equals(userId)
+                        && (wish.getAuditStatus() == AuditStatus.REJECTED
+                            || wish.getAuditStatus() == AuditStatus.AUTO_HIDDEN)
+                        ? moderationService.appealableDecisionIdForWish(wishId, userId)
+                        : null,
+                wish.getVersion()
         );
     }
 

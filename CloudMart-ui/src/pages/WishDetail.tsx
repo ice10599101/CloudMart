@@ -23,6 +23,7 @@ import DOMPurify from 'dompurify'
 import RichText from '@/components/RichText'
 import {
   withdrawFulfillment,
+  appealModerationDecision,
   updateGrowthRecord, deleteGrowthRecord,
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
@@ -127,6 +128,34 @@ export default function WishDetail() {
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState('')
   const [reportSaving, setReportSaving] = useState(false)
+  // T22 申诉闭环：对审核决定发起申诉（仅作者 + moderationDecisionId 透出时可见）
+  const [appealOpen, setAppealOpen] = useState(false)
+  const [appealStatement, setAppealStatement] = useState('')
+  const [appealSaving, setAppealSaving] = useState(false)
+  const handleAppealSubmit = async () => {
+    const statement = appealStatement.trim()
+    if (!wish?.moderationDecisionId) return
+    if (!statement) {
+      message.warning('请填写申诉陈述')
+      return
+    }
+    setAppealSaving(true)
+    try {
+      const res = await appealModerationDecision(wish.moderationDecisionId, { statement })
+      if (res.data.success) {
+        message.success('申诉已提交，等待复核（7 日内有效）')
+        setAppealOpen(false)
+        setAppealStatement('')
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      message.warning(msg ?? '提交失败，请稍后重试')
+    } finally {
+      setAppealSaving(false)
+    }
+  }
+
   const [timelineItems, setTimelineItems] = useState<WishGrowthTimelineItem[]>([])
   const [timelineCursor, setTimelineCursor] = useState<string | null>(null)
   const [timelineHasMore, setTimelineHasMore] = useState(false)
@@ -662,6 +691,12 @@ export default function WishDetail() {
                 ⭐ 星火永久
               </Button>
             )}
+            {/* T22 申诉闭环：仅作者且后端透出可申诉决定 ID（7 日窗口内） */}
+            {wish.moderationDecisionId != null && (
+              <Button icon={<WarningOutlined />} onClick={() => setAppealOpen(true)}>
+                申诉
+              </Button>
+            )}
             <Popconfirm
               title="确定删除这个心愿吗？"
               description="删除后不可恢复"
@@ -701,6 +736,9 @@ export default function WishDetail() {
               <Tag>{STATUS_LABELS[wish.status] || wish.status}</Tag>
               {wish.auditStatus === 'PENDING' && (
                 <Tag color="orange">审核中，审核通过后将展示在心愿广场</Tag>
+              )}
+              {(wish.auditStatus === 'REJECTED' || wish.auditStatus === 'AUTO_HIDDEN') && (
+                <Tag color="red">未通过审核{isAuthor ? '，可在下方发起申诉' : ''}</Tag>
               )}
               {wish.tags?.map(tag => (
                 <Tag key={tag} className={styles.tag}>{tag}</Tag>
@@ -1101,6 +1139,28 @@ export default function WishDetail() {
         </div>
       </Modal>
 
+      {/* T22 申诉闭环 */}
+      <Modal
+        open={appealOpen}
+        title="对审核决定申诉"
+        okText="提交申诉"
+        cancelText="取消"
+        onOk={handleAppealSubmit}
+        onCancel={() => setAppealOpen(false)}
+        confirmLoading={appealSaving}
+      >
+        <p style={{ marginBottom: 12 }}>
+          请陈述你的申诉理由（1-1000 字）。同一审核决定仅可申诉一次，复核结果将在申诉记录中回显。
+        </p>
+        <Input.TextArea
+          value={appealStatement}
+          onChange={(e) => setAppealStatement(e.target.value)}
+          maxLength={1000}
+          showCount
+          autoSize={{ minRows: 4, maxRows: 8 }}
+          placeholder="如：内容为原创分享，未违反社区规范，请复核……"
+        />
+      </Modal>
       <Modal
         open={inheritOpen}
         title="传承给同路人"
