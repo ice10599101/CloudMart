@@ -53,6 +53,9 @@ import {
   getUserPets,
   listPetConfigs,
   listPetEventOccurrences,
+  cancelPetQuestInstance,
+  listPetQuestReceipts,
+  replayPetQuestReceipt,
   listPetWallMessages,
   publishPetEventOccurrence,
   resolvePetReport,
@@ -63,6 +66,7 @@ import {
   updatePetWallMessageStatus,
   upsertPetConfig,
   type AdminPetEventOccurrence,
+  type AdminPetQuestReceipt,
   type AdminPetReport,
   type AdminUserPet,
   type PetConfigType,
@@ -633,6 +637,119 @@ function OccurrenceModal({ code, onClose }: { code: string; onClose: () => void 
         ]}
       />
     </Modal>
+  )
+}
+
+/** R32 任务事件回执面板：收据查询 + SKIPPED_STALE 重放补算（只允许重放已有事实） */
+function QuestReceiptPanel() {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [rows, setRows] = useState<AdminPetQuestReceipt[]>([])
+  const [loading, setLoading] = useState(false)
+  const [questCode, setQuestCode] = useState<string | undefined>(undefined)
+  const [status, setStatus] = useState<string | undefined>(undefined)
+  const [userId, setUserId] = useState<string | undefined>(undefined)
+  const [replaying, setReplaying] = useState<number | string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await listPetQuestReceipts({
+        questCode, status, userId: userId || undefined, page: 1, size: 20,
+      })
+      if (res.success) setRows(res.data?.records ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [questCode, status, userId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const replay = async (row: AdminPetQuestReceipt) => {
+    setReplaying(row.id)
+    try {
+      const { data: res } = await replayPetQuestReceipt(row.id)
+      if (res.success) {
+        messageApi.success(`已按事实日 ${row.businessDate} 补记 ${row.amount} 次`)
+        await load()
+      } else {
+        messageApi.error(res.error?.message ?? '重放失败')
+      }
+    } finally {
+      setReplaying(null)
+    }
+  }
+
+  return (
+    <div>
+      {contextHolder}
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Input
+          allowClear
+          placeholder="用户 ID"
+          style={{ width: 140 }}
+          onChange={(e) => setUserId(e.target.value || undefined)}
+        />
+        <Select
+          allowClear
+          placeholder="任务类型"
+          style={{ width: 150 }}
+          onChange={(v) => setQuestCode(v)}
+          options={['FEED', 'PLAY', 'CLEAN', 'REST', 'WORK', 'STUDY', 'BATTLE', 'CHAT',
+            'BOTTLE', 'VISIT', 'FRIEND_VISIT', 'CAREER_WORK', 'WALL_MESSAGE', 'COMPANION', 'DECORATE']
+            .map((code) => ({ value: code, label: code }))}
+        />
+        <Select
+          allowClear
+          placeholder="状态"
+          style={{ width: 150 }}
+          onChange={(v) => setStatus(v)}
+          options={[
+            { value: 'APPLIED', label: 'APPLIED 已计入' },
+            { value: 'SKIPPED_STALE', label: 'SKIPPED_STALE 待补算' },
+          ]}
+        />
+        <Button onClick={() => void load()}>刷新</Button>
+      </Space>
+      <Table
+        rowKey={(r) => String(r.id)}
+        size="small"
+        loading={loading}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+        dataSource={rows}
+        columns={[
+          { title: '回执', dataIndex: 'id', width: 180, render: (v) => String(v) },
+          { title: '用户', dataIndex: 'userId', width: 150, render: (v) => String(v) },
+          { title: '任务类型', dataIndex: 'questCode', width: 120 },
+          { title: '事实键', dataIndex: 'eventId', ellipsis: true },
+          { title: '事实时间', dataIndex: 'sourceTime', width: 160 },
+          { title: '计入日', dataIndex: 'businessDate', width: 110 },
+          { title: '数量', dataIndex: 'amount', width: 70 },
+          {
+            title: '状态',
+            dataIndex: 'status',
+            width: 140,
+            render: (v: string) => (
+              <Tag color={v === 'APPLIED' ? 'green' : 'orange'}>{v === 'APPLIED' ? '已计入' : '待补算'}</Tag>
+            ),
+          },
+          {
+            title: '操作',
+            key: 'ops',
+            width: 100,
+            render: (_, row) =>
+              row.status === 'SKIPPED_STALE' ? (
+                <Button size="small" type="link" loading={replaying === row.id} onClick={() => void replay(row)}>
+                  重放
+                </Button>
+              ) : (
+                <span style={{ color: '#999' }}>—</span>
+              ),
+          },
+        ]}
+      />
+    </div>
   )
 }
 
@@ -1445,6 +1562,7 @@ function UserPanel() {
   const [selected, setSelected] = useState<AdminUserPet | null>(null)
   const [adjustForm] = Form.useForm<{ field: string; delta: number; reason: string }>()
   const [compForm] = Form.useForm<{ delta: number; reason: string; ticketNo?: string }>()
+  const [cancelForm] = Form.useForm<{ questDate: string; questCode: string; reason: string }>()
   const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async (targetId: number | undefined) => {
@@ -1464,6 +1582,28 @@ function UserPanel() {
       setLoading(false)
     }
   }, [messageApi])
+
+  // §8.2 受审计取消命令：IN_PROGRESS/COMPLETE 可取消，CLAIMED 拒绝（收回走调账链路）
+  const submitCancel = async () => {
+    if (!selected) {
+      messageApi.warning('请先选择宠物')
+      return
+    }
+    const values = await cancelForm.validateFields()
+    setSubmitting(true)
+    try {
+      const { data: res } = await cancelPetQuestInstance(
+        selected.petId, values.questDate, values.questCode, values.reason)
+      if (res.success) {
+        messageApi.success(`已取消 ${values.questDate} 的 ${values.questCode}（审计留痕）`)
+        cancelForm.resetFields()
+      } else {
+        messageApi.error(res.error?.message ?? '取消失败')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const submitAdjust = async () => {
     if (!selected || !userId) {
@@ -1639,6 +1779,27 @@ function UserPanel() {
                 <Button type="primary" loading={submitting} onClick={() => void submitCompensation()}>
                   提交申请
                 </Button>
+              </Form>
+            </Card>
+            <Card size="small" title="取消某日任务实例（§8.2 受审计命令）" style={{ marginTop: 16 }}>
+              <Form form={cancelForm} layout="vertical">
+                <Space wrap>
+                  <Form.Item name="questDate" label="业务日" rules={[{ required: true, message: '如 2026-10-05' }]}>
+                    <Input placeholder="2026-10-05" style={{ width: 140 }} />
+                  </Form.Item>
+                  <Form.Item name="questCode" label="任务编码" rules={[{ required: true, message: '如 daily_feed' }]}>
+                    <Input placeholder="daily_feed" style={{ width: 160 }} />
+                  </Form.Item>
+                </Space>
+                <Form.Item name="reason" label="取消原因" rules={[{ required: true, message: '必填，随审计留痕' }]}>
+                  <Input.TextArea rows={2} />
+                </Form.Item>
+                <Button type="primary" danger loading={submitting} onClick={() => void submitCancel()}>
+                  取消实例
+                </Button>
+                <Text type="secondary" style={{ marginLeft: 12, fontSize: 12 }}>
+                  已领取（CLAIMED）实例会被拒绝——奖励收回须走调账补偿链路
+                </Text>
               </Form>
             </Card>
           </>
@@ -2071,6 +2232,7 @@ export default function PetManage() {
           { key: 'seasons', label: '赛季管理', children: <SeasonPanel /> },
           { key: 'sensitive-words', label: '敏感词库', children: <SensitiveWordPanel /> },
           { key: 'persona-phrases', label: '口头禅', children: <PersonaPhrasePanel /> },
+          { key: 'quest-receipts', label: '任务回执', children: <QuestReceiptPanel /> },
         ]}
       />
     </Card>
