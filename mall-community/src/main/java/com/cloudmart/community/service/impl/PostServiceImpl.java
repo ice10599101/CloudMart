@@ -837,12 +837,17 @@ public class PostServiceImpl implements PostService {
         if (tagIds == null || tagIds.isEmpty()) {
             return;
         }
+        // T27 修复：tagName 外层一次预取（原内层每个订阅者重复查同一 tag）
+        Map<Long, String> tagNameById = tagMapper.selectBatchIds(tagIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Tag::getId, Tag::getName, (a, b) -> a));
         for (Long tagId : tagIds) {
             List<Long> subscriberIds = tagSubscriptionService.getSubscriberUserIds(tagId);
+            if (subscriberIds.isEmpty()) {
+                continue;
+            }
+            String tagName = tagNameById.getOrDefault(tagId, String.valueOf(tagId));
             for (Long subscriberId : subscriberIds) {
                 if (!subscriberId.equals(authorId)) {
-                    Tag tag = tagMapper.selectById(tagId);
-                    String tagName = tag != null ? tag.getName() : String.valueOf(tagId);
                     communityEventProducer.publishTagNewPostEvent(subscriberId, authorId, post.getId(), post.getTitle(), tagName);
                 }
             }

@@ -1420,8 +1420,12 @@ public class OrderServiceImpl implements OrderService {
         }
         List<Long> ids = orderMapper.findAutoConfirmableOrderIds(days, 500);
         int confirmed = 0;
+        // T27 N+1 修复：订单批量预取（状态机 CAS 逐单更新保留）
+        Map<Long, Order> orderMap = ids.isEmpty() ? Map.of()
+                : orderMapper.selectBatchIds(ids).stream()
+                        .collect(java.util.stream.Collectors.toMap(Order::getId, o -> o, (a, b) -> a));
         for (Long orderId : ids) {
-            Order order = orderMapper.selectById(orderId);
+            Order order = orderMap.get(orderId);
             if (order == null) {
                 continue;
             }

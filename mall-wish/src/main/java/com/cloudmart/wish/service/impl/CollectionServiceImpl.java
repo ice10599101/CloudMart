@@ -226,8 +226,12 @@ public class CollectionServiceImpl implements CollectionService {
         if (result.containsKey("BADGE")) {
         List<WishUserBadge> badges = userBadgeMapper.selectList(new LambdaQueryWrapper<WishUserBadge>()
                 .eq(WishUserBadge::getUserId, userId));
+        // T27 N+1 修复：徽章定义批量预取
+        Map<Long, WishBadge> badgeMap = badges.isEmpty() ? Map.of()
+                : badgeMapper.selectBatchIds(badges.stream().map(WishUserBadge::getBadgeId).toList()).stream()
+                        .collect(java.util.stream.Collectors.toMap(WishBadge::getId, b -> b, (a, b) -> a));
         for (WishUserBadge ub : badges) {
-            WishBadge badge = badgeMapper.selectById(ub.getBadgeId());
+            WishBadge badge = badgeMap.get(ub.getBadgeId());
             if (badge == null) continue;
             result.get("BADGE").add(Map.of(
                     "id", ub.getId(), "name", badge.getName() == null ? "" : badge.getName(),
@@ -239,8 +243,12 @@ public class CollectionServiceImpl implements CollectionService {
         List<UserAsset> assets = userAssetMapper.selectList(new LambdaQueryWrapper<UserAsset>()
                 .eq(UserAsset::getUserId, userId)
                 .eq(UserAsset::getStatus, "OWNED"));
+        // T27 N+1 修复：虚拟资产定义批量预取
+        Map<Long, VirtualAsset> assetMap = assets.isEmpty() ? Map.of()
+                : assetMapper.selectBatchIds(assets.stream().map(UserAsset::getAssetId).toList()).stream()
+                        .collect(java.util.stream.Collectors.toMap(VirtualAsset::getId, a -> a, (a, b) -> a));
         for (UserAsset ua : assets) {
-            VirtualAsset asset = assetMapper.selectById(ua.getAssetId());
+            VirtualAsset asset = assetMap.get(ua.getAssetId());
             if (asset == null) continue;
             String assetTypeName = asset.getAssetType().name();
             if (!result.containsKey(assetTypeName)) continue;

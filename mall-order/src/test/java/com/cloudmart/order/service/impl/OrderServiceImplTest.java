@@ -311,7 +311,7 @@ class OrderServiceImplTest {
         void autoConfirm_confirmsExpiredShippedOrders() {
             Order shipped = buildOrder(1L, 100L, "SHIPPED");
             when(orderMapper.findAutoConfirmableOrderIds(7, 500)).thenReturn(List.of(1L));
-            when(orderMapper.selectById(1L)).thenReturn(shipped);
+            when(orderMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(shipped));
             when(orderMapper.updateStatusAndCompletedAtIfMatch(1L, "SHIPPED", "COMPLETED")).thenReturn(1);
 
             int confirmed = orderService.autoConfirmReceipts(7);
