@@ -139,6 +139,9 @@ export interface Order {
   statusText: string
   totalAmount: number
   payAmount: number
+  /** T05：退款汇总状态（NONE/PARTIAL/FULL）与已退累计金额 */
+  refundStatus?: 'NONE' | 'PARTIAL' | 'FULL' | string
+  refundedAmount?: number
   items: OrderItem[]
   createdAt: string
   payTime?: string

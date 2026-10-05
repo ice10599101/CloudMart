@@ -23,6 +23,9 @@ interface OrderDetail {
   totalAmount: number
   shippingFee: number
   payAmount: number
+  /** T05：退款汇总状态（NONE/PARTIAL/FULL）与已退累计金额 */
+  refundStatus?: 'NONE' | 'PARTIAL' | 'FULL' | string
+  refundedAmount?: number
   recipientName: string
   recipientPhone: string
   recipientAddress: string
@@ -260,6 +263,14 @@ export default function OrderDetailPage() {
             <Text className={styles.priceLabelBold}>实付金额</Text>
             <Text className={styles.priceTotal}>¥{order.payAmount}</Text>
           </View>
+          {order.refundedAmount != null && order.refundedAmount > 0 && (
+            <View className={styles.priceRow}>
+              <Text className={styles.priceLabel}>
+                已退金额{order.refundStatus === 'PARTIAL' ? '（部分退款）' : '（全额退款）'}
+              </Text>
+              <Text className={styles.priceValue}>¥{order.refundedAmount}</Text>
+            </View>
+          )}
         </View>
 
         {/* 订单信息 */}

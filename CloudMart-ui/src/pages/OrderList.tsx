@@ -202,7 +202,14 @@ function OrderCard({ order, onAction }: { order: Order; onAction: () => void }) 
             {order.createdAt}
           </span>
         </div>
-        <StatusTag status={order.status} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <StatusTag status={order.status} />
+          {order.refundStatus === 'PARTIAL' && (
+            <span style={{ color: '#e94560', fontSize: 12 }}>
+              部分退款 ¥{order.refundedAmount?.toFixed(2)}
+            </span>
+          )}
+        </div>
       </div>
 
       <div

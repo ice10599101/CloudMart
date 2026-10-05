@@ -336,6 +336,16 @@ export default function OrderDetailPage() {
               ¥{order.payAmount.toFixed(2)}
             </Text>
           </View>
+          {order.refundedAmount != null && order.refundedAmount > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
+              <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>
+                已退金额{order.refundStatus === 'PARTIAL' ? '（部分退款）' : '（全额退款）'}
+              </Text>
+              <Text style={{ fontSize: FontSize.lg, color: theme.accentRed, fontWeight: '700' }}>
+                ¥{order.refundedAmount.toFixed(2)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Order Info Section */}

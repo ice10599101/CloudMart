@@ -576,6 +576,16 @@ export default function OrderDetail() {
                     ¥{order.payAmount.toFixed(2)}
                   </span>
                 </div>
+                {order.refundedAmount != null && order.refundedAmount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+                      已退金额{order.refundStatus === 'PARTIAL' ? '（部分退款）' : '（全额退款）'}
+                    </span>
+                    <span style={{ color: '#e94560', fontSize: 16, fontWeight: 700 }}>
+                      ¥{order.refundedAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             </SectionCard>
           </div>

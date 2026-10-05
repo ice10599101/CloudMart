@@ -28,6 +28,10 @@ export interface Order {
   completedAt: string | null
   refundReason: string | null
   refundRejectReason: string | null
+  /** T05：退款汇总状态（NONE/PARTIAL/FULL；支持多次部分退款） */
+  refundStatus?: 'NONE' | 'PARTIAL' | 'FULL'
+  /** T05：已退累计金额 */
+  refundedAmount?: number
   items: OrderItem[]
   createdAt: string
   updatedAt: string
