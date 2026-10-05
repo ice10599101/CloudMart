@@ -772,6 +772,11 @@ export interface CapsuleItem {
   openAtTimezone: string
   openedAt: string | null
   createdAt: string
+  /** T22：作者用户 ID（本人判定） */
+  userId: number
+  /** T22：已改期次数与上限（服务端权威） */
+  rescheduleCount: number
+  rescheduleLimit: number
 }
 
 export interface CreateCapsulePayload {

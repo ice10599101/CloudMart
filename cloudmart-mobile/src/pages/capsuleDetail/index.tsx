@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Image, Picker } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
-import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
+import { reportTimezoneIfNeeded, localToUtcIso, getTimezoneId } from '@/utils/wish-timezone'
 import type { CapsuleItem } from '@/types'
 import styles from './index.module.scss'
 
@@ -33,7 +33,7 @@ export default function CapsuleDetailPage() {
     const { statusBarHeight, navBarHeight } = getNavBarMetrics()
     const router = useRouter()
     const capsuleId = router.params.id ?? ''
-    const { isLoggedIn } = useAuthStore()
+    const { user, isLoggedIn } = useAuthStore()
     const [capsule, setCapsule] = useState<CapsuleItem | null>(null)
     const [loading, setLoading] = useState(true)
     const [opening, setOpening] = useState(false)
@@ -73,6 +73,41 @@ export default function CapsuleDetailPage() {
     }, [capsule])
 
     const remainMs = capsule ? new Date(capsule.openAt).getTime() - now : 0
+
+    // T22 改期：仅作者本人、SEALED 且未到期、次数未超限时可见（上限服务端权威）
+    const isReschedulable = (is: CapsuleItem) =>
+        !!user && is.userId === user.id && is.status === 'SEALED'
+        && remainMs > 0 && is.rescheduleCount < is.rescheduleLimit
+    const [rescheduleDate, setRescheduleDate] = useState('')
+    const [rescheduleTime, setRescheduleTime] = useState('')
+    const [rescheduling, setRescheduling] = useState(false)
+
+    const handleReschedule = async () => {
+        if (rescheduling || !capsule || !rescheduleDate || !rescheduleTime) return
+        const newOpenAt = localToUtcIso(rescheduleDate, rescheduleTime)
+        if (new Date(newOpenAt).getTime() <= Date.now()) {
+            Taro.showToast({ title: '新的开启时间必须在未来', icon: 'none' })
+            return
+        }
+        setRescheduling(true)
+        try {
+            const res = await wishApi.rescheduleCapsule(capsule.id, {
+                newOpenAt,
+                timezone: getTimezoneId(),
+            })
+            if (res.data.success) {
+                setCapsule(res.data.data as CapsuleItem)
+                setRescheduleDate('')
+                setRescheduleTime('')
+                Taro.vibrateShort({ type: 'light' })
+                Taro.showToast({ title: '改期成功', icon: 'success' })
+            }
+        } catch {
+            // 超限/状态冲突等错误已由 request 层统一提示
+        } finally {
+            setRescheduling(false)
+        }
+    }
 
     const handleOpen = async () => {
         if (opening || !capsule) return
@@ -117,6 +152,36 @@ export default function CapsuleDetailPage() {
                 <Text className={styles.metaText}>封存于 {formatLocal(is.createdAt)}</Text>
                 <Text className={styles.metaText}>创建时区 {is.openAtTimezone}</Text>
             </View>
+            {isReschedulable(is) && (
+                <View className={styles.rescheduleCard}>
+                    <Text className={styles.rescheduleTitle}>
+                        改期（已用 {is.rescheduleCount}/{is.rescheduleLimit} 次）
+                    </Text>
+                    <View className={styles.reschedulePickers}>
+                        <Picker
+                            mode='date'
+                            value={rescheduleDate}
+                            onChange={(e) => setRescheduleDate(String(e.detail.value))}
+                        >
+                            <View className={styles.pickerItem}>
+                                <Text className={styles.pickerText}>{rescheduleDate || '选择日期'}</Text>
+                            </View>
+                        </Picker>
+                        <Picker
+                            mode='time'
+                            value={rescheduleTime}
+                            onChange={(e) => setRescheduleTime(String(e.detail.value))}
+                        >
+                            <View className={styles.pickerItem}>
+                                <Text className={styles.pickerText}>{rescheduleTime || '选择时间'}</Text>
+                            </View>
+                        </Picker>
+                    </View>
+                    <View className={styles.rescheduleBtn} onClick={handleReschedule}>
+                        <Text className={styles.rescheduleBtnText}>{rescheduling ? '提交中…' : '确认改期'}</Text>
+                    </View>
+                </View>
+            )}
             {isOpenable && (
                 <View
                     className={`${styles.openBtn} ${opening ? styles.openBtnLoading : ''}`}

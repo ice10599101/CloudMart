@@ -244,3 +244,61 @@
   color: rgba(255, 255, 255, 0.85);
   font-size: 28rpx;
 }
+
+/* T22 胶囊改期（作者本人 + SEALED + 次数未限） */
+.rescheduleCard {
+  margin-top: 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1rpx solid rgba(78, 205, 196, 0.25);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rescheduleTitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 26rpx;
+  margin-bottom: 20rpx;
+}
+
+.reschedulePickers {
+  display: flex;
+  gap: 20rpx;
+  width: 100%;
+}
+
+.pickerItem {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pickerText {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 28rpx;
+}
+
+.rescheduleBtn {
+  margin-top: 24rpx;
+  width: 100%;
+  background: rgba(78, 205, 196, 0.18);
+  border: 1rpx solid rgba(78, 205, 196, 0.45);
+  border-radius: 44rpx;
+  padding: 20rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rescheduleBtnText {
+  color: rgba(78, 205, 196, 0.95);
+  font-size: 28rpx;
+}
