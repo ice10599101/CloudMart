@@ -120,7 +120,7 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PostMapping("/configs/event-occurrences/{id}/stop-claim")
     ApiResponse<Object> stopEventOccurrenceClaim(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 
-    @org.springframework.web.bind.annotation.PostMapping("/quests/instances/{petId}/{questDate}/{questCode}/cancel")
+    @org.springframework.web.bind.annotation.PostMapping("/pet/quests/instances/{petId}/{questDate}/{questCode}/cancel")
     ApiResponse<Object> cancelQuestInstance(@org.springframework.web.bind.annotation.PathVariable("petId") Long petId,
                                             @org.springframework.web.bind.annotation.PathVariable("questDate") String questDate,
                                             @org.springframework.web.bind.annotation.PathVariable("questCode") String questCode,

@@ -26,6 +26,7 @@ public class PetNotifyPref {
     private Boolean dailyGreetingEnabled;
 
     /** 乐观版本（§7.2 PUT CAS；旧请求无版本按兼容窗口生效） */
+    @com.baomidou.mybatisplus.annotation.Version
     private Integer version;
 
     @TableField(fill = FieldFill.INSERT)
