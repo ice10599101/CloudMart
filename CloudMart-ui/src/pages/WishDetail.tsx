@@ -22,6 +22,7 @@ import CommentToolbar, { insertAtCursor } from '@/components/CommentToolbar'
 import DOMPurify from 'dompurify'
 import RichText from '@/components/RichText'
 import {
+  updateGrowthRecord, deleteGrowthRecord,
   getWishDetail, deleteWish, getFulfillmentDetail, updateWish, inheritFulfillment,
   checkinWish, addGrowthRecord, collectWish, uncollectWish, getWishCollectionStatus, sparkWish,
   archiveWish, unarchiveWish, listWishGoals, createWishGoal, updateWishGoal, deleteWishGoal,
@@ -335,6 +336,36 @@ export default function WishDetail() {
       if (res.data.success) setGoals(res.data.data ?? [])
     } finally {
       setGoalsLoading(false)
+    }
+  }
+
+  // T22：成长记录编辑/删除（API 封装此前无页面接线；仅本人可见入口，
+  // 后端归属校验兜底）。编辑用 prompt 轻量交互——富文本编辑器接入随 T22 后续批次
+  const handleEditGrowth = async (record: { id: number | string; content: string }) => {
+    const content = window.prompt('编辑成长记录内容：', record.content)
+    if (content === null || !content.trim() || content === record.content) return
+    try {
+      const res = await updateGrowthRecord(wishId, record.id, { content: content.trim() })
+      if (res.data.success) {
+        message.success('成长记录已更新')
+        setRefreshTick((tick) => tick + 1)
+      }
+    } catch {
+      message.warning('更新失败（记录可能已被修改），已刷新')
+      setRefreshTick((tick) => tick + 1)
+    }
+  }
+
+  const handleDeleteGrowth = async (record: { id: number | string }) => {
+    try {
+      const res = await deleteGrowthRecord(wishId, record.id)
+      if (res.data.success) {
+        message.success('成长记录已删除')
+        setRefreshTick((tick) => tick + 1)
+      }
+    } catch {
+      message.warning('删除失败，已刷新')
+      setRefreshTick((tick) => tick + 1)
     }
   }
 
@@ -848,6 +879,24 @@ export default function WishDetail() {
                         <Tag color="green" className={styles.deltaTag}>
                           +{record.progressDelta}
                         </Tag>
+                      )}
+                      {/* T22：本人可编辑/删除自己的成长记录（统计与奖励冲正由后端规则控制） */}
+                      {isAuthor && (
+                        <span style={{ marginLeft: 8 }}>
+                          <Button
+                            type="link"
+                            size="small"
+                            onClick={() => handleEditGrowth(record)}
+                          >
+                            编辑
+                          </Button>
+                          <Popconfirm
+                            title="确认删除该成长记录？统计将按后端规则处理"
+                            onConfirm={() => handleDeleteGrowth(record)}
+                          >
+                            <Button type="link" size="small" danger>删除</Button>
+                          </Popconfirm>
+                        </span>
                       )}
                     </div>
                   </div>
