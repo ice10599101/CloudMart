@@ -204,7 +204,11 @@ public class AdminCommunityController {
         if (data.get("reason") == null || String.valueOf(data.get("reason")).isBlank()) {
             throw new com.cloudmart.common.exception.BusinessException("VALIDATION_ERROR", "撤销原因必填");
         }
-        return communityFeignClient.revokeBadge(id, data);
+        // T24：撤销原因的审计在 mall-admin OperLog 层留痕（含操作者/时间/前后状态）；
+        // 下游 revoke 端点 body 为 Map<String,Long>，仅透传 userId 防反序列化失败
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("userId", data.get("userId"));
+        return communityFeignClient.revokeBadge(id, payload);
     }
 
     @GetMapping("/community/rankings/current")
