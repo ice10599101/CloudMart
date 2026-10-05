@@ -260,6 +260,26 @@ export default function WishDetailPage() {
     }
   }
 
+  // T22：目标排序（上移/下移交换相邻 sortOrder 后整组提交；冲突自动刷新）
+  const handleMoveGoal = async (goal: GoalStep, direction: -1 | 1) => {
+    const index = goals.findIndex((g) => g.id === goal.id)
+    const target = index + direction
+    if (index < 0 || target < 0 || target >= goals.length) return
+    const next = [...goals]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setGoals(next)
+    try {
+      const result = await wishApi.reorderGoals(
+        wishId,
+        next.map((g, i) => ({ goalId: g.id, version: g.version, sortOrder: i })),
+      )
+      if (result.data.success) void loadGoals()
+    } catch {
+      Taro.showToast({ title: '排序已被其他设备修改，已刷新最新状态', icon: 'none' })
+      void loadGoals()
+    }
+  }
+
   // T22：成长记录编辑/删除（API 封装此前无 Taro 入口；作者专用，
   // 后端约束"进度为历史事实不回退"，编辑仅改 content）
   const [recordEditOpen, setRecordEditOpen] = useState(false)
@@ -711,6 +731,18 @@ export default function WishDetailPage() {
                     {goal.title}
                   </Text>
                 </View>
+                <Text
+                  className={`${styles.goalMove} ${goals[0]?.id === goal.id ? styles.goalMoveDisabled : ''}`}
+                  onClick={() => handleMoveGoal(goal, -1)}
+                >
+                  ↑
+                </Text>
+                <Text
+                  className={`${styles.goalMove} ${goals[goals.length - 1]?.id === goal.id ? styles.goalMoveDisabled : ''}`}
+                  onClick={() => handleMoveGoal(goal, 1)}
+                >
+                  ↓
+                </Text>
                 <Text className={styles.goalDelete} onClick={() => handleDeleteGoal(goal)}>删除</Text>
               </View>
             ))}

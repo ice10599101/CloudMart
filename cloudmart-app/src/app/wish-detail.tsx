@@ -336,6 +336,26 @@ export default function WishDetailScreen() {
     ])
   }
 
+  // T22：目标排序（上移/下移交换相邻 sortOrder 后整组提交；冲突自动刷新）
+  const handleMoveGoal = async (goal: GoalStep, direction: -1 | 1) => {
+    const index = goals.findIndex((g) => g.id === goal.id)
+    const target = index + direction
+    if (index < 0 || target < 0 || target >= goals.length) return
+    const next = [...goals]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setGoals(next)
+    try {
+      const res = await wishApi.reorderGoals(
+        wishId,
+        next.map((g, i) => ({ goalId: g.id, version: g.version, sortOrder: i })),
+      )
+      if (res.data?.success) void loadGoals()
+    } catch {
+      Alert.alert('排序已被其他设备修改', '已刷新最新状态')
+      void loadGoals()
+    }
+  }
+
   // T22：成长记录编辑/删除（API 封装此前无 App 入口；作者专用，
   // 后端约束"进度为历史事实不回退"，编辑仅改 content）
   const [editingRecord, setEditingRecord] = useState<{ id: number | string; content: string } | null>(null)
@@ -738,7 +758,13 @@ export default function WishDetailScreen() {
                   {goal.title}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteGoal(goal)}>
+              <TouchableOpacity onPress={() => handleMoveGoal(goal, -1)} disabled={goals[0]?.id === goal.id}>
+                <Text style={{ fontSize: FontSize.sm, color: '#6bcbff', opacity: goals[0]?.id === goal.id ? 0.3 : 1 }}>↑</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleMoveGoal(goal, 1)} disabled={goals[goals.length - 1]?.id === goal.id} style={{ marginLeft: Spacing.sm }}>
+                <Text style={{ fontSize: FontSize.sm, color: '#6bcbff', opacity: goals[goals.length - 1]?.id === goal.id ? 0.3 : 1 }}>↓</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteGoal(goal)} style={{ marginLeft: Spacing.sm }}>
                 <Text style={{ fontSize: FontSize.sm, color: '#ff6b6b' }}>删除</Text>
               </TouchableOpacity>
             </View>

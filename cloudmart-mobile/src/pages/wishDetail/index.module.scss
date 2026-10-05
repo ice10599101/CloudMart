@@ -743,3 +743,14 @@
   color: rgba(255, 107, 107, 0.85);
   font-size: 24rpx;
 }
+
+/* T22 目标排序（上移/下移，边界置灰） */
+.goalMove {
+  color: rgba(107, 203, 255, 0.9);
+  font-size: 26rpx;
+  padding: 8rpx 0 8rpx 20rpx;
+}
+
+.goalMoveDisabled {
+  opacity: 0.3;
+}
