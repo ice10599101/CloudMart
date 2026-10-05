@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native'
 import { WebView } from 'react-native-webview'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Clipboard from 'expo-clipboard'
 import { useTheme } from '@/hooks/use-theme-context'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -419,6 +419,11 @@ export default function PetScreen() {
 
   // R23/T36：加载代际——迟到的旧响应不覆盖新状态
   const refreshGenerationRef = useRef(0)
+  // PET-03/T38：陪伴会话镜像——AppState 与页面聚焦状态放组件顶层（原实现在 useEffect 内
+  // 调 useRef 违反 Hook 规则，登录后触发 invalid hook call），值变更不触发渲染，仅心跳与清理回调读取
+  const appStateRef = useRef(AppState.currentState)
+  const petScreenFocusedRef = useRef(false)
+  const companionActiveRef = useRef(false)
   const refresh = useCallback(async () => {
     const generation = ++refreshGenerationRef.current
     try {
@@ -501,7 +506,37 @@ export default function PetScreen() {
     }
   }, [equipPreview?.itemCode])
 
-  // 三期：亲密度概览（展示型数据，失败保持原值）+ 陪伴心跳（App 在前台时每 60 秒上报一次）
+  /** PET-03：尽力上报陪伴停止——失败静默（服务端会话超时兜底），不阻塞清理流程 */
+  const stopCompanionSession = useCallback(() => {
+    if (!companionActiveRef.current) return
+    companionActiveRef.current = false
+    if (!useAuthStore.getState().isLoggedIn) return
+    petApi.stopCompanion().catch(() => undefined)
+  }, [])
+
+  // PET-03/T38：切后台/锁屏立即停本地计时并尽力停止服务端会话，返回前台由定时心跳恢复新会话
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      appStateRef.current = state
+      if (state !== 'active') {
+        stopCompanionSession()
+      }
+    })
+    return () => subscription.remove()
+  }, [stopCompanionSession])
+
+  // PET-03/T38：失焦（切页签/离开宠物页）停止有效计时；重新聚焦后开启新会话
+  useFocusEffect(
+    useCallback(() => {
+      petScreenFocusedRef.current = true
+      return () => {
+        petScreenFocusedRef.current = false
+        stopCompanionSession()
+      }
+    }, [stopCompanionSession]),
+  )
+
+  // 三期：亲密度概览（展示型数据，失败保持原值）+ 陪伴心跳（页面聚焦且 App 在前台时每 60 秒上报一次）
   useEffect(() => {
     if (!isLoggedIn) {
       return
@@ -516,19 +551,17 @@ export default function PetScreen() {
         // 展示型数据：忽略
       }
     })()
-    // R23/T37：仅前台（AppState=active）发心跳——后台暂停，恢复前台继续
-    const appStateRef = useRef(AppState.currentState)
-    const subscription = AppState.addEventListener('change', (state) => {
-      appStateRef.current = state
-    })
+    // R23/T37：仅页面聚焦且前台（AppState=active）发心跳——失焦/后台暂停，恢复后为新会话；
+    // 服务端以会话超时兜底，客户端报时不作为有效时长依据
     const timer = setInterval(() => {
-      if (appStateRef.current !== 'active') {
+      if (appStateRef.current !== 'active' || !petScreenFocusedRef.current) {
         return
       }
       void (async () => {
         try {
           const { data: res } = await petApi.companionHeartbeat(60)
           if (res.success && res.data) {
+            companionActiveRef.current = true
             // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
             const { data: overview } = await petApi.getIntimacy()
             if (overview.success && overview.data) {
@@ -542,9 +575,10 @@ export default function PetScreen() {
     }, 60_000)
     return () => {
       clearInterval(timer)
-      subscription.remove()
+      // 切宠/退出登录/离开页面挂载：结束当前会话本地计时（尽力通知服务端）
+      stopCompanionSession()
     }
-  }, [isLoggedIn])
+  }, [isLoggedIn, pet?.petId, stopCompanionSession])
 
   useEffect(() => {
     if (!gameUrl) return
