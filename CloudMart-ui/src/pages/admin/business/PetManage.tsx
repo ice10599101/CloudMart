@@ -649,18 +649,24 @@ function QuestReceiptPanel() {
   const [status, setStatus] = useState<string | undefined>(undefined)
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const [replaying, setReplaying] = useState<number | string | null>(null)
+  // PET-22/T49：真实分页（后端返回 total，积压可翻页处理，不再固定第 1 页）
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const { data: res } = await listPetQuestReceipts({
-        questCode, status, userId: userId || undefined, page: 1, size: 20,
+        questCode, status, userId: userId || undefined, page, size: 20,
       })
-      if (res.success) setRows(res.data?.records ?? [])
+      if (res.success) {
+        setRows(res.data?.records ?? [])
+        setTotal(Number(res.data?.total ?? 0))
+      }
     } finally {
       setLoading(false)
     }
-  }, [questCode, status, userId])
+  }, [questCode, status, userId, page])
 
   useEffect(() => {
     void load()
@@ -707,6 +713,8 @@ function QuestReceiptPanel() {
           onChange={(v) => setStatus(v)}
           options={[
             { value: 'APPLIED', label: 'APPLIED 已计入' },
+            { value: 'PENDING', label: 'PENDING 投影中' },
+            { value: 'FAILED', label: 'FAILED 投影失败' },
             { value: 'SKIPPED_STALE', label: 'SKIPPED_STALE 待补算' },
           ]}
         />
@@ -716,7 +724,13 @@ function QuestReceiptPanel() {
         rowKey={(r) => String(r.id)}
         size="small"
         loading={loading}
-        pagination={{ pageSize: 10, showSizeChanger: false }}
+        pagination={{
+          current: page,
+          pageSize: 20,
+          total,
+          showSizeChanger: false,
+          onChange: (p) => setPage(p),
+        }}
         dataSource={rows}
         columns={[
           { title: '回执', dataIndex: 'id', width: 180, render: (v) => String(v) },
@@ -730,16 +744,23 @@ function QuestReceiptPanel() {
             title: '状态',
             dataIndex: 'status',
             width: 140,
-            render: (v: string) => (
-              <Tag color={v === 'APPLIED' ? 'green' : 'orange'}>{v === 'APPLIED' ? '已计入' : '待补算'}</Tag>
-            ),
+            render: (v: string) => {
+              const map: Record<string, { color: string; label: string }> = {
+                APPLIED: { color: 'green', label: '已计入' },
+                PENDING: { color: 'blue', label: '投影中' },
+                FAILED: { color: 'red', label: '投影失败' },
+                SKIPPED_STALE: { color: 'orange', label: '待补算' },
+              }
+              const meta = map[v] ?? { color: 'default', label: v }
+              return <Tag color={meta.color}>{meta.label}</Tag>
+            },
           },
           {
             title: '操作',
             key: 'ops',
             width: 100,
             render: (_, row) =>
-              row.status === 'SKIPPED_STALE' ? (
+              row.status === 'SKIPPED_STALE' || row.status === 'FAILED' ? (
                 <Button size="small" type="link" loading={replaying === row.id} onClick={() => void replay(row)}>
                   重放
                 </Button>

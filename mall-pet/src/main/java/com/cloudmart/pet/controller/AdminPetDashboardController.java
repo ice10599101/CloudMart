@@ -8,7 +8,6 @@ import com.cloudmart.pet.entity.PetBattle;
 import com.cloudmart.pet.entity.PetBottleRecord;
 import com.cloudmart.pet.entity.PetDailyQuest;
 import com.cloudmart.pet.entity.PetFriend;
-import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetRelation;
 import com.cloudmart.pet.entity.PetRoom;
 import com.cloudmart.pet.entity.PetRoomItem;
@@ -70,8 +69,9 @@ public class AdminPetDashboardController {
     private final PetRoomMapper roomMapper;
     private final PetRoomItemMapper roomItemMapper;
     private final PetDailyQuestMapper dailyQuestMapper;
-    private final PetInventoryMapper inventoryMapper;
     private final PetChatMessageMapper chatMessageMapper;
+    private final com.cloudmart.pet.repository.PetPurchaseOrderMapper purchaseOrderMapper;
+    private final com.cloudmart.pet.config.PetClock petClock;
     private final com.cloudmart.pet.config.PetMetrics metrics;
     private final com.cloudmart.pet.service.impl.PetDashboardSnapshotService snapshotService;
 
@@ -158,14 +158,20 @@ public class AdminPetDashboardController {
     }
 
     private long countTodayQuests() {
+        // PET-22/T50：任务"今日"按业务日（Asia/Shanghai）统计——quest_date 为业务日列，
+        // 原实现用 UTC 日，上海午夜前后看板与用户任务不一致
         return dailyQuestMapper.selectCount(new QueryWrapper<PetDailyQuest>()
-                .eq("quest_date", LocalDate.now(ZoneId.of("UTC"))));
+                .eq("quest_date", petClock.businessDate()));
     }
 
     private Map<String, Long> purchasesByType() {
-        List<Map<String, Object>> rows = inventoryMapper.selectMaps(new QueryWrapper<PetInventory>()
-                .select("item_type AS name", "COUNT(*) AS c")
-                .groupBy("item_type"));
+        // PET-22/T50：按 COMPLETED 购买订单事实统计（原实现按库存行计数——
+        // 消耗品重复购买只算一行库存，购买次数被低估；统计口径=订单数，不含赠品）
+        List<Map<String, Object>> rows = purchaseOrderMapper.selectMaps(
+                new QueryWrapper<com.cloudmart.pet.entity.PetPurchaseOrder>()
+                        .select("item_type AS name", "COUNT(*) AS c")
+                        .eq("status", "COMPLETED")
+                        .groupBy("item_type"));
         Map<String, Long> result = new HashMap<>();
         for (Map<String, Object> row : rows) {
             result.put(String.valueOf(row.get("name")), asLong(row.get("c")));

@@ -37,13 +37,12 @@ public class AdminPetQuestController {
     public ApiResponse<Page<PetQuestEventReceipt>> receipts(
             @Parameter(description = "用户 ID") @RequestParam(value = "userId", required = false) Long userId,
             @Parameter(description = "任务类型（WORK/CHAT/COMPANION...）") @RequestParam(value = "questCode", required = false) String questCode,
-            @Parameter(description = "状态过滤") @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "状态过滤（APPLIED/PENDING/FAILED/SKIPPED_STALE）") @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        List<PetQuestEventReceipt> rows = questService.receipts(userId, questCode, status, page, size);
-        Page<PetQuestEventReceipt> result = new Page<>(Math.max(page, 1), Math.min(Math.max(size, 1), 50));
-        result.setRecords(rows);
-        return ApiResponse.ok(result);
+        // PET-22/T49：分页由服务层 selectPage 返回真实 total（原实现 Page 未设 total，
+        // 页面固定第 1 页无法继续处理积压）
+        return ApiResponse.ok(questService.receipts(userId, questCode, status, page, size));
     }
 
     @PostMapping("/receipts/{id}/replay")

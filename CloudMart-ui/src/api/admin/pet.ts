@@ -468,7 +468,7 @@ export interface AdminPetQuestReceipt {
   sourceTime: string
   businessDate: string
   amount: number
-  status: 'APPLIED' | 'SKIPPED_STALE'
+  status: 'APPLIED' | 'PENDING' | 'FAILED' | 'SKIPPED_STALE'
 }
 
 export function listPetQuestReceipts(params: {

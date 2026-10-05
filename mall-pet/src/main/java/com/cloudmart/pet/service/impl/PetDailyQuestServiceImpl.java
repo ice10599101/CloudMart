@@ -552,23 +552,26 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     }
 
     @Override
-    public java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
             Long userId, String questCode, String status, int page, int size) {
         int pageSize = Math.min(Math.max(size, 1), 50);
         LambdaQueryWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt> wrapper =
                 new LambdaQueryWrapper<com.cloudmart.pet.entity.PetQuestEventReceipt>()
-                        .orderByDesc(com.cloudmart.pet.entity.PetQuestEventReceipt::getId)
-                        .last("LIMIT " + pageSize + " OFFSET " + (long) (Math.max(page, 1) - 1) * pageSize);
+                        .orderByDesc(com.cloudmart.pet.entity.PetQuestEventReceipt::getId);
         if (userId != null) {
             wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getUserId, userId);
         }
         if (questCode != null && !questCode.isBlank()) {
-            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getQuestCode, questCode.toUpperCase());
+            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getQuestCode, questCode.strip());
         }
         if (status != null && !status.isBlank()) {
-            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, status.toUpperCase());
+            wrapper.eq(com.cloudmart.pet.entity.PetQuestEventReceipt::getStatus, status.strip());
         }
-        return receiptMapper.selectList(wrapper);
+        // PET-22/T49：MP 分页插件真实 COUNT——原实现手工 LIMIT/OFFSET 后 Page 未设 total，
+        // 页面只能看第 1 页且无法得知剩余量
+        return receiptMapper.selectPage(
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                        Math.max(page, 1), pageSize), wrapper);
     }
 
     @Override

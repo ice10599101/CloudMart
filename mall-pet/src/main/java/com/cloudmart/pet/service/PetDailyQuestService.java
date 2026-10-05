@@ -80,7 +80,8 @@ public interface PetDailyQuestService {
     int retryFailedReceipts();
 
     /** R32 管理端：收据查询（userId/questCode/status 过滤 + 分页） */
-    java.util.List<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
+    /** PET-22/T49：收据分页查询（真实 total，允许翻页处理全部待处置回执） */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.pet.entity.PetQuestEventReceipt> receipts(
             Long userId, String questCode, String status, int page, int size);
 
     /**
