@@ -44,6 +44,7 @@ public class AdminPetSeasonController {
 
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonRewardMapper rewardMapper;
+    private final com.cloudmart.pet.repository.PetSeasonSettlementJobMapper jobMapper;
     private final PetSeasonSettlementService settlementService;
     private final PetConfigGovernanceService governance;
 
@@ -124,7 +125,7 @@ public class AdminPetSeasonController {
             return reward;
         }).toList();
         settlementService.validateTiers(tiers);
-        settlementService.replaceTiersGuarded(id, season.getStatus(), tiers);
+        settlementService.replaceTiersGuarded(id, tiers);
         governance.snapshotAndRecord("pet_season", id,
                 PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
@@ -139,10 +140,28 @@ public class AdminPetSeasonController {
     }
 
     @PostMapping("/{id}/settle")
-    @Operation(summary = "手动触发结算（R06）", description = "把到期 ACTIVE 赛季推进 FREEZING→SETTLING，异步按作业游标完成；"
+    @Operation(summary = "手动触发结算（R06/PET-02）", description = "把到期赛季推进 FREEZING→SETTLING 并建立结算作业，"
+            + "返回作业行（jobId/游标/进度）；分批发奖由调度器按游标续跑，请求线程不同步结完全部名次；"
             + "失败不回退 ACTIVE——作业行记录错误，续跑/接管收敛；SETTLED 只在全量发奖后写")
-    public ApiResponse<Void> settle(@PathVariable("id") Long id) {
-        settlementService.requestSettlement(id);
-        return ApiResponse.ok(null);
+    public ApiResponse<com.cloudmart.pet.entity.PetSeasonSettlementJob> settle(@PathVariable("id") Long id) {
+        return ApiResponse.ok(settlementService.requestSettlement(id));
+    }
+
+    @GetMapping("/{id}/settlement-jobs")
+    @Operation(summary = "结算作业列表（PET-02）", description = "当前与历史作业：状态、游标、成功/失败计数、"
+            + "租约 owner/版本/到期、最近错误与重试时间；成功作业只读，仅失败批次可重试")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetSeasonSettlementJob>> settlementJobs(
+            @PathVariable("id") Long id) {
+        return ApiResponse.ok(jobMapper.selectList(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetSeasonSettlementJob>()
+                .eq(com.cloudmart.pet.entity.PetSeasonSettlementJob::getSeasonId, id)
+                .orderByDesc(com.cloudmart.pet.entity.PetSeasonSettlementJob::getId)));
+    }
+
+    @PostMapping("/{id}/settlement-jobs/{jobId}/retry")
+    @Operation(summary = "重试失败批次（PET-02）", description = "清错误标记并立即驱动一轮续跑；仅 RUNNING 且有"
+            + "失败记录的作业可重试。已有成功奖励不可重发——由行级奖励 CAS + 钱包幂等键收敛，只补未完成名次")
+    public ApiResponse<com.cloudmart.pet.entity.PetSeasonSettlementJob> retrySettlement(
+            @PathVariable("id") Long id, @PathVariable("jobId") Long jobId) {
+        return ApiResponse.ok(settlementService.retrySettlement(id, jobId));
     }
 }

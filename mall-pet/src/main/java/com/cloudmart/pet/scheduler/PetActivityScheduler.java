@@ -45,6 +45,7 @@ public class PetActivityScheduler {
     static final String LOCK_SETTLE = "pet:lock:activity-settle";
     static final String LOCK_HOUSEKEEPING = "pet:lock:activity-housekeeping";
     static final String LOCK_RANK_REBUILD = "pet:lock:rank-rebuild";
+    static final String LOCK_SEASON_SETTLE = "pet:lock:season-settle";
 
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
@@ -87,6 +88,25 @@ public class PetActivityScheduler {
         }
     }
 
+    /**
+     * F2/PET-02：赛季结算分钟级驱动——到期冻结、FREEZING 重冻榜、SETTLING 按作业租约续跑。
+     * 独立于小时级清扫：管理端触发结算/批次失败恢复后 ≤1 分钟内推进，不再等下一个整点；
+     * 批内奖励状态、钱包、经验同事务（TxWorker），行级奖励 CAS + 钱包幂等键保证重放不重发。
+     */
+    @Scheduled(fixedDelay = 60_000)
+    public void driveSeasonSettlement() {
+        if (!tryLock(LOCK_SEASON_SETTLE, Duration.ofSeconds(55))) {
+            return;
+        }
+        try {
+            seasonSettlementService.settleExpiredSeasons();
+        } catch (Exception e) {
+            log.error("赛季结算驱动任务失败", e);
+        } finally {
+            unlock(LOCK_SEASON_SETTLE);
+        }
+    }
+
     @Scheduled(cron = "0 30 * * * *", zone = "UTC")
     public void housekeeping() {
         if (!tryLock(LOCK_HOUSEKEEPING, Duration.ofSeconds(300))) {
@@ -97,8 +117,6 @@ public class PetActivityScheduler {
             int expiredBattles = battleService.expirePendingBattles();
             // P2-3：看板当日快照小时级增量写入（历史日冻结，看板读快照 + 当日实时合并）
             dashboardSnapshotService.writeTodaySnapshot();
-            // F2：赛季到期结算（CAS 防重，失败回退 ACTIVE 下轮重试）
-            seasonSettlementService.settleExpiredSeasons();
             if (expiredClaims > 0 || expiredBattles > 0) {
                 log.info("宠物清扫完成: expiredClaims={}, expiredBattles={}", expiredClaims, expiredBattles);
             }

@@ -274,7 +274,14 @@ public interface PetFeignClient {
                                           @RequestBody Map<String, Object> data);
 
     @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settle")
-    ApiResponse<Void> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+    ApiResponse<Object> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/{id}/settlement-jobs")
+    ApiResponse<Object> listSeasonSettlementJobs(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settlement-jobs/{jobId}/retry")
+    ApiResponse<Object> retrySeasonSettlementJob(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                                 @org.springframework.web.bind.annotation.PathVariable("jobId") Long jobId);
 
     // ---------------- F5 用户宠物查询与运营工具（下游 /admin/users/**） ----------------
 

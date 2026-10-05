@@ -545,9 +545,25 @@ public class AdminPetController {
     @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settle")
     @OperLog(title = "宠物赛季手动结算", businessType = 2)
     @RequiresPermission("business:pet:edit")
-    @Operation(summary = "手动触发结算", description = "仅到期 ACTIVE 赛季；幂等")
-    public ApiResponse<Void> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
+    @Operation(summary = "手动触发结算", description = "仅到期赛季；建立/唤醒结算作业并返回作业行，分批发奖异步续跑")
+    public ApiResponse<Object> settleSeason(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
         return petFeignClient.settleSeason(id);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/{id}/settlement-jobs")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "赛季结算作业列表（PET-02）", description = "状态、游标、成功/失败计数、租约与最近错误")
+    public ApiResponse<Object> listSeasonSettlementJobs(@org.springframework.web.bind.annotation.PathVariable("id") Long id) {
+        return petFeignClient.listSeasonSettlementJobs(id);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/{id}/settlement-jobs/{jobId}/retry")
+    @OperLog(title = "宠物赛季结算重试", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "重试失败批次（PET-02）", description = "仅 RUNNING 且有失败记录的作业；已成功奖励不重发")
+    public ApiResponse<Object> retrySeasonSettlementJob(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                                        @org.springframework.web.bind.annotation.PathVariable("jobId") Long jobId) {
+        return petFeignClient.retrySeasonSettlementJob(id, jobId);
     }
 
     // ---------------- F5 用户宠物查询与运营工具 ----------------

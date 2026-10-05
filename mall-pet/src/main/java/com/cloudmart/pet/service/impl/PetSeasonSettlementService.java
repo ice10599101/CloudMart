@@ -2,17 +2,13 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.cloudmart.pet.config.RocketMQConfig;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.PetSeason;
-import com.cloudmart.pet.entity.PetSeasonRanking;
 import com.cloudmart.pet.entity.PetSeasonReward;
 import com.cloudmart.pet.entity.PetSeasonSettlementJob;
-import com.cloudmart.pet.mq.PetEventProducer;
 import com.cloudmart.pet.repository.PetSeasonMapper;
-import com.cloudmart.pet.repository.PetSeasonRankingMapper;
 import com.cloudmart.pet.repository.PetSeasonRewardMapper;
 import com.cloudmart.pet.repository.PetSeasonSettlementJobMapper;
-import com.cloudmart.pet.wallet.PetEconomyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -27,16 +23,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 赛季结算服务（F2/R06）：冻榜与发奖分离，SETTLED 只在快照完整且全部名次发奖完成后写入。
+ * 赛季结算协调器（F2/R06/PET-02）：状态机调度、租约与游标推进；冻结/发奖的
+ * <strong>事务原子性</strong>委托给 {@link PetSeasonSettlementTxWorker}（独立 Bean 走真实
+ * Spring 代理，修复原同类自调用 @Transactional 失效）。
  *
  * <p>状态机：ACTIVE →(到期 CAS)→ FREEZING →(一次一致性快照同事务)→ SETTLING →(游标推进完)→ SETTLED。
- * 失败不回退 ACTIVE：错误记入作业行，租约到期由同键重试/恢复扫描接管——修复原实现
- * "先标 SETTLED 再结算 + kill 后 catch 回退不执行 = 赛季永久漏结算"。</p>
+ * 失败不回退 ACTIVE：错误记入作业行，租约到期由调度接管——FREEZING 无快照/无作业均可幂等重冻榜，
+ * 不再滞留"只找作业的空循环"。</p>
  *
- * <p>排名一次成型：FREEZING 中用窗口函数 INSERT...SELECT 冻结 {@code level DESC, exp DESC, petId ASC}
- * 完整快照（不再对实时 pet 表分页——批间经验变化使排名漂移）；发奖按快照 rank 游标逐批，
- * 每宠奖励事实 {@code reward_status NULL→SUCCEEDED} CAS 一次性入账，钱包 operationKey
- * SEASON_REWARD:{seasonId}:{petId} 双保险幂等（重复结算不重发）。</p>
+ * <p>租约 fence：每次抢占返回 (owner, leaseVersion)，此后游标推进、错误记录、完成标记全部携带
+ * fence 条件；旧执行者一旦失去租约立即停止，防双实例重复入账（行级奖励 CAS 为最终兜底）。</p>
  */
 @Service
 @Slf4j
@@ -50,19 +46,14 @@ public class PetSeasonSettlementService {
 
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonRewardMapper rewardMapper;
-    private final PetSeasonRankingMapper rankingMapper;
     private final PetSeasonSettlementJobMapper jobMapper;
-    private final com.cloudmart.pet.repository.PetMapper petMapper;
-    /** §13.1：seasonSettlementV2 关闭时定时结算不推进（可手动重入，赛季状态保留） */
-    private final com.cloudmart.pet.config.PetProperties properties;
-    private final PetEconomyService economyService;
-    private final PetEventProducer eventProducer;
-    private final PetStateService stateService;
+    private final PetProperties properties;
+    private final PetSeasonSettlementTxWorker txWorker;
     private final JdbcTemplate jdbcTemplate;
-    private final String leaseOwner = UUID.randomUUID().toString().substring(0, 8)
-            + ":" + Thread.currentThread().threadId();
+    /** 执行者唯一标识：每次租约获取以此写入作业行，fence 校验的 owner 半边（UUID 保证跨实例唯一） */
+    private final String leaseOwner = UUID.randomUUID().toString();
 
-    /** 每小时检查到期赛季（scheduler 调用）：CAS 占 FREEZING → 冻榜 → 驱动发奖 */
+    /** 每分钟驱动到期/中断赛季（调度器调用）：CAS 占 FREEZING → 冻榜 → 续跑发奖 */
     public void settleExpiredSeasons() {
         if (!properties.getFeatureSwitches().isSeasonSettlementV2()) {
             return;
@@ -104,26 +95,30 @@ public class PetSeasonSettlementService {
         }
     }
 
-    /** 管理端手动触发（R06）：只负责把到期 ACTIVE 赛季推进状态机，异步由作业驱动完成 */
-    public void requestSettlement(Long seasonId) {
+    /**
+     * 管理端手动触发（R06/PET-02）：校验到期后只把状态机推进到 SETTLING 并建立作业，返回作业行；
+     * 分批发奖由调度器按作业游标续跑，不再在管理请求线程内同步结完全部名次。
+     */
+    public PetSeasonSettlementJob requestSettlement(Long seasonId) {
         PetSeason season = seasonMapper.selectById(seasonId);
         if (season == null) {
             throw new com.cloudmart.common.exception.BusinessException(
                     com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "赛季不存在");
         }
-        if (!"ACTIVE".equals(season.getStatus())) {
+        if ("SETTLED".equals(season.getStatus())) {
             throw new com.cloudmart.common.exception.BusinessException(
-                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR,
-                    "赛季不在进行中（当前: " + season.getStatus() + "）");
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "赛季已结算完成");
         }
         if (season.getEndsAt().isAfter(LocalDateTime.now(ZoneOffset.UTC))) {
             throw new com.cloudmart.common.exception.BusinessException(
                     com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "赛季尚未到期");
         }
         driveSeason(season);
+        return jobMapper.selectOne(new LambdaQueryWrapper<PetSeasonSettlementJob>()
+                .eq(PetSeasonSettlementJob::getSeasonId, seasonId));
     }
 
-    /** 状态机驱动：ACTIVE→冻榜；FREEZING/SETTLING→续跑（外部中断无感知恢复） */
+    /** 状态机驱动：ACTIVE→冻榜；FREEZING→幂等重冻榜；SETTLING→续跑发奖 */
     private void driveSeason(PetSeason season) {
         switch (season.getStatus()) {
             case "ACTIVE" -> {
@@ -132,59 +127,15 @@ public class PetSeasonSettlementService {
                         .eq(PetSeason::getId, season.getId())
                         .eq(PetSeason::getStatus, "ACTIVE"));
                 if (claimed > 0) {
-                    freeze(seasonMapper.selectById(season.getId()));
+                    txWorker.freezeInTx(seasonMapper.selectById(season.getId()));
                 }
-                // 冻榜失败（快照未完整）停留 FREEZING，下轮重试；错误已记录
+                // 冻榜失败（快照未完整）停留 FREEZING，下轮重入；错误已记录
             }
-            case "FREEZING", "SETTLING" -> settleFromJob(seasonMapper.selectById(season.getId()));
+            case "FREEZING" -> txWorker.freezeInTx(season);
+            case "SETTLING" -> settleFromJob(seasonMapper.selectById(season.getId()));
             default -> {
                 // SETTLED：无需处理
             }
-        }
-    }
-
-    /**
-     * 冻榜（FREEZING→SETTLING）：一次一致性快照——窗口函数 INSERT...SELECT 完整排名、
-     * 作业行、season.freezeAt/snapshotComplete/状态迁移同一事务；失败整事务回滚留 FREEZING 重试。
-     */
-    @Transactional
-    public void freeze(PetSeason season) {
-        try {
-            jdbcTemplate.update("""
-                    INSERT INTO pet_season_ranking
-                        (season_id, pet_id, user_id, rank_no, level, exp, reward_status)
-                    SELECT ?, pet.id, pet.user_id,
-                           ROW_NUMBER() OVER (ORDER BY pet.level DESC, pet.exp DESC, pet.id ASC),
-                           pet.level, pet.exp, NULL
-                    FROM pet pet
-                    WHERE pet.is_public = 1 AND pet.id <> 0
-                    """, season.getId());
-            int total = rankingMapper.selectCount(new LambdaQueryWrapper<PetSeasonRanking>()
-                    .eq(PetSeasonRanking::getSeasonId, season.getId())).intValue();
-            PetSeasonSettlementJob job = new PetSeasonSettlementJob();
-            job.setSeasonId(season.getId());
-            job.setStatus("RUNNING");
-            job.setCursorRank(0);
-            job.setTotalCount(total);
-            job.setSuccessCount(0);
-            job.setFailureCount(0);
-            try {
-                jobMapper.insert(job);
-            } catch (DuplicateKeyException e) {
-                // 作业已存在（FREEZING 崩溃后重试重入）：复用既有作业，不重置游标
-            }
-            seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
-                    .set(PetSeason::getStatus, "SETTLING")
-                    .set(PetSeason::getFreezeAt, LocalDateTime.now(ZoneOffset.UTC))
-                    .set(PetSeason::getSnapshotComplete, 1)
-                    .eq(PetSeason::getId, season.getId())
-                    .eq(PetSeason::getStatus, "FREEZING"));
-            log.info("赛季冻榜完成: seasonId={}, name={}, total={}",
-                    season.getId(), season.getName(), total);
-        } catch (Exception e) {
-            // 冻榜失败：状态保持 FREEZING（catch 不可吞掉状态机推进条件），下轮重试
-            log.error("赛季冻榜失败（保持 FREEZING 待重试）: seasonId={}", season.getId(), e);
-            throw e instanceof RuntimeException runtime ? runtime : new IllegalStateException(e);
         }
     }
 
@@ -193,7 +144,8 @@ public class PetSeasonSettlementService {
         PetSeasonSettlementJob job = jobMapper.selectOne(new LambdaQueryWrapper<PetSeasonSettlementJob>()
                 .eq(PetSeasonSettlementJob::getSeasonId, season.getId()));
         if (job == null) {
-            // SETTLING 但无作业行（异常态）：标记回 FREEZING 重冻榜
+            // SETTLING 但无作业行（异常态）：回退 FREEZING，下轮 driveSeason 幂等重冻榜——
+            // 修复原实现"回退后仍只找作业"导致 FREEZING 永久空转
             seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
                     .set(PetSeason::getStatus, "FREEZING")
                     .set(PetSeason::getSnapshotComplete, 0)
@@ -203,50 +155,55 @@ public class PetSeasonSettlementService {
             return;
         }
         if ("COMPLETED".equals(job.getStatus())) {
-            finalizeSeason(season, job);
+            finalizeSeason(season, job, null);
             return;
         }
-        if (!tryClaimLease(job)) {
+        Lease lease = tryClaimLease(job);
+        if (lease == null) {
             return;
         }
         List<PetSeasonReward> tiers = rewardMapper.selectList(new LambdaQueryWrapper<PetSeasonReward>()
                 .eq(PetSeasonReward::getSeasonId, season.getId())
                 .orderByAsc(PetSeasonReward::getRankMin));
-        int success = 0;
-        int failure = 0;
-        try {
-            while (job.getCursorRank() < job.getTotalCount()) {
-                BatchOutcome outcome = settleBatchFromSnapshot(season, tiers, job.getCursorRank(), SETTLE_BATCH);
-                if (outcome == null) {
-                    // 防御：快照行少于 totalCount（不应发生）——停止推进避免死循环，人工核查
-                    jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
-                            .set(PetSeasonSettlementJob::getLastError, "快照行数少于 totalCount，游标无行可推进")
-                            .set(PetSeasonSettlementJob::getNextRetryAt, LocalDateTime.now(ZoneOffset.UTC).plusSeconds(300))
-                            .eq(PetSeasonSettlementJob::getId, job.getId()));
-                    break;
-                }
-                advanceCursor(job, outcome.processedToRank(), outcome.rewarded());
-                success += outcome.rewarded();
-                job.setCursorRank(outcome.processedToRank());
-                job.setSuccessCount(job.getSuccessCount() + outcome.rewarded());
+        while (job.getCursorRank() < job.getTotalCount()) {
+            PetSeasonSettlementTxWorker.BatchOutcome outcome;
+            try {
+                outcome = txWorker.settleBatchInTx(season, tiers, job.getCursorRank(), job.getTotalCount(), SETTLE_BATCH);
+            } catch (Exception e) {
+                // 可重试失败：fence 内记录错误与重试时间；游标未推进，下轮从原位续跑
+                recordBatchFailure(lease, e);
+                log.error("赛季发奖批次失败（游标未推进，租约到期续跑）: seasonId={}, cursor={}",
+                        season.getId(), job.getCursorRank(), e);
+                return;
             }
-        } catch (Exception e) {
-            failure++;
-            jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
-                    .set(PetSeasonSettlementJob::getLastError, truncate(String.valueOf(e.getMessage())))
-                    .set(PetSeasonSettlementJob::getNextRetryAt, LocalDateTime.now(ZoneOffset.UTC).plusSeconds(60))
-                    .eq(PetSeasonSettlementJob::getId, job.getId()));
-            log.error("赛季发奖批次失败（游标已持久化，租约到期续跑）: seasonId={}, cursor={}",
-                    season.getId(), job.getCursorRank(), e);
+            if (outcome == null) {
+                // 防御：快照行少于 totalCount（不应发生）——停止推进避免死循环，人工核查
+                recordBatchFailure(lease, new IllegalStateException("快照行数少于 totalCount，游标无行可推进"));
+                return;
+            }
+            try {
+                advanceCursor(lease, outcome.processedToRank(), outcome.rewarded());
+            } catch (LeaseLostException e) {
+                // 旧执行者失去租约立即停止；新执行者从持久化游标继续
+                log.info("赛季租约已被接管，本执行者停止: seasonId={}, cursor={}",
+                        season.getId(), outcome.processedToRank());
+                return;
+            }
+            job.setCursorRank(outcome.processedToRank());
+            job.setSuccessCount(job.getSuccessCount() + outcome.rewarded());
         }
-        job = jobMapper.selectById(job.getId());
-        if (job.getCursorRank() >= job.getTotalCount()) {
-            finalizeSeason(season, job);
+        PetSeasonSettlementJob latest = jobMapper.selectById(job.getId());
+        if (latest.getCursorRank() >= latest.getTotalCount()) {
+            finalizeSeason(season, latest, lease);
         }
     }
 
-    /** CAS 抢/续租约（仅当到期或空闲）；胜者续期 300 秒 */
-    private boolean tryClaimLease(PetSeasonSettlementJob job) {
+    /**
+     * CAS 抢/续租约（仅当到期或空闲）；胜者持有 (owner, leaseVersion) fence 直到失去租约。
+     *
+     * @return 租约凭证；抢不到返回 null
+     */
+    private Lease tryClaimLease(PetSeasonSettlementJob job) {
         int claimed = jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
                 .set(PetSeasonSettlementJob::getLeaseOwner, leaseOwner)
                 .set(PetSeasonSettlementJob::getLeaseUntil, LocalDateTime.now(ZoneOffset.UTC).plusSeconds(LEASE_SECONDS))
@@ -255,89 +212,54 @@ public class PetSeasonSettlementService {
                 .eq(PetSeasonSettlementJob::getStatus, "RUNNING")
                 .and(w -> w.isNull(PetSeasonSettlementJob::getLeaseUntil)
                         .or().le(PetSeasonSettlementJob::getLeaseUntil, LocalDateTime.now(ZoneOffset.UTC))));
-        return claimed == 1;
-    }
-
-    /** 批结果：处理到的名次（checkpoint 依据）+ 实际发奖人数 */
-    public record BatchOutcome(int processedToRank, int rewarded) {
-    }
-
-    /**
-     * 按快照名次游标发一批（本批一个事务：逐行奖励事实 CAS + 钱包 + 经验 + 通知）。
-     * 游标无行推进返回 null（防御：快照行少于 totalCount 时不死循环）；
-     * 事务提交后由驱动方推进作业游标（checkpoint 只在事实可验证后推进）。
-     */
-    @Transactional
-    public BatchOutcome settleBatchFromSnapshot(PetSeason season, List<PetSeasonReward> tiers, int cursorRank, int limit) {
-        int batchEnd = Math.min(cursorRank + limit, seasonMaxRank(season.getId()));
-        List<PetSeasonRanking> rows = rankingMapper.selectList(new LambdaQueryWrapper<PetSeasonRanking>()
-                .eq(PetSeasonRanking::getSeasonId, season.getId())
-                .gt(PetSeasonRanking::getRankNo, cursorRank)
-                .le(PetSeasonRanking::getRankNo, batchEnd)
-                .orderByAsc(PetSeasonRanking::getRankNo));
-        if (rows.isEmpty()) {
+        if (claimed != 1) {
             return null;
         }
-        int rewarded = 0;
-        for (PetSeasonRanking row : rows) {
-            // 一次性奖励事实（CAS NULL→SUCCEEDED）：并发 worker 只有一个胜者；重放零副作用
-            int claimed = rankingMapper.update(null, new LambdaUpdateWrapper<PetSeasonRanking>()
-                    .set(PetSeasonRanking::getRewardStatus, "SUCCEEDED")
-                    .set(PetSeasonRanking::getRewardedAt, LocalDateTime.now(ZoneOffset.UTC))
-                    .eq(PetSeasonRanking::getId, row.getId())
-                    .isNull(PetSeasonRanking::getRewardStatus));
-            if (claimed == 0) {
-                continue;
-            }
-            PetSeasonReward tier = tierOf(tiers, row.getRankNo());
-            if (tier != null) {
-                long starlight = tier.getRewardStarlight() != null ? tier.getRewardStarlight() : 0;
-                int expReward = tier.getRewardExp() != null ? tier.getRewardExp() : 0;
-                if (starlight > 0) {
-                    // 幂等入账：operationKey=SEASON_REWARD:{seasonId}:{petId}，同 key 重跑不重发；
-                    // UNKNOWN 抛 503 回滚本批（奖励事实随之回滚，续跑重新发）
-                    PetEconomyService.WalletSettlement settlement = economyService.earn(
-                            row.getUserId(), row.getPetId(),
-                            "SEASON_REWARD", season.getId(), starlight, null,
-                            season.getId(), row.getPetId());
-                    if (settlement.isUnknown()) {
-                        throw economyService.settlementPending();
-                    }
-                }
-                if (expReward > 0) {
-                    stateService.grantExp(requirePet(row.getPetId()), expReward);
-                }
-                eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_PROACTIVE,
-                        new PetEventProducer.PetEventMessage(
-                                "SEASON_REWARD:" + season.getId() + ":" + row.getPetId(),
-                                String.valueOf(row.getUserId()), "PET_SEASON_REWARD",
-                                "赛季结算奖励到账啦！",
-                                "主人！「" + season.getName() + "」赛季我拿到了第 " + row.getRankNo()
-                                        + " 名，奖励已发放，快去看看吧！",
-                                String.valueOf(season.getId()), "PET_SEASON_REWARD"),
-                        row.getPetId());
-                rewarded++;
-            }
+        // 条件 UPDATE（owner+版本自增）是租约归属的权威；重读仅为取回 fence 基线 leaseVersion
+        PetSeasonSettlementJob claimedJob = jobMapper.selectById(job.getId());
+        if (claimedJob == null) {
+            return null;
         }
-        return new BatchOutcome(rows.get(rows.size() - 1).getRankNo(), rewarded);
+        return new Lease(job.getId(), leaseOwner, claimedJob.getLeaseVersion());
     }
 
-    /** 批事务提交后由驱动方推进游标（checkpoint 只在事实提交后前进） */
-    void advanceCursor(PetSeasonSettlementJob job, int processedToRank, int rewarded) {
-        jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
+    /** 批事务提交后由驱动方推进游标（checkpoint 只在事实提交后前进）；fence 校验 owner+version */
+    private void advanceCursor(Lease lease, int processedToRank, int rewarded) {
+        int updated = jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
                 .set(PetSeasonSettlementJob::getCursorRank, processedToRank)
                 .setSql("success_count = success_count + " + Math.max(rewarded, 0))
                 .set(PetSeasonSettlementJob::getLeaseUntil, LocalDateTime.now(ZoneOffset.UTC).plusSeconds(LEASE_SECONDS))
-                .eq(PetSeasonSettlementJob::getId, job.getId())
+                .eq(PetSeasonSettlementJob::getId, lease.jobId())
+                .eq(PetSeasonSettlementJob::getLeaseOwner, lease.owner())
+                .eq(PetSeasonSettlementJob::getLeaseVersion, lease.fenceVersion())
+                .eq(PetSeasonSettlementJob::getStatus, "RUNNING"));
+        if (updated == 0) {
+            throw new LeaseLostException();
+        }
+    }
+
+    /** 批次失败记录（fence 内）：失去租约的执行者不得覆盖新执行者的作业行 */
+    private void recordBatchFailure(Lease lease, Exception cause) {
+        jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
+                .set(PetSeasonSettlementJob::getLastError, truncate(String.valueOf(cause.getMessage())))
+                .set(PetSeasonSettlementJob::getNextRetryAt, LocalDateTime.now(ZoneOffset.UTC).plusSeconds(60))
+                .eq(PetSeasonSettlementJob::getId, lease.jobId())
+                .eq(PetSeasonSettlementJob::getLeaseOwner, lease.owner())
+                .eq(PetSeasonSettlementJob::getLeaseVersion, lease.fenceVersion())
                 .eq(PetSeasonSettlementJob::getStatus, "RUNNING"));
     }
 
-    /** 游标到底：CAS SETTLING→SETTLED（仅 snapshotComplete=1 且作业 COMPLETED 时可达） */
-    private void finalizeSeason(PetSeason season, PetSeasonSettlementJob job) {
-        jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
+    /** 游标到底：作业 CAS RUNNING→COMPLETED + 赛季 CAS SETTLING→SETTLED（仅 snapshotComplete=1）；lease 到位时带 fence */
+    private void finalizeSeason(PetSeason season, PetSeasonSettlementJob job, Lease lease) {
+        LambdaUpdateWrapper<PetSeasonSettlementJob> complete = new LambdaUpdateWrapper<PetSeasonSettlementJob>()
                 .set(PetSeasonSettlementJob::getStatus, "COMPLETED")
                 .eq(PetSeasonSettlementJob::getId, job.getId())
-                .eq(PetSeasonSettlementJob::getStatus, "RUNNING"));
+                .eq(PetSeasonSettlementJob::getStatus, "RUNNING");
+        if (lease != null) {
+            complete.eq(PetSeasonSettlementJob::getLeaseOwner, lease.owner())
+                    .eq(PetSeasonSettlementJob::getLeaseVersion, lease.fenceVersion());
+        }
+        jobMapper.update(null, complete);
         int settled = seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
                 .set(PetSeason::getStatus, "SETTLED")
                 .set(PetSeason::getSettledAt, LocalDateTime.now(ZoneOffset.UTC))
@@ -350,41 +272,50 @@ public class PetSeasonSettlementService {
         }
     }
 
-    private int seasonMaxRank(Long seasonId) {
-        PetSeasonSettlementJob job = jobMapper.selectOne(new LambdaQueryWrapper<PetSeasonSettlementJob>()
-                .eq(PetSeasonSettlementJob::getSeasonId, seasonId));
-        return job != null ? job.getTotalCount() : 0;
-    }
-
-    /** 发经验需完整实体（grantExp 依赖 version CAS 与亲密度修正），不部分映射 */
-    private com.cloudmart.pet.entity.Pet requirePet(Long petId) {
-        com.cloudmart.pet.entity.Pet pet = petMapper.selectById(petId);
-        if (pet == null) {
-            throw new IllegalStateException("快照宠物不存在: " + petId);
+    /**
+     * 管理端重试（PET-02）：清错误标记并立即驱动一轮续跑。已有成功奖励不可重发——
+     * 重放由行级奖励 CAS + 钱包幂等键收敛，仅补未完成名次。
+     */
+    public PetSeasonSettlementJob retrySettlement(Long seasonId, Long jobId) {
+        PetSeason season = seasonMapper.selectById(seasonId);
+        if (season == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "赛季不存在");
         }
-        return pet;
-    }
-
-    /** 命中奖励梯度（rank_min ≤ rank ≤ rank_max；区间互斥由 uk(rank_min) 与录入校验保证） */
-    private PetSeasonReward tierOf(List<PetSeasonReward> tiers, int rank) {
-        return tiers.stream()
-                .filter(t -> rank >= t.getRankMin() && rank <= t.getRankMax())
-                .findFirst()
-                .orElse(null);
+        int cleared = jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
+                .set(PetSeasonSettlementJob::getLastError, null)
+                .set(PetSeasonSettlementJob::getNextRetryAt, null)
+                .eq(PetSeasonSettlementJob::getId, jobId)
+                .eq(PetSeasonSettlementJob::getSeasonId, seasonId)
+                .eq(PetSeasonSettlementJob::getStatus, "RUNNING")
+                .isNotNull(PetSeasonSettlementJob::getLastError));
+        if (cleared == 0) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_STATE_CONFLICT,
+                    "作业不存在、已完成或无失败记录（仅失败批次可重试）");
+        }
+        driveSeason(season);
+        return jobMapper.selectById(jobId);
     }
 
     /**
-     * R17 奖励梯度原子替换：锁住赛季行再 delete+insert 同事务——中途失败整体回滚，
-     * 原梯度完整保留；FREEZING/SETTLING/SETTLED 一律禁止修改（进行中结算的奖励口径不可变）。
+     * R17/PET-02 奖励梯度原子替换：锁住赛季行后<strong>重新读取</strong>状态校验（原实现信任
+     * 调用方锁前传入的 status，存在 TOCTOU：校验通过后赛季被并发冻结仍被改梯度）。
+     * delete+insert 同事务，中途失败整体回滚；已冻结档位只读。
      */
     @Transactional
-    public void replaceTiersGuarded(Long seasonId, String seasonStatus, List<PetSeasonReward> tiers) {
-        if (!"ACTIVE".equals(seasonStatus)) {
+    public void replaceTiersGuarded(Long seasonId, List<PetSeasonReward> tiers) {
+        jdbcTemplate.queryForMap("SELECT id FROM pet_season WHERE id = ? FOR UPDATE", seasonId);
+        PetSeason season = seasonMapper.selectById(seasonId);
+        if (season == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "赛季不存在");
+        }
+        if (!"ACTIVE".equals(season.getStatus())) {
             throw new com.cloudmart.common.exception.BusinessException(
                     com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR,
-                    "当前赛季状态（" + seasonStatus + "）不可修改奖励梯度");
+                    "当前赛季状态（" + season.getStatus() + "）不可修改奖励梯度");
         }
-        jdbcTemplate.queryForMap("SELECT id FROM pet_season WHERE id = ? FOR UPDATE", seasonId);
         rewardMapper.delete(new LambdaQueryWrapper<PetSeasonReward>()
                 .eq(PetSeasonReward::getSeasonId, seasonId));
         tiers.forEach(rewardMapper::insert);
@@ -426,6 +357,17 @@ public class PetSeasonSettlementService {
                         "奖励梯度必须从第 1 名起连续覆盖（间隙/重叠都拒绝）");
             }
             expect = tier.getRankMax() + 1;
+        }
+    }
+
+    /** 租约凭证：作业行 + 持有者 + 抢占时的 leaseVersion（fence，旧执行者更新不再命中） */
+    record Lease(Long jobId, String owner, long fenceVersion) {
+    }
+
+    /** 失去租约：协调器立即停止本执行者的推进（游标已持久化，新执行者续跑） */
+    static final class LeaseLostException extends RuntimeException {
+        LeaseLostException() {
+            super("赛季结算租约已被其他执行者接管");
         }
     }
 
