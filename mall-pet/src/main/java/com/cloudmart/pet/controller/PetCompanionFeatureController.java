@@ -195,15 +195,17 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(featureService.notifyPrefs(userId));
     }
 
-    public record NotifyPrefUpdate(boolean muteDailyGreeting, boolean dailyGreetingEnabled) {
+    public record NotifyPrefUpdate(boolean muteDailyGreeting, boolean dailyGreetingEnabled, Integer expectedVersion) {
     }
 
     @PutMapping("/notify-settings")
-    @Operation(summary = "更新通知偏好（B19）", description = "仅作用于日常问候类 proactive；重要业务通知不受影响")
-    public ApiResponse<PetNotifyPref> updateNotifyPrefs(
+    @Operation(summary = "更新通知偏好（B19）", description = "仅作用于日常问候类 proactive；重要业务通知不受影响；"
+            + "返回持久化后的值和 version；新版带 expectedVersion CAS（冲突 409）")
+    public ApiResponse<Map<String, Object>> updateNotifyPrefs(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestBody NotifyPrefUpdate request) {
-        return ApiResponse.ok(featureService.updateNotifyPrefs(userId, request.muteDailyGreeting(), request.dailyGreetingEnabled()));
+        return ApiResponse.ok(featureService.updateNotifyPrefs(userId,
+                request.muteDailyGreeting(), request.dailyGreetingEnabled(), request.expectedVersion()));
     }
 
     @DeleteMapping("/pets/{petId}/memories")

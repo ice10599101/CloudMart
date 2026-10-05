@@ -23,7 +23,10 @@ public class PetNotifyPref {
 
     private Long userId;
     private Boolean muteDailyGreeting;
-    private Boolean dailyGreetingEnabled;;
+    private Boolean dailyGreetingEnabled;
+
+    /** 乐观版本（§7.2 PUT CAS；旧请求无版本按兼容窗口生效） */
+    private Integer version;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

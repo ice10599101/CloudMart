@@ -101,12 +101,29 @@ public class PetCompanionFeatureService {
         return pref;
     }
 
-    public com.cloudmart.pet.entity.PetNotifyPref updateNotifyPrefs(Long userId, boolean mute, boolean greeting) {
+    public Map<String, Object> updateNotifyPrefs(Long userId, boolean mute, boolean greeting,
+                                                 Integer expectedVersion) {
         com.cloudmart.pet.entity.PetNotifyPref pref = notifyPrefs(userId);
         pref.setMuteDailyGreeting(mute);
         pref.setDailyGreetingEnabled(greeting);
-        notifyPrefMapper.updateById(pref);
-        return pref;
+        if (expectedVersion != null) {
+            // §7.2：expectedVersion CAS 防多端覆盖；@Version 拦截在 updateById 返回 0
+            pref.setVersion(expectedVersion);
+            if (notifyPrefMapper.updateById(pref) == 0) {
+                throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                        "通知偏好已被其他端修改，请刷新后重试");
+            }
+        } else {
+            // 旧请求无版本按兼容窗口直接生效（记录使用量，为收窄窗口提供观测）
+            log.info("[COMPAT] 通知偏好旧版无版本写入: userId={}", userId);
+            notifyPrefMapper.updateById(pref);
+        }
+        com.cloudmart.pet.entity.PetNotifyPref refreshed = notifyPrefs(userId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("muteDailyGreeting", Boolean.TRUE.equals(refreshed.getMuteDailyGreeting()));
+        result.put("dailyGreetingEnabled", Boolean.TRUE.equals(refreshed.getDailyGreetingEnabled()));
+        result.put("version", refreshed.getVersion() == null ? 1 : refreshed.getVersion());
+        return result;
     }
 
     private void requireFeature(boolean enabled) {
