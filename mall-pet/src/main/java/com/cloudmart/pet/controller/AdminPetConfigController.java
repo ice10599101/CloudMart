@@ -98,6 +98,24 @@ public class AdminPetConfigController {
                 .orderByAsc(PetStudyConfig::getSort)));
     }
 
+    /**
+     * PET-05：学习启停——mall-admin 代理 PUT /api/admin/pet/configs/studies/{id}/enabled
+     * 原直连本端 404（代理已写、下游缺失的断路）；与 jobs/{id}/enabled 同构，写后快照留审计。
+     */
+    @PutMapping("/studies/{id}/enabled")
+    @Operation(summary = "课程启停")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Void> toggleStudy(@PathVariable("id") Long id,
+                                         @RequestParam("enabled") Boolean enabled) {
+        PetStudyConfig patch = new PetStudyConfig();
+        patch.setId(id);
+        patch.setEnabled(enabled);
+        studyConfigMapper.updateById(patch);
+        governance.snapshotAndRecord("study", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/studies")
     @Operation(summary = "新增/更新课程", description = "带 id 为更新")
     @PreAuthorize("hasRole('INTERNAL')")

@@ -2,6 +2,7 @@ package com.cloudmart.pet.controller;
 
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetRequestContext;
+import com.cloudmart.pet.service.PetDailyQuestService;
 import com.cloudmart.pet.service.impl.PetCompanionFeatureService;
 import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.service.impl.PetDigestService;
@@ -41,8 +42,13 @@ class PetRouteContractTest {
     private MockMvc companionMockMvc;
     private MockMvc purchaseMockMvc;
     private MockMvc playMockMvc;
+    private MockMvc questMockMvc;
+    private MockMvc adminConfigMockMvc;
     private PetCompanionFeatureService companionService;
     private PetPurchaseApplicationService purchaseService;
+    private PetDailyQuestService questService;
+    private com.cloudmart.pet.repository.PetStudyConfigMapper studyConfigMapper;
+    private com.cloudmart.pet.service.impl.PetConfigGovernanceService governance;
 
     @BeforeEach
     void setUp() {
@@ -64,8 +70,22 @@ class PetRouteContractTest {
                         mock(PetDigestService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
-    }
 
+        questService = mock(PetDailyQuestService.class);
+        questMockMvc = MockMvcBuilders.standaloneSetup(
+                        new PetDailyQuestController(questService))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        studyConfigMapper = mock(com.cloudmart.pet.repository.PetStudyConfigMapper.class);
+        governance = mock(com.cloudmart.pet.service.impl.PetConfigGovernanceService.class);
+        adminConfigMockMvc = MockMvcBuilders.standaloneSetup(new com.cloudmart.pet.controller.AdminPetConfigController(
+                        governance,
+                        mock(com.cloudmart.pet.repository.PetJobConfigMapper.class),
+                        studyConfigMapper))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+    }
     @AfterEach
     void tearDown() {
         PetRequestContext.clear();
@@ -153,6 +173,77 @@ class PetRouteContractTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderId").value("2040"));
+    }
+
+    // ---------------- PET-05：三端方法/路径契约（Web 修复 PUT→PATCH/POST；405 兜底） ----------------
+
+    @Test
+    @DisplayName("PET-05/T05：PATCH /pets/{petId}/diary/{entryId} 可达，PUT 同路径 405")
+    void diaryVisibilityPatchMethodContract() throws Exception {
+        when(companionService.updateDiaryVisibility(eq(100L), eq(5L), eq(77L), eq("PUBLIC"), eq(1)))
+                .thenReturn(Map.of("entryId", "77", "visibility", "PUBLIC", "version", 2));
+        companionMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/pets/5/diary/77").header("X-User-Id", "100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"visibility": "PUBLIC", "expectedVersion": 1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        // Web 修复前用 PUT：方法不匹配必须 405 而非静默走错分支
+        companionMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/pets/5/diary/77").header("X-User-Id", "100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("PET-05/T05：PATCH /pets/{petId}/album/{assetId} 可达，PUT 同路径 405")
+    void albumUpdatePatchMethodContract() throws Exception {
+        when(companionService.updateAlbumAsset(eq(100L), eq(5L), eq(88L), eq("晒太阳"), eq("OWNER_ONLY"), eq(1)))
+                .thenReturn(null);
+        companionMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/pets/5/album/88").header("X-User-Id", "100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"caption": "晒太阳", "visibility": "OWNER_ONLY", "expectedVersion": 1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        companionMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/pets/5/album/88").header("X-User-Id", "100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("PET-05/T05：任务集单领 POST 可达（setId 匹配当日），PUT 同路径 405")
+    void questSetClaimPostMethodContract() throws Exception {
+        when(questService.list(100L)).thenReturn(new com.cloudmart.pet.vo.PetDailyQuestVO(
+                java.time.LocalDate.of(2026, 10, 6), java.util.List.of(), 0, 0, 0, false, false, 0, 0));
+        // setId 与当日 questDate 匹配 → 通过校验进入领取（返回 200，领取结果由领域测试覆盖）
+        questMockMvc.perform(post("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        // Web 修复前用 PUT：方法不匹配必须 405
+        questMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("PET-05/T06：PUT /admin/configs/studies/{id}/enabled 端点存在且带启停参数（原 404 断路）")
+    void studyEnabledRouteExists() throws Exception {
+        adminConfigMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/admin/configs/studies/3/enabled")
+                        .param("enabled", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        Mockito.verify(studyConfigMapper).updateById(org.mockito.ArgumentMatchers.<com.cloudmart.pet.entity.PetStudyConfig>any());
+        // 写后审计快照必须发生（与 jobs/{id}/enabled 同构）
+        Mockito.verify(governance).snapshotAndRecord(eq("study"), eq(3L), any());
     }
 
 }

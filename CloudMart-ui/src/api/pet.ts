@@ -1738,7 +1738,8 @@ export function updatePetDiaryVisibility(
   entryId: number | string,
   data: { visibility: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
 ) {
-  return request.put<ApiResponse<{ entryId: number | string; visibility: string; version: number }>>(
+  // PET-05：后端为 PATCH（部分更新语义），原 PUT 会被 405 拒绝
+  return request.patch<ApiResponse<{ entryId: number | string; visibility: string; version: number }>>(
     `/pet/pets/${petId}/diary/${entryId}`, data)
 }
 
@@ -1748,7 +1749,8 @@ export function updatePetAlbumAsset(
   assetId: number | string,
   data: { caption?: string; visibility?: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
 ) {
-  return request.put<ApiResponse<unknown>>(`/pet/pets/${petId}/album/${assetId}`, data)
+  // PET-05：后端为 PATCH（部分更新语义），原 PUT 会被 405 拒绝
+  return request.patch<ApiResponse<unknown>>(`/pet/pets/${petId}/album/${assetId}`, data)
 }
 
 /** 限时活动列表（R33 扩展：status 过滤；期次驱动活动带 occurrenceId/claimDeadlineAt） */
@@ -1761,9 +1763,9 @@ export function claimPetEventOccurrence(occurrenceId: number | string) {
   return request.post<ApiResponse<PetEventItem>>(`/pet/event-occurrences/${occurrenceId}/claim`)
 }
 
-/** 任务集路由（R32：setId=当日 questDate；与按 code/当日路径同一服务幂等语义） */
+/** 任务集路由（R32/PET-05：setId=真实任务集实体 ID，questId=任务实体 ID；后端为 POST） */
 export function claimPetQuestInSet(setId: string, questId: string) {
-  return request.put<ApiResponse<PetDailyQuestItem>>(
+  return request.post<ApiResponse<PetDailyQuestItem>>(
     `/pet/daily-quest-sets/${encodeURIComponent(setId)}/quests/${encodeURIComponent(questId)}/claim`)
 }
 
