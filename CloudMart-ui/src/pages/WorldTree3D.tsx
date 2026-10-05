@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Card, Spin, Tag, Segmented } from 'antd'
+import { App, Button, Card, Spin, Tag, Segmented } from 'antd'
 import { ArrowLeftOutlined, NodeIndexOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { getTreeEnv, getWorldTree, listEnvConfigs, listTreeFruits } from '@/api/wish'
+import { collectSparkWish, getTreeEnv, getWorldTree, listEnvConfigs, listTreeFruits } from '@/api/wish'
 import type {
   EnvConfigItem,
   TreeEnvParticle,
@@ -1045,6 +1045,26 @@ export default function WorldTree3D() {
   const [loading, setLoading] = useState(true)
   const [viewportLoading, setViewportLoading] = useState(false)
   const [selectedFruit, setSelectedFruit] = useState<TreeFruit | null>(null)
+  // T22：星火心愿收藏（SPARK 果实 → 收藏馆 SPECIAL_FRUIT 资产，幂等）
+  const { message } = App.useApp()
+  const [sparkCollecting, setSparkCollecting] = useState(false)
+
+  const handleCollectSpark = async () => {
+    if (!selectedFruit || sparkCollecting) return
+    setSparkCollecting(true)
+    try {
+      const res = await collectSparkWish(selectedFruit.id)
+      if (res.data.success) {
+        message.success('已收入收藏馆 · 星火展区')
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      message.warning(msg ?? '收藏失败，请稍后重试')
+    } finally {
+      setSparkCollecting(false)
+    }
+  }
   const [flagsReady, setFlagsReady] = useState(false)
   // Sprint 2.1 验收：手动强制 2D/3D 切换（2D = 果实列表瀑布，低端机/无 WebGL 可用）
   const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D')
@@ -1316,6 +1336,16 @@ export default function WorldTree3D() {
                 ✦ {formatCount(selectedFruit.lightCount)} 点亮
               </span>
                 </div>
+                {selectedFruit.fruitType === 'SPARK' && (
+                    <Button
+                        block
+                        loading={sparkCollecting}
+                        onClick={handleCollectSpark}
+                        style={{ marginBottom: 8, borderColor: '#FFB727', color: '#B87A00' }}
+                    >
+                      ⭐ 收藏这颗星火
+                    </Button>
+                )}
                 <Button
                     type="primary"
                     block
