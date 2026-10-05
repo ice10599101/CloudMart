@@ -78,7 +78,7 @@ public class CapsuleController {
     @PostMapping("/{id}/reschedule")
     @Operation(summary = "胶囊改期", description = "T22：允许规则下改期（SEALED；新开启时间须为未来且 ≤10 年；"
             + "改期次数上限服务端权威，超限明确拒绝）")
-    public ApiResponse<com.cloudmart.wish.entity.TimeCapsule> reschedule(
+    public ApiResponse<CapsuleVO> reschedule(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "胶囊 ID", required = true) @PathVariable Long id,

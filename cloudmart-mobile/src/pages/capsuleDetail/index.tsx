@@ -96,7 +96,7 @@ export default function CapsuleDetailPage() {
                 timezone: getTimezoneId(),
             })
             if (res.data.success) {
-                setCapsule(res.data.data as CapsuleItem)
+                setCapsule(res.data.data)
                 setRescheduleDate('')
                 setRescheduleTime('')
                 Taro.vibrateShort({ type: 'light' })

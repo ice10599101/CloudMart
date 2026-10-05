@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Animated, Easing, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Animated, Easing, Alert, TextInput } from 'react-native'
 import { useEffect, useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -7,8 +7,8 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
-import { formatLocal } from '@/utils/wish-timezone'
-import { cancelCapsuleReminder } from '@/utils/capsule-notifications'
+import { formatLocal, localToUtcIso, getTimezoneId } from '@/utils/wish-timezone'
+import { cancelCapsuleReminder, scheduleCapsuleReminder } from '@/utils/capsule-notifications'
 import type { CapsuleItem } from '@/types'
 
 /** 拆信动效节奏：封蜡碎裂(0.5s) → 信封翻盖(0.6s) → 信纸升起(0.7s)，与 Web/移动端一致 */
@@ -115,11 +115,16 @@ export default function CapsuleDetailScreen() {
     const params = useLocalSearchParams<{ id?: string }>()
     const capsuleId = params.id ?? ''
     const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
+    const user = useAuthStore((s) => s.user)
 
     const [capsule, setCapsule] = useState<CapsuleItem | null>(null)
     const [loading, setLoading] = useState(true)
     const [opening, setOpening] = useState(false)
     const [revealed, setRevealed] = useState(false)
+    // T22 改期：日期/时刻手输（与创建页一致 YYYY-MM-DD + HH:mm）
+    const [rescheduleDate, setRescheduleDate] = useState('')
+    const [rescheduleTime, setRescheduleTime] = useState('')
+    const [rescheduling, setRescheduling] = useState(false)
     // 倒计时基准时间：初始 0（capsule 未加载前不参与判定），加载成功/定时器回调中更新
     const [now, setNow] = useState(0)
 
@@ -159,6 +164,41 @@ export default function CapsuleDetailScreen() {
         () => (capsule ? new Date(capsule.openAt).getTime() <= now : false),
         [capsule, now],
     )
+
+    // T22 改期：仅作者本人、SEALED 且未到期、次数未超限（上限服务端权威）
+    const isReschedulable = !!capsule && !!user && capsule.userId === user.id
+        && capsule.status === 'SEALED' && !expired
+        && capsule.rescheduleCount < capsule.rescheduleLimit
+
+    const handleReschedule = async () => {
+        if (rescheduling || !capsule || !rescheduleDate || !rescheduleTime) return
+        const newOpenAt = localToUtcIso(rescheduleDate, rescheduleTime)
+        if (new Date(newOpenAt).getTime() <= Date.now()) {
+            Alert.alert('提示', '新的开启时间必须在未来')
+            return
+        }
+        setRescheduling(true)
+        try {
+            const res = await wishApi.rescheduleCapsule(capsule.id, {
+                newOpenAt,
+                timezone: getTimezoneId(),
+            })
+            const updated = res.data?.data
+            if (updated) {
+                setCapsule(updated)
+                setRescheduleDate('')
+                setRescheduleTime('')
+                // 到期本地推送按新 openAt 重排（失败静默降级）
+                scheduleCapsuleReminder(updated).catch(() => undefined)
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined)
+                Alert.alert('改期成功', '胶囊将按新的时间开启')
+            }
+        } catch {
+            // 超限/状态冲突等错误已由 request 拦截器统一提示
+        } finally {
+            setRescheduling(false)
+        }
+    }
 
     const handleOpen = async () => {
         if (opening) return
@@ -307,6 +347,76 @@ export default function CapsuleDetailScreen() {
                             <Text style={{ marginTop: Spacing.md, fontSize: FontSize.xs, lineHeight: 18, textAlign: 'center', color: WishColors.textTertiary }}>
                                 预定开启：{formatLocal(capsule.openAt)}{'\n'}创建时区 {capsule.openAtTimezone} · 按 UTC 判定，跨时区不影响到期
                             </Text>
+                            {isReschedulable && (
+                                <View
+                                    style={{
+                                        marginTop: Spacing.lg,
+                                        width: '100%',
+                                        padding: Spacing.md,
+                                        borderRadius: BorderRadius.lg,
+                                        backgroundColor: WishColors.bgContainer,
+                                        borderWidth: 1,
+                                        borderColor: WishColors.border,
+                                        gap: Spacing.sm,
+                                    }}
+                                >
+                                    <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary, textAlign: 'center' }}>
+                                        改期（已用 {capsule.rescheduleCount}/{capsule.rescheduleLimit} 次）
+                                    </Text>
+                                    <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                                        <TextInput
+                                            value={rescheduleDate}
+                                            onChangeText={setRescheduleDate}
+                                            placeholder="2027-01-01"
+                                            placeholderTextColor={WishColors.textTertiary}
+                                            style={{
+                                                flex: 1,
+                                                padding: Spacing.md,
+                                                borderRadius: BorderRadius.lg,
+                                                backgroundColor: WishColors.bgContainer,
+                                                borderWidth: 1,
+                                                borderColor: WishColors.border,
+                                                color: WishColors.text,
+                                                fontSize: FontSize.sm,
+                                                textAlign: 'center',
+                                            }}
+                                        />
+                                        <TextInput
+                                            value={rescheduleTime}
+                                            onChangeText={setRescheduleTime}
+                                            placeholder="12:00"
+                                            placeholderTextColor={WishColors.textTertiary}
+                                            style={{
+                                                flex: 1,
+                                                padding: Spacing.md,
+                                                borderRadius: BorderRadius.lg,
+                                                backgroundColor: WishColors.bgContainer,
+                                                borderWidth: 1,
+                                                borderColor: WishColors.border,
+                                                color: WishColors.text,
+                                                fontSize: FontSize.sm,
+                                                textAlign: 'center',
+                                            }}
+                                        />
+                                    </View>
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        onPress={handleReschedule}
+                                        disabled={rescheduling || !rescheduleDate || !rescheduleTime}
+                                        style={{
+                                            paddingVertical: Spacing.sm,
+                                            borderRadius: 28,
+                                            alignItems: 'center',
+                                            backgroundColor: rescheduling || !rescheduleDate || !rescheduleTime
+                                                ? 'rgba(78,205,196,0.25)' : 'rgba(78,205,196,0.45)',
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: '#fff' }}>
+                                            {rescheduling ? '提交中…' : '确认改期'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </>
                     ) : (
                         <>

@@ -97,8 +97,8 @@ public class CapsuleServiceImpl implements CapsuleService {
      * 服务端权威（默认 3 次），CAS 防并发 + 次数原子递增；重复提交以 CAS 收敛。
      */
     @Override
-    public com.cloudmart.wish.entity.TimeCapsule reschedule(Long userId, Long capsuleId,
-                                                            LocalDateTime newOpenAt, String timezone) {
+    public com.cloudmart.wish.vo.CapsuleVO reschedule(Long userId, Long capsuleId,
+                                                      LocalDateTime newOpenAt, String timezone) {
         LocalDateTime now = LocalDateTime.now();
         if (newOpenAt == null || !newOpenAt.isAfter(now)) {
             throw new BusinessException(WishErrorCodes.WISH_OPEN_AT_PAST, "新的开启时间不能早于当前时间");
@@ -137,7 +137,7 @@ public class CapsuleServiceImpl implements CapsuleService {
         }
         log.info("[T22] 胶囊改期 capsuleId={} newOpenAt={} tz={} 第{}次",
                 capsuleId, newOpenAt, tz, used + 1);
-        return timeCapsuleMapper.selectById(capsuleId);
+        return toVO(timeCapsuleMapper.selectById(capsuleId));
     }
 
     @Override

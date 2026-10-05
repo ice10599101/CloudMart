@@ -576,4 +576,104 @@ class CapsuleServiceImplTest {
                     .hasSize(6);
         }
     }
+
+    // ========== reschedule（T22 改期） ==========
+
+    @Nested
+    @DisplayName("reschedule - 胶囊改期")
+    class RescheduleTests {
+
+        private TimeCapsule buildReschedulable() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.SEALED, LocalDateTime.now().plusDays(30));
+            capsule.setRescheduleCount(1);
+            capsule.setRescheduleLimit(3);
+            return capsule;
+        }
+
+        @Test
+        @DisplayName("改期成功：CAS 命中 + 次数递增 + 返回 VO 且 content 防绕过")
+        void reschedule_success() {
+            TimeCapsule before = buildReschedulable();
+            TimeCapsule after = buildReschedulable();
+            after.setOpenAt(LocalDateTime.now().plusDays(60));
+            after.setRescheduleCount(2);
+
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(before, after);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            var vo = capsuleService.reschedule(USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().plusDays(60), "Asia/Shanghai");
+
+            assertThat(vo.status()).isEqualTo("SEALED");
+            assertThat(vo.rescheduleCount()).isEqualTo(2);
+            assertThat(vo.content()).as("非 OPENED 状态内容恒不返回（防绕过）").isNull();
+            verify(timeCapsuleMapper).update(isNull(),
+                    org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>>argThat(w ->
+                            w.getSqlSet().contains("reschedule_count = reschedule_count + 1")));
+        }
+
+        @Test
+        @DisplayName("过去时间 → WISH_OPEN_AT_PAST 且不落库")
+        void reschedule_pastTime_rejected() {
+            assertThatThrownBy(() -> capsuleService.reschedule(USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().minusMinutes(1), "Asia/Shanghai"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_OPEN_AT_PAST);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("非本人/不存在 → WISH_NOT_FOUND")
+        void reschedule_notOwner_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(buildReschedulable());
+
+            assertThatThrownBy(() -> capsuleService.reschedule(OTHER_USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().plusDays(60), "Asia/Shanghai"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("次数达上限 → WISH_STATUS_CONFLICT")
+        void reschedule_limitExhausted_rejected() {
+            TimeCapsule capsule = buildReschedulable();
+            capsule.setRescheduleCount(3);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+
+            assertThatThrownBy(() -> capsuleService.reschedule(USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().plusDays(60), "Asia/Shanghai"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("非 SEALED 状态（已到期 AVAILABLE）→ WISH_STATUS_CONFLICT")
+        void reschedule_notSealed_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID))
+                    .thenReturn(buildCapsule(CapsuleStatus.AVAILABLE, LocalDateTime.now().plusDays(30)));
+
+            assertThatThrownBy(() -> capsuleService.reschedule(USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().plusDays(60), "Asia/Shanghai"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+
+        @Test
+        @DisplayName("CAS 未命中（并发改期/状态已变）→ WISH_STATUS_CONFLICT")
+        void reschedule_casMiss_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(buildReschedulable());
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> capsuleService.reschedule(USER_ID, CAPSULE_ID,
+                    LocalDateTime.now().plusDays(60), "Asia/Shanghai"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+    }
 }

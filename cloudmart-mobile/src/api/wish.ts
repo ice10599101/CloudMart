@@ -722,7 +722,7 @@ export const wishApi = {
         request<null>({ url: `/wish/wishes/${wishId}/fulfillment`, method: 'DELETE' }),
     /** 胶囊改期（SEALED；次数上限服务端权威；新开启时间须为未来） */
     rescheduleCapsule: (capsuleId: number | string, data: { newOpenAt: string; timezone?: string }) =>
-        request<unknown>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
+        request<CapsuleItem>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
 }
 
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'
