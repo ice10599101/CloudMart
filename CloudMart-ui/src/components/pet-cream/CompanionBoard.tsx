@@ -28,6 +28,7 @@ import {
     sendPetCompanionHeartbeat,
     setPetMemorySettings,
     skipPetOnboarding,
+    updatePetDiaryVisibility,
     stopCompanionSession,
     updatePetNotifyPrefs,
     uploadPetAlbumAsset,
@@ -340,6 +341,21 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         }
     }, [message, myPetId, run])
 
+    /** §7.2 日记可见性 PATCH（expectedVersion CAS，冲突提示刷新） */
+    const toggleDiaryVisibility = useCallback(async (item: PetDiaryEntry, next: 'PUBLIC' | 'OWNER_ONLY') => {
+        if (!item.version) {
+            message.warning('该条目暂不支持切换可见性')
+            return
+        }
+        const res = await run(`diary-vis:${item.id}`, () =>
+            updatePetDiaryVisibility(myPetId, item.id, { visibility: next, expectedVersion: item.version ?? 1 }))
+        if (res?.success) {
+            message.success(next === 'PUBLIC' ? '已设为公开' : '已设为仅自己可见')
+            const { data: relist } = await listPetDiary(myPetId, undefined, 20)
+            if (relist.success) setDiary(relist.data.items)
+        }
+    }, [message, myPetId, run])
+
     const togglePref = useCallback(async (next: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) => {
         // §7.2：带当前 version 做 CAS，冲突提示刷新
         const res = await run('pref', () => updatePetNotifyPrefs({
@@ -485,8 +501,18 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                                     <div className={styles.diaryHead}>
                                         <span className={styles.diaryType}>{item.type}</span>
                                         {item.visibility !== 'PUBLIC' ? (
-                                            <CreamChip color="#8AA5BC">仅自己可见</CreamChip>
-                                        ) : null}
+                                            <button type="button" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}
+                                                title="点击设为公开"
+                                                onClick={() => void toggleDiaryVisibility(item, 'PUBLIC')}>
+                                                <CreamChip color="#8AA5BC">仅自己可见</CreamChip>
+                                            </button>
+                                        ) : (
+                                            <button type="button" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}
+                                                title="点击设为仅自己可见"
+                                                onClick={() => void toggleDiaryVisibility(item, 'OWNER_ONLY')}>
+                                                <CreamChip color="#7E9270">公开</CreamChip>
+                                            </button>
+                                        )}
                                         {item.assetIds && item.assetIds.length > 0 ? (
                                             <CreamChip color="#7E9270">含 {item.assetIds.length} 张照片</CreamChip>
                                         ) : null}

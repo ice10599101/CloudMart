@@ -25,6 +25,7 @@ import {
     claimPetDailyQuest,
     claimPetDailyQuestChest,
     claimPetEvent,
+    claimPetEventOccurrence,
     claimPetStudy,
     claimPetWork,
     claimAllDailyQuests,
@@ -1505,10 +1506,13 @@ function EventsPanel({ onChanged }: { onChanged: () => void }) {
         void load()
     }, [load])
 
-    const claim = useCallback(async (code: string) => {
-        setBusy(code)
+    const claim = useCallback(async (item: PetEventItem) => {
+        setBusy(item.code)
         try {
-            const { data: res } = await claimPetEvent(code)
+            // R33：期次驱动活动按 occurrenceId 领取（历史期次不覆盖）；否则走旧 eventCode 入口
+            const { data: res } = item.occurrenceId
+                ? await claimPetEventOccurrence(item.occurrenceId)
+                : await claimPetEvent(item.code)
             if (res.success) {
                 message.success('活动奖励已领取')
                 await load()
@@ -1541,7 +1545,7 @@ function EventsPanel({ onChanged }: { onChanged: () => void }) {
                     </div>
                     {item.claimable ? (
                         <CreamButton variant="ghost" loading={busy === item.code}
-                            onClick={() => void claim(item.code)}>领取</CreamButton>
+                            onClick={() => void claim(item)}>领取</CreamButton>
                     ) : (
                         <CreamChip color={STAT_TONE.cleanliness}>
                             {item.claimed ? '已领取' : item.expired ? '已过期' : '进行中'}

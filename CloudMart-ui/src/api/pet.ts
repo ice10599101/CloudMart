@@ -1346,6 +1346,8 @@ export interface PetDiaryEntry {
   type: string
   content: string
   visibility: 'PUBLIC' | 'PRIVATE'
+  /** 乐观版本（§7.2 可见性 PATCH CAS） */
+  version?: number
   assetIds: number[] | null
   createdAt: string
 }
