@@ -215,4 +215,27 @@ class GoalPlanServiceTest {
                 .hasFieldOrPropertyWithValue("code", WishErrorCodes.WISH_VALIDATION_ERROR);
         verify(goalMapper, never()).insert(any(WishAiGoal.class));
     }
+
+    @Test
+    @DisplayName("T12 真实环境暴露：description null 归一空串（列 NOT NULL，原实现 SQL 异常）")
+    void createGoal_nullDescription_normalized() {
+        when(goalMapper.selectCount(any())).thenReturn(0L);
+        when(goalMapper.insert(any(WishAiGoal.class))).thenReturn(1);
+
+        var created = service.createGoal(USER_ID, WISH_ID, "无描述步骤", null, null, null, null);
+
+        assertThat(created.getDescription()).isEmpty();
+        ArgumentCaptor<WishAiGoal> captor = ArgumentCaptor.forClass(WishAiGoal.class);
+        verify(goalMapper).insert(captor.capture());
+        assertThat(captor.getValue().getDescription()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("T12 真实环境暴露：标题限长与列宽对齐（100 而非 120，超限 SQL 截断异常）")
+    void createGoal_titleOverColumnWidth_rejected() {
+        assertThatThrownBy(() -> service.createGoal(USER_ID, WISH_ID, "x".repeat(101), null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", WishErrorCodes.WISH_VALIDATION_ERROR);
+        verify(goalMapper, never()).insert(any(WishAiGoal.class));
+    }
 }

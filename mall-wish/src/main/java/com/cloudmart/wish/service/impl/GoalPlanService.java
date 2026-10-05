@@ -70,8 +70,9 @@ public class GoalPlanService {
     public WishAiGoal createGoal(Long userId, Long wishId, String title, String description,
                                  Integer estimatedDays, Integer priority, Integer sortOrder) {
         requireOwnedWish(userId, wishId);
-        if (title == null || title.isBlank() || title.length() > 120) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "目标标题须为1-120字");
+        // T12 真实环境暴露：列宽 title VARCHAR(100)——服务端限长与列对齐
+        if (title == null || title.isBlank() || title.length() > 100) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "目标标题须为1-100字");
         }
         // T12：锁父心愿行后计数——并发创建不能越过 20 步上限
         Wish locked = wishMapper.selectByIdForUpdate(wishId);
@@ -84,11 +85,14 @@ public class GoalPlanService {
         if (count != null && count >= MAX_GOALS_PER_WISH) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "每个心愿最多 20 个步骤");
         }
+        // T12 真实环境暴露：description 列 NOT NULL——null 插入会 SQL 异常（INTERNAL_ERROR）
+        String safeDescription = description == null || description.isBlank()
+                ? "" : description.trim();
         WishAiGoal goal = new WishAiGoal();
         goal.setUserId(userId);
         goal.setWishId(wishId);
         goal.setTitle(title.trim());
-        goal.setDescription(description);
+        goal.setDescription(safeDescription);
         goal.setEstimatedDays(estimatedDays == null ? 7 : estimatedDays);
         goal.setPriority(priority == null ? 3 : priority);
         goal.setSortOrder(sortOrder == null ? (count == null ? 0 : count.intValue()) : sortOrder);
@@ -106,6 +110,9 @@ public class GoalPlanService {
         // T12：Integer 与 Integer 比较（旧 Long.equals(Integer) 恒 false）
         if (version == null || goal.getVersion() == null || !version.equals(goal.getVersion())) {
             throw new BusinessException(WishErrorCodes.WISH_VERSION_CONFLICT, "目标已被并发修改，请刷新");
+        }
+        if (title != null && (title.isBlank() || title.length() > 100)) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "目标标题须为1-100字");
         }
         boolean completing = status == GoalStatus.COMPLETED && goal.getStatus() != GoalStatus.COMPLETED;
         boolean restoring = status != null && status != GoalStatus.COMPLETED
