@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { App, Button, Input, Modal, Select, Skeleton } from 'antd'
+import { App, Button, Input, Modal, Popconfirm, Select, Skeleton } from 'antd'
 import { history } from 'umi'
 import {
   checkFence,
@@ -9,6 +9,8 @@ import {
   listMyWishes,
   listWarmEvents,
   publishWarmEvent,
+  getWarmEventDetail,
+  deleteWarmEvent,
   type MyWishListItem,
   type NearbyWish,
   type MapCluster,
@@ -39,6 +41,10 @@ export default function WishMap() {
   const [warmTitle, setWarmTitle] = useState('')
   const [warmContent, setWarmContent] = useState('')
   const [publishing, setPublishing] = useState(false)
+  // T22：温暖事件详情/撤回（详情脱敏 VO + owned 显隐删除入口）
+  const [warmDetail, setWarmDetail] = useState<WarmEventItem | null>(null)
+  const [warmDetailLoading, setWarmDetailLoading] = useState(false)
+  const [warmDeleting, setWarmDeleting] = useState(false)
   // 围栏打卡（Sprint 3.2：选择自己的心愿 → 提交当前定位 → 到达/未到达提示）
   const [myWishes, setMyWishes] = useState<MyWishListItem[]>([])
   const [checkWishId, setCheckWishId] = useState<number | null>(null)
@@ -169,6 +175,46 @@ export default function WishMap() {
   }
 
   /** 发布温暖事件（坐标来自当前定位，无定位由服务端默认城市兜底） */
+  // T22：温暖事件局部刷新（对齐 useEffect 的定位参数语义）
+  const reloadWarmEvents = (lat?: number, lng?: number) => {
+    listWarmEvents({ lat, lng, radius: 5000 }).then((r) => {
+      if (r.data.success) setWarmEvents(r.data.data ?? [])
+    })
+  }
+
+  const openWarmDetail = async (eventId: number) => {
+    setWarmDetail(null)
+    setWarmDetailLoading(true)
+    try {
+      const res = await getWarmEventDetail(eventId)
+      if (res.data.success) setWarmDetail(res.data.data)
+    } catch {
+      // 已删/隐藏 → 404，列表刷新后消失
+      reloadWarmEvents(userPos?.lat, userPos?.lng)
+    } finally {
+      setWarmDetailLoading(false)
+    }
+  }
+
+  const handleDeleteWarm = async () => {
+    if (!warmDetail) return
+    setWarmDeleting(true)
+    try {
+      const res = await deleteWarmEvent(warmDetail.eventId)
+      if (res.data.success) {
+        message.success('温暖瞬间已撤回')
+        setWarmDetail(null)
+        reloadWarmEvents(userPos?.lat, userPos?.lng)
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      message.warning(msg ?? '删除失败，仅发布者可操作')
+    } finally {
+      setWarmDeleting(false)
+    }
+  }
+
   const handlePublishWarm = async () => {
     if (!warmTitle.trim() || !warmContent.trim()) {
       message.warning('标题和内容都要填写哦')
@@ -264,7 +310,7 @@ export default function WishMap() {
           ) : (
             <div className={styles.listGrid}>
               {warmEvents.slice(0, 6).map((event) => (
-                <div key={event.eventId} className={styles.wishCard}>
+                <div key={event.eventId} className={styles.wishCard} onClick={() => openWarmDetail(event.eventId)}>
                   <p className={styles.wishTitle}>💛 {event.title}</p>
                   <p className={styles.wishMeta}>{event.content}</p>
                 </div>
@@ -308,6 +354,31 @@ export default function WishMap() {
         )}
         {loadingData && <Skeleton active paragraph={{ rows: 4 }} title={false} />}
       </div>
+      {/* T22：温暖事件详情（脱敏 VO；owned 显隐撤回入口） */}
+      <Modal
+        open={warmDetail !== null || warmDetailLoading}
+        title={warmDetail ? `💛 ${warmDetail.title}` : '温暖瞬间'}
+        footer={
+          warmDetail?.owned ? (
+            <Popconfirm title="撤回这条温暖瞬间？" description="撤回后他人不可再见" onConfirm={handleDeleteWarm} okText="撤回" cancelText="取消">
+              <Button danger loading={warmDeleting}>撤回</Button>
+            </Popconfirm>
+          ) : null
+        }
+        onCancel={() => setWarmDetail(null)}
+      >
+        {warmDetailLoading ? (
+          <Skeleton active paragraph={{ rows: 2 }} title={false} />
+        ) : warmDetail ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={{ marginBottom: 0 }}>{warmDetail.content}</p>
+            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+              {warmDetail.createdAt ? new Date(warmDetail.createdAt).toLocaleString('zh-CN') : ''}
+              {warmDetail.owned ? ' · 我发布的' : ''}
+            </span>
+          </div>
+        ) : null}
+      </Modal>
       <Modal
         open={warmOpen}
         title="分享温暖瞬间"

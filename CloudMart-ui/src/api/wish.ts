@@ -1024,6 +1024,8 @@ export interface WarmEventItem {
   cityCode: string | null
   nickname: string | null
   createdAt: string
+  /** T22：是否当前用户发布（详情端点返回；列表恒 false） */
+  owned?: boolean
 }
 
 /** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */

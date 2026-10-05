@@ -27,7 +27,7 @@ public interface WarmMapService {
      * 温暖事件详情（文档 2.20）：仅 isVisible=true 的可公开查看；
      * 不可见/已删 → 404。
      */
-    com.cloudmart.wish.entity.WarmEvent getEventDetail(Long eventId);
+    com.cloudmart.wish.vo.WarmEventVO getEventDetail(Long eventId, Long viewerId);
 
     /**
      * 温暖事件删除（文档 2.20：仅作者软删；管理端删除走审核链路）。

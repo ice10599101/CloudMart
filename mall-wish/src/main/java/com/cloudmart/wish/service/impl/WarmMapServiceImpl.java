@@ -117,12 +117,19 @@ public class WarmMapServiceImpl implements WarmMapService {
     // ---------------- 温暖事件 ----------------
 
     @Override
-    public WarmEvent getEventDetail(Long eventId) {
+    public WarmEventVO getEventDetail(Long eventId, Long viewerId) {
         final WarmEvent event = warmEventMapper.selectById(eventId);
         if (event == null || Boolean.FALSE.equals(event.getIsVisible()) || event.getDeletedAt() != null) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "温暖事件不存在");
         }
-        return event;
+        // 详情与列表同用脱敏 VO（近似坐标），杜绝实体泄漏精确坐标/内部字段；
+        // owned 供前端显隐"仅发布者可删除"入口（后端 deleteEvent 仍强校验归属）
+        double[] cellCenter = GeoHashUtils.decodeCenter(event.getGeohash());
+        double[] offset = GeoHashUtils.deterministicOffset(cellCenter[0], cellCenter[1], event.getId());
+        boolean owned = viewerId != null && viewerId.equals(event.getUserId());
+        return new WarmEventVO(event.getId(), event.getTitle(), event.getContent(),
+                round6(offset[0]), round6(offset[1]), 0, event.getGeohash().substring(0, 6),
+                event.getCityCode(), null, event.getCreatedAt(), owned);
     }
 
     @Override
@@ -166,7 +173,7 @@ public class WarmMapServiceImpl implements WarmMapService {
         double[] offset = GeoHashUtils.deterministicOffset(center[0], center[1], event.getId());
         return new WarmEventVO(event.getId(), safeTitle, safeContent,
                 round6(offset[0]), round6(offset[1]), 0, geohash.substring(0, 6),
-                event.getCityCode(), null, event.getCreatedAt());
+                event.getCityCode(), null, event.getCreatedAt(), false);
     }
 
     @Override
@@ -194,7 +201,7 @@ public class WarmMapServiceImpl implements WarmMapService {
             double[] offset = GeoHashUtils.deterministicOffset(cellCenter[0], cellCenter[1], event.getId());
             result.add(new WarmEventVO(event.getId(), event.getTitle(), event.getContent(),
                     round6(offset[0]), round6(offset[1]), (int) Math.round(distance),
-                    event.getGeohash().substring(0, 6), event.getCityCode(), null, event.getCreatedAt()));
+                    event.getGeohash().substring(0, 6), event.getCityCode(), null, event.getCreatedAt(), false));
         }
         result.sort(Comparator.comparingInt(WarmEventVO::distance));
         return result;

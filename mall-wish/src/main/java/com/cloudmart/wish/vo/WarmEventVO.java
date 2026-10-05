@@ -19,6 +19,8 @@ public record WarmEventVO(
         String geohash6,
         String cityCode,
         String nickname,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "T22：是否当前用户发布（详情端点返回；列表恒 false）") boolean owned
 ) {
 }

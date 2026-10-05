@@ -62,10 +62,13 @@ public class WarmMapController {
     }
 
     @GetMapping("/warm-events/{eventId}")
-    @Operation(summary = "温暖事件详情", description = "仅可见事件；已删/隐藏 → 404")
-    public ApiResponse<com.cloudmart.wish.entity.WarmEvent> warmEventDetail(
+    @Operation(summary = "温暖事件详情", description = "仅可见事件；已删/隐藏 → 404；"
+            + "脱敏 VO（近似坐标）+ owned 标志供前端显隐删除入口")
+    public ApiResponse<com.cloudmart.wish.vo.WarmEventVO> warmEventDetail(
+            @Parameter(description = "当前用户 ID（网关注入）", required = true)
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "事件 ID", required = true) @PathVariable Long eventId) {
-        return ApiResponse.ok(warmMapService.getEventDetail(eventId));
+        return ApiResponse.ok(warmMapService.getEventDetail(eventId, userId));
     }
 
     @DeleteMapping("/warm-events/{eventId}")
