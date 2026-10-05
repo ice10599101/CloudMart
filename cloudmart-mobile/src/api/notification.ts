@@ -14,7 +14,7 @@ export const notificationApi = {
   getList: (params?: { type?: number; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Notification>>({ url: `/notification/notifications${buildQuery(params as Record<string, unknown>)}` }),
   getUnreadCount: () => request<number>({ url: '/notification/notifications/unread-count' }),
-  markRead: (id: number) => request<void>({ url: `/notification/notifications/${id}/read`, method: 'PUT' }),
+  markRead: (id: number | string) => request<void>({ url: `/notification/notifications/${id}/read`, method: 'PUT' }),
   markAllRead: () => request<void>({ url: '/notification/notifications/read-all', method: 'PUT' }),
   getConversations: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Conversation>>({ url: `/notification/conversations${buildQuery(params as Record<string, unknown>)}` }),

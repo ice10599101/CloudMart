@@ -1049,17 +1049,17 @@ export function requestPetRelation(data: { toPetId: number; relType: string; mes
 }
 
 /** 确认关系 */
-export function acceptPetRelation(relationId: number) {
+export function acceptPetRelation(relationId: number | string) {
   return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/accept`)
 }
 
 /** 拒绝关系申请 */
-export function rejectPetRelation(relationId: number) {
+export function rejectPetRelation(relationId: number | string) {
   return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/reject`)
 }
 
 /** 解除关系 */
-export function dissolvePetRelation(relationId: number) {
+export function dissolvePetRelation(relationId: number | string) {
   return request.post<ApiResponse<PetRelationItem>>(`/pet/relations/${relationId}/dissolve`)
 }
 

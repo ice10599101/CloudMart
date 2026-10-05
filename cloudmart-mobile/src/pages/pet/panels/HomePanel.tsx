@@ -245,7 +245,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     run(
                       `v-${neighbor.petId}`,
                       async () => {
-                        const res = await petApi.visitHome(Number(neighbor.petId))
+                        const res = await petApi.visitHome(neighbor.petId)
                         if (res.data.success && res.data.data) {
                           setTip(res.data.data.message)
                         }
@@ -260,7 +260,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                 <Button
                   className={styles.miniBtnGhost}
                   disabled={pending === `l-${neighbor.petId}`}
-                  onClick={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(Number(neighbor.petId)), '点赞成功')}
+                  onClick={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(neighbor.petId), '点赞成功')}
                 >
                   点赞
                 </Button>
@@ -268,7 +268,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                   className={styles.miniBtnGhost}
                   disabled={pending === `fq-${neighbor.petId}`}
                   onClick={() =>
-                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(Number(neighbor.ownerUserId)), '好友申请已发出～')
+                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(neighbor.ownerUserId), '好友申请已发出～')
                   }
                 >
                   加好友

@@ -661,31 +661,31 @@ export const petApi = {
       data: data as unknown as Record<string, unknown>,
     }),
   /** 访问他人家园 */
-  visitHome: (petId: number) => request<PetRoomVisit>({ url: `/pet/home/${petId}` }),
+  visitHome: (petId: number | string) => request<PetRoomVisit>({ url: `/pet/home/${petId}` }),
   /** 给他人房间点赞 */
-  likeHome: (petId: number) => request<PetRoomLike>({ url: `/pet/home/${petId}/like`, method: 'POST' }),
+  likeHome: (petId: number | string) => request<PetRoomLike>({ url: `/pet/home/${petId}/like`, method: 'POST' }),
 
   /** 好友面板 */
   getFriends: () => request<PetFriendPanel>({ url: '/pet/friends' }),
   /** 申请加好友 */
-  requestFriend: (userId: number) => request<PetFriendItem>({ url: `/pet/friends/${userId}`, method: 'POST' }),
+  requestFriend: (userId: number | string) => request<PetFriendItem>({ url: `/pet/friends/${userId}`, method: 'POST' }),
   /** 同意好友申请 */
-  acceptFriend: (userId: number) =>
+  acceptFriend: (userId: number | string) =>
     request<PetFriendItem>({ url: `/pet/friends/${userId}/accept`, method: 'POST' }),
   /** 拒绝好友申请 */
-  rejectFriend: (userId: number) =>
+  rejectFriend: (userId: number | string) =>
     request<PetFriendItem>({ url: `/pet/friends/${userId}/reject`, method: 'POST' }),
   /** 删除好友 */
-  removeFriend: (userId: number) => request<void>({ url: `/pet/friends/${userId}`, method: 'DELETE' }),
+  removeFriend: (userId: number | string) => request<void>({ url: `/pet/friends/${userId}`, method: 'DELETE' }),
   /** 好友互访 */
-  visitFriend: (userId: number) =>
+  visitFriend: (userId: number | string) =>
     request<PetFriendVisitResult>({ url: `/pet/friends/${userId}/visit`, method: 'POST' }),
 
   /** 留言墙分页 */
-  getWall: (petId: number, page = 1, size = 10) =>
+  getWall: (petId: number | string, page = 1, size = 10) =>
     request<PetWallPage>({ url: `/pet/wall/${petId}${buildQuery({ page, size })}` }),
   /** 留言 */
-  postWallMessage: (data: { petId: number; content: string; mood?: string }) =>
+  postWallMessage: (data: { petId: number | string; content: string; mood?: string }) =>
     request<PetWallMessage>({
       url: '/pet/wall/messages',
       method: 'POST',

@@ -13,7 +13,7 @@ function buildQuery(params?: Record<string, unknown>): string {
 export const notificationApi = {
   getList: (params?: { page?: number; pageSize?: number; type?: number }) =>
     request<PaginatedResult<Notification>>({ url: `/notification/notifications${buildQuery(params as Record<string, unknown>)}` }),
-  markRead: (id: number) => request<void>({ url: `/notification/notifications/${id}/read`, method: 'PUT' }),
+  markRead: (id: number | string) => request<void>({ url: `/notification/notifications/${id}/read`, method: 'PUT' }),
   markAllRead: () => request<void>({ url: '/notification/notifications/read-all', method: 'PUT' }),
   getUnreadCount: () => request<number>({ url: '/notification/notifications/unread-count' }),
   getConversations: (params?: { page?: number; pageSize?: number }) =>

@@ -61,7 +61,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
           setBlocks(res.data || [])
         }
       } else {
-        const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
+        const { data: res } = await petApi.getWall(pet.petId, 1, 10)
         if (res.success && res.data) {
           setWall(res.data)
         }
@@ -398,7 +398,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                 run(
                   'post',
                   async () => {
-                    const res = await petApi.postWallMessage({ petId: Number(pet.petId), content: wallInput })
+                    const res = await petApi.postWallMessage({ petId: pet.petId, content: wallInput })
                     if (res.data.success) {
                       setWallInput('')
                     }

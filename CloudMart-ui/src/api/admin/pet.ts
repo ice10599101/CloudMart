@@ -33,7 +33,7 @@ export function upsertPetConfig(configType: PetConfigType, data: Record<string, 
 }
 
 /** 启停/上下架 */
-export function togglePetConfig(configType: PetConfigType, id: number, enabled: boolean) {
+export function togglePetConfig(configType: PetConfigType, id: number | string, enabled: boolean) {
   return request.put<ApiResponse<void>>(`/admin/pet/${configType}/${id}/enabled`, undefined, {
     params: { enabled },
   })
@@ -51,7 +51,7 @@ export function listPetWallMessages(params: {
 }
 
 /** 留言隐藏/恢复/删除（NORMAL / HIDDEN / DELETED） */
-export function updatePetWallMessageStatus(id: number, status: string) {
+export function updatePetWallMessageStatus(id: number | string, status: string) {
   return request.put<ApiResponse<void>>(`/admin/pet/wall/messages/${id}/status`, { status })
 }
 

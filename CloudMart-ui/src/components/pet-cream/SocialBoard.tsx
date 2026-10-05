@@ -239,7 +239,8 @@ export default function SocialBoard({ myPetId, onChanged }: {
         }
     }, [loadRelations, message, relMessage, relTarget, relType, run])
 
-    const handleRelation = useCallback(async (relationId: number, accept: boolean) => {
+    const handleRelation = useCallback(async (relationId: number | string | null, accept: boolean) => {
+        if (relationId == null) return
         const res = await run(`rel-${accept ? 'accept' : 'reject'}:${relationId}`,
             () => (accept ? acceptPetRelation(relationId) : rejectPetRelation(relationId)))
         if (res?.success) {
@@ -248,7 +249,8 @@ export default function SocialBoard({ myPetId, onChanged }: {
         }
     }, [loadRelations, message, run])
 
-    const dissolveRelation = useCallback(async (relationId: number) => {
+    const dissolveRelation = useCallback(async (relationId: number | string | null) => {
+        if (relationId == null) return
         const res = await run(`rel-dissolve:${relationId}`, () => dissolvePetRelation(relationId))
         if (res?.success) {
             message.success('已解除关系')
@@ -547,14 +549,14 @@ export default function SocialBoard({ myPetId, onChanged }: {
                                         <div className={styles.rowActions}>
                                             <CreamButton
                                                 loading={busy === `rel-accept:${item.id}`}
-                                                onClick={() => void handleRelation(Number(item.id), true)}
+                                                onClick={() => void handleRelation(item.id, true)}
                                             >
                                                 同意
                                             </CreamButton>
                                             <CreamButton
                                                 variant="ghost"
                                                 loading={busy === `rel-reject:${item.id}`}
-                                                onClick={() => void handleRelation(Number(item.id), false)}
+                                                onClick={() => void handleRelation(item.id, false)}
                                             >
                                                 拒绝
                                             </CreamButton>
@@ -613,7 +615,7 @@ export default function SocialBoard({ myPetId, onChanged }: {
                                         <CreamButton
                                             variant="ghost"
                                             loading={busy === `rel-dissolve:${item.id}`}
-                                            onClick={() => void dissolveRelation(Number(item.id))}
+                                            onClick={() => void dissolveRelation(item.id)}
                                         >
                                             解除
                                         </CreamButton>

@@ -388,7 +388,7 @@ function ConfigPanel({ def }: { def: ConfigDef }) {
 
   const toggle = async (row: Record<string, unknown>, enabled: boolean) => {
     try {
-      const { data: res } = await togglePetConfig(def.key, Number(row.id), enabled)
+      const { data: res } = await togglePetConfig(def.key, String(row.id), enabled)
       if (res.success) {
         messageApi.success(enabled ? '已启用' : '已停用')
         void load()
@@ -794,7 +794,7 @@ function WallPanel() {
 
   const changeStatus = async (row: Record<string, unknown>, next: string) => {
     try {
-      const { data: res } = await updatePetWallMessageStatus(Number(row.id), next)
+      const { data: res } = await updatePetWallMessageStatus(String(row.id), next)
       if (res.success) {
         messageApi.success('已更新')
         void load()

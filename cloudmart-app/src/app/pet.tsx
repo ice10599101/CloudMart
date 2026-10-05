@@ -1019,7 +1019,7 @@ export default function PetScreen() {
   const markReminderRead = async (item: PetReminder) => {
     if (item.isRead) return
     try {
-      await notificationApi.markRead(Number(item.notificationId))
+      await notificationApi.markRead(item.notificationId)
       setReminders((prev) => prev.map((r) => (r.notificationId === item.notificationId ? { ...r, isRead: true } : r)))
       setReminderUnread((n) => Math.max(0, n - 1))
     } catch {
@@ -2535,7 +2535,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
           setFriends(res.data)
         }
       } else if (tab === 'wall') {
-        const { data: res } = await petApi.getWall(Number(pet.petId), 1, 10)
+        const { data: res } = await petApi.getWall(pet.petId, 1, 10)
         if (res.success && res.data) {
           setWall(res.data)
         }
@@ -2810,7 +2810,7 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
                 run(
                   'post',
                   async () => {
-                    const res = await petApi.postWallMessage({ petId: Number(pet.petId), content: wallInput })
+                    const res = await petApi.postWallMessage({ petId: pet.petId, content: wallInput })
                     if (res.data.success) {
                       setWallInput('')
                     }
@@ -3195,7 +3195,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     run(
                       `v-${neighbor.petId}`,
                       async () => {
-                        const res = await petApi.visitHome(Number(neighbor.petId))
+                        const res = await petApi.visitHome(neighbor.petId)
                         if (res.data.success && res.data.data) {
                           setTip(res.data.data.message)
                         }
@@ -3208,13 +3208,13 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                 <ChipButton
                   label="点赞"
                   disabled={pending === `l-${neighbor.petId}`}
-                  onPress={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(Number(neighbor.petId)), '点赞成功')}
+                  onPress={() => run(`l-${neighbor.petId}`, () => petApi.likeHome(neighbor.petId), '点赞成功')}
                 />
                 <ChipButton
                   label="加好友"
                   disabled={pending === `fq-${neighbor.petId}`}
                   onPress={() =>
-                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(Number(neighbor.ownerUserId)), '好友申请已发出～')
+                    run(`fq-${neighbor.petId}`, () => petApi.requestFriend(neighbor.ownerUserId), '好友申请已发出～')
                   }
                 />
               </View>
@@ -3262,7 +3262,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   const [feedUnread, setFeedUnread] = useState(0)
   const [diary, setDiary] = useState<PetDiaryPage | null>(null)
   const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
-  const [assets, setAssets] = useState<{ id: number; url: string; diaryEntryId: number | null }[]>([])
+  const [assets, setAssets] = useState<{ id: number | string; url: string; diaryEntryId: number | string | null }[]>([])
   const [memories, setMemories] = useState<PetMemory[]>([])
   const [editId, setEditId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -3379,7 +3379,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
       }
       const res = await run('album', () => petApi.uploadAlbumAsset(petId, up.data!.fileId, diaryEntryId))
       if (res?.success && res.data) {
-        setAssets((prev) => [{ id: Number(res.data!.id), url: up.data!.url ?? asset.uri, diaryEntryId: res.data!.diaryEntryId }, ...prev])
+        setAssets((prev) => [{ id: res.data!.id, url: up.data!.url ?? asset.uri, diaryEntryId: res.data!.diaryEntryId }, ...prev])
         Alert.alert('成功', '照片已存入相册')
       }
     } catch {
@@ -3389,7 +3389,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     }
   }, [petId, run])
 
-  const removeAsset = useCallback(async (assetId: number) => {
+  const removeAsset = useCallback(async (assetId: number | string) => {
     const res = await run(`album-del:${assetId}`, () => petApi.deleteAlbumAsset(petId, assetId))
     if (res?.success) setAssets((prev) => prev.filter((item) => item.id !== assetId))
   }, [petId, run])

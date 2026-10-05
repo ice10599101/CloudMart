@@ -875,7 +875,7 @@ export default function PetPage() {
   const markReminderRead = async (item: PetReminder) => {
     if (item.isRead) return
     try {
-      await notificationApi.markRead(Number(item.notificationId))
+      await notificationApi.markRead(item.notificationId)
       setReminders((prev) => prev.map((r) => (r.notificationId === item.notificationId ? { ...r, isRead: true } : r)))
       setReminderUnread((n) => Math.max(0, n - 1))
     } catch (error) {
