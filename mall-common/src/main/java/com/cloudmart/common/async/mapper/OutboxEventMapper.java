@@ -107,4 +107,26 @@ public interface OutboxEventMapper {
 
     @Select("SELECT * FROM outbox_event WHERE event_id = #{eventId}")
     OutboxEventEntity findByEventId(@Param("eventId") String eventId);
+
+    /** T16 异常处理中心：按状态分页（status 空=全部非 SENT；脱敏视图不含 payload） */
+    @Select("""
+            <script>
+            SELECT * FROM outbox_event
+            <where>
+                <choose>
+                    <when test="status != null and status != ''">status = #{status}</when>
+                    <otherwise>status IN ('PENDING', 'SENDING', 'FAILED', 'DEAD_LETTER')</otherwise>
+                </choose>
+            </where>
+            ORDER BY updated_at DESC
+            LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<OutboxEventEntity> selectForOperations(@Param("status") String status,
+                                                @Param("size") int size,
+                                                @Param("offset") int offset);
+
+    /** T16 异常处理中心：状态计数（告警区分"按计划重试"与"死信"） */
+    @Select("SELECT COUNT(*) FROM outbox_event WHERE status = #{status}")
+    long countByStatus(@Param("status") String status);
 }

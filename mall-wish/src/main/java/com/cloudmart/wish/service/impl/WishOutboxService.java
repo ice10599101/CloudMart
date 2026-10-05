@@ -212,6 +212,67 @@ public class WishOutboxService {
                 event.getEventId(), event.getEventType(), attempts, backoff, exMessage(cause));
     }
 
+    // ==================== T16 异常处理中心：运营查询与死信重试 ====================
+
+    /** 脱敏视图行（不含 payload——可能携带私密正文） */
+    public record OutboxTaskView(String eventId, String eventType, String aggregateId,
+                                 String status, Integer attempts, String lastError,
+                                 String createdAt, String updatedAt) {
+    }
+
+    /** 分页查询：status 空=全部非 PUBLISHED */
+    public List<OutboxTaskView> pageForOperations(String status, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int offset = Math.max(page - 1, 0) * safeSize;
+        List<WishOutboxEvent> rows = outboxMapper.selectList(
+                new LambdaQueryWrapper<WishOutboxEvent>()
+                        .ne(WishOutboxEvent::getStatus, "PUBLISHED")
+                        .eq(status != null && !status.isBlank(), WishOutboxEvent::getStatus, status)
+                        .orderByDesc(WishOutboxEvent::getCreatedAt)
+                        .last("LIMIT " + safeSize + " OFFSET " + offset));
+        return rows.stream().map(e -> new OutboxTaskView(
+                e.getEventId(), e.getEventType(),
+                e.getAggregateType() + ":" + e.getAggregateId(),
+                e.getStatus(), e.getAttempts(), null,
+                e.getCreatedAt() == null ? null : e.getCreatedAt().toString(),
+                null)).toList();
+    }
+
+    /** 状态计数 */
+    public Map<String, Long> statsForOperations() {
+        Map<String, Long> stats = new java.util.LinkedHashMap<>();
+        for (String st : List.of("PENDING", "PUBLISHED", "DEAD")) {
+            stats.put(st, outboxMapper.selectCount(
+                    new LambdaQueryWrapper<WishOutboxEvent>()
+                            .eq(WishOutboxEvent::getStatus, st)));
+        }
+        return stats;
+    }
+
+    /**
+     * T16 死信重试：DEAD → PENDING（attempts 归零、清租约）——中继自动按退避重新投递；
+     * 原 eventId/payload 不变（消费端按 eventId 去重，重复投递安全）。
+     */
+    public boolean retryDead(String eventId) {
+        WishOutboxEvent event = outboxMapper.selectById(eventId);
+        if (event == null || !"DEAD".equals(event.getStatus())) {
+            return false;
+        }
+        int updated = outboxMapper.update(null, new LambdaUpdateWrapper<WishOutboxEvent>()
+                .eq(WishOutboxEvent::getEventId, eventId)
+                .eq(WishOutboxEvent::getStatus, "DEAD")
+                .set(WishOutboxEvent::getStatus, "PENDING")
+                .set(WishOutboxEvent::getAttempts, 0)
+                .set(WishOutboxEvent::getNextAttemptAt, LocalDateTime.now(ZoneId.of("UTC")))
+                .set(WishOutboxEvent::getLeaseOwner, null)
+                .set(WishOutboxEvent::getLeaseUntil, null));
+        if (updated == 1) {
+            log.info("[T16] 死信重试受理 eventId={} type={}（原 eventId/payload 不变）",
+                    eventId, event.getEventType());
+        }
+        return updated == 1;
+    }
+
     private static String exMessage(Exception cause) {
         return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
     }

@@ -175,6 +175,7 @@ export default defineConfig({
         { path: '/admin/community/notifications', component: '@/pages/admin/community/Notifications' },
         { path: '/admin/community/review', component: '@/pages/admin/community/Review' },
         { path: '/admin/community/chat', component: '@/pages/admin/community/Chat' },
+        { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },
         { path: '/admin/monitor/cache', component: '@/pages/admin/monitor/Cache' },
