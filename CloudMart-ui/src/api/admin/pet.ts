@@ -416,3 +416,91 @@ export function listPetConfigGovernanceHistory(params: { configType: string; con
 export function rollbackPetConfigGovernance(data: { configType: string; configId: number | string; version: number }) {
   return request.post<ApiResponse<void>>('/admin/pet/config-governance/rollback', data)
 }
+
+// ==================== 批次 A–C2 管理端新契约（§8.2：期次分段控制/任务回执/对账差异处置） ====================
+
+/** 活动期次（R33）：窗口/领奖截止/奖励快照 + V66 分段控制时刻 */
+export interface AdminPetEventOccurrence {
+  id: number | string
+  eventCode: string
+  occurrenceIndex: number
+  startAt: string
+  endAt: string
+  claimDeadlineAt: string
+  rewardSnapshot: string | null
+  status: 'ACTIVE' | 'CLOSED'
+  countingStoppedAt: string | null
+  claimStoppedAt: string | null
+}
+
+export function listPetEventOccurrences(code: string) {
+  return request.get<ApiResponse<AdminPetEventOccurrence[]>>(
+    `/admin/pet/configs/events/${encodeURIComponent(code)}/occurrences`)
+}
+
+export function publishPetEventOccurrence(
+  code: string,
+  data: { startAt: string; endAt: string; graceHours?: number },
+) {
+  return request.post<ApiResponse<AdminPetEventOccurrence>>(
+    `/admin/pet/configs/events/${encodeURIComponent(code)}/occurrences`, data)
+}
+
+export function stopPetEventOccurrenceCounting(id: number | string) {
+  return request.post<ApiResponse<void>>(`/admin/pet/configs/event-occurrences/${id}/stop-counting`)
+}
+
+export function stopPetEventOccurrenceClaim(id: number | string) {
+  return request.post<ApiResponse<void>>(`/admin/pet/configs/event-occurrences/${id}/stop-claim`)
+}
+
+export function closePetEventOccurrence(id: number | string) {
+  return request.post<ApiResponse<void>>(`/admin/pet/configs/event-occurrences/${id}/close`)
+}
+
+/** 任务事件回执（R32）：APPLIED 已计入 / SKIPPED_STALE 可重放补算 */
+export interface AdminPetQuestReceipt {
+  id: number | string
+  userId: number | string
+  petId: number | string
+  questCode: string
+  eventId: string
+  sourceTime: string
+  businessDate: string
+  amount: number
+  status: 'APPLIED' | 'SKIPPED_STALE'
+}
+
+export function listPetQuestReceipts(params: {
+  userId?: number | string
+  questCode?: string
+  status?: string
+  page?: number
+  size?: number
+} = {}) {
+  return request.get<ApiResponse<{ records?: AdminPetQuestReceipt[]; total?: number }>>(
+    '/admin/pet/quests/receipts', { params })
+}
+
+export function replayPetQuestReceipt(id: number | string) {
+  return request.post<ApiResponse<AdminPetQuestReceipt>>(`/admin/pet/quests/receipts/${id}/replay`)
+}
+
+/** 取消某日任务实例（§8.2 受审计命令：reason 必填；CLAIMED 拒绝） */
+export function cancelPetQuestInstance(
+  petId: number | string, questDate: string, questCode: string, reason: string,
+) {
+  return request.post<ApiResponse<unknown>>(
+    `/admin/pet/quests/instances/${petId}/${questDate}/${encodeURIComponent(questCode)}/cancel`,
+    { reason })
+}
+
+/** 对账差异处置（§8.2：记录结论，不直接改账本） */
+export function listPetReconciliationDiffs(runId: number | string, status?: string) {
+  return request.get<ApiResponse<Record<string, unknown>[]>>(
+    `/admin/pet/wallet/reconciliations/${runId}/diffs`, { params: status ? { status } : {} })
+}
+
+export function resolvePetReconciliationDiff(id: number | string, data: { note: string; resolutionRef?: string }) {
+  return request.post<ApiResponse<unknown>>(`/admin/pet/wallet/reconciliation-diffs/${id}/resolve`, data)
+}

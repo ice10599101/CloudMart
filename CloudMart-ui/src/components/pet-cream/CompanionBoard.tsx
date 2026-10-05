@@ -341,11 +341,16 @@ export default function CompanionBoard({ myPetId, onChanged }: {
     }, [message, myPetId, run])
 
     const togglePref = useCallback(async (next: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) => {
-        const res = await run('pref', () => updatePetNotifyPrefs(next))
-        if (res?.success) {
-            setPref(res.data)
+        // §7.2：带当前 version 做 CAS，冲突提示刷新
+        const res = await run('pref', () => updatePetNotifyPrefs({
+            ...next,
+            expectedVersion: pref?.version,
+        }))
+        if (res?.success && pref) {
+            setPref({ ...pref, ...res.data })
+            message.success('通知偏好已更新')
         }
-    }, [run])
+    }, [pref, run])
 
     const skipOnboarding = useCallback(async () => {
         const res = await run('onboarding', () => skipPetOnboarding())

@@ -52,11 +52,17 @@ import {
   getPetReports,
   getUserPets,
   listPetConfigs,
+  listPetEventOccurrences,
   listPetWallMessages,
+  publishPetEventOccurrence,
   resolvePetReport,
+  stopPetEventOccurrenceClaim,
+  stopPetEventOccurrenceCounting,
+  closePetEventOccurrence,
   togglePetConfig,
   updatePetWallMessageStatus,
   upsertPetConfig,
+  type AdminPetEventOccurrence,
   type AdminPetReport,
   type AdminUserPet,
   type PetConfigType,
@@ -321,6 +327,8 @@ const PET_MANAGE_CSS = `
 function ConfigPanel({ def }: { def: ConfigDef }) {
   const [messageApi, contextHolder] = message.useMessage()
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  // R33：社区活动面板的期次管理弹层（发布/停止计数/停止领奖/关闭）
+  const [occurrenceCode, setOccurrenceCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
@@ -402,7 +410,7 @@ function ConfigPanel({ def }: { def: ConfigDef }) {
     },
     {
       title: '操作',
-      width: 160,
+      width: 210,
       render: (_: unknown, row) => (
         <Space>
           <Button type="link" size="small" onClick={() => openEditor(row)}>
@@ -416,6 +424,11 @@ function ConfigPanel({ def }: { def: ConfigDef }) {
               {row.enabled ? '停用' : '启用'}
             </Button>
           </Popconfirm>
+          {def.key === 'configs/events' && (
+            <Button type="link" size="small" onClick={() => setOccurrenceCode(String(row.code ?? ''))}>
+              期次
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -480,7 +493,146 @@ function ConfigPanel({ def }: { def: ConfigDef }) {
           </Row>
         </Form>
       </Modal>
+      {occurrenceCode !== null && (
+        <OccurrenceModal code={occurrenceCode} onClose={() => setOccurrenceCode(null)} />
+      )}
     </div>
+  )
+}
+
+/** R33/V66 活动期次管理弹层：发布新期次 + 分段控制（停止计数/停止领奖/关闭） */
+function OccurrenceModal({ code, onClose }: { code: string; onClose: () => void }) {
+  const [messageApi, contextHolder] = message.useMessage()
+  const [rows, setRows] = useState<AdminPetEventOccurrence[]>([])
+  const [loading, setLoading] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [acting, setActing] = useState<string | null>(null)
+  const [form] = Form.useForm()
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await listPetEventOccurrences(code)
+      if (res.success) setRows(res.data ?? [])
+    } finally {
+      setLoading(false)
+    }
+  }, [code])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const publish = async () => {
+    const values = await form.validateFields()
+    setPublishing(true)
+    try {
+      const { data: res } = await publishPetEventOccurrence(code, values)
+      if (res.success) {
+        messageApi.success(`已发布第 ${res.data?.occurrenceIndex} 期`)
+        form.resetFields()
+        await load()
+      } else {
+        messageApi.error(res.error?.message ?? '发布失败')
+      }
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const act = async (id: number | string, action: 'stop-counting' | 'stop-claim' | 'close', label: string) => {
+    setActing(`${action}:${id}`)
+    try {
+      const caller = action === 'close' ? closePetEventOccurrence
+        : action === 'stop-counting' ? stopPetEventOccurrenceCounting
+          : stopPetEventOccurrenceClaim
+      const { data: res } = await caller(id)
+      if (res.success) {
+        messageApi.success(`${label}成功`)
+        await load()
+      } else {
+        messageApi.error(res.error?.message ?? `${label}失败`)
+      }
+    } finally {
+      setActing(null)
+    }
+  }
+
+  return (
+    <Modal title={`活动期次 · ${code}`} open onCancel={onClose} footer={null} width={860} destroyOnClose>
+      {contextHolder}
+      <Card size="small" title="发布新期次" style={{ marginBottom: 16 }}>
+        <Form form={form} layout="inline" initialValues={{ graceHours: 24 }}>
+          <Form.Item name="startAt" label="窗口开始" rules={[{ required: true, message: '必填' }]}>
+            <Input placeholder="2026-10-05T00:00:00" style={{ width: 200 }} />
+          </Form.Item>
+          <Form.Item name="endAt" label="窗口结束" rules={[{ required: true, message: '必填' }]}>
+            <Input placeholder="2026-10-06T00:00:00" style={{ width: 200 }} />
+          </Form.Item>
+          <Form.Item name="graceHours" label="领奖宽限(h)">
+            <InputNumber min={1} max={168} style={{ width: 100 }} />
+          </Form.Item>
+          <Button type="primary" loading={publishing} onClick={() => void publish()}>
+            发布
+          </Button>
+        </Form>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          时间为 UTC（ISO 串）；奖励快照按当前配置冻结；同一活动同时至多一个进行中期次
+        </Text>
+      </Card>
+      <Table
+        rowKey={(r) => String(r.id)}
+        size="small"
+        loading={loading}
+        pagination={false}
+        dataSource={rows}
+        columns={[
+          { title: '期号', dataIndex: 'occurrenceIndex', width: 70 },
+          { title: '窗口开始', dataIndex: 'startAt', width: 160 },
+          { title: '窗口结束', dataIndex: 'endAt', width: 160 },
+          { title: '领奖截止', dataIndex: 'claimDeadlineAt', width: 160 },
+          {
+            title: '状态',
+            dataIndex: 'status',
+            width: 150,
+            render: (v: string, row) => (
+              <Space size={4}>
+                <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag>
+                {row.countingStoppedAt && <Tag color="orange">已停计数</Tag>}
+                {row.claimStoppedAt && <Tag color="red">已停领奖</Tag>}
+              </Space>
+            ),
+          },
+          {
+            title: '操作',
+            key: 'ops',
+            width: 240,
+            render: (_, row) =>
+              row.status === 'ACTIVE' ? (
+                <Space size={4}>
+                  {!row.countingStoppedAt && (
+                    <Button size="small" loading={acting === `stop-counting:${row.id}`}
+                      onClick={() => void act(row.id, 'stop-counting', '停止计数')}>
+                      停止计数
+                    </Button>
+                  )}
+                  {!row.claimStoppedAt && (
+                    <Button size="small" danger loading={acting === `stop-claim:${row.id}`}
+                      onClick={() => void act(row.id, 'stop-claim', '停止领奖')}>
+                      停止领奖
+                    </Button>
+                  )}
+                  <Popconfirm title="确认关闭该期次？" onConfirm={() => void act(row.id, 'close', '关闭')}>
+                    <Button size="small" danger>关闭</Button>
+                  </Popconfirm>
+                </Space>
+              ) : (
+                <span style={{ color: '#999' }}>—</span>
+              ),
+          },
+        ]}
+      />
+    </Modal>
   )
 }
 

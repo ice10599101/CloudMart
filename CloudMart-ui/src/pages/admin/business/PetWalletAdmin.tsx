@@ -25,6 +25,7 @@ import {
   listPetWalletReconciliations,
   listPetWalletTransactions,
   rejectPetWalletAdjustment,
+  resolvePetReconciliationDiff,
   runPetWalletReconciliation,
   unfreezePetWalletAccount,
   type AdminPetWalletAccount,
@@ -333,10 +334,30 @@ function ReconciliationsTab() {
     void load()
   }, [load])
 
+  const [resolving, setResolving] = useState<number | string | null>(null)
+
   const openRun = async (runId: number | string) => {
     setSelectedRun(runId)
     const { data }: { data: ApiResponse<Record<string, unknown>[]> } = await getPetWalletReconciliation(runId)
     setItems(data.data ?? [])
+  }
+
+  // §8.2：差异处置——记录调查结论/关联补偿单号并置 RESOLVED；不直接改账本
+  const resolveDiff = async (item: Record<string, unknown>) => {
+    const note = window.prompt('处置结论（调查说明或关联补偿单号，必填）')
+    if (!note || !note.trim()) return
+    setResolving(item.id as number | string)
+    try {
+      const { data } = await resolvePetReconciliationDiff(item.id as number | string, { note: note.trim() })
+      if (data.success) {
+        message.success('已记录处置结论')
+        await openRun(selectedRun as number | string)
+      } else {
+        message.error(data.error?.message ?? '处置失败')
+      }
+    } finally {
+      setResolving(null)
+    }
   }
 
   const runColumns: ColumnsType<Record<string, unknown>> = [
@@ -370,9 +391,42 @@ function ReconciliationsTab() {
           {items.length === 0 ? (
             <Empty description="无差异" />
           ) : (
-            <pre style={{ maxHeight: 320, overflow: 'auto', fontSize: 12 }}>
-              {JSON.stringify(items, null, 2)}
-            </pre>
+            <Table
+              rowKey={(r) => String(r.id)}
+              pagination={false}
+              dataSource={items}
+              columns={[
+                { title: '账户', dataIndex: 'accountId', width: 180, render: (v) => String(v) },
+                { title: '期望余额', dataIndex: 'expectedBalance', width: 120 },
+                { title: '实际余额', dataIndex: 'actualBalance', width: 120 },
+                {
+                  title: '差异',
+                  dataIndex: 'diff',
+                  width: 100,
+                  render: (v: number) => (Number(v) !== 0 ? <Tag color="red">{v}</Tag> : <Tag>{v}</Tag>),
+                },
+                { title: '状态', dataIndex: 'status', width: 110 },
+                { title: '处置结论', dataIndex: 'resolutionNote', ellipsis: true },
+                {
+                  title: '操作',
+                  key: 'resolve',
+                  width: 120,
+                  render: (_, record) =>
+                    record.status === 'OPEN' ? (
+                      <Button
+                        size="small"
+                        danger
+                        loading={resolving === record.id}
+                        onClick={() => void resolveDiff(record)}
+                      >
+                        处置
+                      </Button>
+                    ) : (
+                      <span style={{ color: '#999' }}>已处置</span>
+                    ),
+                },
+              ]}
+            />
           )}
         </Card>
       )}

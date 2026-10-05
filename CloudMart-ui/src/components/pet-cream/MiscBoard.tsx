@@ -16,6 +16,7 @@ import {
     getPetAnniversaries,
     getPetBattle,
     getPetShareCard,
+    listMyPetReports,
     listPetActivities,
     listPetBattleHistory,
     listPetBlocks,
@@ -23,6 +24,7 @@ import {
     unblockPetUser,
     type PetAnniversary,
     type PetBattleItem,
+    type PetReportMine,
     type PetShareCard,
 } from '@/api/pet'
 import type { ApiResponse } from '@/types/api'
@@ -99,6 +101,7 @@ export default function MiscBoard({ onChanged }: { onChanged?: () => void }) {
     const [activities, setActivities] = useState<ActivityRow[] | null>(null)
 
     const [blocks, setBlocks] = useState<number[] | null>(null)
+    const [myReports, setMyReports] = useState<PetReportMine[] | null>(null)
     const [blockInput, setBlockInput] = useState('')
     const [reportType, setReportType] = useState('WALL_MESSAGE')
     const [reportTargetId, setReportTargetId] = useState('')
@@ -148,6 +151,14 @@ export default function MiscBoard({ onChanged }: { onChanged?: () => void }) {
         }
     }, [])
 
+    const loadMyReports = useCallback(async () => {
+        const res = await run('my-reports', () => listMyPetReports())
+        if (res?.success) {
+            setMyReports(res.data ?? [])
+        }
+    }, [run])
+
+
     useEffect(() => {
         if (tab === 'anniversary' && anniversary === null) {
             void loadAnniversary()
@@ -161,8 +172,11 @@ export default function MiscBoard({ onChanged }: { onChanged?: () => void }) {
         if (tab === 'safety' && blocks === null) {
             void loadBlocks()
         }
+        if (tab === 'safety' && myReports === null) {
+            void loadMyReports()
+        }
     }, [activities, anniversary, blocks, history, loadActivities, loadAnniversary,
-        loadBlocks, loadHistory, tab])
+        loadBlocks, loadHistory, loadMyReports, myReports, tab])
 
     const loadShare = useCallback(async (type: ShareType) => {
         setShare(null)
@@ -236,9 +250,12 @@ export default function MiscBoard({ onChanged }: { onChanged?: () => void }) {
         if (res?.success) {
             setReportTargetId('')
             setReportReason('')
-            message.success('已提交，管理员会处理')
+            message.success(res.data?.deduped
+                ? '该对象已有待处理的举报，无需重复提交'
+                : '已提交，管理员会处理')
+            void loadMyReports()
         }
-    }, [message, reportReason, reportTargetId, reportType, run])
+    }, [loadMyReports, message, reportReason, reportTargetId, reportType, run])
 
     const milestoneText = (daysToGo: number): string => {
         if (daysToGo === 0) {
@@ -522,6 +539,24 @@ export default function MiscBoard({ onChanged }: { onChanged?: () => void }) {
                                     提交
                                 </CreamButton>
                             </div>
+                        </div>
+                        <div className={styles.block}>
+                            <p className={styles.blockTitle}>我的举报</p>
+                            <p className={styles.blockDesc}>仅展示处理状态与公开说明，不公开对方资料</p>
+                            {myReports === null ? <Spin /> : myReports.length === 0 ? (
+                                <p className={styles.empty}>还没有提交过举报</p>
+                            ) : myReports.map(item => (
+                                <div key={item.reportId} className={styles.row}>
+                                    <div className={styles.rowMain}>
+                                        <p className={styles.rowTitle}>
+                                            {REPORT_TYPES.find(t => t.value === item.targetType)?.label ?? item.targetType}
+                                            #{item.targetId} · {item.status === 'PENDING' ? '待处理'
+                                                : item.status === 'HANDLED' ? '已处理' : '已驳回'}
+                                        </p>
+                                        <p className={styles.blockDesc}>{item.handleReason ?? item.reason}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </>
                 )

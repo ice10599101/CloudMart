@@ -583,6 +583,9 @@ export interface PetEventItem {
   startsAt: string | null
   endsAt: string | null
   claimedAt: string | null
+  /** R33：期次驱动活动返回（null=配置直读兼容路径） */
+  occurrenceId?: string | null
+  claimDeadlineAt?: string | null
 }
 
 /** 串门邻居 */
@@ -1427,20 +1430,26 @@ export function clearPetMemories(petId: number | string) {
 
 /** 记忆设置读取（R03/T11：先 GET 再编辑，不得以默认值覆盖服务端已关闭设置） */
 export function getPetMemorySettings(petId: number | string) {
-  return request.get<ApiResponse<{ extract: boolean; use: boolean }>>(`/pet/pets/${petId}/memory-settings`)
+  return request.get<ApiResponse<{ extract: boolean; use: boolean; version: number }>>(`/pet/pets/${petId}/memory-settings`)
 }
 
-/** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文，二者独立） */
-export function setPetMemorySettings(petId: number | string, data: { extract: boolean; use: boolean }) {
-  return request.put<ApiResponse<{ extract: boolean; use: boolean }>>(`/pet/pets/${petId}/memory-settings`, data)
+/** 记忆开关（§7.2：expectedVersion CAS，冲突 409；先 GET 再编辑） */
+export function setPetMemorySettings(
+  petId: number | string,
+  data: { extract: boolean; use: boolean; expectedVersion?: number },
+) {
+  return request.put<ApiResponse<{ extract: boolean; use: boolean; version: number }>>(
+    `/pet/pets/${petId}/memory-settings`, data)
 }
 
-/** 通知偏好（B19：免打扰/日常问候；仅影响日常 proactive 问候） */
+/** 通知偏好（B19：免打扰/日常问候；§7.2 响应含乐观 version） */
 export interface PetNotifyPref {
   id: number
   userId: number
   muteDailyGreeting: boolean
   dailyGreetingEnabled: boolean
+  /** 乐观版本（PUT expectedVersion CAS） */
+  version?: number
   createdAt: string
   updatedAt: string
 }
@@ -1449,8 +1458,13 @@ export function getPetNotifyPrefs() {
   return request.get<ApiResponse<PetNotifyPref>>('/pet/notify-settings')
 }
 
-export function updatePetNotifyPrefs(data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) {
-  return request.put<ApiResponse<PetNotifyPref>>('/pet/notify-settings', data)
+export function updatePetNotifyPrefs(data: {
+  muteDailyGreeting: boolean
+  dailyGreetingEnabled: boolean
+  expectedVersion?: number
+}) {
+  return request.put<ApiResponse<{ muteDailyGreeting: boolean; dailyGreetingEnabled: boolean; version: number }>>(
+    '/pet/notify-settings', data)
 }
 
 // ==================== 已有能力的补口（拉黑列表 / 待应战 / 一键领取 / 停止陪伴 / 装备预览） ====================
@@ -1577,9 +1591,15 @@ export function blockPetUser(blockedUserId: number | string) {
   return request.post<ApiResponse<void>>(`/pet/blocks/${blockedUserId}`)
 }
 
-/** 举报用户/内容（宠物社交场景） */
-export function reportPetTarget(data: { targetType: string; targetId: number | string; reason: string }) {
-  return request.post<ApiResponse<void>>('/pet/reports', data)
+/** 举报用户/内容（§7.2：deduped=true 表示同对象已有待审举报，未新建） */
+export function reportPetTarget(data: {
+  targetType: string
+  targetId: number | string
+  reason: string
+  description?: string
+}) {
+  return request.post<ApiResponse<{ reportId: number | string; status: string; deduped: boolean }>>(
+    '/pet/reports', data)
 }
 
 /** 全部宠物提醒标记已读 */
@@ -1606,4 +1626,151 @@ export interface PetAnniversary {
 
 export function getPetAnniversaries() {
   return request.get<ApiResponse<PetAnniversary>>('/pet/me/anniversaries')
+}
+
+// ==================== 批次 A–C2 新契约（§7.2：聚合读端/批量领取/期次/任务集/举报进度） ====================
+
+/** 启动聚合快照（§7.2）：无宠物返回空 pets 不抛错；明细列表走各既有端点 */
+export interface PetBootstrap {
+  serverNow: string
+  businessDate: string
+  nextResetAt: string
+  activePetId: number | string | null
+  pets: Array<{ petId: number | string; name: string; level: number; isActive: boolean }>
+  selectedPet: {
+    petId: number | string
+    name: string
+    level: number
+    version: number
+    isActive: boolean
+    intimacy: number
+    companionSeconds: number
+    todayCompanionSeconds: number
+    weak: boolean
+    sick: boolean
+  } | null
+  walletSummary: { currency: string; balance: number | string; status: string } | null
+  capabilities: Record<string, boolean>
+  quotas: Record<string, number>
+  actionAvailability: { busy: boolean; canFeed: boolean; canPlay: boolean; canWallPost: boolean }
+  pendingOperations: { pendingActivityClaims: number; receivedInvites: number }
+}
+
+export function getPetBootstrap(petId?: number | string) {
+  return request.get<ApiResponse<PetBootstrap>>('/pet/bootstrap', { params: petId ? { petId } : {} })
+}
+
+/** 活动中心聚合摘要（§7.2）：明细按需加载既有端点 */
+export interface PetActivityCenterSummary {
+  serverNow: string
+  businessDate: string
+  accountBusyActivity: { activity: boolean; custody: boolean }
+  selectedPetActivity: {
+    activityId: number | string
+    activityType: string
+    status: string
+    startedAt: string
+    finishedAt: string
+  } | null
+  pendingClaimsCount: number
+  dailySetSummary: {
+    questDate: string
+    completedCount: number
+    claimedCount: number
+    totalCount: number
+    chestClaimable: boolean
+  } | null
+  eventSummary: { totalCount: number; claimableCount: number; claimableCodes: string[] } | null
+  cooperationSummary: { participated: boolean; cooperationId?: number | string; status?: string; role?: string } | null
+}
+
+export function getPetActivityCenter(petId?: number | string) {
+  return request.get<ApiResponse<PetActivityCenterSummary>>('/pet/activity-center', { params: petId ? { petId } : {} })
+}
+
+/** 批量领取结果单项终态（§7.2：不忽略单项失败） */
+export interface PetClaimBatchItem {
+  activityId: number | string
+  status: 'CLAIMED' | 'ALREADY_CLAIMED' | 'NOT_READY' | 'FAILED'
+  activity?: unknown
+  errorCode?: string
+  message?: string
+}
+
+export function claimPetActivitiesBatch(activityIds: Array<number | string>) {
+  return request.post<ApiResponse<PetClaimBatchItem[]>>('/pet/activities/claim-batch', { activityIds })
+}
+
+/** 我的举报（R05：公开处置摘要，不含内部审核字段） */
+export interface PetReportMine {
+  reportId: number | string
+  targetType: string
+  targetId: number | string
+  reason: string
+  description: string | null
+  status: string
+  handleAction: string | null
+  handleReason: string | null
+  createdAt: string | null
+  handledAt: string | null
+}
+
+export function listMyPetReports() {
+  return request.get<ApiResponse<PetReportMine[]>>('/pet/reports/mine')
+}
+
+/** 聊天请求状态查询（R22 意图恢复：UNKNOWN/PROCESSING/SUCCEEDED/FAILED） */
+export interface PetChatRequestStatus {
+  status: 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN'
+  canRetry: boolean
+  reply: PetChatMessage | null
+}
+
+export function getPetChatRequestStatus(requestKey: string) {
+  return request.get<ApiResponse<PetChatRequestStatus>>(`/pet/chat/requests/${encodeURIComponent(requestKey)}`)
+}
+
+/** 日记可见性编辑（§7.2：expectedVersion CAS；visibility 取 PUBLIC/OWNER_ONLY，旧 PRIVATE 兼容映射） */
+export function updatePetDiaryVisibility(
+  petId: number | string,
+  entryId: number | string,
+  data: { visibility: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
+) {
+  return request.put<ApiResponse<{ entryId: number | string; visibility: string; version: number }>>(
+    `/pet/pets/${petId}/diary/${entryId}`, data)
+}
+
+/** 相册条目编辑（§7.2：caption/visibility 部分更新 + expectedVersion CAS；审核通过前 PUBLIC 拒绝） */
+export function updatePetAlbumAsset(
+  petId: number | string,
+  assetId: number | string,
+  data: { caption?: string; visibility?: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
+) {
+  return request.put<ApiResponse<unknown>>(`/pet/pets/${petId}/album/${assetId}`, data)
+}
+
+/** 限时活动列表（R33 扩展：status 过滤；期次驱动活动带 occurrenceId/claimDeadlineAt） */
+export function listPetEventsByStatus(status: 'AVAILABLE' | 'CLAIMABLE' | 'HISTORY') {
+  return request.get<ApiResponse<PetEventItem[]>>('/pet/events', { params: { status } })
+}
+
+/** 按期次领取活动奖励（R33：uk(petId, occurrenceId) 唯一领奖事实） */
+export function claimPetEventOccurrence(occurrenceId: number | string) {
+  return request.post<ApiResponse<PetEventItem>>(`/pet/event-occurrences/${occurrenceId}/claim`)
+}
+
+/** 任务集路由（R32：setId=当日 questDate；与按 code/当日路径同一服务幂等语义） */
+export function claimPetQuestInSet(setId: string, questId: string) {
+  return request.put<ApiResponse<PetDailyQuestItem>>(
+    `/pet/daily-quest-sets/${encodeURIComponent(setId)}/quests/${encodeURIComponent(questId)}/claim`)
+}
+
+export function claimAllPetQuestsInSet(setId: string) {
+  return request.post<ApiResponse<PetClaimAllResult>>(
+    `/pet/daily-quest-sets/${encodeURIComponent(setId)}/claim-all`)
+}
+
+export function claimPetQuestChestInSet(setId: string) {
+  return request.post<ApiResponse<PetDailyQuestPanel>>(
+    `/pet/daily-quest-sets/${encodeURIComponent(setId)}/chest/claim`)
 }
