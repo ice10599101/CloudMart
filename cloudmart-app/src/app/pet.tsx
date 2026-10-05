@@ -3401,9 +3401,12 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   }, [petId, run])
 
   const togglePref = useCallback(async (next: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) => {
-    const res = await run('pref', () => petApi.updateNotifyPrefs(next))
-    if (res?.success && res.data) setPref(res.data)
-  }, [run])
+    // §7.2：带当前 version 做 CAS，冲突由错误链路提示
+    const res = await run('pref', () => petApi.updateNotifyPrefs({ ...next, expectedVersion: pref?.version }))
+    if (res?.success && res.data && pref) {
+      setPref({ ...pref, ...res.data })
+    }
+  }, [pref, run])
 
   const skipOnboarding = useCallback(async () => {
     const res = await run('onboarding', () => petApi.skipOnboarding())
