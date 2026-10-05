@@ -81,7 +81,9 @@ public class PetInteractionController {
             + "nextAvailableAt/rewardRemainingToday；客户端按钮禁用与文案依据，服务端权威")
     @SentinelResource("PET_QUERY")
     public ApiResponse<List<PetActionVO>> actions(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(interactionService.actions(userId));
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId) {
+        // PET-06/T08：使用路径 petId（校验归属后返回指定宠物的动作口径），不再忽略回退主宠
+        return ApiResponse.ok(interactionService.actions(userId, petId));
     }
 }

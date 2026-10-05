@@ -119,6 +119,7 @@ class PetBottleFishingServiceImplTest {
                 bottleRecordMapper, petMapper, settlementService, properties, petClock, stateService,
                 new PetActivityMutex(activityMapper,
                         org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetCustodyRecordMapper.class),
+                        org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class),
                         org.mockito.Mockito.mock(PetCustodyCareTxWorker.class)));
         // 无装备/技能时战斗属性 = 宠物基础属性（与改造前成功率口径一致）
         lenient().when(statsService.combatStats(any())).thenAnswer(invocation -> {

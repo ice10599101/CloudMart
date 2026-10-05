@@ -41,4 +41,7 @@ public interface PetInteractionService {
 
     /** 动作可执行性查询（B06 统一动作 DTO）：allowed/reasonCode/reasonText/nextAvailableAt/rewardRemainingToday */
     List<PetActionVO> actions(Long userId);
+
+    /** PET-06：按指定宠物查询动作可执行性（归属校验；忙碌类为账号级判定） */
+    List<PetActionVO> actions(Long userId, Long petId);
 }

@@ -432,7 +432,17 @@ public class PetInteractionServiceImpl implements PetInteractionService {
 
     @Override
     public List<PetActionVO> actions(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+        return actions(userId, petService.requireOwnedPet(userId).getId());
+    }
+
+    @Override
+    public List<PetActionVO> actions(Long userId, Long petId) {
+        // PET-06/T08：按路径 petId 查询指定宠物（归属校验），属性条件取该宠物；
+        // 忙碌/休息为账号级状态，仍按 userId 判定
+        Pet pet = petMapper.selectById(petId);
+        if (pet == null || !pet.getUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能查看自己宠物的动作");
+        }
         PetProperties.Interaction cfg = properties.getInteraction();
         boolean busy = hasBusyActivity(userId);
         List<PetActionVO> result = new ArrayList<>();

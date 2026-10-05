@@ -216,6 +216,7 @@ public class PetBootstrapService {
         Map<String, Object> busy = new HashMap<>();
         busy.put("activity", activityMutex.hasBusyActivity(userId));
         busy.put("custody", activityMutex.hasActiveCustody(userId));
+        busy.put("minigame", activityMutex.hasActiveMinigameRound(userId));
         return busy;
     }
 
@@ -278,15 +279,16 @@ public class PetBootstrapService {
     private Map<String, Object> eventSummary(Long userId) {
         try {
             List<com.cloudmart.pet.vo.PetEventVO> events = eventService.events(userId);
-            List<String> claimableCodes = events.stream()
+            // PET-06：计数在截断前计算（原先 limit(10) 再 size，>10 个待领被低估）；
+            // 明细列表仍截断展示
+            List<String> claimableAll = events.stream()
                     .filter(event -> Boolean.TRUE.equals(event.claimable()))
                     .map(com.cloudmart.pet.vo.PetEventVO::code)
-                    .limit(10)
                     .toList();
             Map<String, Object> summary = new HashMap<>();
             summary.put("totalCount", events.size());
-            summary.put("claimableCount", claimableCodes.size());
-            summary.put("claimableCodes", claimableCodes);
+            summary.put("claimableCount", claimableAll.size());
+            summary.put("claimableCodes", claimableAll.size() > 10 ? claimableAll.subList(0, 10) : claimableAll);
             return summary;
         } catch (Exception e) {
             log.warn("bootstrap 活动摘要降级: userId={}", userId, e);

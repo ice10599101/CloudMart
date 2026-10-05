@@ -26,6 +26,7 @@ public class PetActivityMutex {
 
     private final PetActivityMapper activityMapper;
     private final PetCustodyRecordMapper custodyMapper;
+    private final com.cloudmart.pet.repository.PetMinigameRoundMapper minigameRoundMapper;
     /** PET-08：互斥判定前先把用户已到期的托管幂等收尾（不要求先打开托管状态页） */
     private final PetCustodyCareTxWorker custodyCareTxWorker;
 
@@ -44,6 +45,17 @@ public class PetActivityMutex {
     }
 
     /**
+     * PET-06/T09：该用户是否有进行中的小游戏局（对称互斥）——仅未到期局阻塞；
+     * 到期残留局由小游戏服务的惰性结算收尾，不永久阻塞其他玩法。
+     */
+    public boolean hasActiveMinigameRound(Long userId) {
+        return minigameRoundMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetMinigameRound>()
+                .eq(com.cloudmart.pet.entity.PetMinigameRound::getUserId, userId)
+                .eq(com.cloudmart.pet.entity.PetMinigameRound::getStatus, "ACTIVE")
+                .gt(com.cloudmart.pet.entity.PetMinigameRound::getDeadlineAt, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))) > 0;
+    }
+
+    /**
      * 开始长期活动前的互斥复验（R12：工作/读书/职业/捞瓶/休息与托管互斥）。
      * 必须在用户守卫锁/事务内调用——锁内重读，并发开始只有一个能通过。
      * PET-08：到期 ACTIVE 托管先结算收尾再判互斥——"到期后直接打工可成功"，
@@ -58,6 +70,11 @@ public class PetActivityMutex {
         if (hasActiveCustody(userId)) {
             throw new BusinessException(PetErrorCodes.PET_USER_BUSY,
                     "宠物正在托管中，托管与任务不能同时进行");
+        }
+        // PET-06/T09：小游戏进行中不开工作/学习/托管——原实现只有小游戏→其他方向的互斥
+        if (hasActiveMinigameRound(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_USER_BUSY,
+                    "小游戏进行中，等这局结束再开始其他任务吧");
         }
     }
 }

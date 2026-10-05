@@ -71,7 +71,8 @@ class PetCustodyCareServiceTest {
                 org.mockito.Mockito.mock(PetActivityMutex.class), txWorker);
         mutex = new PetActivityMutex(
                 org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetActivityMapper.class),
-                custodyMapper, txWorker);
+                custodyMapper,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class), txWorker);
         lenient().when(custodyMapper.update(any(), any())).thenReturn(1);
         lenient().when(custodyMapper.updateById(any(PetCustodyRecord.class))).thenReturn(1);
         lenient().when(petMapper.update(any(), any())).thenReturn(1);
@@ -94,7 +95,8 @@ class PetCustodyCareServiceTest {
                 org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetActivityMapper.class);
         when(activityMapper.selectCount(any())).thenReturn(0L);
         when(custodyMapper.selectCount(any())).thenReturn(0L);
-        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper, txWorker);
+        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class), txWorker);
 
         assertThatCode(() -> realMutex.requireFree(100L)).doesNotThrowAnyException();
     }
@@ -174,11 +176,46 @@ class PetCustodyCareServiceTest {
         when(activityMapper.selectCount(any())).thenReturn(0L);
         when(custodyMapper.selectOne(any())).thenReturn(expired);
         when(custodyMapper.selectCount(any())).thenReturn(0L);
-        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper, txWorker);
+        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class), txWorker);
 
         assertThatCode(() -> realMutex.requireFree(100L)).doesNotThrowAnyException();
         // 到期托管已被收尾（照顾 + CAS ENDED）
         verify(custodyMapper).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("PET-06/T09：小游戏进行中拒绝开始其他互斥玩法（对称互斥）")
+    void mutexRejectsActiveMinigameRound() {
+        com.cloudmart.pet.repository.PetActivityMapper activityMapper =
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetActivityMapper.class);
+        when(activityMapper.selectCount(any())).thenReturn(0L);
+        when(custodyMapper.selectCount(any())).thenReturn(0L);
+        when(custodyMapper.selectOne(any())).thenReturn(null);
+        com.cloudmart.pet.repository.PetMinigameRoundMapper minigameMapper =
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class);
+        when(minigameMapper.selectCount(any())).thenReturn(1L);
+        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper, minigameMapper, txWorker);
+
+        assertThatThrownBy(() -> realMutex.requireFree(100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_USER_BUSY);
+    }
+
+    @Test
+    @DisplayName("PET-06/T09：小游戏无进行中局 → 互斥放行")
+    void mutexAllowsWithoutMinigameRound() {
+        com.cloudmart.pet.repository.PetActivityMapper activityMapper =
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetActivityMapper.class);
+        when(activityMapper.selectCount(any())).thenReturn(0L);
+        when(custodyMapper.selectCount(any())).thenReturn(0L);
+        when(custodyMapper.selectOne(any())).thenReturn(null);
+        com.cloudmart.pet.repository.PetMinigameRoundMapper minigameMapper =
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMinigameRoundMapper.class);
+        when(minigameMapper.selectCount(any())).thenReturn(0L);
+        PetActivityMutex realMutex = new PetActivityMutex(activityMapper, custodyMapper, minigameMapper, txWorker);
+
+        assertThatCode(() -> realMutex.requireFree(100L)).doesNotThrowAnyException();
     }
 
     @Test
