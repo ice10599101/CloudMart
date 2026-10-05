@@ -560,14 +560,7 @@ export const wishApi = {
     listWarmEvents: (params?: { lat?: number; lng?: number; radius?: number; cityCode?: string }) =>
         request<WarmEventItem[]>({ url: `/wish/map/warm-events${buildQuery(params as Record<string, unknown>)}` }),
 
-    // ---- 擦肩而过（Sprint 3.3）----
-    /** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
-    setNearbyMode: (enabled: boolean) =>
-        request<null>({ url: '/wish/map/nearby-mode', method: 'POST', data: { enabled } }),
-    getNearbyModeStatus: () => request<boolean>({ url: '/wish/map/nearby-mode' }),
-    /** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
-    reportTrace: (lat: number, lng: number) =>
-        request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } }),
+    // ---- 擦肩而过（Sprint 3.3）——产品已下线（信笺被漂流瓶替代），端点 410，封装已移除 ----
 
     // ---- 漂流瓶（Sprint，契约对齐 mall-wish DriftBottleController）----
     /** 可关联心愿候选（近 20 个自己发布的公开进行中心愿，投瓶下拉用） */

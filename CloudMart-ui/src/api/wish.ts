@@ -1047,20 +1047,7 @@ export function listWarmEvents(params: { lat?: number; lng?: number; radius?: nu
 
 // ========== 擦肩而过·附近模式（Sprint 3.3，契约对齐 mall-wish EncounterController；信笺用户侧已由漂流瓶替代） ==========
 
-/** 附近模式开关（开启后客户端每 5 分钟上报；关闭立即生效） */
-export function setNearbyMode(enabled: boolean) {
-  return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })
-}
-
-/** 附近模式状态查询（刷新后回显） */
-export function getNearbyMode() {
-  return request.get<ApiResponse<boolean>>('/wish/map/nearby-mode')
-}
-
-/** 轨迹上报（坐标转 geohash6 入 Redis；伪造检测/限频在服务端） */
-export function reportTrace(lat: number, lng: number) {
-  return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })
-}
+// 擦肩而过（附近模式/轨迹上报/信笺）产品已下线（信笺被漂流瓶替代），端点 410，封装已移除
 
 // ========== 漂流瓶（契约对齐 mall-wish DriftBottleController） ==========
 
