@@ -1,5 +1,6 @@
 package com.cloudmart.pet.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.pet.entity.PetPersonaPhrase;
 import com.cloudmart.pet.repository.PetPersonaPhraseMapper;
@@ -37,24 +38,44 @@ public class PetPersonaPhraseService {
     private record CachedPhrases(Map<String, String> phrases, long expiresAtNanos) {
     }
 
-    /** 保存（管理端 upsert：按性格 uk，存在即更新） */
-    public void save(String personality, String phrase) {
-        int updated = phraseMapper.update(null, new LambdaUpdateWrapper<PetPersonaPhrase>()
-                .set(PetPersonaPhrase::getPhrase, phrase)
-                .eq(PetPersonaPhrase::getPersonality, personality));
-        if (updated == 0) {
+    /**
+     * 保存（管理端 upsert：按性格 uk，存在即更新）；
+     *
+     * @return 行主键（PET-20：审计快照定位真实行，不再以 0 占位——原实现用未注册类型
+     *         +0 主键调快照，写入成功而接口必然失败）
+     */
+    public Long save(String personality, String phrase) {
+        Long rowId;
+        PetPersonaPhrase existing = phraseMapper.selectOne(new LambdaQueryWrapper<PetPersonaPhrase>()
+                .eq(PetPersonaPhrase::getPersonality, personality)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            phraseMapper.update(null, new LambdaUpdateWrapper<PetPersonaPhrase>()
+                    .set(PetPersonaPhrase::getPhrase, phrase)
+                    .eq(PetPersonaPhrase::getId, existing.getId()));
+            rowId = existing.getId();
+        } else {
             PetPersonaPhrase row = new PetPersonaPhrase();
             row.setPersonality(personality);
             row.setPhrase(phrase);
             try {
                 phraseMapper.insert(row);
+                rowId = row.getId();
             } catch (org.springframework.dao.DuplicateKeyException e) {
+                PetPersonaPhrase concurrent = phraseMapper.selectOne(new LambdaQueryWrapper<PetPersonaPhrase>()
+                        .eq(PetPersonaPhrase::getPersonality, personality)
+                        .last("LIMIT 1"));
+                if (concurrent == null) {
+                    throw new IllegalStateException("口头禅并发保存失败: " + personality);
+                }
                 phraseMapper.update(null, new LambdaUpdateWrapper<PetPersonaPhrase>()
                         .set(PetPersonaPhrase::getPhrase, phrase)
-                        .eq(PetPersonaPhrase::getPersonality, personality));
+                        .eq(PetPersonaPhrase::getId, concurrent.getId()));
+                rowId = concurrent.getId();
             }
         }
         invalidate();
+        return rowId;
     }
 
     /** 管理端保存后调用：本实例即时生效（其他实例靠 TTL 收敛） */

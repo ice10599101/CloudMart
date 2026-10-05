@@ -36,6 +36,7 @@ public class PetConfigGovernanceService {
             Map.entry("skill", "pet_skill_config"), Map.entry("evolution", "pet_evolution_config"),
             Map.entry("event", "pet_event_config"), Map.entry("daily_quest", "pet_daily_quest_config"),
             Map.entry("sensitive_word", "pet_content_sensitive_word"),
+            Map.entry("persona_phrase", "pet_persona_phrase"),
             // F5：宠物数值调整快照留痕（调整写后快照进 pet_config_version 审计）
             Map.entry("pet", "pet"),
             Map.entry("pet_season", "pet_season"),
@@ -267,6 +268,17 @@ public class PetConfigGovernanceService {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "配置行不存在");
         }
         return PetJsonUtils.toJson(rows.get(0));
+    }
+
+    /**
+     * PET-20/T45：删除类配置的原子审计——删除前读 beforeSnapshot，删除与版本登记同事务提交；
+     * 删除后行为不可达（修复原实现"先删后查快照必然失败"）。快照即删除 tombstone（删除前终值）。
+     */
+    @Transactional
+    public void deleteAndRecord(String configType, Long configId, String operator, Runnable deletion) {
+        String before = snapshotRow(configType, configId);
+        deletion.run();
+        record(configType, configId, before, operator);
     }
 
     /** 发布快照（B21）：upsert 成功后调用，版本 = 历史最大 +1 */

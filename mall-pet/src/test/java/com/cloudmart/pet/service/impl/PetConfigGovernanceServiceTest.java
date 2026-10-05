@@ -63,4 +63,31 @@ class PetConfigGovernanceServiceTest {
                 .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
         verify(jdbcTemplate, never()).update(anyString(), (Object[]) any());
     }
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-20/T45：删除类配置先取 beforeSnapshot 再删除，tombstone 登记同批")
+    void deleteAndRecordSnapshotsBeforeDeletion() {
+        var versionMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
+        var jdbcTemplate = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate);
+        org.mockito.Mockito.when(versionMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of());
+        org.mockito.Mockito.when(versionMapper.insert(org.mockito.ArgumentMatchers.any(
+                        com.cloudmart.pet.entity.PetConfigVersion.class))).thenReturn(1);
+        org.mockito.Mockito.when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(java.util.List.of(java.util.Map.of("id", 7L, "word", "badword")));
+        java.util.List<String> events = new java.util.ArrayList<>();
+
+        service.deleteAndRecord("sensitive_word", 7L, "operator-a",
+                () -> events.add("deleted"));
+
+        // 先快照后删除（删除时行已快照留档），且版本登记以删除前终值为 tombstone
+        org.assertj.core.api.Assertions.assertThat(events).containsExactly("deleted");
+        org.mockito.ArgumentCaptor<com.cloudmart.pet.entity.PetConfigVersion> saved =
+                org.mockito.ArgumentCaptor.forClass(com.cloudmart.pet.entity.PetConfigVersion.class);
+        org.mockito.Mockito.verify(versionMapper).insert(saved.capture());
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getSnapshot()).contains("badword");
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getConfigId()).isEqualTo(7L);
+    }
+
 }

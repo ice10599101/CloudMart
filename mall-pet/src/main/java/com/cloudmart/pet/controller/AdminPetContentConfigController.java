@@ -404,12 +404,11 @@ public class AdminPetContentConfigController {
     @Operation(summary = "删除敏感词", description = "词库条目物理删除（非业务数据，重加同词不冲突）")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> deleteSensitiveWord(@PathVariable("id") Long id) {
-        if (sensitiveWordMapper.selectById(id) == null) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "敏感词不存在");
-        }
-        sensitiveWordMapper.deleteById(id);
-        governance.snapshotAndRecord("sensitive_word", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // PET-20/T45：删除前取 beforeSnapshot，删除与审计同事务（原实现先删后查快照必然失败，
+        // 删除成功而接口报错）
+        governance.deleteAndRecord("sensitive_word", id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> sensitiveWordMapper.deleteById(id));
         contentSafetyService.refresh();
         return ApiResponse.ok(null);
     }
@@ -530,8 +529,10 @@ public class AdminPetContentConfigController {
         if (phrase.isEmpty() || phrase.length() > 64) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "口头禅需 1~64 字");
         }
-        personaPhraseService.save(request.personality(), phrase);
-        governance.snapshotAndRecord("persona_phrase", 0L,
+        // PET-20/T45：快照定位真实行主键并注册类型（原实现 ("persona_phrase", 0L) 未注册类型，
+        // 保存成功后快照必失败，接口报错但短语已生效）
+        Long phraseRowId = personaPhraseService.save(request.personality(), phrase);
+        governance.snapshotAndRecord("persona_phrase", phraseRowId,
                 com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(null);
     }
