@@ -1,6 +1,7 @@
 package com.cloudmart.common.async.outbox;
 
 import com.cloudmart.common.async.mapper.OutboxEventMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import lombok.RequiredArgsConstructor;
 
 import java.util.LinkedHashMap;
@@ -18,7 +19,16 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OutboxOperationsService {
 
-    private final OutboxEventMapper outboxEventMapper;
+    /** 惰性解析：装配条件为 OutboxDelivery 存在（非 mapper 类型匹配），mapper 缺失时方法级明确失败 */
+    private final ObjectProvider<OutboxEventMapper> outboxEventMapper;
+
+    private OutboxEventMapper mapper() {
+        OutboxEventMapper mapper = outboxEventMapper.getIfAvailable();
+        if (mapper == null) {
+            throw new IllegalStateException("OutboxEventMapper 未装配（本模块未接入 outbox 存储）");
+        }
+        return mapper;
+    }
 
     /** 脱敏视图行（不含 payload） */
     public record OutboxTaskView(String eventId, String eventType, String aggregateId,
@@ -31,7 +41,7 @@ public class OutboxOperationsService {
         int safeSize = Math.min(Math.max(size, 1), 100);
         int offset = Math.max(page - 1, 0) * safeSize;
         String st = status == null || status.isBlank() ? null : status.toUpperCase();
-        List<OutboxEventEntity> rows = outboxEventMapper.selectForOperations(st, safeSize, offset);
+        List<OutboxEventEntity> rows = mapper().selectForOperations(st, safeSize, offset);
         return rows.stream().map(this::toView).toList();
     }
 
@@ -39,7 +49,7 @@ public class OutboxOperationsService {
     public Map<String, Long> stats() {
         Map<String, Long> stats = new LinkedHashMap<>();
         for (String status : List.of("PENDING", "SENDING", "FAILED", "DEAD_LETTER")) {
-            stats.put(status, outboxEventMapper.countByStatus(status));
+            stats.put(status, mapper().countByStatus(status));
         }
         return stats;
     }
@@ -49,11 +59,11 @@ public class OutboxOperationsService {
      * 重试受理不等于投递成功——投递仍由 OutboxPublisher 按退避执行。
      */
     public boolean retryDeadLetter(String eventId) {
-        OutboxEventEntity event = outboxEventMapper.findByEventId(eventId);
+        OutboxEventEntity event = mapper().findByEventId(eventId);
         if (event == null || !"DEAD_LETTER".equals(event.getStatus())) {
             return false;
         }
-        return outboxEventMapper.retryDeadLetter(event.getId()) == 1;
+        return mapper().retryDeadLetter(event.getId()) == 1;
     }
 
     private OutboxTaskView toView(OutboxEventEntity e) {

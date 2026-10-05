@@ -1,6 +1,7 @@
 package com.cloudmart.order.controller;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.async.outbox.OutboxOperationsService;
 import com.cloudmart.common.async.outbox.OutboxOperationsService.OutboxTaskView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,7 +30,15 @@ import java.util.Map;
 @PreAuthorize("hasRole('INTERNAL')")
 public class AdminOperationsController {
 
-    private final OutboxOperationsService outboxOperationsService;
+        private final org.springframework.beans.factory.ObjectProvider<OutboxOperationsService> outboxOperationsProvider;
+
+    private OutboxOperationsService operations() {
+        OutboxOperationsService svc = outboxOperationsProvider.getIfAvailable();
+        if (svc == null) {
+            throw new BusinessException("DEPENDENCY_UNAVAILABLE", "异常处理中心服务未装配");
+        }
+        return svc;
+    }
 
     @GetMapping("/outbox")
     @Operation(summary = "失败任务分页", description = "T16：status 空=全部非 SENT；视图不含 payload（脱敏）")
@@ -37,18 +46,18 @@ public class AdminOperationsController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        List<OutboxTaskView> records = outboxOperationsService.page(status, page, size);
+        List<OutboxTaskView> records = operations().page(status, page, size);
         return ApiResponse.ok(Map.of(
                 "records", records,
                 "total", records.size(),
-                "stats", outboxOperationsService.stats()));
+                "stats", operations().stats()));
     }
 
     @PostMapping("/outbox/{eventId}/retry")
     @Operation(summary = "重试死信", description = "T16：仅 DEAD_LETTER 可重试（attempts 归零重新投递）；"
             + "受理≠成功，重复点击幂等")
     public ApiResponse<Map<String, Object>> retry(@PathVariable String eventId) {
-        boolean accepted = outboxOperationsService.retryDeadLetter(eventId);
+        boolean accepted = operations().retryDeadLetter(eventId);
         return ApiResponse.ok(Map.of("eventId", eventId, "accepted", accepted));
     }
 }
