@@ -173,6 +173,82 @@ jobs:
         if: failure()
         run: echo "::error::dir=${{ matrix.dir }} node=$(node --version) npm=$(npm --version) 上一步失败，见上方日志"
 
+  migration-gate:
+    name: Flyway 迁移门禁（各服务独立库：空库全量 + 存量续跑）
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: gate
+          MYSQL_DATABASE: gate_probe
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pgate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: 盘点迁移目录（T26：迁移门禁必须覆盖全部服务）
+        run: |
+          count=$(find mall-*/src/main/resources/db/migration -name 'V*.sql' 2>/dev/null | wc -l)
+          echo "迁移文件总数: $count"
+          if [ "$count" -lt 100 ]; then
+            echo "::error::迁移文件异常稀少（$count < 100），盘点逻辑或目录结构变化"; exit 1
+          fi
+      # T26 第 4 点：每服务独立库 + 独立 Flyway history——
+      # a) 空库全量 migrate（V1→head）；b) 先 migrate 到次末版本模拟存量库，再续跑到 head
+      # （等价于真实发布的滚动升级路径）；两条路径都要求 validate-on-migrate 通过。
+      - name: 空库全量迁移（每服务独立库）
+        run: |
+          set -e
+          for dir in mall-*/src/main/resources/db/migration; do
+            mod=$(echo "$dir" | cut -d/ -f1)
+            db="gate_${mod//[-.]/_}"
+            docker run --rm --network host \
+              -v "$PWD/$dir":/flyway/sql:ro \
+              flyway/flyway:11-alpine \
+              -url="jdbc:mysql://127.0.0.1:3306/${db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true" \
+              -user=root -password=gate \
+              -connectRetries=10 \
+              migrate
+            echo "::notice::${mod} 空库全量迁移通过"
+          done
+      - name: 存量库续跑迁移（次末版本 → head）
+        run: |
+          set -e
+          fail=0
+          for dir in mall-*/src/main/resources/db/migration; do
+            mod=$(echo "$dir" | cut -d/ -f1)
+            db="gate2_${mod//[-.]/_}"
+            url="jdbc:mysql://127.0.0.1:3306/${db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true"
+            last=$(ls "$dir" | grep -oE '^V[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
+            prev=$(ls "$dir" | grep -oE '^V[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -2 | head -1)
+            if [ -z "$prev" ]; then
+              echo "::notice::${mod} 仅 1 个版本，跳过续跑路径"
+              continue
+            fi
+            fly() {
+              docker run --rm --network host \
+                -v "$PWD/$dir":/flyway/sql:ro \
+                flyway/flyway:11-alpine \
+                -url="$url" -user=root -password=gate -connectRetries=10 "$@"
+            }
+            if ! fly -target="$prev" migrate; then
+              echo "::error::${mod} 迁移到次末版本 V${prev} 失败"; fail=1; continue
+            fi
+            if ! fly migrate; then
+              echo "::error::${mod} 存量库 V${prev} → V${last} 续跑失败"; fail=1; continue
+            fi
+            echo "::notice::${mod} 存量续跑路径通过（V${prev} → V${last}）"
+          done
+          exit $fail
+      - name: 失败摘要
+        if: failure()
+        run: echo "::error::迁移门禁失败：定位失败服务后修正迁移（禁止 repair 掩盖 checksum/冲突）"
+
   guards:
     name: 仓库守门（路由策略 + 密钥扫描）
     runs-on: ubuntu-latest

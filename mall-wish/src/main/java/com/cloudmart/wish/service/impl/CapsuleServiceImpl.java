@@ -52,6 +52,9 @@ public class CapsuleServiceImpl implements CapsuleService {
     static final int SCAN_BATCH_SIZE = 500;
     /** 自定义开启时间上界（文档边界：最大 10 年） */
     static final Duration MAX_OPEN_AHEAD = Duration.ofDays(3650);
+
+    /** T22：改期次数上限默认值（V61 列 DEFAULT 同源；存量 null 行按此兜底） */
+    static final int DEFAULT_RESCHEDULE_LIMIT = 3;
     /** 到期判定容差：openAt 恰为当前时刻视为到期（含=） */
     private static final int PAGE_SIZE_DEFAULT = 20;
     private static final int PAGE_SIZE_MAX = 50;
@@ -86,6 +89,10 @@ public class CapsuleServiceImpl implements CapsuleService {
         capsule.setOpenAt(request.openAt());
         capsule.setOpenAtTimezone(timezone);
         capsule.setStatus(CapsuleStatus.SEALED);
+        // 显式初始化改期计数（与 V61 列 DEFAULT 对齐）：MP insert 不回填库端默认值，
+        // 缺失会让创建响应与三端"已用 X/Y 次"显示 null
+        capsule.setRescheduleCount(0);
+        capsule.setRescheduleLimit(DEFAULT_RESCHEDULE_LIMIT);
         timeCapsuleMapper.insert(capsule);
 
         log.info("胶囊创建成功, capsuleId={}, userId={}, openAt={}", capsule.getId(), userId, capsule.getOpenAt());
@@ -115,7 +122,7 @@ public class CapsuleServiceImpl implements CapsuleService {
         if (capsule.getStatus() != com.cloudmart.wish.enums.CapsuleStatus.SEALED) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅封存中的胶囊可改期");
         }
-        int limit = capsule.getRescheduleLimit() == null ? 3 : capsule.getRescheduleLimit();
+        int limit = capsule.getRescheduleLimit() == null ? DEFAULT_RESCHEDULE_LIMIT : capsule.getRescheduleLimit();
         int used = capsule.getRescheduleCount() == null ? 0 : capsule.getRescheduleCount();
         if (used >= limit) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT,

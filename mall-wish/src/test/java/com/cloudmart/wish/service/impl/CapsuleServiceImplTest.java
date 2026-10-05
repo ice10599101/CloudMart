@@ -123,6 +123,8 @@ class CapsuleServiceImplTest {
             assertThat(vo.content()).as("非 OPENED 状态内容恒不返回（防绕过）").isNull();
             assertThat(vo.mediaUrls()).isNull();
             assertThat(vo.openAtTimezone()).isEqualTo("Asia/Shanghai");
+            assertThat(vo.rescheduleCount()).as("创建响应改期计数须回填（前端展示依据）").isZero();
+            assertThat(vo.rescheduleLimit()).isEqualTo(3);
             verify(timeCapsuleMapper).insert(org.mockito.ArgumentMatchers
                     .<TimeCapsule>argThat(c ->
                             "SEALED".equals(c.getStatus().name())
