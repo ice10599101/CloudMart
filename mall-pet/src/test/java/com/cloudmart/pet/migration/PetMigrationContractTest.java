@@ -61,7 +61,7 @@ class PetMigrationContractTest {
             failed.next();
             assertThat(failed.getInt(1)).as("失败的迁移数").isZero();
             head.next();
-            assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(66);
+            assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(67);
         }
     }
 
