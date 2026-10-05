@@ -6,6 +6,11 @@ spring:
     name: mall-admin
   main:
     allow-bean-definition-overriding: true
+  servlet:
+    multipart:
+      # T27：管理端 Excel 导入上传上限（Spring 默认 1MB 对批量导入偏紧且错误体验差）
+      max-file-size: 20MB
+      max-request-size: 20MB
   config:
     import:
       - optional:nacos:mall-admin.yml?refreshEnabled=true
