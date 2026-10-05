@@ -32,8 +32,7 @@ public class PetCooperation {
     private java.time.LocalDateTime inviteExpiresAt;
     private java.time.LocalDateTime acceptedAt;
     /** 双方贡献计数 JSON: {inviter:n, invitee:n} */
-    private String contributions;
-    private java.time.LocalDateTime endedAt;;
+    private java.time.LocalDateTime endedAt;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

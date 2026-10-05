@@ -158,7 +158,6 @@ public class PetCooperationService {
         cooperation.setInviteeUserId(inviteeUserId);
         cooperation.setStatus("INVITED");
         cooperation.setInviteExpiresAt(petClock.nowUtc().plusHours(24));
-        cooperation.setContributions(PetJsonUtils.toJson(Map.of("inviter", 0, "invitee", 0)));
         try {
             cooperationMapper.insert(cooperation);
         } catch (DuplicateKeyException e) {
@@ -282,14 +281,17 @@ public class PetCooperationService {
         // 后提交者的 COUNT 可见先提交者的记录，队伍必达 COMPLETED（T65）
         Long inviterId = cooperation.getInviterUserId();
         Long inviteeId = cooperation.getInviteeUserId();
-        if (userId < (inviteeId != null ? inviteeId : userId)) {
-            guardService.lockGuard(userId);
-            guardService.lockGuard(inviterId);
-            guardService.lockGuard(inviteeId);
-        } else {
-            guardService.lockGuard(inviteeId);
-            guardService.lockGuard(inviterId);
-            guardService.lockGuard(userId);
+        lockGuardsAscending(userId, inviterId, inviteeId);
+        // PET-16：锁内重读队伍——占用守卫锁前读到的快照可能已被并发接受/退出/周流转改变，
+        // 重新校验"本周 ACTIVE 且本人在队"再计贡献
+        cooperation = cooperationMapper.selectOne(new LambdaQueryWrapper<PetCooperation>()
+                .eq(PetCooperation::getStatus, "ACTIVE")
+                .eq(PetCooperation::getWeekStart, currentWeekStart)
+                .and(w -> w.eq(PetCooperation::getInviterUserId, userId)
+                        .or().eq(PetCooperation::getInviteeUserId, userId))
+                .last("LIMIT 1"));
+        if (cooperation == null) {
+            return;
         }
         LocalDate today = petClock.businessDate();
         PetCooperationContribution contribution = new PetCooperationContribution();
@@ -315,6 +317,22 @@ public class PetCooperationService {
                     .set(PetCooperation::getStatus, "COMPLETED")
                     .eq(PetCooperation::getId, cooperation.getId())
                     .eq(PetCooperation::getStatus, "ACTIVE"));
+        }
+    }
+
+    /**
+     * PET-16/T39：全体相关用户守卫按 userId 数值升序加锁（去重）——原实现邀请者 A→B、
+     * 被邀请者 B→A，双方同时贡献形成经典死锁条件；全局升序后任意调用方向一致。
+     */
+    private void lockGuardsAscending(Long... userIds) {
+        java.util.TreeSet<Long> lockOrder = new java.util.TreeSet<>();
+        for (Long id : userIds) {
+            if (id != null) {
+                lockOrder.add(id);
+            }
+        }
+        for (Long id : lockOrder) {
+            guardService.lockGuard(id);
         }
     }
 

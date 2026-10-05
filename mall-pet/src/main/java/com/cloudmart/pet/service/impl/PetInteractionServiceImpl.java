@@ -191,6 +191,14 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         pet.setStatus(PetStatus.IDLE.name());
         pet.setHungerFrac(0.0);
         recordInstantActivity(pet, PetActivityType.FEED, 0);
+        // PET-16/T40：物品喂养与免费喂养按同一"有效照顾"事实计合作贡献（eventId 同口径，
+        // 同宠同日两种喂养只计一次贡献，与免费喂养去重规则一致）
+        try {
+            companionFeatureService.recordStep(userId, "FEED");
+            cooperationService.recordContribution(userId, "FEED:" + pet.getId() + ":" + petClock.nowUtc().toLocalDate());
+        } catch (Exception e) {
+            log.warn("物品喂养辅助钩子失败（不阻断）: userId={}", userId, e);
+        }
         intimacyService.gain(pet, PetIntimacySource.FEED);
         dailyQuestService.record(pet, PetQuestType.FEED, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.FEED);
