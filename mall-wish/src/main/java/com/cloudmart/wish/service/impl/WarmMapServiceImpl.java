@@ -141,10 +141,12 @@ public class WarmMapServiceImpl implements WarmMapService {
         if (!event.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_AUTHOR, "仅发布者可删除");
         }
-        final WarmEvent update = new WarmEvent();
-        update.setId(eventId);
-        update.setDeletedAt(LocalDateTime.now(ZoneId.of("UTC")));
-        warmEventMapper.updateById(update);
+        // 逻辑删除字段由 MP 全局配置接管：setDeletedAt 经 updateById 会被排除出 SET，
+        // 必须走 deleteById 生成 SET deleted_at=NOW()；affected=0 说明已删/不存在
+        int affected = warmEventMapper.deleteById(eventId);
+        if (affected == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "温暖事件不存在");
+        }
     }
 
     @Override

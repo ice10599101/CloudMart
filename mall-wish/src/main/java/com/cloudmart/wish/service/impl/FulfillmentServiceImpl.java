@@ -283,11 +283,16 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         if (fulfillment == null) {
             throw new BusinessException(WishErrorCodes.WISH_FULFILLMENT_NOT_FOUND, "还愿记录不存在");
         }
-        // 软删保留审计；心愿状态保持 FULFILLED（历史事实不回退）
-        fulfillment.setDeletedAt(java.time.LocalDateTime.now());
         // B03：撤回分享授权，投递中的流转会被执行前校验拦截，已发帖子走 hideFlow 隐藏
         fulfillment.setShareRevokedAt(java.time.LocalDateTime.now());
         wishFulfillmentMapper.updateById(fulfillment);
+        // 软删保留审计；心愿状态保持 FULFILLED（历史事实不回退）。
+        // 逻辑删除字段由 MP 全局配置接管：setDeletedAt 经 updateById 会被排除出 SET，
+        // 软删必须走 deleteById（SET deleted_at=NOW()），否则撤回虚假成功
+        int deleted = wishFulfillmentMapper.deleteById(fulfillment.getId());
+        if (deleted == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_FULFILLMENT_NOT_FOUND, "还愿记录不存在");
+        }
 
         // 状态同步：community 帖子隐藏（文档 2.7 还愿删除 → 帖子同步隐藏）
         legacyFlowService.hideFlow(fulfillment.getId());

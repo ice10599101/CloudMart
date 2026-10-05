@@ -572,4 +572,33 @@ class FulfillmentServiceImplTest {
             assertThat(body.get("eventType").asText()).isEqualTo("WishFulfilled");
         }
     }
+
+    // ========== withdrawFulfillment（T22 撤回 + 逻辑删除修复回归） ==========
+
+    @Test
+    @DisplayName("撤回成功：软删走 deleteById（updateById 无法写 logic 字段）")
+    void withdraw_success_deletesViaLogicDelete() {
+        when(wishMapper.selectById(WISH_ID)).thenReturn(buildWish(WishStatus.FULFILLED));
+        when(wishFulfillmentMapper.selectOne(any())).thenReturn(buildFulfillment());
+        when(wishFulfillmentMapper.updateById(any(WishFulfillment.class))).thenReturn(1);
+        when(wishFulfillmentMapper.deleteById(FULFILLMENT_ID)).thenReturn(1);
+
+        fulfillmentService.withdrawFulfillment(USER_ID, WISH_ID);
+
+        verify(wishFulfillmentMapper).deleteById(FULFILLMENT_ID);
+        verify(legacyFlowService).hideFlow(FULFILLMENT_ID);
+    }
+
+    @Test
+    @DisplayName("deleteById 0 行（并发已删）→ 404，不假装成功")
+    void withdraw_deleteZeroRows_throwsNotFound() {
+        when(wishMapper.selectById(WISH_ID)).thenReturn(buildWish(WishStatus.FULFILLED));
+        when(wishFulfillmentMapper.selectOne(any())).thenReturn(buildFulfillment());
+        when(wishFulfillmentMapper.updateById(any(WishFulfillment.class))).thenReturn(1);
+        when(wishFulfillmentMapper.deleteById(FULFILLMENT_ID)).thenReturn(0);
+
+        assertThatThrownBy(() -> fulfillmentService.withdrawFulfillment(USER_ID, WISH_ID))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(WishErrorCodes.WISH_FULFILLMENT_NOT_FOUND));
+    }
 }
