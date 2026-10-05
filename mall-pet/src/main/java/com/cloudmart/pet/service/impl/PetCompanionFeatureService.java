@@ -363,6 +363,16 @@ public class PetCompanionFeatureService {
         try {
             albumMapper.insert(asset);
         } catch (DuplicateKeyException e) {
+            // §7.2 +请求键：同文件重复上传（响应丢失重试）幂等返回既有引用，不报错
+            PetAlbumAsset existing = albumMapper.selectOne(new LambdaQueryWrapper<PetAlbumAsset>()
+                    .eq(PetAlbumAsset::getUserId, userId)
+                    .eq(PetAlbumAsset::getFileId, String.valueOf(fileAssetId))
+                    .last("LIMIT 1"));
+            if (existing != null) {
+                log.info("相册资源重复引用（幂等返回既有行）: userId={}, fileId={}, assetId={}",
+                        userId, fileAssetId, existing.getId());
+                return existing;
+            }
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该资源已存在");
         }
         // 本地 BINDING 行已提交；远程绑定失败不回滚本地行（跨服务无分布式事务）——
@@ -670,20 +680,40 @@ public class PetCompanionFeatureService {
     public Map<String, Object> memorySettings(Long userId, Long petId) {
         requireOwner(userId, petId);
         Pet pet = petMapper.selectById(petId);
+        // §7.2：version 供三端"先 GET 再 PUT（expectedVersion）"，防多端互相覆盖
         return Map.of(
                 "extract", Boolean.TRUE.equals(pet.getMemoryExtractEnabled()),
-                "use", Boolean.TRUE.equals(pet.getMemoryUseEnabled()));
+                "use", Boolean.TRUE.equals(pet.getMemoryUseEnabled()),
+                "version", pet.getVersion() == null ? 0 : pet.getVersion());
     }
 
-    /** 记忆开关（提取/使用独立）；返回持久化后的值（§7.2 PUT 返回持久化结果） */
+    /**
+     * 记忆开关（提取/使用独立）；返回持久化后的值与最新 version（§7.2 PUT 返回持久化结果）。
+     * 新版 PUT 带 expectedVersion → @Version 乐观锁 CAS，冲突显式 409；
+     * 旧请求无版本按兼容窗口直接生效并记录使用量（为收窄兼容窗口提供观测）。
+     */
     @Transactional
-    public Map<String, Object> toggleMemory(Long userId, Long petId, boolean extract, boolean use) {
+    public Map<String, Object> toggleMemory(Long userId, Long petId, boolean extract, boolean use,
+                                            Integer expectedVersion) {
         requireOwner(userId, petId);
         Pet pet = petMapper.selectById(petId);
         pet.setMemoryExtractEnabled(extract);
         pet.setMemoryUseEnabled(use);
-        petMapper.updateById(pet);
-        return Map.of("extract", extract, "use", use);
+        if (expectedVersion != null) {
+            pet.setVersion(expectedVersion);
+            if (petMapper.updateById(pet) == 0) {
+                throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                        "记忆设置已被其他端修改，请刷新后重试");
+            }
+        } else {
+            log.info("[COMPAT] 记忆设置旧版无版本写入: userId={}, petId={}", userId, petId);
+            petMapper.updateById(pet);
+        }
+        Pet refreshed = petMapper.selectById(petId);
+        return Map.of(
+                "extract", Boolean.TRUE.equals(refreshed.getMemoryExtractEnabled()),
+                "use", Boolean.TRUE.equals(refreshed.getMemoryUseEnabled()),
+                "version", refreshed.getVersion() == null ? 0 : refreshed.getVersion());
     }
 
     /**

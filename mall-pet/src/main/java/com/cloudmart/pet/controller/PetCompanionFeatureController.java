@@ -167,7 +167,7 @@ public class PetCompanionFeatureController {
         return ApiResponse.ok(null);
     }
 
-    public record MemoryToggleRequest(boolean extract, boolean use) {
+    public record MemoryToggleRequest(boolean extract, boolean use, Integer expectedVersion) {
     }
 
     @GetMapping("/pets/{petId}/memory-settings")
@@ -179,11 +179,13 @@ public class PetCompanionFeatureController {
     }
 
     @PutMapping("/pets/{petId}/memory-settings")
-    @Operation(summary = "记忆开关（N03）", description = "自动提取与注入使用独立控制；返回持久化后的值")
+    @Operation(summary = "记忆开关（N03）", description = "自动提取与注入使用独立控制；返回持久化后的值与最新 version；"
+            + "新版带 expectedVersion CAS（冲突 409），旧请求无版本按兼容窗口生效")
     public ApiResponse<Map<String, Object>> toggleMemory(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId, @RequestBody MemoryToggleRequest request) {
-        return ApiResponse.ok(featureService.toggleMemory(userId, petId, request.extract(), request.use()));
+        return ApiResponse.ok(featureService.toggleMemory(userId, petId,
+                request.extract(), request.use(), request.expectedVersion()));
     }
 
     @GetMapping("/notify-settings")
