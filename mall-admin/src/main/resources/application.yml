@@ -122,6 +122,9 @@ cloudmart:
       mall-notification: notification:admin
       mall-live: live:admin
       mall-cart: cart:admin
+      # T23/T16：心愿域代理（徽章撤销/赛季/品牌奖池/异常中心）出站签名——
+      # 缺失时 mall-wish /admin 路径 401（真实环境验证暴露）
+      mall-wish: wish:admin
       mall-risk: risk:admin
       mall-ai: ai:admin
       mall-job: job:admin
