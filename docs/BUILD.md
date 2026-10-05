@@ -15,13 +15,18 @@
 # mvnw 首次运行自动下载 Maven 3.9.9）
 ./mvnw -B test
 
-# 三端前端（锁文件严格安装 → 类型检查 → Web 单测）
-(cd CloudMart-ui && npm ci && npx tsc --noEmit && npx vitest run)
-(cd cloudmart-app && npm ci && npx tsc --noEmit)
-(cd cloudmart-mobile && npm ci && npx tsc --noEmit)
+# 后端集成测试（Testcontainers 自给自足，需本机 Docker；由 failsafe 执行，
+# 报告落 target/failsafe-reports；CI 同口径执行并校验"执行数>0 且 skipped=0"）
+./mvnw -B -ntp -Pintegration-test verify
+
+# 三端前端（锁文件严格安装 → 类型检查 → Web 单测 → 各端生产构建）
+(cd CloudMart-ui && npm ci && npx tsc --noEmit && npx vitest run && npm run build)
+(cd cloudmart-app && npm ci && npx tsc --noEmit && npx expo export --platform web)
+(cd cloudmart-mobile && npm ci && npx tsc --noEmit && npm run build:h5 && npm run build:weapp)
 ```
 
-CI（`.github/workflows/ci.yml`）执行同一命令集：push/PR 到 master 自动触发。
+CI（`.github/workflows/ci.yml`）执行同一命令集：push/PR 到 master 自动触发，
+另含 migration-gate 门禁（见下）。
 
 ## 生产启动自检（ENG-01）
 
@@ -37,6 +42,23 @@ CI（`.github/workflows/ci.yml`）执行同一命令集：push/PR 到 master 自
 CLOUDMART_SERVICE_TOKEN_SECRET=<≥32 字节随机串>
 CLOUDMART_SECURITY_JWKS_URI=<mall-auth JWKS 地址>
 ```
+
+## Flyway 迁移门禁（T26 第 4 点）
+
+CI `migration-gate` job 对全部 19 个服务的迁移目录按**服务独立库**执行两条路径：
+
+1. **空库全量**：V1 → head 一次 migrate 通过（validate-on-migrate 开启）。
+2. **存量续跑**：先 migrate 到次末版本模拟存量库，再续跑到 head——
+   等价真实发布的滚动升级路径。
+
+本地模拟同一验证（需 Docker）：
+
+```bash
+docker run --rm --network host -v "$PWD/mall-wish/src/main/resources/db/migration":/flyway/sql:ro   flyway/flyway:11-alpine   -url="jdbc:mysql://127.0.0.1:3306/gate_mall_wish?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true"   -user=root -password=<pwd> migrate
+```
+
+规则：迁移提交后禁止修改历史文件（checksum 会破坏存量库校验），修复必须新增
+迁移；门禁失败禁止用 `flyway repair` 掩盖。
 
 ## 约定
 
