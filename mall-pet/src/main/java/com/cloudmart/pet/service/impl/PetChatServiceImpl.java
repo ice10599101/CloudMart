@@ -1,6 +1,7 @@
 package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.PetRequestContext;
@@ -263,15 +264,37 @@ public class PetChatServiceImpl implements PetChatService {
                             java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
                                     .minusSeconds(CHAT_CLAIM_STALE_SECONDS));
             if (stale) {
-                // 崩溃残留（执行者消失未落回复）：允许本次重执行（AI 至多一次语义在
-                // 正常在途窗口内成立；残留行保持原样，回复行落库后重放收敛）
-                log.info("聊天占键残留超时，允许重执行: sessionId={}, requestId={}",
-                        session.getId(), requestId);
-                return existingUser;
+                // PET-14/T35：崩溃残留重执行经 CAS 抢租约——多个恢复请求同时到达
+                // 至多一个获得执行权调用 AI（原实现并发恢复各调一次模型）
+                if (tryClaimReexecutionLease(existingUser)) {
+                    log.info("聊天占键残留超时，抢得重执行租约: sessionId={}, requestId={}",
+                            session.getId(), requestId);
+                    return existingUser;
+                }
+                throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+                        "消息还在处理中，请稍等片刻再看回复～");
             }
             throw new BusinessException(PetErrorCodes.PET_REQUEST_IN_PROGRESS,
                     "消息还在处理中，请稍等片刻再看回复～");
         }
+    }
+
+    /**
+     * PET-14：CAS 抢残留重执行租约（lease_until 到期或为空时可占；胜者续期 60s）。
+     * 租约在回复落库后无需显式释放——回复行的 uk 即终态，状态查询以回复为准。
+     */
+    private boolean tryClaimReexecutionLease(PetChatMessage userRow) {
+        String owner = java.util.UUID.randomUUID().toString();
+        int claimed = messageMapper.update(null, new LambdaUpdateWrapper<PetChatMessage>()
+                .set(PetChatMessage::getLeaseOwner, owner)
+                .set(PetChatMessage::getLeaseUntil,
+                        java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+                                .plusSeconds(CHAT_CLAIM_STALE_SECONDS))
+                .eq(PetChatMessage::getId, userRow.getId())
+                .and(w -> w.isNull(PetChatMessage::getLeaseUntil)
+                        .or().le(PetChatMessage::getLeaseUntil,
+                                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))));
+        return claimed == 1;
     }
 
     /** 危机词自动举报（P0-1）：进入管理端处理队列；失败不阻断聊天主流程 */
@@ -358,20 +381,25 @@ public class PetChatServiceImpl implements PetChatService {
      * 超窗即崩溃残留（chat 会允许重执行）→ FAILED 可重试；无 USER 行 → UNKNOWN。
      * 只读：无会话/无行时不产生建会话副作用。
      */
+    /**
+     * R22 §7.2/PET-14：请求状态查询——<b>不依赖当前主宠</b>（T36：切宠后原请求仍可查），
+     * 按用户全部会话定位请求键。USER 行存在且有 PET 回复 → SUCCEEDED；无回复且在窗口内
+     * → PROCESSING；超窗（或租约已过期）→ FAILED 可重试；无 USER 行 → UNKNOWN。
+     * 只读：无会话/无行时不产生建会话副作用。
+     */
     @Override
     public PetChatRequestStatusVO requestStatus(Long userId, String requestKey) {
         if (requestKey == null || requestKey.isBlank()) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "请求键必填");
         }
-        Pet pet = petService.requireOwnedPet(userId);
-        PetChatSession session = sessionMapper.selectOne(new LambdaQueryWrapper<PetChatSession>()
-                .eq(PetChatSession::getUserId, userId)
-                .eq(PetChatSession::getPetId, pet.getId()));
-        if (session == null) {
+        List<Long> sessionIds = sessionMapper.selectList(new LambdaQueryWrapper<PetChatSession>()
+                        .eq(PetChatSession::getUserId, userId))
+                .stream().map(PetChatSession::getId).toList();
+        if (sessionIds.isEmpty()) {
             return new PetChatRequestStatusVO("UNKNOWN", true, null);
         }
         PetChatMessage userRow = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
-                .eq(PetChatMessage::getSessionId, session.getId())
+                .in(PetChatMessage::getSessionId, sessionIds)
                 .eq(PetChatMessage::getRequestId, requestKey)
                 .eq(PetChatMessage::getRole, PetChatRole.USER.name())
                 .last("LIMIT 1"));
@@ -379,19 +407,27 @@ public class PetChatServiceImpl implements PetChatService {
             return new PetChatRequestStatusVO("UNKNOWN", true, null);
         }
         PetChatMessage replyRow = messageMapper.selectOne(new LambdaQueryWrapper<PetChatMessage>()
-                .eq(PetChatMessage::getSessionId, session.getId())
+                .in(PetChatMessage::getSessionId, sessionIds)
                 .eq(PetChatMessage::getRequestId, requestKey)
                 .eq(PetChatMessage::getRole, PetChatRole.PET.name())
                 .last("LIMIT 1"));
         if (replyRow != null) {
             return new PetChatRequestStatusVO("SUCCEEDED", false, toVo(replyRow));
         }
-        boolean stale = userRow.getCreatedAt() == null
-                || userRow.getCreatedAt().isBefore(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
-                        .minusSeconds(CHAT_CLAIM_STALE_SECONDS));
+        boolean stale = claimLeaseExpired(userRow);
         return stale
                 ? new PetChatRequestStatusVO("FAILED", true, null)
                 : new PetChatRequestStatusVO("PROCESSING", false, null);
+    }
+
+    /** PET-14：占键是否已过期（创建超窗 或 租约已到期可抢占） */
+    private boolean claimLeaseExpired(PetChatMessage userRow) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
+        if (userRow.getLeaseUntil() != null) {
+            return !userRow.getLeaseUntil().isAfter(now);
+        }
+        return userRow.getCreatedAt() == null
+                || userRow.getCreatedAt().isBefore(now.minusSeconds(CHAT_CLAIM_STALE_SECONDS));
     }
 
     // ---------------- 内部实现 ----------------

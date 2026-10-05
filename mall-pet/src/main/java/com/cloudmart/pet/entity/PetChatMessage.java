@@ -40,6 +40,14 @@ public class PetChatMessage {
     /** 客户端请求幂等键（Idempotency-Key；同 (session, request_id) 重试返回既有回复，B18） */
     private String requestId;
 
+    /** PET-14：重执行租约持有者（崩溃残留恢复用；多个恢复请求 CAS 单胜） */
+    @TableField("lease_owner")
+    private String leaseOwner;
+
+    /** PET-14：租约到期时间(UTC)；到期可被其他执行者抢占 */
+    @TableField("lease_until")
+    private LocalDateTime leaseUntil;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

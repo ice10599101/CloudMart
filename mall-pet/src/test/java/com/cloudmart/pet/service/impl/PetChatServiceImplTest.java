@@ -95,6 +95,7 @@ class PetChatServiceImplTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, Pet.class);
         TableInfoHelper.initTableInfo(assistant, PetChatSession.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetChatMessage.class);
     }
 
     @BeforeEach
@@ -353,4 +354,60 @@ class PetChatServiceImplTest {
         org.mockito.Mockito.verify(memoryMapper, org.mockito.Mockito.never())
                 .insert(any(com.cloudmart.pet.entity.PetMemory.class));
     }
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-14/T36：请求状态查询不依赖当前主宠（切宠后原请求可查）")
+    void requestStatusFindsRequestAcrossPets() {
+        // 用户有两只宠物的会话（9 与 10），请求键落在另一只宠的会话 10
+        com.cloudmart.pet.entity.PetChatSession other = new com.cloudmart.pet.entity.PetChatSession();
+        other.setId(10L);
+        other.setUserId(100L);
+        other.setPetId(2L);
+        org.mockito.Mockito.when(sessionMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of(session(), other));
+        org.mockito.Mockito.when(petService.requireOwnedPet(100L)).thenReturn(pet());
+        com.cloudmart.pet.entity.PetChatMessage userRow =
+                new com.cloudmart.pet.entity.PetChatMessage();
+        userRow.setId(77L);
+        userRow.setSessionId(10L);
+        userRow.setRequestId("chat-req-cross-pet-01");
+        userRow.setRole("USER");
+        userRow.setContent("你好");
+        userRow.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(5));
+        org.mockito.Mockito.when(messageMapper.selectOne(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(userRow, (com.cloudmart.pet.entity.PetChatMessage) null);
+
+        com.cloudmart.pet.service.PetChatService.PetChatRequestStatusVO status = chatService.requestStatus(100L, "chat-req-cross-pet-01");
+
+        org.assertj.core.api.Assertions.assertThat(status.status()).isEqualTo("PROCESSING");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-14/T35：残留重执行 CAS 抢租约——抢到才重执行，抢不到 409 在途")
+    void staleReexecutionRequiresLease() {
+        PetRequestContext.setIdempotencyKey("chat-req-stale-0001");
+        org.mockito.Mockito.when(sessionMapper.selectOne(any())).thenReturn(session());
+        org.mockito.Mockito.when(messageMapper.insert(any(com.cloudmart.pet.entity.PetChatMessage.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_claim"));
+        // 既有 USER 行：创建已超 60s（残留）
+        com.cloudmart.pet.entity.PetChatMessage staleRow = new com.cloudmart.pet.entity.PetChatMessage();
+        staleRow.setId(66L);
+        staleRow.setSessionId(9L);
+        staleRow.setRequestId("chat-req-stale-0001");
+        staleRow.setRole("USER");
+        staleRow.setContent("你好");
+        staleRow.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(120));
+        org.mockito.Mockito.when(messageMapper.selectOne(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(staleRow, (com.cloudmart.pet.entity.PetChatMessage) null);
+        org.mockito.Mockito.when(petService.requireOwnedPet(100L)).thenReturn(pet());
+        // 租约被其他执行者占用（CAS 0 行）
+        org.mockito.Mockito.when(messageMapper.update(any(), any())).thenReturn(0);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        chatService.chat(100L, new com.cloudmart.pet.dto.PetChatRequest("你好")))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_REQUEST_IN_PROGRESS);
+        PetRequestContext.clear();
+    }
+
 }
