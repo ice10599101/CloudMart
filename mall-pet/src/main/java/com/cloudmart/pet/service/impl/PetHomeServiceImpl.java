@@ -305,6 +305,50 @@ public class PetHomeServiceImpl implements PetHomeService {
         return doVisit(userId, petId, false, false);
     }
 
+    /**
+     * PET-19：他人家园只读预览。与 doVisit 相同的可见性校验（存在且公开、非本人、房间开放、
+     * 未被拉黑），但不记拜访事实、不发奖励、不扣额度——页面刷新/预加载/重复 GET 零业务副作用。
+     */
+    @Override
+    public PetRoomVisitVO previewHome(Long userId, Long petId) {
+        Pet pet = petService.requireOwnedPet(userId);
+        Pet target = petMapper.selectById(petId);
+        if (target == null || !Boolean.TRUE.equals(target.getIsPublic())) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "邻居家的宠物不存在或未公开");
+        }
+        if (userId.equals(target.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_VISIT_SELF, "这是自己家，不能来访哦");
+        }
+        if (userBlockService.isBlockedEitherWay(userId, target.getUserId())) {
+            throw new BusinessException(com.cloudmart.pet.constant.PetErrorCodes.PET_BLOCKED, "无法拜访该用户");
+        }
+        PetRoom room = ensureRoom(target);
+        if (!Boolean.TRUE.equals(room.getIsPublic())) {
+            throw new BusinessException(PetErrorCodes.PET_ROOM_PRIVATE, "对方还没有开放家园，先串门看看吧");
+        }
+        PetRoom latest = roomMapper.selectById(room.getId());
+        String nickname = resolveNicknames(List.of(target.getUserId()))
+                .getOrDefault(target.getUserId(), NICKNAME_PLACEHOLDER);
+        boolean liked = Boolean.TRUE.equals(
+                redisExists(String.format(KEY_LIKE_ROOM, userId, target.getId())));
+        boolean visited = visitApplicationService.visitedToday(userId, target.getUserId());
+        String message = visited
+                ? pet.getName() + " 今天已经来过啦（不再重复获得奖励）"
+                : "去 " + target.getName() + " 的小窝串个门吧～";
+        return new PetRoomVisitVO(
+                target.getId(), target.getName(), target.getSpecies(), target.getLevel(),
+                target.getEvolutionStage() != null ? target.getEvolutionStage() : 0, target.getSkinCode(),
+                nickname,
+                latest != null ? latest.getWelcomeMessage() : DEFAULT_WELCOME,
+                latest != null ? latest.getWallCode() : null,
+                latest != null ? latest.getFloorCode() : null,
+                latest != null && latest.getComfort() != null ? latest.getComfort() : 0,
+                latest != null && latest.getVisitCount() != null ? latest.getVisitCount() : 0,
+                latest != null && latest.getLikeCount() != null ? latest.getLikeCount() : 0,
+                liked, visited, 0, 0, 0,
+                false, message, placedItems(target.getId()));
+    }
+
     @Override
     @Transactional
     public PetRoomVisitVO visitFriendRoom(Long userId, Long friendUserId) {

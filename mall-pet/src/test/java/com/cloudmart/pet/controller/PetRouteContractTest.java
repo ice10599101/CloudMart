@@ -44,6 +44,8 @@ class PetRouteContractTest {
     private MockMvc playMockMvc;
     private MockMvc questMockMvc;
     private MockMvc adminConfigMockMvc;
+    private MockMvc homeMockMvc;
+    private com.cloudmart.pet.service.PetHomeService homeService;
     private PetCompanionFeatureService companionService;
     private PetPurchaseApplicationService purchaseService;
     private PetDailyQuestService questService;
@@ -74,6 +76,11 @@ class PetRouteContractTest {
         questService = mock(PetDailyQuestService.class);
         questMockMvc = MockMvcBuilders.standaloneSetup(
                         new PetDailyQuestController(questService))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        homeService = mock(com.cloudmart.pet.service.PetHomeService.class);
+        homeMockMvc = MockMvcBuilders.standaloneSetup(new PetHomeController(homeService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -231,6 +238,26 @@ class PetRouteContractTest {
         questMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .put("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    @DisplayName("PET-19/T44：GET /home/{petId} 走只读预览，POST /home/{petId}/visits 才是拜访命令")
+    void homeGetPreviewPostVisitContract() throws Exception {
+        when(homeService.previewHome(100L, 5L)).thenReturn(org.mockito.Mockito.mock(
+                com.cloudmart.pet.vo.PetRoomVisitVO.class));
+        when(homeService.visit(100L, 5L)).thenReturn(org.mockito.Mockito.mock(
+                com.cloudmart.pet.vo.PetRoomVisitVO.class));
+
+        homeMockMvc.perform(get("/home/5").header("X-User-Id", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        Mockito.verify(homeService).previewHome(100L, 5L);
+        Mockito.verify(homeService, Mockito.never()).visit(100L, 5L);
+
+        homeMockMvc.perform(post("/home/5/visits").header("X-User-Id", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        Mockito.verify(homeService).visit(100L, 5L);
     }
 
     @Test

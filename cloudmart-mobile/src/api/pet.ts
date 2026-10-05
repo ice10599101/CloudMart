@@ -758,7 +758,11 @@ export const petApi = {
       data: data as unknown as Record<string, unknown>,
     }),
   /** 访问他人家园 */
+  /** PET-19：只读预览他人家园（不产生拜访事实与奖励） */
   visitHome: (petId: number | string) => request<PetRoomVisit>({ url: `/pet/home/${petId}` }),
+  /** PET-19：显式提交拜访命令（每日一次奖励口径，由该命令触发） */
+  enterHome: (petId: number | string) =>
+    request<PetRoomVisit>({ url: `/pet/home/${petId}/visits`, method: 'POST' }),
   /** 给他人房间点赞 */
   likeHome: (petId: number | string) => request<PetRoomLike>({ url: `/pet/home/${petId}/like`, method: 'POST' }),
 

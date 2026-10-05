@@ -3195,7 +3195,7 @@ function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     run(
                       `v-${neighbor.petId}`,
                       async () => {
-                        const res = await petApi.visitHome(neighbor.petId)
+                        const res = await petApi.enterHome(neighbor.petId)
                         if (res.data.success && res.data.data) {
                           setTip(res.data.data.message)
                         }

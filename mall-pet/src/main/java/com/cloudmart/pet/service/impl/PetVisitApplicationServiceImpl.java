@@ -85,6 +85,7 @@ public class PetVisitApplicationServiceImpl implements PetVisitApplicationServic
     }
 
     /** @return 访问者今日是否已拜访过该主人（展示用，读库不读 Redis） */
+    @Override
     public boolean visitedToday(Long visitorUserId, Long ownerUserId) {
         return factMapper.selectCount(new LambdaQueryWrapper<PetVisitFact>()
                 .eq(PetVisitFact::getVisitorUserId, visitorUserId)

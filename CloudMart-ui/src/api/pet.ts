@@ -1094,8 +1094,14 @@ export function updatePetRoomSettings(data: { isPublic?: boolean; welcomeMessage
 }
 
 /** 访问他人家园（未公开 403；每日次数上限）；ID 为雪花字符串，禁止 Number 转换 */
+/** PET-19：只读预览他人家园（不产生拜访事实与奖励） */
 export function visitPetHome(petId: number | string) {
   return request.get<ApiResponse<PetRoomVisit>>(`/pet/home/${petId}`)
+}
+
+/** PET-19：显式提交拜访命令（每日一次奖励口径，由该命令触发） */
+export function visitPetHomeEntry(petId: number | string) {
+  return request.post<ApiResponse<PetRoomVisit>>(`/pet/home/${petId}/visits`)
 }
 
 /** 给他人房间点赞（uk 幂等）；ID 为雪花字符串，禁止 Number 转换 */

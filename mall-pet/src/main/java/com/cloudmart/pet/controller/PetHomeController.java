@@ -96,8 +96,23 @@ public class PetHomeController {
         return ApiResponse.ok(homeService.updateSettings(userId, request));
     }
 
+    /**
+     * PET-19：读取与命令分离——GET 只读预览（不记拜访事实、不发奖励、不扣额度），
+     * 页面刷新/预加载/重复 GET 零业务副作用；访问命令由 POST /home/{petId}/visits 显式提交。
+     */
     @GetMapping("/home/{petId}")
-    @Operation(summary = "访问他人家园", description = "未公开 403 PET_ROOM_PRIVATE；每日次数上限；同一房间每日只给一次奖励")
+    @Operation(summary = "预览他人家园（PET-19 只读）", description = "未公开 403 PET_ROOM_PRIVATE；"
+            + "不产生拜访事实与奖励，返回 visitedToday 供前端判断是否需要显式提交拜访")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<PetRoomVisitVO> preview(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("petId") Long petId) {
+        return ApiResponse.ok(homeService.previewHome(userId, petId));
+    }
+
+    @PostMapping("/home/{petId}/visits")
+    @Operation(summary = "拜访他人家园（PET-19 命令入口）", description = "未公开 403 PET_ROOM_PRIVATE；"
+            + "每日次数上限；同一房间每日只给一次奖励；重复同日拜访 409 PET_VISIT_COOLDOWN")
     @SentinelResource("PET_VISIT")
     public ApiResponse<PetRoomVisitVO> visit(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,

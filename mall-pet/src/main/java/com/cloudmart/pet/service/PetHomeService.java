@@ -38,8 +38,14 @@ public interface PetHomeService {
     /** 修改家园设置（来访开关 / 欢迎语） */
     PetHomeVO updateSettings(Long userId, UpdateRoomSettingsRequest request);
 
-    /** 访问他人家园（串门口径：每日次数上限 + 同一房间每日一次奖励） */
+    /** 访问他人家园（串门口径：每日次数上限 + 同一房间每日一次奖励）——PET-19 起仅由 POST /home/{petId}/visits 调用 */
     PetRoomVisitVO visit(Long userId, Long petId);
+
+    /**
+     * PET-19：他人家园只读预览——校验可见性但不记拜访事实、不发奖励、不扣额度；
+     * 访问命令由 POST /home/{petId}/visits 显式提交（GET 读取与业务动作分离）。
+     */
+    PetRoomVisitVO previewHome(Long userId, Long petId);
 
     /**
      * 好友互访专用入口：跳过"家园每日访问次数"限制（由好友服务自己的每日互访上限约束），

@@ -18,6 +18,7 @@ import {
     updatePetRoomSettings,
     updatePetRoomTheme,
     visitPetHome,
+    visitPetHomeEntry,
     type PetHome,
     type PetHomeItem,
     type PetRoomVisit,
@@ -223,7 +224,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
     const visit = useCallback(async (petId: number | string) => {
         setBusy(`visit:${petId}`)
         try {
-            const { data: res } = await visitPetHome(petId)
+            const { data: res } = await visitPetHomeEntry(petId)
             if (res.success) {
                 setRoom(res.data)
                 message.success(res.data.message || '串门成功')
