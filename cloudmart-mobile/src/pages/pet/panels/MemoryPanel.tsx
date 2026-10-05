@@ -118,7 +118,8 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       const filePath = choose.tempFilePaths[0]
       if (!filePath) return
       setUploading(true)
-      const assetRes = await fileApi.uploadAsset(filePath, 'PUBLIC')
+      // PET-13/T31：相册资产上传即 PRIVATE（绑定要求 PRIVATE；原 PUBLIC 上传导致绑定失败或隐私风险）
+      const assetRes = await fileApi.uploadAsset(filePath, 'PRIVATE')
       const fileId = assetRes.data.data?.fileId
       if (!fileId) {
         Taro.showToast({ title: '资产上传失败', icon: 'none' })

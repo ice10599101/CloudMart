@@ -777,6 +777,10 @@ export const petApi = {
   /** N02 相册：上传（fileId 为 mall-file 授权引用）/删除；无列表接口，资产随日记展示 */
   uploadAlbumAsset: (petId: number | string, fileId: string, diaryEntryId?: number | string) =>
     request<PetAlbumAsset>({ url: `/pet/pets/${petId}/album`, method: 'POST', data: { fileId, diaryEntryId } }),
+  /** PET-13/T31：独立相册列表（服务端权威，上传/重启后仍可见） */
+  listAlbumAssets: (petId: number | string) =>
+    request<Array<{ assetId: string; previewUrl: string | null; diaryEntryId: string | null; auditStatus: string; bindStatus: string }>>(
+      { url: `/pet/pets/${petId}/album` }),
   deleteAlbumAsset: (petId: number | string, assetId: number | string) =>
     request<void>({ url: `/pet/pets/${petId}/album/${assetId}`, method: 'DELETE' }),
 

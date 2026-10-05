@@ -12,10 +12,11 @@ export interface FileUploadResult {
 }
 
 export const fileApi = {
-  // S01/LC05：唯一资产上传入口 /file/assets（旧 /file/upload 已删除）
-  upload: async (data: FormData | { file: string; type?: string }) => {
+  // S01/LC05：唯一资产上传入口 /file/assets（旧 /file/upload 已删除）；
+  // PET-13/T31：相册等私密资产必须显式传 PRIVATE（缺省 = 服务端默认 PUBLIC）
+  upload: async (data: FormData | { file: string; type?: string }, visibility?: 'PUBLIC' | 'PRIVATE') => {
     const res = await request<FileUploadResult>({
-      url: '/file/assets',
+      url: visibility ? `/file/assets?visibility=${visibility}` : '/file/assets',
       method: 'POST',
       data,
       header: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,

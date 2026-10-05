@@ -3358,6 +3358,21 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     if (res?.success) setFeedUnread(0)
   }, [run])
 
+  /** PET-13/T31：独立相册列表（服务端权威；BINDING/审核中状态照实展示） */
+  const loadAlbum = useCallback(async () => {
+    if (!petId) return
+    try {
+      const { data: res } = await petApi.listAlbumAssets(petId)
+      if (res.success && res.data) {
+        setAssets(res.data
+            .filter((item) => item.bindStatus === 'BOUND')
+            .map((item) => ({ id: item.assetId, url: item.previewUrl ?? '', diaryEntryId: item.diaryEntryId })))
+      }
+    } catch {
+      // 展示型数据：忽略
+    }
+  }, [petId])
+
   const uploadPhoto = useCallback(async (diaryEntryId?: number) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!perm.granted) {
@@ -3372,7 +3387,8 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
       const form = new FormData()
       // RN FormData：以 uri 引用本地图片，随 multipart 上传
       form.append('file', { uri: asset.uri, name: 'album.jpg', type: 'image/jpeg' } as unknown as Blob)
-      const { data: up } = await fileApi.upload(form)
+      // PET-13/T31：相册资产上传即 PRIVATE（绑定要求 PRIVATE，缺省 PUBLIC 会导致绑定失败/隐私泄露）
+      const { data: up } = await fileApi.upload(form, 'PRIVATE')
       if (!up.success || !up.data) {
         Alert.alert('上传未成功', up.error?.message ?? '请稍后再试')
         return
@@ -3380,6 +3396,8 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
       const res = await run('album', () => petApi.uploadAlbumAsset(petId, up.data!.fileId, diaryEntryId))
       if (res?.success && res.data) {
         setAssets((prev) => [{ id: res.data!.id, url: up.data!.url ?? asset.uri, diaryEntryId: res.data!.diaryEntryId }, ...prev])
+        // PET-13/T31：以服务端相册列表校准（重启/刷新后仍在，本地数组不再是唯一事实）
+        void loadAlbum()
         Alert.alert('成功', '照片已存入相册')
       }
     } catch {
@@ -3387,7 +3405,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     } finally {
       setPending(null)
     }
-  }, [petId, run])
+  }, [petId, run, loadAlbum])
 
   const removeAsset = useCallback(async (assetId: number | string) => {
     const res = await run(`album-del:${assetId}`, () => petApi.deleteAlbumAsset(petId, assetId))
