@@ -2,6 +2,7 @@ package com.cloudmart.seckill.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ public class OrderQueryFeignClientFallbackFactory implements FallbackFactory<Ord
     public OrderQueryFeignClient create(Throwable cause) {
         log.warn("[T09] 订单查询服务暂不可用，恢复对账顺延: {}", cause.getMessage());
         return requestId -> {
-            throw new BusinessException("ORDER_QUERY_UNAVAILABLE", "订单查询服务暂不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "ORDER_QUERY_UNAVAILABLE", "订单查询服务暂不可用，请稍后重试");
         };
     }
 }

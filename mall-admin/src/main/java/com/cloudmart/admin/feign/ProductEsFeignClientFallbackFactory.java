@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -22,17 +23,17 @@ public class ProductEsFeignClientFallbackFactory implements FallbackFactory<Prod
         return new ProductEsFeignClient() {
             @Override
             public ApiResponse<Map<String, Object>> indexStatus() {
-                throw new BusinessException("PRODUCT_ES_UNAVAILABLE", "商品搜索服务不可用: " + cause.getMessage());
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_ES_UNAVAILABLE", "商品搜索服务不可用: " + cause.getMessage());
             }
 
             @Override
             public ApiResponse<Map<String, Object>> indexVersions() {
-                throw new BusinessException("PRODUCT_ES_UNAVAILABLE", "商品搜索服务不可用: " + cause.getMessage());
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_ES_UNAVAILABLE", "商品搜索服务不可用: " + cause.getMessage());
             }
 
             @Override
             public ApiResponse<Map<String, Object>> fullRebuild() {
-                throw new BusinessException("PRODUCT_ES_UNAVAILABLE", "索引重建失败: " + cause.getMessage());
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_ES_UNAVAILABLE", "索引重建失败: " + cause.getMessage());
             }
         };
     }

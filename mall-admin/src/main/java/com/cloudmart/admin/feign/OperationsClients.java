@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Component;
@@ -47,12 +48,12 @@ public interface OperationsClients {
             return new OrderOperationsClient() {
                 @Override
                 public ApiResponse<Object> listOutbox(String status, int page, int size) {
-                    throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，请稍后重试");
+                    throw FeignBusinessErrors.parse(cause, "ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，请稍后重试");
                 }
 
                 @Override
                 public ApiResponse<Object> retryOutbox(String eventId) {
-                    throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，重试未受理");
+                    throw FeignBusinessErrors.parse(cause, "ORDER_SERVICE_UNAVAILABLE", "订单服务不可用，重试未受理");
                 }
             };
         }
@@ -65,12 +66,12 @@ public interface OperationsClients {
             return new WishOperationsClient() {
                 @Override
                 public ApiResponse<Object> listOutbox(String status, int page, int size) {
-                    throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+                    throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
                 }
 
                 @Override
                 public ApiResponse<Object> retryOutbox(String eventId) {
-                    throw new BusinessException("WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，重试未受理");
+                    throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，重试未受理");
                 }
             };
         }

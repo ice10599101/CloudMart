@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -26,12 +27,12 @@ public class AuthRevocationFeignClientFallbackFactory implements FallbackFactory
         return new AuthRevocationFeignClient() {
             @Override
             public ApiResponse<Void> revokeSubject(java.util.Map<String, String> request) {
-                throw new BusinessException("TOKEN_REVOCATION_UNAVAILABLE", "令牌撤销失败：" + detail);
+                throw FeignBusinessErrors.parse(cause, "TOKEN_REVOCATION_UNAVAILABLE", "令牌撤销失败：" + detail);
             }
 
             @Override
             public ApiResponse<Void> invalidateState(java.util.Map<String, Object> request) {
-                throw new BusinessException("TOKEN_REVOCATION_UNAVAILABLE", "令牌撤销失败：" + detail);
+                throw FeignBusinessErrors.parse(cause, "TOKEN_REVOCATION_UNAVAILABLE", "令牌撤销失败：" + detail);
             }
         };
     }

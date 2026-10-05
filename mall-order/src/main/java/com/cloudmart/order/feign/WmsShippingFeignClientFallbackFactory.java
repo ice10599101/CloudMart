@@ -1,6 +1,7 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -22,13 +23,13 @@ public class WmsShippingFeignClientFallbackFactory implements FallbackFactory<Wm
             @Override
             public com.cloudmart.common.api.ApiResponse<Map<String, Object>> createShipping(
                     Map<String, Object> request) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "物流服务暂不可用，发货失败");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "物流服务暂不可用，发货失败");
             }
 
             @Override
             public com.cloudmart.common.api.ApiResponse<Map<String, Object>> updateStatus(
                     Long id, String status) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "物流服务暂不可用，出库失败");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "物流服务暂不可用，出库失败");
             }
         };
     }

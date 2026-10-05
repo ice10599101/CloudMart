@@ -1,6 +1,7 @@
 package com.cloudmart.payment.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -20,7 +21,7 @@ public class InventoryReconFeignClientFallbackFactory implements FallbackFactory
     public InventoryReconFeignClient create(Throwable cause) {
         log.warn("[T11] 库存预占台账查询不可用: {}", cause.getMessage());
         return (since, lastId, limit) -> {
-            throw new BusinessException("INVENTORY_RECON_UNAVAILABLE", "库存预占台账暂不可用");
+            throw FeignBusinessErrors.parse(cause, "INVENTORY_RECON_UNAVAILABLE", "库存预占台账暂不可用");
         };
     }
 }

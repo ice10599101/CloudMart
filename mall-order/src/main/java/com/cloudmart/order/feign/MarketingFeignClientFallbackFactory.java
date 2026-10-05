@@ -1,6 +1,7 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ public class MarketingFeignClientFallbackFactory implements FallbackFactory<Mark
     public MarketingFeignClient create(Throwable cause) {
         log.warn("[T10] 拼团快照回查不可用: {}", cause.getMessage());
         return groupOrderId -> {
-            throw new BusinessException("GROUP_QUOTE_UNAVAILABLE", "拼团快照服务暂不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "GROUP_QUOTE_UNAVAILABLE", "拼团快照服务暂不可用，请稍后重试");
         };
     }
 }

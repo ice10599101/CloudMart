@@ -1,6 +1,7 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,7 @@ public class RiskFeignClientFallbackFactory implements FallbackFactory<RiskFeign
     public RiskFeignClient create(Throwable cause) {
         log.error("风控服务调用失败: {}", cause.getMessage());
         return request -> {
-            throw new BusinessException("RISK_SERVICE_UNAVAILABLE", "风控服务暂不可用，下单被拒绝，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "RISK_SERVICE_UNAVAILABLE", "风控服务暂不可用，下单被拒绝，请稍后重试");
         };
     }
 }

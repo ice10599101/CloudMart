@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -18,87 +19,87 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
         return new WmsFeignClient() {
             @Override
             public ApiResponse<Object> listPickOrders(String status, Long warehouseId, Integer page, Integer size) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> getPickOrder(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> startPick(Long id, Long assignedUserId) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> confirmPicked(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> confirmPacked(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> listInboundOrders(String status, Long warehouseId, Integer page, Integer size) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> getInboundOrder(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> listWarehouses() {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> listShipping(String status, Long warehouseId, Integer page, Integer size) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> updateShippingStatus(Long id, Map<String, Object> body) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> createWarehouse(Map<String, Object> body) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> updateWarehouse(Long id, Map<String, Object> body) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Void> deleteWarehouse(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> createPickOrder(Map<String, Object> body) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> createInboundOrder(Map<String, Object> body) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> receiveInboundItem(Long id, Long itemId, Integer receivedQuantity) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> completeInbound(Long id) {
-                throw new BusinessException("WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
         };
     }

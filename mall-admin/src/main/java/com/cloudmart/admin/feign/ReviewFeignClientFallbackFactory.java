@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -16,27 +17,27 @@ public class ReviewFeignClientFallbackFactory implements FallbackFactory<ReviewF
         return new ReviewFeignClient() {
             @Override
             public ApiResponse<Object> listReviews(Long productId, Integer status, Integer page, Integer pageSize) {
-                throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> getReview(Long id) {
-                throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Void> updateReviewStatus(Long id, Integer status) {
-                throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Void> deleteReview(Long id) {
-                throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<Object> getReviewStats(Long productId) {
-                throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
         };
     }

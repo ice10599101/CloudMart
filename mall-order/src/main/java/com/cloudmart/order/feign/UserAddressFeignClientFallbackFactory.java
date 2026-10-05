@@ -1,6 +1,7 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ public class UserAddressFeignClientFallbackFactory implements FallbackFactory<Us
     public UserAddressFeignClient create(Throwable cause) {
         log.warn("[T09/T10] 用户默认地址查询不可用: {}", cause.getMessage());
         return userId -> {
-            throw new BusinessException("ADDRESS_SERVICE_UNAVAILABLE", "收货地址服务暂不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "ADDRESS_SERVICE_UNAVAILABLE", "收货地址服务暂不可用，请稍后重试");
         };
     }
 }

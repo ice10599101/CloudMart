@@ -2,6 +2,7 @@ package com.cloudmart.order.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ public class SeckillFeignClientFallbackFactory implements FallbackFactory<Seckil
     public SeckillFeignClient create(Throwable cause) {
         log.warn("[T09] 秒杀报价回查不可用: {}", cause.getMessage());
         return requestId -> {
-            throw new BusinessException("SECKILL_QUOTE_UNAVAILABLE", "秒杀报价服务暂不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "SECKILL_QUOTE_UNAVAILABLE", "秒杀报价服务暂不可用，请稍后重试");
         };
     }
 }

@@ -3,6 +3,7 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.dto.feign.PaymentAttemptDTO;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -19,12 +20,12 @@ public class PaymentFeignClientFallbackFactory implements FallbackFactory<Paymen
         return new PaymentFeignClient() {
             @Override
             public ApiResponse<List<PaymentAttemptDTO>> listPayments(String status, Integer page, Integer pageSize) {
-                throw new BusinessException("PAYMENT_SERVICE_UNAVAILABLE", "支付服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PAYMENT_SERVICE_UNAVAILABLE", "支付服务不可用，请稍后重试");
             }
 
             @Override
             public ApiResponse<PaymentAttemptDTO> getPaymentByOrderId(Long orderId) {
-                throw new BusinessException("PAYMENT_SERVICE_UNAVAILABLE", "支付服务不可用，请稍后重试");
+                throw FeignBusinessErrors.parse(cause, "PAYMENT_SERVICE_UNAVAILABLE", "支付服务不可用，请稍后重试");
             }
 
         };

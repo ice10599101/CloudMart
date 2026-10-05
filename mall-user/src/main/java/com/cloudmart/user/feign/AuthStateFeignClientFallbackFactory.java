@@ -1,6 +1,7 @@
 package com.cloudmart.user.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ public class AuthStateFeignClientFallbackFactory implements FallbackFactory<Auth
     public AuthStateFeignClient create(Throwable cause) {
         log.error("mall-auth 认证状态失效调用失败: {}", cause.getMessage());
         return request -> {
-            throw new BusinessException("SESSION_UNAVAILABLE", "认证状态失效服务暂不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "SESSION_UNAVAILABLE", "认证状态失效服务暂不可用，请稍后重试");
         };
     }
 }

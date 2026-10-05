@@ -2,6 +2,7 @@ package com.cloudmart.admin.feign;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -21,7 +22,7 @@ public class NotificationQueryFeignClientFallbackFactory implements FallbackFact
     public NotificationQueryFeignClient create(Throwable cause) {
         log.error("通知记录查询服务调用失败", cause);
         return (userId, type, page, pageSize) -> {
-            throw new BusinessException("NOTIFICATION_SERVICE_UNAVAILABLE", "通知服务不可用，请稍后重试");
+            throw FeignBusinessErrors.parse(cause, "NOTIFICATION_SERVICE_UNAVAILABLE", "通知服务不可用，请稍后重试");
         };
     }
 }

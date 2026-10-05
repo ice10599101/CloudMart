@@ -1,6 +1,7 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.feign.FeignBusinessErrors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -20,7 +21,7 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
     public ProductFeignClient create(Throwable cause) {
         log.error("商品服务调用失败: {}", cause.getMessage());
         return ids -> {
-            throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法生成报价");
+            throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法生成报价");
         };
     }
 }
