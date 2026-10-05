@@ -1244,17 +1244,17 @@ export const petCompanionApi = {
   /** 批量清空记忆（全部软删，防复活标记） */
   clearMemories: (petId: number | string) =>
     request<void>({ url: `/pet/pets/${petId}/memories`, method: 'DELETE' }),
-  /** 记忆开关（契约 MemoryToggleRequest：extract=自动抽取 / use=注入上下文；服务端无读取端点） */
-  setMemorySettings: (petId: number | string, data: { extract: boolean; use: boolean }) =>
-    request<void>({
+  /** 记忆开关（§7.2：expectedVersion CAS 冲突 409；响应带最新 version） */
+  setMemorySettings: (petId: number | string, data: { extract: boolean; use: boolean; expectedVersion?: number }) =>
+    request<{ extract: boolean; use: boolean; version: number }>({
       url: `/pet/pets/${petId}/memory-settings`,
       method: 'PUT',
       data: data as unknown as Record<string, unknown>,
     }),
 
   getNotifyPrefs: () => request<PetNotifyPref>({ url: '/pet/notify-settings' }),
-  updateNotifyPrefs: (data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean }) =>
-    request<PetNotifyPref>({
+  updateNotifyPrefs: (data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean; expectedVersion?: number }) =>
+    request<{ muteDailyGreeting: boolean; dailyGreetingEnabled: boolean; version: number }>({
       url: '/pet/notify-settings',
       method: 'PUT',
       data: data as unknown as Record<string, unknown>,
@@ -1266,8 +1266,9 @@ export const petCompanionApi = {
     request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'POST' }),
   unblockUser: (blockedUserId: number | string) =>
     request<void>({ url: `/pet/blocks/${blockedUserId}`, method: 'DELETE' }),
-  reportTarget: (data: { targetType: string; targetId: number | string; reason: string }) =>
-    request<void>({ url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
+  reportTarget: (data: { targetType: string; targetId: number | string; reason: string; description?: string }) =>
+    request<{ reportId: number | string; status: string; deduped: boolean }>({
+      url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
   claimAllDailyQuests: () =>
     request<{ results: Array<{ status: string }>; chest: { status: string } }>({
@@ -1344,4 +1345,116 @@ export interface PetActivityRow {
   remainingSeconds: number
   canClaim: boolean
   claimedAt: string | null
+}
+
+// ==================== 批次 A–C2 新契约（§7.2；与 CloudMart-ui 同构） ====================
+
+/** 启动聚合快照（§7.2）：无宠物返回空 pets 不抛错 */
+export interface PetBootstrap {
+  serverNow: string
+  businessDate: string
+  nextResetAt: string
+  activePetId: number | string | null
+  pets: Array<{ petId: number | string; name: string; level: number; isActive: boolean }>
+  selectedPet: Record<string, unknown> | null
+  walletSummary: { currency: string; balance: number | string; status: string } | null
+  capabilities: Record<string, boolean>
+  quotas: Record<string, number>
+  actionAvailability: { busy: boolean; canFeed: boolean; canPlay: boolean; canWallPost: boolean }
+  pendingOperations: { pendingActivityClaims: number; receivedInvites: number }
+}
+
+/** 活动中心聚合摘要（§7.2） */
+export interface PetActivityCenterSummary {
+  serverNow: string
+  businessDate: string
+  accountBusyActivity: { activity: boolean; custody: boolean }
+  selectedPetActivity: Record<string, unknown> | null
+  pendingClaimsCount: number
+  dailySetSummary: Record<string, unknown> | null
+  eventSummary: { totalCount: number; claimableCount: number; claimableCodes: string[] } | null
+  cooperationSummary: Record<string, unknown> | null
+}
+
+/** 批量领取结果单项终态（§7.2：不忽略单项失败） */
+export interface PetClaimBatchItem {
+  activityId: number | string
+  status: 'CLAIMED' | 'ALREADY_CLAIMED' | 'NOT_READY' | 'FAILED'
+  activity?: Record<string, unknown>
+  errorCode?: string
+  message?: string
+}
+
+/** 我的举报（R05：公开处置摘要） */
+export interface PetReportMine {
+  reportId: number | string
+  targetType: string
+  targetId: number | string
+  reason: string
+  description: string | null
+  status: string
+  handleAction: string | null
+  handleReason: string | null
+  createdAt: string | null
+  handledAt: string | null
+}
+
+/** 聊天请求状态（R22 意图恢复） */
+export interface PetChatRequestStatus {
+  status: 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN'
+  canRetry: boolean
+  reply: Record<string, unknown> | null
+}
+
+/** 扩展后的限时活动条目（期次驱动活动带 occurrenceId/claimDeadlineAt） */
+export interface PetEventOccurrenceView {
+  occurrenceId: string | null
+  claimDeadlineAt: string | null
+}
+
+export const petApiV2 = {
+  getBootstrap: (petId?: number | string) =>
+    request<PetBootstrap>({ url: '/pet/bootstrap', data: petId ? { petId } : undefined }),
+  getActivityCenter: (petId?: number | string) =>
+    request<PetActivityCenterSummary>({ url: '/pet/activity-center', data: petId ? { petId } : undefined }),
+  claimActivitiesBatch: (activityIds: Array<number | string>) =>
+    request<PetClaimBatchItem[]>({ url: '/pet/activities/claim-batch', method: 'POST', data: { activityIds } }),
+  listMyReports: () => request<PetReportMine[]>({ url: '/pet/reports/mine' }),
+  getChatRequestStatus: (requestKey: string) =>
+    request<PetChatRequestStatus>({ url: `/pet/chat/requests/${encodeURIComponent(requestKey)}` }),
+  updateDiaryVisibility: (
+    petId: number | string, entryId: number | string,
+    data: { visibility: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
+  ) =>
+    request<{ entryId: number | string; visibility: string; version: number }>({
+      url: `/pet/pets/${petId}/diary/${entryId}`, method: 'PATCH',
+      data: data as unknown as Record<string, unknown>,
+    }),
+  updateAlbumAsset: (
+    petId: number | string, assetId: number | string,
+    data: { caption?: string; visibility?: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
+  ) =>
+    request<Record<string, unknown>>({
+      url: `/pet/pets/${petId}/album/${assetId}`, method: 'PATCH',
+      data: data as unknown as Record<string, unknown>,
+    }),
+  listEventsByStatus: (status: 'AVAILABLE' | 'CLAIMABLE' | 'HISTORY') =>
+    request<(PetEventItem & PetEventOccurrenceView)[]>({ url: `/pet/events?status=${status}` }),
+  claimEventOccurrence: (occurrenceId: number | string) =>
+    request<PetEventItem & PetEventOccurrenceView>({
+      url: `/pet/event-occurrences/${occurrenceId}/claim`, method: 'POST',
+    }),
+  claimQuestInSet: (setId: string, questId: string) =>
+    request<Record<string, unknown>>({
+      url: `/pet/daily-quest-sets/${encodeURIComponent(setId)}/quests/${encodeURIComponent(questId)}/claim`,
+      method: 'POST',
+    }),
+  claimAllQuestsInSet: (setId: string) =>
+    request<{ results: Array<{ status: string }>; chest: { status: string } }>({
+      url: `/pet/daily-quest-sets/${encodeURIComponent(setId)}/claim-all`, method: 'POST',
+    }),
+  claimQuestChestInSet: (setId: string) =>
+    request<Record<string, unknown>>({
+      url: `/pet/daily-quest-sets/${encodeURIComponent(setId)}/chest/claim`, method: 'POST',
+    }),
 }
