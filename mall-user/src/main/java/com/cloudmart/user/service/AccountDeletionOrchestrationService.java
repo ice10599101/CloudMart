@@ -39,8 +39,8 @@ import java.util.Map;
  *       重入，退避重试，重启从未完成步骤继续；</li>
  *   <li>分域执行：AUTH 会话撤销 → ORDER 未结复核 → WISH 擦除 → ORDER 收货人
  *       去标识化 → USER 主体去标识化（最后执行，登录阻断）；COMMUNITY/NOTIFICATION/
- *       FILE/PET 未提供擦除端点前如实 FAILED(ERASURE_DOMAIN_NOT_WIRED)——
- *       不承诺本次未覆盖域已擦除，后台/进度中心可见；</li>
+ *       FILE 三域擦除经内部端点接线（T06 补齐，幂等）；失败如实 FAILED 并退避重试——
+ *       不假装已擦除，后台/进度中心可见；</li>
  *   <li>旧 EXECUTED 任务（B20 语义）不自动视作完成：扫描纳入重新核查，
  *       各步骤幂等重放，全部确认后才升 COMPLETED。</li>
  * </ul>
@@ -75,6 +75,9 @@ public class AccountDeletionOrchestrationService {
     private final com.cloudmart.user.repository.UserMapper userMapper;
     private final ErasureFeignClient erasureFeignClient;
     private final OrderErasureFeignClient orderErasureFeignClient;
+    private final com.cloudmart.user.feign.CommunityErasureFeignClient communityErasureFeignClient;
+    private final com.cloudmart.user.feign.NotificationErasureFeignClient notificationErasureFeignClient;
+    private final com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient;
     private final AuthStateFeignClient authStateFeignClient;
     private final com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient;
     private final String instanceId;
@@ -87,6 +90,9 @@ public class AccountDeletionOrchestrationService {
             com.cloudmart.user.repository.UserMapper userMapper,
             ErasureFeignClient erasureFeignClient,
             OrderErasureFeignClient orderErasureFeignClient,
+            com.cloudmart.user.feign.CommunityErasureFeignClient communityErasureFeignClient,
+            com.cloudmart.user.feign.NotificationErasureFeignClient notificationErasureFeignClient,
+            com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient,
             AuthStateFeignClient authStateFeignClient,
             com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient,
             @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret,
@@ -96,6 +102,9 @@ public class AccountDeletionOrchestrationService {
         this.userMapper = userMapper;
         this.erasureFeignClient = erasureFeignClient;
         this.orderErasureFeignClient = orderErasureFeignClient;
+        this.communityErasureFeignClient = communityErasureFeignClient;
+        this.notificationErasureFeignClient = notificationErasureFeignClient;
+        this.fileErasureFeignClient = fileErasureFeignClient;
         this.authStateFeignClient = authStateFeignClient;
         this.orderQueryFeignClient = orderQueryFeignClient;
         this.secret = secret;
@@ -435,9 +444,17 @@ public class AccountDeletionOrchestrationService {
                     anonymizeLocalAccount(task.getUserId());
                     return null;
                 }
-                case "COMMUNITY/ERASE", "NOTIFICATION/ERASE", "FILE/ERASE" -> {
-                    // 未提供擦除端点的域如实暴露：不假装已擦除（方案 §7.4 分域回执真实）
-                    return BLOCK_DOMAIN_NOT_WIRED;
+                case "COMMUNITY/ERASE" -> {
+                    var resp = communityErasureFeignClient.erase(task.getUserId());
+                    return resp != null && resp.success() ? null : "COMMUNITY_ERASE_FAILED";
+                }
+                case "NOTIFICATION/ERASE" -> {
+                    var resp = notificationErasureFeignClient.erase(task.getUserId());
+                    return resp != null && resp.success() ? null : "NOTIFICATION_ERASE_FAILED";
+                }
+                case "FILE/ERASE" -> {
+                    var resp = fileErasureFeignClient.erase(task.getUserId());
+                    return resp != null && resp.success() ? null : "FILE_ERASE_FAILED";
                 }
                 default -> {
                     log.error("[T06] 未知注销步骤 {}.{}", domain, stepName);

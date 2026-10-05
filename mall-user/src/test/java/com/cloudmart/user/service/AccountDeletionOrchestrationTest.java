@@ -50,6 +50,9 @@ class AccountDeletionOrchestrationTest {
     private UserMapper userMapper;
     private ErasureFeignClient erasureFeignClient;
     private OrderErasureFeignClient orderErasureFeignClient;
+    private com.cloudmart.user.feign.CommunityErasureFeignClient communityErasureFeignClient;
+    private com.cloudmart.user.feign.NotificationErasureFeignClient notificationErasureFeignClient;
+    private com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient;
     private AuthStateFeignClient authStateFeignClient;
     private OrderBlockFeignClient orderBlockFeignClient;
 
@@ -73,11 +76,16 @@ class AccountDeletionOrchestrationTest {
         userMapper = mock(UserMapper.class);
         erasureFeignClient = mock(ErasureFeignClient.class);
         orderErasureFeignClient = mock(OrderErasureFeignClient.class);
+        communityErasureFeignClient = mock(com.cloudmart.user.feign.CommunityErasureFeignClient.class);
+        notificationErasureFeignClient = mock(com.cloudmart.user.feign.NotificationErasureFeignClient.class);
+        fileErasureFeignClient = mock(com.cloudmart.user.feign.FileErasureFeignClient.class);
         authStateFeignClient = mock(AuthStateFeignClient.class);
         orderBlockFeignClient = mock(OrderBlockFeignClient.class);
         service = new AccountDeletionOrchestrationService(taskMapper, stepMapper, userMapper,
-                erasureFeignClient, orderErasureFeignClient, authStateFeignClient,
-                orderBlockFeignClient, "test-secret-0123456789abcdef-0123456789abcdef", "test-instance");
+                erasureFeignClient, orderErasureFeignClient,
+                communityErasureFeignClient, notificationErasureFeignClient, fileErasureFeignClient,
+                authStateFeignClient, orderBlockFeignClient,
+                "test-secret-0123456789abcdef-0123456789abcdef", "test-instance");
     }
 
     private AccountDeletionTask task(String status) {
@@ -112,14 +120,17 @@ class AccountDeletionOrchestrationTest {
                 step("WISH", "ERASE"),
                 step("ORDER", "ANONYMIZE"),
                 step("USER", "ANONYMIZE"),
-                step("COMMUNITY", "ERASE"));
+                step("COMMUNITY", "ERASE"),
+                step("NOTIFICATION", "ERASE"),
+                step("FILE", "ERASE"));
         when(stepMapper.claim(anyLong(), anyString(), any())).thenReturn(1);
         when(stepMapper.markSuccess(anyLong(), anyString())).thenReturn(1);
         when(stepMapper.markFailed(anyLong(), anyString(), anyString(), any(), any())).thenReturn(1);
         when(stepMapper.selectList(any())).thenReturn(List.of(
                 step("ORDER", "OPEN_ORDER_CHECK"),
                 step("WISH", "ERASE"), step("ORDER", "ANONYMIZE"),
-                step("USER", "ANONYMIZE"), step("COMMUNITY", "ERASE")));
+                step("USER", "ANONYMIZE"), step("COMMUNITY", "ERASE"),
+                step("NOTIFICATION", "ERASE"), step("FILE", "ERASE")));
     }
 
     @Test
@@ -219,8 +230,8 @@ class AccountDeletionOrchestrationTest {
     }
 
     @Test
-    @DisplayName("T06 未接线域如实暴露：任务停留 BLOCKED（ERASURE_DOMAIN_NOT_WIRED），不假装完成")
-    void execution_unwiredDomain_blocked() {
+    @DisplayName("T06 三域擦除接线：全部步骤成功 → 任务 COMPLETED")
+    void execution_allDomainsWired_completed() {
         when(taskMapper.update(any(), any())).thenReturn(1);
         when(orderBlockFeignClient.hasOpenOrders(eq(USER_ID), anyString()))
                 .thenReturn(ApiResponse.ok(false));
@@ -229,15 +240,43 @@ class AccountDeletionOrchestrationTest {
         when(erasureFeignClient.eraseWishData(anyLong(), anyString()))
                 .thenReturn(ApiResponse.ok(true));
         when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
+        when(communityErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(notificationErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(fileErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
 
         service.executeTask(task("PENDING"));
 
-        // COMMUNITY/NOTIFICATION/FILE 无擦除端点：任务不可 COMPLETED
+        verify(communityErasureFeignClient).erase(USER_ID);
+        verify(notificationErasureFeignClient).erase(USER_ID);
+        verify(fileErasureFeignClient).erase(USER_ID);
         ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AccountDeletionTask>> captor =
                 ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
         verify(taskMapper, Mockito.atLeastOnce())
                 .update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
-        verify(erasureFeignClient).eraseWishData(anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("T06 擦除域失败如实 FAILED：任务不可 COMPLETED（不假装完成）")
+    void execution_domainEraseFailed_blocked() {
+        when(taskMapper.update(any(), any())).thenReturn(1);
+        when(orderBlockFeignClient.hasOpenOrders(eq(USER_ID), anyString()))
+                .thenReturn(ApiResponse.ok(false));
+        stubClaimableSteps();
+        when(authStateFeignClient.invalidateState(any())).thenReturn(ApiResponse.ok(null));
+        when(erasureFeignClient.eraseWishData(anyLong(), anyString()))
+                .thenReturn(ApiResponse.ok(true));
+        when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
+        when(communityErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.fail("COMMUNITY_ERASE_FAILED", "boom"));
+        when(notificationErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(fileErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+
+        service.executeTask(task("PENDING"));
+
+        verify(communityErasureFeignClient).erase(USER_ID);
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AccountDeletionTask>> captor =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+        verify(taskMapper, Mockito.atLeastOnce())
+                .update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
     }
 
     @Test
