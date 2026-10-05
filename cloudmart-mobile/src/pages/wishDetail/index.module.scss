@@ -726,3 +726,20 @@
   color: rgba(107, 203, 255, 0.95);
   font-size: 26rpx;
 }
+
+/* T22 成长记录作者操作（编辑/删除） */
+.growthActions {
+  margin-left: auto;
+  display: flex;
+  gap: 16rpx;
+}
+
+.growthActionEdit {
+  color: rgba(107, 203, 255, 0.9);
+  font-size: 24rpx;
+}
+
+.growthActionDelete {
+  color: rgba(255, 107, 107, 0.85);
+  font-size: 24rpx;
+}

@@ -1,5 +1,5 @@
 import RichHtml from '@/components/RichHtml'
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, useWindowDimensions } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Modal, useWindowDimensions } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -330,6 +330,59 @@ export default function WishDetailScreen() {
           } catch {
             Alert.alert('步骤已被其他设备修改', '已刷新最新状态')
             void loadGoals()
+          }
+        },
+      },
+    ])
+  }
+
+  // T22：成长记录编辑/删除（API 封装此前无 App 入口；作者专用，
+  // 后端约束"进度为历史事实不回退"，编辑仅改 content）
+  const [editingRecord, setEditingRecord] = useState<{ id: number | string; content: string } | null>(null)
+  const [recordSaving, setRecordSaving] = useState(false)
+
+  const reloadWish = async () => {
+    const detailRes = await wishApi.getWishDetail(wishId)
+    if (detailRes.data?.success) setWish(detailRes.data.data)
+  }
+
+  const handleSaveGrowthRecord = async () => {
+    if (!editingRecord || recordSaving) return
+    const content = editingRecord.content.trim()
+    if (!content) {
+      Alert.alert('提示', '内容不能为空')
+      return
+    }
+    setRecordSaving(true)
+    try {
+      const res = await wishApi.updateGrowthRecord(wishId, editingRecord.id, { content })
+      if (res.data?.success) {
+        setEditingRecord(null)
+        await reloadWish()
+      }
+    } catch (error) {
+      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message
+      Alert.alert('保存失败', msg ?? '请稍后重试')
+    } finally {
+      setRecordSaving(false)
+    }
+  }
+
+  const handleDeleteGrowthRecord = (recordId: number | string) => {
+    Alert.alert('确认删除该条成长记录？', '删除后不可恢复；关联进度与奖励由服务端规则处理', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await wishApi.deleteGrowthRecord(wishId, recordId)
+            if (res.data?.success) await reloadWish()
+          } catch (error) {
+            const msg = (error as { response?: { data?: { error?: { message?: string } } } })
+              ?.response?.data?.error?.message
+            Alert.alert('删除失败', msg ?? '请稍后重试')
           }
         },
       },
@@ -777,6 +830,22 @@ export default function WishDetailScreen() {
                     <Text style={{ fontSize: FontSize.xs, color: '#4ade80', marginLeft: Spacing.sm }}>
                       +{record.progressDelta}
                     </Text>
+                  )}
+                  {isAuthor && (
+                    <View style={{ flexDirection: 'row', marginLeft: 'auto' }}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                        onPress={() => setEditingRecord({ id: record.id, content: record.content })}
+                      >
+                        <Text style={{ fontSize: FontSize.xs, color: '#6bcbff' }}>编辑</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                        onPress={() => handleDeleteGrowthRecord(record.id)}
+                      >
+                        <Text style={{ fontSize: FontSize.xs, color: '#ff6b6b', marginLeft: Spacing.sm }}>删除</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               </View>
@@ -1484,6 +1553,63 @@ export default function WishDetailScreen() {
           fruitColor={FRUIT_COLORS[wish.fruitType]}
         />
       )}
+
+      {/* T22：成长记录编辑弹窗 */}
+      <Modal visible={editingRecord !== null} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            padding: Spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: WishColors.bgContainer,
+              borderRadius: BorderRadius.lg,
+              padding: Spacing.lg,
+              borderWidth: 1,
+              borderColor: WishColors.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginBottom: Spacing.sm }}>
+              编辑成长记录
+            </Text>
+            <TextInput
+              value={editingRecord?.content ?? ''}
+              onChangeText={(text) =>
+                setEditingRecord((prev) => (prev ? { ...prev, content: text } : prev))
+              }
+              multiline
+              numberOfLines={4}
+              style={{
+                borderWidth: 1,
+                borderColor: WishColors.border,
+                borderRadius: BorderRadius.sm,
+                padding: Spacing.sm,
+                color: WishColors.text,
+                fontSize: FontSize.sm,
+                minHeight: 90,
+                textAlignVertical: 'top',
+              }}
+            />
+            <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: Spacing.xs }}>
+              仅修改文字内容；关联进度与已发奖励不受影响
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.md, gap: Spacing.lg }}>
+              <TouchableOpacity onPress={() => setEditingRecord(null)} disabled={recordSaving}>
+                <Text style={{ fontSize: FontSize.sm, color: WishColors.textTertiary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveGrowthRecord} disabled={recordSaving}>
+                <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: '#6bcbff' }}>
+                  {recordSaving ? '保存中…' : '保存'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <WishBGM />
     </View>
   )

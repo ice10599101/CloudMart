@@ -374,6 +374,16 @@ export const wishApi = {
             method: 'POST',
             data: data as unknown as Record<string, unknown>,
         }),
+    /** 编辑成长记录（作者专用；content/mediaUrls 可选更新；进度为历史事实不回退） */
+    updateGrowthRecord: (wishId: number | string, recordId: number | string, data: { content?: string; mediaUrls?: string[] }) =>
+        request<unknown>({
+            url: `/wish/wishes/${wishId}/growth-records/${recordId}`,
+            method: 'PUT',
+            data: data as unknown as Record<string, unknown>,
+        }),
+    /** 删除成长记录（作者专用；统计投影与奖励冲正由服务端独立规则处理） */
+    deleteGrowthRecord: (wishId: number | string, recordId: number | string) =>
+        request<null>({ url: `/wish/wishes/${wishId}/growth-records/${recordId}`, method: 'DELETE' }),
     getWishProgressDetail: (wishId: number | string) =>
         request<{ currentValue: number; targetValue: number; percentage: number; version: number }>({
             url: `/wish/wishes/${wishId}/progress`,

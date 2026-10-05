@@ -260,6 +260,63 @@ export default function WishDetailPage() {
     }
   }
 
+  // T22：成长记录编辑/删除（API 封装此前无 Taro 入口；作者专用，
+  // 后端约束"进度为历史事实不回退"，编辑仅改 content）
+  const [recordEditOpen, setRecordEditOpen] = useState(false)
+  const [recordEditId, setRecordEditId] = useState<number | string | null>(null)
+  const [recordEditContent, setRecordEditContent] = useState('')
+  const [recordEditSaving, setRecordEditSaving] = useState(false)
+
+  const reloadWish = async () => {
+    const detailRes = await wishApi.getWishDetail(wishId)
+    if (detailRes.data.success) setWish(detailRes.data.data)
+  }
+
+  const handleEditGrowthRecord = (recordId: number | string, currentContent: string) => {
+    setRecordEditId(recordId)
+    setRecordEditContent(currentContent)
+    setRecordEditOpen(true)
+  }
+
+  const handleSaveGrowthRecord = async () => {
+    if (!recordEditId || recordEditSaving) return
+    const content = recordEditContent.trim()
+    if (!content) {
+      Taro.showToast({ title: '内容不能为空', icon: 'none' })
+      return
+    }
+    setRecordEditSaving(true)
+    try {
+      const result = await wishApi.updateGrowthRecord(wishId, recordEditId, { content })
+      if (result.data.success) {
+        setRecordEditOpen(false)
+        setRecordEditId(null)
+        Taro.showToast({ title: '已保存', icon: 'success' })
+        await reloadWish()
+      }
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '保存失败，请稍后重试', icon: 'none' })
+    } finally {
+      setRecordEditSaving(false)
+    }
+  }
+
+  const handleDeleteGrowthRecord = async (recordId: number | string) => {
+    const res = await Taro.showModal({
+      title: '确认删除该条成长记录？',
+      content: '删除后不可恢复；关联进度与奖励由服务端规则处理',
+    })
+    if (!res.confirm) return
+    try {
+      const result = await wishApi.deleteGrowthRecord(wishId, recordId)
+      if (result.data.success) await reloadWish()
+    } catch (err) {
+      const errNode = err as { data?: { error?: { message?: string } } }
+      Taro.showToast({ title: errNode?.data?.error?.message || '删除失败，请稍后重试', icon: 'none' })
+    }
+  }
+
   // T22：还愿撤回（API 封装此前无 Taro 入口；作者本人，后端状态机校验：
   // 已进入社区流转/审核中的撤回被拒绝并回显原因，成功后刷新详情）
   const handleWithdrawFulfillment = async () => {
@@ -699,6 +756,22 @@ export default function WishDetailPage() {
                     {record.progressDelta > 0 && (
                       <Text className={styles.deltaTag}>+{record.progressDelta}</Text>
                     )}
+                    {isAuthor && (
+                      <View className={styles.growthActions}>
+                        <Text
+                          className={styles.growthActionEdit}
+                          onClick={() => handleEditGrowthRecord(record.id, record.content)}
+                        >
+                          编辑
+                        </Text>
+                        <Text
+                          className={styles.growthActionDelete}
+                          onClick={() => handleDeleteGrowthRecord(record.id)}
+                        >
+                          删除
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
@@ -810,6 +883,28 @@ export default function WishDetailPage() {
               </View>
               <View className={styles.modalOk} onClick={checkinSaving ? undefined : handleCheckinSubmit}>
                 <Text>{checkinSaving ? '打卡中...' : '打卡'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+      {recordEditOpen && (
+        <View className={styles.modalMask} onClick={() => setRecordEditOpen(false)}>
+          <View className={styles.modalBody} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.modalTitle}>编辑成长记录</Text>
+            <Text className={styles.modalText}>仅修改文字内容；关联进度与已发奖励不受影响</Text>
+            <Textarea
+              className={styles.checkinTextarea}
+              value={recordEditContent}
+              maxlength={500}
+              onInput={(e) => setRecordEditContent(e.detail.value)}
+            />
+            <View className={styles.modalBtns}>
+              <View className={styles.modalCancel} onClick={() => setRecordEditOpen(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={styles.modalOk} onClick={recordEditSaving ? undefined : handleSaveGrowthRecord}>
+                <Text>{recordEditSaving ? '保存中...' : '保存'}</Text>
               </View>
             </View>
           </View>
