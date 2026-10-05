@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>不再自动 repair：checksum 漂移/失败历史行必须走受控修复单（validate-on-migrate 已开启，
  *       漂移直接阻断启动）。</li>
+ *   <li>开发重置脚本 V29 已迁出自动迁移生命周期（db/devops/pet_dev_data_reset.sql，人工执行 +
+ *       库名守卫）；"29:missing" 仅豁免已执行过 V29 环境的缺失校验。保留 29 的 preflight
+ *       条目作为纵深防御：若该脚本被误放回扫描目录且库里有数据，启动仍会被阻断。</li>
  *   <li>migrate 前执行只读 preflight：待执行迁移包含 V28（删旧物种宠物）/V29（TRUNCATE 运行数据）
  *       且运行表已有真实数据时终止发布——禁止靠"应该都是测试数据"判断放行；
  *       空库（表不存在按空处理）与已执行过 V28/V29 的库不受影响。</li>

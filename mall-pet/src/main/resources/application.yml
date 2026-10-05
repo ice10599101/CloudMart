@@ -68,12 +68,13 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 1
-    # R01：生产可经 FLYWAY_LOCATIONS 排除开发重置迁移（如 classpath:db/migration-prod）；
-    # 常规环境不设置，保持完整前向链
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     clean-disabled: true
     # R01：开启校验——历史迁移 checksum 被改/失败历史行必须走受控修复单，启动即失败而非自动 repair 掩盖
     validate-on-migrate: true
+    # PET-01：开发重置脚本 V29 已迁出自动迁移生命周期（db/devops/ 人工执行）。此处仅豁免
+    # "已应用迁移 29 本地缺失"——防止曾执行过 V29 的环境因文件迁出而校验失败；其余迁移仍全量校验
+    ignore-migration-patterns: "29:missing"
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
