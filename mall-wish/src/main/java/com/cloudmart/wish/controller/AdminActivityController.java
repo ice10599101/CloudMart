@@ -48,6 +48,17 @@ public class AdminActivityController {
      * 仅活动创建管理员可审批；显式 @PathVariable 绑定（旧用户端 {userId} 与
      * applicantUserId 未显式绑定会请求时解析失败）。
      */
+    /** T13/T22：全状态参与者列表（含待审申请与真实 userId），审批闭环的前置查询 */
+    @GetMapping("/{id}/participants")
+    @Operation(summary = "参与者/申请列表（管理端）", description = "全状态含 PENDING；真实 userId 供审批定位；分页上限 100")
+    public ApiResponse<java.util.List<java.util.Map<String, Object>>> participantsForAdmin(
+            @Parameter(description = "活动 ID", required = true) @PathVariable("id") Long id,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") Integer size) {
+        return ApiResponse.ok(activityService.listParticipantsForAdmin(id,
+                page == null ? 1 : page, size == null ? 20 : size));
+    }
+
     @PutMapping("/{id}/participants/{applicantUserId}/review")
     @Operation(summary = "审批搭子申请", description = "T13：仅活动创建管理员；approved=true 进组/false 驳回")
     public ApiResponse<Void> reviewApplication(

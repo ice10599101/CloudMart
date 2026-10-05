@@ -19,6 +19,8 @@ import {
     deleteAdminActivity,
     issueAdminActivityRewards,
     listAdminActivityRewardLogs,
+    listAdminActivityParticipants,
+    reviewAdminPartnerApplication,
     ADMIN_ACTIVITY_TYPE_MAP,
     ADMIN_ACTIVITY_STATUS_MAP,
     ADMIN_ACTIVITY_CONDITION_TYPE_MAP,
@@ -29,6 +31,7 @@ import type {
     AdminActivityType,
     AdminActivityConditionType,
     AdminActivityRewardLog,
+    AdminActivityParticipantRow,
 } from '@/api/admin/wish'
 import dayjs, { type Dayjs } from 'dayjs'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -138,6 +141,10 @@ export default function ActivityAdmin() {
     const [logsRecord, setLogsRecord] = useState<AdminActivityRecord | null>(null)
     const [rewardLogs, setRewardLogs] = useState<AdminActivityRewardLog[]>([])
     const [logsLoading, setLogsLoading] = useState(false)
+    // T13/T22：搭子申请审批（仅 WISH_PARTNER 类型；PENDING 待审与有效成员不能混同）
+    const [participantsRecord, setParticipantsRecord] = useState<AdminActivityRecord | null>(null)
+    const [participants, setParticipants] = useState<AdminActivityParticipantRow[]>([])
+    const [participantsLoading, setParticipantsLoading] = useState(false)
     const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
 
     const reload = () => actionRef.current?.reload()
@@ -174,6 +181,30 @@ export default function ActivityAdmin() {
     const handleDelete = async (record: AdminActivityRecord) => {
         await deleteAdminActivity(record.id)
         message.success('活动已删除')
+        reload()
+    }
+
+    const loadParticipants = async (activityId: number) => {
+        setParticipantsLoading(true)
+        try {
+            const res = await listAdminActivityParticipants(activityId)
+            setParticipants(res.data.data ?? [])
+        } finally {
+            setParticipantsLoading(false)
+        }
+    }
+
+    const openParticipants = (record: AdminActivityRecord) => {
+        setParticipantsRecord(record)
+        setParticipants([])
+        void loadParticipants(record.id)
+    }
+
+    const handleReview = async (applicantUserId: number, approved: boolean) => {
+        if (!participantsRecord) return
+        await reviewAdminPartnerApplication(participantsRecord.id, applicantUserId, approved)
+        message.success(approved ? '已批准进组' : '已驳回申请')
+        await loadParticipants(participantsRecord.id)
         reload()
     }
 
@@ -302,6 +333,12 @@ export default function ActivityAdmin() {
                         <Button key="rewards" type="link" size="small" icon={<TrophyOutlined />}
                             onClick={() => handleIssueRewards(record)}>
                             发奖励
+                        </Button>
+                    ) : null,
+                    record.type === 'WISH_PARTNER' ? (
+                        <Button key="participants" type="link" size="small"
+                            onClick={() => openParticipants(record)}>
+                            搭子申请
                         </Button>
                     ) : null,
                     <Button key="logs" type="link" size="small" icon={<FileTextOutlined />}
@@ -482,6 +519,59 @@ export default function ActivityAdmin() {
                         },
                         { title: '数量', dataIndex: 'amount', width: 80 },
                         { title: '关联徽章 ID', dataIndex: 'refId', render: (v: number | null) => v ?? '-' },
+                    ]}
+                />
+            </Drawer>
+
+            {/* T13/T22：搭子申请审批（PENDING 待审与有效成员不能混同） */}
+            <Drawer
+                title={participantsRecord ? `搭子申请：${participantsRecord.title}` : '搭子申请'}
+                width={720}
+                open={participantsRecord !== null}
+                onClose={() => setParticipantsRecord(null)}
+            >
+                <Table<AdminActivityParticipantRow>
+                    rowKey="userId"
+                    size="small"
+                    loading={participantsLoading}
+                    dataSource={participants}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                        { title: '用户 ID', dataIndex: 'userId', width: 110 },
+                        {
+                            title: '状态',
+                            dataIndex: 'status',
+                            width: 90,
+                            render: (v: AdminActivityParticipantRow['status']) => {
+                                const map: Record<string, { color: string; label: string }> = {
+                                    PENDING: { color: 'orange', label: '待审批' },
+                                    APPROVED: { color: 'green', label: '已进组' },
+                                    JOINED: { color: 'green', label: '已参与' },
+                                    REJECTED: { color: 'red', label: '已驳回' },
+                                }
+                                const m = map[v] ?? { color: 'default', label: v }
+                                return <Tag color={m.color}>{m.label}</Tag>
+                            },
+                        },
+                        { title: '角色', dataIndex: 'role', width: 90, render: (v: string | null) => v ?? '-' },
+                        { title: '协作心愿', dataIndex: 'wishId', width: 100, render: (v: number | null) => v ?? '-' },
+                        { title: '技能标签', dataIndex: 'skills', ellipsis: true, render: (v: string | null) => v ?? '-' },
+                        { title: '匹配分', dataIndex: 'matchScore', width: 80, render: (v: number | null) => v ?? '-' },
+                        {
+                            title: '操作',
+                            width: 140,
+                            render: (_, row) =>
+                                row.status === 'PENDING' ? (
+                                    <Space size="small">
+                                        <Popconfirm title="批准该申请进组？" onConfirm={() => handleReview(row.userId, true)}>
+                                            <Button type="link" size="small">批准</Button>
+                                        </Popconfirm>
+                                        <Popconfirm title="驳回该申请？" onConfirm={() => handleReview(row.userId, false)}>
+                                            <Button type="link" size="small" danger>驳回</Button>
+                                        </Popconfirm>
+                                    </Space>
+                                ) : <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>,
+                        },
                     ]}
                 />
             </Drawer>

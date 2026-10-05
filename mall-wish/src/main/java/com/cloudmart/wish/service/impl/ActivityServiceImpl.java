@@ -104,6 +104,28 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     @Override
+    public java.util.List<Map<String, Object>> listParticipantsForAdmin(Long activityId, int page, int size) {
+        final var participants = activityParticipantMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.wish.entity.ActivityParticipant>()
+                        .eq(com.cloudmart.wish.entity.ActivityParticipant::getActivityId, activityId)
+                        .orderByAsc(com.cloudmart.wish.entity.ActivityParticipant::getId)
+                        .last("LIMIT " + Math.min(Math.max(size, 1), 100) + " OFFSET " + Math.max(page - 1, 0) * size));
+        return participants.stream().map(p -> {
+            final Map<String, Object> row = new java.util.LinkedHashMap<String, Object>();
+            // 管理端返回真实 userId（审批端点需要 applicantUserId 定位）
+            row.put("userId", p.getUserId());
+            row.put("status", p.getStatus() != null ? p.getStatus().name() : null);
+            row.put("role", p.getRole());
+            row.put("wishId", p.getWishId());
+            row.put("skills", p.getSkills());
+            row.put("matchScore", p.getMatchScore());
+            row.put("appliedAt", p.getAppliedAt());
+            row.put("reviewedAt", p.getReviewedAt());
+            return row;
+        }).toList();
+    }
+
+    @Override
     public List<CommunityActivity> listActivities(String type, String cityCode) {
         LambdaQueryWrapper<CommunityActivity> query = new LambdaQueryWrapper<>();
         query.eq(CommunityActivity::getStatus, ActivityStatus.ACTIVE);

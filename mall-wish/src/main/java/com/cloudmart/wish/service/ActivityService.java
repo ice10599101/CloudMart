@@ -47,6 +47,12 @@ public interface ActivityService {
     /** 招募作者审批（APPROVED 进组 / REJECTED） */
     void reviewApplication(Long userId, Long activityId, Long applicantUserId, boolean approved);
 
+    /**
+     * T13/T22：管理端全状态参与者/申请列表（含真实 userId 供审批定位；
+     * 与用户端脱敏列表分离——申请待审与有效成员不能混同）。
+     */
+    java.util.List<java.util.Map<String, Object>> listParticipantsForAdmin(Long activityId, int page, int size);
+
     /** 组队看板：成员列表 + 各自打卡天数/最新成长记录（协作进度共享） */
     List<ActivityBoardVO.MemberBoard> getPartnerBoard(Long activityId, Long viewerId);
 

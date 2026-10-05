@@ -1278,13 +1278,6 @@ export function applyPartner(id: number | string, wishId: number | string, skill
   return request.post<ApiResponse<null>>(`/wish/activities/${id}/apply`, { wishId, skills })
 }
 
-export function reviewPartnerApplication(id: number | string, applicantUserId: number, approved: boolean) {
-  return request.put<ApiResponse<null>>(
-    `/wish/activities/${id}/participants/${applicantUserId}/review`,
-    { approved },
-  )
-}
-
 export interface BoardMember {
   userId: number
   role: string
