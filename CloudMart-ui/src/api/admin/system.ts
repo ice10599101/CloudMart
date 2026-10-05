@@ -152,3 +152,91 @@ export function getRecentOrders(params?: Record<string, any>) {
 export function getSalesTrend(params?: Record<string, any>) {
   return request.get('/admin/dashboard/sales-trend', { params })
 }
+
+// ========== T24 多运营：管理员账号管理 ==========
+
+export interface AdminUserRow {
+  id: number
+  username: string
+  nickname: string | null
+  email: string | null
+  phone: string | null
+  status: number
+  deptId: number | null
+  remark: string | null
+  createdAt: string
+  roles?: Array<{ roleId?: number; roleName: string; roleKey: string }> | null
+}
+
+export interface AdminRoleRow {
+  id: number
+  roleName: string
+  roleKey: string
+  roleSort: number
+  dataScope: number
+  status: number
+  remark: string | null
+  createdAt: string
+}
+
+export function listAdminUsers(params?: Record<string, any>) {
+  return request.get('/admin/users/page', { params })
+}
+
+export function getAdminUser(id: number | string) {
+  return request.get<import('@/types/api').ApiResponse<AdminUserRow>>(`/admin/users/${id}`)
+}
+
+export function createAdminUser(data: Record<string, any>) {
+  return request.post('/admin/users', data)
+}
+
+export function updateAdminUser(id: number | string, data: Record<string, any>) {
+  return request.put(`/admin/users/${id}`, data)
+}
+
+export function deleteAdminUser(id: number | string) {
+  return request.delete(`/admin/users/${id}`)
+}
+
+export function changeAdminUserStatus(id: number | string, status: number) {
+  return request.put(`/admin/users/${id}/status`, { status })
+}
+
+export function resetAdminUserPassword(id: number | string, newPassword: string) {
+  return request.put('/admin/users/resetPassword', { userId: id, newPassword })
+}
+
+export function assignAdminUserRoles(id: number | string, roleIds: number[]) {
+  return request.put(`/admin/users/${id}/roles`, { roleIds })
+}
+
+// ========== T24 多运营：角色管理 ==========
+
+export function listAdminRoles() {
+  return request.get('/admin/roles')
+}
+
+export function getAdminRole(id: number | string) {
+  return request.get(`/admin/roles/${id}`)
+}
+
+export function createAdminRole(data: Record<string, any>) {
+  return request.post('/admin/roles', data)
+}
+
+export function updateAdminRole(id: number | string, data: Record<string, any>) {
+  return request.put(`/admin/roles/${id}`, data)
+}
+
+export function deleteAdminRole(id: number | string) {
+  return request.delete(`/admin/roles/${id}`)
+}
+
+export function getAdminRoleMenus(id: number | string) {
+  return request.get(`/admin/roles/${id}/menus`)
+}
+
+export function assignAdminRoleMenus(data: { roleId: number | string; menuIds: number[] }) {
+  return request.put('/admin/roles/menus', data)
+}

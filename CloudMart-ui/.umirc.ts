@@ -111,6 +111,10 @@ export default defineConfig({
         { path: '/admin/dashboard', component: '@/pages/admin/Dashboard' },
         // 用户管理 = 社区真实用户（mall-user 会员，小答号/昵称/邮箱）
         { path: '/admin/system/users', component: '@/pages/admin/business/Members' },
+        // T24 多运营：管理员账号管理（运营账号 CRUD/启停/重置密码/角色分配）
+        { path: '/admin/system/admin-users', component: '@/pages/admin/system/AdminUsers' },
+        // T24 多运营：角色管理（角色 CRUD + 菜单/权限点树分配；菜单 1010 早已指向此路径）
+        { path: '/admin/system/roles', component: '@/pages/admin/system/Roles' },
         // 账号设置 = 唯一管理员自己的资料与密码（单管理员后台，无 RBAC 组织架构）
         { path: '/admin/system/account', component: '@/pages/admin/system/AccountSettings' },
         { path: '/admin/system/menus', component: '@/pages/admin/system/Menus' },
