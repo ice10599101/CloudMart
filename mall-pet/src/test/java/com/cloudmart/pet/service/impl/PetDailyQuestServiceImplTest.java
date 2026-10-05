@@ -75,6 +75,7 @@ class PetDailyQuestServiceImplTest {
     private com.cloudmart.pet.config.PetClock petClock;
     private com.cloudmart.pet.repository.PetQuestEventReceiptMapper receiptMapper;
     private com.cloudmart.pet.repository.PetMapper petMapperMock;
+    private com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper;
 
     /** LambdaWrapper 需要实体元数据（与既有测试同一口径：不启动 Spring 也能构造条件） */
     @BeforeAll
@@ -82,6 +83,7 @@ class PetDailyQuestServiceImplTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, PetDailyQuest.class);
         TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetQuestEventReceipt.class);
+        TableInfoHelper.initTableInfo(assistant, com.cloudmart.pet.entity.PetDailyQuestSet.class);
     }
 
     @BeforeEach
@@ -95,6 +97,25 @@ class PetDailyQuestServiceImplTest {
         petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
         receiptMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetQuestEventReceiptMapper.class);
         petMapperMock = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMapper.class);
+        setMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetDailyQuestSetMapper.class);
+        // PET-09：ensureQuestSet 需要真实业务日/截止换算——PetClock 为 mock，补最小桩
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(today);
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any())).thenReturn(today);
+        org.mockito.Mockito.lenient().when(petClock.businessDateStartUtc(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        org.mockito.Mockito.lenient().when(petClock.nowUtc()).thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+        // 默认返回既有任务集（ensureQuestSet 走读路径）
+        com.cloudmart.pet.entity.PetDailyQuestSet questSet = new com.cloudmart.pet.entity.PetDailyQuestSet();
+        questSet.setId(99L);
+        questSet.setUserId(100L);
+        questSet.setPetId(1L);
+        questSet.setBusinessDate(today);
+        questSet.setLevelSnapshot(5);
+        questSet.setClaimDeadline(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusDays(1));
+        org.mockito.Mockito.lenient().when(setMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(questSet);
+        org.mockito.Mockito.lenient().when(setMapper.selectById(org.mockito.ArgumentMatchers.any())).thenReturn(questSet);
+        org.mockito.Mockito.lenient().when(setMapper.insert(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.PetDailyQuestSet.class))).thenReturn(1);
         questService = new PetDailyQuestServiceImpl(petService, stateService, configMapper, questMapper,
                 receiptMapper,
                 petMapperMock,
@@ -120,12 +141,123 @@ class PetDailyQuestServiceImplTest {
                     public java.util.stream.Stream<com.cloudmart.pet.service.PetDailyQuestService> stream() {
                         return java.util.stream.Stream.of(questService);
                     }
-                });
+                },
+                setMapper);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
+        // PET-09：按集领取解析集绑定宠物；进度投影按当日任务行（codesOfType 走行快照）
+        lenient().when(petMapperMock.selectById(org.mockito.ArgumentMatchers.eq(1L))).thenReturn(pet());
         lenient().when(configMapper.selectList(any())).thenReturn(List.of(config()));
         lenient().when(configMapper.selectOne(any())).thenReturn(config());
         lenient().when(stateService.grantExp(any(), anyInt())).thenReturn(0);
         lenient().when(intimacyService.gain(any(), any())).thenReturn(0);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-09/T14：列表展示读任务行快照（模板改名/改奖励不改变已生成任务展示）")
+    void listShowsSnapshotDisplayNotCurrentConfig() {
+        PetDailyQuest row = quest("COMPLETE");
+        row.setSetId(99L);
+        row.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                "name", "快照名", "description", "快照描述", "icon", "⭐", "questType", "FEED",
+                "expReward", 77, "currencyReward", 88, "actionTarget", "FEED")));
+        PetDailyQuest chestRow = chest("IN_PROGRESS");
+        chestRow.setSetId(99L);
+        lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(row, chestRow)));
+
+        com.cloudmart.pet.vo.PetDailyQuestVO vo = questService.list(100L);
+
+        assertThat(vo.quests().get(0).name()).isEqualTo("快照名");
+        assertThat(vo.quests().get(0).expReward()).isEqualTo(77);
+        assertThat(vo.quests().get(0).currencyReward()).isEqualTo(88);
+        assertThat(vo.quests().get(0).actionTarget()).isEqualTo("FEED");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-09/T15：领取截止已过（24h 宽限结束）→ 拒绝领取")
+    void claimInSetRejectedAfterDeadline() {
+        com.cloudmart.pet.entity.PetDailyQuestSet expiredSet = set99();
+        expiredSet.setClaimDeadline(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
+        lenient().when(setMapper.selectById(99L)).thenReturn(expiredSet);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(100L, 99L, "11"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", com.cloudmart.pet.constant.PetErrorCodes.PET_QUEST_NOT_FINISHED);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-09/T17：按集领取绑定集的原宠物（切宠后不错对象）")
+    void claimInSetBindsOriginalPet() {
+        com.cloudmart.pet.entity.PetDailyQuestSet set = set99();
+        set.setPetId(2L);
+        lenient().when(setMapper.selectById(99L)).thenReturn(set);
+        Pet originalPet = pet();
+        originalPet.setId(2L);
+        lenient().when(petMapperMock.selectById(2L)).thenReturn(originalPet);
+        PetDailyQuest row = quest("COMPLETE");
+        row.setSetId(99L);
+        row.setId(11L);
+        row.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                "name", "好好吃饭", "questType", "FEED", "expReward", 20, "currencyReward", 20)));
+        lenient().when(questMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(row);
+        lenient().when(questMapper.update(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(row)));
+
+        PetDailyQuestItemVO vo = questService.claimInSet(100L, 99L, "11");
+
+        assertThat(vo.code()).isEqualTo(QUEST_CODE);
+        // 经验发给集绑定的宠物 2，而非当前主宠 1
+        org.mockito.Mockito.verify(stateService).grantExp(
+                org.mockito.ArgumentMatchers.argThat(pp -> pp != null && Long.valueOf(2L).equals(pp.getId())),
+                org.mockito.ArgumentMatchers.eq(20));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-09/T07：非本人任务集领取 → PET_QUEST_NOT_FOUND（归属校验）")
+    void claimInSetRejectsForeignSet() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(999L, 99L, "11"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", com.cloudmart.pet.constant.PetErrorCodes.PET_QUEST_NOT_FOUND);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-09/T16：当日升级解锁的高等级配置不追加进既有任务集")
+    void levelUpDoesNotExpandFrozenSet() {
+        // 集生成时 levelSnapshot=5；新配置要求 10 级（当日新增/升级解锁均不应进当日集）
+        PetDailyQuestConfig high = config();
+        high.setCode("HIGH_LEVEL");
+        high.setRequiredLevel(10);
+        lenient().when(configMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(high));
+        PetDailyQuest chestRow = chest("IN_PROGRESS");
+        chestRow.setSetId(99L);
+        lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(chestRow)));
+
+        questService.list(100L);
+
+        // 高等级任务不进当日集（集冻结于 levelSnapshot=5）；不产生任何 HIGH_LEVEL 生成行
+        org.mockito.ArgumentCaptor<PetDailyQuest> inserts =
+                org.mockito.ArgumentCaptor.forClass(PetDailyQuest.class);
+        org.mockito.Mockito.verify(questMapper, org.mockito.Mockito.atLeast(0))
+                .insert(inserts.capture());
+        assertThat(inserts.getAllValues())
+                .extracting(PetDailyQuest::getQuestCode)
+                .doesNotContain("HIGH_LEVEL");
+    }
+
+    /** 默认任务集（setUp 桩同一实例语义） */
+    private com.cloudmart.pet.entity.PetDailyQuestSet set99() {
+        com.cloudmart.pet.entity.PetDailyQuestSet set = new com.cloudmart.pet.entity.PetDailyQuestSet();
+        set.setId(99L);
+        set.setUserId(100L);
+        set.setPetId(1L);
+        set.setBusinessDate(java.time.LocalDate.now(java.time.ZoneOffset.UTC));
+        set.setLevelSnapshot(5);
+        set.setClaimDeadline(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusDays(1));
+        return set;
     }
 
     private Pet pet() {
@@ -368,6 +500,8 @@ class PetDailyQuestServiceImplTest {
                 .thenReturn(1)
                 .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_quest_event_receipt"));
 
+        org.mockito.Mockito.lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(quest("IN_PROGRESS"))));
         boolean first = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:1", now, 1);
         boolean second = questService.recordFact(pet(), com.cloudmart.pet.enums.PetQuestType.FEED, "F:1", now, 1);
         org.assertj.core.api.Assertions.assertThat(first).isTrue();
@@ -420,6 +554,9 @@ class PetDailyQuestServiceImplTest {
         org.mockito.Mockito.when(petMapperMock.selectById(1L)).thenReturn(pet());
         org.mockito.Mockito.when(questMapper.update(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        // 进度投影按回放日的任务行（PET-09：codesOfType 走行快照）
+        org.mockito.Mockito.when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of(quest("IN_PROGRESS")));
 
         com.cloudmart.pet.entity.PetQuestEventReceipt replayed = questService.replayReceipt(900L);
         org.assertj.core.api.Assertions.assertThat(replayed.getStatus()).isEqualTo("APPLIED");

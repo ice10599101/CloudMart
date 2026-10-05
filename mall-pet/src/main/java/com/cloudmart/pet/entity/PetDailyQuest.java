@@ -37,6 +37,10 @@ public class PetDailyQuest {
     /** 任务日期（UTC 自然日） */
     private LocalDate questDate;
 
+    /** 所属任务集（PET-09：领取/展示/进度按集绑定与归属校验；存量回填后非空） */
+    @TableField("set_id")
+    private Long setId;
+
     /** 任务编码（pet_daily_quest_config.code） */
     private String questCode;
 

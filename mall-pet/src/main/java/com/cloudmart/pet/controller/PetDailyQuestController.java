@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -30,6 +31,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class PetDailyQuestController {
 
     private final PetDailyQuestService dailyQuestService;
+
+    @GetMapping("/daily-quest-sets")
+    @Operation(summary = "任务集列表（PET-09）", description = "本人任务集：status=ACTIVE 当前与宽限期内 / EXPIRED 历史 / 空全部")
+    public ApiResponse<java.util.List<com.cloudmart.pet.entity.PetDailyQuestSet>> questSets(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestParam(value = "status", required = false) String status) {
+        return ApiResponse.ok(dailyQuestService.questSets(userId, status));
+    }
+
+    @GetMapping("/daily-quest-sets/{setId}")
+    @Operation(summary = "任务集详情（PET-09）", description = "完整冻结任务/宝箱/领取截止；宽限期内与历史集可查（深链接/冲突恢复）")
+    public ApiResponse<PetDailyQuestVO> questSetDetail(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("setId") Long setId) {
+        return ApiResponse.ok(dailyQuestService.questSetDetail(userId, setId));
+    }
 
     @GetMapping("/daily-quests")
     @Operation(summary = "今日任务", description = "任务列表 + 进度 + 全清宝箱状态（首次访问自动生成当日任务）")
@@ -70,12 +87,15 @@ public class PetDailyQuestController {
      * setId 即任务集实例（当日 businessDate 的 ISO 串）：归属+时间校验后委托同一服务，
      * 请求键与 setId 绑定由网关/客户端 Idempotency-Key 语义承接；过期集明确拒绝。
      */
-    private void requireSetMatchesToday(Long userId, String setId) {
-        java.time.LocalDate questDate = dailyQuestService.list(userId).questDate();
-        if (questDate == null || !questDate.toString().equals(setId)) {
-            throw new com.cloudmart.common.exception.BusinessException(
-                    com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR,
-                    "任务集不存在或已过期（setId 需为当日 questDate）");
+    /**
+     * PET-09：setId 解析——新客户端传真实任务集实体 ID；旧客户端传当日日期串时
+     * 解析当前主宠当日集（兼容别名，退役期随 PET-23 收敛，不默默维持两套语义）。
+     */
+    private Long resolveSetId(Long userId, String setId) {
+        try {
+            return Long.parseLong(setId.strip());
+        } catch (NumberFormatException legacyDateForm) {
+            return dailyQuestService.currentSetId(userId);
         }
     }
 
@@ -87,8 +107,9 @@ public class PetDailyQuestController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("setId") String setId,
             @PathVariable("questId") String questId) {
-        requireSetMatchesToday(userId, setId);
-        return ApiResponse.ok(dailyQuestService.claim(userId, questId));
+        // PET-09：按集领取——归属校验（本人）、宽限截止与任务行归属（set_id 绑定）同事务；
+        // questId 兼容任务实体 ID 与 code 两种形式
+        return ApiResponse.ok(dailyQuestService.claimInSet(userId, resolveSetId(userId, setId), questId));
     }
 
     @PostMapping("/daily-quest-sets/{setId}/claim-all")
@@ -98,8 +119,8 @@ public class PetDailyQuestController {
     public ApiResponse<com.cloudmart.pet.vo.ClaimAllResult> claimAllInSet(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("setId") String setId) {
-        requireSetMatchesToday(userId, setId);
-        return ApiResponse.ok(dailyQuestService.claimAll(userId));
+        // PET-09：批领绑定任务集（原实现只校验日期）；独立事务逐项领取语义不变
+        return ApiResponse.ok(dailyQuestService.claimAllInSet(userId, resolveSetId(userId, setId)));
     }
 
     @PostMapping("/daily-quest-sets/{setId}/chest/claim")
@@ -108,7 +129,7 @@ public class PetDailyQuestController {
     public ApiResponse<PetDailyQuestVO> claimChestInSet(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("setId") String setId) {
-        requireSetMatchesToday(userId, setId);
-        return ApiResponse.ok(dailyQuestService.claimChest(userId));
+        // PET-09：宝箱领取绑定任务集（原实现只校验日期）
+        return ApiResponse.ok(dailyQuestService.claimChestInSet(userId, resolveSetId(userId, setId)));
     }
 }
