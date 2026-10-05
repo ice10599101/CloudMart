@@ -62,6 +62,14 @@ public class AsyncAutoConfiguration {
         return new OutboxPublisher(mapper, delivery, retryPolicy, batchSize, leaseSeconds);
     }
 
+    /** T16 异常处理中心：仅装配了 outbox mapper 的模块可用（mall-admin 等无 outbox 表的模块自动跳过） */
+    @Bean
+    @ConditionalOnBean(OutboxEventMapper.class)
+    public com.cloudmart.common.async.outbox.OutboxOperationsService outboxOperationsService(
+            OutboxEventMapper mapper) {
+        return new com.cloudmart.common.async.outbox.OutboxOperationsService(mapper);
+    }
+
     @Bean
     @ConditionalOnMissingBean
     public InboxService inboxService(InboxRecordMapper mapper,

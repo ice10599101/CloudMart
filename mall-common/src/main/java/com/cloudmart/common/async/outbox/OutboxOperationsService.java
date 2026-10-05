@@ -2,7 +2,6 @@ package com.cloudmart.common.async.outbox;
 
 import com.cloudmart.common.async.mapper.OutboxEventMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,7 +15,6 @@ import java.util.Map;
  * eventId/eventType/aggregate/attempts/lastError（已由投递器 sanitize）；
  * 重试仅接受 DEAD_LETTER（FAILED/PENDING 由投递器自动退避处理中）。</p>
  */
-@Service
 @RequiredArgsConstructor
 public class OutboxOperationsService {
 
