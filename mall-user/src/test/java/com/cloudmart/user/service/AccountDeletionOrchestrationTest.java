@@ -290,4 +290,34 @@ class AccountDeletionOrchestrationTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "VALIDATION_ERROR");
     }
+
+    @Test
+    @DisplayName("T06 真实环境暴露：存量任务空台账——重建步骤而非空跑成 COMPLETED")
+    void execute_emptyStepLedger_rebuiltNotCompleted() {
+        when(taskMapper.update(any(), any())).thenReturn(1);
+        when(orderBlockFeignClient.hasOpenOrders(eq(USER_ID), anyString()))
+                .thenReturn(ApiResponse.ok(false));
+        // selectOne 队列：AUTH(冻结) + ORDER/WISH/ORDER-ANON/USER/COMMUNITY(执行序)
+        when(stepMapper.selectOne(any())).thenReturn(
+                step("AUTH", "SESSION_REVOKE"),
+                step("ORDER", "OPEN_ORDER_CHECK"),
+                step("WISH", "ERASE"),
+                step("ORDER", "ANONYMIZE"),
+                step("USER", "ANONYMIZE"),
+                step("COMMUNITY", "ERASE"));
+        when(stepMapper.claim(anyLong(), anyString(), any())).thenReturn(1);
+        when(stepMapper.markSuccess(anyLong(), anyString())).thenReturn(1);
+        when(stepMapper.markFailed(anyLong(), anyString(), anyString(), any(), any())).thenReturn(1);
+        // 台账为空（存量任务）——触发重建
+        when(stepMapper.selectList(any())).thenReturn(List.of());
+        when(authStateFeignClient.invalidateState(any())).thenReturn(ApiResponse.ok(null));
+        when(erasureFeignClient.eraseWishData(anyLong(), anyString())).thenReturn(ApiResponse.ok(true));
+        when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
+
+        service.executeTask(task("PENDING"));
+
+        // 重建被调用（delete+insert 8 域），且任务不得在本轮直接 COMPLETED
+        verify(stepMapper).delete(any());
+        verify(taskMapper, Mockito.atLeastOnce()).update(org.mockito.ArgumentMatchers.isNull(), any());
+    }
 }

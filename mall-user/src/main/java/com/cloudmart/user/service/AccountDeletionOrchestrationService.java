@@ -347,6 +347,13 @@ public class AccountDeletionOrchestrationService {
     /** 分域步骤执行：租约认领逐条推进，全部 SUCCESS 才 COMPLETED */
     private void executeSteps(AccountDeletionTask task) {
         List<AccountDeletionStep> steps = stepsOf(task.getId());
+        if (steps.isEmpty()) {
+            // T06 真实环境暴露：V5 迁移前的存量任务无步骤行——空台账会空跑成
+            // COMPLETED 跳过全部擦除。重建步骤台账（幂等），本轮先按未完成处理
+            log.warn("[T06] 步骤台账为空（存量任务），已重建 userId={} taskId={}",
+                    task.getUserId(), task.getId());
+            resetSteps(task.getId(), task.getUserId());
+        }
         boolean allSuccess = true;
         String blockReason = null;
         for (AccountDeletionStep step : steps) {
