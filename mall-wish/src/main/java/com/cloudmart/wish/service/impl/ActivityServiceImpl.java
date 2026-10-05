@@ -289,15 +289,47 @@ public class ActivityServiceImpl implements ActivityService {
                         ActivityParticipantStatus.APPROVED, ActivityParticipantStatus.JOINED)
                 .orderByAsc(ActivityParticipant::getId));
 
+        // T27 N+1 修复：按成员集合批量预取统计/心愿/进度/成长，避免每成员 4 次单查
+        List<Long> memberUserIds = members.stream().map(ActivityParticipant::getUserId).toList();
+        List<Long> memberWishIds = members.stream().map(ActivityParticipant::getWishId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+
+        Map<Long, WishUserStat> statMap = memberUserIds.isEmpty() ? Map.of()
+                : userStatMapper.selectBatchIds(memberUserIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(WishUserStat::getUserId, st -> st, (a, b) -> a));
+        Map<Long, Wish> publicWishMap = memberWishIds.isEmpty() ? Map.of()
+                : wishMapper.selectBatchIds(memberWishIds).stream()
+                        .filter(wishAccessPolicy::isPublicReadable)
+                        .collect(java.util.stream.Collectors.toMap(Wish::getId, w -> w, (a, b) -> a));
+        Map<Long, com.cloudmart.wish.entity.WishProgress> progressMap = memberWishIds.isEmpty() ? Map.of()
+                : progressMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.WishProgress>()
+                        .in(com.cloudmart.wish.entity.WishProgress::getWishId, memberWishIds)).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                com.cloudmart.wish.entity.WishProgress::getWishId, pr -> pr, (a, b) -> a));
+        // 每心愿取最新一条可见成长（与原 per-wish LIMIT 1 + 可见过滤同语义）
+        Map<Long, WishGrowthRecord> latestGrowthMap = memberWishIds.isEmpty() ? Map.of()
+                : growthRecordMapper.selectList(new LambdaQueryWrapper<WishGrowthRecord>()
+                        .in(WishGrowthRecord::getWishId, memberWishIds)
+                        .orderByDesc(WishGrowthRecord::getCreatedAt)).stream()
+                        .filter(g -> g.getDeletedAt() == null
+                                && g.getAuditStatus() == com.cloudmart.wish.enums.AuditStatus.APPROVED
+                                && Boolean.TRUE.equals(g.getIsVisible()))
+                        .collect(java.util.stream.Collectors.toMap(
+                                WishGrowthRecord::getWishId, g -> g, (a, b) -> a));
+
         List<ActivityBoardVO.MemberBoard> boards = new ArrayList<>();
         for (ActivityParticipant member : members) {
-            boards.add(buildMemberBoard(member, activity));
+            boards.add(buildMemberBoard(member, statMap, publicWishMap, progressMap, latestGrowthMap));
         }
         return boards;
     }
 
-    private ActivityBoardVO.MemberBoard buildMemberBoard(ActivityParticipant member, CommunityActivity activity) {
-        WishUserStat stat = userStatMapper.selectById(member.getUserId());
+    private ActivityBoardVO.MemberBoard buildMemberBoard(ActivityParticipant member,
+                                                         Map<Long, WishUserStat> statMap,
+                                                         Map<Long, Wish> publicWishMap,
+                                                         Map<Long, com.cloudmart.wish.entity.WishProgress> progressMap,
+                                                         Map<Long, WishGrowthRecord> latestGrowthMap) {
+        WishUserStat stat = statMap.get(member.getUserId());
         int checkinDays = stat != null && stat.getTotalCheckinDays() != null ? stat.getTotalCheckinDays() : 0;
 
         String latestGrowth = null;
@@ -305,31 +337,19 @@ public class ActivityServiceImpl implements ActivityService {
         int percentage = 0;
         String title = null;
         if (member.getWishId() != null) {
-            Wish wish = wishMapper.selectById(member.getWishId());
-            // T13：私密/隐藏心愿不因组成员身份自动解锁——标题仅对可公开读的心愿展示
-            if (wish != null && wishAccessPolicy.isPublicReadable(wish)) {
+            // T13：私密/隐藏心愿不因组成员身份自动解锁——标题仅对可公开读的心愿展示（批量预取时已过滤）
+            Wish wish = publicWishMap.get(member.getWishId());
+            if (wish != null) {
                 title = wish.getTitle();
-                var progress = progressMapper.selectOne(
-                        new LambdaQueryWrapper<com.cloudmart.wish.entity.WishProgress>()
-                                .eq(com.cloudmart.wish.entity.WishProgress::getWishId, wish.getId())
-                                .last("LIMIT 1"));
+                var progress = progressMap.get(wish.getId());
                 if (progress != null && progress.getTargetValue() != null && progress.getTargetValue() > 0) {
                     percentage = Math.min(100, Math.round(progress.getCurrentValue() * 100.0f
                             / progress.getTargetValue()));
                 }
-                var growth = growthRecordMapper.selectList(new LambdaQueryWrapper<WishGrowthRecord>()
-                        .eq(WishGrowthRecord::getWishId, wish.getId())
-                        .orderByDesc(WishGrowthRecord::getCreatedAt)
-                        .last("LIMIT 1"));
-                // T13：日记/成长内容不得直接返回原始内容——仅审核通过且可见的记录出板
-                var visibleGrowth = growth.stream()
-                        .filter(g -> g.getDeletedAt() == null
-                                && g.getAuditStatus() == com.cloudmart.wish.enums.AuditStatus.APPROVED
-                                && Boolean.TRUE.equals(g.getIsVisible()))
-                        .findFirst();
-                if (visibleGrowth.isPresent()) {
-                    latestGrowth = visibleGrowth.get().getContent();
-                    latestAt = visibleGrowth.get().getCreatedAt();
+                var growth = latestGrowthMap.get(wish.getId());
+                if (growth != null) {
+                    latestGrowth = growth.getContent();
+                    latestAt = growth.getCreatedAt();
                 }
             }
         }
@@ -539,18 +559,20 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     private boolean hasMemberFulfilled(Long activityId) {
-        List<ActivityParticipant> members = participantMapper.selectList(new LambdaQueryWrapper<ActivityParticipant>()
+        List<Long> wishIds = participantMapper.selectList(new LambdaQueryWrapper<ActivityParticipant>()
                 .eq(ActivityParticipant::getActivityId, activityId)
                 .in(ActivityParticipant::getStatus,
                         ActivityParticipantStatus.JOINED, ActivityParticipantStatus.APPROVED)
-                .isNotNull(ActivityParticipant::getWishId));
-        for (ActivityParticipant member : members) {
-            Wish wish = wishMapper.selectById(member.getWishId());
-            if (wish != null && wish.getStatus() == WishStatus.FULFILLED) {
-                return true;
-            }
+                .isNotNull(ActivityParticipant::getWishId))
+                .stream().map(ActivityParticipant::getWishId).distinct().toList();
+        if (wishIds.isEmpty()) {
+            return false;
         }
-        return false;
+        // T27 N+1 修复：单条存在性查询替代逐成员 selectById
+        return wishMapper.selectCount(new LambdaQueryWrapper<Wish>()
+                .in(Wish::getId, wishIds)
+                .eq(Wish::getStatus, WishStatus.FULFILLED)
+                .last("LIMIT 1")) > 0;
     }
 
     private Long findBadgeIdByCode(String badgeCode) {

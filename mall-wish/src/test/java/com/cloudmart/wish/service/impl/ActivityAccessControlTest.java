@@ -201,7 +201,7 @@ class ActivityAccessControlTest {
         privateWish.setUserId(2002L);
         privateWish.setTitle("私密心愿");
         privateWish.setVisibility(WishVisibility.PRIVATE);
-        when(wishMapper.selectById(5001L)).thenReturn(privateWish);
+        when(wishMapper.selectBatchIds(java.util.List.of(5001L))).thenReturn(java.util.List.of(privateWish));
 
         var board = service.getPartnerBoard(ACTIVITY_ID, USER_ID);
 
@@ -227,8 +227,7 @@ class ActivityAccessControlTest {
         publicWish.setVisibility(WishVisibility.PUBLIC);
         publicWish.setAuditStatus(AuditStatus.APPROVED);
         publicWish.setIsVisible(true);
-        when(wishMapper.selectById(5001L)).thenReturn(publicWish);
-        when(progressMapper.selectOne(any())).thenReturn(null);
+        when(wishMapper.selectBatchIds(java.util.List.of(5001L))).thenReturn(java.util.List.of(publicWish));
 
         WishGrowthRecord pending = new WishGrowthRecord();
         pending.setContent("待审核内容");

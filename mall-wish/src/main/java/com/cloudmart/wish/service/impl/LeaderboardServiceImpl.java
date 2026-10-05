@@ -213,24 +213,28 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         log.debug("排行榜已刷新, type={}, entries={}", type, finalRows.size());
     }
 
-    /** 心愿维度封禁过滤：批量查作者 is_restricted，逐批裁剪至凑满 topSize */
+    /** 心愿维度封禁过滤：批量预取作者封禁态后裁剪至凑满 topSize（T27 N+1 修复） */
     private List<long[]> filterRestrictedAuthors(List<long[]> rows, int topSize) {
+        List<Long> wishIds = rows.stream().map(r -> r[0]).toList();
+        Map<Long, Long> authorByWish = wishMapper.selectBatchIds(wishIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Wish::getId, Wish::getUserId, (a, b) -> a));
+        List<Long> authorIds = authorByWish.values().stream().distinct().toList();
+        Set<Long> restrictedAuthors = authorIds.isEmpty() ? Set.of()
+                : userStatMapper.selectBatchIds(authorIds).stream()
+                        .filter(st -> Boolean.TRUE.equals(st.getIsRestricted()))
+                        .map(WishUserStat::getUserId)
+                        .collect(java.util.stream.Collectors.toSet());
+
         List<long[]> filtered = new ArrayList<>();
-        Set<Long> checked = new HashSet<>();
         for (long[] row : rows) {
             if (filtered.size() >= topSize) {
                 break;
             }
-            Wish wish = wishMapper.selectById(row[0]);
-            if (wish == null) {
+            Long authorId = authorByWish.get(row[0]);
+            if (authorId == null) {
                 continue;
             }
-            Long authorId = wish.getUserId();
-            if (!checked.contains(authorId)) {
-                checked.add(authorId);
-            }
-            WishUserStat stat = userStatMapper.selectById(authorId);
-            if (stat == null || !Boolean.TRUE.equals(stat.getIsRestricted())) {
+            if (!restrictedAuthors.contains(authorId)) {
                 filtered.add(row);
             }
         }
