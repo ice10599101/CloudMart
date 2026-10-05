@@ -16,7 +16,10 @@ public class MyBatisPlusConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
+        // T27：分页单页上限兜底（size 超限请求直达 LIMIT 的攻击面）
+        pagination.setMaxLimit(200L);
+        interceptor.addInnerInterceptor(pagination);
         // T10：乐观锁插件——group_orders.version 竞争裁决（终态迁移只允许一方生效）
         interceptor.addInnerInterceptor(new com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor());
         return interceptor;

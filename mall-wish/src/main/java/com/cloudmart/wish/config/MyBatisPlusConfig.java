@@ -33,7 +33,10 @@ public class MyBatisPlusConfig {
         // 乐观锁：必须放在分页之前，确保 UPDATE 语句的 version 条件不被分页插件干扰
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         // 分页：管理后台 offset 分页使用
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
+        // T27：分页单页上限兜底（size 超限请求直达 LIMIT 的攻击面）
+        pagination.setMaxLimit(200L);
+        interceptor.addInnerInterceptor(pagination);
         return interceptor;
     }
 
