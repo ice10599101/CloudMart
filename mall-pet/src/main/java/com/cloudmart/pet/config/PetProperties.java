@@ -364,6 +364,18 @@ public class PetProperties {
         private boolean onboarding = true;
         private boolean collection = true;
         private boolean diary = true;
+
+        // ---- §13.1 能力开关命名对齐（开关控制"是否接收新操作"，已受理操作仍由恢复器处理） ----
+        /** 购买 V2 编排（R02 统一购买+占键先行）；关闭回退旧直连链路（仅应急） */
+        private boolean purchaseV2 = true;
+        /** 相册文件服务引用绑定（R04 协议）；关闭时上传登记本地行，绑定失败终态可重试 */
+        private boolean albumBinding = true;
+        /** 举报处置动作矩阵（R05 处罚事实）；关闭仅保留内容移除/驳回类动作 */
+        private boolean moderationActions = true;
+        /** 聊天占键编排（R22）；关闭回退回复后查重旧链路 */
+        private boolean chatRequestV2 = true;
+        /** 赛季快照结算（R06 冻榜/发奖分离）；关闭回退实时排名结算 */
+        private boolean seasonSettlementV2 = true;
     }
 
     /** 告警（P2-5）：钱包对账差异等运维告警的接收管理员用户 ID（站内信经 mall-notification 落库推送） */

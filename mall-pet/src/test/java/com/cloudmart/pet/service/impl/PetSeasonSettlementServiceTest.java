@@ -30,6 +30,7 @@ class PetSeasonSettlementServiceTest {
                 mock(com.cloudmart.pet.repository.PetSeasonRankingMapper.class),
                 mock(com.cloudmart.pet.repository.PetSeasonSettlementJobMapper.class),
                 mock(com.cloudmart.pet.repository.PetMapper.class),
+                new com.cloudmart.pet.config.PetProperties(),
                 mock(com.cloudmart.pet.wallet.PetEconomyService.class),
                 mock(com.cloudmart.pet.mq.PetEventProducer.class),
                 mock(PetStateService.class),

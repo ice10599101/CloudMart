@@ -79,7 +79,8 @@ class PetShopServiceImplTest {
                 skillConfigMapper, inventoryMapper, skillMapper,
                 org.mockito.Mockito.mock(PetEconomyService.class),
                 org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class),
-                purchaseApplicationService);
+                purchaseApplicationService,
+                new com.cloudmart.pet.config.PetProperties());
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         lenient().when(skillMapper.selectList(any())).thenReturn(List.of());
         // 拦截器在真实请求中捕获 Idempotency-Key；测试里手动放置并清理

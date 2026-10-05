@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
 import com.cloudmart.pet.config.PetClock;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
@@ -63,6 +64,7 @@ public class PetShopServiceImpl implements PetShopService {
     private final PetSkillMapper skillMapper;
     private final PetEconomyService economyService;
     private final PetClock petClock;
+    private final PetProperties properties;
     private final PetPurchaseApplicationService purchaseApplicationService;
 
     public PetShopServiceImpl(PetService petService,
@@ -74,9 +76,11 @@ public class PetShopServiceImpl implements PetShopService {
                               PetSkillMapper skillMapper,
                               PetEconomyService economyService,
                               PetClock petClock,
-                              PetPurchaseApplicationService purchaseApplicationService) {
+                              PetPurchaseApplicationService purchaseApplicationService,
+                              PetProperties properties) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
+        this.properties = properties;
         this.equipmentConfigMapper = equipmentConfigMapper;
         this.skinConfigMapper = skinConfigMapper;
         this.skillConfigMapper = skillConfigMapper;
@@ -133,8 +137,15 @@ public class PetShopServiceImpl implements PetShopService {
      * 只做兼容结果组装（按订单归属读背包行）。无请求键 400（PET_REQUEST_KEY_INVALID）。
      * 本方法不加事务——购买服务自身是事务边界，禁止包在更大的事务里。
      */
-    @Override
+    private void requireFeature(boolean enabled) {
+        if (!enabled) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "该功能暂未开放");
+        }
+    }
+
     public PetInventoryItemVO buy(Long userId, BuyItemRequest request) {
+        // §13.1：开关控制新操作接收；关闭即拒绝新购买（已受理订单由恢复器处理）
+        requireFeature(properties.getFeatureSwitches().isPurchaseV2());
         if (PetItemType.FURNITURE.name().equals(request.itemType())) {
             // 三期家具走家园商城（/home/furniture/buy）：这里显式拒绝，避免前端走错入口默默失败
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "家具请到家园商城购买哦");

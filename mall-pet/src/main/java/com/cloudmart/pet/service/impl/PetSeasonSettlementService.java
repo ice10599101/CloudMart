@@ -53,6 +53,8 @@ public class PetSeasonSettlementService {
     private final PetSeasonRankingMapper rankingMapper;
     private final PetSeasonSettlementJobMapper jobMapper;
     private final com.cloudmart.pet.repository.PetMapper petMapper;
+    /** §13.1：seasonSettlementV2 关闭时定时结算不推进（可手动重入，赛季状态保留） */
+    private final com.cloudmart.pet.config.PetProperties properties;
     private final PetEconomyService economyService;
     private final PetEventProducer eventProducer;
     private final PetStateService stateService;
@@ -62,6 +64,9 @@ public class PetSeasonSettlementService {
 
     /** 每小时检查到期赛季（scheduler 调用）：CAS 占 FREEZING → 冻榜 → 驱动发奖 */
     public void settleExpiredSeasons() {
+        if (!properties.getFeatureSwitches().isSeasonSettlementV2()) {
+            return;
+        }
         List<PetSeason> expired = seasonMapper.selectList(new LambdaQueryWrapper<PetSeason>()
                 .in(PetSeason::getStatus, "ACTIVE", "FREEZING", "SETTLING")
                 .le(PetSeason::getEndsAt, LocalDateTime.now(ZoneOffset.UTC))

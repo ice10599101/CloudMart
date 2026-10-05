@@ -151,6 +151,10 @@ public class PetChatServiceImpl implements PetChatService {
             throw new BusinessException(PetErrorCodes.PET_CHAT_MESSAGE_INVALID, "说点什么吧");
         }
         String requestId = PetRequestContext.idempotencyKey();
+        // §13.1：chatRequestV2 关闭时忽略请求键（回退回复后查重旧链路，失去在途去重但不失功能）
+        if (!properties.getFeatureSwitches().isChatRequestV2()) {
+            requestId = null;
+        }
         PetChatSession session = requireSession(userId, pet.getId());
 
         // R22 占键先行：带键请求先落 USER 行（uk session+request+role 原子占键）——

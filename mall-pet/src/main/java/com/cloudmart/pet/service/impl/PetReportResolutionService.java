@@ -39,6 +39,8 @@ public class PetReportResolutionService {
 
     private final PetReportMapper reportMapper;
     private final PetWallMessageMapper wallMessageMapper;
+    /** §13.1：moderationActions 关闭时仅允许内容移除/驳回（处罚类动作明确拒绝） */
+    private final com.cloudmart.pet.config.PetProperties properties;
     private final PetEventProducer eventProducer;
     /** R05：处罚事实（USER_WARNED/USER_PET_BANNED 生成 pet_user_sanction 记录） */
     private final PetAccessPolicy accessPolicy;
@@ -92,6 +94,10 @@ public class PetReportResolutionService {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "举报不存在");
         }
         // R05 处置矩阵：target+action 组合不支持 → 明确拒绝（禁止成功空操作）
+        if (!properties.getFeatureSwitches().isModerationActions()
+                && !Set.of("CONTENT_REMOVED", "DISMISSED").contains(action)) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "处罚类动作暂未开放");
+        }
         java.util.Set<String> allowed = ACTIONS_BY_TARGET_TYPE.getOrDefault(
                 report.getTargetType(), java.util.Set.of());
         if (!allowed.contains(normalizedAction)) {

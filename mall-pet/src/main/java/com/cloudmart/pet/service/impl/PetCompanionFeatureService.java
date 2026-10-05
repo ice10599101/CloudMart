@@ -394,7 +394,10 @@ public class PetCompanionFeatureService {
         }
         // 本地 BINDING 行已提交；远程绑定失败不回滚本地行（跨服务无分布式事务）——
         // 行保留 BINDING 可重试状态，由 confirmAlbumBinding 推进/放弃
-        confirmAlbumBinding(asset, fileAssetId, userId);
+        // §13.1：albumBinding 关闭时跳过远程校验（行留 BINDING，重试入口在开关恢复后生效）
+        if (properties.getFeatureSwitches().isAlbumBinding()) {
+            confirmAlbumBinding(asset, fileAssetId, userId);
+        }
         return albumMapper.selectById(asset.getId());
     }
 

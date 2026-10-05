@@ -164,6 +164,12 @@ public class PetBootstrapService {
         capabilities.put("onboarding", switches.isOnboarding());
         capabilities.put("collection", switches.isCollection());
         capabilities.put("diary", switches.isDiary());
+        // §13.1 命名开关对齐：三端按 capabilities 决定入口显隐
+        capabilities.put("purchaseV2", switches.isPurchaseV2());
+        capabilities.put("albumBinding", switches.isAlbumBinding());
+        capabilities.put("moderationActions", switches.isModerationActions());
+        capabilities.put("chatRequestV2", switches.isChatRequestV2());
+        capabilities.put("seasonSettlementV2", switches.isSeasonSettlementV2());
         return capabilities;
     }
 
