@@ -8,7 +8,6 @@ import com.cloudmart.wish.service.CollectionService;
 import com.cloudmart.wish.service.MaintenanceService;
 import com.cloudmart.wish.service.CompanionReminderService;
 import com.cloudmart.wish.service.DataExportService;
-import com.cloudmart.wish.service.EncounterService;
 import com.cloudmart.wish.service.ActivityService;
 import com.cloudmart.wish.service.ExpectedManagementService;
 import com.cloudmart.wish.service.HomeService;
@@ -47,7 +46,6 @@ public class InternalJobController {
     private final CollectionService collectionService;
     private final com.cloudmart.wish.service.DataExportService dataExportService;
     private final com.cloudmart.wish.service.LeaderboardService leaderboardService;
-    private final EncounterService encounterService;
     private final ActivityService activityService;
 
     private final WishService wishService;
@@ -115,20 +113,6 @@ public class InternalJobController {
     @PostMapping("/leaderboard-refresh")
     public void leaderboardRefresh() {
         leaderboardService.refreshAll();
-    }
-
-    /** 擦肩而过匹配+投递（Sprint 3.3，建议 Cron 0 0/30 * * * ?；uk 幂等） */
-    @PreAuthorize("hasRole('INTERNAL')")
-    @PostMapping("/encounter-match")
-    public ApiResponse<EncounterService.MatchStats> encounterMatch() {
-        return ApiResponse.ok(encounterService.matchAndDeliver());
-    }
-
-    /** 轨迹补偿清理（Sprint 3.3，建议 Cron 0 0 * * * ?；Redis TTL 为主，此为兜底统计） */
-    @PreAuthorize("hasRole('INTERNAL')")
-    @PostMapping("/trace-cleanup")
-    public ApiResponse<EncounterService.CleanupStats> traceCleanup() {
-        return ApiResponse.ok(encounterService.cleanupTraces());
     }
 
     /** 数据导出过期清理（每日 04:30；SUCCESS 超 7 天清空内容置 FAILED） */
