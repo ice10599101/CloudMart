@@ -68,6 +68,8 @@ public class AdminPetUserController {
     private static final Set<String> SPECIAL_FIELDS = Set.of("exp", "hp");
 
     private final PetMapper petMapper;
+    /** PET-21：exp 调整走领域规则（升级结算/属性成长一致） */
+    private final com.cloudmart.pet.service.impl.PetStateService stateService;
     private final PetInventoryMapper inventoryMapper;
     private final PetWalletQueryService walletQueryService;
     private final PetWalletAdjustmentService adjustmentService;
@@ -142,14 +144,22 @@ public class AdminPetUserController {
         }
         Pet pet = requireOwnedPet(userId, petId);
 
+        // PET-21/T48：exp 调整走领域规则（升级结算/属性成长一致），其余字段保持列内 clamp
+        if ("exp".equals(field)) {
+            int levelups = stateService.adjustExp(pet, delta);
+            Pet latest = petMapper.selectById(petId);
+            governance.snapshotAndRecord("pet", petId, PetConfigGovernanceService.currentOperator());
+            log.info("[F5] 宠物经验调整（领域规则）: petId={}, delta={}, levelups={}, reason={}, adminUserId={}",
+                    petId, delta, levelups, request.reason(), adminUserId);
+            return ApiResponse.ok(latest);
+        }
+
         // 条件更新：列内 clamp（不越界）、版本前进（乐观锁语义不破坏）
         LambdaUpdateWrapper<Pet> wrapper = new LambdaUpdateWrapper<Pet>()
                 .setSql("version = version + 1")
                 .eq(Pet::getId, petId)
                 .eq(Pet::getUserId, userId);
         switch (field) {
-            // exp 只补数值不触发升级结算（升级由正常玩法经验路径统一走 PetStateService）
-            case "exp" -> wrapper.setSql("exp = GREATEST(0, exp + {0})", delta);
             case "hp" -> wrapper.setSql("hp = GREATEST(0, LEAST(max_hp, hp + {0}))", delta);
             case "hunger" -> wrapper.setSql("hunger = GREATEST({0}, LEAST({1}, hunger + {2}))",
                     ADJUSTABLE_FIELDS.get(field)[0], ADJUSTABLE_FIELDS.get(field)[1], delta)

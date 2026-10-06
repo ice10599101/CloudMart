@@ -315,6 +315,134 @@ public class PetStateService {
                 "宠物状态被并发修改，请稍后重试");
     }
 
+    /**
+     * PET-21/T48：管理端经验调整——走与玩法相同的领域规则（升级结算/属性成长/成长阶段/
+     * 排行榜埋点全部一致），不再 Controller 直改 SQL 列造成等级与经验不一致。
+     *
+     * <ul>
+     *   <li>delta &gt; 0：精确增加（不带亲密度加成——管理调整为定向补偿，非玩法收益），
+     *       跨级走同一升级循环（属性成长 +maxHp/strength...、growthStage 推进）；</li>
+     *   <li>delta &lt; 0：exp 下限 0、不降级（exp 为级内进度，扣减后等级仍一致）。</li>
+     * </ul>
+     *
+     * @return 实际升级级数（0 = 未升级）
+     */
+    public int adjustExp(Pet pet, int delta) {
+        if (delta == 0) {
+            return 0;
+        }
+        if (delta > 0) {
+            return grantExpExact(pet, delta);
+        }
+        // 负调整：级内进度下限 0，等级不变（等级一致性保持）
+        Integer version = pet.getVersion();
+        int nextExp = Math.max(0, pet.getExp() + delta);
+        int updated = petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .set(Pet::getExp, nextExp)
+                .setSql("version = version + 1")
+                .eq(Pet::getId, pet.getId())
+                .eq(Pet::getVersion, version != null ? version : 0));
+        if (updated > 0) {
+            pet.setExp(nextExp);
+            pet.setVersion(version != null ? version + 1 : 1);
+            rankingCache.onExpGranted(pet.getId(), pet.getLevel(), nextExp,
+                    Boolean.TRUE.equals(pet.getIsPublic()));
+            return 0;
+        }
+        Pet latest = petMapper.selectById(pet.getId());
+        if (latest == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "宠物不存在");
+        }
+        int reApplied = Math.max(0, latest.getExp() + delta);
+        int updatedRetry = petMapper.update(null, new LambdaUpdateWrapper<Pet>()
+                .set(Pet::getExp, reApplied)
+                .setSql("version = version + 1")
+                .eq(Pet::getId, pet.getId())
+                .eq(Pet::getVersion, latest.getVersion() != null ? latest.getVersion() : 0));
+        if (updatedRetry == 0) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
+        }
+        pet.setExp(reApplied);
+        pet.setVersion(latest.getVersion() != null ? latest.getVersion() + 1 : 1);
+        rankingCache.onExpGranted(pet.getId(), pet.getLevel(), reApplied,
+                Boolean.TRUE.equals(pet.getIsPublic()));
+        return 0;
+    }
+
+    /** 精确经验增加（无亲密度加成的管理调整路径），升级循环与 grantExp 相同 */
+    private int grantExpExact(Pet pet, int expGain) {
+        Integer version = pet.getVersion();
+        int currentExp = pet.getExp();
+        int currentLevel = pet.getLevel();
+        int currentMaxHp = pet.getMaxHp();
+        int currentHp = pet.getHp();
+        int currentStrength = pet.getStrength();
+        int currentIntelligence = pet.getIntelligence();
+        int currentAgility = pet.getAgility();
+        int currentCharm = pet.getCharm();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            int nextExp = currentExp + expGain;
+            int nextLevel = currentLevel;
+            int nextLevelups = 0;
+            while (nextLevel < LEVEL_MAX && nextExp >= expToNext(nextLevel)) {
+                nextExp -= expToNext(nextLevel);
+                nextLevel++;
+                nextLevelups++;
+            }
+            if (nextLevel >= LEVEL_MAX) {
+                nextExp = Math.min(nextExp, expToNext(LEVEL_MAX));
+            }
+            LambdaUpdateWrapper<Pet> wrapper = new LambdaUpdateWrapper<Pet>()
+                    .set(Pet::getExp, nextExp)
+                    .set(Pet::getLevel, nextLevel)
+                    .setSql("version = version + 1")
+                    .eq(Pet::getId, pet.getId())
+                    .eq(Pet::getVersion, version != null ? version : 0);
+            if (nextLevelups > 0) {
+                wrapper.set(Pet::getMaxHp, currentMaxHp + 5 * nextLevelups)
+                        .set(Pet::getHp, Math.min(currentMaxHp + 5 * nextLevelups, currentHp + 5 * nextLevelups))
+                        .set(Pet::getStrength, grow(currentStrength, nextLevelups))
+                        .set(Pet::getIntelligence, grow(currentIntelligence, nextLevelups))
+                        .set(Pet::getAgility, grow(currentAgility, nextLevelups))
+                        .set(Pet::getCharm, grow(currentCharm, nextLevelups))
+                        .set(Pet::getGrowthStage, growthStageFor(nextLevel));
+            }
+            int updated = petMapper.update(null, wrapper);
+            if (updated > 0) {
+                pet.setExp(nextExp);
+                pet.setLevel(nextLevel);
+                pet.setVersion(version != null ? version + 1 : 1);
+                if (nextLevelups > 0) {
+                    pet.setMaxHp(currentMaxHp + 5 * nextLevelups);
+                    pet.setHp(Math.min(currentMaxHp + 5 * nextLevelups, currentHp + 5 * nextLevelups));
+                    pet.setStrength(grow(currentStrength, nextLevelups));
+                    pet.setIntelligence(grow(currentIntelligence, nextLevelups));
+                    pet.setAgility(grow(currentAgility, nextLevelups));
+                    pet.setCharm(grow(currentCharm, nextLevelups));
+                    pet.setGrowthStage(growthStageFor(nextLevel));
+                }
+                rankingCache.onExpGranted(pet.getId(), nextLevel, nextExp,
+                        Boolean.TRUE.equals(pet.getIsPublic()));
+                return nextLevelups;
+            }
+            Pet latest = petMapper.selectById(pet.getId());
+            if (latest == null) {
+                throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "宠物不存在");
+            }
+            version = latest.getVersion();
+            currentExp = latest.getExp();
+            currentLevel = latest.getLevel();
+            currentMaxHp = latest.getMaxHp();
+            currentHp = latest.getHp();
+            currentStrength = latest.getStrength();
+            currentIntelligence = latest.getIntelligence();
+            currentAgility = latest.getAgility();
+            currentCharm = latest.getCharm();
+        }
+        throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
+                "宠物状态被并发修改，请稍后重试");
+    }
+
     /** 升到下一级所需经验：expBase * level^1.5 */
     public int expToNext(int level) {
         return (int) Math.round(properties.getLevel().getExpBase() * Math.pow(level, 1.5));

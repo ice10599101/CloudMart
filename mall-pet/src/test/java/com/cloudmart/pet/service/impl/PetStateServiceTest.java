@@ -249,4 +249,40 @@ class PetStateServiceTest {
         stateService.grantExp(pet, 10);
         org.assertj.core.api.Assertions.assertThat(pet.getExp()).isEqualTo(10);
     }
+    @Nested
+    @DisplayName("PET-21/T48 管理端经验调整（领域规则）")
+    class AdjustExp {
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("正调整跨级：等级/属性成长/成长阶段一致推进")
+        void positiveDeltaLevelsUp() {
+            Pet p = pet(80, 80, 100, 80, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+            p.setExp(0);
+            p.setLevel(1);
+            int expToLv2 = stateService.expToNext(1);
+
+            int levelups = stateService.adjustExp(p, expToLv2);
+
+            assertThat(levelups).isEqualTo(1);
+            assertThat(p.getLevel()).isEqualTo(2);
+            assertThat(p.getExp()).isZero();
+            assertThat(p.getMaxHp()).isEqualTo(105);
+            assertThat(p.getGrowthStage()).isNotBlank();
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("负调整：exp 下限 0、不降级（等级一致性保持）")
+        void negativeDeltaFloorsAtZeroWithoutDemotion() {
+            Pet p = pet(80, 80, 100, 80, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+            p.setExp(5);
+            p.setLevel(3);
+
+            int levelups = stateService.adjustExp(p, -100);
+
+            assertThat(levelups).isZero();
+            assertThat(p.getExp()).isZero();
+            assertThat(p.getLevel()).isEqualTo(3);
+        }
+    }
+
 }
