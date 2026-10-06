@@ -36,6 +36,9 @@ jobs:
           echo "::group::失败用例（前 20 条）"
           grep -E '<<< FAILURE!|<<< ERROR!' /tmp/build.log | head -20 || true
           echo "::endgroup::"
+          echo "::group::构建尾部 80 行（ERROR/编译失败在此）"
+          tail -80 /tmp/build.log
+          echo "::endgroup::"
       - name: 上传单测报告
         if: failure()
         uses: actions/upload-artifact@v4
