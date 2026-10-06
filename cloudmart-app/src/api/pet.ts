@@ -781,6 +781,9 @@ export const petApi = {
   listAlbumAssets: (petId: number | string) =>
     request<Array<{ assetId: string; previewUrl: string | null; diaryEntryId: string | null; auditStatus: string; bindStatus: string }>>(
       { url: `/pet/pets/${petId}/album` }),
+  /** PET-13/T32：BINDING/FAILED 条目重试绑定（远端引用键幂等，重试安全） */
+  retryAlbumAsset: (petId: number | string, assetId: number | string) =>
+    request<PetAlbumAsset>({ url: `/pet/pets/${petId}/album/${assetId}/retry-binding`, method: 'POST' }),
   deleteAlbumAsset: (petId: number | string, assetId: number | string) =>
     request<void>({ url: `/pet/pets/${petId}/album/${assetId}`, method: 'DELETE' }),
 

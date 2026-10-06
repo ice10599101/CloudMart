@@ -29,7 +29,8 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
   const [diaryHasMore, setDiaryHasMore] = useState(false)
   const [diaryLoading, setDiaryLoading] = useState(false)
 
-  const [album, setAlbum] = useState<Array<{ assetId: number; entryId: number }>>([])
+  const [album, setAlbum] = useState<Array<{ assetId: string; entryId: string | null;
+    bindStatus?: string; previewUrl?: string | null }>>([])
   const [albumLoading, setAlbumLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
 
@@ -61,27 +62,35 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     [petId, diaryCursor],
   )
 
-  /** 相册无独立列表端点：由日记条目 assetIds 聚合（上传时绑定 diaryEntryId） */
+  /** PET-13/T31：相册改走服务端独立列表（含 BINDING/FAILED 状态与重试入口） */
   const loadAlbum = useCallback(async () => {
     if (!petId) return
     setAlbumLoading(true)
     try {
-      const collected: Array<{ assetId: number; entryId: number }> = []
-      let cursor: string | null = null
-      for (let page = 0; page < 5; page += 1) {
-        const { data: res } = await petCompanionApi.listDiary(petId, { cursor: cursor ?? undefined, size: PAGE_SIZE })
-        if (!res.success || !res.data) break
-        res.data.items.forEach((entry) => {
-          ;(entry.assetIds ?? []).forEach((assetId) => collected.push({ assetId, entryId: entry.id }))
-        })
-        cursor = res.data.nextCursor ?? null
-        if (!cursor || res.data.items.length === 0) break
+      const { data: res } = await petCompanionApi.listAlbumAssets(petId)
+      if (res.success && res.data) {
+        setAlbum(res.data.map((item) => ({
+          assetId: item.assetId,
+          entryId: item.diaryEntryId,
+          bindStatus: item.bindStatus,
+          previewUrl: item.previewUrl,
+        })))
       }
-      setAlbum(collected)
     } finally {
       setAlbumLoading(false)
     }
   }, [petId])
+
+  /** PET-13/T32：BINDING/FAILED 条目重试绑定（远端幂等） */
+  const retryBinding = useCallback(async (assetId: string) => {
+    try {
+      await petCompanionApi.retryAlbumAsset(petId!, assetId)
+      await loadAlbum()
+      Taro.showToast({ title: '已重试绑定', icon: 'success' })
+    } catch {
+      Taro.showToast({ title: '重试未成功，稍后再试', icon: 'none' })
+    }
+  }, [petId, loadAlbum])
 
   const loadMemories = useCallback(async () => {
     if (!petId) return
@@ -208,12 +217,32 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
           <View className={styles.albumGrid}>
             {album.map((asset) => (
               <View key={asset.assetId} className={styles.albumCell}>
-                <Image
-                  className={styles.albumImage}
-                  src={`/file/assets/${asset.assetId}/download`}
-                  mode='aspectFill'
-                  onClick={() => Taro.previewImage({ urls: [`/file/assets/${asset.assetId}/download`] })}
-                />
+                {asset.bindStatus === 'BOUND' ? (
+                  <Image
+                    className={styles.albumImage}
+                    src={asset.previewUrl ?? `/file/assets/${asset.assetId}/download`}
+                    mode='aspectFill'
+                    onClick={() =>
+                      Taro.previewImage({ urls: [asset.previewUrl ?? `/file/assets/${asset.assetId}/download`] })
+                    }
+                  />
+                ) : (
+                  <View className={styles.albumImage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 10, color: '#999' }}>
+                      {asset.bindStatus === 'FAILED' ? '绑定失败' : '绑定中'}
+                    </Text>
+                  </View>
+                )}
+                {asset.bindStatus && asset.bindStatus !== 'BOUND' ? (
+                  <Text
+                    className={styles.albumDelete}
+                    onClick={() => {
+                      if (asset.bindStatus === 'FAILED' && petId) void retryBinding(asset.assetId)
+                    }}
+                  >
+                    {asset.bindStatus === 'FAILED' ? '重试绑定' : '处理中…'}
+                  </Text>
+                ) : null}
                 <Text
                   className={styles.albumDelete}
                   onClick={() =>

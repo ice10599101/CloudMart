@@ -3262,7 +3262,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   const [feedUnread, setFeedUnread] = useState(0)
   const [diary, setDiary] = useState<PetDiaryPage | null>(null)
   const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
-  const [assets, setAssets] = useState<{ id: number | string; url: string; diaryEntryId: number | string | null }[]>([])
+  const [assets, setAssets] = useState<{ id: number | string; url: string; diaryEntryId: number | string | null; bindStatus?: string }[]>([])
   const [memories, setMemories] = useState<PetMemory[]>([])
   const [editId, setEditId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -3358,15 +3358,20 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     if (res?.success) setFeedUnread(0)
   }, [run])
 
-  /** PET-13/T31：独立相册列表（服务端权威；BINDING/审核中状态照实展示） */
+  /** PET-13/T31：独立相册列表（服务端权威；BINDING/FAILED 照实展示并给重试入口） */
   const loadAlbum = useCallback(async () => {
     if (!petId) return
     try {
       const { data: res } = await petApi.listAlbumAssets(petId)
       if (res.success && res.data) {
         setAssets(res.data
-            .filter((item) => item.bindStatus === 'BOUND')
-            .map((item) => ({ id: item.assetId, url: item.previewUrl ?? '', diaryEntryId: item.diaryEntryId })))
+            .filter((item) => item.bindStatus !== 'DELETED')
+            .map((item) => ({
+              id: item.assetId,
+              url: item.bindStatus === 'BOUND' ? (item.previewUrl ?? '') : '',
+              diaryEntryId: item.diaryEntryId,
+              bindStatus: item.bindStatus,
+            })))
       }
     } catch {
       // 展示型数据：忽略
@@ -3406,6 +3411,16 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
       setPending(null)
     }
   }, [petId, run, loadAlbum])
+
+  /** PET-13/T32：BINDING/FAILED 条目重试绑定（远端幂等；成功后刷新列表） */
+  const retryAssetBinding = useCallback(async (assetId: number | string) => {
+    try {
+      await petApi.retryAlbumAsset(petId, assetId)
+      await loadAlbum()
+    } catch {
+      Alert.alert('重试未成功', '稍后再试或删除该条目')
+    }
+  }, [petId, loadAlbum])
 
   const removeAsset = useCallback(async (assetId: number | string) => {
     const res = await run(`album-del:${assetId}`, () => petApi.deleteAlbumAsset(petId, assetId))
@@ -3590,14 +3605,26 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
             />
             {assets.length > 0 && assets.map((item) => (
               <View key={item.id} style={[cardStyle, { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }]}>
-                <Image
-                  source={{ uri: item.url }}
-                  style={{ width: 64, height: 64, borderRadius: BorderRadius.sm, backgroundColor: colors.bgBase }}
-                />
+                {item.bindStatus === 'BOUND' ? (
+                  <Image
+                    source={{ uri: item.url }}
+                    style={{ width: 64, height: 64, borderRadius: BorderRadius.sm, backgroundColor: colors.bgBase }}
+                  />
+                ) : (
+                  <View style={{ width: 64, height: 64, borderRadius: BorderRadius.sm, backgroundColor: colors.bgBase, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.textTertiary, fontSize: 9, textAlign: 'center' }}>
+                      {item.bindStatus === 'FAILED' ? '绑定失败' : '绑定中'}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
                     {item.diaryEntryId ? `日记 #${item.diaryEntryId}` : '未挂日记'}
                   </Text>
+                  {item.bindStatus && item.bindStatus !== 'BOUND' ? (
+                    <ChipButton label={item.bindStatus === 'FAILED' ? '重试绑定' : '绑定处理中…'}
+                      onPress={() => item.bindStatus === 'FAILED' ? void retryAssetBinding(item.id) : undefined} />
+                  ) : null}
                   <ChipButton label="删除" onPress={() => void removeAsset(item.id)} />
                 </View>
               </View>
