@@ -105,6 +105,10 @@ public interface OutboxEventMapper {
             """)
     int retryDeadLetter(@Param("id") Long id);
 
+    /** §5.2 任务回查：按 requestId 取最新事件（用户凭创建时下发的 requestId 恢复结果） */
+    @Select("SELECT * FROM outbox_event WHERE request_id = #{requestId} ORDER BY created_at DESC LIMIT 1")
+    OutboxEventEntity selectByRequestId(@Param("requestId") String requestId);
+
     @Select("SELECT * FROM outbox_event WHERE event_id = #{eventId}")
     OutboxEventEntity findByEventId(@Param("eventId") String eventId);
 
