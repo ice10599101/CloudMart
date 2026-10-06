@@ -12,6 +12,7 @@ import com.cloudmart.inventory.entity.InventoryReservation;
 import com.cloudmart.inventory.repository.InventoryLogMapper;
 import com.cloudmart.inventory.repository.InventoryMapper;
 import com.cloudmart.inventory.repository.InventoryReservationMapper;
+import com.cloudmart.inventory.service.InventoryService;
 import com.cloudmart.inventory.service.impl.InventoryServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -114,8 +115,10 @@ class InventoryReservationIntegrationTest {
         }
     }
 
+    // PET-24：面向接口注入——测试切片未导入 AopAutoConfiguration，Bean 为 JDK 接口代理
+    //（proxyTargetClass=false），按具体类注入类型不匹配（CI 实跑暴露）
     @Autowired
-    private InventoryServiceImpl inventoryService;
+    private InventoryService inventoryService;
     @Autowired
     private InventoryMapper inventoryMapper;
     @Autowired
