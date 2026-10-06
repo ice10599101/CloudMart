@@ -35,6 +35,8 @@ class CapsuleIntegrationTest extends WishIntegrationTestBase {
 
     @Autowired
     private CapsuleService capsuleService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.cloudmart.wish.service.impl.WishOutboxService wishOutboxService;
 
     private static final Long USER_ID = 1001L;
     private static final Long OTHER_USER_ID = 1002L;
@@ -169,6 +171,8 @@ class CapsuleIntegrationTest extends WishIntegrationTestBase {
         assertThat(queryStatus(c1.id())).isEqualTo("AVAILABLE");
         assertThat(queryStatus(c2.id())).isEqualTo("AVAILABLE");
         assertThat(queryStatus(future.id())).isEqualTo("SEALED");
+        // W05：scan 只登记 outbox（PENDING），投递由中继完成——测试切片无 @Scheduled，手动触发
+        wishOutboxService.relayDueEvents();
         // 到期项各推送一次（MockitoBean RocketMQTemplate）
         verify(rocketMQTemplate, times(2))
                 .syncSend(eq(CAPSULE_DESTINATION), any(Object.class));
@@ -177,6 +181,7 @@ class CapsuleIntegrationTest extends WishIntegrationTestBase {
         var second = capsuleService.scanAvailableCapsules();
         assertThat(second.scanned()).isZero();
         assertThat(second.available()).isZero();
+        wishOutboxService.relayDueEvents();
         verify(rocketMQTemplate, times(2))
                 .syncSend(eq(CAPSULE_DESTINATION), any(Object.class));
 
@@ -192,6 +197,9 @@ class CapsuleIntegrationTest extends WishIntegrationTestBase {
         CapsuleVO capsule = createFutureCapsule("扫描间隙");
         expireCapsule(capsule.id());
         // 用例隔离：JUnit 方法序不定，前序用例的扫描推送会残留到 never() 断言
+        clearInvocations(rocketMQTemplate);
+        // 前序用例登记的 outbox 事件可能仍未投递——先清空再断言 never
+        wishOutboxService.relayDueEvents();
         clearInvocations(rocketMQTemplate);
 
         // 直接开启（不经过扫描）：CAS 条件含 SEALED+openAt<=now
