@@ -21,7 +21,15 @@ jobs:
         run: chmod +x mvnw && ./mvnw -version
       # E01：从根 POM 构建全部模块，禁止再维护模块子集清单
       - name: 全模块单元测试
-        run: ./mvnw -B -ntp test
+        # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）
+        run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp test
+      - name: 上传单测报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/**'
+          retention-days: 7
       - name: 失败摘要（转 annotation 便于远程诊断）
         if: failure()
         run: |
