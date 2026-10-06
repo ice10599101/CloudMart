@@ -462,9 +462,13 @@ public class AccountDeletionOrchestrationService {
                 }
             }
         } catch (Exception ex) {
+            // last_error 带出根因（码|消息 截断 480）：last_error 只有码时无法区分
+            // 网络失败/鉴权失败/解码失败，排障要登两台机器翻日志
+            String root = ex.getClass().getSimpleName() + ": "
+                    + (ex.getMessage() == null ? "null" : ex.getMessage());
             log.warn("[T06] 步骤执行异常 {}.{} userId={}: {}", domain, stepName,
-                    task.getUserId(), ex.getMessage());
-            return "STEP_EXECUTION_ERROR";
+                    task.getUserId(), root);
+            return ("STEP_EXECUTION_ERROR|" + root).substring(0, Math.min(480, ("STEP_EXECUTION_ERROR|" + root).length()));
         }
     }
 
