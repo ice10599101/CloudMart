@@ -31,7 +31,7 @@ jobs:
       - name: 全模块单元测试
         # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）；
         # -fa（fail-at-end）单模块失败后其余模块照跑；日志落盘供失败摘要步分析
-        run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp -fa test 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+        run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp --fail-at-end test 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
       - name: 失败定位（reactor 摘要 + OOM 特征 + 失败用例）
         if: failure()
         run: |
