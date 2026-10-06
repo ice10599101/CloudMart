@@ -125,7 +125,7 @@ class ActivityIntegrationTest extends WishIntegrationTestBase {
             CommunityActivity activity = seedPartnerActivity();
             Long activityId = activity.getId();
             activityService.transition(activityId, "start", ADMIN);
-            long wishA = seedWish(LEADER, "极光之旅", "ACTIVE");
+            long wishA = seedWish(ADMIN, "极光之旅", "ACTIVE");
 
             // T13：WISH_PARTNER 直接 join 一律拒绝——发起人同样走申请→审批进组
             long wishLeaderJoin = wishA;
