@@ -29,6 +29,18 @@ public class PetAlbumAsset {
     private String auditStatus;
     /** R04 远程文件引用绑定状态：BINDING/BOUND/FAILED */
     private String bindStatus;
+
+    /** PET-13/T32：绑定已尝试次数（上传 1 次 + 自动/手动重试） */
+    @TableField("bind_attempts")
+    private Integer bindAttempts;
+
+    /** PET-13：下次自动重试时间(UTC)；NULL 表示无待重试 */
+    @TableField("next_bind_retry_at")
+    private LocalDateTime nextBindRetryAt;
+
+    /** PET-13：最近一次绑定失败原因（截断 255 字符） */
+    @TableField("last_bind_error")
+    private String lastBindError;
     /** 用户说明（≤200 字，仅 owner 本人可改） */
     private String caption;
     /** OWNER_ONLY / PUBLIC：访客仅见 PUBLIC+APPROVED+BOUND */

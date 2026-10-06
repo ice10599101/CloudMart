@@ -48,6 +48,7 @@ public class PetActivityScheduler {
     static final String LOCK_SEASON_SETTLE = "pet:lock:season-settle";
     static final String LOCK_CUSTODY_EXPIRE = "pet:lock:custody-expire";
     static final String LOCK_QUEST_RECEIPT_RETRY = "pet:lock:quest-receipt-retry";
+    static final String LOCK_ALBUM_BIND_RECOVER = "pet:lock:album-bind-recover";
 
     private final PetActivityMapper activityMapper;
     private final PetMapper petMapper;
@@ -62,6 +63,7 @@ public class PetActivityScheduler {
     private final com.cloudmart.pet.service.impl.PetSeasonSettlementService seasonSettlementService;
     private final com.cloudmart.pet.service.impl.PetCustodyCareService custodyCareService;
     private final com.cloudmart.pet.service.PetDailyQuestService dailyQuestService;
+    private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
     private final com.cloudmart.pet.service.impl.PetFriendFeedService friendFeedService;
     /** R15：完成 CAS 与 Outbox 登记同一事务——kill 窗口不再丢"任务完成"通知 */
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -153,6 +155,27 @@ public class PetActivityScheduler {
             log.error("任务事实投影重试任务失败", e);
         } finally {
             unlock(LOCK_QUEST_RECEIPT_RETRY);
+        }
+    }
+
+    /**
+     * PET-13/T32：相册 BINDING 行自动恢复（分钟级）——上传后远端失败/响应丢失的行按
+     * next_bind_retry_at 退避重试（远端引用键幂等）；达上限转 FAILED 留用户 retry-binding。
+     */
+    @Scheduled(fixedDelay = 60_000)
+    public void recoverAlbumBindings() {
+        if (!tryLock(LOCK_ALBUM_BIND_RECOVER, Duration.ofSeconds(55))) {
+            return;
+        }
+        try {
+            int bound = companionFeatureService.recoverStaleBindingAssets();
+            if (bound > 0) {
+                log.info("相册绑定恢复完成: bound={}", bound);
+            }
+        } catch (Exception e) {
+            log.error("相册绑定恢复任务失败", e);
+        } finally {
+            unlock(LOCK_ALBUM_BIND_RECOVER);
         }
     }
 

@@ -57,6 +57,8 @@ public class PetCompanionFeatureService {
     private final com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper;
     private final com.cloudmart.pet.service.PetUserGuardService guardService;
     private final com.cloudmart.pet.feign.FileFeignClient fileFeignClient;
+    /** PET-13/T32：相册跨服务绑定的 prepare/confirm 短事务（远端调用不进事务） */
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     public PetCompanionFeatureService(PetMapper petMapper,
                                       PetOnboardingProgressMapper onboardingMapper,
@@ -67,7 +69,8 @@ public class PetCompanionFeatureService {
                                       com.cloudmart.pet.config.PetProperties properties,
                                       com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
                                       com.cloudmart.pet.service.PetUserGuardService guardService,
-                                      com.cloudmart.pet.feign.FileFeignClient fileFeignClient) {
+                                      com.cloudmart.pet.feign.FileFeignClient fileFeignClient,
+                                      org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
         this.petMapper = petMapper;
         this.onboardingMapper = onboardingMapper;
         this.diaryMapper = diaryMapper;
@@ -78,6 +81,7 @@ public class PetCompanionFeatureService {
         this.notifyPrefMapper = notifyPrefMapper;
         this.guardService = guardService;
         this.fileFeignClient = fileFeignClient;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /** B19：查询/更新宠物通知偏好（免打扰 + 日常问候开关）；重要业务通知不受偏好影响 */
@@ -346,7 +350,16 @@ public class PetCompanionFeatureService {
      * （删除该行即放弃绑定，孤儿文件由用户在文件服务侧自行清理，不占公开访问）。
      * 100 张配额含 BINDING 行（守卫行锁内串行化，T27）。
      */
-    @Transactional
+    /**
+     * PET-13/T32：上传相册资源——跨服务绑定三段式（§7.3）：prepare 短事务（占配额 +
+     * 落 BINDING 行并提交）→ 远端幂等绑定（事务外，引用键 PET_ALBUM:{id}）→ confirm
+     * 短事务（BINDING→BOUND）。远端失败不回滚 BINDING 行（原实现同事务内抛异常把
+     * "行保留可重试"的注释变成谎言——行被一起回滚，远端已成功的引用成幽灵），
+     * 行留 BINDING + 退避重试时间，由调度恢复任务与用户 retry-binding 收敛。
+     *
+     * <p>100 张配额含 BINDING 行（守卫行锁内串行化，T27）。§13.1：albumBinding 关闭时
+     * 跳过远程校验（行留 BINDING，重试入口在开关恢复后生效）。</p>
+     */
     public PetAlbumAsset uploadAlbumAsset(Long userId, Long petId, String fileId, Long diaryEntryId, String caption) {
         Pet pet = petMapper.selectById(petId);
         if (pet == null || !pet.getUserId().equals(userId)) {
@@ -360,48 +373,85 @@ public class PetCompanionFeatureService {
                 throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "日记归属与相册不符");
             }
         }
-        // 用户守卫行锁：并发上传的配额核验串行化（BE-11/T27：第 100/101 张不越界）
-        guardService.lockGuard(userId);
-        Long count = albumMapper.selectCount(new LambdaQueryWrapper<PetAlbumAsset>()
-                .eq(PetAlbumAsset::getUserId, userId));
-        if (count != null && count >= 100) {
-            throw new BusinessException(PetErrorCodes.PET_QUOTA_EXHAUSTED, "相册已满（100 张）");
-        }
-        PetAlbumAsset asset = new PetAlbumAsset();
-        asset.setUserId(userId);
-        asset.setPetId(petId);
-        asset.setDiaryEntryId(diaryEntryId);
-        asset.setFileId(String.valueOf(fileAssetId));
-        asset.setAuditStatus("PENDING");
-        asset.setBindStatus("BINDING");
-        // 默认私有（OWNER_ONLY）：PUBLIC 需审核通过后由 PATCH 显式开启
-        asset.setVisibility("OWNER_ONLY");
-        asset.setCaption(normalizedCaption);
-        try {
-            albumMapper.insert(asset);
-        } catch (DuplicateKeyException e) {
-            // §7.2 +请求键：同文件重复上传（响应丢失重试）幂等返回既有引用，不报错
-            PetAlbumAsset existing = albumMapper.selectOne(new LambdaQueryWrapper<PetAlbumAsset>()
-                    .eq(PetAlbumAsset::getUserId, userId)
-                    .eq(PetAlbumAsset::getFileId, String.valueOf(fileAssetId))
-                    .last("LIMIT 1"));
-            if (existing != null) {
-                log.info("相册资源重复引用（幂等返回既有行）: userId={}, fileId={}, assetId={}",
-                        userId, fileAssetId, existing.getId());
-                return existing;
+        // prepare 短事务：守卫行锁内配额核验 + BINDING 行落库提交
+        PetAlbumAsset asset = transactionTemplate.execute(status -> {
+            guardService.lockGuard(userId);
+            Long count = albumMapper.selectCount(new LambdaQueryWrapper<PetAlbumAsset>()
+                    .eq(PetAlbumAsset::getUserId, userId));
+            if (count != null && count >= 100) {
+                throw new BusinessException(PetErrorCodes.PET_QUOTA_EXHAUSTED, "相册已满（100 张）");
             }
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该资源已存在");
+            PetAlbumAsset row = new PetAlbumAsset();
+            row.setUserId(userId);
+            row.setPetId(petId);
+            row.setDiaryEntryId(diaryEntryId);
+            row.setFileId(String.valueOf(fileAssetId));
+            row.setAuditStatus("PENDING");
+            row.setBindStatus("BINDING");
+            row.setBindAttempts(1);
+            row.setNextBindRetryAt(properties.getFeatureSwitches().isAlbumBinding()
+                    ? java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(BIND_RETRY_BACKOFF_SECONDS)
+                    : null);
+            // 默认私有（OWNER_ONLY）：PUBLIC 需审核通过后由 PATCH 显式开启
+            row.setVisibility("OWNER_ONLY");
+            row.setCaption(normalizedCaption);
+            try {
+                albumMapper.insert(row);
+            } catch (DuplicateKeyException e) {
+                // §7.2 +请求键：同文件重复上传（响应丢失重试）幂等返回既有引用，不报错
+                PetAlbumAsset existing = albumMapper.selectOne(new LambdaQueryWrapper<PetAlbumAsset>()
+                        .eq(PetAlbumAsset::getUserId, userId)
+                        .eq(PetAlbumAsset::getFileId, String.valueOf(fileAssetId))
+                        .last("LIMIT 1"));
+                if (existing != null) {
+                    log.info("相册资源重复引用（幂等返回既有行）: userId={}, fileId={}, assetId={}",
+                            userId, fileAssetId, existing.getId());
+                    return existing;
+                }
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该资源已存在");
+            }
+            return row;
+        });
+        if (asset == null) {
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "相册资源落库失败");
         }
-        // 本地 BINDING 行已提交；远程绑定失败不回滚本地行（跨服务无分布式事务）——
-        // 行保留 BINDING 可重试状态，由 confirmAlbumBinding 推进/放弃
-        // §13.1：albumBinding 关闭时跳过远程校验（行留 BINDING，重试入口在开关恢复后生效）
+        // 幂等重入（响应丢失重试撞 uk 返回既有行）：行已 BOUND 则直接返回，不再触发远端
+        if (!"BINDING".equals(asset.getBindStatus())) {
+            return asset;
+        }
         if (properties.getFeatureSwitches().isAlbumBinding()) {
             confirmAlbumBinding(asset, fileAssetId, userId);
         }
         return albumMapper.selectById(asset.getId());
     }
 
+    /** 绑定自动重试退避基数（秒）：60s × 2^attempts，封顶 1 小时 */
+    private static final long BIND_RETRY_BACKOFF_SECONDS = 60;
+    /** 绑定自动重试上限：超过后转 FAILED 终态，留用户 retry-binding 人工处置 */
+    private static final int BIND_MAX_ATTEMPTS = 5;
+
+    /** PET-13：绑定失败 → 递增尝试、指数退避排期、留错误原因（_confirm 短事务内调用） */
+    private void markBindFailed(PetAlbumAsset asset, Exception cause) {
+        int attempts = (asset.getBindAttempts() != null ? asset.getBindAttempts() : 1) + 1;
+        boolean exhausted = attempts > BIND_MAX_ATTEMPTS;
+        String error = cause.getMessage() == null ? "unknown" : cause.getMessage();
+        albumMapper.update(null, new LambdaUpdateWrapper<PetAlbumAsset>()
+                .set(PetAlbumAsset::getBindStatus, exhausted ? "FAILED" : "BINDING")
+                .set(PetAlbumAsset::getBindAttempts, attempts)
+                .set(PetAlbumAsset::getNextBindRetryAt, exhausted ? null
+                        : java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+                        .plusSeconds(Math.min(BIND_RETRY_BACKOFF_SECONDS * (1L << Math.min(attempts, 6)), 3600L)))
+                .set(PetAlbumAsset::getLastBindError,
+                        error.length() <= 255 ? error : error.substring(0, 255))
+                .eq(PetAlbumAsset::getId, asset.getId()));
+    }
+
     /** 远程绑定（幂等引用键 PET_ALBUM:{id}）：成功 BOUND；失败留 BINDING 并抛出明确错误 */
+    /**
+     * PET-13/T32：远端绑定（幂等引用键 PET_ALBUM:{id}）+ confirm 短事务推进 BOUND。
+     * 必须在<strong>无事务</strong>上下文调用（远端 HTTP 不进数据库事务）；失败落
+     * BINDING/FAILED + 退避排期（不向调用方抛异常——主动作已提交，绑定是可恢复的异步收尾）。
+     */
     private void confirmAlbumBinding(PetAlbumAsset asset, Long fileAssetId, Long userId) {
         try {
             var response = fileFeignClient.bindReference(fileAssetId,
@@ -411,28 +461,73 @@ public class PetCompanionFeatureService {
             if (response.data() == null) {
                 throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "文件绑定未受理");
             }
+            // confirm 短事务：BINDING→BOUND（条件更新防并发恢复任务与用户重试双写）
+            int updated = albumMapper.update(null, new LambdaUpdateWrapper<PetAlbumAsset>()
+                    .set(PetAlbumAsset::getBindStatus, "BOUND")
+                    .set(PetAlbumAsset::getNextBindRetryAt, null)
+                    .set(PetAlbumAsset::getLastBindError, null)
+                    .eq(PetAlbumAsset::getId, asset.getId())
+                    .eq(PetAlbumAsset::getBindStatus, "BINDING"));
             asset.setBindStatus("BOUND");
-            albumMapper.updateById(asset);
-        } catch (BusinessException e) {
-            throw e;
+            if (updated == 0) {
+                log.info("相册绑定被并发收尾抢先（恢复任务/用户重试）, albumAssetId={}", asset.getId());
+            }
         } catch (Exception e) {
-            log.warn("相册文件远程绑定失败（行保留 BINDING 可重试）, albumAssetId={}, fileId={}",
+            markBindFailed(asset, e);
+            log.warn("相册文件远程绑定失败（行留 BINDING/FAILED 退避重试）, albumAssetId={}, fileId={}",
                     asset.getId(), fileAssetId, e);
-            throw new BusinessException("PET_FILE_BINDING_FAILED", "文件绑定失败，请稍后重试或删除该条目");
         }
     }
 
-    /** R04：BINDING 行补绑定（上传后响应丢失/远程失败重试的恢复入口） */
-    @Transactional
+    /**
+     * PET-13/T32：BINDING 行自动恢复（调度器调用）——远端引用键幂等，重试安全；
+     * 每轮小批（到期行 LIMIT 20），单条失败不阻断其余。
+     *
+     * @return 本轮成功推进 BOUND 的数量
+     */
+    public int recoverStaleBindingAssets() {
+        if (!properties.getFeatureSwitches().isAlbumBinding()) {
+            return 0;
+        }
+        java.util.List<PetAlbumAsset> due = albumMapper.selectList(new LambdaQueryWrapper<PetAlbumAsset>()
+                .eq(PetAlbumAsset::getBindStatus, "BINDING")
+                .isNotNull(PetAlbumAsset::getNextBindRetryAt)
+                .le(PetAlbumAsset::getNextBindRetryAt, java.time.LocalDateTime.now(java.time.ZoneOffset.UTC))
+                .orderByAsc(PetAlbumAsset::getId)
+                .last("LIMIT 20"));
+        int bound = 0;
+        for (PetAlbumAsset asset : due) {
+            try {
+                Long fileAssetId = parseFileAssetId(asset.getFileId());
+                confirmAlbumBinding(asset, fileAssetId, asset.getUserId());
+                if ("BOUND".equals(asset.getBindStatus())) {
+                    bound++;
+                }
+            } catch (Exception e) {
+                // confirmAlbumBinding 内部已落退避；此处兜底防单条异常阻断批次
+                log.warn("相册绑定恢复单条失败: albumAssetId={}", asset.getId(), e);
+            }
+        }
+        return bound;
+    }
+
+    /**
+     * R04/PET-13：BINDING/FAILED 行补绑定（上传后响应丢失/远程失败/超限失败的恢复入口）；
+     * 远端幂等键保证重试安全，确认走 confirm 短事务（远端调用不进事务）。
+     */
     public PetAlbumAsset retryAlbumBinding(Long userId, Long assetId) {
         PetAlbumAsset asset = albumMapper.selectById(assetId);
         if (asset == null || !asset.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "只能管理自己宠物的相册");
         }
-        if (!"BINDING".equals(asset.getBindStatus())) {
+        if (!"BINDING".equals(asset.getBindStatus()) && !"FAILED".equals(asset.getBindStatus())) {
             return asset;
         }
         Long fileAssetId = parseFileAssetId(asset.getFileId());
+        // 用户显式重试立即给机会：清退避排期
+        albumMapper.update(null, new LambdaUpdateWrapper<PetAlbumAsset>()
+                .set(PetAlbumAsset::getNextBindRetryAt, null)
+                .eq(PetAlbumAsset::getId, assetId));
         confirmAlbumBinding(asset, fileAssetId, userId);
         return albumMapper.selectById(assetId);
     }
