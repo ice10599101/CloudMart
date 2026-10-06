@@ -127,13 +127,15 @@ class ActivityIntegrationTest extends WishIntegrationTestBase {
             activityService.transition(activityId, "start", ADMIN);
             long wishA = seedWish(LEADER, "极光之旅", "ACTIVE");
 
-            // 招募发起人（活动创建者）占位：JOINED
-            activityService.join(ADMIN, activityId);
-            // 发起人绑定期望协作的心愿
+            // T13：WISH_PARTNER 直接 join 一律拒绝——发起人同样走申请→审批进组
+            long wishLeaderJoin = wishA;
+            activityService.applyPartner(ADMIN, activityId, wishLeaderJoin, List.of("design", "video"));
+            activityService.reviewApplication(ADMIN, activityId, ADMIN, true);
+            // 发起人为 LEADER 角色（审批入组后补绑）
             jdbcTemplate.update(
-                    "UPDATE wish_activity_participant SET wish_id = ?, role = 'LEADER' "
+                    "UPDATE wish_activity_participant SET role = 'LEADER' "
                             + "WHERE activity_id = ? AND user_id = ?",
-                    wishA, activityId, ADMIN);
+                    activityId, ADMIN);
 
             // MEMBER_A 申请（技能部分匹配）
             long wishMemberA = seedWish(MEMBER_A, "协助摄影", "ACTIVE");
