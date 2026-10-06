@@ -39,6 +39,8 @@ export default function PetPlayPage() {
   const [digest, setDigest] = useState<{ throughAt: string; offlineHours: number; finishedTasks: number; claimableTasks: number; visits: number; milestones: number } | null>(null)
   const [coops, setCoops] = useState<Array<Record<string, unknown>>>([])
   const [collection, setCollection] = useState<{ total: number; unlocked: number } | null>(null)
+  // PET-23：图鉴明细（getCollection 首页；含获取条件）——统计卡点击展开
+  const [collectionItems, setCollectionItems] = useState<Array<Record<string, unknown>> | null>(null)
   // N04 对局历史（最近 10 局，offset 分页第一页）
   const [history, setHistory] = useState<PetMinigameRoundItem[]>([])
   // B09 限时活动（与常驻 /pet/events 是两套体系；结束后 72 小时内可领奖）
@@ -59,6 +61,8 @@ export default function PetPlayPage() {
     if (collRes.data.success && collRes.data.data) {
       setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
     }
+    const collListRes = await petApi.getCollection(undefined, 1, 50)
+    if (collListRes.data.success && collListRes.data.data) setCollectionItems(collListRes.data.data)
     const histRes = await petCompanionApi.listMinigameRounds(1, 10)
     if (histRes.data.success && histRes.data.data) setHistory(histRes.data.data)
     const actRes = await petCompanionApi.listActivities()
@@ -299,10 +303,25 @@ export default function PetPlayPage() {
           })}
         </View>
 
-        {/* N07 图鉴 */}
+        {/* N07 图鉴（PET-23：明细列表 + 获取条件；原只有统计数字） */}
         <View className={styles.card}>
           <Text className={styles.cardTitle}>📖 收藏图鉴</Text>
           <Text className={styles.meta}>{collection ? `已解锁 ${collection.unlocked}/${collection.total}` : '加载中…'}</Text>
+          {collectionItems && collectionItems.length > 0 ? (
+            <View style={{ marginTop: 8, gap: 4 }}>
+              {collectionItems.map((item) => {
+                const unlocked = Boolean(item.unlocked ?? item.unlockedAt)
+                return (
+                  <View key={String(item.id ?? item.entryId ?? item.code)} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Text className={styles.meta}>
+                      {(unlocked ? '✅ ' : '🔒 ') + String(item.name ?? item.code ?? '?')}
+                    </Text>
+                    <Text className={styles.meta}>{unlocked ? String(item.unlockedAt ?? '').slice(0, 10) : String(item.unlockHint ?? item.condition ?? '达成条件解锁')}</Text>
+                  </View>
+                )
+              })}
+            </View>
+          ) : null}
         </View>
 
         {/* B09 限时活动 */}
