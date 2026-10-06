@@ -164,7 +164,9 @@ jobs:
           # 真实认证探测就绪，否则首个 DROP DATABASE 即 1045，全部模块迁移假失败
           ready=0
           for i in $(seq 1 60); do
-            if docker exec clean-db mysql -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
+            # -h127.0.0.1 强制 TCP：初始化期临时服务器 skip-networking，socket 探测
+            # 会在临时期假通过（随后 DROP DATABASE 撞切换间隙 socket 错误）
+            if docker exec clean-db mysql -h127.0.0.1 -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
               ready=1; break
             fi
             sleep 2
@@ -200,7 +202,7 @@ jobs:
           docker run -d --name upgrade-db -e MYSQL_ROOT_PASSWORD=root -p 33061:3306 mysql:9.4.0
           ready=0
           for i in $(seq 1 60); do
-            if docker exec upgrade-db mysql -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
+            if docker exec upgrade-db mysql -h127.0.0.1 -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
               ready=1; break
             fi
             sleep 2
