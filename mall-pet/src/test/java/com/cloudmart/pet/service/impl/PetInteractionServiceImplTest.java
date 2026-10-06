@@ -129,6 +129,7 @@ class PetInteractionServiceImplTest {
         Pet testPet = pet();
         testPet.setEnergy(100);
         when(petService.requireOwnedPet(100L)).thenReturn(testPet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(testPet);
         when(activityMapper.selectCount(any())).thenReturn(0L);
         when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.PLAY_REWARD), eq(0L), anyInt()))
                 .thenReturn(false);
@@ -155,6 +156,7 @@ class PetInteractionServiceImplTest {
         Pet testPet = pet();
         testPet.setEnergy(100);
         when(petService.requireOwnedPet(100L)).thenReturn(testPet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(testPet);
         when(activityMapper.selectCount(any())).thenReturn(0L);
         lenient().when(petService.toVo(any(Pet.class), org.mockito.ArgumentMatchers.anyBoolean(), any()))
                 .thenReturn(petVo());
@@ -199,6 +201,7 @@ class PetInteractionServiceImplTest {
     void feedRespectsConfiguredDailyLimit() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         properties.getInteraction().setFeedDailyLimit(2);
         // B06：喂食额度数据库权威（tryConsume 返回 false = 今日已用尽）
         when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.FEED), eq(0L), eq(2))).thenReturn(false);
@@ -215,6 +218,7 @@ class PetInteractionServiceImplTest {
     void feedLevelUpPublishesEvent() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(quotaService.tryConsume(any(), eq(PetQuotaService.QuotaType.FEED), eq(0L), eq(5))).thenReturn(true);
         when(stateService.grantExp(any(Pet.class), eq(properties.getInteraction().getFeedExp()))).thenReturn(1);
 
@@ -231,6 +235,7 @@ class PetInteractionServiceImplTest {
     void noLevelUpNoEvent() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(valueOperations.increment(anyString())).thenReturn(1L);
         when(stateService.grantExp(any(Pet.class), any(Integer.class))).thenReturn(0);
 
@@ -247,6 +252,7 @@ class PetInteractionServiceImplTest {
         Pet pet = pet();
         pet.setEnergy(40);
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(activityMapper.selectCount(any())).thenReturn(0L);
         when(petMapper.update(any(), any())).thenReturn(1);
 
@@ -338,6 +344,7 @@ class PetInteractionServiceImplTest {
     void feedItemConsumesInventoryAndAppliesEffects() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(petService.toVo(any())).thenReturn(petVo());
         when(inventoryMapper.update(any(), any())).thenReturn(1);
 
@@ -360,6 +367,7 @@ class PetInteractionServiceImplTest {
     void feedItemWithoutStockRejected() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(inventoryMapper.update(any(), any())).thenReturn(0);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
@@ -372,6 +380,7 @@ class PetInteractionServiceImplTest {
     void feedItemUnknownFoodRejected() {
         Pet pet = pet();
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "poison"))
                 .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
@@ -384,10 +393,32 @@ class PetInteractionServiceImplTest {
         Pet pet = pet();
         pet.setHunger(100);
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
                 .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
                 .hasMessageContaining("已经吃饱");
         verify(inventoryMapper, never()).update(any(), any());
     }
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-07/T10: feed applies decay under row lock before increments")
+    void feedUsesRowLockedDecayEntry() {
+        Pet testPet = pet();
+        testPet.setHunger(50);
+        when(petService.requireOwnedPet(100L)).thenReturn(testPet);
+        lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(testPet);
+        when(stateService.grantExp(any(Pet.class), any(Integer.class))).thenReturn(0);
+        when(itemCatalog.food("apple")).thenReturn(java.util.Optional.of(
+                new PetItemCatalog.FoodItem("apple", "apple", "*", "crisp", 20, 15, 2, 0)));
+        when(inventoryMapper.update(any(), any())).thenReturn(1);
+        lenient().when(petService.toVo(any(Pet.class), org.mockito.ArgumentMatchers.anyBoolean(), any()))
+                .thenReturn(petVo());
+
+        interactionService.feed(100L);
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(stateService, petMapper);
+        inOrder.verify(stateService).requireActivePetForUpdate(100L);
+        inOrder.verify(petMapper, org.mockito.Mockito.atLeastOnce()).update(any(), any());
+    }
+
 }

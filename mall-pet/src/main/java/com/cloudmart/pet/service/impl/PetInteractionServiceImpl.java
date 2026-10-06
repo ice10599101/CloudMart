@@ -107,7 +107,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     @Override
     @Transactional
     public PetVO feed(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+        // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
+        Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
 
         // 先验状态后扣额度：失败/已饱请求不消耗次数（§2.4）
@@ -156,7 +157,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     @Override
     @Transactional
     public PetVO feedItem(Long userId, String itemCode) {
-        Pet pet = petService.requireOwnedPet(userId);
+        // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
+        Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
         PetItemCatalog.FoodItem food = itemCatalog.food(itemCode)
                 .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
@@ -208,7 +210,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     @Override
     @Transactional
     public PetVO play(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+        // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
+        Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
 
         // 长期活动进行中（工作/读书/捞瓶/休息）：只允许无收益动画互动，不改状态不推进任何进度
@@ -254,7 +257,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     @Override
     @Transactional
     public PetVO clean(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+        // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
+        Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
 
         if (pet.getCleanliness() > 90) {
@@ -283,7 +287,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     @Override
     @Transactional
     public PetVO rest(Long userId) {
-        Pet pet = petService.requireOwnedPet(userId);
+        // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
+        Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
 
         // §9.3 可回退开关：关闭定时休息回落旧即时恢复（精力/生命立即回满，无活动行）

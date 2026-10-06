@@ -380,6 +380,21 @@ public class PetStateService {
         return applyIdleDecay(pet);
     }
 
+    /**
+     * PET-07/T10：动作事务专用——FOR UPDATE 锁定宠物行后结算懒衰减。
+     * 持锁期间 lastStateUpdateAt 不可能被并发修改，衰减 CAS 必命中；
+     * 并发衰减读者（getMyPet 等无锁路径）在动作提交后 CAS 落空自动重读，
+     * 消除"衰减绝对值写覆盖刚发生的动作增量"窗口。必须在外层事务内调用。
+     */
+    public Pet requireActivePetForUpdate(Long userId) {
+        Pet pet = petMapper.selectActiveForUpdate(userId);
+        if (pet == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                    "你还没有宠物，先去领养一只吧");
+        }
+        return applyIdleDecay(pet);
+    }
+
     /** 按用户加载主宠（软删过滤由 @TableLogic 处理）；不存在返回 null */
     public Pet findByUserId(Long userId) {
         return petMapper.selectOne(new LambdaQueryWrapper<Pet>()
