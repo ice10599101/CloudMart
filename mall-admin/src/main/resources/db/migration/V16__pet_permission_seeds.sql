@@ -35,8 +35,15 @@ INSERT IGNORE INTO admin_menu (id, menu_name, parent_id, order_num, path, menu_t
 SELECT 900000008, '宠物对账查询', m.parent_id, 27, '#', 'C', '1', '0', 'pet:wallet:read', '📊', NOW(), NOW()
 FROM admin_menu m WHERE m.perms = 'business:pet:edit' LIMIT 1;
 
--- 2) 授予超级管理员角色（role_id=1，与 V15 语义一致）
-INSERT IGNORE INTO admin_role_menu (role_id, menu_id, created_at, updated_at)
-SELECT 1, id, NOW(), NOW() FROM admin_menu
-WHERE id IN (900000001, 900000002, 900000003, 900000004, 900000005, 900000006, 900000007, 900000008)
-  AND deleted_at IS NULL;
+-- 2) 授予超级管理员角色（role_id=1，与 V15 语义一致）。
+-- PET-24：admin_role_menu.id 为雪花主键无默认值——原写法缺 id 被 INSERT IGNORE 静默吞行
+-- （第一行 id=0，其余 PK 冲突跳过），授权从未生效；改为显式 id 逐行插入。
+INSERT IGNORE INTO admin_role_menu (id, role_id, menu_id, created_at, updated_at) VALUES
+  (920000001, 1, 900000001, NOW(), NOW()),
+  (920000002, 1, 900000002, NOW(), NOW()),
+  (920000003, 1, 900000003, NOW(), NOW()),
+  (920000004, 1, 900000004, NOW(), NOW()),
+  (920000005, 1, 900000005, NOW(), NOW()),
+  (920000006, 1, 900000006, NOW(), NOW()),
+  (920000007, 1, 900000007, NOW(), NOW()),
+  (920000008, 1, 900000008, NOW(), NOW());

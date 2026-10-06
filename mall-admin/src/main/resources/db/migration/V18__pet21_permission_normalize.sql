@@ -25,33 +25,50 @@ WHERE id = 900000007 AND perms = 'pet:job:read' AND deleted_at IS NULL;
 -- ---------------- B. 钱包重复权限：授权迁移到 V11 行 + 死行软删除 ----------------
 -- admin_role_menu 无软删列，uk_role_menu(role_id, menu_id) 唯一键 + INSERT IGNORE 保证幂等。
 
+-- 授权迁移改为"清理 + 改指"两步（UPDATE 不涉及主键，规避 admin_role_menu 雪花 id 无默认值）：
+-- 1) 角色已同时拥有 V11 目标行授权的 → 死行授权直接删除（目标行已有，语义不丢）；
+-- 2) 否则死行授权的 menu_id 就地改指 V11 目标行。
+-- admin_role_menu 的 uk(role_id, menu_id)：DELETE 先行保证 UPDATE 不撞 uk。
+
 -- 死行 900000003（pet:wallet:adjust:apply → V11 request）
-INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT rm.role_id, t.id
-FROM admin_role_menu rm
+DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:apply' AND d.deleted_at IS NULL
-JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:request' AND t.deleted_at IS NULL;
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:request' AND t.deleted_at IS NULL
+WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+UPDATE admin_role_menu rm
+JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:apply' AND d.deleted_at IS NULL
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:request' AND t.deleted_at IS NULL
+SET rm.menu_id = t.id;
 
 -- 死行 900000004（pet:wallet:adjust:approve → V11 approve）
-INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT rm.role_id, t.id
-FROM admin_role_menu rm
+DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:approve' AND d.deleted_at IS NULL
-JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL;
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
+WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+UPDATE admin_role_menu rm
+JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:approve' AND d.deleted_at IS NULL
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
+SET rm.menu_id = t.id;
 
 -- 死行 900000005（pet:wallet:freeze → V11 approve：冻结端点门禁即 approve）
-INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT rm.role_id, t.id
-FROM admin_role_menu rm
+DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:freeze' AND d.deleted_at IS NULL
-JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL;
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
+WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+UPDATE admin_role_menu rm
+JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:freeze' AND d.deleted_at IS NULL
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
+SET rm.menu_id = t.id;
 
 -- 死行 900000008（pet:wallet:read → V11 read）
-INSERT IGNORE INTO admin_role_menu (role_id, menu_id)
-SELECT rm.role_id, t.id
-FROM admin_role_menu rm
+DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:read' AND d.deleted_at IS NULL
-JOIN admin_menu t ON t.perms = 'business:pet:wallet:read' AND t.deleted_at IS NULL;
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:read' AND t.deleted_at IS NULL
+WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+UPDATE admin_role_menu rm
+JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:read' AND d.deleted_at IS NULL
+JOIN admin_menu t ON t.perms = 'business:pet:wallet:read' AND t.deleted_at IS NULL
+SET rm.menu_id = t.id;
 
 -- 迁移完成后软删除四个死行（软删与全局 @TableLogic 语义一致，可追溯）
 UPDATE admin_menu SET deleted_at = NOW(),
