@@ -55,6 +55,7 @@ import {
     listPetBattleHistory,
     listPetChatHistory,
     listPetEvents,
+    listPetEventsByStatus,
     listPetInventory,
     listPetJobs,
     listPetOpponents,
@@ -1622,13 +1623,15 @@ function EventsPanel({ onChanged }: { onChanged: () => void }) {
     const { message } = App.useApp()
     const [list, setList] = useState<PetEventItem[] | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
+    // PET-11/PET-23：进行中/待领奖/历史三视图——旧期次关闭后宽限期内仍可达可领
+    const [view, setView] = useState<'AVAILABLE' | 'CLAIMABLE' | 'HISTORY'>('AVAILABLE')
 
     const load = useCallback(async () => {
-        const { data: res } = await listPetEvents()
+        const { data: res } = await listPetEventsByStatus(view)
         if (res.success) {
             setList(res.data)
         }
-    }, [])
+    }, [view])
 
     useEffect(() => {
         void load()
@@ -1658,6 +1661,14 @@ function EventsPanel({ onChanged }: { onChanged: () => void }) {
     }
     return (
         <div>
+            <div className={styles.petRow} style={{ marginBottom: 8 }}>
+                {([['AVAILABLE', '进行中'], ['CLAIMABLE', '待领奖'], ['HISTORY', '历史']] as const).map(([key, label]) => (
+                    <button key={key} type="button"
+                        className={`${styles.petChip} ${view === key ? styles.petChipActive : ''}`}
+                        onClick={() => setView(key)}>{label}</button>
+                ))}
+            </div>
+            {list.length === 0 ? <p className={styles.panelDesc}>这一栏暂时没有活动。</p> : null}
             {list.map(item => (
                 <div key={item.code} className={styles.panelRow}>
                     <div className={styles.panelMain}>
