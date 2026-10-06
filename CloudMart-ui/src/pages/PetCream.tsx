@@ -72,6 +72,11 @@ import {
     restPet,
     sendPetChat,
     getPetChatRequestStatus,
+    getPetActivityCenter,
+    listPetActivities,
+    claimPetActivitiesBatch,
+    type PetActivityCenterSummary,
+    type PetClaimBatchItem,
     unequipPetItem,
     updateAppearance,
     startPetBottle,
@@ -214,7 +219,7 @@ function parseAppearance(raw: string | undefined): { color: string; accessory: s
  * 功能面板注册表：只登记已迁入奶油风的面板，其余随批次补充。
  * group 决定功能菜单里的分组（入口已 17 个，平铺宫格读不出结构，故按域分段）。
  */
-type PanelKey = 'quests' | 'activities' | 'career' | 'bottle' | 'achievements'
+type PanelKey = 'quests' | 'activities' | 'center' | 'career' | 'bottle' | 'achievements'
     | 'reminders' | 'rankings' | 'wallet' | 'battle' | 'shop' | 'inventory' | 'skills'
     | 'events' | 'chat' | 'home' | 'social' | 'companion' | 'play' | 'misc'
 
@@ -234,6 +239,7 @@ const PANELS: Array<{ key: PanelKey; emoji: string; label: string; title: string
     { key: 'companion', emoji: '🫶', label: '陪伴', title: '陪伴', group: 'maison' },
     { key: 'quests', emoji: '📋', label: '任务', title: '每日任务', group: 'croissance' },
     { key: 'activities', emoji: '💼', label: '打工·读书', title: '打工 · 读书', group: 'croissance' },
+    { key: 'center', emoji: '🗂️', label: '活动中心', title: '活动中心', group: 'croissance' },
     { key: 'career', emoji: '👔', label: '职业', title: '职业生涯', group: 'croissance' },
     { key: 'bottle', emoji: '🍾', label: '捞瓶', title: '漂流瓶', group: 'croissance' },
     { key: 'battle', emoji: '⚔️', label: '对战', title: '对战', group: 'croissance' },
@@ -718,6 +724,126 @@ function WalletPanel() {
 }
 
 // ---------------- 面板：打工 · 读书 ----------------
+
+/** PET-23 §6.3 活动中心：聚合摘要（忙碌/待领数/任务·事件·合作）+ 待领列表批领（逐项结果可重试） */
+function ActivityCenterPanel({ onChanged }: { onChanged: () => void }) {
+    const { message } = App.useApp()
+    const [summary, setSummary] = useState<PetActivityCenterSummary | null>(null)
+    const [activities, setActivities] = useState<Array<Record<string, unknown>>>([])
+    const [selected, setSelected] = useState<Array<number | string>>([])
+    const [busy, setBusy] = useState<string | null>(null)
+    const [batchResult, setBatchResult] = useState<PetClaimBatchItem[] | null>(null)
+
+    const load = useCallback(async () => {
+        const [centerRes, actRes] = await Promise.all([
+            getPetActivityCenter(),
+            listPetActivities(),
+        ])
+        if (centerRes.data.success && centerRes.data.data) {
+            setSummary(centerRes.data.data)
+        }
+        if (actRes.data.success) {
+            setActivities(actRes.data.data ?? [])
+            setSelected([])
+            setBatchResult(null)
+        }
+    }, [])
+
+    useEffect(() => {
+        void load()
+    }, [load])
+
+    const claimable = activities.filter(item => String(item.status) === 'COMPLETED')
+
+    const claimBatch = useCallback(async () => {
+        if (selected.length === 0) {
+            message.info('先勾选要领取的活动')
+            return
+        }
+        setBusy('batch')
+        try {
+            const { data: res } = await claimPetActivitiesBatch(selected)
+            if (res.success && res.data) {
+                setBatchResult(res.data)
+                const failed = res.data.filter(item => item.status === 'FAILED' || item.status === 'NOT_READY')
+                if (failed.length === 0) {
+                    message.success(`已领取 ${res.data.length} 项`)
+                } else {
+                    message.warning(`部分未成功（${failed.length} 项），明细见下方`)
+                }
+                onChanged()
+                await load()
+            } else {
+                message.warning(res.error?.message ?? '批量领取未成功')
+            }
+        } finally {
+            setBusy(null)
+        }
+    }, [load, message, onChanged, selected])
+
+    if (!summary) {
+        return <Spin />
+    }
+    const busyText = [
+        summary.accountBusyActivity.activity ? '活动进行中' : null,
+        summary.accountBusyActivity.custody ? '托管中' : null,
+        (summary.accountBusyActivity as { minigame?: boolean }).minigame ? '小游戏进行中' : null,
+    ].filter(Boolean).join(' · ')
+    return (
+        <div>
+            <p className={styles.panelDesc} style={{ margin: '0 0 8px' }}>
+                业务日 {summary.businessDate}
+                {busyText ? ` · ${busyText}` : ' · 空闲'}
+                {summary.selectedPetActivity ? ` · 当前活动将于 ${String(summary.selectedPetActivity.finishedAt).slice(11, 16)} 结束` : ''}
+            </p>
+            <p className={styles.panelDesc} style={{ margin: '0 0 8px' }}>
+                今日任务 {summary.dailySetSummary ? `${summary.dailySetSummary.claimedCount}/${summary.dailySetSummary.totalCount}` : '未生成'}
+                {summary.dailySetSummary?.chestClaimable ? ' · 宝箱可领' : ''}
+                {summary.eventSummary ? ` · 活动待领 ${summary.eventSummary.claimableCount}` : ''}
+                {summary.cooperationSummary?.participated ? ` · 合作${summary.cooperationSummary.status === 'COMPLETED' ? '已达成' : '进行中'}` : ''}
+            </p>
+            <div className={styles.petRow} style={{ marginBottom: 8 }}>
+                <span className={styles.panelDesc}>可领取活动 {claimable.length} 项</span>
+                <span style={{ flex: 1 }} />
+                <CreamButton loading={busy === 'batch'} onClick={() => void claimBatch()}
+                    disabled={claimable.length === 0}>
+                    批量领取{selected.length > 0 ? `（已选 ${selected.length}）` : ''}
+                </CreamButton>
+            </div>
+            {claimable.length === 0 ? (
+                <p className={styles.panelDesc}>暂无可领取的活动，完成后回到这里领奖。</p>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {claimable.map(item => {
+                        const id = item.activityId as number | string
+                        const checked = selected.includes(id)
+                        const itemResult = batchResult?.find(r => String(r.activityId) === String(id))
+                        return (
+                            <label key={String(id)} className={styles.petRow}
+                                style={{ cursor: 'pointer', alignItems: 'center', gap: 8 }}>
+                                <input type="checkbox" checked={checked}
+                                    onChange={() => setSelected(prev => checked ? prev.filter(x => String(x) !== String(id)) : [...prev, id])} />
+                                <span style={{ flex: 1 }}>
+                                    {ACTIVITY_LABEL[String(item.activityType)] ?? String(item.activityType)}
+                                    {itemResult ? ` · ${itemResult.status === 'CLAIMED' ? '已领取' : itemResult.status === 'ALREADY_CLAIMED' ? '此前已领' : '未成功'}` : ''}
+                                </span>
+                            </label>
+                        )
+                    })}
+                </div>
+            )}
+            {batchResult && batchResult.some(r => r.status === 'FAILED') ? (
+                <p className={styles.panelDesc} style={{ color: '#c00' }}>
+                    存在失败项（{batchResult.filter(r => r.status === 'FAILED').map(r => String(r.errorCode ?? r.status)).join('、')}），可稍后重试。
+                </p>
+            ) : null}
+        </div>
+    )
+}
+
+const ACTIVITY_LABEL: Record<string, string> = {
+    WORK: '打工', STUDY: '读书', FISHING: '捞瓶', REST: '休息', CAREER_WORK: '职业工作',
+}
 
 function ActivitiesPanel({ petStatus, onChanged }: { petStatus: string; onChanged: () => void }) {
     const { message } = App.useApp()
@@ -2178,6 +2304,7 @@ export default function PetCreamPage() {
                     {activePanel === 'misc' ? <MiscBoard onChanged={() => void load()} /> : null}
                     {activePanel === 'quests' ? <QuestsPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'activities' ? <ActivitiesPanel petStatus={pet?.status ?? 'IDLE'} onChanged={() => void load()} /> : null}
+                    {activePanel === 'center' ? <ActivityCenterPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'career' ? <CareerPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'bottle' ? <BottlePanel onChanged={() => void load()} /> : null}
                     {activePanel === 'battle' ? <BattlePanel myPetId={pet?.petId ?? ''} onChanged={() => void load()} /> : null}
