@@ -73,14 +73,34 @@ public class PetSeasonSettlementTxWorker {
         job.setTotalCount(total);
         job.setSuccessCount(0);
         job.setFailureCount(0);
+        // PET-26/T54：迟冻榜标记——快照按冻榜时刻的 level/exp 事实；若执行晚于结束超过
+        // 1 小时（调度中断/feature 关闭后重入），期间升级会不可逆地混入排名，作业行留
+        // LEGACY 说明供人工核对（正常路径每分钟驱动，冻结距 endsAt ≤1 分钟）。
+        java.time.LocalDateTime freezeAt = LocalDateTime.now(ZoneOffset.UTC);
+        boolean legacyFreeze = season.getEndsAt() != null
+                && freezeAt.isAfter(season.getEndsAt().plusHours(1));
+        String legacyNote = legacyFreeze
+                ? "LEGACY: 冻榜晚于赛季结束超 1 小时，排名含结束后升级（按冻榜时刻事实，非截止时刻）"
+                : null;
+        if (legacyFreeze) {
+            job.setLastError(legacyNote);
+            log.warn("赛季迟冻榜（legacy 排名）: seasonId={}, endsAt={}, freezeAt={}",
+                    season.getId(), season.getEndsAt(), freezeAt);
+        }
         try {
             jobMapper.insert(job);
         } catch (DuplicateKeyException e) {
             // 作业已存在（FREEZING 崩溃后重试重入）：复用既有作业，不重置游标
+            if (legacyNote != null) {
+                jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
+                        .set(PetSeasonSettlementJob::getLastError, legacyNote)
+                        .eq(PetSeasonSettlementJob::getSeasonId, season.getId())
+                        .eq(PetSeasonSettlementJob::getStatus, "RUNNING"));
+            }
         }
         int advanced = seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
                 .set(PetSeason::getStatus, "SETTLING")
-                .set(PetSeason::getFreezeAt, LocalDateTime.now(ZoneOffset.UTC))
+                .set(PetSeason::getFreezeAt, freezeAt)
                 .set(PetSeason::getSnapshotComplete, 1)
                 .eq(PetSeason::getId, season.getId())
                 .eq(PetSeason::getStatus, "FREEZING"));

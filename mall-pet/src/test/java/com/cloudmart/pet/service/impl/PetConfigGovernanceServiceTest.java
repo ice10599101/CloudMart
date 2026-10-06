@@ -33,7 +33,7 @@ class PetConfigGovernanceServiceTest {
     @Test
     @DisplayName("R07：rollback(pet) 直接拒绝，不触碰数据库")
     void rollbackPetRejected() {
-        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate, new com.cloudmart.pet.config.PetProperties());
 
         assertThatThrownBy(() -> service.rollback("pet", 1L, 1, "admin"))
                 .isInstanceOf(BusinessException.class)
@@ -45,7 +45,7 @@ class PetConfigGovernanceServiceTest {
     @Test
     @DisplayName("R07：rollback(pet_season) 直接拒绝——已结算赛季不可通过历史版本回到 ACTIVE")
     void rollbackPetSeasonRejected() {
-        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate, new com.cloudmart.pet.config.PetProperties());
 
         assertThatThrownBy(() -> service.rollback("pet_season", 1L, 1, "admin"))
                 .isInstanceOf(BusinessException.class)
@@ -56,7 +56,7 @@ class PetConfigGovernanceServiceTest {
     @Test
     @DisplayName("R07：rollback 未知类型仍拒绝（防注入语义保持）")
     void rollbackUnknownTypeRejected() {
-        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate, new com.cloudmart.pet.config.PetProperties());
 
         assertThatThrownBy(() -> service.rollback("unknown_type", 1L, 1, "admin"))
                 .isInstanceOf(BusinessException.class)
@@ -68,7 +68,7 @@ class PetConfigGovernanceServiceTest {
     void deleteAndRecordSnapshotsBeforeDeletion() {
         var versionMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
         var jdbcTemplate = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
-        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate, new com.cloudmart.pet.config.PetProperties());
         org.mockito.Mockito.when(versionMapper.selectList(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(java.util.List.of());
         org.mockito.Mockito.when(versionMapper.insert(org.mockito.ArgumentMatchers.any(

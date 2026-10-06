@@ -51,10 +51,13 @@ public class PetConfigGovernanceService {
 
     private final PetConfigVersionMapper versionMapper;
     private final JdbcTemplate jdbcTemplate;
+    /** PET-27：可行性检查读取运行时限额（与配额同源） */
+    private final com.cloudmart.pet.config.PetProperties properties;
 
-    public PetConfigGovernanceService(PetConfigVersionMapper versionMapper, JdbcTemplate jdbcTemplate) {
+    public PetConfigGovernanceService(PetConfigVersionMapper versionMapper, JdbcTemplate jdbcTemplate, com.cloudmart.pet.config.PetProperties properties) {
         this.versionMapper = versionMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.properties = properties;
     }
 
     /**
@@ -97,6 +100,21 @@ public class PetConfigGovernanceService {
         return "unknown";
     }
 
+    /**
+     * PET-27/T59：任务类型 → 单日有效动作次数上限（与运行时配额同源 PetProperties）。
+     * 返回 null 表示该类型无单日硬上限（如 COMPANION 按分钟、VISIT 走拜访配额），不做可行性拦截。
+     */
+    private Integer dailyActionCapOf(String questType) {
+        com.cloudmart.pet.config.PetProperties.Interaction cfg = properties.getInteraction();
+        return switch (questType) {
+            case "FEED" -> cfg.getFeedDailyLimit();
+            case "PLAY" -> cfg.getPlayRewardDailyLimit();
+            case "REST" -> cfg.getRestIntimacyDailyLimit();
+            case "CLEAN" -> null; // 清洁按状态阈值触发，无硬次数
+            default -> null;
+        };
+    }
+
     /** 数值上下限组合校验（B21：阻止必然无法完成的任务/零成本无限奖励等） */
     public void validate(String configType, Map<String, Object> data) {
         if (data == null || data.isEmpty()) {
@@ -115,6 +133,18 @@ public class PetConfigGovernanceService {
                 checkRange(data, "targetValue", 1, 100, "目标次数需 1~100");
                 checkRange(data, "expReward", 0, 500, "经验奖励需 0~500");
                 checkRange(data, "currencyReward", 0, 200, "星光奖励需 0~200");
+                // PET-27/T59：跨配置可行性——目标次数不得超过该玩法当日有效次数上限
+                //（每日任务单日有效，超限 = 必然无法完成的任务）
+                Object questType = data.get("questType");
+                Object target = data.get("targetValue");
+                if (questType != null && target instanceof Number number) {
+                    int targetValue = number.intValue();
+                    Integer dailyCap = dailyActionCapOf(String.valueOf(questType));
+                    if (dailyCap != null && targetValue > dailyCap) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                "目标次数超过该玩法当日有效上限（" + dailyCap + "），任务必然无法完成");
+                    }
+                }
             }
             case "event" -> {
                 checkRange(data, "rewardExp", 0, 2000, "经验奖励需 0~2000");
