@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.sql.Connection;
@@ -35,13 +34,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("宠物迁移契约（真实 MySQL 容器）")
 class PetMigrationContractTest {
 
-    @Container
-    private final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:9.0");
+    private static final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:9.0");
 
     private Connection connection;
 
     @BeforeAll
     void migrateSchema() throws SQLException {
+        // 手动启动（不用 @Container）：CI 上镜像拉取失败时抛出带原因的明确异常，
+        // 而非 "Mapped port can only be obtained after started" 的二义性错误
+        try {
+            mysql.start();
+        } catch (Exception e) {
+            throw new IllegalStateException("MySQL 测试容器启动失败（检查 Docker/镜像拉取）: " + e.getMessage(), e);
+        }
         Flyway.configure()
                 .dataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword())
                 .locations("classpath:db/migration")
@@ -61,7 +66,8 @@ class PetMigrationContractTest {
             failed.next();
             assertThat(failed.getInt(1)).as("失败的迁移数").isZero();
             head.next();
-            assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(67);
+            // 新增迁移时同步更新（V68 任务集 / V69 回执重试 / V70 聊天租约）
+            assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(70);
         }
     }
 
