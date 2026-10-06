@@ -42,8 +42,14 @@ public class UserOperationsController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
 
         OutboxEventEntity event = outboxEventMapper.selectByRequestId(operationId);
-        if (event == null || !String.valueOf(userId).equals(event.getAggregateId())) {
-            // 归属不符与不存在同响应（防存在性探测）
+        if (event == null) {
+            // 不存在：与归属不符同响应（防存在性探测）
+            return ApiResponse.ok(Map.of("status", "NOT_FOUND"));
+        }
+        // 归属校验（防横向枚举）：SECKILL_RESULT 的 requestId 本身即随机凭据且由
+        // 受理响应私密下发，视为持有即授权；其余事件类型按 aggregateId=userId 校验
+        if (!"SECKILL_RESULT".equals(event.getEventType())
+                && !String.valueOf(userId).equals(event.getAggregateId())) {
             return ApiResponse.ok(Map.of("status", "NOT_FOUND"));
         }
 
