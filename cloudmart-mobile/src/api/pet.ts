@@ -702,6 +702,11 @@ export const petApi = {
 
   /** 每日任务面板 */
   getDailyQuests: () => request<PetDailyQuestPanel>({ url: '/pet/daily-quests' }),
+  /** PET-09/PET-23：任务集路由（setId 实体归属校验） */
+  claimDailyQuestInSet: (setId: number | string, questId: number | string) =>
+    request<PetDailyQuestItem>({ url: `/pet/daily-quest-sets/${setId}/quests/${questId}/claim`, method: 'POST' }),
+  claimDailyQuestChestInSet: (setId: number | string) =>
+    request<PetDailyQuestPanel>({ url: `/pet/daily-quest-sets/${setId}/chest/claim`, method: 'POST' }),
   /** 领取每日任务奖励 */
   claimDailyQuest: (code: string) =>
     request<PetDailyQuestItem>({ url: `/pet/daily-quests/${code}/claim`, method: 'POST' }),
@@ -948,7 +953,8 @@ export interface PetDailyQuestPanel {
   chestClaimable: boolean
   chestClaimed: boolean
   chestExp: number
-  chestCurrency: number
+  chestCurrency: number  /** PET-09：任务集实体 ID（按集领取/深链接用） */
+  setId?: string | null
 }
 
 /** 关系项 */
@@ -1282,6 +1288,9 @@ export const petCompanionApi = {
     request<{ reportId: number | string; status: string; deduped: boolean }>({
       url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
+  /** PET-09/PET-23：按集批领（绑定原 set/pet） */
+  claimAllDailyQuestsInSet: (setId: number | string) =>
+    request<{ results: Array<{ status: string }>; chest: { status: string } }>({ url: `/pet/daily-quest-sets/${setId}/claim-all`, method: 'POST' }),
   claimAllDailyQuests: () =>
     request<{ results: Array<{ status: string }>; chest: { status: string } }>({
       url: '/pet/daily-quests/claim-all', method: 'POST',

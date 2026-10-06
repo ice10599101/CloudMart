@@ -148,7 +148,8 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
             ) : (
               <View
                 className={`${cream.tab} ${quest.claimable ? cream.tabActive : cream.lockedTab}`}
-                onClick={quest.claimable && pending !== `q-${quest.code}` ? () => run(`q-${quest.code}`, () => petApi.claimDailyQuest(quest.code), '奖励到手啦！') : undefined}
+                onClick={quest.claimable && pending !== `q-${quest.code}` ? () => run(`q-${quest.code}`, () =>
+                  panel.setId ? petApi.claimDailyQuestInSet(panel.setId, quest.code) : petApi.claimDailyQuest(quest.code), '奖励到手啦！') : undefined}
               >
                 <Text>{quest.claimable ? '领取' : quest.statusLabel}</Text>
               </View>
@@ -161,7 +162,8 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
       ) : (
         <View
           className={`${cream.tab} ${panel.chestClaimable ? cream.tabActive : cream.lockedTab}`}
-          onClick={panel.chestClaimable && pending !== 'chest' ? () => run('chest', () => petApi.claimDailyQuestChest(), '宝箱开啦！') : undefined}
+          onClick={panel.chestClaimable && pending !== 'chest' ? () => run('chest', () =>
+              panel.setId ? petApi.claimDailyQuestChestInSet(panel.setId) : petApi.claimDailyQuestChest(), '宝箱开啦！') : undefined}
         >
           <Text>{panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}</Text>
         </View>
