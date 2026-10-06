@@ -71,6 +71,7 @@ import {
     setOwnerTitle,
     restPet,
     sendPetChat,
+    getPetChatRequestStatus,
     unequipPetItem,
     updateAppearance,
     startPetBottle,
@@ -106,6 +107,7 @@ import {
     type PetWalletVO,
 } from '@/api/pet'
 import { checkIn, getCheckInStatus, type CheckInResult } from '@/api/growth'
+import { getPersistedIntentKey } from '@/utils/request'
 import PetStage, { type PetDisplayState, type PetIntentAction } from '@/components/PetStage'
 import HomeBoard from '@/components/pet-cream/HomeBoard'
 import SocialBoard from '@/components/pet-cream/SocialBoard'
@@ -1607,8 +1609,32 @@ function ChatPanel({ petName }: { petName: string }) {
             if (res.success) {
                 setDraft('')
                 await load()
+            } else if (res.error?.code === 'PET_REQUEST_IN_PROGRESS') {
+                // PET-23：在途——提示查询而非诱导重发（同键重放服务端收敛）
+                message.info('它还在想回复…稍等片刻再查看结果')
             } else {
                 message.warning(res.error?.message ?? '发送未成功')
+            }
+        } catch {
+            // PET-14/§6.3：断网/超时（未知结果）——按原意图键查询终态，不生成新意图
+            const requestKey = getPersistedIntentKey('/pet/chat', { message: text })
+            if (!requestKey) {
+                message.warning('网络不稳定，请重试')
+                return
+            }
+            try {
+                const { data: status } = await getPetChatRequestStatus(requestKey)
+                if (status.success && status.data?.status === 'SUCCEEDED') {
+                    setDraft('')
+                    message.success('回复已送达')
+                    await load()
+                } else if (status.success && status.data?.status === 'PROCESSING') {
+                    message.info('它还在想回复…稍后刷新即可看到')
+                } else {
+                    message.warning('发送未完成，可原样重发（不会重复计费）')
+                }
+            } catch {
+                message.warning('网络不稳定，稍后可按原消息重试')
             }
         } finally {
             setBusy(false)

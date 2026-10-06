@@ -424,4 +424,32 @@ request.interceptors.response.use(
   },
 )
 
+/**
+ * PET-23/PET-12：读取某写请求当前持久化的意图幂等键（与拦截器同一指纹算法）。
+ * 用于"扣费/发送后未知结果"场景按原键查询终态（聊天 /pet/chat/requests/{requestKey}、
+ * 购买 /pet/purchase-requests/{requestKey}）——不生成新键，不重复表达用户意图。
+ *
+ * @return TTL 内的持久化键；无在途意图返回 null
+ */
+export function getPersistedIntentKey(url: string, data: unknown): string | null {
+  try {
+    const storeKey = intentStoreKey({
+      method: 'POST',
+      url,
+      data,
+    })
+    if (!storeKey) {
+      return null
+    }
+    const raw = localStorage.getItem(storeKey)
+    if (!raw) {
+      return null
+    }
+    const entry = JSON.parse(raw) as IdempotencyIntent
+    return entry?.key && Date.now() - entry.createdAt < INTENT_TTL_MS ? entry.key : null
+  } catch {
+    return null
+  }
+}
+
 export default request
