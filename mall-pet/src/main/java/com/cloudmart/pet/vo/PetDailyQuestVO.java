@@ -18,6 +18,7 @@ public record PetDailyQuestVO(
         @Schema(description = "全清宝箱是否可领") Boolean chestClaimable,
         @Schema(description = "全清宝箱是否已领") Boolean chestClaimed,
         @Schema(description = "宝箱奖励经验") Integer chestExp,
-        @Schema(description = "宝箱奖励星光") Integer chestCurrency
+        @Schema(description = "宝箱奖励星光") Integer chestCurrency,
+        @Schema(description = "任务集实体 ID（PET-09：按集领取/深链接用；存量无集行时为 null）") String setId
 ) {
 }

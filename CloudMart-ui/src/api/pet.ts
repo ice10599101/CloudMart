@@ -800,7 +800,8 @@ export interface PetDailyQuestPanel {
   chestClaimable: boolean
   chestClaimed: boolean
   chestExp: number
-  chestCurrency: number
+  chestCurrency: number  /** PET-09：任务集实体 ID（按集领取/深链接用） */
+  setId?: string | null
 }
 
 /** 关系项 */

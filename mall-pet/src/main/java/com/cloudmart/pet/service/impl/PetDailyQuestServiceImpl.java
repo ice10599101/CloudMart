@@ -1034,7 +1034,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 chestSnapshot != null && chestSnapshot.get("chestExp") != null
                         ? intOf(chestSnapshot.get("chestExp")) : chestCfg.getChestExp(),
                 chestSnapshot != null && chestSnapshot.get("chestCurrency") != null
-                        ? intOf(chestSnapshot.get("chestCurrency")) : chestCfg.getChestCurrency());
+                        ? intOf(chestSnapshot.get("chestCurrency")) : chestCfg.getChestCurrency(),
+                chest != null && chest.getSetId() != null ? String.valueOf(chest.getSetId()) : null);
     }
 
     private PetDailyQuestItemVO toItemVo(PetDailyQuest quest, Map<String, Object> snapshot) {

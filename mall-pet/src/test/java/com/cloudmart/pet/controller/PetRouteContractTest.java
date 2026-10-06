@@ -229,7 +229,7 @@ class PetRouteContractTest {
     @DisplayName("PET-05/T05：任务集单领 POST 可达（setId 匹配当日），PUT 同路径 405")
     void questSetClaimPostMethodContract() throws Exception {
         when(questService.list(100L)).thenReturn(new com.cloudmart.pet.vo.PetDailyQuestVO(
-                java.time.LocalDate.of(2026, 10, 6), java.util.List.of(), 0, 0, 0, false, false, 0, 0));
+                java.time.LocalDate.of(2026, 10, 6), java.util.List.of(), 0, 0, 0, false, false, 0, 0, "99"));
         // setId 与当日 questDate 匹配 → 通过校验进入领取（返回 200，领取结果由领域测试覆盖）
         questMockMvc.perform(post("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
                 .andExpect(status().isOk())
