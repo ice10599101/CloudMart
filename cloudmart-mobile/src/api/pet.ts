@@ -1271,6 +1271,8 @@ export const petCompanionApi = {
     }),
 
   getNotifyPrefs: () => request<PetNotifyPref>({ url: '/pet/notify-settings' }),
+  /** PET-23：我的举报结果（可公开处理结果） */
+  listMyReports: () => request<PetReportMine[]>({ url: '/pet/reports/mine' }),
   updateNotifyPrefs: (data: { muteDailyGreeting: boolean; dailyGreetingEnabled: boolean; expectedVersion?: number }) =>
     request<{ muteDailyGreeting: boolean; dailyGreetingEnabled: boolean; version: number }>({
       url: '/pet/notify-settings',

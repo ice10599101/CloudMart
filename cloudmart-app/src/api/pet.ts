@@ -605,6 +605,8 @@ export const petApi = {
 
   /** 每日任务面板 */
   getDailyQuests: () => request<PetDailyQuestPanel>({ url: '/pet/daily-quests' }),
+  /** PET-23：我的举报结果（可公开处理结果） */
+  listMyReports: () => request<PetReportMine[]>({ url: '/pet/reports/mine' }),
   /** PET-09/PET-23：任务集路由（setId 实体归属校验；questId 兼容 ID/code） */
   claimDailyQuestInSet: (setId: number | string, questId: number | string) =>
     request<PetDailyQuestItem>({ url: `/pet/daily-quest-sets/${setId}/quests/${questId}/claim`, method: 'POST' }),

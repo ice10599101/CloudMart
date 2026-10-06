@@ -124,7 +124,23 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
     await run('report', () => petCompanionApi.reportTarget({ targetType: reportType, targetId, reason }), '已提交，管理员会处理')
     setReportTargetId('')
     setReportReason('')
+    void loadMyReports()
   }
+
+  /** PET-23：我的举报结果（可公开处理结果，不含内部审核字段） */
+  const [myReports, setMyReports] = useState<import('@/api/pet').PetReportMine[]>([])
+  const loadMyReports = useCallback(async () => {
+    try {
+      const { data: res } = await petCompanionApi.listMyReports()
+      if (res.success) setMyReports(res.data ?? [])
+    } catch {
+      setMyReports([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadMyReports()
+  }, [loadMyReports])
 
   /** N06 邀请好友协作（双方各贡献满 3 个业务日即可完成领奖） */
   const inviteCooperation = async (userId: number) => {
@@ -564,6 +580,26 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
           >
             提交举报
           </Button>
+          {myReports.length > 0 ? (
+            <View className={styles.actionRow} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+              <Text className={styles.jobMeta}>我的举报</Text>
+              {myReports.slice(0, 10).map((report) => {
+                const statusLabel: Record<string, string> = {
+                  PENDING: '处理中', RESOLVED: '已处理', REJECTED: '未成立',
+                }
+                return (
+                  <View key={String(report.reportId)} style={{ gap: 2 }}>
+                    <Text className={styles.jobMeta}>
+                      {`#${String(report.reportId)} · ${report.reason} · ${statusLabel[report.status] ?? report.status}`}
+                    </Text>
+                    {report.handleReason ? (
+                      <Text className={styles.jobMeta}>处理结果：{report.handleReason}</Text>
+                    ) : null}
+                  </View>
+                )
+              })}
+            </View>
+          ) : null}
         </View>
       )}
     </View>

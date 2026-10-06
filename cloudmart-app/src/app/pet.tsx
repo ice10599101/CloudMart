@@ -2579,7 +2579,23 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
     await run('report', () => petApi.reportTarget({ targetType: reportType, targetId, reason }), '已提交，管理员会处理')
     setReportTargetId('')
     setReportReason('')
+    void loadMyReports()
   }
+
+  /** PET-23：我的举报结果（可公开的处理结果；不含内部审核字段） */
+  const [myReports, setMyReports] = useState<import('@/api/pet').PetReportMine[] | null>(null)
+  const loadMyReports = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.listMyReports()
+      if (res.success) setMyReports(res.data ?? [])
+    } catch {
+      setMyReports([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadMyReports()
+  }, [loadMyReports])
 
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
@@ -2957,6 +2973,26 @@ function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () => void }
               style={{ borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm, color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs, minHeight: 60 }}
             />
             <ChipButton label="提交举报" primary disabled={pending === 'report'} onPress={() => void doReport()} />
+            {myReports && myReports.length > 0 ? (
+              <View style={{ marginTop: Spacing.sm, gap: Spacing.xs }}>
+                <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: '600' }}>我的举报</Text>
+                {myReports.slice(0, 10).map((report) => {
+                  const statusLabel: Record<string, string> = {
+                    PENDING: '处理中', RESOLVED: '已处理', REJECTED: '未成立',
+                  }
+                  return (
+                    <View key={String(report.reportId)} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: Spacing.xs, gap: 2 }}>
+                      <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                        {`#${String(report.reportId)} · ${report.reason} · ${statusLabel[report.status] ?? report.status}`}
+                      </Text>
+                      {report.handleReason ? (
+                        <Text style={{ color: colors.textTertiary, fontSize: 10 }}>处理结果：{report.handleReason}</Text>
+                      ) : null}
+                    </View>
+                  )
+                })}
+              </View>
+            ) : null}
           </View>
         </View>
       )}
