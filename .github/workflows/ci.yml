@@ -21,8 +21,21 @@ jobs:
         run: chmod +x mvnw && ./mvnw -version
       # E01：从根 POM 构建全部模块，禁止再维护模块子集清单
       - name: 全模块单元测试
-        # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）
-        run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp test
+        # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）；
+        # -fa（fail-at-end）单模块失败后其余模块照跑；日志落盘供失败摘要步分析
+        run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp -fa test 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+      - name: 失败定位（reactor 摘要 + OOM 特征 + 失败用例）
+        if: failure()
+        run: |
+          echo "::group::模块级 reactor 摘要"
+          grep -E 'SUCCESS \[|FAILURE \[|SKIPPED$' /tmp/build.log | head -30 || true
+          echo "::endgroup::"
+          echo "::group::OOM/进程特征"
+          grep -iE 'outofmemory|killed|exit code 137|cannot allocate|metaspace|error=.*attach' /tmp/build.log | head -10 || true
+          echo "::endgroup::"
+          echo "::group::失败用例（前 20 条）"
+          grep -E '<<< FAILURE!|<<< ERROR!' /tmp/build.log | head -20 || true
+          echo "::endgroup::"
       - name: 上传单测报告
         if: failure()
         uses: actions/upload-artifact@v4
