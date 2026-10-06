@@ -114,13 +114,22 @@ jobs:
       # mall-wish 已改造为双模式（默认 Testcontainers；WISH_IT_MYSQL_HOST 显式
       # 设置时走授权环境共享实例 + B23 授权标志），不再依赖私人远程机器
       - name: 集成测试（-Pintegration-test → failsafe verify，全模块）
-        run: ./mvnw -B -ntp -Pintegration-test verify
+        # 日志落盘：failsafe 全绿时 verify 仍可能败在 test-compile（如 MapStruct
+        # Unmapped ERROR——问题 matcher 的 annotation 无模块定位），全文日志才可归因
+        run: ./mvnw -B -ntp -Pintegration-test verify 2>&1 | tee /tmp/it-build.log; exit ${PIPESTATUS[0]}
       - name: 上传集成测试报告（失败排障）
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: failsafe-reports
           path: '**/target/failsafe-reports/**'
+          retention-days: 7
+      - name: 上传集成构建全文日志（编译期失败归因）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: it-build-log
+          path: /tmp/it-build.log
           retention-days: 7
       # R26：门禁校验——执行数 > 0 且 skipped == 0。disabledWithoutDocker/skip 激活时
       # failsafe 报告 Skipped>0 或总数为 0，此前只看 Tests run 总数会把跳过误当执行
