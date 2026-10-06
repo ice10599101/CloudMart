@@ -58,16 +58,19 @@ class PetMigrationContractTest {
     @Test
     @DisplayName("全部迁移在全新库一次性应用成功（无失败行，头版本对齐当前最新）")
     void allMigrationsApplied() throws SQLException {
-        try (Statement st = connection.createStatement();
-             ResultSet failed = st.executeQuery(
-                     "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0");
-             ResultSet head = st.executeQuery(
-                     "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history")) {
-            failed.next();
-            assertThat(failed.getInt(1)).as("失败的迁移数").isZero();
-            head.next();
-            // 新增迁移时同步更新（V68 任务集 / V69 回执重试 / V70 聊天租约）
-            assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(70);
+        // 同一 Statement 上第二个 executeQuery 会隐式关闭前一个 ResultSet——顺序查询
+        try (Statement st = connection.createStatement()) {
+            try (ResultSet failed = st.executeQuery(
+                    "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0")) {
+                failed.next();
+                assertThat(failed.getInt(1)).as("失败的迁移数").isZero();
+            }
+            try (ResultSet head = st.executeQuery(
+                    "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history")) {
+                head.next();
+                // 新增迁移时同步更新（V68 任务集 / V69 回执重试 / V70 聊天租约）
+                assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(70);
+            }
         }
     }
 
