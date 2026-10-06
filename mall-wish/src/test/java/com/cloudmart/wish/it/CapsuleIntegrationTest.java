@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -190,6 +191,8 @@ class CapsuleIntegrationTest extends WishIntegrationTestBase {
     void capsuleOpen_sealedExpiredWithoutScan() {
         CapsuleVO capsule = createFutureCapsule("扫描间隙");
         expireCapsule(capsule.id());
+        // 用例隔离：JUnit 方法序不定，前序用例的扫描推送会残留到 never() 断言
+        clearInvocations(rocketMQTemplate);
 
         // 直接开启（不经过扫描）：CAS 条件含 SEALED+openAt<=now
         CapsuleVO opened = capsuleService.openCapsule(USER_ID, capsule.id());
