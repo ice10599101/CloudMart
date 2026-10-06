@@ -696,6 +696,12 @@ public class AdminPetContentConfigController {
                 || !request.startAt().isBefore(request.endAt())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "窗口时间非法（需 startAt < endAt）");
         }
+        // PET-27/T59：发布预检——复用治理校验（含窗口×每日上限可行性），不合法期次拒绝发布
+        governance.validate("event", java.util.Map.of(
+                "eventType", config.getEventType() == null ? "" : config.getEventType(),
+                "targetValue", config.getTargetValue() == null ? 1 : config.getTargetValue(),
+                "startsAt", request.startAt() == null ? "" : request.startAt().toString(),
+                "endsAt", request.endAt() == null ? "" : request.endAt().toString()));
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
         com.cloudmart.pet.entity.PetEventOccurrence live = occurrenceMapper.selectOne(
                 new LambdaQueryWrapper<com.cloudmart.pet.entity.PetEventOccurrence>()

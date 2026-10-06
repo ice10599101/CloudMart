@@ -173,6 +173,24 @@ public class PetConfigGovernanceService {
                         throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "开始时间必须早于结束时间");
                     }
                 }
+                // PET-27/T59：跨配置可行性——目标次数不得超过窗口天数 × 该玩法单日有效上限
+                //（窗口内必然达不成目标的活动拒绝发布；无单日上限的玩法不做此拦截）
+                Object eventType = data.get("eventType");
+                Object eventTarget = data.get("targetValue");
+                if (starts != null && ends != null && eventType != null && eventTarget instanceof Number number) {
+                    java.time.Instant startsAt = parseInstantOrNull(starts);
+                    java.time.Instant endsAt = parseInstantOrNull(ends);
+                    Integer dailyCap = dailyActionCapOf(String.valueOf(eventType));
+                    if (startsAt != null && endsAt != null && dailyCap != null) {
+                        long windowDays = Math.max(1, java.time.Duration.between(startsAt, endsAt).toDays());
+                        long maxAchievable = windowDays * dailyCap;
+                        if (number.longValue() > maxAchievable) {
+                            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                    "目标次数 " + number.longValue() + " 超过窗口可达上限（" + windowDays
+                                            + " 天 × 每日 " + dailyCap + " = " + maxAchievable + "），活动必然无法完成");
+                        }
+                    }
+                }
             }
             case "furniture", "equipment", "skin" -> {
                 checkRange(data, "priceStarlight", 0, 5000, "价格需 0~5000");

@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.repository.PetConfigVersionMapper;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -88,6 +90,36 @@ class PetConfigGovernanceServiceTest {
         org.mockito.Mockito.verify(versionMapper).insert(saved.capture());
         org.assertj.core.api.Assertions.assertThat(saved.getValue().getSnapshot()).contains("badword");
         org.assertj.core.api.Assertions.assertThat(saved.getValue().getConfigId()).isEqualTo(7L);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-27/T59：event 目标次数超过窗口×每日上限 → 拒绝发布")
+    void eventFeasibilityRejectsUnachievableTarget() {
+        var versionMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
+        var jdbcTemplate = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate,
+                new com.cloudmart.pet.config.PetProperties());
+
+        // BOTTLE 无单日硬上限 → dailyActionCapOf 返回 null，不拦截
+        assertThatCode(() -> service.validate("event", Map.of(
+                "eventType", "BOTTLE", "targetValue", 500,
+                "startsAt", "2026-10-01T00:00:00Z", "endsAt", "2026-10-02T00:00:00Z")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("PET-27：event 窗口非法（start ≥ end）维持拒绝")
+    void eventWindowOrderStillEnforced() {
+        var versionMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
+        var jdbcTemplate = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(versionMapper, jdbcTemplate,
+                new com.cloudmart.pet.config.PetProperties());
+
+        assertThatThrownBy(() -> service.validate("event", Map.of(
+                "eventType", "BOTTLE", "targetValue", 5,
+                "startsAt", "2026-10-02T00:00:00Z", "endsAt", "2026-10-01T00:00:00Z")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
     }
 
 }
