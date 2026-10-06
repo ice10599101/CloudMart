@@ -25,6 +25,7 @@ import {
     settleMinigame,
     startCustody,
     startMinigameRound,
+    getMinigameCurrent,
     submitMinigameOps,
     type MinigameRoundVO,
     type PetMinigameRoundItem,
@@ -263,6 +264,20 @@ export default function PlayBoard({ myPetId, onChanged }: {
             message.success(res.data.rewardEligible ? '开局！这局有收益' : '开局（今日收益局已用完，训练局）')
         }
     }, [message, myPetId, run])
+
+    // PET-17/T42：进入面板先查进行中对局——刷新/断线后同 roundId 恢复（序列与已接受窗口为服务端权威）
+    const restoreCurrent = useCallback(async () => {
+        const res = await run('round-restore', () => getMinigameCurrent())
+        if (res?.success && res.data?.round) {
+            setRound(res.data.round)
+            setHits(Number(res.data.round.acceptedWindows?.length ?? 0))
+        }
+    }, [run])
+
+    useEffect(() => {
+        void restoreCurrent()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const tapSlot = useCallback(async (slot: string) => {
         if (!round) {

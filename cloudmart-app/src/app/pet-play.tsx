@@ -22,6 +22,9 @@ interface RoundState {
   /** 服务端窗口时长（ms） */
   windowMs: number
   submitted: number
+  // PET-17：服务端权威目标序列与已接受窗口（恢复回合后目标仍可见）
+  sequence: string[]
+  acceptedWindows: number[]
 }
 
 interface CustodyState {
@@ -143,6 +146,8 @@ export default function PetPlayScreen() {
         startedAt,
         windowMs,
         submitted: 0,
+        sequence: Array.isArray(data.sequence) ? (data.sequence as string[]) : [],
+        acceptedWindows: [],
       })
       setMgResult('')
       setRemaining(30)
@@ -157,8 +162,16 @@ export default function PetPlayScreen() {
     if (windowIndex < 1 || windowIndex > CATCH_WINDOWS) return
     const res = await petApi.submitMinigameOps(round.roundId, [{ seq: windowIndex, windowIndex, slot }])
     if (res.data?.success && res.data.data) {
-      const accepted = Number((res.data.data as { totalAccepted?: number }).totalAccepted ?? round.submitted)
-      setRound({ ...round, submitted: accepted })
+      const body = res.data.data as { accepted: number; totalAccepted?: number }
+      // PET-17：窗口归属以服务端为准——accepted 为本批新接受数（重复/迟到窗口为 0，不追加本地）
+      const acceptedCount = Number(body.totalAccepted ?? round.submitted)
+      setRound({
+        ...round,
+        submitted: acceptedCount,
+        acceptedWindows: body.accepted >= 1 && !round.acceptedWindows.includes(windowIndex)
+          ? [...round.acceptedWindows, windowIndex]
+          : round.acceptedWindows,
+      })
     }
   }
 
@@ -173,13 +186,17 @@ export default function PetPlayScreen() {
       if (roundData.serverNow) {
         serverOffsetRef.current = Date.parse(String(roundData.serverNow)) - Date.now()
       }
-      const accepted = Array.isArray(roundData.acceptedWindows) ? roundData.acceptedWindows.length : 0
+      const acceptedWindows = Array.isArray(roundData.acceptedWindows)
+        ? (roundData.acceptedWindows as number[]).map(Number)
+        : []
       setRound({
         roundId: String(roundData.roundId),
         deadlineAt: new Date(String(roundData.deadlineAt)).getTime(),
         startedAt,
         windowMs,
-        submitted: accepted,
+        submitted: acceptedWindows.length,
+        sequence: Array.isArray(roundData.sequence) ? (roundData.sequence as string[]) : [],
+        acceptedWindows,
       })
       setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + serverOffsetRef.current)) / 1000)))
     }
@@ -266,6 +283,19 @@ export default function PetPlayScreen() {
               <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>
                 {remaining}s · 接住 {round.submitted}/{CATCH_WINDOWS}
               </Text>
+              {(() => {
+                // PET-17/T41：本窗目标提示（服务端序列权威；已提交窗口标灰）
+                const serverNow = Date.now() + serverOffsetRef.current
+                const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
+                const target = windowIndex >= 1 && windowIndex <= round.sequence.length
+                  ? round.sequence[windowIndex - 1] : null
+                const label = target === 'LEFT' ? '左' : target === 'CENTER' ? '中' : target === 'RIGHT' ? '右' : null
+                return label ? (
+                  <Text style={{ fontSize: FontSize.sm, color: WishColors.accentCyan }}>
+                    本窗目标：{label}
+                  </Text>
+                ) : null
+              })()}
               <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' }}>
                 {btn('←左', () => void catchSlot('LEFT'), false, remaining === 0)}
                 {btn('●中', () => void catchSlot('CENTER'), false, remaining === 0)}

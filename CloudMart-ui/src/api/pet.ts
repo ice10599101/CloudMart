@@ -1253,6 +1253,12 @@ export function startMinigameRound(petId: number | string) {
   return request.post<ApiResponse<MinigameRoundVO>>(`/pet/pets/${petId}/minigames`)
 }
 
+/** PET-17/T42：当前进行中对局查询（断线/刷新恢复，同 roundId 续玩；无局返回 round=null） */
+export function getMinigameCurrent() {
+  return request.get<ApiResponse<{ round: (MinigameRoundVO & { serverNow?: string; acceptedWindows?: number[] }) | null }>>(
+    '/pet/minigames/current')
+}
+
 export function submitMinigameOps(roundId: number | string, ops: Array<{ seq: number; windowIndex: number; slot: string }>) {
   return request.post<ApiResponse<{ accepted: number; status: string }>>(`/pet/minigames/${roundId}/ops`, { ops })
 }

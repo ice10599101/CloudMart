@@ -554,7 +554,7 @@ export const petApi = {
   startMinigameRound: (petId: number | string) =>
     request<MinigameRoundVO>({ url: `/pet/pets/${petId}/minigames`, method: 'POST' }),
   submitMinigameOps: (roundId: number | string, ops: { seq: number; windowIndex: number; slot: string }[]) =>
-    request<{ accepted: number; status: string }>({ url: `/pet/minigames/${roundId}/ops`, method: 'POST', data: { ops } }),
+    request<{ accepted: number; totalAccepted?: number; status: string }>({ url: `/pet/minigames/${roundId}/ops`, method: 'POST', data: { ops } }),
   /** R11：当前进行中对局查询（断线恢复，同 roundId 续玩；无局返回 null） */
   currentMinigameRound: () =>
     request<{ round: Record<string, unknown> | null }>({ url: '/pet/minigames/current' }),
