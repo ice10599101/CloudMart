@@ -35,6 +35,8 @@ jobs:
       - name: 失败定位（reactor 摘要 + OOM 特征 + 失败用例）
         if: failure()
         run: |
+          # 关键行转 annotation（无需管理员即可从 check-run API/PR 界面读）
+          grep -E 'FATAL|ERROR.*POM|Non-readable|exit value|EXIT_CODE| mvnw ' /tmp/build.log | head -8 | while read -r l; do echo "::error::$l"; done || true
           echo "::group::模块级 reactor 摘要"
           grep -E 'SUCCESS \[|FAILURE \[|SKIPPED$' /tmp/build.log | head -30 || true
           echo "::endgroup::"
