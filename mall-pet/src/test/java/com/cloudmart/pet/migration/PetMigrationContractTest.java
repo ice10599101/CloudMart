@@ -68,8 +68,22 @@ class PetMigrationContractTest {
             try (ResultSet head = st.executeQuery(
                     "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history")) {
                 head.next();
-                // 新增迁移时同步更新（V68 任务集 / V69 回执重试 / V70 聊天租约）
-                assertThat(head.getInt(1)).as("头迁移版本").isEqualTo(70);
+                // PET-24：头版本与 classpath 迁移文件对齐（消除每加一个迁移就改断言的脆弱性），
+                // 断言"已应用全部迁移"而非"应用了某个固定版本"
+                int headVersion = head.getInt(1);
+                long latestFile;
+                try (var classpathFiles = java.nio.file.Files.list(
+                        java.nio.file.Paths.get("src/main/resources/db/migration"))) {
+                    latestFile = classpathFiles
+                            .map(p -> p.getFileName().toString())
+                            .filter(name -> name.matches("V[0-9]+__.*[.]sql"))
+                            .map(name -> name.substring(1, name.indexOf('_')))
+                            .mapToLong(Long::parseLong)
+                            .max().orElse(0L);
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException("迁移目录不可读", e);
+                }
+                assertThat(headVersion).as("头迁移版本应对齐最新迁移文件").isEqualTo((int) latestFile);
             }
         }
     }
