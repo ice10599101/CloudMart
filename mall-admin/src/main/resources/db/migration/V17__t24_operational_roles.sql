@@ -19,7 +19,7 @@ SELECT * FROM (SELECT
     91000002 AS id,
     '内容运营' AS role_name, 'content_ops' AS role_key, 11 AS role_sort,
     1 AS data_scope, 1 AS menu_check_strictly, 1 AS dept_check_strictly, 1 AS status,
-    'T24 最小角色：心愿/社区内容审核、勋章/活动运营' AS remark, NOW(), NOW()
+    'T24 最小角色：心愿/社区内容审核、勋章/活动运营' AS remark, NOW() AS created_at, NOW() AS updated_at
 ) AS t
 WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE role_key = 'content_ops');
 
@@ -28,7 +28,7 @@ SELECT * FROM (SELECT
     91000003 AS id,
     '仓储运营' AS role_name, 'warehouse_ops' AS role_key, 12 AS role_sort,
     1 AS data_scope, 1 AS menu_check_strictly, 1 AS dept_check_strictly, 1 AS status,
-    'T24 最小角色：发货/拣选/入库/物流跟踪' AS remark, NOW(), NOW()
+    'T24 最小角色：发货/拣选/入库/物流跟踪' AS remark, NOW() AS created_at, NOW() AS updated_at
 ) AS t
 WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE role_key = 'warehouse_ops');
 
@@ -37,7 +37,7 @@ SELECT * FROM (SELECT
     91000004 AS id,
     '财务运营' AS role_name, 'finance_ops' AS role_key, 13 AS role_sort,
     1 AS data_scope, 1 AS menu_check_strictly, 1 AS dept_check_strictly, 1 AS status,
-    'T24 最小角色：支付对账/退款人工处置/券批次预算' AS remark, NOW(), NOW()
+    'T24 最小角色：支付对账/退款人工处置/券批次预算' AS remark, NOW() AS created_at, NOW() AS updated_at
 ) AS t
 WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE role_key = 'finance_ops');
 
@@ -46,7 +46,7 @@ SELECT * FROM (SELECT
     91000005 AS id,
     '系统管理员' AS role_name, 'system_admin' AS role_key, 14 AS role_sort,
     1 AS data_scope, 1 AS menu_check_strictly, 1 AS dept_check_strictly, 1 AS status,
-    'T24 最小角色：账号/角色/菜单/参数配置（不含超级管理员通配）' AS remark, NOW(), NOW()
+    'T24 最小角色：账号/角色/菜单/参数配置（不含超级管理员通配）' AS remark, NOW() AS created_at, NOW() AS updated_at
 ) AS t
 WHERE NOT EXISTS (SELECT 1 FROM admin_role WHERE role_key = 'system_admin');
 
