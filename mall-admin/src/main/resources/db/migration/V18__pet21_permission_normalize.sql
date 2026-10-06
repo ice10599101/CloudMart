@@ -34,41 +34,53 @@ WHERE id = 900000007 AND perms = 'pet:job:read' AND deleted_at IS NULL;
 DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:apply' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:request' AND t.deleted_at IS NULL
-WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+WHERE x.role_id IS NOT NULL;
 UPDATE admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:apply' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:request' AND t.deleted_at IS NULL
-SET rm.menu_id = t.id;
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+SET rm.menu_id = t.id
+WHERE x.role_id IS NULL;
 
 -- 死行 900000004（pet:wallet:adjust:approve → V11 approve）
 DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:approve' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
-WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+WHERE x.role_id IS NOT NULL;
 UPDATE admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:adjust:approve' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
-SET rm.menu_id = t.id;
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+SET rm.menu_id = t.id
+WHERE x.role_id IS NULL;
 
 -- 死行 900000005（pet:wallet:freeze → V11 approve：冻结端点门禁即 approve）
 DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:freeze' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
-WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+WHERE x.role_id IS NOT NULL;
 UPDATE admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:freeze' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:adjust:approve' AND t.deleted_at IS NULL
-SET rm.menu_id = t.id;
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+SET rm.menu_id = t.id
+WHERE x.role_id IS NULL;
 
 -- 死行 900000008（pet:wallet:read → V11 read）
 DELETE rm FROM admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:read' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:read' AND t.deleted_at IS NULL
-WHERE EXISTS (SELECT 1 FROM admin_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = t.id);
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+WHERE x.role_id IS NOT NULL;
 UPDATE admin_role_menu rm
 JOIN admin_menu d ON d.id = rm.menu_id AND d.perms = 'pet:wallet:read' AND d.deleted_at IS NULL
 JOIN admin_menu t ON t.perms = 'business:pet:wallet:read' AND t.deleted_at IS NULL
-SET rm.menu_id = t.id;
+LEFT JOIN admin_role_menu x ON x.role_id = rm.role_id AND x.menu_id = t.id
+SET rm.menu_id = t.id
+WHERE x.role_id IS NULL;
 
 -- 迁移完成后软删除四个死行（软删与全局 @TableLogic 语义一致，可追溯）
 UPDATE admin_menu SET deleted_at = NOW(),
