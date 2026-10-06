@@ -3378,6 +3378,13 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     }
   }, [petId])
 
+  // PET-13/T34：previewUrl 为 60 秒短效签名——相册数据所在页签可见时每 45 秒静默刷新
+  useEffect(() => {
+    if (tab !== 'feed') return
+    const timer = setInterval(() => void loadAlbum(), 45_000)
+    return () => clearInterval(timer)
+  }, [tab, loadAlbum])
+
   const uploadPhoto = useCallback(async (diaryEntryId?: number) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!perm.granted) {

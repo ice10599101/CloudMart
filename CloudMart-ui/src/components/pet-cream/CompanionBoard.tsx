@@ -298,6 +298,20 @@ export default function CompanionBoard({ myPetId, onChanged }: {
         }
     }, [loadAlbum, tab])
 
+    // PET-13/T34：预览地址为 60 秒短效签名——相册页可见期间每 45 秒静默刷新，
+    // 过期图 onError 时也即时重拉（不永久裂图）；上传/删除/重试后的手动刷新不受影响
+    useEffect(() => {
+        if (tab !== 'diary') {
+            return
+        }
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                void loadAlbum()
+            }
+        }, 45_000)
+        return () => window.clearInterval(timer)
+    }, [loadAlbum, tab])
+
     const saveMemory = useCallback(async (memory: PetMemory) => {
         const value = editValue.trim()
         if (!value) {
@@ -589,7 +603,12 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                                     {assets.map(item => (
                                         <div key={item.id} className={styles.albumItem}>
                                             {item.previewUrl ? (
-                                                <img className={styles.albumImg} src={item.previewUrl} alt="宠物相册照片" />
+                                                <img
+                                                    className={styles.albumImg}
+                                                    src={item.previewUrl}
+                                                    alt="宠物相册照片"
+                                                    onError={() => void loadAlbum()}
+                                                />
                                             ) : (
                                                 <div className={styles.albumImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#888' }}>
                                                     {item.bindStatus === 'BINDING' ? '处理中…' : '待审核'}

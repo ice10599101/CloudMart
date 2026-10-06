@@ -112,6 +112,15 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     }
   }, [])
 
+  // PET-13/T34：previewUrl 短效签名——相册页签期间 45 秒静默刷新防裂图
+  useEffect(() => {
+    if (!petId || tab !== 'album') return
+    const timer = setInterval(() => void loadAlbum(), 45_000)
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [petId, tab, loadAlbum])
+
   useEffect(() => {
     if (!petId) return
     if (tab === 'diary') loadDiary(true)
