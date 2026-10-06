@@ -117,3 +117,4 @@ file-a-url.txt
 /mock-cb.json
 /tools_ui_audit.py
 .pet-verify-token.tmp
+.ci-artifacts/
