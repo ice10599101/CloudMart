@@ -19,6 +19,10 @@ jobs:
           cache: maven
       - name: 工具链版本（E01 可复现基线）
         run: chmod +x mvnw && ./mvnw -version
+      # ubuntu-latest 免费 runner 磁盘 ~14GB；24 模块 + maven 缓存易触顶（表现为
+      # 编译期静默失败/进程 137）。提前观察，必要时加空间回收 step
+      - name: 磁盘与内存基线
+        run: df -h / | tail -1 && free -m | head -2
       # E01：从根 POM 构建全部模块，禁止再维护模块子集清单
       - name: 全模块单元测试
         # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）；
