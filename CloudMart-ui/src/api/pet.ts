@@ -1697,6 +1697,8 @@ export interface PetActivityCenterSummary {
   } | null
   eventSummary: { totalCount: number; claimableCount: number; claimableCodes: string[] } | null
   cooperationSummary: { participated: boolean; cooperationId?: number | string; status?: string; role?: string } | null
+  /** PET-28：恢复中心——可自助恢复的在途事项计数 */
+  recoveries?: { bindingFailedAlbums: number; unsettledMinigameRounds: number; processingPurchases: number }
 }
 
 export function getPetActivityCenter(petId?: number | string) {

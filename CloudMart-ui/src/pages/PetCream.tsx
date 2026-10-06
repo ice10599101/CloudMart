@@ -814,6 +814,20 @@ function ActivityCenterPanel({ onChanged }: { onChanged: () => void }) {
                 {summary.eventSummary ? ` · 活动待领 ${summary.eventSummary.claimableCount}` : ''}
                 {summary.cooperationSummary?.participated ? ` · 合作${summary.cooperationSummary.status === 'COMPLETED' ? '已达成' : '进行中'}` : ''}
             </p>
+            {(() => {
+                // PET-28/T60：恢复中心——可自助恢复的在途事项（跳原实体面板处理）
+                const rec = summary.recoveries
+                if (!rec) return null
+                const items: string[] = []
+                if (rec.bindingFailedAlbums > 0) items.push(`绑定失败相册 ${rec.bindingFailedAlbums}（更多·回忆页重试）`)
+                if (rec.unsettledMinigameRounds > 0) items.push(`进行中对局 ${rec.unsettledMinigameRounds}（玩法页恢复）`)
+                if (rec.processingPurchases > 0) items.push(`处理中购买 ${rec.processingPurchases}（稍后自动确认）`)
+                return items.length > 0 ? (
+                    <p className={styles.panelDesc} style={{ margin: '0 0 8px', color: '#b45309' }}>
+                        待恢复：{items.join(' · ')}
+                    </p>
+                ) : null
+            })()}
             <div className={styles.petRow} style={{ marginBottom: 8 }}>
                 <span className={styles.panelDesc}>可领取活动 {claimable.length} 项</span>
                 <span style={{ flex: 1 }} />

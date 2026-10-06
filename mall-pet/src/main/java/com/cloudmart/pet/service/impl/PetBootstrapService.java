@@ -52,6 +52,10 @@ public class PetBootstrapService {
     /** PET-15：本宠陪伴日账（今日值按 businessDate 读取，替代无重置链路的累积列） */
     private final com.cloudmart.pet.repository.PetCompanionDailyPetMapper companionDailyPetMapper;
     private final PetEventService eventService;
+    /** PET-28：恢复中心聚合（绑定失败相册/未结算回合/处理中购买） */
+    private final com.cloudmart.pet.repository.PetAlbumAssetMapper albumAssetMapper;
+    private final com.cloudmart.pet.repository.PetMinigameRoundMapper minigameRoundMapper;
+    private final com.cloudmart.pet.repository.PetPurchaseOrderMapper purchaseOrderMapper;
 
     /** §7.2 GET /bootstrap?petId=：启动聚合快照 */
     public Map<String, Object> bootstrap(Long userId, Long petId) {
@@ -85,7 +89,45 @@ public class PetBootstrapService {
         result.put("dailySetSummary", dailySetSummary(userId));
         result.put("eventSummary", eventSummary(userId));
         result.put("cooperationSummary", cooperationSummary(userId));
+        // PET-28/T60：恢复中心——可自助恢复的在途事项计数（各端据此展示"去处理"入口，
+        // 直接跳原实体；用户操作编号定位经 traceId/requestKey 由各域既有查询支持）
+        result.put("recoveries", recoveries(userId));
         return result;
+    }
+
+    /**
+     * PET-28/T60：恢复中心聚合——处理中购买、绑定失败相册、未结算小游戏回合。
+     * 每项 Fail-Open（异常计 0），恢复动作在各原实体面板完成（相册 retry-binding /
+     * 小游戏 /minigames/current / 购买 purchase-requests/{requestKey}）。
+     */
+    private Map<String, Object> recoveries(Long userId) {
+        Map<String, Object> rec = new HashMap<>();
+        rec.put("bindingFailedAlbums", countQuiet(() -> albumAssetMapper.selectCount(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetAlbumAsset>()
+                        .eq(com.cloudmart.pet.entity.PetAlbumAsset::getUserId, userId)
+                        .in(com.cloudmart.pet.entity.PetAlbumAsset::getBindStatus, "BINDING", "FAILED"))));
+        rec.put("unsettledMinigameRounds", countQuiet(() -> minigameRoundMapper.selectCount(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetMinigameRound>()
+                        .eq(com.cloudmart.pet.entity.PetMinigameRound::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetMinigameRound::getStatus, "ACTIVE")
+                        .gt(com.cloudmart.pet.entity.PetMinigameRound::getDeadlineAt,
+                                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)))));
+        rec.put("processingPurchases", countQuiet(() -> purchaseOrderMapper.selectCount(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetPurchaseOrder>()
+                        .eq(com.cloudmart.pet.entity.PetPurchaseOrder::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetPurchaseOrder::getStatus, "PROCESSING"))));
+        return rec;
+    }
+
+    /** 计数 Fail-Open：查询异常按 0 处理（聚合读不得因单段故障整体失败） */
+    private long countQuiet(java.util.function.Supplier<Long> query) {
+        try {
+            Long count = query.get();
+            return count == null ? 0 : count;
+        } catch (Exception e) {
+            log.warn("恢复中心计数查询失败（按 0 处理）: {}", String.valueOf(e.getMessage()));
+            return 0;
+        }
     }
 
     // ---------------- 私有聚合 ----------------
