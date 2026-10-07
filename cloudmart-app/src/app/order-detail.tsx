@@ -1,8 +1,17 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, TextInput, Modal } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
+import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
+import {
+  applyAfterSale,
+  listOrderAfterSales,
+  AFTER_SALE_STATUS_TEXT,
+  AFTER_SALE_TYPE_TEXT,
+  type AfterSaleCase,
+} from '@/api/after-sale'
+import { fileApi } from '@/api/file'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order } from '@/types'
 
@@ -31,6 +40,16 @@ export default function OrderDetailPage() {
   const [refundOpen, setRefundOpen] = useState(false)
   const [refundReason, setRefundReason] = useState('')
 
+  // T11/P0-2：售后案件（PAID/SHIPPED 可申请；本单已有案件列表）
+  const [afterSaleCases, setAfterSaleCases] = useState<AfterSaleCase[]>([])
+  const [afterSaleOpen, setAfterSaleOpen] = useState(false)
+  const [afterSaleType, setAfterSaleType] = useState<'REFUND_ONLY' | 'RETURN_REFUND'>('REFUND_ONLY')
+  const [afterSaleItemId, setAfterSaleItemId] = useState<number | null>(null)
+  const [afterSaleQuantity, setAfterSaleQuantity] = useState(1)
+  const [afterSaleReason, setAfterSaleReason] = useState('')
+  const [afterSaleFileIds, setAfterSaleFileIds] = useState<string[]>([])
+  const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
+
   const fetchOrder = useCallback(async () => {
     if (!id) return
     setLoading(true)
@@ -47,9 +66,20 @@ export default function OrderDetailPage() {
     }
   }, [id])
 
+  const fetchAfterSaleCases = useCallback(async () => {
+    if (!id) return
+    try {
+      const res = await listOrderAfterSales(id)
+      setAfterSaleCases((res.data as unknown as { data?: AfterSaleCase[] })?.data ?? [])
+    } catch {
+      setAfterSaleCases([])
+    }
+  }, [id])
+
   useEffect(() => {
     fetchOrder()
-  }, [fetchOrder])
+    fetchAfterSaleCases()
+  }, [fetchOrder, fetchAfterSaleCases])
 
   const handleCancel = () => {
     if (!order) return
@@ -129,6 +159,93 @@ export default function OrderDetailPage() {
       router.push(`/product/${first.productId}`)
     } else {
       router.push('/(tabs)/mall')
+    }
+  }
+
+  // ==================== T11/P0-2：申请售后 ====================
+
+  /** 打开弹窗并重置表单；已发货默认退货退款，待发货仅退款（未发货无货可退） */
+  const openAfterSale = () => {
+    setAfterSaleType(order?.status === 2 ? 'RETURN_REFUND' : 'REFUND_ONLY')
+    setAfterSaleItemId(null)
+    setAfterSaleQuantity(1)
+    setAfterSaleReason('')
+    setAfterSaleFileIds([])
+    setAfterSaleOpen(true)
+  }
+
+  const selectAfterSaleType = (type: 'REFUND_ONLY' | 'RETURN_REFUND') => {
+    setAfterSaleType(type)
+    // 已发货整单退货退款后端首期不开放（需按商品项拆分）
+    if (type === 'RETURN_REFUND' && afterSaleItemId == null) {
+      const firstItem = order?.items?.[0]
+      if (firstItem) {
+        setAfterSaleItemId(firstItem.id)
+        setAfterSaleQuantity(firstItem.quantity)
+      }
+    }
+  }
+
+  const selectAfterSaleItem = (itemId: number | null) => {
+    setAfterSaleItemId(itemId)
+    if (itemId != null) {
+      const item = order?.items?.find((it) => it.id === itemId)
+      setAfterSaleQuantity(item?.quantity ?? 1)
+    }
+  }
+
+  const chooseAttachment = async () => {
+    if (afterSaleFileIds.length >= 3) {
+      Alert.alert('提示', '最多上传 3 张凭证')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
+    if (result.canceled || !result.assets?.[0]) return
+    const asset = result.assets[0]
+    try {
+      const form = new FormData()
+      form.append('file', { uri: asset.uri, name: 'after-sale.jpg', type: 'image/jpeg' } as unknown as Blob)
+      // 售后凭证为用户私密附件：显式 PRIVATE（S01 可见性分域）
+      const { data: up } = await fileApi.upload(form, 'PRIVATE')
+      const fileId = up?.data?.fileId
+      if (!fileId) {
+        Alert.alert('上传未成功', up?.error?.message ?? '请稍后再试')
+        return
+      }
+      setAfterSaleFileIds((prev) => [...prev, fileId])
+    } catch {
+      Alert.alert('错误', '凭证上传失败')
+    }
+  }
+
+  const submitAfterSale = async () => {
+    if (!order) return
+    if (!afterSaleReason.trim()) {
+      Alert.alert('提示', '请填写售后原因')
+      return
+    }
+    // 已发货整单退货退款后端不开放，前端先行拦截
+    if (afterSaleType === 'RETURN_REFUND' && afterSaleItemId == null) {
+      Alert.alert('提示', '已发货订单请按商品项申请退货退款')
+      return
+    }
+    setAfterSaleSubmitting(true)
+    try {
+      await applyAfterSale(order.id, {
+        type: afterSaleType,
+        reason: afterSaleReason.trim(),
+        itemId: afterSaleItemId ?? undefined,
+        quantity: afterSaleItemId != null ? afterSaleQuantity : undefined,
+        attachmentFileIds: afterSaleFileIds.length > 0 ? JSON.stringify(afterSaleFileIds) : undefined,
+      })
+      setAfterSaleOpen(false)
+      Alert.alert('提示', '售后申请已提交')
+      fetchAfterSaleCases()
+      fetchOrder()
+    } catch {
+      Alert.alert('错误', '售后申请失败')
+    } finally {
+      setAfterSaleSubmitting(false)
     }
   }
 
@@ -348,6 +465,49 @@ export default function OrderDetailPage() {
           )}
         </View>
 
+        {/* T11/P0-2：售后案件（本单已有申请与进度） */}
+        {afterSaleCases.length > 0 && (
+          <View style={{
+            marginHorizontal: Spacing.lg,
+            marginBottom: Spacing.lg,
+            backgroundColor: theme.bgContainer,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+          }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '600' }}>售后进度</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/after-sale')}>
+                <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>我的售后 ›</Text>
+              </TouchableOpacity>
+            </View>
+            {afterSaleCases.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                activeOpacity={0.7}
+                onPress={() => router.push(`/after-sale/${c.id}`)}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: Spacing.sm,
+                  borderTopWidth: 1,
+                  borderTopColor: theme.border,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                  <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500' }}>
+                    {AFTER_SALE_TYPE_TEXT[c.type] || c.type}{c.quantity > 0 ? ` · ${c.quantity} 件` : ''}
+                  </Text>
+                  <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 2 }}>{c.reason}</Text>
+                </View>
+                <Text style={{ fontSize: FontSize.sm, color: theme.accentOrange, fontWeight: '600' }}>
+                  {AFTER_SALE_STATUS_TEXT[c.status] || c.status}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Order Info Section */}
         <View style={{
           marginHorizontal: Spacing.lg,
@@ -440,7 +600,7 @@ export default function OrderDetailPage() {
               </TouchableOpacity>
             </>
           )}
-          {(order.status === 1 || order.status === 2) && (
+          {order.status === 1 && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={actionLoading ? undefined : () => setRefundOpen(true)}
@@ -455,6 +615,23 @@ export default function OrderDetailPage() {
               }}
             >
               <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, fontWeight: '500' }}>申请退款</Text>
+            </TouchableOpacity>
+          )}
+          {(order.status === 1 || order.status === 2) && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={actionLoading ? undefined : openAfterSale}
+              disabled={actionLoading}
+              style={{
+                paddingHorizontal: Spacing.xl,
+                paddingVertical: Spacing.md,
+                borderRadius: BorderRadius.xl,
+                borderWidth: 1,
+                borderColor: theme.border,
+                opacity: actionLoading ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, fontWeight: '500' }}>申请售后</Text>
             </TouchableOpacity>
           )}
           {order.status === 2 && (
@@ -532,6 +709,169 @@ export default function OrderDetailPage() {
                 style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, backgroundColor: theme.primary, opacity: actionLoading ? 0.6 : 1 }}
               >
                 <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>{actionLoading ? '提交中...' : '提交申请'}</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+      {/* T11/P0-2：申请售后弹窗（类型/商品项/数量/原因/凭证，规则对齐后端） */}
+      <Modal visible={afterSaleOpen} transparent animationType="slide" onRequestClose={() => !afterSaleSubmitting && setAfterSaleOpen(false)}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => !afterSaleSubmitting && setAfterSaleOpen(false)}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+        >
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: theme.bgContainer, borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl, padding: Spacing.xl }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: theme.text }}>申请售后</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.xs }}>提交后由平台审核受理，进度可在「我的售后」查看</Text>
+
+              <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginTop: Spacing.lg, marginBottom: Spacing.sm }}>售后类型</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
+                {(['REFUND_ONLY', ...(order?.status === 2 ? (['RETURN_REFUND'] as const) : [])] as const).map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    activeOpacity={0.7}
+                    onPress={() => selectAfterSaleType(t)}
+                    style={{
+                      paddingHorizontal: Spacing.lg,
+                      paddingVertical: Spacing.sm,
+                      borderRadius: BorderRadius.full,
+                      borderWidth: 1,
+                      borderColor: afterSaleType === t ? theme.primary : theme.border,
+                      backgroundColor: afterSaleType === t ? theme.primary : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: afterSaleType === t ? '#FFFFFF' : theme.textSecondary }}>
+                      {AFTER_SALE_TYPE_TEXT[t]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginTop: Spacing.lg, marginBottom: Spacing.sm }}>售后商品</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => afterSaleType === 'REFUND_ONLY' && selectAfterSaleItem(null)}
+                  disabled={afterSaleType === 'RETURN_REFUND'}
+                  style={{
+                    paddingHorizontal: Spacing.lg,
+                    paddingVertical: Spacing.sm,
+                    borderRadius: BorderRadius.full,
+                    borderWidth: 1,
+                    borderColor: afterSaleItemId === null ? theme.primary : theme.border,
+                    backgroundColor: afterSaleItemId === null ? theme.primary : 'transparent',
+                    opacity: afterSaleType === 'RETURN_REFUND' ? 0.4 : 1,
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: afterSaleItemId === null ? '#FFFFFF' : theme.textSecondary }}>整单</Text>
+                </TouchableOpacity>
+                {order?.items.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.7}
+                    onPress={() => selectAfterSaleItem(item.id)}
+                    style={{
+                      paddingHorizontal: Spacing.lg,
+                      paddingVertical: Spacing.sm,
+                      borderRadius: BorderRadius.full,
+                      borderWidth: 1,
+                      borderColor: afterSaleItemId === item.id ? theme.primary : theme.border,
+                      backgroundColor: afterSaleItemId === item.id ? theme.primary : 'transparent',
+                      maxWidth: 180,
+                    }}
+                  >
+                    <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: afterSaleItemId === item.id ? '#FFFFFF' : theme.textSecondary }}>
+                      {item.productName}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {afterSaleItemId != null && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.lg }}>
+                  <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500' }}>售后数量</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setAfterSaleQuantity((q) => Math.max(1, q - 1))}
+                      style={{ width: 32, height: 32, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Text style={{ fontSize: FontSize.lg, color: theme.text }}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={{ fontSize: FontSize.md, color: theme.text, minWidth: 28, textAlign: 'center' }}>{afterSaleQuantity}</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const item = order?.items.find((it) => it.id === afterSaleItemId)
+                        setAfterSaleQuantity((q) => Math.min(item?.quantity ?? 1, q + 1))
+                      }}
+                      style={{ width: 32, height: 32, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Text style={{ fontSize: FontSize.lg, color: theme.text }}>＋</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginTop: Spacing.lg, marginBottom: Spacing.sm }}>售后原因（必填）</Text>
+              <TextInput
+                value={afterSaleReason}
+                onChangeText={setAfterSaleReason}
+                placeholder="请描述售后原因"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={200}
+                multiline
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderRadius: BorderRadius.md,
+                  paddingHorizontal: Spacing.md,
+                  paddingVertical: Spacing.sm,
+                  color: theme.text,
+                  fontSize: FontSize.sm,
+                  minHeight: 80,
+                  textAlignVertical: 'top',
+                  backgroundColor: theme.bgBase,
+                }}
+              />
+
+              <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginTop: Spacing.lg, marginBottom: Spacing.sm }}>凭证图片（选填，最多 3 张）</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={chooseAttachment}
+                style={{
+                  alignSelf: 'flex-start',
+                  paddingHorizontal: Spacing.lg,
+                  paddingVertical: Spacing.sm,
+                  borderRadius: BorderRadius.md,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderStyle: 'dashed',
+                }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>
+                  {afterSaleFileIds.length > 0 ? `已上传 ${afterSaleFileIds.length} 张 · 继续添加` : '＋ 选择图片'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.lg }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setAfterSaleOpen(false)}
+                style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: theme.border }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={afterSaleSubmitting ? undefined : submitAfterSale}
+                disabled={afterSaleSubmitting}
+                style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, backgroundColor: theme.primary, opacity: afterSaleSubmitting ? 0.6 : 1 }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>{afterSaleSubmitting ? '提交中...' : '提交申请'}</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

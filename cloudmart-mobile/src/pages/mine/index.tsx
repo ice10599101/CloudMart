@@ -148,6 +148,10 @@ export default function MinePage() {
             <Text className={styles.quickIcon}>🎫</Text>
             <Text className={styles.quickName}>优惠券</Text>
           </View>
+          <View className={styles.quickCard} onClick={() => Taro.navigateTo({ url: '/pages/afterSale/index' })}>
+            <Text className={styles.quickIcon}>🛠️</Text>
+            <Text className={styles.quickName}>退换售后</Text>
+          </View>
           <View className={styles.quickCard} onClick={() => Taro.navigateTo({ url: '/pages/checkIn/index' })}>
             <Text className={styles.quickIcon}>{isCheckedIn ? '✅' : '📅'}</Text>
             <Text className={styles.quickName}>{isCheckedIn ? '已签到' : '签到'}</Text>

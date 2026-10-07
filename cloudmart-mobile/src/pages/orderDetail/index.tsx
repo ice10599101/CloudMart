@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
+import {
+  applyAfterSale,
+  listOrderAfterSales,
+  AFTER_SALE_STATUS_TEXT,
+  AFTER_SALE_TYPE_TEXT,
+  type AfterSaleCase,
+} from '@/api/afterSale'
+import { fileApi } from '@/api/file'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -62,8 +70,22 @@ export default function OrderDetailPage() {
   const [refundOpen, setRefundOpen] = useState(false)
   const [refunding, setRefunding] = useState(false)
 
+  // T11/P0-2：售后案件（PAID/SHIPPED 可申请；本单已有案件列表）
+  const [afterSaleCases, setAfterSaleCases] = useState<AfterSaleCase[]>([])
+  const [afterSaleOpen, setAfterSaleOpen] = useState(false)
+  const [afterSaleType, setAfterSaleType] = useState<'REFUND_ONLY' | 'RETURN_REFUND'>('REFUND_ONLY')
+  const [afterSaleItemId, setAfterSaleItemId] = useState<number | null>(null)
+  const [afterSaleQuantity, setAfterSaleQuantity] = useState(1)
+  const [afterSaleReason, setAfterSaleReason] = useState('')
+  const [afterSaleFileIds, setAfterSaleFileIds] = useState<string[]>([])
+  const [afterSaleUploading, setAfterSaleUploading] = useState(false)
+  const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
+
   useEffect(() => {
-    if (id) loadOrder()
+    if (id) {
+      loadOrder()
+      loadAfterSaleCases()
+    }
   }, [id])
 
   const loadOrder = async () => {
@@ -75,6 +97,16 @@ export default function OrderDetailPage() {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAfterSaleCases = async () => {
+    try {
+      const res = await listOrderAfterSales(id)
+      setAfterSaleCases(res.data?.data as unknown as AfterSaleCase[])
+    } catch {
+      // 售后列表加载失败不阻塞订单详情主流程
+      setAfterSaleCases([])
     }
   }
 
@@ -150,6 +182,98 @@ export default function OrderDetailPage() {
       Taro.showToast({ title: message, icon: 'none' })
     } finally {
       setRefunding(false)
+    }
+  }
+
+  // ==================== T11/P0-2：申请售后 ====================
+
+  /** 打开弹窗并重置表单；已发货默认退货退款，待发货仅退款（未发货无货可退） */
+  const openAfterSale = () => {
+    setAfterSaleType(order?.status === 2 ? 'RETURN_REFUND' : 'REFUND_ONLY')
+    setAfterSaleItemId(null)
+    setAfterSaleQuantity(1)
+    setAfterSaleReason('')
+    setAfterSaleFileIds([])
+    setAfterSaleOpen(true)
+  }
+
+  const selectAfterSaleType = (type: 'REFUND_ONLY' | 'RETURN_REFUND') => {
+    setAfterSaleType(type)
+    // 已发货整单退货退款后端首期不开放（需按商品项拆分）
+    if (type === 'RETURN_REFUND' && afterSaleItemId == null) {
+      const firstItem = order?.items?.[0]
+      if (firstItem) {
+        setAfterSaleItemId(firstItem.id)
+        setAfterSaleQuantity(firstItem.quantity)
+      }
+    }
+  }
+
+  const selectAfterSaleItem = (itemId: number | null) => {
+    setAfterSaleItemId(itemId)
+    if (itemId != null) {
+      const item = order?.items?.find((it) => it.id === itemId)
+      setAfterSaleQuantity(item?.quantity ?? 1)
+    }
+  }
+
+  const chooseAttachment = () => {
+    if (afterSaleFileIds.length >= 3) {
+      Taro.showToast({ title: '最多上传 3 张凭证', icon: 'none' })
+      return
+    }
+    Taro.chooseImage({
+      count: 3 - afterSaleFileIds.length,
+      sizeType: ['compressed'],
+      success: async (res) => {
+        setAfterSaleUploading(true)
+        try {
+          const uploaded: string[] = []
+          for (const filePath of res.tempFilePaths) {
+            const uploadRes = await fileApi.uploadAsset(filePath, 'PRIVATE')
+            const fileId = (uploadRes.data?.data as unknown as { fileId?: string })?.fileId
+            if (fileId) uploaded.push(fileId)
+          }
+          setAfterSaleFileIds((prev) => [...prev, ...uploaded])
+        } catch {
+          Taro.showToast({ title: '凭证上传失败', icon: 'none' })
+        } finally {
+          setAfterSaleUploading(false)
+        }
+      },
+    })
+  }
+
+  const submitAfterSale = async () => {
+    if (!order) return
+    if (!afterSaleReason.trim()) {
+      Taro.showToast({ title: '请填写售后原因', icon: 'none' })
+      return
+    }
+    // 已发货整单退货退款后端不开放，前端先行拦截
+    if (afterSaleType === 'RETURN_REFUND' && afterSaleItemId == null) {
+      Taro.showToast({ title: '已发货订单请按商品项申请退货退款', icon: 'none' })
+      return
+    }
+    setAfterSaleSubmitting(true)
+    try {
+      await applyAfterSale(order.id, {
+        type: afterSaleType,
+        reason: afterSaleReason.trim(),
+        itemId: afterSaleItemId ?? undefined,
+        quantity: afterSaleItemId != null ? afterSaleQuantity : undefined,
+        attachmentFileIds: afterSaleFileIds.length > 0 ? JSON.stringify(afterSaleFileIds) : undefined,
+      })
+      setAfterSaleOpen(false)
+      Taro.showToast({ title: '售后申请已提交', icon: 'success' })
+      loadAfterSaleCases()
+      loadOrder()
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '售后申请失败'
+      Taro.showToast({ title: message, icon: 'none' })
+    } finally {
+      setAfterSaleSubmitting(false)
     }
   }
 
@@ -273,6 +397,33 @@ export default function OrderDetailPage() {
           )}
         </View>
 
+        {/* 售后案件（T11：本单已有申请与进度） */}
+        {afterSaleCases.length > 0 && (
+          <View className={styles.section}>
+            <View className={styles.sectionHeader}>
+              <Text className={styles.sectionTitle}>售后进度</Text>
+              <Text className={styles.afterSaleAllLink} onClick={() => Taro.navigateTo({ url: '/pages/afterSale/index' })}>
+                我的售后 ›
+              </Text>
+            </View>
+            {afterSaleCases.map((c) => (
+              <View
+                key={c.id}
+                className={styles.afterSaleCaseRow}
+                onClick={() => Taro.navigateTo({ url: `/pages/afterSaleDetail/index?id=${c.id}` })}
+              >
+                <View className={styles.afterSaleCaseInfo}>
+                  <Text className={styles.afterSaleCaseType}>
+                    {AFTER_SALE_TYPE_TEXT[c.type] || c.type}{c.quantity > 0 ? ` · ${c.quantity} 件` : ''}
+                  </Text>
+                  <Text className={styles.afterSaleCaseReason}>{c.reason}</Text>
+                </View>
+                <Text className={styles.afterSaleCaseStatus}>{AFTER_SALE_STATUS_TEXT[c.status] || c.status}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* 订单信息 */}
         <View className={styles.section}>
           <View className={styles.sectionHeader}>
@@ -320,9 +471,14 @@ export default function OrderDetailPage() {
               </View>
             </>
           )}
-          {(order.status === 1 || order.status === 2) && (
+          {(order.status === 1) && (
             <View className={styles.btnSecondary} onClick={handleRefund}>
               <Text className={styles.btnSecondaryText}>申请退款</Text>
+            </View>
+          )}
+          {(order.status === 1 || order.status === 2) && (
+            <View className={styles.btnSecondary} onClick={openAfterSale}>
+              <Text className={styles.btnSecondaryText}>申请售后</Text>
             </View>
           )}
           {order.status === 2 && (
@@ -359,6 +515,111 @@ export default function OrderDetailPage() {
               </View>
             </View>
           </View>
+        </View>
+      )}
+      {/* 申请售后弹窗（T11：类型/商品项/数量/原因/凭证，规则对齐后端） */}
+      {afterSaleOpen && (
+        <View className={styles.refundMask} onClick={() => !afterSaleSubmitting && setAfterSaleOpen(false)}>
+          <ScrollView scrollY className={styles.afterSaleModalScroll}>
+            <View className={styles.refundModal} onClick={(e) => e.stopPropagation()}>
+              <Text className={styles.refundTitle}>申请售后</Text>
+              <Text className={styles.refundHint}>提交后由平台审核受理，进度可在「我的售后」查看</Text>
+
+              <Text className={styles.afterSaleFieldLabel}>售后类型</Text>
+              <View className={styles.afterSaleChips}>
+                <View
+                  className={`${styles.afterSaleChip} ${afterSaleType === 'REFUND_ONLY' ? styles.afterSaleChipActive : ''}`}
+                  onClick={() => selectAfterSaleType('REFUND_ONLY')}
+                >
+                  <Text className={afterSaleType === 'REFUND_ONLY' ? styles.afterSaleChipTextActive : styles.afterSaleChipText}>仅退款</Text>
+                </View>
+                {order.status === 2 && (
+                  <View
+                    className={`${styles.afterSaleChip} ${afterSaleType === 'RETURN_REFUND' ? styles.afterSaleChipActive : ''}`}
+                    onClick={() => selectAfterSaleType('RETURN_REFUND')}
+                  >
+                    <Text className={afterSaleType === 'RETURN_REFUND' ? styles.afterSaleChipTextActive : styles.afterSaleChipText}>退货退款</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text className={styles.afterSaleFieldLabel}>售后商品</Text>
+              <View className={styles.afterSaleChips}>
+                <View
+                  className={`${styles.afterSaleChip} ${afterSaleItemId === null ? styles.afterSaleChipActive : ''} ${afterSaleType === 'RETURN_REFUND' ? styles.afterSaleChipDisabled : ''}`}
+                  onClick={() => afterSaleType === 'REFUND_ONLY' && selectAfterSaleItem(null)}
+                >
+                  <Text className={afterSaleItemId === null ? styles.afterSaleChipTextActive : styles.afterSaleChipText}>整单</Text>
+                </View>
+                {order.items.map((item) => (
+                  <View
+                    key={item.id}
+                    className={`${styles.afterSaleChip} ${afterSaleItemId === item.id ? styles.afterSaleChipActive : ''}`}
+                    onClick={() => selectAfterSaleItem(item.id)}
+                  >
+                    <Text className={afterSaleItemId === item.id ? styles.afterSaleChipTextActive : styles.afterSaleChipText}>
+                      {item.productName.length > 8 ? `${item.productName.slice(0, 8)}…` : item.productName}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {afterSaleItemId != null && (
+                <View className={styles.afterSaleQuantityRow}>
+                  <Text className={styles.afterSaleFieldLabel}>售后数量</Text>
+                  <View className={styles.quantityStepper}>
+                    <View
+                      className={styles.quantityBtn}
+                      onClick={() => setAfterSaleQuantity((q) => Math.max(1, q - 1))}
+                    >
+                      <Text className={styles.quantityBtnText}>−</Text>
+                    </View>
+                    <Text className={styles.quantityValue}>{afterSaleQuantity}</Text>
+                    <View
+                      className={styles.quantityBtn}
+                      onClick={() => {
+                        const item = order.items.find((it) => it.id === afterSaleItemId)
+                        setAfterSaleQuantity((q) => Math.min(item?.quantity ?? 1, q + 1))
+                      }}
+                    >
+                      <Text className={styles.quantityBtnText}>＋</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              <Text className={styles.afterSaleFieldLabel}>售后原因（必填）</Text>
+              <Textarea
+                className={styles.refundTextarea}
+                value={afterSaleReason}
+                maxlength={200}
+                placeholder='请描述售后原因'
+                onInput={(e) => setAfterSaleReason(e.detail.value)}
+              />
+
+              <Text className={styles.afterSaleFieldLabel}>凭证图片（选填，最多 3 张）</Text>
+              <View className={styles.attachmentPickerRow}>
+                {afterSaleFileIds.length > 0 && (
+                  <Text className={styles.attachmentCountText}>已上传 {afterSaleFileIds.length} 张</Text>
+                )}
+                <View
+                  className={`${styles.attachmentPickerBtn} ${afterSaleUploading ? styles.attachmentPickerBtnUploading : ''}`}
+                  onClick={() => !afterSaleUploading && chooseAttachment()}
+                >
+                  <Text className={styles.attachmentPickerText}>{afterSaleUploading ? '上传中...' : '＋ 选择图片'}</Text>
+                </View>
+              </View>
+
+              <View className={styles.refundActions}>
+                <View className={styles.refundCancel} onClick={() => setAfterSaleOpen(false)}>
+                  <Text className={styles.refundCancelText}>取消</Text>
+                </View>
+                <View className={styles.refundSubmit} onClick={afterSaleSubmitting ? undefined : submitAfterSale}>
+                  <Text className={styles.refundSubmitText}>{afterSaleSubmitting ? '提交中...' : '提交申请'}</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
       )}
     </View>

@@ -133,6 +133,7 @@ export default function MinePage() {
         {/* Menu Groups */}
         <View style={{ marginHorizontal: Spacing.lg, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.lg }}>
           <MenuRow icon="🛒" label="我的订单" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/orders') }} theme={theme} />
+          <MenuRow icon="🛠️" label="退换售后" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/after-sale') }} theme={theme} />
           <MenuRow icon="💝" label="心愿单" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/wishlist') }} theme={theme} />
           <MenuRow icon="🏅" label="我的徽章" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/badge-wall') }} theme={theme} />
           <MenuRow icon="🐾" label="我的宠物" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/pet') }} theme={theme} />

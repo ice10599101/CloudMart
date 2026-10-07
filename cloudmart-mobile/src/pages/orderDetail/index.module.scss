@@ -418,3 +418,159 @@
   color: #ffffff;
   font-weight: 600;
 }
+
+// ==================== T11/P0-2 售后 ====================
+.afterSaleAllLink {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+}
+
+.afterSaleCaseRow {
+  @include flex-between;
+  gap: $spacing-sm;
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.afterSaleCaseInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  overflow: hidden;
+}
+
+.afterSaleCaseType {
+  font-size: $font-size-md;
+  color: var(--color-text);
+  font-weight: $font-weight-medium;
+}
+
+.afterSaleCaseReason {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  @include text-ellipsis;
+}
+
+.afterSaleCaseStatus {
+  flex-shrink: 0;
+  font-size: $font-size-sm;
+  color: var(--color-warning, #ff9f0a);
+  font-weight: $font-weight-medium;
+}
+
+.afterSaleModalScroll {
+  max-height: 80vh;
+  align-self: center;
+  width: 100%;
+  display: flex;
+}
+
+// 弹窗内滚动区包裹的卡片需可点击穿透阻止关闭
+.afterSaleModalScroll .refundModal {
+  width: 100%;
+}
+
+.afterSaleFieldLabel {
+  display: block;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  font-weight: $font-weight-medium;
+  margin-bottom: $spacing-xs;
+}
+
+.afterSaleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.afterSaleChip {
+  padding: 10rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-full;
+  max-width: 300rpx;
+}
+
+.afterSaleChipActive {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 212, 255, 0.1));
+}
+
+.afterSaleChipDisabled {
+  opacity: 0.4;
+}
+
+.afterSaleChipText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  @include text-ellipsis;
+}
+
+.afterSaleChipTextActive {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+  font-weight: $font-weight-medium;
+  @include text-ellipsis;
+}
+
+.afterSaleQuantityRow {
+  @include flex-between;
+  margin-bottom: $spacing-md;
+}
+
+.quantityStepper {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.quantityBtn {
+  @include flex-center;
+  width: 56rpx;
+  height: 56rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-sm;
+}
+
+.quantityBtnText {
+  font-size: $font-size-lg;
+  color: var(--color-text);
+}
+
+.quantityValue {
+  min-width: 64rpx;
+  text-align: center;
+  font-size: $font-size-md;
+  color: var(--color-text);
+}
+
+.attachmentPickerRow {
+  @include flex-between;
+  margin-bottom: $spacing-md;
+}
+
+.attachmentCountText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.attachmentPickerBtn {
+  padding: 10rpx 24rpx;
+  border: 1rpx dashed var(--color-border);
+  border-radius: $radius-md;
+}
+
+.attachmentPickerBtnUploading {
+  opacity: 0.5;
+}
+
+.attachmentPickerText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}

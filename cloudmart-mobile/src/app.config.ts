@@ -11,6 +11,8 @@ export default defineAppConfig({
     'pages/cart/index',
     'pages/orders/index',
     'pages/orderDetail/index',
+    'pages/afterSale/index',
+    'pages/afterSaleDetail/index',
     'pages/checkout/index',
     'pages/payment/index',
     'pages/wishlist/index',
