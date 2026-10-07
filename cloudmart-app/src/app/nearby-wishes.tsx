@@ -1,8 +1,8 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput } from 'react-native'
-import { useCallback, useEffect, useState } from 'react'
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, Switch } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { wishApi } from '@/api/wish'
+import { encounterApi, wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -17,6 +17,11 @@ import type { NearbyWish, WarmEventItem , MyWishListItem } from '@/types'
  * 下发、内置 Key 兜底，与 Web 端同链路），心愿点 MarkerCluster 自动聚合，
  * 点击心愿点跳详情；Key/SDK 不可用时降级为纯列表模式（对齐 Web 端 fallback）。
  */
+interface EncounterLetterLite {
+  letterId: number
+  status: string
+}
+
 export default function NearbyWishesScreen() {
   const insets = useSafeAreaInsets()
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
@@ -33,6 +38,11 @@ export default function NearbyWishesScreen() {
   const [warmTitle, setWarmTitle] = useState('')
   const [warmContent, setWarmContent] = useState('')
   const [warmSaving, setWarmSaving] = useState(false)
+  // P0-5：附近模式 + 轨迹上报（开启期间每 5 分钟上报一次）
+  const [nearbyMode, setNearbyMode] = useState(false)
+  const [nearbyBusy, setNearbyBusy] = useState(false)
+  const [pendingLetters, setPendingLetters] = useState(0)
+  const traceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,6 +83,61 @@ export default function NearbyWishesScreen() {
       .then((res) => { if (res.data?.success) setMyWishes(res.data.data ?? []) })
       .catch(() => undefined)
   }, [isLoggedIn])
+
+  // P0-5：附近模式状态回显 + 待拆信笺数（信箱入口角标）
+  useEffect(() => {
+    if (!isLoggedIn) return
+    encounterApi.getNearbyMode()
+      .then((res) => { if (res.data?.success) setNearbyMode(res.data.data === true) })
+      .catch(() => undefined)
+    encounterApi.listLetters()
+      .then((res) => {
+        const letters = (res.data as unknown as { data?: EncounterLetterLite[] })?.data ?? []
+        setPendingLetters(letters.filter((l) => l.status === 'DELIVERED').length)
+      })
+      .catch(() => undefined)
+  }, [isLoggedIn])
+
+  const reportTrace = async (lat: number, lng: number) => {
+    try {
+      await encounterApi.reportTrace(lat, lng)
+    } catch {
+      // 限频/冻结/网络失败静默——不阻塞地图主流程
+    }
+  }
+
+  // 附近模式开启且有定位：立即上报一次 + 每 5 分钟续报；关闭/卸载即停止
+  useEffect(() => {
+    if (!nearbyMode || userPos === null) return
+    reportTrace(userPos.lat, userPos.lng)
+    traceTimer.current = setInterval(async () => {
+      try {
+        const setting = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        await reportTrace(setting.coords.latitude, setting.coords.longitude)
+      } catch {
+        // 定位失败跳过本周期
+      }
+    }, 5 * 60 * 1000)
+    return () => {
+      if (traceTimer.current) {
+        clearInterval(traceTimer.current)
+        traceTimer.current = null
+      }
+    }
+  }, [nearbyMode, userPos])
+
+  const toggleNearbyMode = async (enabled: boolean) => {
+    if (nearbyBusy) return
+    setNearbyBusy(true)
+    try {
+      const res = await encounterApi.setNearbyMode(enabled)
+      if (res.data?.success) setNearbyMode(enabled)
+    } catch {
+      // 静默：开关状态以服务端为准
+    } finally {
+      setNearbyBusy(false)
+    }
+  }
 
   /** 围栏打卡：提交当前坐标，展示到达/未到达 */
   const handleCheckFence = async () => {
@@ -178,6 +243,22 @@ export default function NearbyWishesScreen() {
           />
         </View>
       )}
+
+      {/* P0-5：附近模式（擦肩而过）+ 信笺信箱入口 */}
+      <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.sm, backgroundColor: WishColors.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: WishColors.text }}>✨ 附近模式</Text>
+          <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, lineHeight: 16 }}>开启后匿名上报轨迹，相遇时留下信笺</Text>
+        </View>
+        <Switch value={nearbyMode} disabled={nearbyBusy} onValueChange={toggleNearbyMode} />
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.push('/encounter')}
+          style={{ paddingHorizontal: Spacing.md, height: 34, borderRadius: BorderRadius.full, backgroundColor: '#E94560', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ fontSize: FontSize.xs, color: '#FFFFFF', fontWeight: '600' }}>💌 信笺{pendingLetters > 0 ? ` (${pendingLetters})` : ''}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* B7：围栏打卡 */}
       <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.sm, backgroundColor: WishColors.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.md }}>

@@ -719,4 +719,38 @@ export const wishApi = {
         request<CapsuleItem>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
 }
 
+// ========== P0-5 擦肩而过·附近模式（2026-10 产品决策恢复：信笺与漂流瓶并存；契约对齐 mall-wish EncounterController） ==========
+
+/** 相遇信笺（匿名化，无对方身份信息；PENDING 时 content 为 null） */
+export interface EncounterLetter {
+    letterId: number
+    wishTags: string[]
+    encounterTime: string
+    encounterGeohash6: string
+    /** PENDING-待投递 / DELIVERED-可拆信 / READ-已拆信 */
+    status: string
+    /** PENDING 时为 null；DELIVERED/READ 为诗意文案 */
+    content: string | null
+    deliveredAt: string | null
+}
+
+export const encounterApi = {
+    /** 附近模式开关（Redis 开关 24h 有效；关闭立即生效） */
+    setNearbyMode: (enabled: boolean) =>
+        request<null>({ url: '/wish/map/nearby-mode', method: 'POST', data: { enabled } as unknown as Record<string, unknown> }),
+    /** 附近模式状态查询（刷新回显；开关键 24h 过期视为关闭） */
+    getNearbyMode: () => request<boolean>({ url: '/wish/map/nearby-mode' }),
+    /** 轨迹上报（geohash6 入 Redis，无原始坐标；5 分钟 >10 次 429；伪造检测连续 3 次 → 冻结 24h） */
+    reportTrace: (lat: number, lng: number) =>
+        request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } as unknown as Record<string, unknown> }),
+    /** 信笺列表 */
+    listLetters: () => request<EncounterLetter[]>({ url: '/wish/map/encounter-letters' }),
+    /** 拆信（DELIVERED → READ；PENDING 不可拆） */
+    readLetter: (letterId: number | string) =>
+        request<EncounterLetter>({ url: `/wish/encounter-letters/${letterId}/read`, method: 'PUT' }),
+    /** 匿名互动（BLESS 免费 / LIGHT 点亮对方心愿扣星光 2；单信笺每日 1 次） */
+    interactLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT', content?: string) =>
+        request<EncounterLetter>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type, content } as unknown as Record<string, unknown> }),
+}
+
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'

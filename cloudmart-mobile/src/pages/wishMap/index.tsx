@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Input, Map, Picker, Text, Textarea, View } from '@tarojs/components'
+import { useEffect, useState, useRef } from 'react'
+import { Input, Map, Picker, Switch, Text, Textarea, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { wishApi } from '@/api/wish'
+import { encounterApi, wishApi } from '@/api/wish'
 import type { MapCluster, NearbyWish, WarmEventItem } from '@/types'
 import type { MyWishListItem } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -12,7 +12,14 @@ import styles from './index.module.scss'
  * 附近心愿地图（Sprint 3.1 移动端）：Taro Map 组件（小程序原生 map，
  * H5 端腾讯地图渲染），markers 含聚合角标 callout；定位拒绝时服务端
  * 默认城市兜底（三端兜底语义一致）。
+ *
+ * P0-5 擦肩而过恢复：附近模式开关（Redis 24h）→ 开启期间每 5 分钟上报
+ * 轨迹（服务端 geohash 桶化，无原始坐标；5 分钟 >10 次 429，客户端按
+ * 5 分钟节奏规避）→ 相遇生成匿名信笺（信箱页查看/回应）。
  */
+
+/** 轨迹上报间隔（毫秒）：对齐服务端 30 分钟桶与 5 分钟限频窗口 */
+const TRACE_INTERVAL_MS = 5 * 60 * 1000
 
 type MapProps = import('@tarojs/components/types/Map').MapProps
 type MapMarker = NonNullable<MapProps['markers']>[number]
@@ -33,6 +40,11 @@ export default function WishMapPage() {
   const [warmContent, setWarmContent] = useState('')
   const [warmSaving, setWarmSaving] = useState(false)
   const [checkBusy, setCheckBusy] = useState(false)
+  // P0-5：附近模式 + 轨迹上报
+  const [nearbyMode, setNearbyMode] = useState(false)
+  const [nearbyBusy, setNearbyBusy] = useState(false)
+  const [pendingLetters, setPendingLetters] = useState(0)
+  const traceTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 定位（拒绝/失败 → null，服务端默认城市兜底）
   useEffect(() => {
@@ -40,6 +52,69 @@ export default function WishMapPage() {
       .then((res) => setCenter({ lat: res.latitude, lng: res.longitude }))
       .catch(() => setCenter(null))
   }, [])
+
+  // 附近模式状态回显（Redis 开关 24h 过期视为关闭）
+  useEffect(() => {
+    encounterApi.getNearbyMode()
+      .then((res) => { if (res.data.success) setNearbyMode(res.data.data === true) })
+      .catch(() => undefined)
+  }, [])
+
+  // 信笺待拆数（信箱入口角标）
+  useEffect(() => {
+    encounterApi.listLetters()
+      .then((res) => {
+        const letters = res.data?.data ?? []
+        setPendingLetters(letters.filter((l) => l.status === 'DELIVERED').length)
+      })
+      .catch(() => undefined)
+  }, [])
+
+  /** 单次轨迹上报（须有定位；失败静默，下个周期重试） */
+  const reportTrace = async (lat: number, lng: number) => {
+    try {
+      await encounterApi.reportTrace(lat, lng)
+    } catch {
+      // 限频/冻结/网络失败静默——不阻塞地图主流程
+    }
+  }
+
+  // 附近模式开启且有定位：立即上报一次 + 每 5 分钟续报；关闭/卸载即停止
+  useEffect(() => {
+    if (!nearbyMode || center === null) return
+    reportTrace(center.lat, center.lng)
+    traceTimer.current = setInterval(() => {
+      Taro.getLocation({ type: 'wgs84' })
+        .then((res) => reportTrace(res.latitude, res.longitude))
+        .catch(() => undefined)
+    }, TRACE_INTERVAL_MS)
+    return () => {
+      if (traceTimer.current) {
+        clearInterval(traceTimer.current)
+        traceTimer.current = null
+      }
+    }
+  }, [nearbyMode, center])
+
+  const toggleNearbyMode = async (enabled: boolean) => {
+    if (nearbyBusy) return
+    setNearbyBusy(true)
+    try {
+      const res = await encounterApi.setNearbyMode(enabled)
+      if (res.data.success) {
+        setNearbyMode(enabled)
+        Taro.showToast({
+          title: enabled ? '附近模式已开启，相遇正在发生' : '附近模式已关闭',
+          icon: 'none',
+        })
+      }
+    } catch (err) {
+      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
+      Taro.showToast({ title: message || '操作失败，请稍后重试', icon: 'none' })
+    } finally {
+      setNearbyBusy(false)
+    }
+  }
 
   // 打卡候选：自己的 ACTIVE 心愿
   useEffect(() => {
@@ -199,6 +274,23 @@ export default function WishMapPage() {
           {clusters.length === 0 && !loading && (
             <Text className={styles.emptyText}>附近暂无公开心愿（定位失败时展示默认城市）</Text>
           )}
+        </View>
+
+        {/* P0-5：附近模式（擦肩而过）+ 信笺信箱入口 */}
+        <View className={styles.nearbyRow}>
+          <View className={styles.nearbyInfo}>
+            <Text className={styles.nearbyTitle}>✨ 附近模式</Text>
+            <Text className={styles.nearbyHint}>开启后匿名上报轨迹，相遇时留下信笺</Text>
+          </View>
+          <Switch checked={nearbyMode} disabled={nearbyBusy} onChange={(e) => toggleNearbyMode(e.detail.value)} color='#e94560' />
+          <View className={styles.letterEntry} onClick={() => Taro.navigateTo({ url: '/pages/encounter/index' })}>
+            <Text className={styles.letterEntryText}>💌 信笺</Text>
+            {pendingLetters > 0 && (
+              <View className={styles.letterBadge}>
+                <Text className={styles.letterBadgeText}>{pendingLetters}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* B7：围栏打卡 + 温暖事件 */}

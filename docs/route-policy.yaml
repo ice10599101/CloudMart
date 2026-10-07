@@ -143,11 +143,11 @@ mall-notification:
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: notification:admin }
 
 mall-wish:
-  # 擦肩而过下线（2026-10 产品决策）：端点保留路由语义统一 410，无能力守卫要求
-  - { method: "*",  path: /map/nearby-mode,                  subjectType: "USER", note: "OFFLINE-410" }
-  - { method: "*",  path: /map/trace,                        subjectType: "USER", note: "OFFLINE-410" }
-  - { method: "*",  path: /encounter-letters/**,             subjectType: "USER", note: "OFFLINE-410" }
-  - { method: "*",  path: /admin/encounter/**,               subjectType: SERVICE, serviceCaller: mall-admin, note: "OFFLINE-410" }
+  # 擦肩而过恢复（2026-10 产品决策反转：补用户端入口，信笺与漂流瓶并存）
+  - { method: "*",  path: /map/nearby-mode,                  subjectType: "USER", note: "SELF：Redis 开关即本人" }
+  - { method: "*",  path: /map/trace,                        subjectType: "USER", note: "SELF：伪造检测/限频/冻结" }
+  - { method: "*",  path: /encounter-letters/**,             subjectType: "USER", note: "SELF：归属校验" }
+  - { method: "*",  path: /admin/encounter/**,               subjectType: SERVICE, serviceCaller: mall-admin, note: "类级 INTERNAL 守卫" }
   # T22：主播自助挂件配置（streamerId 强制当前用户本人）
   - { method: POST, path: /live/widget/config,               subjectType: "USER", note: "SELF：服务端强制本人" }
 

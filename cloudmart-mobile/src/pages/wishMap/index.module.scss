@@ -175,3 +175,73 @@
   background: #4a90d9;
   color: #fff;
 }
+
+// ==================== P0-5 附近模式 ====================
+.nearbyRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 24rpx;
+  padding: 24rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border: 1px solid rgba(245, 245, 250, 0.12);
+  border-radius: 20rpx;
+}
+
+.nearbyInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  min-width: 0;
+}
+
+.nearbyTitle {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.95);
+}
+
+.nearbyHint {
+  font-size: 20rpx;
+  color: rgba(245, 245, 250, 0.5);
+  line-height: 1.5;
+}
+
+.letterEntry {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 68rpx;
+  padding: 0 28rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+}
+
+.letterEntryText {
+  font-size: 24rpx;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.letterBadge {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  min-width: 34rpx;
+  height: 34rpx;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffd166;
+  border-radius: 999rpx;
+}
+
+.letterBadgeText {
+  font-size: 20rpx;
+  color: #0b1220;
+  font-weight: 600;
+}

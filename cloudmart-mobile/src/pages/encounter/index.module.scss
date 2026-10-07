@@ -1,0 +1,218 @@
+.container {
+  position: relative;
+  min-height: 100vh;
+  background: #0b1220;
+  padding-bottom: 60rpx;
+}
+
+.scroll {
+  height: calc(100vh - 120rpx);
+}
+
+.intro {
+  display: block;
+  margin: 24rpx;
+  padding: 24rpx;
+  font-size: 24rpx;
+  color: rgba(245, 245, 250, 0.65);
+  line-height: 1.7;
+  background: rgba(245, 245, 250, 0.05);
+  border-radius: 16rpx;
+}
+
+.emptyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding-top: 120rpx;
+}
+
+.emptyIcon {
+  font-size: 80rpx;
+}
+
+.emptyText {
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.6);
+  text-align: center;
+  padding: 24rpx 0;
+}
+
+.emptyHint {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.45);
+  text-align: center;
+  padding: 0 60rpx;
+  line-height: 1.6;
+}
+
+.letterCard {
+  margin: 0 24rpx 24rpx;
+  padding: 28rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border: 1px solid rgba(245, 245, 250, 0.12);
+  border-radius: 20rpx;
+}
+
+.letterHead {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.letterTag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: #0b1220;
+  background: #ffd166;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+
+.letterTags {
+  flex: 1;
+  font-size: 22rpx;
+  color: #4a90d9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.letterTime {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: rgba(245, 245, 250, 0.45);
+}
+
+.letterPending {
+  font-size: 24rpx;
+  color: rgba(245, 245, 250, 0.6);
+  line-height: 1.6;
+}
+
+.letterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.letterContent {
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.9);
+  line-height: 1.8;
+}
+
+.letterHint {
+  font-size: 20rpx;
+  color: rgba(245, 245, 250, 0.4);
+}
+
+.openBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+}
+
+.openBtnText {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.interactRow {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.interactBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 68rpx;
+  border: 1px solid rgba(245, 245, 250, 0.2);
+  border-radius: 999rpx;
+}
+
+.interactBtnDone {
+  opacity: 0.45;
+}
+
+.interactText {
+  font-size: 24rpx;
+  color: rgba(245, 245, 250, 0.85);
+}
+
+.modalMask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalBody {
+  width: 620rpx;
+  padding: 36rpx;
+  background: #121a30;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.modalTitle {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.95);
+}
+
+.modalTextarea {
+  width: 100%;
+  height: 160rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.9);
+  background: rgba(245, 245, 250, 0.06);
+  border-radius: 16rpx;
+}
+
+.modalBtns {
+  display: flex;
+  gap: 20rpx;
+}
+
+.modalCancel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  border: 1px solid rgba(245, 245, 250, 0.2);
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.7);
+}
+
+.modalOk {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 600;
+}
