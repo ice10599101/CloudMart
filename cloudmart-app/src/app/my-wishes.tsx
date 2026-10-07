@@ -2,7 +2,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshContr
 import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { wishApi } from '@/api/wish'
+import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { MyResourcesData } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -231,6 +231,11 @@ export default function MyWishesScreen() {
           <View style={{ alignItems: 'flex-end', gap: 2 }}>
             <Text style={{ fontSize: FontSize.xs, color: '#52c41a' }}>今日 +{resources.todayEarned}</Text>
             <Text style={{ fontSize: FontSize.xs, color: '#ff7875' }}>支出 -{resources.todaySpent}</Text>
+            {resources.balance >= STARLIGHT_NEAR_CAP_THRESHOLD && (
+              <Text style={{ fontSize: FontSize.xs, color: '#ff8f2b' }}>
+                {resources.balance >= STARLIGHT_BALANCE_CAP ? '已达上限（5000）' : '即将达上限（5000）'}
+              </Text>
+            )}
           </View>
         </View>
       )}

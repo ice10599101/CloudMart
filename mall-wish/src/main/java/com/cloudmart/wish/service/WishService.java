@@ -211,7 +211,8 @@ public interface WishService {
      */
     ProgressDetail getWishProgress(Long viewerId, Long wishId);
 
-    record CheckinResultVO(Long checkinId, int currentStreak, int maxStreak, int starlightCredited) {}
+    record CheckinResultVO(Long checkinId, int currentStreak, int maxStreak, int starlightCredited,
+                           boolean starlightCapped) {}
     record GrowthRecordVO(Long recordId, int newCurrentValue) {}
 
     /** 成长记录完整时间轴分页（GET /wish/wishes/{id}/growth-records） */

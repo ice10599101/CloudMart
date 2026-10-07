@@ -28,7 +28,15 @@ interface UploadItem {
 const PARTICLE_ANGLES = Array.from({ length: 12 }, (_, i) => i * 30)
 
 /** 绽放仪式动效：emoji 弹出 + 粒子炸裂 + 光晕扩散 */
-function BloomCeremony({ starlight, badges }: { starlight: number; badges: { id: number; name: string }[] }) {
+function BloomCeremony({
+  starlight,
+  badges,
+  capped,
+}: {
+  starlight: number
+  badges: { id: number; name: string }[]
+  capped?: boolean
+}) {
   const emojiScale = useRef(new Animated.Value(0)).current
   const emojiOpacity = useRef(new Animated.Value(0)).current
   const ringScale = useRef(new Animated.Value(0.4)).current
@@ -110,7 +118,9 @@ function BloomCeremony({ starlight, badges }: { starlight: number; badges: { id:
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm, marginTop: Spacing.lg }}>
           <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 14, backgroundColor: 'rgba(255,215,0,0.15)' }}>
-            <Text style={{ fontSize: FontSize.sm, color: WishColors.accentGold }}>✨ 星光 +{starlight}</Text>
+            <Text style={{ fontSize: FontSize.sm, color: WishColors.accentGold }}>
+              {capped ? `✨ 星光已达上限（5000），本次 +${starlight}` : `✨ 星光 +${starlight}`}
+            </Text>
           </View>
           {badges.map((badge) => (
             <View key={badge.id} style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 14, backgroundColor: 'rgba(147,112,219,0.2)' }}>
@@ -306,7 +316,11 @@ export default function WishFulfillmentScreen() {
   if (submitResult) {
     return (
       <View style={{ flex: 1, backgroundColor: WishColors.bgBase, paddingTop: insets.top }}>
-        <BloomCeremony starlight={submitResult.starlightReward} badges={submitResult.badgeAwarded} />
+        <BloomCeremony
+          starlight={submitResult.starlightReward}
+          badges={submitResult.badgeAwarded}
+          capped={submitResult.starlightCapped}
+        />
         <View
           style={{
             position: 'absolute',

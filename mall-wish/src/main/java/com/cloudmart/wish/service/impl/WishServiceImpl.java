@@ -919,7 +919,8 @@ public class WishServiceImpl implements WishService {
         int credited = userStatService.earnStarlight(userId, 2, ResourceLogSource.CHECKIN, wishId);
         userStatService.incrementOnWishCheckin(userId);
         log.info("打卡成功, wishId={}, userId={}, streak={}, starlight={}", wishId, userId, currentStreak, credited);
-        return new CheckinResultVO(checkin.getId(), currentStreak, maxStreak, credited);
+        // P1-14：上限截断显式告知前端（打卡 +2，入账不足即达 5000 上限）
+        return new CheckinResultVO(checkin.getId(), currentStreak, maxStreak, credited, credited < 2);
     }
 
     @Override

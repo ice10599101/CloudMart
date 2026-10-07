@@ -274,7 +274,11 @@ export default function WishFulfillmentPage() {
           <Text className={styles.ceremonyTitle}>心愿绽放</Text>
           <Text className={styles.ceremonyText}>你的果实已经成熟，故事将照亮还在路上的人</Text>
           <View className={styles.rewardRow}>
-            <Text className={styles.rewardStarlight}>✨ 星光 +{submitResult.starlightReward}</Text>
+            {submitResult.starlightCapped ? (
+              <Text className={styles.rewardStarlight}>✨ 星光已达上限（5000），本次 +{submitResult.starlightReward}</Text>
+            ) : (
+              <Text className={styles.rewardStarlight}>✨ 星光 +{submitResult.starlightReward}</Text>
+            )}
             {submitResult.badgeAwarded.map(badge => (
               <Text key={badge.id} className={styles.rewardBadge}>🏅 {badge.name}</Text>
             ))}

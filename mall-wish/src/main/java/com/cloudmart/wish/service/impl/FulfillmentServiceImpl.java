@@ -186,6 +186,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                         .map(b -> new WishFulfillmentSubmitVO.BadgeAwardedVO(b.getId(), b.getName()))
                         .toList(),
                 credited,
+                // P1-14：上限截断显式告知前端（credited < 应发即达 5000 上限）
+                credited < FULFILL_STARLIGHT_REWARD,
                 fulfillment.getCreatedAt()
         );
     }

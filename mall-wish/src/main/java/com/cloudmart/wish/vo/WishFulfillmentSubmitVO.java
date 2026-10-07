@@ -30,6 +30,7 @@ public record WishFulfillmentSubmitVO(
         @Schema(description = "果实类型") FruitType fruitType,
         @Schema(description = "本次新获得的徽章列表") List<BadgeAwardedVO> badgeAwarded,
         @Schema(description = "还愿奖励星光") int starlightReward,
+        @Schema(description = "P1-14：奖励因星光余额达上限（5000）被截断时为 true，前端据此提示用户") Boolean starlightCapped,
         @Schema(description = "提交时间") LocalDateTime createdAt
 ) {
 

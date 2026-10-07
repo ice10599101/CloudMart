@@ -152,6 +152,10 @@ export interface LevelUpEvent {
     newLevelTitle: string
 }
 
+/** P1-14：星光余额上限（对齐后端 UserStatServiceImpl.STARLIGHT_BALANCE_CAP）与接近阈值 */
+export const STARLIGHT_BALANCE_CAP = 5000
+export const STARLIGHT_NEAR_CAP_THRESHOLD = 4500
+
 /** 用户维度每日签到结果（与心愿打卡独立；+5 星光） */
 export interface DailySigninResult {
     signed: boolean

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { wishApi } from '@/api/wish'
+import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { DailySigninResult, LevelUpEvent, MyResourcesData, SigninMilestone } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
@@ -213,6 +213,11 @@ export default function DailySigninPage() {
               <Text className={styles.balanceIcon}>⭐</Text>
               <StarCountUp value={resources.balance} delta={rewardDelta} className={styles.balanceValue} />
             </View>
+            {(resources.balance >= STARLIGHT_NEAR_CAP_THRESHOLD) && (
+              <Text className={styles.nearCapHint}>
+                {resources.balance >= STARLIGHT_BALANCE_CAP ? '星光已达上限（5000），奖励将无法入账' : '星光即将达上限（5000），记得去花一花'}
+              </Text>
+            )}
             <View className={styles.balanceToday}>
               <Text className={styles.balanceEarn}>今日 +{resources.todayEarned}</Text>
               <Text className={styles.balanceSpend}>支出 -{resources.todaySpent}</Text>

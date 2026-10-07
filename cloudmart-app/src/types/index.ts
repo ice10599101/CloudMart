@@ -753,6 +753,8 @@ export interface WishFulfillmentSubmitResult {
   fruitType: FruitType
   badgeAwarded: { id: number; name: string }[]
   starlightReward: number
+  /** P1-14：奖励因星光余额达上限（5000）被截断 */
+  starlightCapped?: boolean
   createdAt: string
 }
 
@@ -762,6 +764,8 @@ export interface CheckinResult {
   currentStreak: number
   maxStreak: number
   starlightCredited: number
+  /** P1-14：奖励因星光余额达上限（5000）被截断 */
+  starlightCapped?: boolean
 }
 
 export interface WishFulfillmentDetail {

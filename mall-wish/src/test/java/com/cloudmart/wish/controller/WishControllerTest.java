@@ -228,7 +228,7 @@ class WishControllerTest {
                 3001L, 1L,
                 com.cloudmart.wish.enums.WishStatus.FULFILLED,
                 com.cloudmart.wish.enums.FruitType.BLOOM,
-                List.of(), 50, LocalDateTime.now()
+                List.of(), 50, false, LocalDateTime.now()
         );
         given(fulfillmentService.submitFulfillment(eq(1L), eq(1L), any(SubmitFulfillmentRequest.class), isNull()))
                 .willReturn(vo);

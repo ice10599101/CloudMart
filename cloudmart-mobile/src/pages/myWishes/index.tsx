@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { wishApi } from '@/api/wish'
+import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { MyResourcesData } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
@@ -198,6 +198,11 @@ export default function MyWishesPage() {
             <StarCountUp value={resources.balance} className={styles.starlightValue} />
             <Text className={styles.starlightLabel}>星光余额</Text>
           </View>
+          {(resources.balance >= STARLIGHT_NEAR_CAP_THRESHOLD) && (
+            <Text className={styles.nearCapHint}>
+              {resources.balance >= STARLIGHT_BALANCE_CAP ? '星光已达上限（5000）' : '即将达上限（5000）'}
+            </Text>
+          )}
           <View className={styles.starlightToday}>
             <Text className={styles.starlightEarn}>今日 +{resources.todayEarned}</Text>
             <Text className={styles.starlightSpend}>支出 -{resources.todaySpent}</Text>

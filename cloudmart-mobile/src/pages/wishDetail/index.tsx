@@ -411,8 +411,15 @@ export default function WishDetailPage() {
     try {
       const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
       if (res.data.success) {
-        const { currentStreak, starlightCredited } = res.data.data
-        Taro.showToast({ title: `连续 ${currentStreak} 天，星光 +${starlightCredited}`, icon: 'none' })
+        const { currentStreak, starlightCredited, starlightCapped } = res.data.data
+        // P1-14：达 5000 上限被截断时显式告知，避免"白打卡"无感知
+        Taro.showToast({
+          title: starlightCapped
+            ? `连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
+            : `连续 ${currentStreak} 天，星光 +${starlightCredited}`,
+          icon: 'none',
+          duration: 2500,
+        })
         setCheckinOpen(false)
         setCheckinContent('')
         setCheckedInToday(true)

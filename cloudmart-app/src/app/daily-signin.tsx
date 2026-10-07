@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshCon
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { wishApi } from '@/api/wish'
+import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { DailySigninResult, LevelUpEvent, MyResourcesData, SigninMilestone } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -293,6 +293,11 @@ export default function DailySigninScreen() {
               <Text style={{ fontSize: FontSize.xs, color: '#52c41a' }}>今日 +{resources.todayEarned}</Text>
               <Text style={{ fontSize: FontSize.xs, color: '#ff7875' }}>支出 -{resources.todaySpent}</Text>
             </View>
+            {resources.balance >= STARLIGHT_NEAR_CAP_THRESHOLD && (
+              <Text style={{ fontSize: FontSize.xs, color: '#ff8f2b', marginTop: Spacing.xs }}>
+                {resources.balance >= STARLIGHT_BALANCE_CAP ? '星光已达上限（5000），奖励将无法入账' : '星光即将达上限（5000），记得去花一花'}
+              </Text>
+            )}
           </View>
         )}
 

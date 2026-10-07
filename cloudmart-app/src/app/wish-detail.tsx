@@ -132,8 +132,13 @@ export default function WishDetailScreen() {
       }
       const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
       if (res.data?.success) {
-        const { currentStreak, starlightCredited } = res.data.data
-        Alert.alert('打卡成功 🌟', `已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`)
+        const { currentStreak, starlightCredited, starlightCapped } = res.data.data
+        Alert.alert(
+          '打卡成功 🌟',
+          starlightCapped
+            ? `已连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
+            : `已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`,
+        )
         setCheckinOpen(false)
         setCheckinContent('')
         setCheckedInToday(true)
