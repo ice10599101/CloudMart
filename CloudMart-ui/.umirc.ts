@@ -91,6 +91,10 @@ export default defineConfig({
         { path: '/wish/leaderboard', component: '@/pages/Leaderboard' },
         { path: '/wish/map', component: '@/pages/WishMap' },
         { path: '/wish/drift-bottle', component: '@/pages/DriftBottle' },
+        // P1-18：社区成长体系（签到/成长中心/经验排行榜；宠物多页由 /pet PetCream 面板体系承载）
+        { path: '/community/checkin', component: '@/pages/GrowthCheckIn' },
+        { path: '/community/growth', component: '@/pages/GrowthCenter' },
+        { path: '/community/rankings', component: '@/pages/CommunityRankings' },
         // 宠物家园（法式奶油风版；面板从旧版 PetHome 逐个迁入，迁完删除 PetHome.tsx）
         { path: '/pet', component: '@/pages/PetCream' },
         { path: '/pet/wallet', component: '@/pages/PetWallet' },

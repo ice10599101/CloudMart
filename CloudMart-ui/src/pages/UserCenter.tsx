@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Empty, Spin, Pagination } from 'antd'
-import { StarOutlined, TrophyOutlined, BookOutlined, GiftOutlined } from '@ant-design/icons'
+import { StarOutlined, TrophyOutlined, BookOutlined, GiftOutlined, FireOutlined, RiseOutlined, LineChartOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -383,6 +383,16 @@ function ProfileTab() {
           </Button>
           <Button size="small" icon={<BookOutlined />} onClick={() => history.push('/wish/collections')}>
             心愿收藏
+          </Button>
+          {/* P1-18：社区成长体系入口（签到/成长中心/经验排行榜） */}
+          <Button size="small" icon={<FireOutlined />} onClick={() => history.push('/community/checkin')}>
+            社区签到
+          </Button>
+          <Button size="small" icon={<RiseOutlined />} onClick={() => history.push('/community/growth')}>
+            成长中心
+          </Button>
+          <Button size="small" icon={<LineChartOutlined />} onClick={() => history.push('/community/rankings')}>
+            经验排行榜
           </Button>
         </div>
       </div>

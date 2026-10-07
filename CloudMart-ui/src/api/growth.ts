@@ -94,3 +94,46 @@ export function getUserDecorations(ids: Array<number | string>) {
 export function setAvatarFrame(frame: string) {
   return request.put<ApiResponse<void>>('/community/growth/avatar-frame', null, { params: { frame } })
 }
+
+// ========== P1-18 社区排行榜（契约对齐 mall-community RankingController /growth/ranking） ==========
+
+export interface RankingItem {
+  userId: number
+  expValue: number
+  rankNo: number
+}
+
+export interface MyRanking {
+  userId: number
+  expValue: number
+  rankNo: number
+}
+
+export interface RankingSeason {
+  id: number
+  name: string
+  seasonKey: string
+  startDate: string
+  endDate: string
+  status: number
+}
+
+/** 当月经验榜 Top N */
+export function getMonthlyRanking(size = 50) {
+  return request.get<ApiResponse<RankingItem[]>>('/community/growth/ranking', { params: { size } })
+}
+
+/** 我的当月排名 */
+export function getMyRanking() {
+  return request.get<ApiResponse<MyRanking>>('/community/growth/ranking/me')
+}
+
+/** 历史赛季列表（分页） */
+export function getRankingSeasons(page = 1, size = 20) {
+  return request.get<ApiResponse<RankingSeason[]>>('/community/growth/ranking/seasons', { params: { page, size } })
+}
+
+/** 赛季榜单详情（分页） */
+export function getSeasonRanking(seasonId: number | string, page = 1, size = 50) {
+  return request.get<ApiResponse<RankingItem[]>>(`/community/growth/ranking/seasons/${seasonId}`, { params: { page, size } })
+}
