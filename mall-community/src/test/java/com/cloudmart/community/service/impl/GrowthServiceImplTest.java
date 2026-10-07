@@ -311,6 +311,50 @@ class GrowthServiceImplTest {
             verify(expLogMapper).insert(any(ExpLog.class));
             verify(rankingService).addExpToRanking(USER_ID, 10);
         }
+
+        /** P1-7：构造当日已发放经验流水（合计 totalExp） */
+        private List<ExpLog> buildTodayLogs(int totalExp) {
+            ExpLog log = new ExpLog();
+            log.setUserId(USER_ID);
+            log.setExpChange(totalExp);
+            log.setSource("COMMENT");
+            log.setBizId(999L);
+            log.setDescription("当日已有");
+            return List.of(log);
+        }
+
+        @Test
+        @DisplayName("P1-7: 当日经验已达上限时不再发放（不落流水不加经验）")
+        void addExp_dailyCapExceeded_skipsAward() {
+            // 当日已发 200（=上限），新的评论奖励应被跳过
+            when(expLogMapper.selectList(any())).thenReturn(buildTodayLogs(200));
+
+            growthService.addExp(USER_ID, 10, "COMMENT", 201L, "发表评论");
+
+            verify(expLogMapper, never()).insert(any(ExpLog.class));
+            verify(userLevelMapper, never()).incrementExp(anyLong(), anyInt());
+            verify(rankingService, never()).addExpToRanking(anyLong(), anyInt());
+        }
+
+        @Test
+        @DisplayName("P1-7: 当日经验未达上限时正常发放")
+        void addExp_belowDailyCap_awards() {
+            when(userLevelMapper.selectOne(any())).thenReturn(buildUserLevel(),
+                    buildUserLevelWith(55));
+            when(userLevelMapper.incrementExp(eq(USER_ID), eq(5))).thenReturn(1);
+            when(levelConfigMapper.selectList(any())).thenReturn(List.of(
+                    buildLevelConfig(2, 30, "Rookie"),
+                    buildLevelConfig(1, 0, "Novice")
+            ));
+            // 当日已发 195（< 上限 200），5 点奖励仍可发放
+            when(expLogMapper.selectList(any())).thenReturn(buildTodayLogs(195));
+
+            growthService.addExp(USER_ID, 5, "LIKE_RECEIVED", 300L, "收到点赞");
+
+            verify(expLogMapper).insert(any(ExpLog.class));
+            verify(userLevelMapper).incrementExp(eq(USER_ID), eq(5));
+            verify(rankingService).addExpToRanking(USER_ID, 5);
+        }
     }
 
     @Nested

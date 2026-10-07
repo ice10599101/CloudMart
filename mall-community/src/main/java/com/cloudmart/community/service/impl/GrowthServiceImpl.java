@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,13 @@ public class GrowthServiceImpl implements GrowthService {
     private static final int BASE_CHECK_IN_EXP = 10;
     private static final int CONTINUOUS_BONUS_PER_DAY = 5;
     private static final int MAX_CONTINUOUS_BONUS = 50;
+
+    /**
+     * P1-7：互动经验日累计上限——发帖/评论/被赞/获粉等全部计入，超限只记日志不再发放。
+     * 防小号互刷评论/点赞刷等级与排行榜；签到奖励本身每日一次，同受此口径约束。
+     * 日界与签到一致取服务器本地日（P1-15 时区统一时一并对齐用户时区）。
+     */
+    private static final int DAILY_EXP_CAP = 200;
 
     private final UserLevelMapper userLevelMapper;
     private final LevelConfigMapper levelConfigMapper;
@@ -210,6 +218,13 @@ public class GrowthServiceImpl implements GrowthService {
     @Override
     @Transactional
     public void addExp(Long userId, int exp, String source, Long bizId, String description) {
+        // P1-7：日累计上限——超限只记日志不发经验；并发窗口内可能轻微超出上限（非资金类不变量，可接受）
+        if (exp > 0 && isDailyExpCapped(userId)) {
+            log.info("P1-7 用户当日经验已达上限 {}，跳过发放: userId={}, source={}, bizId={}",
+                    DAILY_EXP_CAP, userId, source, bizId);
+            return;
+        }
+
         // C05：奖励事实先行——uk(user_id, source, biz_id) 判重（并发/重试不双发奖）
         ExpLog expLog = new ExpLog();
         expLog.setUserId(userId);
@@ -241,6 +256,18 @@ public class GrowthServiceImpl implements GrowthService {
         } catch (Exception e) {
             log.warn("更新排行榜失败，不影响主流程: userId={}, exp={}", userId, exp, e);
         }
+    }
+
+    /** P1-7：统计当日已发放经验（ExpLog 按 user_id + createdAt 过滤），达到上限即不再发放 */
+    private boolean isDailyExpCapped(Long userId) {
+        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
+        int todayExp = expLogMapper.selectList(new LambdaQueryWrapper<ExpLog>()
+                        .eq(ExpLog::getUserId, userId)
+                        .ge(ExpLog::getCreatedAt, dayStart))
+                .stream()
+                .mapToInt(l -> l.getExpChange() == null ? 0 : l.getExpChange())
+                .sum();
+        return todayExp >= DAILY_EXP_CAP;
     }
 
     @Override
