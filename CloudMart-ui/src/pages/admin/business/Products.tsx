@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
 import {
   ProTable,
   ModalForm,
@@ -10,7 +10,7 @@ import {
   ProFormItem,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Switch, Image, Popconfirm } from 'antd'
+import { Button, Collapse, Descriptions, Image, Popconfirm, Switch, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getProducts,
@@ -18,6 +18,9 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
+  getEsIndexStatus,
+  rebuildEsIndex,
+  type EsIndexStatus,
 } from '@/api/admin/business'
 import type { ApiResponse } from '@/types/api'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -49,6 +52,64 @@ interface CategoryTreeNode {
   name: string
   parentId: number
   children?: CategoryTreeNode[]
+}
+
+/** P2-22：ES 索引运维面板（状态只读 + 全量重建按钮；重建期间搜索短暂降级） */
+function EsOpsPanel() {
+  const message = useMessage()
+  const { confirmSubmit } = useModalConfirm()
+  const [status, setStatus] = useState<EsIndexStatus | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [rebuilding, setRebuilding] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: res } = await getEsIndexStatus()
+      if (res?.success) setStatus(res.data)
+    } catch {
+      message.error('索引状态加载失败（ES 或搜索服务不可用）')
+    } finally {
+      setLoading(false)
+    }
+  }, [message])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const handleRebuild = () =>
+    confirmSubmit(async () => {
+      setRebuilding(true)
+      try {
+        await rebuildEsIndex()
+        message.success('全量重建已触发，完成后索引自动切换')
+        load()
+      } finally {
+        setRebuilding(false)
+      }
+    })
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button size="small" onClick={load} loading={loading}>刷新状态</Button>
+        <Button size="small" danger type="primary" onClick={handleRebuild} loading={rebuilding}>
+          全量重建索引
+        </Button>
+      </div>
+      {status ? (
+        <Descriptions size="small" column={2} bordered>
+          <Descriptions.Item label="写别名">{status.aliasExists ? <Tag color="green">存在</Tag> : <Tag color="red">缺失</Tag>}</Descriptions.Item>
+          <Descriptions.Item label="当前写索引">{status.writeIndex ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="别名指向">{status.aliasTargets?.join(', ') || '—'}</Descriptions.Item>
+          <Descriptions.Item label="旧物理索引残留">{status.legacyPhysicalIndexExists ? '是' : '否'}</Descriptions.Item>
+        </Descriptions>
+      ) : (
+        <span style={{ color: 'var(--color-text-tertiary)' }}>{loading ? '加载中...' : '暂无状态数据'}</span>
+      )}
+    </div>
+  )
 }
 
 export default function Products() {
@@ -207,6 +268,16 @@ export default function Products() {
 
   return (
     <>
+      {/* P2-22：ES 索引运维折叠面板（仅运维使用；重建为全量重建，慎用） */}
+      <Collapse
+        ghost
+        items={[{
+          key: 'es-ops',
+          label: '搜索索引运维（ES）',
+          children: <EsOpsPanel />,
+        }]}
+        style={{ marginBottom: 8 }}
+      />
       <ProTable<ProductRecord>
         headerTitle="商品管理"
         actionRef={actionRef}

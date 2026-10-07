@@ -1,3 +1,4 @@
+import type { ApiResponse } from '@/types/api'
 import request from '@/utils/request'
 
 export function getProducts(params?: Record<string, any>) {
@@ -498,4 +499,30 @@ export function uploadFile(data: FormData) {
 
 export function deleteFile(url: string) {
   return request.delete('/file/delete', { params: { url } })
+}
+
+// ========== P2-22：ES 索引运维（契约对齐 mall-admin /admin/business/products/es/index/*） ==========
+
+export interface EsIndexStatus {
+  /** 写别名是否存在 */
+  aliasExists: boolean
+  legacyPhysicalIndexExists: boolean
+  /** 当前写物理索引名 */
+  writeIndex: string | null
+  /** 别名指向的物理索引列表 */
+  aliasTargets: string[]
+  mapping: Record<string, unknown> | null
+  settings: Record<string, unknown> | null
+}
+
+export function getEsIndexStatus() {
+  return request.get<ApiResponse<EsIndexStatus>>('/admin/business/products/es/index/status')
+}
+
+export function getEsIndexVersions() {
+  return request.get<ApiResponse<string[]>>('/admin/business/products/es/index/versions')
+}
+
+export function rebuildEsIndex() {
+  return request.post<ApiResponse<void>>('/admin/business/products/es/index/full-rebuild')
 }
