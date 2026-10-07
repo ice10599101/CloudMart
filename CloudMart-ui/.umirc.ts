@@ -179,6 +179,8 @@ export default defineConfig({
         { path: '/admin/community/notifications', component: '@/pages/admin/community/Notifications' },
         { path: '/admin/community/review', component: '@/pages/admin/community/Review' },
         { path: '/admin/community/chat', component: '@/pages/admin/community/Chat' },
+        // T23/P0-4：排行榜赛季（当期榜单+赛季归档启停，community:ranking:read/manage）
+        { path: '/admin/community/rankings', component: '@/pages/admin/community/Rankings' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

@@ -164,7 +164,7 @@ export function getCurrentRankings() {
 }
 
 /** T23：赛季列表 */
-export function listRankingSeasons(params?: { page?: number; pageSize?: number }) {
+export function listRankingSeasons(params?: { page?: number; pageSize?: number; status?: number }) {
   return request.get('/admin/community/rankings/seasons', { params })
 }
 
