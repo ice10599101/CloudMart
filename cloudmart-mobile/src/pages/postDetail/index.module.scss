@@ -326,3 +326,56 @@
   color: $color-text-tertiary;
   padding: $spacing-xs 0;
 }
+
+// ==================== 好物分享帖关联商品卡 ====================
+.linkedProductCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 16rpx 0;
+  padding: 16rpx;
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: 16rpx;
+}
+
+.linkedProductImage {
+  flex-shrink: 0;
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 12rpx;
+  background: var(--color-bg-container);
+}
+
+.linkedProductInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.linkedProductTag {
+  font-size: 20rpx;
+  color: var(--color-primary);
+}
+
+.linkedProductName {
+  font-size: 26rpx;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkedProductPrice {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-danger, #ff4d4f);
+}
+
+.linkedProductArrow {
+  flex-shrink: 0;
+  font-size: 36rpx;
+  color: var(--color-text-tertiary);
+}

@@ -55,6 +55,8 @@ export interface Post {
   userId: number
   title: string
   content: string
+  /** 好物分享：关联商品 ID（社区→电商转化主路径，详情页挂商品卡片） */
+  productId?: number | null
   images: string[]
   tags?: Tag[]
   likeCount: number

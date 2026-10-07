@@ -11,6 +11,7 @@ import PollCard from '@/components/PollCard'
 import SurveyCard from '@/components/SurveyCard'
 import { extractPollAttachments, extractSurveyAttachments, stripAttachmentNodes } from '@/utils/postAttachments'
 import { communityApi } from '@/api/community'
+import { productApi } from '@/api/product'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
@@ -19,6 +20,7 @@ interface PostData {
   id: number
   title: string
   content: string
+  productId?: number | null
   images?: string[]
   coverImage?: string
   tags?: { id: number; name: string }[]
@@ -54,7 +56,21 @@ export default function PostDetailScreen() {
   const postId = Number(id)
 
   const [post, setPost] = useState<PostData | null>(null)
+  // 好物分享帖：关联商品卡片（社区→电商转化）
+  const [linkedProduct, setLinkedProduct] = useState<{ id: number; name: string; price: number; mainImage: string } | null>(null)
   // P0-6：正文附件（投票/问卷）——渲染时剥离原节点，改用交互卡
+
+  // 好物分享帖：拉取关联商品（失败静默不卡片）
+  useEffect(() => {
+    if (!post?.productId) return
+    productApi.getDetail(post.productId)
+      .then((res) => {
+        const p = (res.data as unknown as { data?: { id: number; name: string; price: number; mainImage?: string } })?.data
+        if (p) setLinkedProduct({ id: p.id, name: p.name, price: p.price, mainImage: p.mainImage ?? '' })
+      })
+      .catch(() => undefined)
+  }, [post?.productId])
+
   const pollNodes = post?.content ? extractPollAttachments(post.content) : []
   const surveyNodes = post?.content ? extractSurveyAttachments(post.content) : []
   const displayContent = post?.content ? stripAttachmentNodes(post.content) : post?.content
@@ -384,6 +400,25 @@ export default function PostDetailScreen() {
           {post.images?.map((img, i) => (
             <Image key={i} source={{ uri: img }} style={{ width: '100%', height: 200, borderRadius: BorderRadius.md, marginBottom: Spacing.sm, resizeMode: 'cover' }} />
           ))}
+
+          {/* 好物分享帖：关联商品卡片（点击进商详） */}
+          {linkedProduct && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push(`/product/${linkedProduct.id}`)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: theme.bgInput, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md }}
+            >
+              {linkedProduct.mainImage ? (
+                <Image source={{ uri: linkedProduct.mainImage }} style={{ width: 56, height: 56, borderRadius: BorderRadius.sm }} resizeMode="cover" />
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>🛍️ 好物分享</Text>
+                <Text numberOfLines={1} style={{ fontSize: FontSize.sm, color: theme.text, marginTop: 2 }}>{linkedProduct.name}</Text>
+                <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.accentRed, marginTop: 2 }}>¥{linkedProduct.price}</Text>
+              </View>
+              <Text style={{ fontSize: FontSize.xl, color: theme.textTertiary }}>›</Text>
+            </TouchableOpacity>
+          )}
 
           {post.tags && post.tags.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md, marginBottom: Spacing.lg }}>

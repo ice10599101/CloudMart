@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea, Button } from '@tarojs/components'
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { productApi } from '@/api/product'
 import { useAuthStore } from '@/store/auth'
 import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
@@ -31,6 +32,8 @@ export default function PostDetailPage() {
   const pollNodes = post?.content ? extractPollAttachments(post.content) : []
   const surveyNodes = post?.content ? extractSurveyAttachments(post.content) : []
   const displayContent = post?.content ? stripAttachmentNodes(post.content) : post?.content
+  // 好物分享帖：关联商品卡片（社区→电商转化）
+  const [linkedProduct, setLinkedProduct] = useState<{ id: number; name: string; price: number; mainImage: string } | null>(null)
   const { dataTheme, themeStyle } = useThemeClass()
   const { user } = useAuthStore()
 
@@ -57,6 +60,15 @@ export default function PostDetailPage() {
           })
           .catch(() => {})
         loadRelatedPosts(detail)
+      }
+      // 好物分享帖：拉取关联商品（失败静默不卡片）
+      if (detail?.productId) {
+        productApi.getDetail(detail.productId)
+          .then((res) => {
+            const p = res.data?.data
+            if (p) setLinkedProduct({ id: p.id, name: p.name, price: p.price, mainImage: p.mainImage ?? '' })
+          })
+          .catch(() => undefined)
       }
       // 关注状态回显（后端 PostVO.user.isFollowed）
       if (detail?.user && (detail.user as { isFollowed?: boolean }).isFollowed != null) {
@@ -345,6 +357,18 @@ export default function PostDetailPage() {
           {post.images && post.images.map((img, i) => (
             <Image key={i} className={styles.postImage} src={img} mode='widthFix' />
           ))}
+          {/* 好物分享帖：关联商品卡片（点击进商详） */}
+          {linkedProduct && (
+            <View className={styles.linkedProductCard} onClick={() => Taro.navigateTo({ url: `/pages/productDetail/index?id=${linkedProduct.id}` })}>
+              {linkedProduct.mainImage && <Image className={styles.linkedProductImage} src={linkedProduct.mainImage} mode='aspectFill' />}
+              <View className={styles.linkedProductInfo}>
+                <Text className={styles.linkedProductTag}>🛍️ 好物分享</Text>
+                <Text className={styles.linkedProductName}>{linkedProduct.name}</Text>
+                <Text className={styles.linkedProductPrice}>¥{linkedProduct.price}</Text>
+              </View>
+              <Text className={styles.linkedProductArrow}>›</Text>
+            </View>
+          )}
           {post.tags && post.tags.length > 0 && (
             <View className={styles.tags}>
               {post.tags.map((tag) => (
