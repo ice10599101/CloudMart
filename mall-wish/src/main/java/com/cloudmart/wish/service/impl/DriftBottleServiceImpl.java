@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -85,9 +86,28 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     private record UserInfo(Long id, String nickname, String avatar) {
     }
 
+    /**
+     * P1-15：配额日界统一用户时区（与心愿打卡 getUserTimezone 同源）。
+     * 每日配额按"用户本地自然日"计数，用户的本地 0 点换算为 UTC 时间点后
+     * 与 thrown_at/picked_at（UTC 存储）比较；时区非法时回退 UTC（fail-open 到原口径）。
+     */
+    private ZoneId userZone(Long userId) {
+        try {
+            return ZoneId.of(userStatService.getUserTimezone(userId));
+        } catch (Exception e) {
+            return ZoneOffset.UTC;
+        }
+    }
+
+    /** 用户本地今日 0 点（换算为 UTC 存储口径的时间点） */
+    private LocalDateTime userDayStartUtc(Long userId) {
+        return LocalDate.now(userZone(userId)).atStartOfDay(userZone(userId))
+                .toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
+    }
+
     @Override
     public DriftBottleQuotaVO getQuota(Long userId) {
-        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        LocalDateTime todayStart = userDayStartUtc(userId);
         long throwUsed = countThrowsSince(userId, todayStart);
         long fishUsed = countFishSince(userId, todayStart);
         return new DriftBottleQuotaVO(throwUsed, DAILY_THROW_LIMIT, fishUsed, DAILY_FISH_LIMIT);
@@ -104,7 +124,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         if (hasText && hasWish) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "自由文字与关联心愿只能二选一");
         }
-        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        LocalDateTime todayStart = userDayStartUtc(userId);
         if (countThrowsSince(userId, todayStart) >= DAILY_THROW_LIMIT) {
             throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED,
                     "今日投瓶已达上限（" + DAILY_THROW_LIMIT + " 个/天），明天再来吧");
@@ -207,7 +227,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     @Override
     @Transactional
     public DriftBottleVO fishBottle(Long userId) {
-        LocalDateTime todayStart = LocalDate.now(ZoneId.of("UTC")).atStartOfDay();
+        LocalDateTime todayStart = userDayStartUtc(userId);
         if (countFishSince(userId, todayStart) >= DAILY_FISH_LIMIT) {
             throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED,
                     "今日打捞已达上限（" + DAILY_FISH_LIMIT + " 次/天），明天再来吧");
@@ -373,7 +393,7 @@ public class DriftBottleServiceImpl implements DriftBottleService {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "回应类型非法");
         }
 
-        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+        LocalDate today = LocalDate.now(userZone(userId));
         DriftBottleInteraction interaction = new DriftBottleInteraction();
         interaction.setBottleId(bottleId);
         interaction.setUserId(userId);
