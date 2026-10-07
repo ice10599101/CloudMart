@@ -61,6 +61,24 @@ public class ContentReviewServiceImpl implements ContentReviewService {
         return new ReviewResult(true, false, filtered, null);
     }
 
+    /**
+     * P1-8 短期方案：文本三档照旧；带图/视频一律转人工
+     * （reviewStatus=0 进入管理端内容审核队列，通过后可见）。
+     * 运营可按 ReviewReason 识别"媒体人工审核"类目。
+     */
+    @Override
+    public ReviewResult reviewContentWithMedia(String content, int mediaCount) {
+        ReviewResult textResult = reviewContent(content);
+        if (!textResult.approved()) {
+            return textResult;
+        }
+        if (mediaCount > 0) {
+            return new ReviewResult(true, true, textResult.filteredContent(),
+                    "含图片/视频内容，待人工审核后展示");
+        }
+        return textResult;
+    }
+
     @Override
     public List<SensitiveWord> listSensitiveWords(String category, int page, int size) {
         LambdaQueryWrapper<SensitiveWord> wrapper = new LambdaQueryWrapper<>();

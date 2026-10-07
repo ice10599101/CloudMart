@@ -125,12 +125,16 @@ public class PostServiceImpl implements PostService {
             post.setContent(request.content());
             post.setReviewStatus(0);
         } else {
-            ContentReviewService.ReviewResult reviewResult = contentReviewService.reviewContent(request.content());
+            // P1-8：带图/视频发布强制人工审核（短期方案；reviewContentWithMedia 内文本三档照旧）
+            int mediaCount = request.mediaUrls() == null ? 0 : request.mediaUrls().size();
+            ContentReviewService.ReviewResult reviewResult =
+                    contentReviewService.reviewContentWithMedia(request.content(), mediaCount);
             if (!reviewResult.approved()) {
                 throw new BusinessException("CONTENT_REJECTED", reviewResult.reason());
             }
             post.setContent(reviewResult.filteredContent());
             post.setReviewStatus(reviewResult.needsManualReview() ? 0 : 1);
+            post.setReviewReason(reviewResult.reason());
         }
 
         postMapper.insert(post);
@@ -180,13 +184,19 @@ public class PostServiceImpl implements PostService {
             if (post.getStatus() == 0 && (request.status() == null || request.status() == 0)) {
                 post.setContent(request.content());
             } else {
-                ContentReviewService.ReviewResult reviewResult = contentReviewService.reviewContent(request.content());
+                // P1-8：编辑重审同样覆盖媒体（图片数以更新后的 mediaUrls 为准）
+                java.util.List<String> nextMedia = request.mediaUrls() != null
+                        ? request.mediaUrls()
+                        : deserializeJson(post.getMediaUrls());
+                int mediaCount = nextMedia == null ? 0 : nextMedia.size();
+                ContentReviewService.ReviewResult reviewResult =
+                        contentReviewService.reviewContentWithMedia(request.content(), mediaCount);
                 if (!reviewResult.approved()) {
                     throw new BusinessException("CONTENT_REJECTED", reviewResult.reason());
                 }
                 post.setContent(reviewResult.filteredContent());
                 post.setReviewStatus(reviewResult.needsManualReview() ? 0 : 1);
-                post.setReviewReason(null);
+                post.setReviewReason(reviewResult.reason());
             }
         }
         if (request.status() != null) {

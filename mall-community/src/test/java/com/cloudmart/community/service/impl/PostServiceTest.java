@@ -38,6 +38,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -152,7 +153,7 @@ class PostServiceTest {
             ContentReviewService.ReviewResult reviewResult = new ContentReviewService.ReviewResult(
                     true, false, "Test content", null
             );
-            when(contentReviewService.reviewContent("Test content")).thenReturn(reviewResult);
+            when(contentReviewService.reviewContentWithMedia(eq("Test content"), anyInt())).thenReturn(reviewResult);
             when(postMapper.insert(any(Post.class))).thenAnswer(invocation -> {
                 Post post = invocation.getArgument(0);
                 post.setId(POST_ID);
@@ -165,7 +166,7 @@ class PostServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.title()).isEqualTo("Test Title");
             assertThat(result.status()).isEqualTo(1);
-            verify(contentReviewService).reviewContent("Test content");
+            verify(contentReviewService).reviewContentWithMedia(eq("Test content"), anyInt());
             verify(growthService).addExp(USER_ID, 20, "POST", POST_ID, "发布帖子《Test Title》");
             verify(communityCacheService).evictFeedPosts();
         }
@@ -189,6 +190,7 @@ class PostServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(result.status()).isEqualTo(0);
+            verify(contentReviewService, never()).reviewContentWithMedia(any(), anyInt());
             verify(contentReviewService, never()).reviewContent(any());
             verify(growthService, never()).addExp(anyLong(), any(Integer.class), any(), anyLong(), any());
         }
