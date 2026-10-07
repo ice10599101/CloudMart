@@ -59,6 +59,7 @@ public class PetCompanionFeatureService {
     private final com.cloudmart.pet.feign.FileFeignClient fileFeignClient;
     /** PET-13/T32：相册跨服务绑定的 prepare/confirm 短事务（远端调用不进事务） */
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
 
     public PetCompanionFeatureService(PetMapper petMapper,
                                       PetOnboardingProgressMapper onboardingMapper,
@@ -70,7 +71,8 @@ public class PetCompanionFeatureService {
                                       com.cloudmart.pet.repository.PetNotifyPrefMapper notifyPrefMapper,
                                       com.cloudmart.pet.service.PetUserGuardService guardService,
                                       com.cloudmart.pet.feign.FileFeignClient fileFeignClient,
-                                      org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
+                                      org.springframework.transaction.support.TransactionTemplate transactionTemplate,
+                                      com.cloudmart.pet.config.PetMetrics metrics) {
         this.petMapper = petMapper;
         this.onboardingMapper = onboardingMapper;
         this.diaryMapper = diaryMapper;
@@ -82,6 +84,7 @@ public class PetCompanionFeatureService {
         this.guardService = guardService;
         this.fileFeignClient = fileFeignClient;
         this.transactionTemplate = transactionTemplate;
+        this.metrics = metrics;
     }
 
     /** B19：查询/更新宠物通知偏好（免打扰 + 日常问候开关）；重要业务通知不受偏好影响 */
@@ -434,6 +437,8 @@ public class PetCompanionFeatureService {
     private void markBindFailed(PetAlbumAsset asset, Exception cause) {
         int attempts = (asset.getBindAttempts() != null ? asset.getBindAttempts() : 1) + 1;
         boolean exhausted = attempts > BIND_MAX_ATTEMPTS;
+        // PET-25：绑定失败可观测（outcome=retry/dead 区分退避重试与人工处置死信）
+        metrics.increment("pet_album_bind_fail_total", "outcome", exhausted ? "dead" : "retry");
         String error = cause.getMessage() == null ? "unknown" : cause.getMessage();
         albumMapper.update(null, new LambdaUpdateWrapper<PetAlbumAsset>()
                 .set(PetAlbumAsset::getBindStatus, exhausted ? "FAILED" : "BINDING")

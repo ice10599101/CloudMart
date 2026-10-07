@@ -142,7 +142,8 @@ class PetDailyQuestServiceImplTest {
                         return java.util.stream.Stream.of(questService);
                     }
                 },
-                setMapper);
+                setMapper,
+                org.mockito.Mockito.mock(com.cloudmart.pet.config.PetMetrics.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         // PET-09：按集领取解析集绑定宠物；进度投影按当日任务行（codesOfType 走行快照）
         lenient().when(petMapperMock.selectById(org.mockito.ArgumentMatchers.eq(1L))).thenReturn(pet());

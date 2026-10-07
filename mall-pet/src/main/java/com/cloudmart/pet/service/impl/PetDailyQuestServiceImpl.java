@@ -59,6 +59,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     static final String CHEST_CODE = "DAILY_CHEST";
     /** PET-10：事实投影自动重试上限（超过后仅管理重放处置） */
     private static final int RECEIPT_MAX_ATTEMPTS = 5;
+    /** PET-25：可观测性（投影延迟/失败计数） */
+    private final com.cloudmart.pet.config.PetMetrics metrics;
 
     private final PetService petService;
     private final PetStateService stateService;
@@ -92,7 +94,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetAchievementService achievementService,
                                     PetProperties properties,
                                     org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider,
-                                    com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper) {
+                                    com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper,
+                                    com.cloudmart.pet.config.PetMetrics metrics) {
         this.petService = petService;
         this.stateService = stateService;
         this.configMapper = configMapper;
@@ -107,6 +110,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.properties = properties;
         this.selfProvider = selfProvider;
         this.setMapper = setMapper;
+        this.metrics = metrics;
     }
 
     @Override
@@ -431,8 +435,10 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
     }
 
-    /** PET-10：投影失败 → FAILED + 递增尝试次数 + 指数退避重试时间（同事务落库） */
+    /** PET-10/PET-25：投影失败 → FAILED + 递增尝试次数 + 指数退避重试时间（同事务落库）+ 指标 */
     private void markReceiptFailed(com.cloudmart.pet.entity.PetQuestEventReceipt receipt, Exception cause) {
+        metrics.increment("pet_quest_projection_fail_total", "outcome",
+                receipt.getAttempts() != null && receipt.getAttempts() + 1 >= RECEIPT_MAX_ATTEMPTS ? "dead" : "retry");
         int attempts = receipt.getAttempts() != null ? receipt.getAttempts() + 1 : 1;
         receipt.setStatus("FAILED");
         receipt.setAttempts(attempts);
