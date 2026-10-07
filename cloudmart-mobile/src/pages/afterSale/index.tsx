@@ -59,7 +59,7 @@ export default function AfterSalePage() {
       const status = TABS[tab]?.value
       if (status) params.status = status
       const res = await pageMyAfterSales(params)
-      const list = res.data?.data?.list || []
+      const list = res.data?.data?.records || []
       setCases((prev) => (append ? [...prev, ...list] : list))
       setPage(pageNum)
       setHasMore(list.length >= PAGE_SIZE)

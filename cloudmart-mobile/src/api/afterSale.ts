@@ -33,12 +33,12 @@ export interface AfterSaleCase {
   timeline: AfterSaleTimelineEntry[]
 }
 
-/** 分页结果（契约对齐后端 Page：list + total） */
+/** 分页结果（实测后端 /after-sale/my 返回 MyBatis-Plus Page：records + total） */
 export interface AfterSalePage {
-  list: AfterSaleCase[]
+  records: AfterSaleCase[]
   total: number
-  page: number
-  pageSize: number
+  current: number
+  size: number
 }
 
 export const AFTER_SALE_STATUS_TEXT: Record<string, string> = {

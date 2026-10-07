@@ -56,7 +56,8 @@ export default function AfterSaleScreen() {
         const params: { page: number; pageSize: number; status?: string } = { page: pageNum, pageSize: PAGE_SIZE }
         if (status) params.status = status
         const res = await pageMyAfterSales(params)
-        const list: AfterSaleCase[] = (res.data as unknown as { data?: { list?: AfterSaleCase[] } })?.data?.list || []
+        const list: AfterSaleCase[] =
+          (res.data as unknown as { data?: { records?: AfterSaleCase[] } })?.data?.records || []
         setCases(reset ? list : [...cases, ...list])
         setHasMore(list.length >= PAGE_SIZE)
         setPage(pageNum)

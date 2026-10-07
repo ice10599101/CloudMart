@@ -163,9 +163,11 @@ export function getCurrentRankings() {
   return request.get('/admin/community/rankings/current')
 }
 
-/** T23：赛季列表 */
+/** T23：赛季列表（社区服务分页参数名为 page/size，size 随 pageSize 透传） */
 export function listRankingSeasons(params?: { page?: number; pageSize?: number; status?: number }) {
-  return request.get('/admin/community/rankings/seasons', { params })
+  return request.get('/admin/community/rankings/seasons', {
+    params: { ...params, size: params?.pageSize },
+  })
 }
 
 /** T23：赛季详情 */
