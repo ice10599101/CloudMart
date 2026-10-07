@@ -72,7 +72,7 @@ class PetPurchaseRecoveryServiceTest {
         PetPurchaseApplicationService purchaseService = new PetPurchaseApplicationService(
                 dedupService, walletService, null, staticProvider(null), staticProvider(null),
                 orderMapper, assetGrantMapper, null);
-        recoveryService = new PetPurchaseRecoveryService(dedupService, dedupMapper, orderMapper, purchaseService);
+        recoveryService = new PetPurchaseRecoveryService(dedupService, org.mockito.Mockito.mock(com.cloudmart.pet.config.PetMetrics.class), dedupMapper, orderMapper, purchaseService);
         lenient().when(walletService.getOrCreateAccount(anyLong())).thenAnswer(inv -> {
             PetWalletAccount account = new PetWalletAccount();
             account.setBalance(88L);

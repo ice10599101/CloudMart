@@ -42,6 +42,7 @@ public class PetPurchaseRecoveryService {
     private static final int BATCH_LIMIT = 100;
 
     private final PetRequestDedupService dedupService;
+    private final com.cloudmart.pet.config.PetMetrics metrics;
     private final PetRequestDedupMapper dedupMapper;
     private final PetPurchaseOrderMapper orderMapper;
     private final PetPurchaseApplicationService purchaseApplicationService;
