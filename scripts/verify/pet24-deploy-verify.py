@@ -130,6 +130,10 @@ def main():
     busy = ((b.get("data") or {}).get("accountBusyActivity") or {})
     check("GET /activity-center 200 含 minigame 标志（PET-06 口径）",
           s == 200 and "minigame" in busy, f"status={s} busyKeys={sorted(busy.keys())}")
+    rec = (b.get("data") or {}).get("recoveries")
+    check("GET /activity-center 含 recoveries（PET-28 恢复中心）",
+          rec is not None and all(k in rec for k in ("bindingFailedAlbums", "unsettledMinigameRounds", "processingPurchases")),
+          f"recoveries={rec}")
 
     # ---- PET-21/24：管理域路由存在性（用户 token 期望 401/403，而非裸 404） ----
     s, b = call("GET", "/api/admin/pet/seasons/999999/settlement-jobs", token=token)
