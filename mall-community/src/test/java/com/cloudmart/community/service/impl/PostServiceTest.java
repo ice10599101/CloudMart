@@ -97,6 +97,9 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        // P2-24：默认无拉黑关系（拉黑过滤用例单独覆写）
+        org.mockito.Mockito.lenient().when(userBlockService.getBlockedOrBlockerIds(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of());
         postService = new PostServiceImpl(
                 postMapper, postTagMapper, postCollectionMapper,
                 tagMapper, userFollowMapper, objectMapper, communityEventProducer,

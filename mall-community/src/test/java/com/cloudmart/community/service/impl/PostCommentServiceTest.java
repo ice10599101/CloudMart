@@ -60,6 +60,9 @@ class PostCommentServiceTest {
     @Mock
     private LikeService likeService;
 
+    @Mock
+    private com.cloudmart.community.service.UserBlockService userBlockService;
+
     private PostCommentServiceImpl postCommentService;
 
     private static final Long USER_ID = 1L;
@@ -73,7 +76,8 @@ class PostCommentServiceTest {
                 postCommentMapper, postMapper,
                 communityEventProducer, growthService, userEnrichmentService,
                 contentReviewService, likeService,
-                new com.cloudmart.community.policy.ContentAccessPolicy()
+                new com.cloudmart.community.policy.ContentAccessPolicy(),
+                userBlockService
         );
     }
 

@@ -60,4 +60,16 @@ public class UserBlockServiceImpl implements UserBlockService {
                         .select(UserBlock::getBlockedUserId));
         return blocks.stream().map(UserBlock::getBlockedUserId).toList();
     }
+
+    @Override
+    public List<Long> getBlockedOrBlockerIds(Long userId) {
+        List<UserBlock> blocks = userBlockMapper.selectList(new LambdaQueryWrapper<UserBlock>()
+                .and(w -> w.eq(UserBlock::getUserId, userId).or().eq(UserBlock::getBlockedUserId, userId)));
+        // 双向去重：我拉黑的（blockedUserId 侧）与拉黑我的（userId 侧），排除本人
+        return blocks.stream()
+                .map(b -> userId.equals(b.getUserId()) ? b.getBlockedUserId() : b.getUserId())
+                .filter(id -> !userId.equals(id))
+                .distinct()
+                .toList();
+    }
 }

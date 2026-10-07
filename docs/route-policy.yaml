@@ -135,7 +135,7 @@ mall-wms:
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: wms:admin, note: "WMS-01：补订单归属校验" }
 
 mall-community:
-  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: mall-user, permission: community:internal }
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-user,mall-notification", permission: community:internal, note: "P2-24：私信拉黑校验经 /internal/blocks/status" }
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: community:admin }
 
 mall-notification:

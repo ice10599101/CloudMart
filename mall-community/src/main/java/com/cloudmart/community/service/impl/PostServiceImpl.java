@@ -327,6 +327,17 @@ public class PostServiceImpl implements PostService {
     }
 
     /** 公开可见：已发布（status=1）且审核通过（reviewStatus=1） */
+    /**
+     * P2-24：拉黑内容过滤——登录视角下"我拉黑的 ∪ 拉黑我的"的用户集合。
+     * 匿名（未登录）不过滤；集合为空时跳过 notIn 条件（避免 SQL 空集合异常）。
+     */
+    private List<Long> blockFilterIds(Long currentUserId) {
+        if (currentUserId == null) {
+            return List.of();
+        }
+        return userBlockService.getBlockedOrBlockerIds(currentUserId);
+    }
+
     private boolean isPubliclyVisible(Post post) {
         return post.getStatus() != null && post.getStatus() == 1
                 && post.getReviewStatus() != null && post.getReviewStatus() == 1;
@@ -335,6 +346,11 @@ public class PostServiceImpl implements PostService {
     @Override
     public Page<PostVO> getFeedPosts(String tab, int page, int size, Long currentUserId) {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
+
+        List<Long> blockedIds = blockFilterIds(currentUserId);
+        if (!blockedIds.isEmpty()) {
+            wrapper.notIn(Post::getUserId, blockedIds);
+        }
 
         switch (tab != null ? tab : "recommend") {
             case "hot" -> wrapper.eq(Post::getStatus, 1).eq(Post::getReviewStatus, 1).orderByDesc(Post::getLikeCount);
@@ -380,6 +396,11 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public Page<PostVO> getUserPosts(Long userId, int page, int size, Long currentUserId) {
+        // P2-24：主页链路——任一方向拉黑即互不可见（返回空页，防存在性探测不做区分）
+        if (currentUserId != null && !currentUserId.equals(userId)
+                && userBlockService.getBlockedOrBlockerIds(currentUserId).contains(userId)) {
+            return new Page<>(page, size);
+        }
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getUserId, userId)
                 .eq(Post::getStatus, 1)
@@ -406,6 +427,10 @@ public class PostServiceImpl implements PostService {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getStatus, 1)
                 .eq(Post::getReviewStatus, 1);
+        List<Long> searchBlocked = blockFilterIds(currentUserId);
+        if (!searchBlocked.isEmpty()) {
+            wrapper.notIn(Post::getUserId, searchBlocked);
+        }
 
         if (keyword != null && !keyword.isBlank()) {
             wrapper.and(w -> w.like(Post::getTitle, keyword).or().like(Post::getContent, keyword));
@@ -431,6 +456,10 @@ public class PostServiceImpl implements PostService {
                 .eq(Post::getStatus, 1)
                 .eq(Post::getReviewStatus, 1)
                 .orderByDesc(Post::getCreatedAt);
+        List<Long> tagBlocked = blockFilterIds(currentUserId);
+        if (!tagBlocked.isEmpty()) {
+            wrapper.notIn(Post::getUserId, tagBlocked);
+        }
 
         Page<Post> postPage = postMapper.selectPage(new Page<>(page, size), wrapper);
         return convertPostPage(postPage, currentUserId);
@@ -446,8 +475,15 @@ public class PostServiceImpl implements PostService {
         }
 
         List<Long> followingIds = follows.stream().map(UserFollow::getFollowingId).toList();
+        List<Long> followBlocked = blockFilterIds(userId);
+        List<Long> visibleFollowingIds = followBlocked.isEmpty()
+                ? followingIds
+                : followingIds.stream().filter(id -> !followBlocked.contains(id)).toList();
+        if (visibleFollowingIds.isEmpty()) {
+            return new Page<>(page, size);
+        }
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .in(Post::getUserId, followingIds)
+                .in(Post::getUserId, visibleFollowingIds)
                 .eq(Post::getStatus, 1)
                 .eq(Post::getReviewStatus, 1)
                 .orderByDesc(Post::getCreatedAt);

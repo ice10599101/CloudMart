@@ -36,6 +36,7 @@ public class ChatServiceImpl implements ChatService {
     private final MessageMapper messageMapper;
     private final ChatConverter chatConverter;
     private final UserFeignClient userFeignClient;
+    private final com.cloudmart.notification.feign.CommunityFeignClient communityFeignClient;
     private final WebSocketSessionManager wsSessionManager;
 
     private final Map<Long, UserInfo> userCache = new ConcurrentHashMap<>();
@@ -45,12 +46,14 @@ public class ChatServiceImpl implements ChatService {
                            MessageMapper messageMapper,
                            ChatConverter chatConverter,
                            UserFeignClient userFeignClient,
-                           WebSocketSessionManager wsSessionManager) {
+                           WebSocketSessionManager wsSessionManager,
+                           com.cloudmart.notification.feign.CommunityFeignClient communityFeignClient) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.chatConverter = chatConverter;
         this.userFeignClient = userFeignClient;
         this.wsSessionManager = wsSessionManager;
+        this.communityFeignClient = communityFeignClient;
     }
 
     @Override
@@ -167,6 +170,24 @@ public class ChatServiceImpl implements ChatService {
     public MessageDTO sendMessage(Long userId, Long conversationId, String content, String type,
                                   String clientMessageId) {
         validateConversationAccess(userId, conversationId);
+
+        // P2-24：私信链路拉黑校验（双向；fail-open 见 CommunityFeignClient）
+        Conversation blockConv = conversationMapper.selectById(conversationId);
+        if (blockConv != null) {
+            Long peerId = blockConv.getUser1Id().equals(userId) ? blockConv.getUser2Id() : blockConv.getUser1Id();
+            try {
+                var res = communityFeignClient.blockStatus(userId, peerId);
+                Object blocked = res != null && res.data() != null ? res.data().get("blocked") : null;
+                if (Boolean.TRUE.equals(blocked)) {
+                    throw new BusinessException("CHAT_BLOCKED", "无法向该用户发送私信");
+                }
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(ChatServiceImpl.class)
+                        .warn("P2-24 拉黑校验异常（fail-open 放行）: userId={}, peerId={}", userId, peerId, e);
+            }
+        }
 
         String msgType = (type != null && !type.isBlank()) ? type : "TEXT";
 

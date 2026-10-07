@@ -161,4 +161,38 @@ class UserBlockServiceImplTest {
             assertThat(result).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("P2-24 getBlockedOrBlockerIds（双向拉黑内容过滤）")
+    class BlockedOrBlockerTests {
+
+        @Test
+        @DisplayName("双向合并：我拉黑的与拉黑我的合并并去重、排除本人")
+        void mergesBothDirectionsAndDedupes() {
+            // 行1：我拉黑 2（userId=1, blocked=2）；行2：3 拉黑我（userId=3, blocked=1）；行3：重复拉黑 2（去重）
+            UserBlock iBlock2 = new UserBlock();
+            iBlock2.setUserId(USER_ID);
+            iBlock2.setBlockedUserId(2L);
+            UserBlock user3BlocksMe = new UserBlock();
+            user3BlocksMe.setUserId(3L);
+            user3BlocksMe.setBlockedUserId(USER_ID);
+            UserBlock dupBlock2 = new UserBlock();
+            dupBlock2.setUserId(USER_ID);
+            dupBlock2.setBlockedUserId(2L);
+            when(userBlockMapper.selectList(any())).thenReturn(List.of(iBlock2, user3BlocksMe, dupBlock2));
+
+            List<Long> ids = userBlockService.getBlockedOrBlockerIds(USER_ID);
+
+            assertThat(ids).containsExactlyInAnyOrder(2L, 3L);
+            assertThat(ids).doesNotContain(USER_ID);
+        }
+
+        @Test
+        @DisplayName("无拉黑关系返回空集合（读链路跳过 notIn 条件）")
+        void returnsEmptyWhenNoBlocks() {
+            when(userBlockMapper.selectList(any())).thenReturn(List.of());
+
+            assertThat(userBlockService.getBlockedOrBlockerIds(USER_ID)).isEmpty();
+        }
+    }
 }

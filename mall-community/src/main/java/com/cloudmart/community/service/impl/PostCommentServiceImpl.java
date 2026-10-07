@@ -10,6 +10,7 @@ import com.cloudmart.community.repository.PostCommentMapper;
 import com.cloudmart.community.repository.PostMapper;
 import com.cloudmart.community.service.ContentReviewService;
 import com.cloudmart.community.service.GrowthService;
+import com.cloudmart.community.service.UserBlockService;
 import com.cloudmart.community.service.LikeService;
 import com.cloudmart.community.service.PostCommentService;
 import com.cloudmart.community.service.UserEnrichmentService;
@@ -38,6 +39,7 @@ public class PostCommentServiceImpl implements PostCommentService {
     private final PostMapper postMapper;
     private final CommunityEventProducer communityEventProducer;
     private final GrowthService growthService;
+    private final UserBlockService userBlockService;
     private final UserEnrichmentService userEnrichmentService;
     private final ContentReviewService contentReviewService;
     private final LikeService likeService;
@@ -50,13 +52,15 @@ public class PostCommentServiceImpl implements PostCommentService {
                                   UserEnrichmentService userEnrichmentService,
                                   ContentReviewService contentReviewService,
                                   LikeService likeService,
-                                  com.cloudmart.community.policy.ContentAccessPolicy contentAccessPolicy) {
+                                  com.cloudmart.community.policy.ContentAccessPolicy contentAccessPolicy,
+                                  UserBlockService userBlockService) {
         this.postCommentMapper = postCommentMapper;
         this.postMapper = postMapper;
         this.communityEventProducer = communityEventProducer;
         this.growthService = growthService;
         this.userEnrichmentService = userEnrichmentService;
         this.contentReviewService = contentReviewService;
+        this.userBlockService = userBlockService;
         this.likeService = likeService;
         this.contentAccessPolicy = contentAccessPolicy;
     }
@@ -127,11 +131,13 @@ public class PostCommentServiceImpl implements PostCommentService {
     public Page<PostCommentVO> getComments(Long postId, int page, int size, Long currentUserId) {
         // C01：宿主不可读（隐藏/删除）时评论列表同样拒绝，不能只保护详情页
         contentAccessPolicy.requirePostReadable(postMapper.selectById(postId));
+        List<Long> blockedIds = currentUserId == null ? List.of() : userBlockService.getBlockedOrBlockerIds(currentUserId);
         LambdaQueryWrapper<PostComment> topWrapper = new LambdaQueryWrapper<PostComment>()
                 .eq(PostComment::getPostId, postId)
                 .eq(PostComment::getStatus, 0)
                 .eq(PostComment::getReviewStatus, 1)
                 .isNull(PostComment::getParentId)
+                .notIn(!blockedIds.isEmpty(), PostComment::getUserId, blockedIds)
                 .orderByDesc(PostComment::getCreatedAt);
 
         Page<PostComment> topPage = postCommentMapper.selectPage(new Page<>(page, size), topWrapper);
@@ -157,6 +163,7 @@ public class PostCommentServiceImpl implements PostCommentService {
                             .in(PostComment::getParentId, topIds)
                             .eq(PostComment::getStatus, 0)
                             .eq(PostComment::getReviewStatus, 1)
+                            .notIn(!blockedIds.isEmpty(), PostComment::getUserId, blockedIds)
                             .orderByAsc(PostComment::getCreatedAt)
             );
             for (PostComment reply : allReplies) {
@@ -217,10 +224,12 @@ public class PostCommentServiceImpl implements PostCommentService {
             throw new BusinessException("COMMENT_NOT_FOUND", "评论不存在");
         }
 
+        List<Long> replyBlocked = currentUserId == null ? List.of() : userBlockService.getBlockedOrBlockerIds(currentUserId);
         LambdaQueryWrapper<PostComment> wrapper = new LambdaQueryWrapper<PostComment>()
                 .eq(PostComment::getParentId, commentId)
                 .eq(PostComment::getStatus, 0)
                 .eq(PostComment::getReviewStatus, 1)
+                .notIn(!replyBlocked.isEmpty(), PostComment::getUserId, replyBlocked)
                 .orderByAsc(PostComment::getCreatedAt);
         Page<PostComment> replyPage = postCommentMapper.selectPage(new Page<>(page, size), wrapper);
 
