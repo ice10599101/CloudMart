@@ -29,7 +29,9 @@ public class PetQuotaService {
         /** 对战放弃/被拒/过期计数（P1-3：24h 内 ≥3 次进入发起冷却，仅计数无上限） */
         BATTLE_ABORT,
         /** 内容举报每日提交上限（R05：防刷举报队列；系统自动举报不计入） */
-        REPORT
+        REPORT,
+        /** P1-9：串门全局日上限（不同目标合计；单目标冷却另由 visit_fact 唯一键约束） */
+        VISIT
     }
 
     private final PetDailyQuotaMapper quotaMapper;

@@ -83,6 +83,8 @@ class PetVisitServiceImplTest {
     @org.mockito.Mock
     private com.cloudmart.pet.service.PetVisitApplicationService visitApplicationServiceMock;
 
+    private PetQuotaService quotaServiceMock;
+
     private final PetProperties properties = new PetProperties();
     private PetVisitServiceImpl visitService;
 
@@ -101,11 +103,18 @@ class PetVisitServiceImplTest {
                         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new com.cloudmart.pet.service.PetVisitApplicationService.VisitGrant(true, true));
+        quotaServiceMock = org.mockito.Mockito.mock(PetQuotaService.class);
+        // 默认放行（全局日上限非用例关注点；超额用例自行覆盖）
+        org.mockito.Mockito.lenient().when(quotaServiceMock.tryConsume(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(true);
         visitService = new PetVisitServiceImpl(petService, stateService, petMapper, activityMapper,
                 achievementService, eventProducer, wishFeignClient, userFeignClient, properties,
                 dailyQuestService, intimacyService, relationService,
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class),
-                visitApplicationServiceMock);
+                visitApplicationServiceMock,
+                quotaServiceMock);
     }
 
     @Test

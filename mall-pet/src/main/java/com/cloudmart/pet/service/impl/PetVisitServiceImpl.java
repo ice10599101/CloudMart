@@ -69,6 +69,7 @@ public class PetVisitServiceImpl implements PetVisitService {
     private final PetIntimacyService intimacyService;
     private final PetRelationService relationService;
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
+    private final PetQuotaService quotaService;
 
     public PetVisitServiceImpl(PetService petService,
                                PetStateService stateService,
@@ -83,7 +84,8 @@ public class PetVisitServiceImpl implements PetVisitService {
                                PetIntimacyService intimacyService,
                                PetRelationService relationService,
             com.cloudmart.pet.service.PetUserBlockService userBlockService,
-            com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService) {
+            com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
+            PetQuotaService quotaService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -98,6 +100,7 @@ public class PetVisitServiceImpl implements PetVisitService {
         this.intimacyService = intimacyService;
         this.relationService = relationService;
         this.visitApplicationService = visitApplicationService;
+        this.quotaService = quotaService;
     }
 
     @Override
@@ -152,6 +155,14 @@ public class PetVisitServiceImpl implements PetVisitService {
         if (!grant.factCreated()) {
             throw new BusinessException(PetErrorCodes.PET_VISIT_COOLDOWN,
                     "今天已经去过这家啦，换一家走走吧");
+        }
+
+        // P1-9：串门全局日上限（DB 权威、用户级，不同目标合计；properties.visit.dailyLimit）。
+        // 放在事实创建之后：冷却拒绝不占额度；此处抛错会连同拜访事实一并回滚，不产生半截拜访
+        if (cfg.getDailyLimit() > 0
+                && !quotaService.tryConsume(userId, PetQuotaService.QuotaType.VISIT, 0, cfg.getDailyLimit())) {
+            throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
+                    "今天串门次数用完啦（" + cfg.getDailyLimit() + " 次），明天再去吧");
         }
 
         pet.setEnergy(Math.max(0, pet.getEnergy() - cfg.getEnergyCost()));
