@@ -120,6 +120,12 @@ class PetPurchaseRecoveryIntegrationTest {
             return org.mockito.Mockito.mock(com.cloudmart.pet.service.PetService.class);
         }
 
+        /** PET-25：恢复服务可观测性依赖（IT 内无 Micrometer 装配，mock 即可） */
+        @Bean
+        com.cloudmart.pet.config.PetMetrics petMetrics() {
+            return org.mockito.Mockito.mock(com.cloudmart.pet.config.PetMetrics.class);
+        }
+
         /** 测试目录：服务端权威价格，FOOD 可重复购买 */
         @Bean
         PetPurchaseCatalog testCatalog() {
