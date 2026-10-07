@@ -118,3 +118,4 @@ file-a-url.txt
 /tools_ui_audit.py
 .pet-verify-token.tmp
 .ci-artifacts/
+/cloudmart-mobile/dist-h5/
