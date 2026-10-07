@@ -427,6 +427,8 @@ export const wishApi = {
             url: '/user/users/account-deletion',
             method: 'DELETE',
         }),
+    /** P1-17：统一隐私中心聚合视图 */
+    getMyPrivacyOverview: () => request<PrivacyOverview>({ url: '/wish/v2/my/privacy' }),
     getAccountDeletionStatus: () =>
         request<{ status: string; executeAfter?: string; serviceProgress?: string; executedAt?: string }>({
             url: '/user/users/account-deletion',
@@ -710,6 +712,14 @@ export interface EncounterLetter {
     /** PENDING 时为 null；DELIVERED/READ 为诗意文案 */
     content: string | null
     deliveredAt: string | null
+}
+
+/** P1-17：统一隐私中心聚合视图（契约对齐 /wish/v2/my/privacy，与 Taro 端同构） */
+export interface PrivacyOverview {
+    aiDataProcessing: { granted: boolean; version: string; updatedAt: string }
+    dataExport: { status: string; taskId?: string; expiresAt?: string }
+    accountDeletion: { status: string; executeAfter?: string; executedAt?: string }
+    defaults: { locationSharing: boolean; fulfillmentAutoShare: boolean; rmbPayment: boolean }
 }
 
 export const encounterApi = {

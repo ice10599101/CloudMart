@@ -308,6 +308,17 @@ export default function SettingsPage() {
         {/* Data & Account（合规 34.2/34.6，对齐 WEB UserCenter / Mobile myWishes） */}
         <SectionTitle theme={theme}>数据与账号</SectionTitle>
         <View style={{ marginHorizontal: Spacing.lg, backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, overflow: 'hidden' }}>
+          {/* P1-17：统一隐私中心（聚合 AI 授权/导出/注销/默认关闭项总览） */}
+          <TouchableOpacity
+            onPress={() => requireLoginOr(() => router.push('/privacy-center'))}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}
+          >
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.lg, color: theme.text }}>隐私中心</Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>AI 授权 / 数据导出 / 注销进度 / 默认关闭项总览</Text>
+            </View>
+            <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => requireLoginOr(() => router.push('/data-export'))}
             style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, borderBottomWidth: 1, borderBottomColor: theme.border }}
