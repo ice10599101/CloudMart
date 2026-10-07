@@ -90,10 +90,12 @@ elasticsearch:
 
 logging:
   level:
-    com.cloudmart.admin.feign: DEBUG
-    org.springframework.cloud.openfeign: DEBUG
-    org.springframework.cloud.loadbalancer: DEBUG
-    com.alibaba.nacos.client: DEBUG
+    # P2-21 生产硬化：默认 INFO（原 DEBUG 仅本地联调用）。
+    # 本地调试用环境变量覆盖，如 LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CLOUD_OPENFEIGN=DEBUG
+    com.cloudmart.admin.feign: INFO
+    org.springframework.cloud.openfeign: INFO
+    org.springframework.cloud.loadbalancer: INFO
+    com.alibaba.nacos.client: INFO
     com.alibaba.csp.sentinel: WARN
 
 management:
@@ -127,6 +129,8 @@ cloudmart:
       mall-order: order:internal
       # CAT-01：商品发布时库存建档（/inventory/init）
       mall-inventory: inventory:admin
+      # N-2：评价返星光（/internal/starlight/earn）
+      mall-wish: wish:starlight
     service-token-paths:
       - prefix: /products/es
         issuers: [mall-admin, mall-ai]

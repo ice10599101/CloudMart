@@ -65,7 +65,7 @@ class ReviewServiceImplTest {
         skuMapper = mock(ProductSkuMapper.class);
         objectMapper = new ObjectMapper();
         reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper,
-                orderPurchaseFeignClient);
+                orderPurchaseFeignClient, mock(com.cloudmart.product.feign.WishStarlightFeignClient.class));
     }
 
     private Product buildProduct(Long id) {

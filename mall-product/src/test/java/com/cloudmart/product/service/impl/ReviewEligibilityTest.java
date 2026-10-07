@@ -55,7 +55,8 @@ class ReviewEligibilityTest {
         skuMapper = mock(ProductSkuMapper.class);
         orderPurchaseFeignClient = mock(OrderPurchaseFeignClient.class);
         reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper,
-                objectMapper, orderPurchaseFeignClient);
+                objectMapper, orderPurchaseFeignClient,
+                mock(com.cloudmart.product.feign.WishStarlightFeignClient.class));
 
         Product product = new Product();
         product.setId(PRODUCT_ID);

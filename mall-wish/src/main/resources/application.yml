@@ -105,10 +105,11 @@ mybatis-plus:
 
 logging:
   level:
-    com.cloudmart.wish: DEBUG
-    org.springframework.cloud.openfeign: DEBUG
-    org.springframework.cloud.loadbalancer: DEBUG
-    com.alibaba.nacos.client: DEBUG
+    # P2-21 生产硬化：默认 INFO（原 DEBUG 仅本地联调用，环境变量覆盖恢复）
+    com.cloudmart.wish: INFO
+    org.springframework.cloud.openfeign: INFO
+    org.springframework.cloud.loadbalancer: INFO
+    com.alibaba.nacos.client: INFO
     com.alibaba.csp.sentinel: WARN
 
 management:
@@ -245,6 +246,9 @@ cloudmart:
       - prefix: /internal/pet-support
         issuers: [mall-pet]
         scope: wish:pet
+      - prefix: /internal/starlight
+        issuers: [mall-product]
+        scope: wish:starlight
       - prefix: /internal/account-erasure
         issuers: [mall-user]
         scope: wish:erasure

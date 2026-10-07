@@ -17,6 +17,7 @@ import com.cloudmart.product.service.ReviewService;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,17 +35,24 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductSkuMapper skuMapper;
     private final ObjectMapper objectMapper;
     private final com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient;
+    private final com.cloudmart.product.feign.WishStarlightFeignClient wishStarlightFeignClient;
+
+    /** N-2：评价返星光数量（0=关闭激励开关） */
+    @org.springframework.beans.factory.annotation.Value("${review.reward-starlight:5}")
+    private int rewardStarlight;
 
     public ReviewServiceImpl(ProductReviewMapper reviewMapper,
                              ProductMapper productMapper,
                              ProductSkuMapper skuMapper,
                              ObjectMapper objectMapper,
-                             com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient) {
+                             com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient,
+                             com.cloudmart.product.feign.WishStarlightFeignClient wishStarlightFeignClient) {
         this.reviewMapper = reviewMapper;
         this.productMapper = productMapper;
         this.skuMapper = skuMapper;
         this.objectMapper = objectMapper;
         this.orderPurchaseFeignClient = orderPurchaseFeignClient;
+        this.wishStarlightFeignClient = wishStarlightFeignClient;
     }
 
     @Override
@@ -101,6 +109,23 @@ public class ReviewServiceImpl implements ReviewService {
 
         ProductSku sku = skuMapper.selectById(request.skuId());
         String skuAttributes = sku != null ? sku.getAttributes() : null;
+
+        // N-2 评价返星光：评价提交成功后经内部端点幂等发放（事务提交后执行，
+        // 避免后续回滚造成星光已发的孤儿发放）；失败 fail-open 不阻塞评价主流程
+        if (rewardStarlight > 0 && review.getId() != null) {
+            Long reviewId = review.getId();
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                grantReviewReward(userId, reviewId);
+                            }
+                        });
+            } else {
+                grantReviewReward(userId, reviewId);
+            }
+        }
 
         return new ReviewDTO(
                 review.getId(),
@@ -316,6 +341,17 @@ public class ReviewServiceImpl implements ReviewService {
             return objectMapper.readValue(imagesJson, new TypeReference<List<String>>() {});
         } catch (JacksonException e) {
             return List.of();
+        }
+    }
+
+    /** N-2：幂等发放评价奖励（operationId=REVIEW_REWARD:{reviewId}，重复请求返回原结果） */
+    private void grantReviewReward(Long userId, Long reviewId) {
+        try {
+            wishStarlightFeignClient.earn(userId, rewardStarlight, reviewId,
+                    "REVIEW_REWARD:" + reviewId, "REVIEW_REWARD");
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(ReviewServiceImpl.class)
+                    .warn("N-2 评价返星光异常（fail-open 跳过）: userId={}, reviewId={}", userId, reviewId, e);
         }
     }
 }
