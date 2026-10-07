@@ -218,6 +218,12 @@ export default function SettingsPage() {
           </View>
           <Text style={{ color: '#4a90d9', fontSize: 13 }}>→</Text>
         </View>
+        <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/browseHistory/index' })}>
+          <View className={styles.switchRow}>
+            <Text className={styles.switchLabel}>我的足迹</Text>
+            <Text className={styles.switchArrow}>›</Text>
+          </View>
+        </View>
         <View className={styles.switchItem} onClick={() => Taro.navigateTo({ url: '/pages/starlightLog/index' })}>
           <View className={styles.switchInfo}>
             <Text className={styles.switchLabel}>星光流水</Text>
