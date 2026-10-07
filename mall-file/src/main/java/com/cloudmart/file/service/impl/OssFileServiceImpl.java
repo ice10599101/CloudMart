@@ -31,6 +31,8 @@ import java.util.UUID;
  * </ul>
  */
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "file.storage-mode", havingValue = "local", matchIfMissing = true)
 public class OssFileServiceImpl implements FileService {
 
     private static final Logger log = LoggerFactory.getLogger(OssFileServiceImpl.class);

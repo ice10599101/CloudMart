@@ -64,6 +64,12 @@
             <artifactId>x-file-storage-spring</artifactId>
             <version>2.3.0</version>
         </dependency>
+        <!-- P1-19：MinIO 官方 SDK（file.storage-mode=minio 时启用 MinioFileServiceImpl） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>9.0.3</version>
+        </dependency>
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>

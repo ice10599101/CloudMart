@@ -15,6 +15,8 @@ import java.nio.file.Paths;
  * 经 /assets/{id}/download 授权通道读取（下载路径由 /assets/{id}/download-url 取得）。</p>
  */
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "file.storage-mode", havingValue = "local", matchIfMissing = true)
 public class WebConfig implements WebMvcConfigurer {
 
     private final Path storageRoot;

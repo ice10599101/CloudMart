@@ -82,6 +82,13 @@ file:
     image-extensions: jpg,jpeg,png,gif,bmp,webp,svg
   # 本地存储根目录：默认相对 mall-file 工作目录上一级的 files（即项目根目录 files），可用环境变量 FILE_STORAGE_PATH 覆盖
   storage-path: ${FILE_STORAGE_PATH:../files}
+  # P1-19：存储后端 local|minio（local=本地磁盘静态映射；minio=对象存储+/files 流式代理）
+  storage-mode: ${FILE_STORAGE_MODE:local}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:cloudmart-files}
   # 对外访问基址：配置后上传返回绝对 URL（如 http://129.204.152.168:8090/files/...），
   # 使任何机器/端都能直接访问服务器上的文件；置空则返回相对 /files/**（由前端代理转发）。
   # 可用环境变量 FILE_PUBLIC_BASE_URL 覆盖。

@@ -378,6 +378,29 @@ services:
     networks:
       - cloudmart-network
 
+  minio:
+    image: minio/minio:latest
+    container_name: cloudmart-minio
+    restart: unless-stopped
+    # P1-19：对象存储（mall-file file.storage-mode=minio 时使用）
+    # 生产必须用环境变量覆盖默认口令（见 .env.production.example）
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - cloudmart-network
+
 networks:
   cloudmart-network:
     driver: bridge
@@ -392,3 +415,4 @@ volumes:
   loki-data:
   promtail-data:
   banyandb-data:
+  minio-data:
