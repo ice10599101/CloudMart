@@ -1866,7 +1866,11 @@ export default function PetCreamPage() {
     const [ownerTitleValue, setOwnerTitleValue] = useState('')
     const [adoptName, setAdoptName] = useState('')
     const [adoptSpecies, setAdoptSpecies] = useState<PetSpecies>('STRAWBERRY')
-    const [activePanel, setActivePanel] = useState<PanelKey | null>(null)
+    // PET-23：URL 深链接驱动面板——?panel=center 直达对应面板（通知 payload/外部跳转用）
+    const [activePanel, setActivePanel] = useState<PanelKey | null>(() => {
+        const initial = new URLSearchParams(window.location.search).get('panel')
+        return PANELS.some(item => item.key === initial) ? (initial as PanelKey) : null
+    })
     /** 外观草稿（颜色/配饰），初始值来自 pet.appearance（服务端 JSON），保存后随宠物回写 */
     const [appearanceDraft, setAppearanceDraft] = useState<{ color: string; accessory: string } | null>(null)
     /** 动作可执行性（B06）：刷新随宠物一起拉取 */
@@ -2223,7 +2227,13 @@ export default function PetCreamPage() {
                                                     key={item.key}
                                                     type="button"
                                                     className={styles.menuItem}
-                                                    onClick={() => setActivePanel(item.key)}
+                                                    onClick={() => {
+                                                        setActivePanel(item.key)
+                                                        // PET-23：同步深链接（replaceState 避免回退栈污染）
+                                                        const url = new URL(window.location.href)
+                                                        url.searchParams.set('panel', item.key)
+                                                        window.history.replaceState(null, '', url.toString())
+                                                    }}
                                                 >
                                                     <span className={styles.menuItemEmoji}>{item.emoji}</span>
                                                     <span>{item.label}</span>
