@@ -403,3 +403,64 @@
   font-size: $font-size-xs;
   color: rgba(255, 255, 255, 0.4);
 }
+
+// ==================== P1-12 直播间秒杀 ====================
+.seckillBar {
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: 280rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(233, 69, 96, 0.92);
+  border-radius: 20rpx;
+  z-index: 6;
+}
+
+.seckillInfo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  overflow: hidden;
+}
+
+.seckillTag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.seckillName {
+  flex: 1;
+  font-size: 24rpx;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seckillPrice {
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.seckillBtn {
+  flex-shrink: 0;
+  padding: 12rpx 28rpx;
+  background: linear-gradient(135deg, #ffd700, #ff9f0a);
+  border-radius: 999rpx;
+}
+
+.seckillBtnText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #b00020;
+}

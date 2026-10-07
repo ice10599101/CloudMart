@@ -4,14 +4,21 @@ import Taro from '@tarojs/taro'
 import { aiApi } from '@/api/ai'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
-import type { Product } from '@/types'
 import styles from './index.module.scss'
 
 interface ChatMessage {
   id: number
   role: 'user' | 'assistant'
   content: string
-  products?: Product[]
+  products?: ChatProduct[]
+}
+
+/** AI 消息内商品卡片（搜索/智能搜索共用，字段取自两侧 VO 的交集展示项） */
+interface ChatProduct {
+  id: number
+  name: string
+  price: number
+  mainImage: string
 }
 
 // 对齐 Web 端 AiChat：对话/搜索双模式 + 快捷提问 chips
@@ -19,7 +26,7 @@ const QUICK_QUESTIONS = ['推荐一款手机', '笔记本电脑怎么选', '春�
 
 export default function AiChatPage() {
   const { dataTheme, themeStyle } = useThemeClass()
-  const [mode, setMode] = useState<'chat' | 'search'>('chat')
+  const [mode, setMode] = useState<'chat' | 'search' | 'smart'>('chat')
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -47,10 +54,33 @@ export default function AiChatPage() {
     setSending(true)
 
     try {
-      if (mode === 'search') {
-        // 搜索模式：返回商品卡片结果（对齐 Web 端搜索模式）
+      if (mode === 'smart') {
+        // P1-11 智能搜索：hybrid-search 向量+全文综合排序（语义理解更强）
+        const res = await aiApi.hybridSearch(query, 12)
+        const hits = res.data?.data ?? []
+        const products = hits.slice(0, 6).map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.price),
+          mainImage: p.mainImage,
+        }))
+        const aiMsg: ChatMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: hits.length > 0 ? `为你找到 ${hits.length} 件相关商品（智能排序）：` : '没有找到相关商品，换个说法试试？',
+          products,
+        }
+        setMessages((prev) => [...prev, aiMsg])
+      } else if (mode === 'search') {
+        // 搜索模式：返回商品卡片结果（契约对齐 SearchResultVO：productId/image）
         const res = await aiApi.search(query)
-        const products = res.data?.data?.list ?? res.data?.data ?? []
+        const hits = res.data?.data ?? []
+        const products = hits.map((p) => ({
+          id: p.productId,
+          name: p.name,
+          price: Number(p.price),
+          mainImage: p.image,
+        }))
         const aiMsg: ChatMessage = {
           id: Date.now() + 1,
           role: 'assistant',
@@ -85,13 +115,16 @@ export default function AiChatPage() {
 
   return (
     <View data-theme={dataTheme} className={styles.page} style={themeStyle}>
-      {/* 模式切换（对齐 Web 端「对话 / 🔍搜索模式」） */}
+      {/* 模式切换（P1-11：对话 / 搜索 / 智能搜索 hybrid） */}
       <View className={styles.modeSwitch}>
         <View className={`${styles.modeChip} ${mode === 'chat' ? styles.modeChipActive : ''}`} onClick={() => setMode('chat')}>
           <Text className={mode === 'chat' ? styles.modeChipTextActive : styles.modeChipText}>💬 对话</Text>
         </View>
         <View className={`${styles.modeChip} ${mode === 'search' ? styles.modeChipActive : ''}`} onClick={() => setMode('search')}>
           <Text className={mode === 'search' ? styles.modeChipTextActive : styles.modeChipText}>🔍 搜索</Text>
+        </View>
+        <View className={`${styles.modeChip} ${mode === 'smart' ? styles.modeChipActive : ''}`} onClick={() => setMode('smart')}>
+          <Text className={mode === 'smart' ? styles.modeChipTextActive : styles.modeChipText}>✨ 智能搜索</Text>
         </View>
       </View>
 
@@ -118,6 +151,7 @@ export default function AiChatPage() {
                 ))}
               </View>
             )}
+
           </View>
         ))}
         {sending && (
@@ -144,7 +178,7 @@ export default function AiChatPage() {
       <View className={styles.bottomBar}>
         <Textarea
           className={styles.input}
-          placeholder={mode === 'search' ? '搜索你想找的商品...' : '输入你的问题...'}
+          placeholder={mode === 'search' ? '搜索你想找的商品...' : mode === 'smart' ? '用一句话描述你想找什么...' : '输入你的问题...'}
           value={input}
           onInput={(e) => setInput(e.detail.value)}
         />

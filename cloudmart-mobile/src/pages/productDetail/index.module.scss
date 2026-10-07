@@ -370,3 +370,32 @@
   font-size: $font-size-sm;
   color: var(--color-primary);
 }
+
+// ==================== P1-11 AI 评论摘要 ====================
+.aiSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: $spacing-md;
+  padding: $spacing-md;
+  background: var(--color-primary-bg, rgba(0, 212, 255, 0.08));
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.aiSummaryTitle {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: var(--color-primary);
+}
+
+.aiSummaryText {
+  font-size: $font-size-sm;
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+.aiSummaryMeta {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { useAuthGuard } from '@/composables/useAuthGuard'
+import { subscribeNotifications, subscribeUnreadCount } from '@/composables/useNotificationSocket'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
 
@@ -15,12 +16,29 @@ const TAB_TYPES = [0, 1, 2, 3, 4]
 export default function NotificationsPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const [activeTab, setActiveTab] = useState(0)
+  const activeTabRef = useRef(0)
+  activeTabRef.current = activeTab
   const [notifications, setNotifications] = useState<any[]>([])
   useAuthGuard()
 
   useEffect(() => {
     loadNotifications()
   }, [activeTab])
+
+  // P1-10：WS 实时收推送（断线由服务端 UNREAD_COUNT 恢复 + 页面重进刷新兜底）
+  useEffect(() => {
+    const unsubscribe = subscribeNotifications((notification) => {
+      if (activeTabRef.current === 0 || Number(notification.type) === TAB_TYPES[activeTabRef.current]) {
+        setNotifications((prev) => [notification as unknown as Record<string, unknown>, ...prev])
+      }
+    })
+    const unsubUnread = subscribeUnreadCount(() => loadNotifications())
+    return () => {
+      unsubscribe()
+      unsubUnread()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadNotifications = async () => {
     try {

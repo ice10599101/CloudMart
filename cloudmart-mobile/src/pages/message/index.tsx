@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
 import { useAuthGuard } from '@/composables/useAuthGuard'
+import { subscribeNotifications } from '@/composables/useNotificationSocket'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -28,6 +29,16 @@ export default function MessagePage() {
 
   useEffect(() => {
     if (isLoggedIn) loadData()
+  }, [isLoggedIn])
+
+  // P1-10：WS 实时收推送——任一通知到达即刷新未读角标与会话列表
+  //（断线降级：WS 不可用时维持本页原有的进入刷新路径）
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const unsubscribe = subscribeNotifications(() => loadData())
+    return () => {
+      unsubscribe()
+    }
   }, [isLoggedIn])
 
   const loadData = async () => {

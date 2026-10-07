@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { View, Text, Image, ScrollView, Swiper, SwiperItem } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { productApi } from '@/api/product'
+import { aiApi, type AiReviewSummary } from '@/api/ai'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
 import { communityApi } from '@/api/community'
@@ -66,6 +67,9 @@ export default function ProductDetailPage() {
   const [reviewPage, setReviewPage] = useState(1)
   const [reviewHasMore, setReviewHasMore] = useState(true)
   const [reviewLoading, setReviewLoading] = useState(false)
+  // P1-11：AI 评论摘要（切到评价 Tab 时懒加载；失败静默不阻塞评论区）
+  const [aiSummary, setAiSummary] = useState<AiReviewSummary | null>(null)
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false)
 
   const skus = product?.skus ?? []
   const specGroups = useMemo(() => buildSpecGroups(skus), [skus])
@@ -156,6 +160,14 @@ export default function ProductDetailPage() {
     if (tab === 'reviews' && reviews.length === 0) {
       void loadReviewStats()
       void loadReviews(1)
+    }
+    // P1-11：AI 摘要懒加载（每次进入评价页尝试一次；无评论商品后端会降级/报错，静默）
+    if (tab === 'reviews' && aiSummary === null && !aiSummaryLoading) {
+      setAiSummaryLoading(true)
+      aiApi.getProductReviewSummary(Number(id))
+        .then((res) => { if (res.data?.data?.summary) setAiSummary(res.data.data) })
+        .catch(() => undefined)
+        .finally(() => setAiSummaryLoading(false))
     }
   }
 
@@ -345,6 +357,22 @@ export default function ProductDetailPage() {
                   <Text className={styles.reviewDistItem}>差评 {reviewStats.badCount}</Text>
                   <Text className={styles.reviewDistItem}>好评率 {Math.round((reviewStats.goodRate ?? 0) * 100)}%</Text>
                 </View>
+              </View>
+            )}
+            {/* P1-11：AI 评论摘要卡（优缺点+总体评价） */}
+            {(aiSummaryLoading || aiSummary) && (
+              <View className={styles.aiSummaryCard}>
+                <Text className={styles.aiSummaryTitle}>✨ AI 摘要</Text>
+                {aiSummaryLoading ? (
+                  <Text className={styles.aiSummaryText}>正在智能总结评论...</Text>
+                ) : (
+                  <>
+                    <Text className={styles.aiSummaryText}>{aiSummary?.summary}</Text>
+                    <Text className={styles.aiSummaryMeta}>
+                      好评 {Math.round((aiSummary?.positiveRatio ?? 0) * 100)}% · 差评 {Math.round((aiSummary?.negativeRatio ?? 0) * 100)}% · 共 {aiSummary?.totalReviews ?? 0} 条
+                    </Text>
+                  </>
+                )}
               </View>
             )}
             {reviews.map((review) => (

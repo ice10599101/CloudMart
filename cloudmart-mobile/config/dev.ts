@@ -58,6 +58,12 @@ export default {
           target: GATEWAY_TARGET,
           changeOrigin: true,
         },
+        // P1-10：通知/直播 WS（网关 /ws/notifications/** 与 /ws/live/**，ws 代理）
+        '/ws': {
+          target: GATEWAY_TARGET,
+          changeOrigin: true,
+          ws: true,
+        },
         // Cocos 舞台产物：CloudMart-ui public/pet-game（同源代理，桥接 postMessage 不受跨域限制）
         '/pet-game': {
           target: WEB_UI_TARGET,

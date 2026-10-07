@@ -5,6 +5,7 @@ import { liveApi } from '@/api/live'
 import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import { useAuthStore } from '@/store/auth'
+import { closeNotificationSocket, resolveWsBase } from '@/composables/useNotificationSocket'
 import GiftSection from '@/components/GiftSection'
 import type { LiveWidgetData } from '@/api/wish'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -33,15 +34,6 @@ interface DanmakuMessage {
 }
 
 /** 由 API_BASE 推导 WS 基址：网关 WS 端点在 /ws（H5 走同源反代，小程序直连网关） */
-function resolveWsBase(): string {
-  if (process.env.TARO_ENV === 'weapp') {
-    const host = (process.env.TARO_APP_API_HOST || 'http://127.0.0.1').replace(/^http/, 'ws')
-    return `${host}:8090/ws`.replace(/^ws:\/\/ws/, 'ws')
-  }
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/ws`
-}
-
 function formatCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万`
   return String(count)
@@ -64,6 +56,9 @@ export default function LiveRoomPage() {
   const [countdown, setCountdown] = useState('')
   const [wsConnected, setWsConnected] = useState(false)
   const [giftTick] = useState(0)
+  // P1-12：直播间秒杀挂件（进入加载一次；无活动/未开播不展示）
+  const [seckill, setSeckill] = useState<Record<string, unknown> | null>(null)
+  const [seckillBusy, setSeckillBusy] = useState(false)
   const scrollViewRef = useRef('')
   const socketRef = useRef<Taro.SocketTask | null>(null)
   const msgIdRef = useRef(0)
@@ -100,6 +95,12 @@ export default function LiveRoomPage() {
       if (data?.status === 0 && data?.startTime) {
         startCountdown(data.startTime)
       }
+      // P1-12：拉取直播间秒杀活动（无活动 404/错误码静默）
+      liveApi.getRoomSeckill(roomId)
+        .then((res) => {
+          if (res.data?.success && res.data.data) setSeckill(res.data.data as Record<string, unknown>)
+        })
+        .catch(() => undefined)
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
@@ -132,6 +133,29 @@ export default function LiveRoomPage() {
     return () => clearInterval(timer)
   }
 
+  /** P1-12：参与直播间秒杀 */
+  const handleSeckillBuy = async () => {
+    if (seckillBusy) return
+    if (!isLoggedIn) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    setSeckillBusy(true)
+    try {
+      const res = await liveApi.executeRoomSeckill(roomId)
+      const result = res.data?.data as { orderNo?: string } | undefined
+      if (res.data?.success) {
+        Taro.showToast({ title: `秒杀成功${result?.orderNo ? `，订单 ${result.orderNo.slice(-8)}` : ''}`, icon: 'success' })
+        pushMessage({ nickname: '系统', content: '🎉 你已成功抢到直播间秒杀商品', type: 'system' })
+      }
+    } catch (err) {
+      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message || '手慢了，下次加油'
+      Taro.showToast({ title: message, icon: 'none' })
+    } finally {
+      setSeckillBusy(false)
+    }
+  }
+
   const pushMessage = useCallback((msg: Omit<DanmakuMessage, 'id'>) => {
     msgIdRef.current += 1
     const full = { ...msg, id: msgIdRef.current }
@@ -140,12 +164,27 @@ export default function LiveRoomPage() {
   }, [])
 
   /** WS 弹幕连接（对齐 Web 端 LiveRoom：/ws/live/danmaku，心跳+退避重连） */
-  const connectSocket = useCallback(() => {
+  const connectSocket = useCallback(async () => {
     if (!isLoggedIn || !roomId) return
     const token = Taro.getStorageSync('access_token')
     if (!token) return
+    // P1-10：小程序 WS 并发上限 5 条——进直播间前释放通知连接（返回消息页会自动重连）
+    closeNotificationSocket()
 
-    const url = `${resolveWsBase()}/live/danmaku?roomId=${roomId}&token=${encodeURIComponent(token)}`
+    // P1-12：WS 握手走一次性票据（30s 有效；握手拦截器不再接受裸 token）
+    let ticket = ''
+    let wsPath = '/ws/live/danmaku'
+    try {
+      const ticketRes = await liveApi.issueWsTicket({ roomId, nickname: user?.nickname })
+      const data = ticketRes.data?.data as unknown as { ticket?: string; wsPath?: string } | undefined
+      if (data?.ticket) {
+        ticket = data.ticket
+        if (data.wsPath) wsPath = data.wsPath
+      }
+    } catch {
+      // 票据签发失败仍按原路径尝试（旧网关兼容）；失败会走 onClose 重连
+    }
+    const url = `${resolveWsBase()}${wsPath}?roomId=${roomId}&ticket=${encodeURIComponent(ticket)}`
     try {
       // Taro.connectSocket 返回 Promise<SocketTask>，事件绑定须在 resolve 后进行
       void Taro.connectSocket({ url, fail: () => setWsConnected(false) }).then((socket) => {
@@ -396,6 +435,24 @@ export default function LiveRoomPage() {
 
       {/* Center - Live Area */}
       {renderCenter()}
+
+      {/* P1-12：直播间秒杀挂件 */}
+      {seckill && (
+        <View className={styles.seckillBar}>
+          <View className={styles.seckillInfo}>
+            <Text className={styles.seckillTag}>⚡ 直播秒杀</Text>
+            <Text className={styles.seckillName}>
+              {String(seckill.activityName ?? seckill.name ?? '限时秒杀')}
+            </Text>
+            <Text className={styles.seckillPrice}>
+              ¥{String(seckill.seckillPrice ?? seckill.price ?? '--')}
+            </Text>
+          </View>
+          <View className={styles.seckillBtn} onClick={seckillBusy ? undefined : handleSeckillBuy}>
+            <Text className={styles.seckillBtnText}>{seckillBusy ? '抢购中...' : '马上抢'}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Comment List Overlay */}
       <View className={styles.commentOverlay}>
