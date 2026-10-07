@@ -345,3 +345,187 @@
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
+
+// ==================== P0-6 投票/问卷附件 ====================
+.attachmentBtnRow {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+}
+
+.attachmentBtn {
+  padding: 12rpx 28rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-full;
+  background-color: var(--color-bg-container);
+}
+
+.attachmentBtnText {
+  font-size: $font-size-sm;
+  color: var(--color-text);
+}
+
+.attachmentChip {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+  padding: 12rpx 20rpx;
+  background-color: var(--color-primary-bg, rgba(0, 212, 255, 0.08));
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+}
+
+.attachmentChipText {
+  flex: 1;
+  font-size: $font-size-sm;
+  color: var(--color-text);
+}
+
+.attachmentChipRemove {
+  flex-shrink: 0;
+  font-size: $font-size-lg;
+  color: $color-text-tertiary;
+  padding: 0 8rpx;
+}
+
+.attachmentModalMask {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.attachmentModal {
+  width: 640rpx;
+  max-height: 80vh;
+  padding: $spacing-lg;
+  background-color: var(--color-bg-container);
+  border-radius: $radius-xl;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.attachmentModalTitle {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text);
+}
+
+.attachmentModalInput {
+  height: $button-height-sm;
+  padding: 0 $spacing-md;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  background-color: var(--color-bg-page);
+}
+
+.attachmentModalActions {
+  display: flex;
+  gap: $spacing-md;
+  margin-top: $spacing-sm;
+}
+
+.attachmentModalCancel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: $button-height-sm;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-full;
+}
+
+.attachmentModalCancelText {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.attachmentModalConfirm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: $button-height-sm;
+  background: var(--color-gradient-primary, var(--color-primary));
+  border-radius: $radius-full;
+}
+
+.attachmentModalConfirmText {
+  font-size: $font-size-md;
+  color: #ffffff;
+  font-weight: $font-weight-medium;
+}
+
+.pollOptionEditRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.pollOptionEditRow .attachmentModalInput {
+  flex: 1;
+}
+
+.pollOptionRemove {
+  flex-shrink: 0;
+  font-size: $font-size-xl;
+  color: $color-text-tertiary;
+  padding: 0 8rpx;
+}
+
+.pollOptionAdd {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+  padding: $spacing-xs 0;
+}
+
+.pollMultipleRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.pollMultipleLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.surveyQuestionsScroll {
+  max-height: 50vh;
+}
+
+.surveyQuestionEdit {
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.surveyTypeRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.surveyTypeChip {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  padding: 6rpx 20rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-full;
+}
+
+.surveyTypeChipActive {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-bg, rgba(0, 212, 255, 0.1));
+}

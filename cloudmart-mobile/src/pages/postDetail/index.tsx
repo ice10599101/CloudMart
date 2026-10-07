@@ -6,6 +6,9 @@ import { communityApi } from '@/api/community'
 import { useAuthStore } from '@/store/auth'
 import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import PollCard from '@/components/PollCard'
+import SurveyCard from '@/components/SurveyCard'
+import { extractPollAttachments, extractSurveyAttachments, stripAttachmentNodes } from '@/utils/postAttachments'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Post, Comment } from '@/types'
 import styles from './index.module.scss'
@@ -24,6 +27,10 @@ export default function PostDetailPage() {
   const [replyTo, setReplyTo] = useState<Comment | null>(null)
   const [commentPage, setCommentPage] = useState(1)
   const [commentHasMore, setCommentHasMore] = useState(false)
+  // P0-6：正文附件（投票/问卷）——渲染时剥离原节点，改用交互卡
+  const pollNodes = post?.content ? extractPollAttachments(post.content) : []
+  const surveyNodes = post?.content ? extractSurveyAttachments(post.content) : []
+  const displayContent = post?.content ? stripAttachmentNodes(post.content) : post?.content
   const { dataTheme, themeStyle } = useThemeClass()
   const { user } = useAuthStore()
 
@@ -327,7 +334,14 @@ export default function PostDetailPage() {
         {/* Content */}
         <View className={styles.postContent}>
           <Text className={styles.postTitle}>{post.title}</Text>
-          <RichText content={post.content} className={styles.postText} />
+          <RichText content={displayContent} className={styles.postText} />
+          {/* P0-6：投票/问卷交互卡（正文附件节点已剥离，按 UUID 拉实时数据） */}
+          {pollNodes.map((node) => (
+            <PollCard key={node.pollId} pollId={node.pollId} config={node.config} />
+          ))}
+          {surveyNodes.map((node) => (
+            <SurveyCard key={node.surveyId} surveyId={node.surveyId} />
+          ))}
           {post.images && post.images.map((img, i) => (
             <Image key={i} className={styles.postImage} src={img} mode='widthFix' />
           ))}

@@ -10,6 +10,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
+import { appendAttachmentNodes, generateAttachmentId, type SurveyAttachmentQuestion } from '@/utils/postAttachments'
 import styles from './index.module.scss'
 
 // 编辑器组件：H5 用 TiptapEditor，小程序用 MiniProgramEditor
@@ -39,6 +40,27 @@ interface MediaItem {
   uploaded?: boolean
 }
 
+/** P0-6 附件草稿配置（发布成功后按 UUID 幂等物化） */
+interface PollDraft {
+  id: string
+  question: string
+  options: string[]
+  multiple: boolean
+}
+
+interface SurveyDraft {
+  id: string
+  title: string
+  questions: SurveyAttachmentQuestion[]
+}
+
+const EMPTY_POLL_DRAFT = (): PollDraft => ({ id: generateAttachmentId(), question: '', options: ['', ''], multiple: false })
+const EMPTY_SURVEY_DRAFT = (): SurveyDraft => ({
+  id: generateAttachmentId(),
+  title: '',
+  questions: [{ text: '', type: 'single', options: ['', ''], required: true }],
+})
+
 export default function PublishPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
@@ -60,9 +82,16 @@ export default function PublishPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [draftId, setDraftId] = useState<number | null>(null)
   const leavingRef = useRef(false)
+  // P0-6：投票/问卷附件
+  const [pollDrafts, setPollDrafts] = useState<PollDraft[]>([])
+  const [surveyDrafts, setSurveyDrafts] = useState<SurveyDraft[]>([])
+  const [pollModalOpen, setPollModalOpen] = useState(false)
+  const [pollDraft, setPollDraft] = useState<PollDraft>(EMPTY_POLL_DRAFT)
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false)
+  const [surveyDraft, setSurveyDraft] = useState<SurveyDraft>(EMPTY_SURVEY_DRAFT)
   useAuthGuard()
 
-  const hasContent = title.trim() || content.trim() || mediaList.length > 0
+  const hasContent = title.trim() || content.trim() || mediaList.length > 0 || pollDrafts.length > 0 || surveyDrafts.length > 0
 
   // Intercept back navigation when there's unsaved content
   useEffect(() => {
@@ -195,7 +224,7 @@ export default function PublishPage() {
 
       const postData: Record<string, unknown> = {
         title: title.trim(),
-        content,
+        content: buildContentWithAttachments(),
         tagIds,
         coverImage,
         mediaUrls,
@@ -206,9 +235,12 @@ export default function PublishPage() {
 
       if (isEditing && editingId) {
         await communityApi.updatePost(editingId, postData)
+        await materializeAttachments(editingId)
         Taro.showToast({ title: '更新成功', icon: 'success' })
       } else {
-        await communityApi.createPost(postData as any)
+        const createRes = await communityApi.createPost(postData as any)
+        const newPostId = createRes.data?.data?.id
+        if (newPostId) await materializeAttachments(newPostId)
         Taro.showToast({ title: '发布成功', icon: 'success' })
       }
       setTimeout(() => Taro.switchTab({ url: '/pages/home/index' }), 1500)
@@ -232,7 +264,7 @@ export default function PublishPage() {
       const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
       const postData: Record<string, unknown> = {
         title: title.trim() || '未命名草稿',
-        content,
+        content: buildContentWithAttachments(),
         tags,
         coverImage,
         mediaUrls,
@@ -243,10 +275,14 @@ export default function PublishPage() {
       const targetId = editingId || draftId
       if (targetId) {
         await communityApi.updatePost(targetId, postData)
+        await materializeAttachments(targetId)
       } else {
         const createRes = await communityApi.createPost(postData as any)
         const newId = createRes.data?.data?.id
-        if (newId) setDraftId(newId)
+        if (newId) {
+          setDraftId(newId)
+          await materializeAttachments(newId)
+        }
       }
       Taro.showToast({ title: '已保存草稿', icon: 'success' })
     } catch {
@@ -335,6 +371,69 @@ export default function PublishPage() {
     setMediaList((prev) => prev.filter((item) => item.uid !== uid))
   }
 
+  // ==================== P0-6：投票/问卷附件 ====================
+
+  const confirmPollDraft = () => {
+    const options = pollDraft.options.map((o) => o.trim()).filter(Boolean)
+    if (!pollDraft.question.trim() || options.length < 2) {
+      Taro.showToast({ title: '请填写问题和至少 2 个选项', icon: 'none' })
+      return
+    }
+    const finalized: PollDraft = { ...pollDraft, question: pollDraft.question.trim(), options }
+    setPollDrafts((prev) => [...prev.filter((p) => p.id !== finalized.id), finalized])
+    setPollModalOpen(false)
+    setPollDraft(EMPTY_POLL_DRAFT())
+  }
+
+  const confirmSurveyDraft = () => {
+    const title = surveyDraft.title.trim()
+    const questions = surveyDraft.questions
+      .map((q) => ({
+        ...q,
+        text: q.text.trim(),
+        options: q.type === 'text' ? [] : q.options.map((o) => o.trim()).filter(Boolean),
+      }))
+      .filter((q) => q.text && (q.type === 'text' || q.options.length >= 2))
+    if (!title || questions.length === 0) {
+      Taro.showToast({ title: '请填写问卷标题和完整题目', icon: 'none' })
+      return
+    }
+    const finalized: SurveyDraft = { ...surveyDraft, title, questions }
+    setSurveyDrafts((prev) => [...prev.filter((s) => s.id !== finalized.id), finalized])
+    setSurveyModalOpen(false)
+    setSurveyDraft(EMPTY_SURVEY_DRAFT())
+  }
+
+  /** 正文追加附件节点（data-poll / data-survey，契约对齐 Web 端编辑器序列化） */
+  const buildContentWithAttachments = (): string =>
+    appendAttachmentNodes(
+      content,
+      pollDrafts.map((p) => ({ id: p.id, config: { question: p.question, options: p.options, multiple: p.multiple } })),
+      surveyDrafts.map((s) => ({ id: s.id, config: { title: s.title, questions: s.questions } })),
+    )
+
+  /** 发布成功后物化附件（幂等：UUID 为主键；失败不回滚宿主内容，重新编辑保存可重试） */
+  const materializeAttachments = async (postId: number | string) => {
+    const tasks: Promise<unknown>[] = [
+      ...pollDrafts.map((p) =>
+        communityApi.createPoll({
+          id: p.id, targetType: 'POST', targetId: String(postId),
+          question: p.question, multiple: p.multiple, options: p.options,
+        }),
+      ),
+      ...surveyDrafts.map((s) =>
+        communityApi.createSurvey({
+          id: s.id, targetType: 'POST', targetId: String(postId),
+          title: s.title, questions: s.questions,
+        }),
+      ),
+    ]
+    const results = await Promise.allSettled(tasks)
+    if (results.some((r) => r.status === 'rejected')) {
+      Taro.showToast({ title: '部分投票/问卷创建失败，重新编辑保存可重试', icon: 'none' })
+    }
+  }
+
   return (
     <View data-theme={dataTheme} className={styles.page} style={{ ...themeStyle, paddingTop: `${statusBarHeight + navBarHeight}px` }}>
       <CustomNavBar title="CloudMart" />
@@ -406,6 +505,31 @@ export default function PublishPage() {
               </View>
             )}
           </View>
+        </View>
+
+        {/* P0-6：投票/问卷附件 */}
+        <View className={styles.tagWrap}>
+          <Text className={styles.sectionLabel}>互动附件</Text>
+          <View className={styles.attachmentBtnRow}>
+            <View className={styles.attachmentBtn} onClick={() => setPollModalOpen(true)}>
+              <Text className={styles.attachmentBtnText}>📊 发投票</Text>
+            </View>
+            <View className={styles.attachmentBtn} onClick={() => setSurveyModalOpen(true)}>
+              <Text className={styles.attachmentBtnText}>📝 发问卷</Text>
+            </View>
+          </View>
+          {pollDrafts.map((p) => (
+            <View key={p.id} className={styles.attachmentChip}>
+              <Text className={styles.attachmentChipText} numberOfLines={1}>📊 {p.question}（{p.options.length} 选项{p.multiple ? '·多选' : ''}）</Text>
+              <Text className={styles.attachmentChipRemove} onClick={() => setPollDrafts((prev) => prev.filter((x) => x.id !== p.id))}>×</Text>
+            </View>
+          ))}
+          {surveyDrafts.map((s) => (
+            <View key={s.id} className={styles.attachmentChip}>
+              <Text className={styles.attachmentChipText} numberOfLines={1}>📝 {s.title}（{s.questions.length} 题）</Text>
+              <Text className={styles.attachmentChipRemove} onClick={() => setSurveyDrafts((prev) => prev.filter((x) => x.id !== s.id))}>×</Text>
+            </View>
+          ))}
         </View>
 
         {/* 关联好物（真实 productId，对齐 Web 端发布） */}
@@ -501,6 +625,208 @@ export default function PublishPage() {
           ))}
         </View>
       </ScrollView>
+
+      {/* 投票配置弹窗（P0-6：2-10 选项，单/多选） */}
+      {pollModalOpen && (
+        <View className={styles.attachmentModalMask} onClick={() => setPollModalOpen(false)}>
+          <View className={styles.attachmentModal} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.attachmentModalTitle}>发起投票</Text>
+            <Input
+              className={styles.attachmentModalInput}
+              placeholder='投票问题（必填）'
+              placeholderStyle='color: var(--color-text-tertiary)'
+              value={pollDraft.question}
+              maxlength={200}
+              onInput={(e) => setPollDraft((prev) => ({ ...prev, question: e.detail.value }))}
+            />
+            {pollDraft.options.map((option, i) => (
+              <View key={i} className={styles.pollOptionEditRow}>
+                <Input
+                  className={styles.attachmentModalInput}
+                  placeholder={`选项 ${i + 1}`}
+                  placeholderStyle='color: var(--color-text-tertiary)'
+                  value={option}
+                  maxlength={200}
+                  onInput={(e) =>
+                    setPollDraft((prev) => ({
+                      ...prev,
+                      options: prev.options.map((o, idx) => (idx === i ? e.detail.value : o)),
+                    }))
+                  }
+                />
+                {pollDraft.options.length > 2 && (
+                  <Text
+                    className={styles.pollOptionRemove}
+                    onClick={() => setPollDraft((prev) => ({ ...prev, options: prev.options.filter((_, idx) => idx !== i) }))}
+                  >
+                    ×
+                  </Text>
+                )}
+              </View>
+            ))}
+            <View className={styles.pollOptionEditRow}>
+              {pollDraft.options.length < 10 && (
+                <Text
+                  className={styles.pollOptionAdd}
+                  onClick={() => setPollDraft((prev) => ({ ...prev, options: [...prev.options, ''] }))}
+                >
+                  ＋ 添加选项
+                </Text>
+              )}
+              <View className={styles.pollMultipleRow}>
+                <Text className={styles.pollMultipleLabel}>多选</Text>
+                <Switch checked={pollDraft.multiple} onChange={(e) => setPollDraft((prev) => ({ ...prev, multiple: e.detail.value }))} color='#4a90d9' />
+              </View>
+            </View>
+            <View className={styles.attachmentModalActions}>
+              <View className={styles.attachmentModalCancel} onClick={() => setPollModalOpen(false)}>
+                <Text className={styles.attachmentModalCancelText}>取消</Text>
+              </View>
+              <View className={styles.attachmentModalConfirm} onClick={confirmPollDraft}>
+                <Text className={styles.attachmentModalConfirmText}>添加</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 问卷配置弹窗（P0-6：题目标题/类型/选项/必填） */}
+      {surveyModalOpen && (
+        <View className={styles.attachmentModalMask} onClick={() => setSurveyModalOpen(false)}>
+          <View className={styles.attachmentModal} onClick={(e) => e.stopPropagation()}>
+            <Text className={styles.attachmentModalTitle}>发起问卷</Text>
+            <Input
+              className={styles.attachmentModalInput}
+              placeholder='问卷标题（必填）'
+              placeholderStyle='color: var(--color-text-tertiary)'
+              value={surveyDraft.title}
+              maxlength={200}
+              onInput={(e) => setSurveyDraft((prev) => ({ ...prev, title: e.detail.value }))}
+            />
+            <ScrollView scrollY className={styles.surveyQuestionsScroll}>
+              {surveyDraft.questions.map((question, qi) => (
+                <View key={qi} className={styles.surveyQuestionEdit}>
+                  <View className={styles.surveyQuestionHeader}>
+                    <Input
+                      className={styles.attachmentModalInput}
+                      placeholder={`问题 ${qi + 1}`}
+                      placeholderStyle='color: var(--color-text-tertiary)'
+                      value={question.text}
+                      maxlength={200}
+                      onInput={(e) =>
+                        setSurveyDraft((prev) => ({
+                          ...prev,
+                          questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, text: e.detail.value } : q)),
+                        }))
+                      }
+                    />
+                  </View>
+                  <View className={styles.surveyTypeRow}>
+                    {(['single', 'multi', 'text'] as const).map((type) => (
+                      <Text
+                        key={type}
+                        className={`${styles.surveyTypeChip} ${question.type === type ? styles.surveyTypeChipActive : ''}`}
+                        onClick={() =>
+                          setSurveyDraft((prev) => ({
+                            ...prev,
+                            questions: prev.questions.map((q, idx) =>
+                              idx === qi
+                                ? { ...q, type, options: type === 'text' ? [] : q.options.length >= 2 ? q.options : ['', ''] }
+                                : q,
+                            ),
+                          }))
+                        }
+                      >
+                        {type === 'single' ? '单选' : type === 'multi' ? '多选' : '填空'}
+                      </Text>
+                    ))}
+                    <View className={styles.pollMultipleRow}>
+                      <Text className={styles.pollMultipleLabel}>必填</Text>
+                      <Switch
+                        checked={question.required}
+                        onChange={(e) =>
+                          setSurveyDraft((prev) => ({
+                            ...prev,
+                            questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, required: e.detail.value } : q)),
+                          }))
+                        }
+                        color='#4a90d9'
+                      />
+                    </View>
+                  </View>
+                  {question.type !== 'text' &&
+                    question.options.map((option, oi) => (
+                      <View key={oi} className={styles.pollOptionEditRow}>
+                        <Input
+                          className={styles.attachmentModalInput}
+                          placeholder={`选项 ${oi + 1}`}
+                          placeholderStyle='color: var(--color-text-tertiary)'
+                          value={option}
+                          maxlength={200}
+                          onInput={(e) =>
+                            setSurveyDraft((prev) => ({
+                              ...prev,
+                              questions: prev.questions.map((q, idx) =>
+                                idx === qi ? { ...q, options: q.options.map((o, oidx) => (oidx === oi ? e.detail.value : o)) } : q,
+                              ),
+                            }))
+                          }
+                        />
+                        {question.options.length > 2 && (
+                          <Text
+                            className={styles.pollOptionRemove}
+                            onClick={() =>
+                              setSurveyDraft((prev) => ({
+                                ...prev,
+                                questions: prev.questions.map((q, idx) =>
+                                  idx === qi ? { ...q, options: q.options.filter((_, oidx) => oidx !== oi) } : q,
+                                ),
+                              }))
+                            }
+                          >
+                            ×
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  {question.type !== 'text' && question.options.length < 10 && (
+                    <Text
+                      className={styles.pollOptionAdd}
+                      onClick={() =>
+                        setSurveyDraft((prev) => ({
+                          ...prev,
+                          questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, options: [...q.options, ''] } : q)),
+                        }))
+                      }
+                    >
+                      ＋ 添加选项
+                    </Text>
+                  )}
+                </View>
+              ))}
+              <Text
+                className={styles.pollOptionAdd}
+                onClick={() =>
+                  setSurveyDraft((prev) => ({
+                    ...prev,
+                    questions: [...prev.questions, { text: '', type: 'single', options: ['', ''], required: true }],
+                  }))
+                }
+              >
+                ＋ 添加问题
+              </Text>
+            </ScrollView>
+            <View className={styles.attachmentModalActions}>
+              <View className={styles.attachmentModalCancel} onClick={() => setSurveyModalOpen(false)}>
+                <Text className={styles.attachmentModalCancelText}>取消</Text>
+              </View>
+              <View className={styles.attachmentModalConfirm} onClick={confirmSurveyDraft}>
+                <Text className={styles.attachmentModalConfirmText}>添加</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
       <CustomTabBar />
     </View>
   )

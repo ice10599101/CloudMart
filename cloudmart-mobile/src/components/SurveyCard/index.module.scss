@@ -1,0 +1,127 @@
+.card {
+  margin: $spacing-md 0;
+  padding: $spacing-md;
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: $radius-lg;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-md;
+}
+
+.headIcon {
+  font-size: $font-size-md;
+}
+
+.headText {
+  flex: 1;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: var(--color-text);
+}
+
+.questionBlock {
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid var(--color-border);
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+}
+
+.questionText {
+  display: block;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  font-weight: $font-weight-medium;
+  margin-bottom: $spacing-sm;
+  line-height: 1.5;
+}
+
+.requiredMark {
+  color: var(--color-danger, #ff4d4f);
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.optionMark {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+  flex-shrink: 0;
+}
+
+.optionMarkActive {
+  color: var(--color-primary);
+}
+
+.optionText {
+  font-size: $font-size-md;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.optionTextActive {
+  color: var(--color-primary);
+  font-weight: $font-weight-medium;
+}
+
+.textInput {
+  height: $button-height-sm;
+  padding: 0 $spacing-md;
+  border: 1rpx solid var(--color-border);
+  border-radius: $radius-md;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  background-color: var(--color-bg-page);
+}
+
+.inputPlaceholder {
+  color: $color-text-tertiary;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: $spacing-md;
+}
+
+.total {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.submitBtn {
+  padding: 10rpx 40rpx;
+  background: var(--color-gradient-primary, var(--color-primary));
+  border-radius: $radius-full;
+}
+
+.submitBtnDisabled {
+  opacity: 0.4;
+}
+
+.submitBtnText {
+  font-size: $font-size-sm;
+  color: #ffffff;
+  font-weight: $font-weight-medium;
+}
+
+.hint {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}

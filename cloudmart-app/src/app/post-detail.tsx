@@ -7,6 +7,9 @@ import { useAuthStore } from '@/store/auth'
 import * as Sharing from 'expo-sharing'
 import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import PollCard from '@/components/PollCard'
+import SurveyCard from '@/components/SurveyCard'
+import { extractPollAttachments, extractSurveyAttachments, stripAttachmentNodes } from '@/utils/postAttachments'
 import { communityApi } from '@/api/community'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -51,6 +54,10 @@ export default function PostDetailScreen() {
   const postId = Number(id)
 
   const [post, setPost] = useState<PostData | null>(null)
+  // P0-6：正文附件（投票/问卷）——渲染时剥离原节点，改用交互卡
+  const pollNodes = post?.content ? extractPollAttachments(post.content) : []
+  const surveyNodes = post?.content ? extractSurveyAttachments(post.content) : []
+  const displayContent = post?.content ? stripAttachmentNodes(post.content) : post?.content
   const [comments, setComments] = useState<CommentData[]>([])
   const [commentContent, setCommentContent] = useState('')
   const [isFollowing, setIsFollowing] = useState(false)
@@ -365,7 +372,14 @@ export default function PostDetailScreen() {
         {/* Content */}
         <View style={{ paddingHorizontal: Spacing.lg }}>
           <Text style={{ fontSize: FontSize.xl, fontWeight: '600', color: theme.text, lineHeight: 28, marginBottom: Spacing.md }}>{post.title}</Text>
-          <RichHtml content={post.content} width={contentWidth} color={theme.text} fontSize={FontSize.md} />
+          <RichHtml content={displayContent} width={contentWidth} color={theme.text} fontSize={FontSize.md} />
+          {/* P0-6：投票/问卷交互卡（正文附件节点已剥离，按 UUID 拉实时数据） */}
+          {pollNodes.map((node) => (
+            <PollCard key={node.pollId} pollId={node.pollId} config={node.config} />
+          ))}
+          {surveyNodes.map((node) => (
+            <SurveyCard key={node.surveyId} surveyId={node.surveyId} />
+          ))}
 
           {post.images?.map((img, i) => (
             <Image key={i} source={{ uri: img }} style={{ width: '100%', height: 200, borderRadius: BorderRadius.md, marginBottom: Spacing.sm, resizeMode: 'cover' }} />

@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, BackHandler } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, BackHandler, Switch, Modal } from 'react-native'
 import { useState, useRef, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
@@ -9,6 +9,7 @@ import { productApi } from '@/api/product'
 import { fileApi } from '@/api/file'
 import type { Product } from '@/types'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
+import { appendAttachmentNodes, generateAttachmentId, type SurveyAttachmentQuestion } from '@/utils/postAttachments'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface MediaItem {
@@ -18,6 +19,27 @@ interface MediaItem {
   localUri?: string
   uploaded: boolean
 }
+
+/** P0-6 附件草稿配置（发布成功后按 UUID 幂等物化） */
+interface PollDraft {
+  id: string
+  question: string
+  options: string[]
+  multiple: boolean
+}
+
+interface SurveyDraft {
+  id: string
+  title: string
+  questions: SurveyAttachmentQuestion[]
+}
+
+const EMPTY_POLL_DRAFT = (): PollDraft => ({ id: generateAttachmentId(), question: '', options: ['', ''], multiple: false })
+const EMPTY_SURVEY_DRAFT = (): SurveyDraft => ({
+  id: generateAttachmentId(),
+  title: '',
+  questions: [{ text: '', type: 'single', options: ['', ''], required: true }],
+})
 
 export default function PublishPage() {
   const theme = useTheme()
@@ -44,8 +66,15 @@ export default function PublishPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [draftId, setDraftId] = useState<number | null>(null)
+  // P0-6：投票/问卷附件
+  const [pollDrafts, setPollDrafts] = useState<PollDraft[]>([])
+  const [surveyDrafts, setSurveyDrafts] = useState<SurveyDraft[]>([])
+  const [pollModalOpen, setPollModalOpen] = useState(false)
+  const [pollDraft, setPollDraft] = useState<PollDraft>(EMPTY_POLL_DRAFT)
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false)
+  const [surveyDraft, setSurveyDraft] = useState<SurveyDraft>(EMPTY_SURVEY_DRAFT)
 
-  const hasContent = title.trim() || content.trim() || mediaList.length > 0
+  const hasContent = title.trim() || content.trim() || mediaList.length > 0 || pollDrafts.length > 0 || surveyDrafts.length > 0
 
   // Intercept hardware back button
   useEffect(() => {
@@ -170,7 +199,7 @@ export default function PublishPage() {
 
             const postData: Record<string, unknown> = {
               title: title.trim(),
-              content,
+              content: buildContentWithAttachments(),
               tagIds,
               coverImage,
               mediaUrls,
@@ -181,9 +210,12 @@ export default function PublishPage() {
 
             if (isEditing && editingId) {
               await communityApi.updatePost(editingId, postData)
+              await materializeAttachments(editingId)
               Alert.alert('更新成功', '', [{ text: '确定', onPress: () => router.back() }])
             } else {
-              await communityApi.createPost(postData as any)
+              const createRes = await communityApi.createPost(postData as any)
+              const newPostId = (createRes.data as any)?.data?.id
+              if (newPostId) await materializeAttachments(newPostId)
               Alert.alert('发布成功', '', [{
                 text: '确定',
                 onPress: () => {
@@ -191,6 +223,8 @@ export default function PublishPage() {
                   setContent('')
                   setTags('')
                   setMediaList([])
+                  setPollDrafts([])
+                  setSurveyDrafts([])
                   editorRef.current?.setHTML('')
                 },
               }])
@@ -227,7 +261,7 @@ export default function PublishPage() {
             const { mediaUrls, coverImage, mediaType } = await uploadMediaFiles()
             const postData: Record<string, unknown> = {
               title: title.trim() || '未命名草稿',
-              content,
+              content: buildContentWithAttachments(),
               tagIds,
               coverImage,
               mediaUrls,
@@ -239,10 +273,14 @@ export default function PublishPage() {
             const targetId = editingId || draftId
             if (targetId) {
               await communityApi.updatePost(targetId, postData)
+              await materializeAttachments(targetId)
             } else {
               const createRes = await communityApi.createPost(postData as any)
               const newId = (createRes.data as any)?.data?.id
-              if (newId) setDraftId(newId)
+              if (newId) {
+                setDraftId(newId)
+                await materializeAttachments(newId)
+              }
             }
             Alert.alert('提示', '已保存草稿')
           } catch {
@@ -264,6 +302,69 @@ export default function PublishPage() {
     } else {
       leavingRef.current = true
       router.back()
+    }
+  }
+
+  // ==================== P0-6：投票/问卷附件 ====================
+
+  const confirmPollDraft = () => {
+    const options = pollDraft.options.map((o) => o.trim()).filter(Boolean)
+    if (!pollDraft.question.trim() || options.length < 2) {
+      Alert.alert('提示', '请填写问题和至少 2 个选项')
+      return
+    }
+    const finalized: PollDraft = { ...pollDraft, question: pollDraft.question.trim(), options }
+    setPollDrafts((prev) => [...prev.filter((p) => p.id !== finalized.id), finalized])
+    setPollModalOpen(false)
+    setPollDraft(EMPTY_POLL_DRAFT())
+  }
+
+  const confirmSurveyDraft = () => {
+    const title = surveyDraft.title.trim()
+    const questions = surveyDraft.questions
+      .map((q) => ({
+        ...q,
+        text: q.text.trim(),
+        options: q.type === 'text' ? [] : q.options.map((o) => o.trim()).filter(Boolean),
+      }))
+      .filter((q) => q.text && (q.type === 'text' || q.options.length >= 2))
+    if (!title || questions.length === 0) {
+      Alert.alert('提示', '请填写问卷标题和完整题目')
+      return
+    }
+    const finalized: SurveyDraft = { ...surveyDraft, title, questions }
+    setSurveyDrafts((prev) => [...prev.filter((s) => s.id !== finalized.id), finalized])
+    setSurveyModalOpen(false)
+    setSurveyDraft(EMPTY_SURVEY_DRAFT())
+  }
+
+  /** 正文追加附件节点（data-poll / data-survey，契约对齐 Web 端编辑器序列化） */
+  const buildContentWithAttachments = (): string =>
+    appendAttachmentNodes(
+      content,
+      pollDrafts.map((p) => ({ id: p.id, config: { question: p.question, options: p.options, multiple: p.multiple } })),
+      surveyDrafts.map((s) => ({ id: s.id, config: { title: s.title, questions: s.questions } })),
+    )
+
+  /** 发布成功后物化附件（幂等：UUID 为主键；失败不回滚宿主内容，重新编辑保存可重试） */
+  const materializeAttachments = async (postId: number | string) => {
+    const tasks: Promise<unknown>[] = [
+      ...pollDrafts.map((p) =>
+        communityApi.createPoll({
+          id: p.id, targetType: 'POST', targetId: String(postId),
+          question: p.question, multiple: p.multiple, options: p.options,
+        }),
+      ),
+      ...surveyDrafts.map((s) =>
+        communityApi.createSurvey({
+          id: s.id, targetType: 'POST', targetId: String(postId),
+          title: s.title, questions: s.questions,
+        }),
+      ),
+    ]
+    const results = await Promise.allSettled(tasks)
+    if (results.some((r) => r.status === 'rejected')) {
+      Alert.alert('提示', '部分投票/问卷创建失败，重新编辑保存可重试')
     }
   }
 
@@ -539,6 +640,47 @@ export default function PublishPage() {
           </View>
         </View>
 
+        {/* P0-6：投票/问卷附件 */}
+        <View style={{ marginBottom: Spacing.lg }}>
+          <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, fontWeight: '500', marginBottom: Spacing.sm }}>互动附件</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setPollModalOpen(true)}
+              style={{ paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgContainer }}
+            >
+              <Text style={{ fontSize: FontSize.sm, color: theme.text }}>📊 发投票</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSurveyModalOpen(true)}
+              style={{ paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgContainer }}
+            >
+              <Text style={{ fontSize: FontSize.sm, color: theme.text }}>📝 发问卷</Text>
+            </TouchableOpacity>
+          </View>
+          {pollDrafts.map((p) => (
+            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm, padding: Spacing.md, backgroundColor: theme.bgInput, borderRadius: BorderRadius.md }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: FontSize.sm, color: theme.text }}>
+                📊 {p.question}（{p.options.length} 选项{p.multiple ? '·多选' : ''}）
+              </Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setPollDrafts((prev) => prev.filter((x) => x.id !== p.id))}>
+                <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          {surveyDrafts.map((s) => (
+            <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm, padding: Spacing.md, backgroundColor: theme.bgInput, borderRadius: BorderRadius.md }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: FontSize.sm, color: theme.text }}>
+                📝 {s.title}（{s.questions.length} 题）
+              </Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setSurveyDrafts((prev) => prev.filter((x) => x.id !== s.id))}>
+                <Text style={{ fontSize: FontSize.lg, color: theme.textTertiary }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
         {/* Linked Product（关联好物） */}
         <View style={{ marginBottom: Spacing.lg }}>
           {linkProduct && linkedProductId ? (
@@ -697,6 +839,184 @@ export default function PublishPage() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* 投票配置弹窗（P0-6：2-10 选项，单/多选） */}
+      <Modal visible={pollModalOpen} transparent animationType="fade" onRequestClose={() => setPollModalOpen(false)}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setPollModalOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={{ width: '88%', backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.xl }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 440 }}>
+              <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: theme.text, marginBottom: Spacing.lg }}>发起投票</Text>
+              <TextInput
+                value={pollDraft.question}
+                onChangeText={(text) => setPollDraft((prev) => ({ ...prev, question: text }))}
+                placeholder="投票问题（必填）"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={200}
+                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: theme.text, fontSize: FontSize.sm, backgroundColor: theme.bgInput, marginBottom: Spacing.md }}
+              />
+              {pollDraft.options.map((option, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md }}>
+                  <TextInput
+                    value={option}
+                    onChangeText={(text) => setPollDraft((prev) => ({ ...prev, options: prev.options.map((o, idx) => (idx === i ? text : o)) }))}
+                    placeholder={`选项 ${i + 1}`}
+                    placeholderTextColor={theme.textTertiary}
+                    maxLength={200}
+                    style={{ flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: theme.text, fontSize: FontSize.sm, backgroundColor: theme.bgInput }}
+                  />
+                  {pollDraft.options.length > 2 && (
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => setPollDraft((prev) => ({ ...prev, options: prev.options.filter((_, idx) => idx !== i) }))}>
+                      <Text style={{ fontSize: FontSize.xl, color: theme.textTertiary }}>×</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                {pollDraft.options.length < 10 ? (
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => setPollDraft((prev) => ({ ...prev, options: [...prev.options, ''] }))}>
+                    <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>＋ 添加选项</Text>
+                  </TouchableOpacity>
+                ) : <View />}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>多选</Text>
+                  <Switch value={pollDraft.multiple} onValueChange={(value) => setPollDraft((prev) => ({ ...prev, multiple: value }))} />
+                </View>
+              </View>
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg }}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setPollModalOpen(false)} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.border }}>
+                <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.8} onPress={confirmPollDraft} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: BorderRadius.full, backgroundColor: theme.primary }}>
+                <Text style={{ fontSize: FontSize.md, color: '#FFFFFF', fontWeight: '600' }}>添加</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 问卷配置弹窗（P0-6：题目标题/类型/选项/必填） */}
+      <Modal visible={surveyModalOpen} transparent animationType="fade" onRequestClose={() => setSurveyModalOpen(false)}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setSurveyModalOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={{ width: '88%', backgroundColor: theme.bgContainer, borderRadius: BorderRadius.lg, padding: Spacing.xl }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: theme.text, marginBottom: Spacing.lg }}>发起问卷</Text>
+              <TextInput
+                value={surveyDraft.title}
+                onChangeText={(text) => setSurveyDraft((prev) => ({ ...prev, title: text }))}
+                placeholder="问卷标题（必填）"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={200}
+                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: theme.text, fontSize: FontSize.sm, backgroundColor: theme.bgInput, marginBottom: Spacing.md }}
+              />
+              {surveyDraft.questions.map((question, qi) => (
+                <View key={qi} style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: Spacing.md, marginBottom: Spacing.md, gap: Spacing.md }}>
+                  <TextInput
+                    value={question.text}
+                    onChangeText={(text) => setSurveyDraft((prev) => ({ ...prev, questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, text } : q)) }))}
+                    placeholder={`问题 ${qi + 1}`}
+                    placeholderTextColor={theme.textTertiary}
+                    maxLength={200}
+                    style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: theme.text, fontSize: FontSize.sm, backgroundColor: theme.bgInput }}
+                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
+                    {(['single', 'multi', 'text'] as const).map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          setSurveyDraft((prev) => ({
+                            ...prev,
+                            questions: prev.questions.map((q, idx) =>
+                              idx === qi ? { ...q, type, options: type === 'text' ? [] : q.options.length >= 2 ? q.options : ['', ''] } : q,
+                            ),
+                          }))
+                        }
+                        style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: question.type === type ? theme.primary : theme.border, backgroundColor: question.type === type ? theme.primary : 'transparent' }}
+                      >
+                        <Text style={{ fontSize: FontSize.xs, color: question.type === type ? '#FFFFFF' : theme.textSecondary }}>
+                          {type === 'single' ? '单选' : type === 'multi' ? '多选' : '填空'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+                      <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>必填</Text>
+                      <Switch
+                        value={question.required}
+                        onValueChange={(value) =>
+                          setSurveyDraft((prev) => ({ ...prev, questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, required: value } : q)) }))
+                        }
+                      />
+                    </View>
+                  </View>
+                  {question.type !== 'text' &&
+                    question.options.map((option, oi) => (
+                      <View key={oi} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                        <TextInput
+                          value={option}
+                          onChangeText={(text) =>
+                            setSurveyDraft((prev) => ({
+                              ...prev,
+                              questions: prev.questions.map((q, idx) =>
+                                idx === qi ? { ...q, options: q.options.map((o, oidx) => (oidx === oi ? text : o)) } : q,
+                              ),
+                            }))
+                          }
+                          placeholder={`选项 ${oi + 1}`}
+                          placeholderTextColor={theme.textTertiary}
+                          maxLength={200}
+                          style={{ flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, color: theme.text, fontSize: FontSize.sm, backgroundColor: theme.bgInput }}
+                        />
+                        {question.options.length > 2 && (
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() =>
+                              setSurveyDraft((prev) => ({
+                                ...prev,
+                                questions: prev.questions.map((q, idx) =>
+                                  idx === qi ? { ...q, options: q.options.filter((_, oidx) => oidx !== oi) } : q,
+                                ),
+                              }))
+                            }
+                          >
+                            <Text style={{ fontSize: FontSize.xl, color: theme.textTertiary }}>×</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  {question.type !== 'text' && question.options.length < 10 && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        setSurveyDraft((prev) => ({
+                          ...prev,
+                          questions: prev.questions.map((q, idx) => (idx === qi ? { ...q, options: [...q.options, ''] } : q)),
+                        }))
+                      }
+                    >
+                      <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>＋ 添加选项</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSurveyDraft((prev) => ({ ...prev, questions: [...prev.questions, { text: '', type: 'single', options: ['', ''], required: true }] }))}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: theme.primary }}>＋ 添加问题</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg }}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setSurveyModalOpen(false)} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.border }}>
+                <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.8} onPress={confirmSurveyDraft} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: BorderRadius.full, backgroundColor: theme.primary }}>
+                <Text style={{ fontSize: FontSize.md, color: '#FFFFFF', fontWeight: '600' }}>添加</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   )
 }

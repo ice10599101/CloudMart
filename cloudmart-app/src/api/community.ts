@@ -87,4 +87,65 @@ export const communityApi = {
     request<PaginatedResult<Post>>({ url: `/community/users/${userId}/liked${buildQuery(params as Record<string, unknown>)}` }),
   deleteComment: (postId: number | string, commentId: number | string) =>
     request<void>({ url: `/community/posts/${postId}/comments/${commentId}`, method: 'DELETE' }),
+
+  // ==================== P0-6 编辑器附件：投票/问卷（契约对齐 mall-community Poll/Survey） ====================
+  /** 创建投票（幂等：客户端 UUID 为主键；重复提交返回既有投票） */
+  createPoll: (data: {
+    id: string
+    targetType: 'POST' | 'WISH' | 'CAPSULE' | 'LETTER'
+    targetId: string
+    question: string
+    multiple: boolean
+    options: string[]
+  }) => request<PollData>({ url: '/community/polls', method: 'POST', data: data as unknown as Record<string, unknown> }),
+  /** 投票详情（含各选项票数与参与人数；已登录返回我的选择） */
+  getPoll: (pollId: string) => request<PollData>({ url: `/community/polls/${pollId}` }),
+  /** 提交投票（单选恰好 1 项，多选 1-10 项；重复投票 409） */
+  votePoll: (pollId: string, optionIds: number[]) =>
+    request<void>({ url: `/community/polls/${pollId}/vote`, method: 'POST', data: { optionIds } }),
+  /** 创建问卷（幂等） */
+  createSurvey: (data: {
+    id: string
+    targetType: 'POST' | 'WISH' | 'CAPSULE' | 'LETTER'
+    targetId: string
+    title: string
+    questions: Array<{ text: string; type: 'single' | 'multi' | 'text'; options: string[]; required: boolean }>
+  }) => request<SurveyData>({ url: '/community/surveys', method: 'POST', data: data as unknown as Record<string, unknown> }),
+  /** 问卷详情（含各题票数与我的答案） */
+  getSurvey: (surveyId: string) => request<SurveyData>({ url: `/community/surveys/${surveyId}` }),
+  /** 提交答卷（重复提交覆盖更新；选择题选项为下标） */
+  submitSurveyResponse: (surveyId: string, answers: Array<{ questionId: number; optionIds?: number[]; text?: string }>) =>
+    request<void>({ url: `/community/surveys/${surveyId}/responses`, method: 'POST', data: { answers } as unknown as Record<string, unknown> }),
+}
+
+/** 投票详情（契约对齐后端 PollVO） */
+export interface PollData {
+  id: string
+  question: string
+  multiple: boolean
+  options: Array<{ id: number; content: string; voteCount: number }>
+  /** 参与人数（去重用户数） */
+  totalVotes: number
+  /** 我的选中选项（未登录/未投为空数组） */
+  myOptionIds: number[]
+}
+
+/** 问卷详情（契约对齐后端 SurveyVO） */
+export interface SurveyData {
+  id: string
+  title: string
+  questions: Array<{
+    id: number
+    text: string
+    type: 'SINGLE' | 'MULTI' | 'TEXT'
+    options: string[]
+    required: boolean
+    /** 选择题：各选项票数（与 options 按下标对齐） */
+    optionCounts: number[]
+    /** 填空题：有效答卷数 */
+    textAnswerCount: number
+  }>
+  /** 我的答案（questionId → 选项下标数组或填空文本） */
+  myAnswers: Array<{ questionId: number; optionIds: number[]; text: string | null }>
+  responseCount: number
 }
