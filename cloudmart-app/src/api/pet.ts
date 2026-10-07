@@ -412,6 +412,25 @@ function buildQuery(params?: Record<string, unknown>): string {
 }
 
 /** 我的宠物（未领养 404 PET_NOT_FOUND） */
+/** P1-16：宠物购买订单（契约对齐 PetPurchaseController.PurchaseOrderVO） */
+export interface PetPurchaseOrder {
+  orderId: string
+  petId: string
+  itemType: string
+  itemCode: string
+  quantity: number
+  totalAmount: string
+  currency: string
+  status: string
+  completedAt: string | null
+}
+
+export interface PetPurchaseOrderPage {
+  items: PetPurchaseOrder[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 export const petApi = {
   getMyPet: () => request<PetInfo>({ url: '/pet/me' }),
 
@@ -586,6 +605,9 @@ export const petApi = {
   /** 收支明细（游标分页） */
   listWalletTransactions: (params?: { cursor?: number | string; size?: number; direction?: string; bizType?: string }) =>
     request<PetWalletTransactionVO[]>({ url: '/pet/wallet/transactions', method: 'GET', params }),
+  /** P1-16：宠物购买订单流水（R02 统一购买；keyset 翻页，cursor=上一页最后一条 orderId） */
+  listPurchaseOrders: (params?: { cursor?: string; size?: number }) =>
+    request<PetPurchaseOrderPage>({ url: '/pet/purchase-orders', data: params as Record<string, unknown> | undefined }),
 
   /** 陪伴心跳（B05/FE-02：返回会话视图，与亲密度 overview 分离） */
   companionHeartbeat: (seconds: number, seq?: number) =>

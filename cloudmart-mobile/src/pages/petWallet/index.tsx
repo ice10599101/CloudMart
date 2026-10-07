@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { petApi } from '@/api/pet'
-import type { PetWalletTransactionVO, PetWalletVO } from '@/api/pet'
+import type { PetPurchaseOrder, PetWalletTransactionVO, PetWalletVO } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -50,6 +50,14 @@ export default function PetWalletPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [listError, setListError] = useState(false)
+  // P1-16：购买订单 Tab（R02 统一购买流水，keyset 翻页）
+  const [mainTab, setMainTab] = useState<'tx' | 'orders'>('tx')
+  const [orders, setOrders] = useState<PetPurchaseOrder[]>([])
+  const [orderCursor, setOrderCursor] = useState<string | null>(null)
+  const [orderHasMore, setOrderHasMore] = useState(false)
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersLoadingMore, setOrdersLoadingMore] = useState(false)
+  const [ordersError, setOrdersError] = useState(false)
 
   const loadWallet = useCallback(async () => {
     setWalletUnavailable(false)
@@ -99,9 +107,45 @@ export default function PetWalletPage() {
     [filter, cursor],
   )
 
+  const loadOrders = useCallback(async (reset: boolean) => {
+    if (reset) {
+      setOrdersLoading(true)
+      setOrderCursor(null)
+    } else {
+      setOrdersLoadingMore(true)
+    }
+    setOrdersError(false)
+    try {
+      const res = await petApi.listPurchaseOrders({
+        size: PAGE_SIZE,
+        cursor: reset ? undefined : (orderCursor ?? undefined),
+      })
+      if (res.data.success && res.data.data) {
+        const page = res.data.data
+        setOrders((prev) => (reset ? page.items : [...prev, ...page.items]))
+        setOrderCursor(page.nextCursor)
+        setOrderHasMore(page.hasMore)
+      } else {
+        setOrdersError(true)
+      }
+    } catch {
+      setOrdersError(true)
+    } finally {
+      setOrdersLoading(false)
+      setOrdersLoadingMore(false)
+    }
+  }, [orderCursor])
+
   useEffect(() => {
     void loadWallet()
   }, [loadWallet])
+
+  useEffect(() => {
+    if (mainTab === 'orders' && orders.length === 0 && !ordersError) {
+      void loadOrders(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab])
 
   useEffect(() => {
     void loadTransactions(true)
@@ -132,6 +176,22 @@ export default function PetWalletPage() {
           宠物币是宠物模块独立货币；社区活动请到对应页面查看
         </Text>
       </View>
+      {/* P1-16：明细/订单双 Tab */}
+      <View className={styles.mainTabs}>
+        <Text
+          className={`${styles.mainTab} ${mainTab === 'tx' ? styles.mainTabActive : ''}`}
+          onClick={() => setMainTab('tx')}
+        >
+          收支明细
+        </Text>
+        <Text
+          className={`${styles.mainTab} ${mainTab === 'orders' ? styles.mainTabActive : ''}`}
+          onClick={() => setMainTab('orders')}
+        >
+          购买订单
+        </Text>
+      </View>
+      {mainTab === 'tx' ? (
       <ScrollView className={styles.list} scrollY onScrollToLower={handleLoadMore}>
         {!isLoggedIn ? (
           <View className={styles.empty}><Text>请先登录</Text></View>
@@ -172,6 +232,50 @@ export default function PetWalletPage() {
           <View className={styles.empty}><Text>没有更多了</Text></View>
         )}
       </ScrollView>
+      ) : (
+      <ScrollView className={styles.list} scrollY onScrollToLower={() => orderHasMore && !ordersLoadingMore && loadOrders(false)}>
+        {!isLoggedIn ? (
+          <View className={styles.empty}><Text>请先登录</Text></View>
+        ) : ordersError ? (
+          <View className={styles.empty} onClick={() => loadOrders(true)}>
+            <Text>订单加载失败，点击重试</Text>
+          </View>
+        ) : ordersLoading ? (
+          <View className={styles.empty}><Text>加载中...</Text></View>
+        ) : orders.length === 0 ? (
+          <View className={styles.empty}><Text>还没有购买记录</Text></View>
+        ) : (
+          orders.map((order) => (
+            <View key={order.orderId} className={styles.logCard}>
+              <View className={styles.logLeft}>
+                <Text className={styles.logSource}>
+                  {order.itemType === 'PET' ? '宠物' : order.itemType === 'FOOD' ? '食物' : order.itemType === 'ITEM' ? '道具' : order.itemType}
+                  {' '}× {order.quantity}
+                </Text>
+                <Text className={styles.logTime}>
+                  {order.completedAt ? new Date(order.completedAt).toLocaleString('zh-CN') : '处理中'}
+                  {' · '}{order.orderId.slice(-8)}
+                </Text>
+              </View>
+              <View className={styles.logRightCol}>
+                <Text className={styles.logDelta} style={{ color: 'var(--pet-danger, #D98A8A)' }}>
+                  -{order.totalAmount}
+                </Text>
+                <Text className={styles.orderStatus}>{order.status}</Text>
+              </View>
+            </View>
+          ))
+        )}
+        {ordersLoadingMore && <View className={styles.empty}><Text>加载更多...</Text></View>}
+        {orderHasMore && !ordersLoadingMore && (
+          <View className={styles.empty} onClick={() => loadOrders(false)}><Text>加载更多</Text></View>
+        )}
+        {!orderHasMore && orders.length > 0 && (
+          <View className={styles.empty}><Text>没有更多了</Text></View>
+        )}
+      </ScrollView>
+      )}
+      {mainTab === 'tx' && (
       <View className={styles.filterBar}>
         {([['', '全部'], ['EARN', '收入'], ['SPEND', '支出'], ['REFUND', '退款']] as const).map(
           ([value, label]) => (
@@ -188,6 +292,7 @@ export default function PetWalletPage() {
           ),
         )}
       </View>
+      )}
     </View>
   )
 }

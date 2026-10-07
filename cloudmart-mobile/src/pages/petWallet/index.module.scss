@@ -105,3 +105,40 @@
   font-size: 20px;
   color: rgba(0, 0, 0, 0.45);
 }
+
+// ==================== P1-16 明细/订单双 Tab ====================
+.mainTabs {
+  display: flex;
+  gap: 8rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 6rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border-radius: 999rpx;
+}
+
+.mainTab {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.65);
+  border-radius: 999rpx;
+}
+
+.mainTabActive {
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.logRightCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4rpx;
+}
+
+.orderStatus {
+  font-size: 20rpx;
+  color: rgba(245, 245, 250, 0.5);
+}

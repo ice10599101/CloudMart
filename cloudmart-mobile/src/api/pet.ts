@@ -684,6 +684,10 @@ export const petApi = {
   listWalletTransactions: (params?: { cursor?: number | string; size?: number; direction?: string; bizType?: string }) =>
     request<PetWalletTransactionVO[]>({ url: '/pet/wallet/transactions', data: params }),
 
+  /** P1-16：宠物购买订单流水（R02 统一购买；keyset 翻页，cursor=上一页最后一条 orderId） */
+  listPurchaseOrders: (params?: { cursor?: string; size?: number }) =>
+    request<PetPurchaseOrderPage>({ url: '/pet/purchase-orders', data: params as Record<string, unknown> | undefined }),
+
   /** 陪伴心跳（B05/FE-02：返回会话视图，与亲密度 overview 分离） */
   companionHeartbeat: (seconds: number, seq?: number) =>
     request<PetCompanionSessionVO>({ url: '/pet/companion/heartbeat', method: 'POST', data: { seconds, seq } }),
@@ -830,6 +834,26 @@ export interface PetWalletVO {
   status: 'ACTIVE' | 'FROZEN'
   version: number | string
   serverNow: string
+}
+
+/** P1-16：宠物购买订单（契约对齐 PetPurchaseController.PurchaseOrderVO） */
+export interface PetPurchaseOrder {
+  orderId: string
+  petId: string
+  itemType: string
+  itemCode: string
+  quantity: number
+  totalAmount: string
+  currency: string
+  /** PAID/DELIVERED/REFUNDED 等，服务端状态机 */
+  status: string
+  completedAt: string | null
+}
+
+export interface PetPurchaseOrderPage {
+  items: PetPurchaseOrder[]
+  nextCursor: string | null
+  hasMore: boolean
 }
 
 export interface PetWalletTransactionVO {

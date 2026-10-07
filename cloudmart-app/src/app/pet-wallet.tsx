@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { petApi } from '@/api/pet'
-import type { PetWalletTransactionVO, PetWalletVO } from '@/api/pet'
+import { petApi, type PetPurchaseOrder, type PetWalletTransactionVO, type PetWalletVO } from '@/api/pet'
 import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -47,6 +46,14 @@ export default function PetWalletScreen() {
   const [walletUnavailable, setWalletUnavailable] = useState(false)
   const [transactions, setTransactions] = useState<PetWalletTransactionVO[]>([])
   const [filter, setFilter] = useState<'' | 'EARN' | 'SPEND' | 'REFUND'>('')
+  // P1-16：购买订单 Tab（R02 统一购买流水，keyset 翻页）
+  const [mainTab, setMainTab] = useState<'tx' | 'orders'>('tx')
+  const [orders, setOrders] = useState<PetPurchaseOrder[]>([])
+  const [orderCursor, setOrderCursor] = useState<string | null>(null)
+  const [orderHasMore, setOrderHasMore] = useState(false)
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersLoadingMore, setOrdersLoadingMore] = useState(false)
+  const [ordersError, setOrdersError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -106,6 +113,42 @@ export default function PetWalletScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, filter])
+
+  const loadOrders = useCallback(async (cursor: string | null, reset: boolean) => {
+    if (reset) {
+      setOrdersLoading(true)
+      setOrderCursor(null)
+    } else {
+      setOrdersLoadingMore(true)
+    }
+    setOrdersError(false)
+    try {
+      const res = await petApi.listPurchaseOrders({
+        size: PAGE_SIZE,
+        cursor: reset ? undefined : (cursor ?? undefined),
+      })
+      const page = (res.data as unknown as { data?: { items: PetPurchaseOrder[]; nextCursor: string | null; hasMore: boolean } })?.data
+      if (res.data?.success && page) {
+        setOrders((prev) => (reset ? page.items : [...prev, ...page.items]))
+        setOrderCursor(page.nextCursor)
+        setOrderHasMore(page.hasMore)
+      } else {
+        setOrdersError(true)
+      }
+    } catch {
+      setOrdersError(true)
+    } finally {
+      setOrdersLoading(false)
+      setOrdersLoadingMore(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mainTab === 'orders' && orders.length === 0 && !ordersError) {
+      void loadOrders(null, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab])
 
   const renderItem = ({ item }: { item: PetWalletTransactionVO }) => {
     const spend = item.direction === 'SPEND'
@@ -172,6 +215,31 @@ export default function PetWalletScreen() {
         </Text>
       </View>
 
+      {/* P1-16：明细/订单双 Tab */}
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm }}>
+        {([['tx', '收支明细'], ['orders', '购买订单']] as const).map(([value, label]) => (
+          <TouchableOpacity
+            key={value}
+            activeOpacity={0.85}
+            onPress={() => setMainTab(value)}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              paddingVertical: 8,
+              borderRadius: BorderRadius.full,
+              backgroundColor: mainTab === value ? PetCreamTheme.primary : 'transparent',
+              borderWidth: 1,
+              borderColor: mainTab === value ? PetCreamTheme.primary : WishColors.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: mainTab === value ? '#FFFFFF' : WishColors.textSecondary }}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {mainTab === 'tx' && (
       <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm }}>
         {(['', 'EARN', 'SPEND', 'REFUND'] as const).map((f) => (
           <TouchableOpacity
@@ -193,7 +261,9 @@ export default function PetWalletScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      )}
 
+      {mainTab === 'tx' ? (
       <FlatList
         data={transactions}
         keyExtractor={(item) => String(item.transactionId)}
@@ -232,6 +302,78 @@ export default function PetWalletScreen() {
           ) : null
         }
       />
+      ) : (
+      <FlatList
+        data={orders}
+        keyExtractor={(item) => item.orderId}
+        renderItem={({ item }) => (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: WishColors.bgContainer,
+              borderRadius: BorderRadius.lg,
+              padding: Spacing.md,
+              marginBottom: Spacing.sm,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: FontSize.sm, fontWeight: '500', color: WishColors.text }}>
+                {item.itemType === 'PET' ? '宠物' : item.itemType === 'FOOD' ? '食物' : item.itemType === 'ITEM' ? '道具' : item.itemType} × {item.quantity}
+              </Text>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 2 }}>
+                {item.completedAt ? new Date(item.completedAt).toLocaleString('zh-CN') : '处理中'}
+                {' · '}{item.orderId.slice(-8)}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: PetCreamSemantic.danger }}>
+                -{item.totalAmount}
+              </Text>
+              <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>{item.status}</Text>
+            </View>
+          </View>
+        )}
+        contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl }}
+        onEndReachedThreshold={0.2}
+        onEndReached={() => {
+          if (orderHasMore && !ordersLoadingMore && !ordersLoading) loadOrders(orderCursor, false)
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={ordersLoading}
+            onRefresh={() => loadOrders(null, true)}
+            tintColor={WishColors.accentCyan}
+          />
+        }
+        ListEmptyComponent={
+          !ordersLoading ? (
+            ordersError ? (
+              <TouchableOpacity onPress={() => loadOrders(null, true)}>
+                <Text style={{ textAlign: 'center', color: WishColors.textTertiary, marginTop: Spacing.xl }}>
+                  订单加载失败，点击重试
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ textAlign: 'center', color: WishColors.textTertiary, marginTop: Spacing.xl }}>
+                还没有购买记录
+              </Text>
+            )
+          ) : (
+            <ActivityIndicator color={WishColors.accentCyan} style={{ marginTop: Spacing.xl }} />
+          )
+        }
+        ListFooterComponent={
+          ordersLoadingMore ? (
+            <ActivityIndicator color={WishColors.accentCyan} style={{ marginVertical: Spacing.md }} />
+          ) : !orderHasMore && orders.length > 0 ? (
+            <Text style={{ textAlign: 'center', color: WishColors.textTertiary, fontSize: FontSize.xs, paddingVertical: Spacing.md }}>
+              没有更多了
+            </Text>
+          ) : null
+        }
+      />
+      )}
     </View>
   )
 }
