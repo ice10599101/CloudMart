@@ -35,7 +35,8 @@ public class InternalStarlightController {
 
     /** 允许经本端点发放的来源白名单（新业务接入需显式登记，防流水来源滥用） */
     private static final Map<String, ResourceLogSource> ALLOWED_SOURCES = Map.of(
-            "REVIEW_REWARD", ResourceLogSource.REVIEW_REWARD);
+            "REVIEW_REWARD", ResourceLogSource.REVIEW_REWARD,
+            "INVITE_REWARD", ResourceLogSource.INVITE_REWARD);
 
     @PostMapping("/earn")
     @Operation(summary = "幂等发放星光", description = "携带 operationId 幂等：重复相同请求返回原结果，"

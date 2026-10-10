@@ -73,7 +73,7 @@ class WishServiceTokenPathMappingTest {
         assertThat(castList(byPrefix.get("/internal/pet-support").get("issuers"))).isEqualTo(List.of("mall-pet"));
         assertThat(byPrefix.get("/internal/pet-support").get("scope")).isEqualTo("wish:pet");
 
-        assertThat(castList(byPrefix.get("/internal/starlight").get("issuers"))).isEqualTo(List.of("mall-product"));
+        assertThat(castList(byPrefix.get("/internal/starlight").get("issuers"))).isEqualTo(List.of("mall-product", "mall-user"));
         assertThat(byPrefix.get("/internal/starlight").get("scope")).isEqualTo("wish:starlight");
 
         assertThat(castList(byPrefix.get("/internal/account-erasure").get("issuers"))).isEqualTo(List.of("mall-user"));

@@ -35,5 +35,7 @@ public enum ResourceLogSource {
     /** 宠物旧单退款（P02/TX-04：按原扣款单全额原路退回，不参与余额上限截断） */
     PET_REFUND,
     /** 评价返星光（N-2：商品评价激励，跨服务经内部端点幂等发放） */
-    REVIEW_REWARD
+    REVIEW_REWARD,
+    /** 邀请裂变奖励（N-3：邀请人/受邀人双向，跨服务经内部端点幂等发放） */
+    INVITE_REWARD
 }

@@ -66,6 +66,9 @@ mall-user:
   - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: "mall-admin,mall-notification", permission: user:admin, note: "/admin/users 读路径允许 mall-notification" }
   - { method: GET,    path: /users/batch,            subjectType: ANON }
   - { method: GET,    path: /users/search,           subjectType: ANON }
+  # N-3 邀请裂变：邀请信息/绑定（登录；绑定限本人一次性）
+  - { method: GET,    path: /invites/my,    subjectType: "USER", note: "SELF：码为首查生成" }
+  - { method: POST,   path: /invites/bind,  subjectType: "USER", note: "SELF：非自邀+一人一次" }
 
 # -----------------------------------------------------------------------------
 # mall-order

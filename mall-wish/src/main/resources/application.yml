@@ -247,7 +247,7 @@ cloudmart:
         issuers: [mall-pet]
         scope: wish:pet
       - prefix: /internal/starlight
-        issuers: [mall-product]
+        issuers: [mall-product, mall-user]
         scope: wish:starlight
       - prefix: /internal/account-erasure
         issuers: [mall-user]
