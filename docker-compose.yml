@@ -390,7 +390,8 @@ services:
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
-      - "9001:9001"
+      # 9001 被宿主机 mall-auth 占用——控制台改映射到 19001（仅管理台，不影响 API/存储）
+      - "19001:9001"
     volumes:
       - minio-data:/data
     healthcheck:
