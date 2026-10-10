@@ -1062,3 +1062,25 @@
   color: var(--color-text-secondary, #999);
   background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
 }
+
+.visitorLogBox {
+  margin-bottom: 16rpx;
+  padding: 16rpx;
+  background: var(--color-bg-page);
+  border-radius: 16rpx;
+}
+
+.visitorLogTitle {
+  display: block;
+  margin-bottom: 8rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.visitorLogItem {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}

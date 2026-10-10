@@ -114,7 +114,10 @@ class PetVisitServiceImplTest {
                 dailyQuestService, intimacyService, relationService,
                 org.mockito.Mockito.mock(com.cloudmart.pet.service.PetUserBlockService.class),
                 visitApplicationServiceMock,
-                quotaServiceMock);
+                quotaServiceMock,
+                org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetVisitFactMapper.class),
+                new com.cloudmart.pet.config.PetClock(java.time.Clock.systemUTC(),
+                        new com.cloudmart.pet.config.PetProperties()));
     }
 
     @Test

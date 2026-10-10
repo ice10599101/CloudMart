@@ -2,6 +2,7 @@ package com.cloudmart.pet.service;
 
 import com.cloudmart.pet.vo.PetVisitResultVO;
 import com.cloudmart.pet.vo.PetVisitVO;
+import com.cloudmart.pet.vo.VisitorLogVO;
 
 import java.util.List;
 
@@ -15,6 +16,12 @@ public interface PetVisitService {
 
     /** 可串门的邻居列表（他人公开宠物，含今日是否已去过） */
     List<PetVisitVO> neighbors(Long userId);
+
+    /**
+     * 访客日志（§6）：今日来访我家的访客列表（含宠物名/主人昵称/来源）。
+     * 数据源为 visit_fact（拜访事实），ownerUserId=本人 + businessDate=今日。
+     */
+    List<VisitorLogVO> todayVisitors(Long userId);
 
     /** 让主宠去串门（返回串门文案与主宠最新状态） */
     PetVisitResultVO visit(Long userId, Long neighborPetId);

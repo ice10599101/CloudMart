@@ -437,6 +437,16 @@ export interface PetEventItem {
 }
 
 /** 串门邻居 */
+/** 访客日志条目（§6 今日访客；契约对齐 mall-pet VisitorLogVO） */
+export interface PetVisitorLog {
+  visitorUserId: number
+  visitorNickname: string
+  visitorPetId: number
+  visitorPetName: string
+  source: string
+  createdAt: string
+}
+
 export interface PetVisitNeighbor {
   petId: number | string
   name: string
@@ -638,6 +648,8 @@ export const petApi = {
 
   /** 串门邻居列表 */
   listVisitNeighbors: () => request<PetVisitNeighbor[]>({ url: '/pet/visit/neighbors' }),
+  /** 访客日志（§6）：今日来访我家的访客列表 */
+  listTodayVisitors: () => request<PetVisitorLog[]>({ url: '/pet/home/visitors/today' }),
   /** 让宠物去串门 */
   visitNeighbor: (petId: number | string) =>
     request<PetVisitResult>({ url: `/pet/visit/${petId}`, method: 'POST' }),

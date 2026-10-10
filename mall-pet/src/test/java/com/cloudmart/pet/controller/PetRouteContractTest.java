@@ -80,7 +80,8 @@ class PetRouteContractTest {
                 .build();
 
         homeService = mock(com.cloudmart.pet.service.PetHomeService.class);
-        homeMockMvc = MockMvcBuilders.standaloneSetup(new PetHomeController(homeService))
+        homeMockMvc = MockMvcBuilders.standaloneSetup(new PetHomeController(homeService,
+                mock(com.cloudmart.pet.service.PetVisitService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 

@@ -70,6 +70,8 @@ public class PetVisitServiceImpl implements PetVisitService {
     private final PetRelationService relationService;
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final PetQuotaService quotaService;
+    private final com.cloudmart.pet.repository.PetVisitFactMapper visitFactMapper;
+    private final com.cloudmart.pet.config.PetClock petClock;
 
     public PetVisitServiceImpl(PetService petService,
                                PetStateService stateService,
@@ -85,7 +87,9 @@ public class PetVisitServiceImpl implements PetVisitService {
                                PetRelationService relationService,
             com.cloudmart.pet.service.PetUserBlockService userBlockService,
             com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
-            PetQuotaService quotaService) {
+            PetQuotaService quotaService,
+            com.cloudmart.pet.repository.PetVisitFactMapper visitFactMapper,
+            com.cloudmart.pet.config.PetClock petClock) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -101,6 +105,8 @@ public class PetVisitServiceImpl implements PetVisitService {
         this.relationService = relationService;
         this.visitApplicationService = visitApplicationService;
         this.quotaService = quotaService;
+        this.visitFactMapper = visitFactMapper;
+        this.petClock = petClock;
     }
 
     @Override
@@ -196,6 +202,32 @@ public class PetVisitServiceImpl implements PetVisitService {
                 + " 玩啦，心情 +" + cfg.getHappinessGain() + "，经验 +" + cfg.getExpGain() + "～";
         return new PetVisitResultVO(neighbor.getName(), nickname,
                 cfg.getHappinessGain(), cfg.getExpGain(), message, petService.getMyPet(userId));
+    }
+
+    @Override
+    public java.util.List<com.cloudmart.pet.vo.VisitorLogVO> todayVisitors(Long userId) {
+        var facts = visitFactMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.pet.entity.PetVisitFact>()
+                .eq(com.cloudmart.pet.entity.PetVisitFact::getOwnerUserId, userId)
+                .eq(com.cloudmart.pet.entity.PetVisitFact::getBusinessDate, petClock.businessDate())
+                .orderByDesc(com.cloudmart.pet.entity.PetVisitFact::getId));
+        if (facts.isEmpty()) {
+            return java.util.List.of();
+        }
+        // 批量解析宠物名与主人昵称（展示型数据 fail-open 占位）
+        Map<Long, String> petNames = petMapper.selectBatchIds(facts.stream()
+                        .map(com.cloudmart.pet.entity.PetVisitFact::getVisitorPetId).distinct().toList())
+                .stream().collect(java.util.stream.Collectors.toMap(Pet::getId, Pet::getName, (a, b) -> a));
+        Map<Long, String> nicknames = resolveNicknames(facts.stream()
+                .map(com.cloudmart.pet.entity.PetVisitFact::getVisitorUserId).distinct().toList());
+        return facts.stream()
+                .map(f -> new com.cloudmart.pet.vo.VisitorLogVO(
+                        f.getVisitorUserId(),
+                        nicknames.getOrDefault(f.getVisitorUserId(), NICKNAME_PLACEHOLDER),
+                        f.getVisitorPetId(),
+                        petNames.getOrDefault(f.getVisitorPetId(), "小宠"),
+                        f.getSource(),
+                        f.getCreatedAt()))
+                .toList();
     }
 
     private void recordVisitActivity(Pet pet, Pet neighbor) {

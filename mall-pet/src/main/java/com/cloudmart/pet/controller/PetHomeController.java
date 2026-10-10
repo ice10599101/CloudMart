@@ -8,6 +8,7 @@ import com.cloudmart.pet.dto.PlaceFurnitureRequest;
 import com.cloudmart.pet.dto.UpdateRoomSettingsRequest;
 import com.cloudmart.pet.dto.UpdateRoomThemeRequest;
 import com.cloudmart.pet.service.PetHomeService;
+import com.cloudmart.pet.service.PetVisitService;
 import com.cloudmart.pet.vo.PetHomeVO;
 import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetRoomLikeVO;
@@ -41,6 +42,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class PetHomeController {
 
     private final PetHomeService homeService;
+    private final PetVisitService visitService;
+
+    @GetMapping("/home/visitors/today")
+    @Operation(summary = "今日访客", description = "访客日志（§6）：今日来访我家的访客列表（拜访事实，含宠物名/主人昵称/来源）")
+    @SentinelResource("PET_QUERY")
+    public ApiResponse<java.util.List<com.cloudmart.pet.vo.VisitorLogVO>> todayVisitors(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(visitService.todayVisitors(userId));
+    }
 
     @GetMapping("/home")
     @Operation(summary = "我的家园", description = "房间状态 + 已摆放 + 背包家具 + 家园商城 + 舒适度加成（每日首次进入送礼）")

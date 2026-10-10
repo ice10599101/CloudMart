@@ -27,6 +27,7 @@ import {
   type PetStudyItem,
   type PetSummary,
   type PetVisitNeighbor,
+  type PetVisitorLog,
   type PetIntimacyInfo,
   type PetOnboardingProgress,
   type PetActionItem,
@@ -310,6 +311,8 @@ export default function PetPage() {
   const [evolution, setEvolution] = useState<PetEvolutionStatus | null>(null)
   const [events, setEvents] = useState<PetEventItem[]>([])
   const [neighbors, setNeighbors] = useState<PetVisitNeighbor[]>([])
+  // 访客日志（§6 今日访客）
+  const [todayVisitors, setTodayVisitors] = useState<PetVisitorLog[]>([])
   const [myPets, setMyPets] = useState<PetSummary[]>([])
   const [careMessage, setCareMessage] = useState<string | null>(null)
   // B06 动作可执行性（随主宠刷新；拉取失败按"不可知"隐藏，不打断主流程）
@@ -349,6 +352,10 @@ export default function PetPage() {
       } else if (tab === 'visit') {
         const { data: res } = await petApi.listVisitNeighbors()
         if (res.success) setNeighbors(res.data || [])
+        // 访客日志（§6）：随串门页签加载，失败静默
+        petApi.listTodayVisitors()
+          .then(({ data: r }) => { if (r.success) setTodayVisitors(r.data || []) })
+          .catch(() => undefined)
       } else {
         const { data: res } = await petApi.listMyPets()
         if (res.success) setMyPets(res.data || [])
@@ -1694,6 +1701,19 @@ export default function PetPage() {
 
               {careTab === 'visit' && (
                 <View>
+                  {/* 访客日志（§6 今日访客） */}
+                  <View className={styles.visitorLogBox}>
+                    <Text className={styles.visitorLogTitle}>👣 今日访客（{todayVisitors.length}）</Text>
+                    {todayVisitors.length === 0 ? (
+                      <Text className={styles.tip}>今天还没有小伙伴来串门</Text>
+                    ) : (
+                      todayVisitors.map((v) => (
+                        <Text key={`${v.visitorUserId}-${v.visitorPetId}`} className={styles.visitorLogItem}>
+                          {v.visitorNickname} 的 {v.visitorPetName} 来串过门啦
+                        </Text>
+                      ))
+                    )}
+                  </View>
                   {neighbors.length === 0 && <Text className={styles.tip}>暂时没有可串门的邻居</Text>}
                   {neighbors.map((neighbor) => (
                     <View key={String(neighbor.petId)} className={styles.careCard}>
