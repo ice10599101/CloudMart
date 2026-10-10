@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -111,6 +112,15 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
             return SeckillResultDTO.of("FAILED", null, "商品已售罄", null);
         }
 
+        // P2-23：跨实例售罄标记（任一实例判定售罄即写 Redis，其余实例短路
+        // 不再打 Lua；TTL 2h 兜底过期，补货/预热时主动清除）
+        String soldOutKey = com.cloudmart.seckill.support.SeckillRedisKeys
+                .soldOutKey(request.activityId(), request.seckillProductId());
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(soldOutKey))) {
+            soldOutMarkers.put(stockKey, true);
+            return SeckillResultDTO.of("FAILED", null, "商品已售罄", null);
+        }
+
         // 兜底：Redis 库存 key 缺失（实例重启后未预热）时从 DB 回填一次，
         // 避免把"未预热"误判为"已售罄"
         if (Boolean.FALSE.equals(redisTemplate.hasKey(stockKey))) {
@@ -128,7 +138,7 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
         }
 
         if (luaResult.intValue() == 0) {
-            markSoldOut(stockKey);
+            markSoldOut(stockKey, request.activityId(), request.seckillProductId());
             return SeckillResultDTO.of("FAILED", null, "商品已售罄", null);
         }
         if (luaResult.intValue() == 2) {
@@ -145,7 +155,7 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
             // DB 口径售罄：回退本次 Redis 预扣，投影与事实对齐
             redisTemplate.opsForValue().increment(stockKey);
             redisTemplate.opsForSet().remove(userSetKey, userId.toString());
-            markSoldOut(stockKey);
+            markSoldOut(stockKey, request.activityId(), request.seckillProductId());
             return SeckillResultDTO.of("FAILED", null, "商品已售罄", null);
         } catch (SeckillRequestService.SeatExistsException e) {
             return toResult(e.existing());
@@ -202,8 +212,18 @@ public class SeckillExecuteServiceImpl implements SeckillExecuteService {
         };
     }
 
-    private void markSoldOut(String stockKey) {
+    private void markSoldOut(String stockKey, Long activityId, Long productId) {
         soldOutMarkers.put(stockKey, true);
+        // P2-23：同步写跨实例标记（TTL 2h 兜底——真售罄会在后续 Lua 0 时续写，
+        // 补货场景由 loadStockToRedis 主动清除）
+        try {
+            redisTemplate.opsForValue().set(
+                    com.cloudmart.seckill.support.SeckillRedisKeys.soldOutKey(activityId, productId),
+                    "1", Duration.ofHours(2));
+        } catch (Exception e) {
+            // 标记同步失败不阻断主流程：Redis 权威库存仍兜底正确性
+            log.warn("P2-23 售罄标记同步失败: stockKey={}, err={}", stockKey, e.getMessage());
+        }
         if (soldOutMarkers.size() > SOLD_OUT_MARKER_MAX_SIZE) {
             evictExpiredMarkers();
         }

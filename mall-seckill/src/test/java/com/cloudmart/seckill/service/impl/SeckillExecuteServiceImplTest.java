@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -84,6 +85,8 @@ class SeckillExecuteServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(redisTemplate.hasKey(anyString())).thenReturn(true);
+        // P2-23：售罄标记默认不存在（专门用例自行覆盖）——晚于 anyString 桩注册，匹配优先
+        when(redisTemplate.hasKey(contains("seckill:soldout:"))).thenReturn(false);
 
         ongoingActivity = new SeckillActivity();
         ongoingActivity.setId(ACTIVITY_ID);

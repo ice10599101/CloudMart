@@ -11,6 +11,8 @@ public final class SeckillRedisKeys {
 
     public static final String STOCK_KEY_PREFIX = "seckill:stock:";
     public static final String USER_SET_KEY_PREFIX = "seckill:users:";
+    /** P2-23：售罄标记（跨实例共享；TTL 兜底过期，补货/预热时主动清除） */
+    public static final String SOLD_OUT_KEY_PREFIX = "seckill:soldout:";
 
     public static String stockKey(Long activityId, Long productId) {
         return STOCK_KEY_PREFIX + activityId + ":" + productId;
@@ -18,5 +20,9 @@ public final class SeckillRedisKeys {
 
     public static String userSetKey(Long activityId, Long productId) {
         return USER_SET_KEY_PREFIX + activityId + ":" + productId;
+    }
+
+    public static String soldOutKey(Long activityId, Long productId) {
+        return SOLD_OUT_KEY_PREFIX + activityId + ":" + productId;
     }
 }

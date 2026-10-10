@@ -23,6 +23,7 @@ import java.util.Map;
 public class SeckillProductServiceImpl implements SeckillProductService {
 
     private static final String STOCK_KEY_PREFIX = "seckill:stock:";
+    private static final String SOLD_OUT_KEY_PREFIX = "seckill:soldout:";
 
     private final SeckillProductMapper productMapper;
     private final SeckillActivityMapper activityMapper;
@@ -144,6 +145,8 @@ public class SeckillProductServiceImpl implements SeckillProductService {
         if (product != null) {
             String key = STOCK_KEY_PREFIX + activityId + ":" + productId;
             redisTemplate.opsForValue().set(key, String.valueOf(product.getAvailableStock()));
+            // P2-23：补货/预热时清除跨实例售罄标记（否则其他实例继续短路拒绝）
+            redisTemplate.delete(SOLD_OUT_KEY_PREFIX + activityId + ":" + productId);
         }
     }
 
@@ -156,6 +159,7 @@ public class SeckillProductServiceImpl implements SeckillProductService {
         for (SeckillProduct product : products) {
             String key = STOCK_KEY_PREFIX + product.getActivityId() + ":" + product.getId();
             redisTemplate.opsForValue().set(key, String.valueOf(product.getAvailableStock()));
+            redisTemplate.delete(SOLD_OUT_KEY_PREFIX + product.getActivityId() + ":" + product.getId());
         }
     }
 }
