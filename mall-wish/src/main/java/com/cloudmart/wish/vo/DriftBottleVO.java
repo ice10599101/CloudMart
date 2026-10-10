@@ -52,6 +52,10 @@ public record DriftBottleVO(
         String pickerNickname,
         String pickerAvatar,
         Boolean isCollected,
-        Long commentCount
+        Long commentCount,
+        /** 语音瓶音频 URL（§6 语音漂流瓶；可空） */
+        String audioUrl,
+        /** 语音时长秒 */
+        Integer audioDurationSeconds
 ) {
 }

@@ -16,6 +16,12 @@ public record ThrowBottleRequest(
         Boolean isAnonymous,
 
         @Schema(description = "关联心愿 ID（与 content 二选一）")
-        Long wishId
+        Long wishId,
+
+        /** 语音瓶音频 URL（S01 资产 /files/ 前缀；与 content/wishId 三选一） */
+        String audioUrl,
+
+        /** 语音时长秒（≤60） */
+        Integer audioDurationSeconds
 ) {
 }

@@ -182,7 +182,7 @@ class DriftBottleServiceImplTest {
         @DisplayName("content 与 wishId 都为空 → WISH_VALIDATION_ERROR")
         void throwBottle_bothEmpty_rejected() {
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, null, null)))
+                    new ThrowBottleRequest(null, null, null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -193,7 +193,7 @@ class DriftBottleServiceImplTest {
         @DisplayName("content 与 wishId 同时提供 → WISH_VALIDATION_ERROR（二选一）")
         void throwBottle_bothSet_rejected() {
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest("匿名文字", null, WISH_ID)))
+                    new ThrowBottleRequest("匿名文字", null, WISH_ID, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -205,7 +205,7 @@ class DriftBottleServiceImplTest {
             when(bottleMapper.selectCount(any())).thenReturn(10L);
 
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest("匿名文字", null, null)))
+                    new ThrowBottleRequest("匿名文字", null, null, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_RATE_LIMITED);
@@ -222,7 +222,7 @@ class DriftBottleServiceImplTest {
             });
 
             var vo = driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(" 给未来的自己一句话 ", null, null));
+                    new ThrowBottleRequest(" 给未来的自己一句话 ", null, null, null, null));
 
             assertThat(vo.bottleId()).isEqualTo(BOTTLE_ID);
             assertThat(vo.role()).isEqualTo("THROWN");
@@ -240,7 +240,7 @@ class DriftBottleServiceImplTest {
                     buildPublicWish(OTHER_USER_ID));
 
             assertThatThrownBy(() -> driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, null, WISH_ID)))
+                    new ThrowBottleRequest(null, null, WISH_ID, null, null)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getCode())
                     .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
@@ -258,7 +258,7 @@ class DriftBottleServiceImplTest {
             });
 
             var vo = driftBottleService.throwBottle(USER_ID,
-                    new ThrowBottleRequest(null, null, WISH_ID));
+                    new ThrowBottleRequest(null, null, WISH_ID, null, null));
 
             assertThat(vo.wishId()).isEqualTo(WISH_ID);
             assertThat(vo.wishTitle()).isEqualTo("去海边看一次日出");

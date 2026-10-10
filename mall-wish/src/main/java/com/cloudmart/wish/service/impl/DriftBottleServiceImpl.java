@@ -118,11 +118,23 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     public DriftBottleVO throwBottle(Long userId, ThrowBottleRequest request) {
         boolean hasText = request.content() != null && !request.content().isBlank();
         boolean hasWish = request.wishId() != null;
-        if (!hasText && !hasWish) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "请填写漂流瓶文字或选择一个心愿");
+        boolean hasAudio = request.audioUrl() != null && !request.audioUrl().isBlank();
+        // §6 语音漂流瓶：自由文字 / 关联心愿 / 语音，三选一
+        if (!hasText && !hasWish && !hasAudio) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "请填写漂流瓶文字、录制语音或选择一个心愿");
         }
-        if (hasText && hasWish) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "自由文字与关联心愿只能二选一");
+        if ((hasText ? 1 : 0) + (hasWish ? 1 : 0) + (hasAudio ? 1 : 0) > 1) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "文字、语音、关联心愿只能三选一");
+        }
+        if (hasAudio) {
+            String audio = request.audioUrl().trim();
+            if (!audio.startsWith("/files/")) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "语音须为平台资产地址");
+            }
+            int duration = request.audioDurationSeconds() == null ? 0 : request.audioDurationSeconds();
+            if (duration <= 0 || duration > 60) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "语音时长需在 1..60 秒");
+            }
         }
         LocalDateTime todayStart = userDayStartUtc(userId);
         if (countThrowsSince(userId, todayStart) >= DAILY_THROW_LIMIT) {
@@ -140,6 +152,10 @@ public class DriftBottleServiceImpl implements DriftBottleService {
         bottle.setIsCollected(false);
         bottle.setReturnCount(0);
         bottle.setIsHidden(false);
+        if (hasAudio) {
+            bottle.setAudioUrl(request.audioUrl().trim());
+            bottle.setAudioDurationSeconds(request.audioDurationSeconds());
+        }
 
         if (hasWish) {
             Wish wish = wishMapper.selectById(request.wishId());
@@ -594,7 +610,9 @@ public class DriftBottleServiceImpl implements DriftBottleService {
                 pickerInfo == null ? null : pickerInfo.nickname(),
                 pickerInfo == null ? null : pickerInfo.avatar(),
                 Boolean.TRUE.equals(bottle.getIsCollected()),
-                commentCounts.getOrDefault(bottle.getId(), 0L));
+                commentCounts.getOrDefault(bottle.getId(), 0L),
+                bottle.getAudioUrl(),
+                bottle.getAudioDurationSeconds());
     }
 
     /** 批量转评论 VO：匿名评论隐藏身份；被回复人昵称遵循父评论匿名状态 */

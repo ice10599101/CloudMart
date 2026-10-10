@@ -1076,6 +1076,10 @@ export interface DriftBottleItem {
   /** 捞起人是否已收藏该瓶 */
   isCollected: boolean
   commentCount: number
+
+  /** 语音瓶音频 URL（§6，可空） */
+  audioUrl?: string | null
+  audioDurationSeconds?: number | null
 }
 
 export interface DriftBottleCommentItem {

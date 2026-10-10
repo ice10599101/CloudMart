@@ -574,8 +574,8 @@ export const wishApi = {
     /** 可关联心愿候选（近 20 个自己发布的公开进行中心愿，投瓶下拉用） */
     listDriftBottleCandidateWishes: () =>
         request<DriftBottleCandidateWish[]>({ url: '/wish/drift-bottles/candidate-wishes' }),
-    /** 投瓶（content 为富文本 HTML，与 wishId 二选一；isAnonymous 缺省/true 匿名） */
-    throwDriftBottle: (data: { content?: string; wishId?: number; isAnonymous?: boolean }) =>
+    /** 投瓶（content/audioUrl/wishId 三选一；isAnonymous 缺省/true 匿名） */
+    throwDriftBottle: (data: { content?: string; audioUrl?: string; audioDurationSeconds?: number; wishId?: number; isAnonymous?: boolean }) =>
         request<DriftBottleItem>({
             url: '/wish/drift-bottles',
             method: 'POST',

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, ScrollView, Switch, Textarea, Image, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { fileApi } from '@/api/file'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import RichText from '@/components/RichText'
@@ -412,7 +413,11 @@ export default function EncounterLettersPage() {
   const [fishedBottle, setFishedBottle] = useState<DriftBottleItem | null>(null)
 
   // 投瓶
-  const [throwMode, setThrowMode] = useState<'text' | 'wish'>('text')
+  const [throwMode, setThrowMode] = useState<'text' | 'wish' | 'audio'>('text')
+  // §6 语音漂流瓶：录音状态（Taro RecorderManager；≤60s，S01 上传）
+  const [audioUrl, setAudioUrl] = useState('')
+  const [audioDuration, setAudioDuration] = useState(0)
+  const [recording, setRecording] = useState(false)
   const [content, setContent] = useState('')
   const [candidateWishes, setCandidateWishes] = useState<DriftBottleCandidateWish[]>([])
   const [selectedWishId, setSelectedWishId] = useState<number | null>(null)
@@ -556,11 +561,61 @@ export default function EncounterLettersPage() {
     }
   }
 
+  // ==================== §6 语音漂流瓶：录音（≤60s）+ S01 上传 ====================
+  const recorderRef = useRef<Taro.RecorderManager | null>(null)
+
+  const startRecording = () => {
+    if (recording) return
+    const recorder = recorderRef.current ?? Taro.getRecorderManager()
+    recorderRef.current = recorder
+    recorder.onStart(() => setRecording(true))
+    recorder.onStop((res) => {
+      setRecording(false)
+      if (!res.tempFilePath) return
+      const durationSec = Math.min(60, Math.max(1, Math.round((res.duration ?? 1000) / 1000)))
+      fileApi.upload(res.tempFilePath)
+        .then((uploadRes) => {
+          const url = uploadRes.data?.data?.url
+          if (url) {
+            setAudioUrl(url)
+            setAudioDuration(durationSec)
+            Taro.showToast({ title: `语音已就绪（${durationSec}s）`, icon: 'none' })
+          }
+        })
+        .catch(() => {
+          setRecording(false)
+          Taro.showToast({ title: '语音上传失败，请重试', icon: 'none' })
+        })
+    })
+    recorder.onError(() => {
+      setRecording(false)
+      Taro.showToast({ title: '录音失败，请重试', icon: 'none' })
+    })
+    recorder.start({ duration: 60000, format: 'mp3', sampleRate: 44100, numberOfChannels: 1 })
+  }
+
+  const stopRecording = () => {
+    if (!recording) return
+    recorderRef.current?.stop()
+  }
+
+  const playVoice = (url: string) => {
+    const audio = Taro.createInnerAudioContext()
+    audio.src = url
+    audio.play()
+    audio.onEnded(() => audio.destroy())
+  }
+
   const handleThrow = async () => {
     if (throwing) return
     if (throwMode === 'text') {
       if (!richTextToPlainText(content)) {
         Taro.showToast({ title: '写点什么再投出吧', icon: 'none' })
+        return
+      }
+    } else if (throwMode === 'audio') {
+      if (!audioUrl) {
+        Taro.showToast({ title: '先录一段语音', icon: 'none' })
         return
       }
     } else if (selectedWishId == null) {
@@ -573,12 +628,16 @@ export default function EncounterLettersPage() {
       const payload =
         throwMode === 'text'
           ? { content, isAnonymous: isAnonymousThrow }
-          : { wishId: selectedWishId as number, isAnonymous: isAnonymousThrow }
+          : throwMode === 'audio'
+            ? { audioUrl, audioDurationSeconds: audioDuration, isAnonymous: isAnonymousThrow }
+            : { wishId: selectedWishId as number, isAnonymous: isAnonymousThrow }
       const res = await wishApi.throwDriftBottle(payload)
       if (res.data.success) {
         Taro.showToast({ title: '漂流瓶已投出 🍾', icon: 'none' })
         setContent('')
         setSelectedWishId(null)
+        setAudioUrl('')
+        setAudioDuration(0)
         loadMine()
         loadQuota()
       } else {
@@ -679,6 +738,12 @@ export default function EncounterLettersPage() {
               >
                 <Text className={styles.modeOptionText}>关联心愿</Text>
               </View>
+              <View
+                className={`${styles.modeOption} ${throwMode === 'audio' ? styles.modeOptionActive : ''}`}
+                onClick={() => setThrowMode('audio')}
+              >
+                <Text className={styles.modeOptionText}>🎙️ 语音</Text>
+              </View>
             </View>
 
             {throwMode === 'text' ? (
@@ -697,6 +762,25 @@ export default function EncounterLettersPage() {
                     placeholder='写下此刻想说的话，抛向大海...'
                   />
                 )}
+              </View>
+            ) : throwMode === 'audio' ? (
+              <View className={styles.audioRecordBox}>
+                {audioUrl ? (
+                  <>
+                    <View className={styles.audioPlayBtn} onClick={() => playVoice(audioUrl)}>
+                      <Text className={styles.audioPlayText}>▶️ 试听（{audioDuration}s）</Text>
+                    </View>
+                    <Text className={styles.audioRedo} onClick={() => { setAudioUrl(''); setAudioDuration(0) }}>重新录制</Text>
+                  </>
+                ) : (
+                  <View
+                    className={`${styles.audioRecordBtn} ${recording ? styles.audioRecording : ''}`}
+                    onClick={() => (recording ? stopRecording() : startRecording())}
+                  >
+                    <Text className={styles.audioRecordText}>{recording ? '⏹ 停止录音' : '🎙️ 按下开始（≤60 秒）'}</Text>
+                  </View>
+                )}
+                <Text className={styles.audioHint}>匿名语音瓶：捞起者可试听，不留你的身份</Text>
               </View>
             ) : (
               <View className={styles.wishPickerWrap}>

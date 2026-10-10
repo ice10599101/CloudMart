@@ -520,3 +520,50 @@
   color: #0b1220;
   font-weight: 600;
 }
+
+.audioRecordBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx;
+  background: var(--color-bg-page);
+  border-radius: 16rpx;
+}
+
+.audioRecordBtn {
+  padding: 20rpx 48rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+}
+
+.audioRecording {
+  opacity: 0.7;
+}
+
+.audioRecordText {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.audioPlayBtn {
+  padding: 16rpx 40rpx;
+  background: rgba(82, 196, 26, 0.15);
+  border-radius: 999rpx;
+}
+
+.audioPlayText {
+  font-size: 26rpx;
+  color: #52c41a;
+}
+
+.audioRedo {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+
+.audioHint {
+  font-size: 20rpx;
+  color: var(--color-text-tertiary);
+}
