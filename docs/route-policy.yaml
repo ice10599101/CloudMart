@@ -141,6 +141,9 @@ mall-marketing:
 # N-3/N-6 功能池：赛季通行证（§6）——claim 为写路由（登录用户本人）
 mall-pet:
   - { method: POST,   path: /season/pass/claim,   subjectType: "USER", note: "SELF：达标 CAS 领取" }
+  # 实物商品联动（§6）：兑换码核销/权益查询（登录用户本人）
+  - { method: POST,   path: /linked-product/redeem,     subjectType: "USER", note: "SELF：uk 兑换码幂等" }
+  - { method: GET,    path: /linked-product/entitlement, subjectType: "USER", note: "SELF" }
   # 协作 PVE（§6）：发起/加入/攻击（参与者+轮流+CAS）；open 列表公开招募
   - { method: POST,   path: /pve,                  subjectType: "USER", note: "SELF：发起，一人一进行中副本" }
   - { method: POST,   path: "/pve/{runId}/join",   subjectType: "USER", note: "SELF：CAS 加入，禁自邀" }

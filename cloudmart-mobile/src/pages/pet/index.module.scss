@@ -1118,3 +1118,45 @@
   font-size: 32rpx;
   color: var(--color-text-tertiary);
 }
+
+.linkedProductCard {
+  margin-bottom: 16rpx;
+  padding: 20rpx;
+  background: rgba(82, 196, 26, 0.1);
+  border: 1px solid rgba(82, 196, 26, 0.4);
+  border-radius: 16rpx;
+}
+
+.linkedProductBadge {
+  display: block;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #52c41a;
+  font-weight: 500;
+}
+
+.redeemRow {
+  display: flex;
+  gap: 12rpx;
+}
+
+.redeemInput {
+  flex: 1;
+  padding: 12rpx 20rpx;
+  background: rgba(245, 245, 250, 0.08);
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text, rgba(245, 245, 250, 0.9));
+}
+
+.redeemBtn {
+  padding: 12rpx 28rpx;
+  background: #52c41a;
+  border-radius: 12rpx;
+}
+
+.redeemBtnText {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #ffffff;
+}

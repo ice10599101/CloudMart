@@ -278,6 +278,10 @@ export default function PetPage() {
   const [rankings, setRankings] = useState<PetRankingResult | null>(null)
   // 赛季通行证（§6）：榜单页签惰性加载
   const [seasonPass, setSeasonPass] = useState<SeasonPassVO | null>(null)
+  // 实物商品联动（§6）：双倍喂食权益 + 兑换码输入
+  const [feedDoubled, setFeedDoubled] = useState(false)
+  const [redeemCode, setRedeemCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
   // F2：赛季榜与历届名次
   const [season, setSeason] = useState<PetSeasonRanking | null>(null)
   const [seasonHistory, setSeasonHistory] = useState<PetSeasonHistoryItem[]>([])
@@ -378,12 +382,40 @@ export default function PetPage() {
         toast(successText)
         await loadCareData(careTab)
         refresh()
+        // 喂食可能消耗了双倍权益（§6）
+        if (key.startsWith('feed-')) {
+          petApi.getLinkedProductEntitlement()
+            .then(({ data: r }) => { if (r.success) setFeedDoubled(r.data?.usable === true) })
+            .catch(() => undefined)
+        }
       }
     } catch (error) {
       const code = (error as { code?: string }).code
       toast((code && CARE_ERROR_HINT[code]) || '请稍后再试')
     } finally {
       setCarePending(null)
+    }
+  }
+
+  /** 实物商品联动（§6）：核销商城实物零食兑换码 → 双倍喂食权益 */
+  const handleRedeem = async () => {
+    if (redeeming || !redeemCode.trim()) {
+      if (!redeemCode.trim()) toast('请输入兑换码')
+      return
+    }
+    setRedeeming(true)
+    try {
+      const res = await petApi.redeemLinkedProduct(redeemCode.trim())
+      if (res.data.success) {
+        setFeedDoubled(res.data.data?.usable === true)
+        setRedeemCode('')
+        toast('核销成功！下一次喂食效果翻倍')
+      }
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      toast(code === 'PET_VALIDATION_ERROR' ? '兑换码无效或已核销' : '核销失败，请稍后再试')
+    } finally {
+      setRedeeming(false)
     }
   }
 
@@ -581,6 +613,10 @@ export default function PetPage() {
         }
       } else if (key === 'care') {
         await loadCareData(careTab)
+        // 实物商品联动（§6）：权益随养成页签刷新
+        petApi.getLinkedProductEntitlement()
+          .then(({ data: r }) => { if (r.success) setFeedDoubled(r.data?.usable === true) })
+          .catch(() => undefined)
       } else if (key === 'rankings') {
         const { data: res } = await petApi.getRankings(rankingType)
         if (res.success) setRankings(res.data)
@@ -1584,6 +1620,24 @@ export default function PetPage() {
 
               {careTab === 'inventory' && (
                 <View>
+                  {/* 实物商品联动（§6）：双倍喂食权益 + 兑换码核销 */}
+                  <View className={styles.linkedProductCard}>
+                    <Text className={styles.linkedProductBadge}>
+                      {feedDoubled ? '🎁 双倍喂食权益已就绪（下次喂食效果 x2）' : '🐱 买实物零食可兑换双倍喂食'}
+                    </Text>
+                    <View className={styles.redeemRow}>
+                      <Input
+                        className={styles.redeemInput}
+                        placeholder='输入兑换码'
+                        value={redeemCode}
+                        onInput={(e) => setRedeemCode(e.detail.value)}
+                        maxlength={64}
+                      />
+                      <View className={styles.redeemBtn} onClick={redeeming ? undefined : handleRedeem}>
+                        <Text className={styles.redeemBtnText}>{redeeming ? '核销中...' : '核销'}</Text>
+                      </View>
+                    </View>
+                  </View>
                   {inventory.length === 0 && <Text className={styles.tip}>背包还是空的，去商城逛逛吧～</Text>}
                   {inventory.map((item) => (
                     <View key={`${item.itemType}-${item.code}`} className={styles.careCard}>

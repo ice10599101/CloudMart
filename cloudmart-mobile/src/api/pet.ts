@@ -628,6 +628,14 @@ export const petApi = {
   getRankings: (type: PetRankingType) =>
     request<PetRankingResult>({ url: '/pet/rankings', data: { type } }),
   /** 宠物动态分享卡片（文案服务端生成） */
+  // ==================== 实物商品联动（§6）：兑换码→双倍喂食 ====================
+  /** 核销兑换码（商城实物零食随附；换取下一次喂食效果 x2） */
+  redeemLinkedProduct: (redemptionCode: string, itemCode?: string) =>
+      request<{ entitlementId: number; usable: boolean }>({ url: '/pet/linked-product/redeem', method: 'POST', data: { redemptionCode, itemCode } as unknown as Record<string, unknown> }),
+  /** 我的双倍喂食权益状态 */
+  getLinkedProductEntitlement: () =>
+      request<{ usable: boolean }>({ url: '/pet/linked-product/entitlement' }),
+
   // ==================== 协作 PVE 副本（§6） ====================
   /** 发起副本（选 Boss；一人同时仅一个进行中） */
   startPveRun: (bossCode: string) =>

@@ -63,6 +63,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final com.cloudmart.pet.repository.PetInventoryMapper inventoryMapper;
     private final PetFriendFeedService friendFeedService;
     private final PetItemCatalog itemCatalog;
+    private final com.cloudmart.pet.service.PetLinkedProductService linkedProductService;
     /** R12：统一活动互斥（活动+托管跨表排他） */
     private final PetActivityMutex activityMutex;
 
@@ -83,7 +84,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      PetItemCatalog itemCatalog,
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
                                      com.cloudmart.pet.service.impl.PetCooperationService cooperationService,
-                                     PetActivityMutex activityMutex) {
+                                     PetActivityMutex activityMutex,
+                                     com.cloudmart.pet.service.PetLinkedProductService linkedProductService) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -102,6 +104,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.companionFeatureService = companionFeatureService;
         this.cooperationService = cooperationService;
         this.activityMutex = activityMutex;
+        this.linkedProductService = linkedProductService;
     }
 
     @Override
@@ -180,16 +183,24 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
                     "今天已经喂了 " + cfg.getFeedDailyLimit() + " 次啦，明天再来吧");
         }
+        // 实物商品联动（§6）：持有双倍喂食权益时效果 x2（消耗一次；CAS 失败按单倍）
+        boolean doubled = linkedProductService.hasUsableEntitlement(userId);
+        int hungerGain = doubled ? food.hunger() * 2 : food.hunger();
+        int happinessGain = doubled ? food.happiness() * 2 : food.happiness();
+        int hpGain = doubled ? food.hp() * 2 : food.hp();
+        if (doubled) {
+            linkedProductService.consumeOne(userId, itemCode);
+        }
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
-                .setSql("hunger = LEAST(hunger + {0}, 100)", food.hunger())
-                .setSql("happiness = LEAST(happiness + {0}, 100)", food.happiness())
-                .setSql("hp = LEAST(hp + {0}, max_hp)", food.hp())
+                .setSql("hunger = LEAST(hunger + {0}, 100)", hungerGain)
+                .setSql("happiness = LEAST(happiness + {0}, 100)", happinessGain)
+                .setSql("hp = LEAST(hp + {0}, max_hp)", hpGain)
                 .set(Pet::getStatus, PetStatus.IDLE.name())
                 .set(Pet::getHungerFrac, 0.0)
                 .eq(Pet::getId, pet.getId()));
-        pet.setHunger(Math.min(100, pet.getHunger() + food.hunger()));
-        pet.setHappiness(Math.min(100, pet.getHappiness() + food.happiness()));
-        pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + food.hp()));
+        pet.setHunger(Math.min(100, pet.getHunger() + hungerGain));
+        pet.setHappiness(Math.min(100, pet.getHappiness() + happinessGain));
+        pet.setHp(Math.min(pet.getMaxHp(), pet.getHp() + hpGain));
         pet.setStatus(PetStatus.IDLE.name());
         pet.setHungerFrac(0.0);
         recordInstantActivity(pet, PetActivityType.FEED, 0);
