@@ -37,5 +37,9 @@ public enum ResourceLogSource {
     /** 评价返星光（N-2：商品评价激励，跨服务经内部端点幂等发放） */
     REVIEW_REWARD,
     /** 邀请裂变奖励（N-3：邀请人/受邀人双向，跨服务经内部端点幂等发放） */
-    INVITE_REWARD
+    INVITE_REWARD,
+    /** 星光转赠（§6：转出方扣减） */
+    TRANSFER_OUT,
+    /** 星光转赠（§6：转入方入账） */
+    TRANSFER_IN
 }

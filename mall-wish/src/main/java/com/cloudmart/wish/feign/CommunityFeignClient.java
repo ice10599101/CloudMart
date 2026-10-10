@@ -59,4 +59,12 @@ public interface CommunityFeignClient {
      */
     @GetMapping("/internal/growth/level")
     ApiResponse<Map<String, Object>> getUserLevel(@org.springframework.web.bind.annotation.RequestParam("userId") Long userId);
+
+    /**
+     * 星光转赠（§6）：好友关系校验（任一关注方向）。
+     * @return ApiResponse 包含 {friends: boolean}
+     */
+    @GetMapping("/internal/blocks/friendship")
+    ApiResponse<Map<String, Object>> checkFriendship(@org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+                                                     @org.springframework.web.bind.annotation.RequestParam("peerUserId") Long peerUserId);
 }

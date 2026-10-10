@@ -28,6 +28,7 @@ import java.util.Map;
 public class InternalBlockController {
 
     private final UserBlockService userBlockService;
+    private final com.cloudmart.community.service.UserFollowService userFollowService;
 
     @GetMapping("/status")
     @Operation(summary = "双向拉黑状态", description = "sender 与 peer 任一方向拉黑即 blocked=true")
@@ -36,5 +37,19 @@ public class InternalBlockController {
             @Parameter(description = "会话对方用户 ID", required = true) @RequestParam Long peerUserId) {
         boolean blocked = userBlockService.getBlockedOrBlockerIds(userId).contains(peerUserId);
         return ApiResponse.ok(Map.of("blocked", blocked));
+    }
+
+    /**
+     * 星光转赠好友校验（§6）：任一关注方向即视为好友（单问 & 双问均放行）。
+     */
+    @org.springframework.web.bind.annotation.GetMapping("/friendship")
+    @io.swagger.v3.oas.annotations.Operation(summary = "好友关系校验",
+            description = "userId 与 peerUserId 任一关注方向存在即 true")
+    public ApiResponse<Map<String, Object>> friendship(
+            @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @org.springframework.web.bind.annotation.RequestParam("peerUserId") Long peerUserId) {
+        boolean friends = userFollowService.isFollowing(userId, peerUserId)
+                || userFollowService.isFollowing(peerUserId, userId);
+        return ApiResponse.ok(Map.of("friends", friends));
     }
 }
