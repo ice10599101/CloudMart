@@ -45,6 +45,10 @@ gateway-public:
 # -----------------------------------------------------------------------------
 mall-product:
   - { method: GET,    path: /products/search,        subjectType: ANON }
+  # N-5 商品问答（问大家）：提问/回答需登录；列表公开
+  - { method: POST,   path: "/products/{productId}/questions",            subjectType: "USER", note: "SELF：内容转义+长度校验" }
+  - { method: GET,    path: "/products/{productId}/questions",            subjectType: ANON }
+  - { method: POST,   path: "/products/{productId}/questions/{questionId}/answer", subjectType: "USER", note: "SELF：已购徽标快照" }
   - { method: GET,    path: "/products/{id}",          subjectType: ANON }
   - { method: GET,    path: /products/skus/batch,    subjectType: ANON }
   - { method: GET,    path: /products,               subjectType: "USER,SERVICE", serviceCaller: "mall-ai,mall-cart,mall-seckill", permission: product:read }

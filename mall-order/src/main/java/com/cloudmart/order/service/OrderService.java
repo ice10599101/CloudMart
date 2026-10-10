@@ -118,4 +118,7 @@ public interface OrderService {
 
     /** 心愿关联商品闭环（§6）：还愿购买凭证校验（订单属主+已完成+含该商品条目） */
     boolean hasCompletedOrderWithProduct(Long userId, Long productId, Long orderId);
+
+    /** N-5 问大家：用户是否已完成购买含该商品的订单 */
+    boolean hasPurchasedProduct(Long userId, Long productId);
 }

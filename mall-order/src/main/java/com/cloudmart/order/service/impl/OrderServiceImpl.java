@@ -1453,6 +1453,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public boolean hasPurchasedProduct(Long userId, Long productId) {
+        return orderMapper.countCompletedOrdersWithProduct(userId, productId) > 0;
+    }
+
+    @Override
     public com.cloudmart.order.dto.OrderInternalInfoDTO getInternalOrderInfo(Long orderId) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {

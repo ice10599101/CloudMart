@@ -111,6 +111,15 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.hasCompletedOrderWithProduct(userId, productId, orderId));
     }
 
+    /** N-5 问大家：已购标识查询（回答人是否已购该商品；徽标快照用） */
+    @GetMapping("/has-purchased-product")
+    @Operation(summary = "已购标识查询", description = "userId+productId；存在已完成订单含该商品返回 true")
+    public ApiResponse<Boolean> hasPurchasedProduct(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @Parameter(description = "商品 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("productId") Long productId) {
+        return ApiResponse.ok(orderService.hasPurchasedProduct(userId, productId));
+    }
+
     /** E02：超时订单批量兜底扫描（mall-job 定时触发；延迟消息丢失的恢复入口） */
     @PostMapping("/timeout-scan")
     @Operation(summary = "超时订单批量扫描", description = "timeoutMinutes/batchSize 可配；返回本轮取消数（mall-job 触发）")

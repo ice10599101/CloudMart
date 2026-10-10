@@ -19,4 +19,9 @@ public interface OrderPurchaseFeignClient {
     @GetMapping("/purchase-eligibility")
     ApiResponse<List<Long>> purchaseEligibility(@RequestParam("userId") Long userId,
                                                 @RequestParam("skuId") Long skuId);
+
+    /** N-5 问大家：已购标识（回答人"已购"徽标快照；fail-open 由 fallback 兜 false） */
+    @GetMapping("/internal/orders/has-purchased-product")
+    ApiResponse<Boolean> hasPurchasedProduct(@RequestParam("userId") Long userId,
+                                             @RequestParam("productId") Long productId);
 }
