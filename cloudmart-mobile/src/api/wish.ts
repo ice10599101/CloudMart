@@ -167,13 +167,15 @@ export interface LevelUpEvent {
 export const STARLIGHT_BALANCE_CAP = 5000
 export const STARLIGHT_NEAR_CAP_THRESHOLD = 4500
 
-/** 用户维度每日签到结果（与心愿打卡独立；+5 星光） */
+/** 用户维度每日签到结果（与心愿打卡独立；+5 星光 + 等级加成） */
 export interface DailySigninResult {
     signed: boolean
     consecutiveDays: number
     starlightReward: number
     tomorrowReward: number
     levelUp: LevelUpEvent | null
+    /** 等级星光联动加成（§6：Lv2 起每日 +1/级，封顶 +10；已含在 starlightReward 内） */
+    levelBonus?: number
 }
 
 /** 签到日历（month 格式 yyyy-MM） */

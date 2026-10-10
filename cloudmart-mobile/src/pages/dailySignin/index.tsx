@@ -146,7 +146,8 @@ export default function DailySigninPage() {
         setResources((prev) =>
           prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
         )
-        Taro.showToast({ title: `签到成功，星光 +${result.starlightReward}`, icon: 'none' })
+        const bonusText = result.levelBonus && result.levelBonus > 0 ? `（含等级加成 +${result.levelBonus}）` : ''
+        Taro.showToast({ title: `签到成功，星光 +${result.starlightReward}${bonusText}`, icon: 'none' })
         if (result.levelUp) setLevelUp(result.levelUp)
         loadCalendar(year, month)
       }

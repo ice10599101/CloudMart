@@ -82,4 +82,19 @@ public class InternalGrowthController {
                 "totalExp", level.totalExp(),
                 "levelTitle", level.levelTitle() != null ? level.levelTitle() : ""));
     }
+
+    /**
+     * 等级星光联动（§6）：查询用户社区等级（growth 体系），
+     * mall-wish 每日签到按等级计算星光加成。
+     */
+    @org.springframework.web.bind.annotation.GetMapping("/level")
+    @io.swagger.v3.oas.annotations.Operation(summary = "查询用户等级",
+            description = "mall-wish 每日签到等级加成用；返回 {level, levelTitle}")
+    public ApiResponse<java.util.Map<String, Object>> getLevel(
+            @org.springframework.web.bind.annotation.RequestParam("userId") Long userId) {
+        UserLevelVO level = growthService.getUserLevel(userId);
+        return ApiResponse.ok(java.util.Map.of(
+                "level", level.level(),
+                "levelTitle", level.levelTitle() == null ? "" : level.levelTitle()));
+    }
 }

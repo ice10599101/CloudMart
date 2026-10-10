@@ -21,5 +21,6 @@ public record DailySigninVO(
         @Schema(description = "明日签到可获得的星光") int tomorrowReward,
         @Schema(description = "本次应发经验") int expReward,
         @Schema(description = "经验是否成功入账") boolean expGranted,
-        @Schema(description = "等级提升事件（未提升为 null）") LevelUpVO levelUp) {
+        @Schema(description = "等级提升事件（未提升为 null）") LevelUpVO levelUp,
+        @Schema(description = "等级星光联动加成（§6：Lv2 起每日 +1/级，封顶 +10；community 不可用为 0）") int levelBonus) {
 }

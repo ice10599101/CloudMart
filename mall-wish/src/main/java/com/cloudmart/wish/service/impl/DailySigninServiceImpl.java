@@ -46,6 +46,9 @@ public class DailySigninServiceImpl implements DailySigninService {
 
     /** 每日签到星光奖励（文档 6.1：每日签到 +5，固定值无递增） */
     static final int SIGNIN_REWARD = 5;
+    /** 等级星光联动（§6）：Lv2 起每日加成 +1/级，封顶 +LEVEL_BONUS_CAP（community 不可用为 0） */
+    private static final int LEVEL_BONUS_BASE_LEVEL = 2;
+    private static final int LEVEL_BONUS_CAP = 10;
 
     /** 每日签到经验奖励（基础值，经 mall-community 成长体系发放） */
     static final int SIGNIN_EXP_REWARD = 10;
@@ -91,8 +94,11 @@ public class DailySigninServiceImpl implements DailySigninService {
         }
 
         // 星光 +5（SIGNIN 流水，refId=签到记录 ID；余额达 5000 上限时截断入账）
+        // 等级星光联动（§6）：社区等级加成，Lv2 起每日 +1、封顶 +LEVEL_BONUS_CAP；
+        // community 不可用时加成 0（fail-open，不阻断签到）
+        int levelBonus = resolveLevelBonus(userId);
         int credited = userStatService.earnStarlight(
-                userId, SIGNIN_REWARD, ResourceLogSource.SIGNIN, signin.getId());
+                userId, SIGNIN_REWARD + levelBonus, ResourceLogSource.SIGNIN, signin.getId());
         // 经验 +10（mall-community 成长体系；community 不可用时不影响星光）
         // T09：稳定业务 ID——唯一键 (user, WISH_SIGNIN, signinId) 保证失败重试不重复发
         boolean expGranted = grantExp(userId, SIGNIN_EXP_REWARD, EXP_SOURCE_SIGNIN,
@@ -103,8 +109,8 @@ public class DailySigninServiceImpl implements DailySigninService {
 
         log.info("每日签到成功, userId={}, date={}, consecutive={}, credited={}, expGranted={}, levelUp={}",
                 userId, today, consecutiveDays, credited, expGranted, levelUp != null);
-        return new DailySigninVO(true, consecutiveDays, credited, SIGNIN_REWARD,
-                SIGNIN_EXP_REWARD, expGranted, levelUp);
+        return new DailySigninVO(true, consecutiveDays, credited, SIGNIN_REWARD + levelBonus,
+                SIGNIN_EXP_REWARD, expGranted, levelUp, levelBonus);
     }
 
     @Override
@@ -166,6 +172,26 @@ public class DailySigninServiceImpl implements DailySigninService {
         log.info("里程碑领取成功, userId={}, days={}, starlight={}, expGranted={}, levelUp={}",
                 userId, milestone.days(), credited, expGranted, levelUp != null);
         return new SigninMilestoneClaimVO(milestone.days(), credited, milestone.exp(), expGranted, levelUp);
+    }
+
+    /**
+     * 等级星光联动（§6）：查询社区等级计算每日签到加成。
+     * 加成 = min(level - 1, cap)——Lv1 无加成，Lv2 +1，Lv11 及以上封顶 +10。
+     * community 不可用/等级查询失败时返回 0（fail-open，不阻断签到主链路）。
+     */
+    private int resolveLevelBonus(Long userId) {
+        try {
+            var res = communityFeignClient.getUserLevel(userId);
+            Object levelObj = res != null && res.data() != null ? res.data().get("level") : null;
+            int level = levelObj instanceof Number n ? n.intValue() : 0;
+            if (level < LEVEL_BONUS_BASE_LEVEL) {
+                return 0;
+            }
+            return Math.min(level - (LEVEL_BONUS_BASE_LEVEL - 1), LEVEL_BONUS_CAP);
+        } catch (Exception e) {
+            log.warn("等级加成查询失败（fail-open 按 0 加成）: userId={}, err={}", userId, e.getMessage());
+            return 0;
+        }
     }
 
     /**

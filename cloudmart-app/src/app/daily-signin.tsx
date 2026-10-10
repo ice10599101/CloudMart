@@ -133,13 +133,14 @@ export default function DailySigninScreen() {
   const handleClaimMilestone = async (days: number) => {
     try {
       const res = await wishApi.claimSigninMilestone(days)
-      const result = (res.data as { data?: { starlightReward?: number; expReward?: number; levelUp?: LevelUpEvent | null } })?.data
+      const result = (res.data as { data?: { starlightReward?: number; expReward?: number; levelUp?: LevelUpEvent | null; levelBonus?: number } })?.data
       setMilestones((prev) => prev.map((m) => (m.milestoneDays === days ? { ...m, claimed: true } : m)))
       if (result?.levelUp) {
         setLevelUp(result.levelUp)
         void notifyLevelUp(result.levelUp)
       } else {
-        Alert.alert('领取成功', `星光 +${result?.starlightReward ?? 0}${result?.expReward ? ` · 经验 +${result.expReward}` : ''}`)
+        const bonusText = result?.levelBonus && result.levelBonus > 0 ? `（含等级加成 +${result.levelBonus}）` : ''
+        Alert.alert('领取成功', `星光 +${result?.starlightReward ?? 0}${bonusText}${result?.expReward ? ` · 经验 +${result.expReward}` : ''}`)
       }
       void loadResources()
     } catch (err) {

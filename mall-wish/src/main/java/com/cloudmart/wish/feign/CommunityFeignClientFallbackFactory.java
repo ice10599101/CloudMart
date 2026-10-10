@@ -41,6 +41,11 @@ public class CommunityFeignClientFallbackFactory implements FallbackFactory<Comm
             public ApiResponse<Map<String, Object>> getPostOwner(Long postId) {
                 return ApiResponse.fail("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Map<String, Object>> getUserLevel(Long userId) {
+                return ApiResponse.fail("COMMUNITY_SERVICE_UNAVAILABLE", "社区服务不可用，请稍后重试");
+            }
         };
     }
 }

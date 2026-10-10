@@ -52,4 +52,11 @@ public interface CommunityFeignClient {
      */
     @GetMapping("/internal/gifts/posts/{postId}")
     ApiResponse<Map<String, Object>> getPostOwner(@PathVariable("postId") Long postId);
+
+    /**
+     * 等级星光联动（§6）：查询用户社区等级。
+     * @return ApiResponse 包含 {level, levelTitle}
+     */
+    @GetMapping("/internal/growth/level")
+    ApiResponse<Map<String, Object>> getUserLevel(@org.springframework.web.bind.annotation.RequestParam("userId") Long userId);
 }
