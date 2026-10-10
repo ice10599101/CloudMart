@@ -1,0 +1,229 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  background: var(--pet-bg, #0b1220);
+}
+
+.tabRow {
+  display: flex;
+  gap: 8rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 6rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border-radius: 999rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  border-radius: 999rpx;
+}
+
+.tabActive {
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+}
+
+.tabText {
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.7);
+}
+
+.scroll {
+  height: calc(100vh - 240rpx);
+}
+
+.sectionLabel {
+  display: block;
+  margin: 24rpx 24rpx 12rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.9);
+}
+
+.bossCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0 24rpx 16rpx;
+  padding: 24rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border: 1px solid rgba(245, 245, 250, 0.12);
+  border-radius: 18rpx;
+}
+
+.bossInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.bossName {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.95);
+}
+
+.bossHp {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.5);
+}
+
+.startBtn {
+  padding: 12rpx 32rpx;
+  background: linear-gradient(135deg, #ffd700, #ff9f0a);
+  border-radius: 999rpx;
+}
+
+.startBtnBusy {
+  opacity: 0.5;
+}
+
+.startBtnText {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #b00020;
+}
+
+.card {
+  margin: 0 24rpx 16rpx;
+  padding: 24rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border: 1px solid rgba(245, 245, 250, 0.12);
+  border-radius: 18rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cardBoss {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: rgba(245, 245, 250, 0.95);
+}
+
+.cardStatus {
+  font-size: 20rpx;
+  color: #ffd700;
+  padding: 2rpx 14rpx;
+  background: rgba(255, 215, 0, 0.12);
+  border-radius: 999rpx;
+}
+
+.cardHp {
+  font-size: 22rpx;
+  color: #ff8fa3;
+}
+
+.cardMeta {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.5);
+}
+
+.joinBtn {
+  align-self: flex-end;
+  padding: 10rpx 32rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+}
+
+.joinBtnText {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.empty {
+  display: block;
+  text-align: center;
+  padding: 48rpx 0;
+  font-size: 26rpx;
+  color: rgba(245, 245, 250, 0.5);
+}
+
+.detailMask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.detailBody {
+  width: 100%;
+  background: #121a30;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.detailTitle {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: rgba(245, 245, 250, 0.95);
+}
+
+.hpBarTrack {
+  height: 20rpx;
+  background: rgba(245, 245, 250, 0.1);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.hpBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+}
+
+.hpText {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.65);
+}
+
+.roundsBox {
+  max-height: 300rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.roundLine {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.75);
+  line-height: 1.6;
+}
+
+.roundsEmpty {
+  font-size: 22rpx;
+  color: rgba(245, 245, 250, 0.4);
+}
+
+.attackBtn {
+  padding: 20rpx;
+  background: linear-gradient(135deg, #e94560, #ff8fa3);
+  border-radius: 999rpx;
+  text-align: center;
+}
+
+.attackBtnText {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.detailHint {
+  font-size: 20rpx;
+  color: rgba(245, 245, 250, 0.4);
+  text-align: center;
+}

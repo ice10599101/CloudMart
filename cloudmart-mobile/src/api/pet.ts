@@ -179,6 +179,34 @@ export interface PetRankingResult {
   myRank: number | null
 }
 
+/** 协作 PVE 副本（§6 契约对齐 mall-pet PetPveRunVO） */
+export interface PveRunVO {
+  runId: number
+  bossCode: string
+  bossName: string
+  bossMaxHp: number
+  bossHp: number
+  initiatorUserId: number
+  initiatorPetName: string | null
+  partnerUserId: number | null
+  partnerPetName: string | null
+  initiatorPetHp: number
+  /** -1=未加入 */
+  partnerPetHp: number
+  status: 'OPEN' | 'FIGHTING' | 'WON' | 'FAILED' | 'EXPIRED'
+  rewardGranted: boolean
+  recentRounds: Array<{ round: number; actorName: string; action: string; damage: number; critical: boolean; dodged: boolean; targetName: string; targetRemainingHp: number }>
+  createdAt: string
+  finishedAt: string | null
+}
+
+export interface PveRunPage {
+  records: PveRunVO[]
+  total: number
+  current: number
+  size: number
+}
+
 /** 赛季通行证（§6 契约对齐 mall-pet PetSeasonPassVO） */
 export interface SeasonPassVO {
   seasonId: number | null
@@ -600,6 +628,26 @@ export const petApi = {
   getRankings: (type: PetRankingType) =>
     request<PetRankingResult>({ url: '/pet/rankings', data: { type } }),
   /** 宠物动态分享卡片（文案服务端生成） */
+  // ==================== 协作 PVE 副本（§6） ====================
+  /** 发起副本（选 Boss；一人同时仅一个进行中） */
+  startPveRun: (bossCode: string) =>
+      request<PveRunVO>({ url: '/pet/pve', method: 'POST', data: { bossCode } as unknown as Record<string, unknown> }),
+  /** 可加入副本列表（OPEN，他人发起） */
+  listOpenPveRuns: (page?: number, pageSize?: number) =>
+      request<PveRunPage>({ url: '/pet/pve/open', params: { page: page ?? 1, pageSize: pageSize ?? 10 } as Record<string, unknown> }),
+  /** 加入副本（队友） */
+  joinPveRun: (runId: number | string) =>
+      request<PveRunVO>({ url: `/pet/pve/${runId}/join`, method: 'POST' }),
+  /** 攻击一回合（轮流行动） */
+  attackPveRun: (runId: number | string) =>
+      request<PveRunVO>({ url: `/pet/pve/${runId}/attack`, method: 'POST' }),
+  /** 副本详情（参与者；OPEN 对外可看） */
+  pveDetail: (runId: number | string) =>
+      request<PveRunVO>({ url: `/pet/pve/${runId}` }),
+  /** 我的副本 */
+  listMyPveRuns: (page?: number, pageSize?: number) =>
+      request<PveRunPage>({ url: '/pet/pve/mine', params: { page: page ?? 1, pageSize: pageSize ?? 10 } as Record<string, unknown> }),
+
   /** 赛季通行证（§6）：我的通行证（无进行中赛季 seasonId=null） */
   getSeasonPass: () => request<SeasonPassVO>({ url: '/pet/season/pass' }),
   /** 领取通行证档位奖励（达标 CAS；返回领取后的通行证） */
