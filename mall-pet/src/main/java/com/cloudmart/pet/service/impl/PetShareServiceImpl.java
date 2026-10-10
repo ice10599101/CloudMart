@@ -36,19 +36,25 @@ public class PetShareServiceImpl implements PetShareService {
     private final PetAchievementMapper achievementMapper;
     private final PetBattleMapper battleMapper;
     private final PetBottleRecordMapper bottleRecordMapper;
+    private final com.cloudmart.pet.repository.PetCollectionEntryMapper collectionEntryMapper;
+    private final com.cloudmart.pet.repository.PetCollectionRecordMapper collectionRecordMapper;
 
     public PetShareServiceImpl(PetService petService,
                                PetMapper petMapper,
                                PetAchievementRecordMapper achievementRecordMapper,
                                PetAchievementMapper achievementMapper,
                                PetBattleMapper battleMapper,
-                               PetBottleRecordMapper bottleRecordMapper) {
+                               PetBottleRecordMapper bottleRecordMapper,
+                               com.cloudmart.pet.repository.PetCollectionEntryMapper collectionEntryMapper,
+                               com.cloudmart.pet.repository.PetCollectionRecordMapper collectionRecordMapper) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.achievementRecordMapper = achievementRecordMapper;
         this.achievementMapper = achievementMapper;
         this.battleMapper = battleMapper;
         this.bottleRecordMapper = bottleRecordMapper;
+        this.collectionEntryMapper = collectionEntryMapper;
+        this.collectionRecordMapper = collectionRecordMapper;
     }
 
     @Override
@@ -61,6 +67,7 @@ public class PetShareServiceImpl implements PetShareService {
             case "BOTTLE" -> bottleCard(pet);
             case "BATTLE" -> battleCard(pet);
             case "DAILY" -> dailyCard(pet);
+            case "COLLECTION" -> collectionCard(userId, pet);
             default -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "分享卡片类型非法");
         };
     }
@@ -131,5 +138,17 @@ public class PetShareServiceImpl implements PetShareService {
         String content = "🐾 今日份的宠物日常：「" + pet.getName() + "」" + mood
                 + "（心情 " + pet.getHappiness() + "），快来社区养一只属于你的宠物吧！";
         return new PetShareCardVO("DAILY", pet.getName() + " 的宠物日常", content, mood);
+    }
+
+    /** 图鉴分享卡（§6）：图鉴收集进度（unlocked/total + 完成率），复用 collection/stats 口径 */
+    private PetShareCardVO collectionCard(Long userId, Pet pet) {
+        long total = collectionEntryMapper.selectCount(new LambdaQueryWrapper<>());
+        long unlocked = collectionRecordMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetCollectionRecord>()
+                .eq(com.cloudmart.pet.entity.PetCollectionRecord::getUserId, userId));
+        long percent = total > 0 ? Math.round(unlocked * 100.0 / total) : 0;
+        String title = pet.getName() + " 的图鉴手账";
+        String content = "「" + pet.getName() + "」已经集齐 " + unlocked + "/" + total + " 张图鉴"
+                + "（完成率 " + percent + "%）！快来一起收集吧～";
+        return new PetShareCardVO("COLLECTION", title, content, unlocked + "/" + total);
     }
 }

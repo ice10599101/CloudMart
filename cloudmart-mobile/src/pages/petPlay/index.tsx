@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { petApi, petCompanionApi } from '@/api/pet'
+import { petApi, petCompanionApi, type PetShareCard } from '@/api/pet'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import type { PetInfo, PetMinigameRoundItem, PetActivityRow } from '@/api/pet'
 import { useAuthStore } from '@/store/auth'
@@ -39,6 +39,8 @@ export default function PetPlayPage() {
   const [digest, setDigest] = useState<{ throughAt: string; offlineHours: number; finishedTasks: number; claimableTasks: number; visits: number; milestones: number } | null>(null)
   const [coops, setCoops] = useState<Array<Record<string, unknown>>>([])
   const [collection, setCollection] = useState<{ total: number; unlocked: number } | null>(null)
+  // 图鉴分享卡（§6）：服务端生成文案，一键复制
+  const [collectionShareCard, setCollectionShareCard] = useState<PetShareCard | null>(null)
   // PET-23：图鉴明细（getCollection 首页；含获取条件）——统计卡点击展开
   const [collectionItems, setCollectionItems] = useState<Array<Record<string, unknown>> | null>(null)
   // N04 对局历史（最近 10 局，offset 分页第一页）
@@ -61,6 +63,10 @@ export default function PetPlayPage() {
     if (collRes.data.success && collRes.data.data) {
       setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
     }
+    // 图鉴分享卡（§6）：随统计加载，失败静默
+    petApi.getShareCard('COLLECTION')
+      .then(({ data: r }) => { if (r.success && r.data) setCollectionShareCard(r.data) })
+      .catch(() => undefined)
     const collListRes = await petApi.getCollection(undefined, 1, 50)
     if (collListRes.data.success && collListRes.data.data) setCollectionItems(collListRes.data.data)
     const histRes = await petCompanionApi.listMinigameRounds(1, 10)
@@ -72,6 +78,19 @@ export default function PetPlayPage() {
   useEffect(() => {
     if (isLoggedIn) void loadAll()
   }, [isLoggedIn, loadAll])
+
+  /** 图鉴分享卡（§6）：复制文案，用户可粘贴到社区发帖/分享 */
+  const copyCollectionCard = () => {
+    if (!collectionShareCard) {
+      Taro.showToast({ title: '分享卡尚未生成', icon: 'none' })
+      return
+    }
+    Taro.setClipboardData({
+      data: `${collectionShareCard.title}
+${collectionShareCard.content}${collectionShareCard.highlight ? `（${collectionShareCard.highlight}）` : ''}`,
+      success: () => Taro.showToast({ title: '图鉴分享卡已复制', icon: 'success' }),
+    })
+  }
 
   useEffect(() => {
     if (isLoggedIn) void restoreCurrentRound()
@@ -307,6 +326,9 @@ export default function PetPlayPage() {
         <View className={styles.card}>
           <Text className={styles.cardTitle}>📖 收藏图鉴</Text>
           <Text className={styles.meta}>{collection ? `已解锁 ${collection.unlocked}/${collection.total}` : '加载中…'}</Text>
+          <View className={styles.shareBtn} onClick={copyCollectionCard}>
+            <Text className={styles.shareBtnText}>📋 复制图鉴分享卡</Text>
+          </View>
           {collectionItems && collectionItems.length > 0 ? (
             <View style={{ marginTop: 8, gap: 4 }}>
               {collectionItems.map((item) => {

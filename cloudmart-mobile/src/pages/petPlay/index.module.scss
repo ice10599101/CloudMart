@@ -144,3 +144,16 @@
   font-size: 30px;
   font-weight: 700;
 }
+
+.shareBtn {
+  align-self: flex-start;
+  margin: 8rpx 0;
+  padding: 8rpx 20rpx;
+  background: var(--color-primary-bg, rgba(0, 212, 255, 0.1));
+  border-radius: 999rpx;
+}
+
+.shareBtnText {
+  font-size: 22rpx;
+  color: var(--color-primary);
+}

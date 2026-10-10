@@ -141,6 +141,7 @@ const SHARE_TYPES: Array<{ key: Parameters<typeof petApi.getShareCard>[0]; label
   { key: 'ACHIEVEMENT', label: '成就卡片' },
   { key: 'BOTTLE', label: '漂流瓶卡片' },
   { key: 'BATTLE', label: '对战卡片' },
+  { key: 'COLLECTION', label: '图鉴卡片' },
 ]
 
 type PanelKey =

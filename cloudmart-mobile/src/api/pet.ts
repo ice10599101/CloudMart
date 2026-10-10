@@ -591,7 +591,7 @@ export const petApi = {
   getRankings: (type: PetRankingType) =>
     request<PetRankingResult>({ url: '/pet/rankings', data: { type } }),
   /** 宠物动态分享卡片（文案服务端生成） */
-  getShareCard: (type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY') =>
+  getShareCard: (type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY' | 'COLLECTION') =>
     request<PetShareCard>({ url: '/pet/share/card', data: { type } }),
   /** 修改外观（档案编辑用） */
   updateAppearance: (data: { color: string; accessory: string }) =>
