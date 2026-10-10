@@ -19,6 +19,10 @@ const QUICK_ENTRIES = [
   { icon: '📢', name: '系统通知', type: 4, gradient: 'linear-gradient(135deg, #FFD700, #FFA500)' },
 ]
 
+/** N-4 客服工单（起步版）：私信官方服务账号（userId 由 TARO_APP_SERVICE_USER_ID 注入，缺省 1=平台账号）。
+ *  工单升级（分类/SLA/多客服分配）待运营体系成型后扩展。 */
+const SERVICE_ACCOUNT_USER_ID = Number(process.env.TARO_APP_SERVICE_USER_ID || 1)
+
 export default function MessagePage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
@@ -57,6 +61,15 @@ export default function MessagePage() {
 
   const handleQuickEntry = (type: number) => {
     Taro.navigateTo({ url: `/pages/notifications/index?type=${type}` })
+  }
+
+  /** N-4：联系客服——直达与官方服务账号的私信会话 */
+  const handleContactService = () => {
+    if (!isLoggedIn) {
+      Taro.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    Taro.navigateTo({ url: `/pages/chat/index?userId=${SERVICE_ACCOUNT_USER_ID}` })
   }
 
   const handleConversationClick = (id: number) => {
@@ -103,6 +116,13 @@ export default function MessagePage() {
             <Text className={styles.quickName}>{entry.name}</Text>
           </View>
         ))}
+        {/* N-4 客服工单（起步版）：私信官方服务账号 */}
+        <View className={styles.quickItem} onClick={handleContactService}>
+          <View className={styles.quickIconWrap} style={{ background: 'linear-gradient(135deg, #52C41A, #7ED957)' }}>
+            <Text className={styles.quickIcon}>🎧</Text>
+          </View>
+          <Text className={styles.quickName}>联系客服</Text>
+        </View>
       </View>
 
       <View className={styles.sectionHeader}>
