@@ -34,9 +34,12 @@ public class PetEventConsumer implements RocketMQListener<PetEventConsumer.PetEv
     private static final ObjectMapper PAYLOAD_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final NotificationService notificationService;
+    private final com.cloudmart.notification.channel.SubscribeMessageChannel subscribeMessageChannel;
 
-    public PetEventConsumer(NotificationService notificationService) {
+    public PetEventConsumer(NotificationService notificationService,
+                            com.cloudmart.notification.channel.SubscribeMessageChannel subscribeMessageChannel) {
         this.notificationService = notificationService;
+        this.subscribeMessageChannel = subscribeMessageChannel;
     }
 
     @Override
@@ -50,6 +53,16 @@ public class PetEventConsumer implements RocketMQListener<PetEventConsumer.PetEv
         } catch (Exception e) {
             log.error("Failed to send pet event notification: userId={}, type={}",
                     message.userId(), message.reminderType(), e);
+        }
+        // N-1：订阅消息第二触达面（纪念日等事件型通知）；失败不阻断站内通知
+        if ("ANNIVERSARY".equals(message.reminderType())) {
+            try {
+                subscribeMessageChannel.send(Long.valueOf(message.userId()), "ANNIVERSARY",
+                        Map.of("title", message.title() == null ? "" : message.title(),
+                                "content", message.content() == null ? "" : message.content()));
+            } catch (Exception e) {
+                log.warn("N-1 订阅消息发送失败（忽略）: userId={}, err={}", message.userId(), e.getMessage());
+            }
         }
     }
 
