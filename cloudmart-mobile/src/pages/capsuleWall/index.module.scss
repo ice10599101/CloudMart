@@ -1,0 +1,56 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-bg-page, #0b1220);
+}
+
+.scroll {
+  height: calc(100vh - 120rpx);
+}
+
+.intro {
+  display: block;
+  margin: 24rpx;
+  padding: 24rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary, rgba(245, 245, 250, 0.65));
+  line-height: 1.7;
+  background: rgba(245, 245, 250, 0.05);
+  border-radius: 16rpx;
+}
+
+.card {
+  margin: 0 24rpx 24rpx;
+  padding: 28rpx;
+  background: rgba(245, 245, 250, 0.06);
+  border: 1px solid rgba(245, 245, 250, 0.12);
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-text, rgba(245, 245, 250, 0.95));
+}
+
+.content {
+  font-size: 26rpx;
+  color: var(--color-text-secondary, rgba(245, 245, 250, 0.8));
+  line-height: 1.8;
+}
+
+.meta {
+  font-size: 20rpx;
+  color: var(--color-text-tertiary, rgba(245, 245, 250, 0.45));
+}
+
+.empty {
+  display: block;
+  text-align: center;
+  padding: 48rpx 0;
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+}

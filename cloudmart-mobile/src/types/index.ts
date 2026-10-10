@@ -772,6 +772,8 @@ export type CapsuleStatus = 'SEALED' | 'AVAILABLE' | 'OPENED' | 'CANCELLED'
 /** 胶囊视图：非 OPENED 状态 content/mediaUrls 恒为 null（开启是唯一拆信路径） */
 export interface CapsuleItem {
   id: number
+  /** 公共胶囊墙（§6）：0 未申请 / 1 待审核 / 2 已上墙 / 3 已拒绝 */
+  wallStatus?: number
   title: string
   content: string | null
   mediaUrls: string[] | null

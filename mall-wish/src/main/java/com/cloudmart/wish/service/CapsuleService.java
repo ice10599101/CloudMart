@@ -88,4 +88,24 @@ public interface CapsuleService {
     /** 内部流转载体（扫描事务外发通知用）。 */
     record AvailableCapsule(TimeCapsule capsule) {
     }
+
+    /**
+     * 公共胶囊墙（§6）：作者申请将已开启（OPENED）胶囊送上匿名精选墙（进入待审核）。
+     * 幂等：wallStatus ∈ {1,2} 时拒绝重复申请；拒绝后（3）可重新申请。
+     */
+    void applyToWall(Long userId, Long capsuleId);
+
+    /**
+     * 公共胶囊墙（§6）：匿名墙分页（wallStatus=2，不暴露作者身份，按决定时间倒序）。
+     */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wall(
+            int page, int size);
+
+    /**
+     * 管理端审核（§6）：approve=true 上墙（2）/ false 拒绝（3），记录决定时间。
+     */
+    void decideWall(Long capsuleId, boolean approve);
+
+    /** 管理端：胶囊墙待审核分页（wallStatus=1，申请时间倒序） */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wallPending(int page, int size);
 }

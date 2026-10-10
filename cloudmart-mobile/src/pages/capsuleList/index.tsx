@@ -189,6 +189,26 @@ export default function CapsuleListPage() {
                                     </View>
                                     <View className={styles.cardMeta}>
                                         <Text className={styles.metaLine}>
+                                            {item.status === 'OPENED' && item.wallStatus === 0 && (
+                                                <Text
+                                                    className={styles.wallApplyBtn}
+                                                    onClick={() => {
+                                                        Taro.showModal({
+                                                            title: '申请上墙',
+                                                            content: '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不暴露你的身份）？',
+                                                            success: async (res) => {
+                                                                if (!res.confirm) return
+                                                                try {
+                                                                    await wishApi.applyCapsuleToWall(item.id)
+                                                                    Taro.showToast({ title: '已提交审核', icon: 'success' })
+                                                                } catch {
+                                                                    Taro.showToast({ title: '申请失败', icon: 'none' })
+                                                                }
+                                                            },
+                                                        })
+                                                    }}
+                                                >📝 上墙</Text>
+                                            )}
                                             {item.status === 'OPENED'
                                                 ? `已于 ${formatLocal(item.openedAt)} 开启`
                                                 : item.status === 'CANCELLED'

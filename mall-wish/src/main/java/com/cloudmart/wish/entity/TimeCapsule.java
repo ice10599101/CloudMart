@@ -63,4 +63,13 @@ public class TimeCapsule {
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+
+    /** 公共胶囊墙（§6）：0 未申请 / 1 待审核 / 2 已上墙 / 3 已拒绝 */
+    private Integer wallStatus;
+
+    /** 申请上墙时间 */
+    private LocalDateTime wallAppliedAt;
+
+    /** 审核决定时间 */
+    private LocalDateTime wallDecidedAt;
 }

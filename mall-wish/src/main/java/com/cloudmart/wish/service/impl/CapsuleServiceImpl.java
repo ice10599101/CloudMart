@@ -375,4 +375,90 @@ public class CapsuleServiceImpl implements CapsuleService {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "分页游标不合法");
         }
     }
+
+    // ==================== 公共胶囊墙（§6） ====================
+
+    /** 墙状态位（对齐 V65 注释） */
+    private static final int WALL_NONE = 0;
+    private static final int WALL_PENDING = 1;
+    private static final int WALL_APPROVED = 2;
+    private static final int WALL_REJECTED = 3;
+
+    @Override
+    public void applyToWall(Long userId, Long capsuleId) {
+        TimeCapsule capsule = timeCapsuleMapper.selectById(capsuleId);
+        if (capsule == null || !capsule.getUserId().equals(userId)) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "胶囊不存在");
+        }
+        if (capsule.getStatus() != CapsuleStatus.OPENED) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "仅已开启的胶囊可申请上墙");
+        }
+        Integer wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
+        if (wall == WALL_PENDING || wall == WALL_APPROVED) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                    wall == WALL_PENDING ? "已提交审核，请耐心等待" : "该胶囊已在墙上");
+        }
+        int updated = timeCapsuleMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>()
+                        .eq(TimeCapsule::getId, capsuleId)
+                        .eq(TimeCapsule::getUserId, userId)
+                        .set(TimeCapsule::getWallStatus, WALL_PENDING)
+                        .set(TimeCapsule::getWallAppliedAt, LocalDateTime.now())
+                        .set(TimeCapsule::getWallDecidedAt, null));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "申请失败，请稍后重试");
+        }
+        log.info("胶囊墙申请提交: capsuleId={}, userId={}", capsuleId, userId);
+    }
+
+    @Override
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wall(int page, int size) {
+        var result = timeCapsuleMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TimeCapsule>()
+                        .select(TimeCapsule::getId, TimeCapsule::getTitle, TimeCapsule::getContent,
+                                TimeCapsule::getOpenedAt, TimeCapsule::getWallDecidedAt)
+                        .eq(TimeCapsule::getStatus, CapsuleStatus.OPENED)
+                        .eq(TimeCapsule::getWallStatus, WALL_APPROVED)
+                        .orderByDesc(TimeCapsule::getWallDecidedAt));
+        var voPage = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>(
+                result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream()
+                .map(c -> new com.cloudmart.wish.vo.CapsuleWallVO(c.getId(), c.getTitle(),
+                        c.getContent(), c.getOpenedAt(), c.getWallDecidedAt()))
+                .toList());
+        return voPage;
+    }
+
+    @Override
+    public void decideWall(Long capsuleId, boolean approve) {
+        TimeCapsule capsule = timeCapsuleMapper.selectById(capsuleId);
+        if (capsule == null || capsule.getWallStatus() == null || capsule.getWallStatus() != WALL_PENDING) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "胶囊不在待审核状态");
+        }
+        timeCapsuleMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>()
+                        .eq(TimeCapsule::getId, capsuleId)
+                        .eq(TimeCapsule::getWallStatus, WALL_PENDING)
+                        .set(TimeCapsule::getWallStatus, approve ? WALL_APPROVED : WALL_REJECTED)
+                        .set(TimeCapsule::getWallDecidedAt, LocalDateTime.now()));
+        log.info("胶囊墙审核完成: capsuleId={}, approve={}", capsuleId, approve);
+    }
+
+    @Override
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wallPending(int page, int size) {
+        var result = timeCapsuleMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TimeCapsule>()
+                        .select(TimeCapsule::getId, TimeCapsule::getTitle, TimeCapsule::getContent,
+                                TimeCapsule::getOpenedAt, TimeCapsule::getWallAppliedAt, TimeCapsule::getWallDecidedAt)
+                        .eq(TimeCapsule::getStatus, CapsuleStatus.OPENED)
+                        .eq(TimeCapsule::getWallStatus, WALL_PENDING)
+                        .orderByDesc(TimeCapsule::getWallAppliedAt));
+        var voPage = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>(
+                result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream()
+                .map(c -> new com.cloudmart.wish.vo.CapsuleWallVO(c.getId(), c.getTitle(),
+                        c.getContent(), c.getOpenedAt(), c.getWallDecidedAt()))
+                .toList());
+        return voPage;
+    }
 }

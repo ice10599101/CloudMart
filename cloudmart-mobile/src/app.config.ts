@@ -57,6 +57,7 @@ export default defineAppConfig({
     'pages/petPlay/index',
     'pages/petStage/index',
     'pages/capsuleList/index',
+    'pages/capsuleWall/index',
     'pages/capsuleCreate/index',
     'pages/capsuleDetail/index',
     'pages/aiAssistant/index',

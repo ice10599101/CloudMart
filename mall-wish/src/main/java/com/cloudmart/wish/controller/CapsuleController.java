@@ -111,4 +111,21 @@ public class CapsuleController {
             @PathVariable Long id) {
         return ApiResponse.ok(capsuleService.cancelCapsule(userId, id));
     }
+
+    @PostMapping("/{id}/wall")
+    @Operation(summary = "申请上墙", description = "公共胶囊墙（§6）：仅作者、仅 OPENED 胶囊；进入待审核")
+    public ApiResponse<Void> applyToWall(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "胶囊 ID", required = true) @PathVariable("id") Long id) {
+        capsuleService.applyToWall(userId, id);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/wall")
+    @Operation(summary = "公共胶囊墙", description = "匿名精选墙（已审核通过），不暴露作者身份；决定时间倒序")
+    public ApiResponse<com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>> wall(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(capsuleService.wall(page, Math.min(size, 50)));
+    }
 }

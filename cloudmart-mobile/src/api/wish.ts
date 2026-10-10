@@ -725,9 +725,33 @@ export const wishApi = {
     /** 胶囊改期（SEALED；次数上限服务端权威；新开启时间须为未来） */
     rescheduleCapsule: (capsuleId: number | string, data: { newOpenAt: string; timezone?: string }) =>
         request<CapsuleItem>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
+
+    // ==================== 公共胶囊墙（§6） ====================
+    /** 公共胶囊墙（匿名精选，决定时间倒序） */
+    getCapsuleWall: (page?: number, pageSize?: number) =>
+        request<WallCapsulePage>({ url: '/wish/capsules/wall', params: { page: page ?? 1, pageSize: pageSize ?? 10 } as Record<string, unknown> }),
+    /** 申请上墙（作者，OPENED 胶囊） */
+    applyCapsuleToWall: (capsuleId: number | string) =>
+        request<void>({ url: `/wish/capsules/${capsuleId}/wall`, method: 'POST' }),
 }
 
 // ========== P0-5 擦肩而过·附近模式（2026-10 产品决策恢复：信笺与漂流瓶并存；契约对齐 mall-wish EncounterController） ==========
+
+/** 公共胶囊墙条目（§6 匿名展示） */
+export interface WallCapsuleItem {
+    capsuleId: number
+    title: string
+    content: string
+    openedAt: string | null
+    wallDecidedAt: string | null
+}
+
+export interface WallCapsulePage {
+    records: WallCapsuleItem[]
+    total: number
+    current: number
+    size: number
+}
 
 /** 相遇信笺（匿名化，无对方身份信息；PENDING 时 content 为 null） */
 export interface EncounterLetter {
@@ -748,6 +772,7 @@ export const encounterApi = {
         request<null>({ url: '/wish/map/nearby-mode', method: 'POST', data: { enabled } as unknown as Record<string, unknown> }),
     /** 附近模式状态查询（刷新回显；开关键 24h 过期视为关闭） */
     getNearbyMode: () => request<boolean>({ url: '/wish/map/nearby-mode' }),
+
     /** 轨迹上报（geohash6 入 Redis，无原始坐标；5 分钟 >10 次 429；伪造检测连续 3 次 → 冻结 24h） */
     reportTrace: (lat: number, lng: number) =>
         request<null>({ url: '/wish/map/trace', method: 'POST', data: { lat, lng } as unknown as Record<string, unknown> }),
@@ -759,6 +784,7 @@ export const encounterApi = {
     /** 匿名互动（BLESS 免费 / LIGHT 点亮对方心愿扣星光 2；单信笺每日 1 次） */
     interactLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT', content?: string) =>
         request<EncounterLetter>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type, content } as unknown as Record<string, unknown> }),
+
 }
 
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'

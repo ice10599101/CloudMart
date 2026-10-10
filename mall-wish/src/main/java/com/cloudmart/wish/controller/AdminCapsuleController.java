@@ -7,6 +7,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,5 +37,23 @@ public class AdminCapsuleController {
             + "通知推送记录经 mall-notification /admin/notifications 查看（type=CAPSULE_AVAILABLE）")
     public ApiResponse<Map<String, Object>> getStats() {
         return ApiResponse.ok(capsuleService.getAdminStats());
+    }
+
+    public record WallDecisionRequest(boolean approve) {}
+
+    @GetMapping("/wall/pending")
+    @Operation(summary = "胶囊墙待审核列表", description = "wallStatus=1 按申请时间倒序（§6 公共胶囊墙）")
+    public ApiResponse<com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>> wallPending(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(capsuleService.wallPending(page, Math.min(size, 50)));
+    }
+
+    @PostMapping("/wall/{id}/decide")
+    @Operation(summary = "胶囊墙审核", description = "approve=true 上墙 / false 拒绝（§6 公共胶囊墙）")
+    public ApiResponse<Void> decideWall(@PathVariable("id") Long id,
+                                        @RequestBody WallDecisionRequest request) {
+        capsuleService.decideWall(id, request.approve());
+        return ApiResponse.ok(null);
     }
 }

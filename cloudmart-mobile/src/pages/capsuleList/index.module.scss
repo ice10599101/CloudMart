@@ -163,3 +163,11 @@
   font-size: 52rpx;
   line-height: 1;
 }
+
+.wallApplyBtn {
+  font-size: 22rpx;
+  color: var(--color-primary);
+  padding: 4rpx 16rpx;
+  background: var(--color-primary-bg, rgba(0, 212, 255, 0.1));
+  border-radius: 999rpx;
+}

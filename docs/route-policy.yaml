@@ -157,6 +157,9 @@ mall-wish:
   - { method: "*",  path: /admin/encounter/**,               subjectType: SERVICE, serviceCaller: mall-admin, note: "类级 INTERNAL 守卫" }
   # T22：主播自助挂件配置（streamerId 强制当前用户本人）
   # 星光转赠（§6）：好友间对转（服务端好友校验+日限额）；列表 SELF
+  # 公共胶囊墙（§6）：申请=作者本人；公开墙匿名只读
+  - { method: POST,   path: "/capsules/{id}/wall",  subjectType: "USER", note: "SELF：作者+OPENED 才可申请" }
+  - { method: GET,    path: /capsules/wall,         subjectType: ANON }
   - { method: POST,   path: /starlight/transfers,      subjectType: "USER", note: "SELF：非自转+好友+日限额，同事务对转" }
   - { method: GET,    path: /starlight/transfers/my,   subjectType: "USER", note: "SELF" }
   - { method: POST, path: /live/widget/config,               subjectType: "USER", note: "SELF：服务端强制本人" }
