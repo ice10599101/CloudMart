@@ -57,6 +57,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     static final int FULFILL_STARLIGHT_REWARD = 50;
 
     private final WishMapper wishMapper;
+    private final com.cloudmart.wish.feign.OrderFeignClient orderFeignClient;
     private final WishFulfillmentMapper wishFulfillmentMapper;
     private final UserStatService userStatService;
     private final UserFeignClient userFeignClient;
@@ -119,6 +120,21 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                     "私密/树洞心愿不能分享到社区");
         }
 
+        // 心愿关联商品闭环（§6）：还愿凭证 fail-closed 校验——用户声称已购买时，
+        // 订单归属/已完成/含该商品条目必须经订单服务证实；证实失败整体拒绝（防伪凭证）
+        Long purchaseOrderId = null;
+        if (request.purchaseOrderId() != null) {
+            if (wish.getLinkedProductId() == null) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "该心愿未关联商品，无需购买凭证");
+            }
+            var evidence = orderFeignClient.purchaseEvidence(userId, wish.getLinkedProductId(), request.purchaseOrderId());
+            if (evidence == null || !evidence.success() || !Boolean.TRUE.equals(evidence.data())) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                        "购买凭证校验未通过：订单需为本人已完成订单且包含该心愿关联商品");
+            }
+            purchaseOrderId = request.purchaseOrderId();
+        }
+
         WishFulfillment fulfillment = new WishFulfillment();
         fulfillment.setWishId(wishId);
         fulfillment.setUserId(userId);
@@ -131,6 +147,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setShareToCommunity(shareToCommunity);
         fulfillment.setShareConsentAt(shareToCommunity ? LocalDateTime.now() : null);
         fulfillment.setContentVersion(1);
+        fulfillment.setPurchaseOrderId(purchaseOrderId);
         wishFulfillmentMapper.insert(fulfillment);
 
         // 心愿状态条件流转（并发双保险）：查询与更新间状态可能变化

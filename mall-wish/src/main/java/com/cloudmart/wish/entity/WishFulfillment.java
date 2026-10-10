@@ -60,6 +60,9 @@ public class WishFulfillment {
     /** 分享内容版本（社区去重与撤回判定依据） */
     private Integer contentVersion;
 
+    /** 心愿关联商品闭环（§6）：还愿购买凭证（关联商品的已完成订单 ID，服务端校验后回填；可空） */
+    private Long purchaseOrderId;
+
     /** 分享撤销时间（故事撤回/转私密时回填） */
     private LocalDateTime shareRevokedAt;
 

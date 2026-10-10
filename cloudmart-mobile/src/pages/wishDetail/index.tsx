@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Picker, View, Text, ScrollView, Image, Swiper, SwiperItem, Textarea, Input } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { wishApi, type GoalStep } from '@/api/wish'
+import { productApi } from '@/api/product'
 import { communityApi } from '@/api/community'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
@@ -59,6 +60,9 @@ export default function WishDetailPage() {
   const { user, isLoggedIn } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [wish, setWish] = useState<WishDetail | null>(null)
+
+  // 心愿关联商品闭环（§6）：去购买卡片数据
+  const [linkedProduct, setLinkedProduct] = useState<{ id: number; name: string; price: number; mainImage?: string } | null>(null)
   const [fulfillment, setFulfillment] = useState<WishFulfillmentDetail | null>(null)
   const commentRef = useRef<WishCommentSectionHandle>(null)
   // 每日打卡（仅作者 + ACTIVE；成功后本地记录今日已打卡，409 由后端幂等兜底）
@@ -163,6 +167,15 @@ export default function WishDetailPage() {
         const res = await wishApi.getWishDetail(wishId)
         if (res.data.success) {
           setWish(res.data.data)
+          // 心愿关联商品（§6）：拉取关联商品（失败静默不卡片）
+          if (res.data.data.linkedProductId) {
+            productApi.getDetail(res.data.data.linkedProductId)
+              .then((pres) => {
+                const p = pres.data?.data
+                if (p) setLinkedProduct({ id: p.id, name: p.name, price: p.price, mainImage: p.mainImage ?? '' })
+              })
+              .catch(() => undefined)
+          }
           // 浏览足迹上报：登录用户静默上报，失败不打扰
           if (user?.id) {
             void communityApi.recordBrowseHistory({
@@ -565,6 +578,19 @@ export default function WishDetailPage() {
               </SwiperItem>
             ))}
           </Swiper>
+        )}
+
+        {/* 心愿关联商品（§6）：去购买卡片（社区→电商转化） */}
+        {linkedProduct && wish.status !== 'FULFILLED' && (
+          <View className={styles.buyCard} onClick={() => Taro.navigateTo({ url: `/pages/productDetail/index?id=${linkedProduct.id}` })}>
+            {linkedProduct.mainImage && <Image className={styles.buyCardImage} src={linkedProduct.mainImage} mode='aspectFill' />}
+            <View className={styles.buyCardInfo}>
+              <Text className={styles.buyCardTag}>🛍️ 为这个心愿去购买</Text>
+              <Text className={styles.buyCardName}>{linkedProduct.name}</Text>
+              <Text className={styles.buyCardPrice}>¥{linkedProduct.price}</Text>
+            </View>
+            <Text className={styles.buyCardArrow}>›</Text>
+          </View>
         )}
 
         {/* 心愿信息 */}

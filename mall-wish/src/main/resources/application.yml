@@ -255,3 +255,5 @@ cloudmart:
     # T09：跨域经验发奖出站签名（iss=mall-wish, aud=mall-community, scope=community:internal）
     outbound-scopes:
       mall-community: community:internal
+      # 心愿关联商品闭环（§6）：还愿购买凭证校验（/internal/orders/purchase-evidence）
+      mall-order: order:internal

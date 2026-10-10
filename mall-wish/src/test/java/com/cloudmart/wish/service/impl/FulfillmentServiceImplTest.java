@@ -96,7 +96,7 @@ class FulfillmentServiceImplTest {
                 .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
                         .doInTransaction(null));
         return new FulfillmentServiceImpl(
-                wishMapper, wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService,
+                wishMapper, org.mockito.Mockito.mock(com.cloudmart.wish.feign.OrderFeignClient.class), wishFulfillmentMapper, userStatService, userFeignClient, contentSanitizer, legacyFlowService,
                 new com.cloudmart.wish.policy.WishAccessPolicy(),
                 new com.cloudmart.wish.service.impl.WishOperationExecutor(
                         org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), txTemplate),

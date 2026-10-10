@@ -754,3 +754,54 @@
 .goalMoveDisabled {
   opacity: 0.3;
 }
+
+.buyCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 16rpx 24rpx;
+  padding: 20rpx;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 18rpx;
+}
+
+.buyCardImage {
+  flex-shrink: 0;
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 14rpx;
+}
+
+.buyCardInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.buyCardTag {
+  font-size: 20rpx;
+  color: var(--color-primary);
+}
+
+.buyCardName {
+  font-size: 26rpx;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buyCardPrice {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-danger, #ff4d4f);
+}
+
+.buyCardArrow {
+  flex-shrink: 0;
+  font-size: 36rpx;
+  color: var(--color-text-tertiary);
+}

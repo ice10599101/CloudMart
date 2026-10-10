@@ -101,6 +101,16 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.findCompletedOrderIdsWithSku(userId, skuId));
     }
 
+    /** 心愿关联商品闭环（§6）：还愿购买凭证校验——订单归属/已完成/含该商品条目 */
+    @GetMapping("/purchase-evidence")
+    @Operation(summary = "还愿购买凭证校验", description = "userId+productId+orderId；订单属主且已完成且包含该商品条目返回 true")
+    public ApiResponse<Boolean> purchaseEvidence(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @Parameter(description = "商品 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("productId") Long productId,
+            @Parameter(description = "订单 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("orderId") Long orderId) {
+        return ApiResponse.ok(orderService.hasCompletedOrderWithProduct(userId, productId, orderId));
+    }
+
     /** E02：超时订单批量兜底扫描（mall-job 定时触发；延迟消息丢失的恢复入口） */
     @PostMapping("/timeout-scan")
     @Operation(summary = "超时订单批量扫描", description = "timeoutMinutes/batchSize 可配；返回本轮取消数（mall-job 触发）")

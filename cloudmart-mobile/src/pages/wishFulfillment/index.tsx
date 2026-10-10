@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { View, Text, Textarea, ScrollView, Image } from '@tarojs/components'
+import { View, Text, Textarea, ScrollView, Image, Input } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { API_BASE } from '@/api/file'
@@ -34,8 +34,10 @@ export default function WishFulfillmentPage() {
   const [wish, setWish] = useState<WishDetail | null>(null)
   const [story, setStory] = useState('')
   const [feeling, setFeeling] = useState('')
+  // 心愿关联商品闭环（§6）：还愿凭证订单号（心愿关联商品时显示；选填）
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [purchaseOrderId, setPurchaseOrderId] = useState('')
   const [submitResult, setSubmitResult] = useState<WishFulfillmentSubmitResult | null>(null)
   const uploadTasksRef = useRef<Map<string, Taro.UploadTask>>(new Map())
 
@@ -199,6 +201,7 @@ export default function WishFulfillmentPage() {
         story: story.trim(),
         mediaUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         feeling: feeling.trim() || undefined,
+        purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : undefined,
       })
       if (res.data.success) {
         setSubmitResult(res.data.data)
@@ -381,6 +384,21 @@ export default function WishFulfillmentPage() {
           />
           <Text className={styles.count}>{feeling.length}/{MAX_FEELING}</Text>
         </View>
+
+        {/* 心愿关联商品闭环（§6）：还愿凭证（仅关联了商品的心愿显示；选填，服务端校验归属/完成/含商品） */}
+        {wish?.linkedProductId && (
+          <View className={styles.field}>
+            <Text className={styles.label}>购买凭证订单号（可选）</Text>
+            <Input
+              className={styles.feelingTextarea}
+              placeholder='如已购买关联好物，填写订单号作为还愿凭证'
+              value={purchaseOrderId}
+              onInput={e => setPurchaseOrderId(e.detail.value.replace(/[^0-9]/g, ''))}
+              type='number'
+            />
+            <Text className={styles.count}>服务端将校验订单归属、完成状态与商品匹配，不符将拒绝提交</Text>
+          </View>
+        )}
 
         <Text className={styles.rewardHint}>提交后心愿将绽放为「🌸 绽放」果实，并获得 ✨ 星光奖励</Text>
 

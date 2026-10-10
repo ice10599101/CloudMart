@@ -452,6 +452,8 @@ export interface WishDetail {
   id: number
   title: string
   description: string
+  /** 心愿关联商品闭环（§6）：关联商品 ID（详情页"去购买"卡片） */
+  linkedProductId?: number | null
   mediaUrls?: string[]
   tags?: string[]
   fruitType: FruitType
@@ -656,6 +658,8 @@ export interface SubmitFulfillmentPayload {
   story: string
   mediaUrls?: string[]
   feeling?: string
+  /** 心愿关联商品闭环（§6）：还愿凭证订单号（心愿关联商品时选填；服务端 fail-closed 校验） */
+  purchaseOrderId?: number
 }
 
 // ---- 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐）----

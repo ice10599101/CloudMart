@@ -36,6 +36,9 @@ public class Wish {
 
     private Long categoryId;
 
+    /** 心愿关联商品闭环（§6）：许愿时关联的商城商品 ID（可空；详情页"去购买"） */
+    private Long linkedProductId;
+
     private WishVisibility visibility;
 
     private Boolean enableAiReply;

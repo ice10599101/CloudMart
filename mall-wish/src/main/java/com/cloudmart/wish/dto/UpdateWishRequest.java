@@ -24,6 +24,9 @@ public record UpdateWishRequest(
 
         Long categoryId,
 
+        /** 心愿关联商品闭环（§6）：可空；null 不修改 */
+        Long linkedProductId,
+
         @Size(max = 5, message = "标签最多5个")
         List<String> tags,
 
@@ -49,7 +52,18 @@ public record UpdateWishRequest(
                              Long categoryId, java.util.List<String> tags, WishVisibility visibility,
                              java.time.LocalDateTime expectedAt, String expectedTimezone,
                              Double latitude, Double longitude) {
-        this(title, description, mediaUrls, categoryId, tags, visibility,
+        this(title, description, mediaUrls, categoryId, null, tags, visibility,
                 expectedAt, expectedTimezone, latitude, longitude, null);
     }
+
+    /** 兼容旧调用（显式 version；linkedProductId=null 不修改）。 */
+    public UpdateWishRequest(String title, String description, java.util.List<String> mediaUrls,
+                             Long categoryId, java.util.List<String> tags, WishVisibility visibility,
+                             java.time.LocalDateTime expectedAt, String expectedTimezone,
+                             Double latitude, Double longitude, Long version) {
+        this(title, description, mediaUrls, categoryId, null, tags, visibility,
+                expectedAt, expectedTimezone, latitude, longitude, version);
+    }
+
 }
+

@@ -127,6 +127,7 @@ public class WishServiceImpl implements WishService {
         wish.setTitle(request.title());
         wish.setDescription(contentSanitizer.sanitizeRichText(request.description()));
         wish.setCategoryId(request.categoryId());
+        wish.setLinkedProductId(request.linkedProductId());
         wish.setVisibility(visibility);
         wish.setEnableAiReply(enableAiReply);
         wish.setAuditStrategy(auditStrategy);
@@ -231,6 +232,9 @@ public class WishServiceImpl implements WishService {
         }
         if (request.categoryId() != null) {
             uw.set(Wish::getCategoryId, request.categoryId());
+        }
+        if (request.linkedProductId() != null) {
+            uw.set(Wish::getLinkedProductId, request.linkedProductId());
         }
         if (request.tags() != null) {
             uw.set(Wish::getTags, WishJsonUtils.stringifyList(request.tags()));
@@ -404,6 +408,7 @@ public class WishServiceImpl implements WishService {
                 wish.getDescription(),
                 WishJsonUtils.parseStringList(wish.getMediaUrls()),
                 wish.getCategoryId(),
+                wish.getLinkedProductId(),
                 categoryName,
                 WishJsonUtils.parseStringList(wish.getTags()),
                 wish.getVisibility(),

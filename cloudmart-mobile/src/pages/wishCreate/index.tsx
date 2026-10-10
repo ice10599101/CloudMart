@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, Input, Textarea, ScrollView, Image, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { productApi } from '@/api/product'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import { API_BASE } from '@/utils/request'
@@ -36,6 +37,12 @@ export default function WishCreatePage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState<number | undefined>()
+  // 心愿关联商品闭环（§6）：关联好物（搜索选择，可清除）
+  const [linkedProduct, setLinkedProduct] = useState<{ id: number; name: string; price: number; mainImage?: string } | null>(null)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productOptions, setProductOptions] = useState<Array<{ id: number; name: string; price: number; mainImage?: string }>>([])
+  const [searchingProducts, setSearchingProducts] = useState(false)
   const [visibility, setVisibility] = useState<WishVisibility>('PUBLIC')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
@@ -175,6 +182,21 @@ export default function WishCreatePage() {
     setTags(tags.filter(t => t !== tag))
   }
 
+  /** 心愿关联商品（§6）：搜索商城商品 */
+  const searchLinkedProducts = async () => {
+    if (!productKeyword.trim() || searchingProducts) return
+    setSearchingProducts(true)
+    try {
+      const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
+      const rows = (res.data?.data as unknown as { products?: Array<{ id: number; name: string; price: number; mainImage?: string }> })?.products || []
+      setProductOptions(rows)
+    } catch {
+      Taro.showToast({ title: '商品搜索失败', icon: 'none' })
+    } finally {
+      setSearchingProducts(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       Taro.showToast({ title: '请输入心愿标题', icon: 'none' })
@@ -212,6 +234,7 @@ export default function WishCreatePage() {
         title: title.trim(),
         description: description.trim(),
         categoryId,
+        linkedProductId: linkedProduct?.id,
         visibility,
         mediaUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         tags: tags.length > 0 ? tags : undefined,
@@ -281,6 +304,56 @@ export default function WishCreatePage() {
               </View>
             </Picker>
           </View>
+
+          {/* 心愿关联商品（§6 闭环：许愿关联好物，详情页可"去购买"，还愿可回填凭证） */}
+          <View className={styles.field}>
+            <Text className={styles.label}>关联好物（可选）</Text>
+            {linkedProduct ? (
+              <View className={styles.linkedProductRow}>
+                {linkedProduct.mainImage && <Image className={styles.linkedProductImg} src={linkedProduct.mainImage} mode='aspectFill' />}
+                <View className={styles.linkedProductInfo}>
+                  <Text className={styles.linkedProductName}>{linkedProduct.name}</Text>
+                  <Text className={styles.linkedProductPrice}>¥{linkedProduct.price}</Text>
+                </View>
+                <Text className={styles.linkedProductRemove} onClick={() => setLinkedProduct(null)}>移除</Text>
+              </View>
+            ) : (
+              <View className={styles.linkedProductSearchBtn} onClick={() => setProductSearchOpen(true)}>
+                <Text className={styles.linkedProductSearchText}>🔍 搜索并关联一个好物</Text>
+              </View>
+            )}
+          </View>
+
+          {/* 关联商品搜索弹层 */}
+          {productSearchOpen && (
+            <View className={styles.modalMask} onClick={() => setProductSearchOpen(false)}>
+              <View className={styles.modalBody} onClick={e => e.stopPropagation()}>
+                <View className={styles.productSearchRow}>
+                  <Input
+                    className={styles.productSearchInput}
+                    placeholder='搜索商品名称'
+                    value={productKeyword}
+                    onInput={e => setProductKeyword(e.detail.value)}
+                    onConfirm={() => searchLinkedProducts()}
+                  />
+                  <Text className={styles.productSearchBtn} onClick={() => searchLinkedProducts()}>搜索</Text>
+                </View>
+                <ScrollView scrollY className={styles.productResults}>
+                  {productOptions.length === 0 ? (
+                    <Text className={styles.productEmpty}>{searchingProducts ? '搜索中...' : '输入关键词搜索商品'}</Text>
+                  ) : productOptions.map(p => (
+                    <View key={p.id} className={styles.productRow} onClick={() => { setLinkedProduct(p); setProductSearchOpen(false) }}>
+                      {p.mainImage && <Image className={styles.productImg} src={p.mainImage} mode='aspectFill' />}
+                      <View className={styles.productInfo}>
+                        <Text className={styles.productName}>{p.name}</Text>
+                        <Text className={styles.productPrice}>¥{p.price}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          )}
 
           {/* 图片上传 */}
           <View className={styles.field}>

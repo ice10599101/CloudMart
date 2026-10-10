@@ -211,6 +211,8 @@ interface CreateWishPayload {
     title: string
     description: string
     categoryId: number
+    /** 心愿关联商品闭环（§6）：可空；详情页展示"去购买"卡片 */
+    linkedProductId?: number
     visibility: WishVisibility
     mediaUrls?: string[]
     tags?: string[]

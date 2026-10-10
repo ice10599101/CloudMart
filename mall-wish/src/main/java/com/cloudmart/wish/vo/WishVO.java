@@ -22,6 +22,7 @@ public record WishVO(
         @Schema(description = "心愿描述") String description,
         @Schema(description = "媒体资源 URL 列表") List<String> mediaUrls,
         @Schema(description = "分类 ID") Long categoryId,
+        @Schema(description = "关联商品 ID（心愿关联商品闭环，可空）") Long linkedProductId,
         @Schema(description = "分类名称") String categoryName,
         @Schema(description = "标签列表") List<String> tags,
         @Schema(description = "可见性") WishVisibility visibility,
@@ -49,4 +50,21 @@ public record WishVO(
                 + "其余场景恒 null）") Long moderationDecisionId,
 
         @Schema(description = "乐观锁版本（v2 生命周期操作 CAS 校验用）") Long version
-) {}
+) {
+    /** 兼容旧调用（linkedProductId=null：未关联商品） */
+    public WishVO(Long id, String title, String description, java.util.List<String> mediaUrls,
+                  Long categoryId, String categoryName, java.util.List<String> tags,
+                  WishVisibility visibility, WishStatus status, AuditStatus auditStatus,
+                  FruitType fruitType, Long authorId, String authorNickname, String authorAvatar,
+                  Integer lightCount, Integer sameWishCount, Integer blessCount, Integer anonStarCount,
+                  Integer supportCount, Integer commentCount, LocalDateTime expectedAt,
+                  Boolean enableAiReply, LocalDateTime createdAt, LocalDateTime updatedAt,
+                  java.util.List<WishGrowthRecordVO> growthRecords, Integer checkinDays,
+                  WishProgressVO progress, Long moderationDecisionId, Long version) {
+        this(id, title, description, mediaUrls, categoryId, null, categoryName, tags, visibility,
+                status, auditStatus, fruitType, authorId, authorNickname, authorAvatar,
+                lightCount, sameWishCount, blessCount, anonStarCount, supportCount, commentCount,
+                expectedAt, enableAiReply, createdAt, updatedAt, growthRecords, checkinDays,
+                progress, moderationDecisionId, version);
+    }
+}

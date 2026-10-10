@@ -23,6 +23,14 @@ public interface OrderMapper extends BaseMapper<Order> {
     List<Long> findCompletedOrderIdsWithSku(@Param("userId") Long userId,
                                             @Param("skuId") Long skuId);
 
+    /** 心愿关联商品闭环（§6）：校验订单属于该用户、已完成且包含该商品的条目 */
+    @Select("SELECT COUNT(1) FROM orders o "
+            + "WHERE o.id = #{orderId} AND o.user_id = #{userId} AND o.status = 'COMPLETED' "
+            + "AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.product_id = #{productId})")
+    int countCompletedOrderWithProduct(@Param("userId") Long userId,
+                                       @Param("productId") Long productId,
+                                       @Param("orderId") Long orderId);
+
     /**
      * WMS-01 余量：自动收货——SHIPPED 且发货超 N 天的订单 ID（分批处理用）。
      * T11：有未结售后案件（PENDING/APPROVED）的订单排除——处理中售后不得被自动完成。

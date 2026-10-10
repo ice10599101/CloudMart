@@ -28,6 +28,9 @@ public record CreateWishRequest(
         @NotNull(message = "心愿分类不能为空")
         Long categoryId,
 
+        /** 心愿关联商品闭环（§6）：可空 */
+        Long linkedProductId,
+
         @Size(max = 5, message = "标签最多5个")
         List<String> tags,
 
@@ -56,4 +59,12 @@ public record CreateWishRequest(
                         triggerEnvEmo = false;
                 }
         }
+    /** 兼容旧调用（linkedProductId=null：不关联商品） */
+    public CreateWishRequest(String title, String description, java.util.List<String> mediaUrls,
+                             Long categoryId, java.util.List<String> tags, WishVisibility visibility,
+                             LocalDateTime expectedAt, Boolean enableAiReply, Boolean triggerEnvEmo,
+                             Double latitude, Double longitude) {
+        this(title, description, mediaUrls, categoryId, null, tags, visibility,
+                expectedAt, enableAiReply, triggerEnvEmo, latitude, longitude);
+    }
 }

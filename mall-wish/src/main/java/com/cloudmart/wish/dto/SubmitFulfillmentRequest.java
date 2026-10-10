@@ -22,15 +22,24 @@ public record SubmitFulfillmentRequest(
         @Size(max = 1000, message = "感悟不能超过1000字符")
         String feeling,
 
-        Boolean shareToCommunity
+        Boolean shareToCommunity,
+
+        /** 心愿关联商品闭环（§6）：还愿凭证订单号（选填；心愿关联了商品且填写时服务端校验归属/完成/含该商品） */
+        Long purchaseOrderId
 ) {
+
 
     /**
      * B03：分享到社区必须显式授权；缺省构造视为不分享
      * （默认关闭自动传播，私密/树洞心愿携带 true 将被 422 拒绝）。
      */
     public SubmitFulfillmentRequest(String story, List<String> mediaUrls, String feeling) {
-        this(story, mediaUrls, feeling, Boolean.FALSE);
+        this(story, mediaUrls, feeling, Boolean.FALSE, null);
+    }
+
+    /** 兼容旧调用（purchaseOrderId=null：不回填还愿凭证） */
+    public SubmitFulfillmentRequest(String story, List<String> mediaUrls, String feeling, Boolean shareToCommunity) {
+        this(story, mediaUrls, feeling, shareToCommunity, null);
     }
 
     public boolean isShareToCommunity() {

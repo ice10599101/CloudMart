@@ -115,4 +115,7 @@ public interface OrderService {
     OrderDTO adminCancelOrder(Long orderId);
 
     ApiResponse<OrderTodayStatsResponse> getTodayStats();
+
+    /** 心愿关联商品闭环（§6）：还愿购买凭证校验（订单属主+已完成+含该商品条目） */
+    boolean hasCompletedOrderWithProduct(Long userId, Long productId, Long orderId);
 }

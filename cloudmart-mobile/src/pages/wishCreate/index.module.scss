@@ -324,3 +324,141 @@
   font-weight: 600;
   color: #fff;
 }
+
+.linkedProductRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx;
+  background: var(--color-bg-page);
+  border-radius: 14rpx;
+}
+
+.linkedProductImg {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 12rpx;
+}
+
+.linkedProductInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.linkedProductName {
+  font-size: 26rpx;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkedProductPrice {
+  font-size: 24rpx;
+  color: var(--color-danger, #ff4d4f);
+}
+
+.linkedProductRemove {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+.linkedProductSearchBtn {
+  padding: 20rpx;
+  background: var(--color-bg-page);
+  border-radius: 14rpx;
+}
+
+.linkedProductSearchText {
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+.modalMask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.modalBody {
+  width: 100%;
+  background: var(--color-bg-container);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 24rpx;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.productSearchRow {
+  display: flex;
+  gap: 12rpx;
+}
+
+.productSearchInput {
+  flex: 1;
+  padding: 12rpx 20rpx;
+  background: var(--color-bg-page);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+
+.productSearchBtn {
+  padding: 12rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--color-primary);
+}
+
+.productResults {
+  max-height: 50vh;
+}
+
+.productEmpty {
+  display: block;
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+.productRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.productImg {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 12rpx;
+}
+
+.productInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.productName {
+  font-size: 26rpx;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.productPrice {
+  font-size: 24rpx;
+  color: var(--color-danger, #ff4d4f);
+}
