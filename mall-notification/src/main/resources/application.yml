@@ -133,6 +133,16 @@ cloudmart:
       # P2-24：私信发送前拉黑状态校验（iss=mall-notification, aud=mall-community）
       mall-community: community:internal
 
+# N-1 订阅消息：provider=log（默认，仅日志联调）/ wechat（生产，需小程序 secret）
+notification:
+  subscribe-message:
+    provider: ${SUBSCRIBE_MESSAGE_PROVIDER:log}
+    wechat:
+      appid: ${WX_MINIAPP_APPID:wx90a68c6bc79b9c4a}
+      secret: ${WX_MINIAPP_SECRET:}
+    templates:
+      anniversary: ${WX_TMPL_ANNIVERSARY:rXlUuz08BIT6FzccWByNPfqFj-X58lyYU0CypxH-Ris}
+
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
 # SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启
 springdoc:

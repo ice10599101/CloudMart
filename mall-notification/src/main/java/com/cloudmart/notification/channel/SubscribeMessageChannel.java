@@ -20,4 +20,12 @@ public interface SubscribeMessageChannel {
      * @return 是否发送成功（log 通道恒 true）
      */
     boolean send(Long userId, String templateKey, Map<String, String> data);
+
+    /**
+     * N-1：Taro.login code → openid（code2session），供授权建档；
+     * 仅 wechat 实现支持，log 实现抛不支持。
+     */
+    default String openidByCode(String jsCode) {
+        throw new UnsupportedOperationException("当前通道不支持 code2session");
+    }
 }

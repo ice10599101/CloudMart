@@ -397,6 +397,24 @@ export default function PetPage() {
     }
   }
 
+  /** N-1 订阅消息：授权纪念日提醒（一次性订阅；requestSubscribeMessage 通过后 bind） */
+  const ANNIVERSARY_TEMPLATE_ID = 'rXlUuz08BIT6FzccWByNPfqFj-X58lyYU0CypxH-Ris'
+  const handleSubscribeAnniversary = async () => {
+    try {
+      // Taro 类型定义（H5）要求 entityIds；真实小程序 API 参数为 tmplIds —— 以运行时为准
+      const sub = await Taro.requestSubscribeMessage({ tmplIds: [ANNIVERSARY_TEMPLATE_ID] } as unknown as Parameters<typeof Taro.requestSubscribeMessage>[0])
+      if ((sub as Record<string, string>)[ANNIVERSARY_TEMPLATE_ID] === 'accept') {
+        const login = await Taro.login()
+        await notificationApi.bindSubscribe(login.code, 'ANNIVERSARY')
+        toast('纪念日提醒已开启')
+      } else {
+        toast('已取消授权')
+      }
+    } catch {
+      toast('授权失败，请稍后再试')
+    }
+  }
+
   /** 实物商品联动（§6）：核销商城实物零食兑换码 → 双倍喂食权益 */
   const handleRedeem = async () => {
     if (redeeming || !redeemCode.trim()) {
@@ -1625,6 +1643,10 @@ export default function PetPage() {
                     <Text className={styles.linkedProductBadge}>
                       {feedDoubled ? '🎁 双倍喂食权益已就绪（下次喂食效果 x2）' : '🐱 买实物零食可兑换双倍喂食'}
                     </Text>
+                    <View className={styles.anniversaryRow} onClick={handleSubscribeAnniversary}>
+                      <Text className={styles.anniversaryText}>🔔 开启宠物纪念日提醒</Text>
+                      <Text className={styles.anniversaryArrow}>›</Text>
+                    </View>
                     <View className={styles.redeemRow}>
                       <Input
                         className={styles.redeemInput}

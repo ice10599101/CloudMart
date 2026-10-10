@@ -159,6 +159,8 @@ mall-community:
 mall-notification:
   - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-job,mall-pet", permission: notification:internal }
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: notification:admin }
+  # N-1 订阅消息：授权建档（登录用户本人；openid 由 code2session 服务端换取）
+  - { method: POST,   path: /notifications/subscribe/bind, subjectType: "USER", note: "SELF：一次授权 = 一条额度" }
 
 mall-wish:
   # 擦肩而过恢复（2026-10 产品决策反转：补用户端入口，信笺与漂流瓶并存）
