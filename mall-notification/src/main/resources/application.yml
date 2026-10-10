@@ -138,7 +138,7 @@ notification:
   subscribe-message:
     provider: ${SUBSCRIBE_MESSAGE_PROVIDER:log}
     wechat:
-      appid: ${WX_MINIAPP_APPID:wx0a264e674efb42f4}
+      appid: ${WX_MINIAPP_APPID:}
       secret: ${WX_MINIAPP_SECRET:}
     templates:
       anniversary: ${WX_TMPL_ANNIVERSARY:rXlUuz08BIT6FzccWByNPfqFj-X58lyYU0CypxH-Ris}
