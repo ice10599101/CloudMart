@@ -113,6 +113,8 @@ export default defineConfig({
         { path: '/admin', redirect: '/admin/dashboard' },
         { path: '/admin/login', component: '@/pages/admin/Login' },
         { path: '/admin/dashboard', component: '@/pages/admin/Dashboard' },
+        // N-6 经营大屏（汇报/盯盘模式）
+        { path: '/admin/business-screen', component: '@/pages/admin/BusinessScreen' },
         // 用户管理 = 社区真实用户（mall-user 会员，小答号/昵称/邮箱）
         { path: '/admin/system/users', component: '@/pages/admin/business/Members' },
         // T24 多运营：管理员账号管理（运营账号 CRUD/启停/重置密码/角色分配）

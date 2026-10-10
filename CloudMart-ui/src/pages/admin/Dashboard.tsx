@@ -277,7 +277,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <a onClick={() => history.push('/admin/business-screen')} style={{ color: 'var(--color-primary)' }}>
+          📊 经营大屏 →
+        </a>
+      </div>
+      <div style={{ padding: 24 }}>
       {/* 综合概览：社区内容生态 + 电商辅助；卡片点击进入对应数据页 */}
       <Row gutter={[16, 16]}>
         {OVERVIEW_CARDS.map((card) => {
@@ -447,6 +453,7 @@ export default function Dashboard() {
           </Col>
         ))}
       </Row>
-    </div>
+      </div>
+    </>
   )
 }
