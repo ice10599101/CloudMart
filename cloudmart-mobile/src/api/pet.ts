@@ -179,6 +179,15 @@ export interface PetRankingResult {
   myRank: number | null
 }
 
+/** 赛季通行证（§6 契约对齐 mall-pet PetSeasonPassVO） */
+export interface SeasonPassVO {
+  seasonId: number | null
+  seasonName: string | null
+  passExp: number
+  claimedTiers: number[]
+  tiers: Array<{ tier: number; requiredExp: number; reached: boolean; claimed: boolean; rewardDesc: string }>
+}
+
 export interface PetShareCard {
   type: string
   title: string
@@ -591,6 +600,12 @@ export const petApi = {
   getRankings: (type: PetRankingType) =>
     request<PetRankingResult>({ url: '/pet/rankings', data: { type } }),
   /** 宠物动态分享卡片（文案服务端生成） */
+  /** 赛季通行证（§6）：我的通行证（无进行中赛季 seasonId=null） */
+  getSeasonPass: () => request<SeasonPassVO>({ url: '/pet/season/pass' }),
+  /** 领取通行证档位奖励（达标 CAS；返回领取后的通行证） */
+  claimSeasonPassTier: (tier: number) =>
+      request<SeasonPassVO>({ url: `/pet/season/pass/claim?tier=${tier}`, method: 'POST' }),
+
   getShareCard: (type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY' | 'COLLECTION') =>
     request<PetShareCard>({ url: '/pet/share/card', data: { type } }),
   /** 修改外观（档案编辑用） */

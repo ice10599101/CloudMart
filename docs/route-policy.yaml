@@ -138,6 +138,10 @@ mall-marketing:
 # -----------------------------------------------------------------------------
 # mall-wms / mall-community / mall-notification / mall-live / mall-ai / mall-risk
 # -----------------------------------------------------------------------------
+# N-3/N-6 功能池：赛季通行证（§6）——claim 为写路由（登录用户本人）
+mall-pet:
+  - { method: POST,   path: /season/pass/claim,   subjectType: "USER", note: "SELF：达标 CAS 领取" }
+
 mall-wms:
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: wms:admin, note: "WMS-01：补订单归属校验" }
 

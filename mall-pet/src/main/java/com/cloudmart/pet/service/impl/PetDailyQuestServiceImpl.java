@@ -70,6 +70,10 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     private final com.cloudmart.pet.repository.PetQuestEventReceiptMapper receiptMapper;
     private final WishFeignClient wishFeignClient;
     private final PetEconomyService economyService;
+    private final com.cloudmart.pet.service.PetSeasonPassService seasonPassService;
+    /** 赛季通行证（§6）：任务/宝箱领取经验 */
+    static final int QUEST_CLAIM_EXP = 5;
+    static final int CHEST_CLAIM_EXP = 15;
     private final PetClock petClock;
     private final PetIntimacyService intimacyService;
     private final PetAchievementService achievementService;
@@ -95,7 +99,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     PetProperties properties,
                                     org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider,
                                     com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper,
-                                    com.cloudmart.pet.config.PetMetrics metrics) {
+                                    com.cloudmart.pet.config.PetMetrics metrics,
+                                    com.cloudmart.pet.service.PetSeasonPassService seasonPassService) {
         this.petService = petService;
         this.stateService = stateService;
         this.configMapper = configMapper;
@@ -111,6 +116,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.selfProvider = selfProvider;
         this.setMapper = setMapper;
         this.metrics = metrics;
+        this.seasonPassService = seasonPassService;
     }
 
     @Override
@@ -180,6 +186,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         achievementService.evaluate(pet, PetAchievementService.Event.QUEST);
         quest.setStatus(PetQuestStatus.CLAIMED.name());
+        // 赛季通行证（§6）：任务领取累积经验（失败不阻断主流程）
+        seasonPassService.addExp(pet.getUserId(), QUEST_CLAIM_EXP);
         return toItemVo(quest, null);
     }
 
@@ -350,6 +358,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
         }
+        // 赛季通行证（§6）：宝箱领取累积经验（失败不阻断主流程）
+        seasonPassService.addExp(pet.getUserId(), CHEST_CLAIM_EXP);
         // PET-09：宝箱领取时间落任务集（集为领取生命周期锚点）；存量行 set_id 为空回退按日查询
         if (chest.getSetId() != null) {
             setMapper.update(null, new LambdaUpdateWrapper<PetDailyQuestSet>()

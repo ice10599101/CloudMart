@@ -1084,3 +1084,37 @@
   color: var(--color-text-secondary);
   line-height: 1.7;
 }
+
+.passEntryCard {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+  padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, rgba(233, 69, 96, 0.15), rgba(168, 85, 247, 0.15));
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  border-radius: 18rpx;
+}
+
+.passEntryInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.passEntryTitle {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text, rgba(245, 245, 250, 0.95));
+}
+
+.passEntryExp {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary, rgba(245, 245, 250, 0.5));
+}
+
+.passEntryArrow {
+  font-size: 32rpx;
+  color: var(--color-text-tertiary);
+}

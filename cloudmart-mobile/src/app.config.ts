@@ -56,6 +56,7 @@ export default defineAppConfig({
     'pages/petWallet/index',
     'pages/petPlay/index',
     'pages/petStage/index',
+    'pages/seasonPass/index',
     'pages/capsuleList/index',
     'pages/capsuleWall/index',
     'pages/capsuleCreate/index',

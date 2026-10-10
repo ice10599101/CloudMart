@@ -19,6 +19,7 @@ import {
   type PetJobItem,
   type PetOpponent,
   type PetRankingResult,
+  type SeasonPassVO,
   type PetRankingType,
   type PetReminder,
   type PetShareCard,
@@ -275,6 +276,8 @@ export default function PetPage() {
   const [chatMessages, setChatMessages] = useState<PetChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [rankings, setRankings] = useState<PetRankingResult | null>(null)
+  // 赛季通行证（§6）：榜单页签惰性加载
+  const [seasonPass, setSeasonPass] = useState<SeasonPassVO | null>(null)
   // F2：赛季榜与历届名次
   const [season, setSeason] = useState<PetSeasonRanking | null>(null)
   const [seasonHistory, setSeasonHistory] = useState<PetSeasonHistoryItem[]>([])
@@ -588,6 +591,10 @@ export default function PetPage() {
             petApi.getSeasonHistory(),
           ])
           if (seasonRes.data.success) setSeason(seasonRes.data.data)
+          // 赛季通行证（§6）
+          petApi.getSeasonPass()
+            .then(({ data: r }) => { if (r.success) setSeasonPass(r.data) })
+            .catch(() => undefined)
           if (historyRes.data.success) setSeasonHistory(historyRes.data.data || [])
         } catch {
           // 赛季为可选增强，失败不阻断排行榜
@@ -1440,6 +1447,16 @@ export default function PetPage() {
 
           {panel === 'rankings' && (
             <View className={styles.rankList}>
+              {/* 赛季通行证（§6）：入口卡（点击进通行证页） */}
+              {seasonPass && seasonPass.seasonId != null && (
+                <View className={styles.passEntryCard} onClick={() => Taro.navigateTo({ url: '/pages/seasonPass/index' })}>
+                  <View className={styles.passEntryInfo}>
+                    <Text className={styles.passEntryTitle}>🎟️ 赛季通行证</Text>
+                    <Text className={styles.passEntryExp}>经验 {seasonPass.passExp} · 完成每日任务累积</Text>
+                  </View>
+                  <Text className={styles.passEntryArrow}>›</Text>
+                </View>
+              )}
               {season?.season && (
                 <View className={styles.seasonCard}>
                   <Text className={styles.seasonTitle}>
