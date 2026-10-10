@@ -2,7 +2,7 @@
   "miniprogramRoot": "dist/weapp/",
   "projectname": "cloudmart-mobile",
   "description": "CloudMart 社区移动端 - 微信小程序",
-  "appid": "wx90a68c6bc79b9c4a",
+  "appid": "wx0a264e674efb42f4",
   "setting": {
     "urlCheck": false,
     "es6": false,
