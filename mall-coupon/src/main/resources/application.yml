@@ -131,6 +131,11 @@ cloudmart:
     jwks-uri: ${CLOUDMART_SECURITY_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     clock-skew-seconds: 30
     service-token-ttl-seconds: 60
+    # RISK-01 补配（0f5e8f91 遗漏）：领券前置风控出站签名——RiskFeignClient 注释
+    # 声称 outbound-scopes[mall-risk]=risk:check，但仓库 yml 从未落该键，
+    # coupon 裸调 risk 被拒 → claimCoupon 恒降级 COUPON_SERVICE_DEGRADED。
+    outbound-scopes:
+      mall-risk: risk:check
     service-token-paths:
       - prefix: /admin
         issuers: [mall-admin]

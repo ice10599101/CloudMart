@@ -142,6 +142,8 @@ cloudmart:
       mall-auth: admin:auth
       # USER-01：注销阻塞核验（/internal/orders/has-open-orders）
       mall-order: order:internal
+      # R07：邀请奖励交付（/internal/starlight/earn，义务台账补发）
+      mall-wish: wish:starlight
       # T06：注销分域擦除（community 复用既有 internal scope）
       mall-community: community:internal
       mall-notification: notification:internal

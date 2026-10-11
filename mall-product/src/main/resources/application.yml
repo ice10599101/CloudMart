@@ -127,6 +127,8 @@ cloudmart:
     outbound-scopes:
       # REVIEW-01：评价资格内部查询（/internal/orders/purchase-eligibility）
       mall-order: order:internal
+      # R07：评价返星光交付（/internal/starlight/earn，义务台账补发）
+      mall-wish: wish:starlight
       # CAT-01：商品发布时库存建档（/inventory/init）
       mall-inventory: inventory:admin
       # N-2：评价返星光（/internal/starlight/earn）
