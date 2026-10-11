@@ -546,8 +546,8 @@ public class AdminBusinessController {
 
     // ==================== 支付对账（OPS-01） ====================
     // 说明：查询用 business:payment:list；执行/处置用细粒度 business:payment:reconcile
-    // （种子见 sql/business-payment-reconcile-perms.sql，超管通配不受影响；自定义角色
-    // 经菜单管理/角色管理授予）。人工处置不直接改资金。
+    // （权限种子见 mall-admin/src/main/resources/db/migration/V15__payment_reconcile_perms.sql，
+    // 超管通配不受影响；自定义角色经菜单管理/角色管理授予）。人工处置不直接改资金。
 
     @GetMapping("/payments/reconciliation/runs")
     @RequiresPermission("business:payment:list")

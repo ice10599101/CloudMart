@@ -74,40 +74,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             SecurityConstants.ADMIN_USERNAME_HEADER
     };
 
-    private static final Set<String> ANY_METHOD_PUBLIC_PREFIXES = Set.of(
-            "/api/auth/",
-            "/api/user/users/register",
-            // SEC-04：/users/validate 已迁移至 /internal/users/validate（仅服务令牌可达），
-            // 不再作为匿名公开端点
-            "/api/payment/payment-attempts/mock-callbacks"
-    );
-
-    private static final Set<String> GET_ONLY_PUBLIC_PREFIXES = Set.of(
-            "/api/product/products/search",
-            "/api/product/categories",
-            "/api/product/reviews/",
-            "/api/product/products/",
-            "/api/coupon/coupon-templates",
-            "/api/seckill/activities",
-            "/api/seckill/products/activity/",
-            "/api/live/rooms",
-            "/api/marketing/group/activities",
-            "/api/marketing/group/orders",
-            "/api/community/users/recommend",
-            "/api/community/posts",
-            "/api/community/topics",
-            "/api/community/tags",
-            "/api/community/search",
-            // 编辑器附件（投票/问卷）：匿名可查看内容中的投票与问卷，提交仍需登录
-            "/api/community/polls",
-            "/api/community/surveys",
-            "/api/wish/wishes",
-            "/api/wish/categories",
-            "/api/wish/home",
-            "/api/wish/map",
-            "/api/wish/tree-env"
-    );
-
     @org.springframework.beans.factory.annotation.Autowired
     public JwtAuthenticationFilter(
             @Value("${gateway.jwt.jwks-uri:http://127.0.0.1:9001/oauth2/jwks}") String jwksUri,
@@ -306,28 +272,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             log.warn("[AUTH REJECT] JWT 验签异常: {}", e.getMessage());
             return false;
         }
-    }
-
-    private static final Set<String> COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES = Set.of(
-            "/api/community/posts/drafts",
-            "/api/community/posts/liked"
-    );
-
-    private boolean isPublicPath(String path, org.springframework.http.HttpMethod method) {
-        if (path == null) return false;
-        for (String prefix : COMMUNITY_POSTS_IDENTITY_REQUIRED_PREFIXES) {
-            if (path.startsWith(prefix)) return false;
-        }
-        for (String prefix : ANY_METHOD_PUBLIC_PREFIXES) {
-            if (path.startsWith(prefix)) return true;
-        }
-        if (method == org.springframework.http.HttpMethod.GET) {
-            for (String prefix : GET_ONLY_PUBLIC_PREFIXES) {
-                if (path.startsWith(prefix)) return true;
-            }
-            if (path.matches("/api/product/products/\\d+")) return true;
-        }
-        return false;
     }
 
     private Mono<Void> unauthorized(ServerHttpResponse response) {

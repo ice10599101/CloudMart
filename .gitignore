@@ -120,3 +120,14 @@ file-a-url.txt
 .pet-verify-token.tmp
 .ci-artifacts/
 /cloudmart-mobile/dist-h5/
+
+# C32：根目录一次性请求样本/临时改源脚本，禁止入库（product1.json、gen_hash.jsh、test_*.json、.tmp-*）
+/product1.json
+/gen_hash.jsh
+/test_login.json
+/test_admin_login.json
+/test_register.json
+/test_aichat.json
+/.tmp-*
+*.tsbuildinfo
+.npm-tmp-cache/

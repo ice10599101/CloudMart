@@ -3,24 +3,16 @@ package com.cloudmart.pet.feign;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.pet.config.WishServiceTokenConfig;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
-import java.util.Map;
-
 /**
- * mall-wish 内部能力客户端：宠物代主人捞瓶 + 宠物奖励发星光。
- * 批量用户信息已迁移 {@link UserFeignClient}（mall-user 才是归属服务）。
+ * mall-wish 内部能力客户端：仅保留宠物代主人捞漂流瓶。
+ * 批量用户信息走 {@link UserFeignClient}（mall-user 才是归属服务）；
+ * 宠物经济只经本地 PET_COIN 钱包结算，不再经 wish 发放/扣减星光。
  *
- * <p>复用边界（实施文档 §0.1 原则 2/3）：不建第二套漂流瓶/钱包；
+ * <p>复用边界：不建第二套漂流瓶实现；
  * 降级时抛 {@code WISH_SERVICE_UNAVAILABLE}（GlobalExceptionHandler 后缀通配映射 503）。</p>
- *
- * <p>B01 幂等契约：earn/spend 携带调用方生成的 {@code operationId}（业务操作唯一键），
- * 钱包按其原子去重——重复相同请求返回原结果（{@code duplicate=true}），同键不同内容
- * 返回 409 WISH_OPERATION_CONFLICT。结果未知时可经 {@link #findOperation} 按原单查询。</p>
  */
 @FeignClient(name = "mall-wish", contextId = "petWishFeignClient",
         configuration = WishServiceTokenConfig.class,
@@ -32,21 +24,6 @@ public interface WishFeignClient {
     @PostMapping("/internal/pet-support/drift-bottles/fish")
     ApiResponse<WishBottleVO> fishForPet(@RequestParam("userId") Long userId,
                                          @RequestParam(value = "requestId", required = false) String requestId);
-
-    /** 幂等发放星光（PET_REWARD 流水），返回实际入账量（余额上限截断）与操作后余额 */
-
-    /** 幂等扣减星光（PET_SHOP 流水）；余额不足由 mall-wish 返回 402 */
-
-    /** 交易结果查询（B01 内部结果查询）：data=null 表示结果未知，可按原单安全重试 */
-
-    /**
-     * 宠物旧单幂等退款（P02/TX-04）：仅限原 SPEND 扣款单的全额原路退回。
-     * wish 侧校验原单存在/同用户/金额一致并按原单累计退款；不走余额上限截断，
-     * 独立 PET_REFUND 流水。原单缺失/越权/超退返回 409 WISH_OPERATION_CONFLICT。
-     */
-
-    /** 星光余额（商城展示）；失败由 fallback 抛 WISH_SERVICE_UNAVAILABLE */
-
 
     /** 捞瓶结果（仅宠物模块消费的字段子集；时间字段以 String 承接避免跨服务类型耦合） */
     record WishBottleVO(

@@ -247,16 +247,6 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PostMapping("/pet/achievements/recalculate")
     ApiResponse<Integer> recalculateAchievements(@org.springframework.web.bind.annotation.RequestParam("petId") Long petId);
 
-    @org.springframework.web.bind.annotation.GetMapping("/pet/operations")
-    ApiResponse<Object> listPetOperations(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
-                                          @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
-                                          @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
-                                          @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
-                                          @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
-
-    @org.springframework.web.bind.annotation.PostMapping("/pet/operations/{operationId}/retry")
-    ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId);
-
     // ---------------- F2 赛季（下游 /admin/seasons/**） ----------------
 
     @org.springframework.web.bind.annotation.GetMapping("/seasons")

@@ -75,10 +75,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PetHomeServiceImpl implements PetHomeService {
 
-    static final String KEY_VISIT_DAILY = "pet:ratelimit:homevisit:%d:%s";
     static final String KEY_VISIT_ROOM_TODAY = "pet:home:visited:%d:%d:%s";
     static final String KEY_LIKE_ROOM = "pet:home:liked:%d:%d";
-    static final String KEY_LIKE_DAILY = "pet:ratelimit:homelike:%d:%s";
     static final String KEY_ENTER_DAILY = "pet:home:enter:%d:%s";
 
     private static final String DEFAULT_WELCOME = "欢迎来我家做客，随便坐～";
@@ -794,44 +792,6 @@ public class PetHomeServiceImpl implements PetHomeService {
                         .eq(PetInventory::getItemType, PetItemType.FURNITURE.name()))
                 .forEach(item -> codes.add(item.getItemCode()));
         return codes;
-    }
-
-    private void requireVisitQuota(Long userId) {
-        try {
-            String key = String.format(KEY_VISIT_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
-            Long used = redisTemplate.opsForValue().increment(key);
-            if (used != null && used == 1L) {
-                redisTemplate.expire(key, Duration.ofHours(24));
-            }
-            int limit = properties.getHome().getDailyVisitLimit();
-            if (used != null && used > limit) {
-                throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
-                        "今天已经逛了 " + limit + " 个家啦，明天再去吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("家园访问限频 Redis 故障，Fail-Open 放行: userId={}", userId, e);
-        }
-    }
-
-    private void requireLikeQuota(Long userId) {
-        try {
-            String key = String.format(KEY_LIKE_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
-            Long used = redisTemplate.opsForValue().increment(key);
-            if (used != null && used == 1L) {
-                redisTemplate.expire(key, Duration.ofHours(24));
-            }
-            int limit = properties.getHome().getDailyLikeLimit();
-            if (used != null && used > limit) {
-                throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
-                        "今天已经点了很多赞啦，明天再继续吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("点赞限频 Redis 故障，Fail-Open 放行: userId={}", userId, e);
-        }
     }
 
     /** Redis SETNX + TTL（Fail-Open：Redis 故障视为首次，宁可多给一次也不阻断） */

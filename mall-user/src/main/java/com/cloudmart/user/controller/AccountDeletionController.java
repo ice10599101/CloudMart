@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * 全账号注销入口（B20）：统一由 mall-user 编排。
- * wish 端旧入口 /wish/my/account-deletion 兼容保留并返回真实进度。
+ * 全账号注销入口（B20）：统一由 mall-user 编排；wish 旧入口已删除，
+ * 注销阶段经 /users/account-deletion/status 供 wish 隐私中心聚合展示。
  */
 @RestController
 @RequestMapping("/users/account-deletion")

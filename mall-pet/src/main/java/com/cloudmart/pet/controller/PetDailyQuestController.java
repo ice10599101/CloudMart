@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 宠物每日任务接口（三期）。
  *
- * <p>任务每天 0 点（UTC）自然重置：列表入口惰性生成当日任务行，
+ * <p>任务按服务端业务日（PetClock：Asia/Shanghai 零点）自然重置：列表入口惰性生成当日任务行，
  * 进度由玩法埋点累加，领奖与全清宝箱都是 CAS 幂等。</p>
  */
 @RestController
@@ -84,12 +84,9 @@ public class PetDailyQuestController {
     // ---------------- 任务集路由（R32 §7.2：与按 code/当日路径委托同一服务） ----------------
 
     /**
-     * setId 即任务集实例（当日 businessDate 的 ISO 串）：归属+时间校验后委托同一服务，
+     * setId 是任务集实体 ID：归属+时间校验后委托同一服务，
      * 请求键与 setId 绑定由网关/客户端 Idempotency-Key 语义承接；过期集明确拒绝。
-     */
-    /**
-     * PET-09：setId 解析——新客户端传真实任务集实体 ID；旧客户端传当日日期串时
-     * 解析当前主宠当日集（兼容别名，退役期随 PET-23 收敛，不默默维持两套语义）。
+     * 旧客户端传日期串时暂回退当前主宠当日集（兼容别名，随 C14 收敛，不默默维持两套语义）。
      */
     private Long resolveSetId(Long userId, String setId) {
         try {
@@ -100,7 +97,7 @@ public class PetDailyQuestController {
     }
 
     @PostMapping("/daily-quest-sets/{setId}/quests/{questId}/claim")
-    @Operation(summary = "按任务集领取单项（R32）", description = "setId=当日 questDate（ISO 串）；"
+    @Operation(summary = "按任务集领取单项（R32）", description = "setId=任务集实体 ID；"
             + "归属+时间校验后与 /daily-quests/{code}/claim 同一服务、同一幂等语义")
     @SentinelResource("PET_ACTIVITY_CLAIM")
     public ApiResponse<PetDailyQuestItemVO> claimInSet(

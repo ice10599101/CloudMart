@@ -24,11 +24,8 @@ public class PetProperties {
     private String businessZone = "Asia/Shanghai";
 
     /**
-     * 钱包模式（W02/§6.3，Nacos 持久化）：LEGACY=社区星光（切换前默认）/PAUSED=切换窗口拒绝新收支/PET=独立宠物币。
-     * 切换窗口由发布流程执行；非法值回退 LEGACY（fail-safe，不擅自接新账本）。
-     */
-    /**
-     * P03：新基线为独立 PET_COIN 钱包（LEGACY 仅为存量切换回退显式配置保留）。
+     * 钱包模式（Nacos 持久化）：PET=独立宠物币（唯一正账本）/PAUSED=维护窗口拒绝新收支。
+     * 非法或缺省值按 PET 处理（见 PetEconomyServiceImpl.mode()）。
      */
     private String walletMode = "PET";
 

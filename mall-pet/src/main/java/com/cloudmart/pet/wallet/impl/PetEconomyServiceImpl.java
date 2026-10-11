@@ -107,8 +107,7 @@ public class PetEconomyServiceImpl implements PetEconomyService {
 
     @Override
     public Mode mode() {
-        // P03：PET_COIN 独立钱包为唯一正账本——null/blank/非法配置一律 PET
-        //（LEGACY 仅作为显式配置的存量回退通道，不再作为任何缺省值）
+        // PET_COIN 独立钱包为唯一正账本——null/blank/非法配置（含已退役的 LEGACY）一律按 PET 处理
         String raw = properties.getWalletMode();
         try {
             return Mode.valueOf(raw == null || raw.isBlank() ? "PET" : raw.trim().toUpperCase());

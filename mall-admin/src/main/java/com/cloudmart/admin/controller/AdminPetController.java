@@ -670,25 +670,6 @@ public class AdminPetController {
         return petFeignClient.recalculateAchievements(petId);
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/operations")
-    @RequiresPermission("business:pet:list")
-    @Operation(summary = "交易操作列表", description = "status/userId/petId 过滤 + 分页")
-    public ApiResponse<Object> petOperations(@org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
-                                             @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
-                                             @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
-                                             @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
-                                             @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
-        return petFeignClient.listPetOperations(status, userId, petId, page, size);
-    }
-
-    @org.springframework.web.bind.annotation.PostMapping("/operations/{operationId}/retry")
-    @OperLog(title = "宠物交易操作重试", businessType = 2)
-    @RequiresPermission("business:pet:edit")
-    @Operation(summary = "原单重试", description = "复用同一 operationId 幂等重试；已终态原样返回，不产生第二次资金变动")
-    public ApiResponse<Void> retryPetOperation(@org.springframework.web.bind.annotation.PathVariable("operationId") String operationId) {
-        return petFeignClient.retryPetOperation(operationId);
-    }
-
     // ---------------- B21 配置治理 / BE-11 相册审核 ----------------
     // 说明：沿用现有权限码——治理查询为 business:pet:list，校验/回退/审核为 business:pet:edit；
     // 细粒度权限码随对应菜单迁移任务落地后替换。

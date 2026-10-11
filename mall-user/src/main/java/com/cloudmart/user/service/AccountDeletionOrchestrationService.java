@@ -523,12 +523,4 @@ public class AccountDeletionOrchestrationService {
                 .set(AccountDeletionTask::getBlockReason, reason)
                 .set(AccountDeletionTask::getUpdatedAt, LocalDateTime.now(ZoneId.of("UTC"))));
     }
-
-    private String toJson(Object value) {
-        try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
-        } catch (Exception ex) {
-            return "{}";
-        }
-    }
 }

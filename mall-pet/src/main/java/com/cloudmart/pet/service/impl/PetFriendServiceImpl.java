@@ -385,11 +385,6 @@ public class PetFriendServiceImpl implements PetFriendService {
                 properties.getFriend().getRequestDailyLimit(), "今天已经发过很多好友申请啦，明天再试试吧");
     }
 
-    private void requireVisitQuota(Long userId) {
-        consumeQuota(String.format(KEY_FRIEND_VISIT_DAILY, userId, LocalDate.now(ZoneId.of("UTC"))),
-                properties.getFriend().getDailyVisitLimit(), "今天的好友互访次数用完啦，明天再来吧");
-    }
-
     private void consumeQuota(String key, int limit, String message) {
         try {
             Long used = redisTemplate.opsForValue().increment(key);

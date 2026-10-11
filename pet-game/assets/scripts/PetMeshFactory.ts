@@ -8,7 +8,7 @@
  *    因此这里用"旋转体放样(lathe) + 扫掠(sweep) + 平滑法线"生成一体化连续曲面。
  *
  * 约定：
- *  - 坐标系为 Cocos 右手系，+Y 向上，+Z 为角色正前方（与 PetModelBuilder 一致）；
+ *  - 坐标系为 Cocos 右手系，+Y 向上，+Z 为角色正前方；
  *  - 几何在本地空间生成，由调用方用节点变换定位（与旧版 part/ball 用法保持一致）；
  *  - 输出结构与 primitives.IGeometry 兼容，可直接喂给 createMesh。
  */

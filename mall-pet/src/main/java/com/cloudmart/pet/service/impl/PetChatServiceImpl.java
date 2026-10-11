@@ -35,7 +35,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -465,26 +464,6 @@ public class PetChatServiceImpl implements PetChatService {
             // AI 成本保护 Fail-Closed：Redis 故障按额度耗尽处理（B18 契约）
             log.warn("AI 成本额度 Redis 故障，Fail-Closed 拒绝: userId={}", userId, e);
             throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED, "AI 服务繁忙，稍后再试");
-        }
-    }
-
-    /** 兼容旧引用的消息频控入口 */
-    private void consumeChatQuota(Long userId) {
-        try {
-            String key = String.format(KEY_CHAT_DAILY, userId, LocalDate.now(ZoneId.of("UTC")));
-            Long used = redisTemplate.opsForValue().increment(key);
-            if (used != null && used == 1L) {
-                redisTemplate.expire(key, Duration.ofHours(24));
-            }
-            if (used != null && used > properties.getChat().getDailyLimit()) {
-                throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED,
-                        "今天聊了太多啦，宠物要睡觉了，明天再来找它玩吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("聊天限频 Redis 故障，Fail-Closed 拒绝: userId={}", userId, e);
-            throw new BusinessException(PetErrorCodes.PET_AI_RATE_LIMITED, "聊天服务暂时繁忙，请稍后再试");
         }
     }
 

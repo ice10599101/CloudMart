@@ -21,8 +21,7 @@ import java.util.Map;
 /**
  * T16 异常处理中心（mall-admin 汇总）：按 service 参数路由到对应业务域的
  * 脱敏 outbox 视图；重试在各业务域执行（管理服务不直接写他库）。
- * 现已接入：mall-order / mall-wish（公共与心愿 Outbox 代表域）；pet 域走
- * /admin/business/pet/operations（交易操作台账）。
+ * 现已接入：mall-order / mall-wish（公共与心愿 Outbox 代表域）。
  */
 @RestController
 @RequestMapping("/admin/operations")

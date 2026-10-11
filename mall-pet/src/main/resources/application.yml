@@ -206,9 +206,8 @@ pet:
   proactive:
     daily-limit: 3
     min-interval-seconds: 60
-  # W02/§6.3 钱包模式 pet.wallet.mode（LEGACY/PAUSED/PET）唯一配置源是 Nacos mall-pet.yml——
+  # 钱包模式 pet.wallet.mode（PET/PAUSED）唯一配置源是 Nacos mall-pet.yml——
   # 本地不定义该键：实测本地占位符会压住 spring.config.import 的 Nacos 源，运行时切换失效。
-  # 切换窗口按 scripts/pet-wallet/README.md 执行。
   # SEC-01 身份边界：用户身份由可验证 JWT 建立（网关透传 Authorization，本服务自行验签，
   # X-User-Id 头以验证 subject 为准）；服务身份由 X-Service-Token（HS256 短期令牌）建立，
   # /admin/** 强校验 iss=mall-admin、aud=mall-pet、scope=pet:admin。

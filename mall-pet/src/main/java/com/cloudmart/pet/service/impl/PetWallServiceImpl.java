@@ -61,7 +61,6 @@ import java.util.Set;
 @Slf4j
 public class PetWallServiceImpl implements PetWallService {
 
-    static final String KEY_WALL_POST_DAILY = "pet:ratelimit:wallpost:%d:%s";
     static final String KEY_WALL_LIKE_DAILY = "pet:ratelimit:walllike:%d:%s";
 
     private static final String NICKNAME_PLACEHOLDER = "邻居";
@@ -380,26 +379,6 @@ this.properties = properties;
                     "留言最多 " + properties.getWall().getMaxLength() + " 字");
         }
         return trimmed;
-    }
-
-    private void requirePostQuota(Long userId, Long targetPetId) {
-        // 跨房间累计的每日留言上限 + 同一面墙 5 分钟内不重复刷（SETNX，Fail-Open）
-        try {
-            String key = String.format(KEY_WALL_POST_DAILY, userId, LocalDate.now());
-            Long used = redisTemplate.opsForValue().increment(key);
-            if (used != null && used == 1L) {
-                redisTemplate.expire(key, Duration.ofHours(24));
-            }
-            int limit = properties.getWall().getDailyPostLimit();
-            if (used != null && used > limit) {
-                throw new BusinessException(PetErrorCodes.PET_WALL_RATE_LIMITED,
-                        "今天已经留言 " + limit + " 条啦，明天再聊吧");
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("留言限频 Redis 故障，Fail-Open 放行: userId={}", userId, e);
-        }
     }
 
     private void requireLikeQuota(Long userId) {
