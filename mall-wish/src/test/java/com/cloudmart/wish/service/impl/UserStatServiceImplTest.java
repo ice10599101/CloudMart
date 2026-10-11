@@ -463,4 +463,74 @@ class UserStatServiceImplTest {
             assertThat(vo.creditedAmount()).isEqualTo(20);
         }
     }
+
+    @Nested
+    @DisplayName("transferStarlightPair - R06 等额对转（守恒）")
+    class PairTransferTests {
+
+        private WishUserStat stat(long userId, int balance) {
+            WishUserStat stat = new WishUserStat();
+            stat.setUserId(userId);
+            stat.setStarlightBalance(balance);
+            return stat;
+        }
+
+        @Test
+        @DisplayName("等额对转成功：双边流水等额异号、同 refId、返回流水 ID")
+        void pairTransfer_success_equalAmountLogs() {
+            long from = 200L, to = 100L;
+            when(wishUserStatMapper.selectById(any())).thenReturn(null); // initUserStat 视为已存在
+            when(wishUserStatMapper.selectOne(any()))
+                    .thenReturn(stat(100L, 4000), stat(200L, 500)); // 升序加锁：100 先、200 后
+            when(wishUserStatMapper.update(any(), any())).thenReturn(1);
+            java.util.concurrent.atomic.AtomicLong seq = new java.util.concurrent.atomic.AtomicLong(900);
+            when(wishResourceLogMapper.insert(any(WishResourceLog.class))).thenAnswer(inv -> {
+                WishResourceLog logEntry = inv.getArgument(0);
+                logEntry.setId(seq.incrementAndGet());
+                return 1;
+            });
+
+            com.cloudmart.wish.service.UserStatService.StarlightPairTransfer pair =
+                    userStatService.transferStarlightPair(from, to, 100, 777L);
+
+            assertThat(pair.senderBalanceAfter()).isEqualTo(400);
+            assertThat(pair.receiverBalanceAfter()).isEqualTo(4100);
+            assertThat(pair.senderLedgerId()).isEqualTo(901L);
+            assertThat(pair.receiverLedgerId()).isEqualTo(902L);
+            ArgumentCaptor<WishResourceLog> logCaptor = ArgumentCaptor.forClass(WishResourceLog.class);
+            verify(wishResourceLogMapper, org.mockito.Mockito.times(2)).insert(logCaptor.capture());
+            assertThat(logCaptor.getAllValues()).extracting(WishResourceLog::getDelta)
+                    .containsExactly(-100, 100);
+            assertThat(logCaptor.getAllValues()).extracting(WishResourceLog::getRefId)
+                    .containsOnly(777L);
+        }
+
+        @Test
+        @DisplayName("转出方余额不足 → WISH_STARLIGHT_INSUFFICIENT，无余额变更无流水")
+        void pairTransfer_senderInsufficient() {
+            when(wishUserStatMapper.selectById(any())).thenReturn(null);
+            when(wishUserStatMapper.selectOne(any()))
+                    .thenReturn(stat(100L, 4000), stat(200L, 30));
+
+            assertThatThrownBy(() -> userStatService.transferStarlightPair(200L, 100L, 100, 778L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT);
+            verify(wishUserStatMapper, never()).update(any(), any());
+            verify(wishResourceLogMapper, never()).insert(any(WishResourceLog.class));
+        }
+
+        @Test
+        @DisplayName("AT12：接收方 4995 转入 100 → WISH_STARLIGHT_RECEIVER_CAPACITY 整笔拒绝，发送方不变")
+        void pairTransfer_receiverCapacity_fullAmountRejected() {
+            when(wishUserStatMapper.selectById(any())).thenReturn(null);
+            when(wishUserStatMapper.selectOne(any()))
+                    .thenReturn(stat(100L, 4995), stat(200L, 500));
+
+            assertThatThrownBy(() -> userStatService.transferStarlightPair(200L, 100L, 100, 779L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", WishErrorCodes.WISH_STARLIGHT_RECEIVER_CAPACITY);
+            verify(wishUserStatMapper, never()).update(any(), any());
+            verify(wishResourceLogMapper, never()).insert(any(WishResourceLog.class));
+        }
+    }
 }

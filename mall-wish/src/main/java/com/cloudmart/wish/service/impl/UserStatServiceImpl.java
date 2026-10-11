@@ -16,6 +16,7 @@ import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.BadgeService;
 import com.cloudmart.wish.service.UserStatService;
+import com.cloudmart.wish.service.UserStatService.StarlightPairTransfer;
 import com.cloudmart.wish.vo.LevelRequirementVO;
 import com.cloudmart.wish.vo.LevelUpVO;
 import com.cloudmart.wish.vo.MyLevelVO;
@@ -513,8 +514,8 @@ public class UserStatServiceImpl implements UserStatService {
         return stat.getStarlightBalance();
     }
 
-    private void insertResourceLog(Long userId, int delta, ResourceLogType type,
-                                   ResourceLogSource source, Long refId, int balanceAfter) {
+    private WishResourceLog insertResourceLog(Long userId, int delta, ResourceLogType type,
+                                              ResourceLogSource source, Long refId, int balanceAfter) {
         WishResourceLog logEntry = new WishResourceLog();
         logEntry.setUserId(userId);
         logEntry.setDelta(delta);
@@ -523,6 +524,69 @@ public class UserStatServiceImpl implements UserStatService {
         logEntry.setRefId(refId);
         logEntry.setBalanceAfter(balanceAfter);
         wishResourceLogMapper.insert(logEntry);
+        return logEntry;
+    }
+
+    /** R06：按 userId 加行锁读取钱包（调用方保证升序加锁顺序） */
+    private WishUserStat lockStat(long userId) {
+        WishUserStat stat = wishUserStatMapper.selectOne(
+                new LambdaQueryWrapper<WishUserStat>()
+                        .eq(WishUserStat::getUserId, userId)
+                        .last("FOR UPDATE"));
+        if (stat == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "用户资产账户不存在");
+        }
+        return stat;
+    }
+
+    /** R06：好友间等额对转——升序加锁 + 余额/余量校验 + 等额异号流水（转赠禁止截断） */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public StarlightPairTransfer transferStarlightPair(long fromUserId, long toUserId,
+                                                       int amount, long transferRefId) {
+        if (fromUserId == toUserId) {
+            throw new IllegalArgumentException("不能转赠给自己: " + fromUserId);
+        }
+        if (amount <= 0) {
+            throw new IllegalArgumentException("转赠数量必须为正整数: " + amount);
+        }
+        initUserStat(fromUserId);
+        initUserStat(toUserId);
+        // 按 userId 升序加锁：A→B 与 B→A 并发时锁定顺序一致，无不受控死锁
+        long firstId = Math.min(fromUserId, toUserId);
+        long secondId = Math.max(fromUserId, toUserId);
+        WishUserStat first = lockStat(firstId);
+        WishUserStat second = lockStat(secondId);
+        WishUserStat sender = fromUserId == firstId ? first : second;
+        WishUserStat receiver = fromUserId == firstId ? second : first;
+
+        if (sender.getStarlightBalance() < amount) {
+            throw new BusinessException(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT, "星光余额不足");
+        }
+        // 接收余量不足整笔拒绝：不允许"扣 100 到账 5"的静默销毁差额（R06 守恒）
+        if (receiver.getStarlightBalance() > STARLIGHT_BALANCE_CAP - amount) {
+            throw new BusinessException(WishErrorCodes.WISH_STARLIGHT_RECEIVER_CAPACITY,
+                    "对方星光即将到达上限，暂时无法接收这笔转赠");
+        }
+
+        int senderAfter = sender.getStarlightBalance() - amount;
+        int receiverAfter = receiver.getStarlightBalance() + amount;
+        wishUserStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
+                .eq(WishUserStat::getUserId, sender.getUserId())
+                .set(WishUserStat::getStarlightBalance, senderAfter)
+                .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
+        wishUserStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
+                .eq(WishUserStat::getUserId, receiver.getUserId())
+                .set(WishUserStat::getStarlightBalance, receiverAfter)
+                .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
+
+        WishResourceLog senderLog = insertResourceLog(sender.getUserId(), -amount,
+                ResourceLogType.SPEND, ResourceLogSource.TRANSFER_OUT, transferRefId, senderAfter);
+        WishResourceLog receiverLog = insertResourceLog(receiver.getUserId(), amount,
+                ResourceLogType.EARN, ResourceLogSource.TRANSFER_IN, transferRefId, receiverAfter);
+        log.info("星光等额对转完成: from={}, to={}, amount={}, senderLog={}, receiverLog={}",
+                fromUserId, toUserId, amount, senderLog.getId(), receiverLog.getId());
+        return new StarlightPairTransfer(senderLog.getId(), receiverLog.getId(), senderAfter, receiverAfter);
     }
 
     @Override

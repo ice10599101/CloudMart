@@ -104,6 +104,22 @@ public interface UserStatService {
      */
     int getStarlightBalance(Long userId);
 
+    /** R06：等额对转结果（双边流水 ID 供转赠事实回链审计） */
+    record StarlightPairTransfer(long senderLedgerId, long receiverLedgerId,
+                                 int senderBalanceAfter, int receiverBalanceAfter) {
+    }
+
+    /**
+     * R06：好友间等额对转（转赠专用，禁止截断语义）。
+     * 双方钱包按 userId 升序 FOR UPDATE 加锁（双向互转无不受控死锁），
+     * 校验转出余额与接收余量（余额+amount 超上限整笔拒绝），流水等额异号同事务。
+     *
+     * @param transferRefId 转赠事实 ID（双边流水 refId）
+     * @throws WISH_STARLIGHT_INSUFFICIENT    转出方余额不足
+     * @throws WISH_STARLIGHT_RECEIVER_CAPACITY 接收方余量不足（整笔拒绝）
+     */
+    StarlightPairTransfer transferStarlightPair(long fromUserId, long toUserId, int amount, long transferRefId);
+
     /**
      * 幂等发放星光（B01）：以 {@code operationId} 为业务操作唯一键原子去重，
      * 去重记录与余额更新同事务。重复相同请求返回原结果（duplicate=true）；

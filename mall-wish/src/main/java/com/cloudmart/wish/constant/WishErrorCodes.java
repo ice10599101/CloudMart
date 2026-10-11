@@ -66,6 +66,10 @@ public final class WishErrorCodes {
 
     // --- 402 Payment Required ---
     public static final String WISH_STARLIGHT_INSUFFICIENT = "WISH_STARLIGHT_INSUFFICIENT";
+    /** R06：接收方余额余量不足以整笔入账（转赠整笔拒绝，禁止静默截断） */
+    public static final String WISH_STARLIGHT_RECEIVER_CAPACITY = "WISH_STARLIGHT_RECEIVER_CAPACITY";
+    /** R06：相同请求键但载荷不一致（防重放篡改） */
+    public static final String WISH_TRANSFER_REQUEST_CONFLICT = "WISH_TRANSFER_REQUEST_CONFLICT";
 
     // --- 429 Too Many Requests ---
     public static final String WISH_RATE_LIMITED = "WISH_RATE_LIMITED";
