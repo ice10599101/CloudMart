@@ -213,7 +213,15 @@ pet:
   # /admin/** 强校验 iss=mall-admin、aud=mall-pet、scope=pet:admin。
   # 共享密钥由部署环境注入，禁止写入仓库；缺失时管理端点全部拒绝（fail-closed）。
   security:
-    service-token-secret: ${PET_SERVICE_TOKEN_SECRET:${WISH_SERVICE_TOKEN_SECRET:}}
+    service-token-secret: ${PET_SERVICE_TOKEN_SECRET:${WISH_SERVICE_TOKEN_SECRET:${CLOUDMART_SERVICE_TOKEN_SECRET:}}}
+    # R01：出站服务令牌——本服务标识为 iss，outbound-scopes 声明对 mall-coupon 的能力域；
+    # mall-coupon 侧以最长前缀规则校验 /internal/exchange-codes（iss=mall-pet, scope=coupon:redeem）。
+    # 部署要求：PET_SERVICE_TOKEN_SECRET 缺省回退链最终落在 CLOUDMART_SERVICE_TOKEN_SECRET，
+    # 与 mall-coupon 校验密钥一致，否则权益核验调用将被 coupon 拒绝（fail loud）。
+    service-id: mall-pet
+    service-token-ttl-seconds: 60
+    outbound-scopes:
+      mall-coupon: coupon:redeem
     # mall-auth JWKS（RS256 公钥），与网关一致
     jwks-uri: ${PET_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
     clock-skew-seconds: 30

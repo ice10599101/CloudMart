@@ -50,6 +50,19 @@ public class PetProperties {
     private final FeatureSwitches featureSwitches = new FeatureSwitches();
     private final Alert alert = new Alert();
     private final Moderation moderation = new Moderation();
+    private final LinkedProduct linkedProduct = new LinkedProduct();
+
+    /**
+     * R01：商品权益配置——coupon 兑换码模板 → 宠物食物 itemCode 的服务端推导映射。
+     * 客户端不得决定权益类型/数量/itemCode；未配置的模板发放通用权益（itemCode=ANY，
+     * 消耗时不强制匹配食物——运营口径"买零食送一次双倍喂食"）。
+     */
+    @Getter
+    @Setter
+    public static class LinkedProduct {
+        /** key=coupon 模板 ID（字符串），value=宠物食物 itemCode */
+        private java.util.Map<String, String> templateItems = new java.util.LinkedHashMap<>();
+    }
 
     /** 状态自然变化速率（每小时） */
     @Getter

@@ -162,6 +162,22 @@ public class ExchangeCodeServiceImpl implements ExchangeCodeService {
         return toVO(exchangeCode);
     }
 
+    /** R01：兑换码权威事实——状态与归属以 exchange_codes 表为准，供 pet 权益核验只读查询 */
+    @Override
+    public com.cloudmart.coupon.vo.ExchangeCodeFactVO getFact(String code) {
+        if (code == null || code.isBlank()) {
+            throw new BusinessException("EXCHANGE_CODE_NOT_FOUND", "兑换码不存在");
+        }
+        ExchangeCode entity = exchangeCodeMapper.selectOne(
+                new LambdaQueryWrapper<ExchangeCode>().eq(ExchangeCode::getCode, code));
+        if (entity == null) {
+            throw new BusinessException("EXCHANGE_CODE_NOT_FOUND", "兑换码不存在");
+        }
+        return new com.cloudmart.coupon.vo.ExchangeCodeFactVO(
+                entity.getId(), entity.getCode(), entity.getStatus(),
+                entity.getUserId(), entity.getExchangedAt(), entity.getTemplateId());
+    }
+
     @Override
     public List<ExchangeCodeVO> listByTemplate(Long templateId, String status, int page, int size) {
         LambdaQueryWrapper<ExchangeCode> wrapper = new LambdaQueryWrapper<ExchangeCode>()

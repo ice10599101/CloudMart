@@ -159,7 +159,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
      */
     @Override
     @Transactional
-    public PetVO feedItem(Long userId, String itemCode) {
+    public PetVO feedItem(Long userId, String itemCode, String requestKey) {
         // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
         Pet pet = stateService.requireActivePetForUpdate(userId);
         PetProperties.Interaction cfg = properties.getInteraction();
@@ -183,14 +183,16 @@ public class PetInteractionServiceImpl implements PetInteractionService {
             throw new BusinessException(PetErrorCodes.PET_INTERACTION_RATE_LIMITED,
                     "今天已经喂了 " + cfg.getFeedDailyLimit() + " 次啦，明天再来吧");
         }
-        // 实物商品联动（§6）：持有双倍喂食权益时效果 x2（消耗一次；CAS 失败按单倍）
-        boolean doubled = linkedProductService.hasUsableEntitlement(userId);
+        // 实物商品联动（R02）：CAS 占用一条权益，只有成功占用才应用双倍——
+        // 占用与背包扣减/数值更新同事务，失败整体回滚；同 requestKey 重放不二次消耗
+        String feedOperationId = requestKey == null || requestKey.isBlank()
+                ? "feed-" + java.util.UUID.randomUUID() : requestKey.trim();
+        java.util.Optional<Long> consumedEntitlement =
+                linkedProductService.consumeOneForFeed(userId, pet.getId(), feedOperationId);
+        boolean doubled = consumedEntitlement.isPresent();
         int hungerGain = doubled ? food.hunger() * 2 : food.hunger();
         int happinessGain = doubled ? food.happiness() * 2 : food.happiness();
         int hpGain = doubled ? food.hp() * 2 : food.hp();
-        if (doubled) {
-            linkedProductService.consumeOne(userId, itemCode);
-        }
         petMapper.update(null, new LambdaUpdateWrapper<Pet>()
                 .setSql("hunger = LEAST(hunger + {0}, 100)", hungerGain)
                 .setSql("happiness = LEAST(happiness + {0}, 100)", happinessGain)

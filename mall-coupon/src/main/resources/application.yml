@@ -139,6 +139,10 @@ cloudmart:
       - prefix: /internal/coupons/expire-batch
         issuers: [mall-job]
         scope: coupon:jobs
+      # R01：pet 权益核验读取兑换码权威事实（只读；最长前缀优先于下方 /internal）
+      - prefix: /internal/exchange-codes
+        issuers: [mall-pet]
+        scope: coupon:redeem
       - prefix: /user-coupons
         issuers: [mall-order]
         scope: coupon:trade

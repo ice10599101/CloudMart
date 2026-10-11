@@ -38,8 +38,8 @@ public class PetInteractionController {
         return ApiResponse.ok(interactionService.feed(userId));
     }
 
-    /** F1 喂养道具请求体 */
-    public record FeedItemRequest(String itemCode) {
+    /** F1 喂养道具请求体（R02：requestKey 喂食操作键，双端并发/重试同一键只结算一次） */
+    public record FeedItemRequest(String itemCode, String requestKey) {
     }
 
     @PostMapping("/feed-item")
@@ -49,7 +49,7 @@ public class PetInteractionController {
     public ApiResponse<PetVO> feedItem(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @org.springframework.web.bind.annotation.RequestBody FeedItemRequest request) {
-        return ApiResponse.ok(interactionService.feedItem(userId, request.itemCode()));
+        return ApiResponse.ok(interactionService.feedItem(userId, request.itemCode(), request.requestKey()));
     }
 
     @PostMapping("/play")

@@ -349,7 +349,7 @@ class PetInteractionServiceImplTest {
         when(petService.toVo(any())).thenReturn(petVo());
         when(inventoryMapper.update(any(), any())).thenReturn(1);
 
-        PetVO vo = interactionService.feedItem(100L, "apple");
+        PetVO vo = interactionService.feedItem(100L, "apple", null);
 
         org.assertj.core.api.Assertions.assertThat(vo).isNotNull();
         // 基线 hunger=50/happiness=50/hp=80：apple = hunger+15 / happiness+2 / hp+0
@@ -371,7 +371,7 @@ class PetInteractionServiceImplTest {
         lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
         when(inventoryMapper.update(any(), any())).thenReturn(0);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple", null))
                 .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
                 .hasMessageContaining("背包里没有这个食物");
     }
@@ -383,7 +383,7 @@ class PetInteractionServiceImplTest {
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "poison"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "poison", null))
                 .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
                 .hasMessageContaining("不存在");
     }
@@ -396,7 +396,7 @@ class PetInteractionServiceImplTest {
         when(petService.requireOwnedPet(100L)).thenReturn(pet);
         lenient().when(stateService.requireActivePetForUpdate(100L)).thenReturn(pet);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interactionService.feedItem(100L, "apple", null))
                 .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
                 .hasMessageContaining("已经吃饱");
         verify(inventoryMapper, never()).update(any(), any());

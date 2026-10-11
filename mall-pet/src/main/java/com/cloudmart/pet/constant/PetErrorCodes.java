@@ -95,6 +95,14 @@ public final class PetErrorCodes {
     public static final String PET_ITEM_NOT_OWNED = "PET_ITEM_NOT_OWNED";
     /** 背包中该食物数量为 0（F1 喂养道具化） */
     public static final String PET_ITEM_NOT_ENOUGH = "PET_ITEM_NOT_ENOUGH";
+    /** R01：兑换码在 coupon 权威侧不存在 */
+    public static final String PET_CODE_NOT_FOUND = "PET_CODE_NOT_FOUND";
+    /** R01：兑换码不是本人兑换（归属不符） */
+    public static final String PET_CODE_NOT_OWNED = "PET_CODE_NOT_OWNED";
+    /** R01：兑换码尚未在 coupon 侧兑换（未满足核验前提） */
+    public static final String PET_CODE_NOT_EXCHANGED = "PET_CODE_NOT_EXCHANGED";
+    /** R01：兑换码已作废 */
+    public static final String PET_CODE_DISABLED = "PET_CODE_DISABLED";
     /** 技能已学会（重复学习） */
     public static final String PET_SKILL_ALREADY_LEARNED = "PET_SKILL_ALREADY_LEARNED";
     /** 缺少技能书，需先在商城购买 */

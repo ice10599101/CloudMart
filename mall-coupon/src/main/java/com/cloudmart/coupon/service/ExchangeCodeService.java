@@ -46,6 +46,15 @@ public interface ExchangeCodeService {
     ExchangeCodeVO getByCode(String code);
 
     /**
+     * R01：兑换码权威事实（内部只读核验，服务令牌可达）。
+     * 码不存在抛 EXCHANGE_CODE_NOT_FOUND；归属/状态以本表为准。
+     *
+     * @param code 兑换码
+     * @return 权威事实（含状态与兑换归属）
+     */
+    com.cloudmart.coupon.vo.ExchangeCodeFactVO getFact(String code);
+
+    /**
      * 分页查询指定模板的兑换码列表
      *
      * @param templateId 模板ID
