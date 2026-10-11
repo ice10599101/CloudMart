@@ -52,15 +52,17 @@ public class PaymentResultConsumer implements RocketMQListener<Map<String, Objec
         Long orderId = extractOrderId(message);
         String paidAmount = extractPayloadField(message, "amount");
         String currency = extractPayloadField(message, "currency");
-        log.info("[T05] 收到支付成功事件, orderId={}, amount={}, currency={}, eventId={}",
-                orderId, paidAmount, currency, envelope.eventId());
+        // R10：支付单号随事件核验（非空必填），迟到支付处置单也要落到具体支付事实
+        String merchantPaymentNo = extractPayloadField(message, "merchantPaymentNo");
+        log.info("[T05] 收到支付成功事件, orderId={}, amount={}, currency={}, paymentNo={}, eventId={}",
+                orderId, paidAmount, currency, merchantPaymentNo, envelope.eventId());
 
         if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
             log.info("[ASYNC01] 支付事件已消费（幂等跳过） eventId={} orderId={}", envelope.eventId(), orderId);
             return;
         }
         try {
-            orderService.applyPaymentSucceeded(orderId, paidAmount, currency);
+            orderService.applyPaymentSucceeded(orderId, paidAmount, currency, merchantPaymentNo);
             inboxService.completeConsume(CONSUMER, envelope);
         } catch (Exception e) {
             inboxService.failConsume(CONSUMER, envelope, e.getMessage());

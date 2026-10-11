@@ -445,7 +445,7 @@ class OrderServiceImplTest {
             when(orderMapper.updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID")).thenReturn(1);
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
 
-            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001");
 
             verify(orderMapper).updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID");
             org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> envelopeCaptor =
@@ -463,7 +463,7 @@ class OrderServiceImplTest {
             Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
             when(orderMapper.selectById(1L)).thenReturn(order);
 
-            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, "88.00", "CNY"))
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, "88.00", "CNY", "PAY20260101000001"))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
                             .isEqualTo("PAYMENT_AMOUNT_MISMATCH"));
@@ -476,24 +476,85 @@ class OrderServiceImplTest {
             Order order = buildOrder(1L, 100L, "PAID");
             when(orderMapper.selectById(1L)).thenReturn(order);
 
-            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001");
 
             verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
         }
 
         @Test
-        @DisplayName("QA05：已取消订单收到支付成功 → LATE_PAYMENT_DETECTED 事件，不推进也不静默丢弃")
+        @DisplayName("QA05/R10：已取消订单收到支付成功 → 唯一迟到支付处置义务（补偿任务），不推进不静默丢弃")
         void applyPaymentSucceeded_cancelled_latePaymentDetected() {
             Order order = buildOrder(1L, 100L, "CANCELLED");
             when(orderMapper.selectById(1L)).thenReturn(order);
 
-            orderService.applyPaymentSucceeded(1L, "100.00", "CNY");
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001");
 
             verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
-            org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> envelopeCaptor =
-                    org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
-            verify(outboxService).record(envelopeCaptor.capture());
-            assertThat(envelopeCaptor.getValue().eventType()).isEqualTo("LATE_PAYMENT_DETECTED");
+            // R10：处置义务走幂等补偿任务（taskId 稳定），不再发无人消费的 LATE_PAYMENT_DETECTED 事件
+            verify(compensationTaskService).createIfAbsent(
+                    eq("late-payment:1"), eq("late-payment-refund"), eq("1"), anyString());
+            verify(outboxService, never()).record(any());
+        }
+
+        @Test
+        @DisplayName("R10/AT19：预读待支付→CAS 前取消已提交→CAS 失败重读 CANCELLED → 处置义务，消费不静默完成")
+        void applyPaymentSucceeded_casFailed_afterCancel_createsLatePaymentObligation() {
+            Order preRead = buildOrder(1L, 100L, "PENDING_PAYMENT");
+            Order afterCancel = buildOrder(1L, 100L, "CANCELLED");
+            when(orderMapper.selectById(1L)).thenReturn(preRead, afterCancel);
+            when(orderMapper.updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID")).thenReturn(0);
+
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001");
+
+            verify(compensationTaskService).createIfAbsent(
+                    eq("late-payment:1"), eq("late-payment-refund"), eq("1"), anyString());
+            verify(outboxService, never()).record(any());
+        }
+
+        @Test
+        @DisplayName("R10：CAS 失败重读已推进（SHIPPED）→ 幂等跳过，不重复履约事件")
+        void applyPaymentSucceeded_casFailed_alreadyShipped_idempotentSkip() {
+            Order preRead = buildOrder(1L, 100L, "PENDING_PAYMENT");
+            Order shipped = buildOrder(1L, 100L, "SHIPPED");
+            when(orderMapper.selectById(1L)).thenReturn(preRead, shipped);
+            when(orderMapper.updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID")).thenReturn(0);
+
+            orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001");
+
+            verify(compensationTaskService, never()).createIfAbsent(anyString(), anyString(), anyString(), anyString());
+            verify(outboxService, never()).record(any());
+        }
+
+        @Test
+        @DisplayName("R10：CAS 失败重读瞬时不一致状态 → ORDER_STATE_TRANSIENT 可重试异常")
+        void applyPaymentSucceeded_casFailed_transientState_throwsRetryable() {
+            Order preRead = buildOrder(1L, 100L, "PENDING_PAYMENT");
+            Order closing = buildOrder(1L, 100L, "CLOSING");
+            when(orderMapper.selectById(1L)).thenReturn(preRead, closing);
+            when(orderMapper.updateStatusIfMatch(1L, "PENDING_PAYMENT", "PAID")).thenReturn(0);
+
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, "100.00", "CNY", "PAY20260101000001"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("ORDER_STATE_TRANSIENT"));
+            verify(compensationTaskService, never()).createIfAbsent(anyString(), anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("R10：支付事实缺金额/支付单号 → PAYMENT_FACT_INVALID，禁止 null 跳过核验")
+        void applyPaymentSucceeded_missingPaymentFact_rejected() {
+            Order order = buildOrder(1L, 100L, "PENDING_PAYMENT");
+            when(orderMapper.selectById(1L)).thenReturn(order);
+
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, null, "CNY", "PAY1"))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("PAYMENT_FACT_INVALID"));
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(1L, "100.00", "CNY", null))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("PAYMENT_FACT_INVALID"));
+            verify(orderMapper, never()).updateStatusIfMatch(anyLong(), anyString(), anyString());
         }
 
         @Test
@@ -501,7 +562,7 @@ class OrderServiceImplTest {
         void applyPaymentSucceeded_notFound_throws() {
             when(orderMapper.selectById(999L)).thenReturn(null);
 
-            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(999L, "100.00", "CNY"))
+            assertThatThrownBy(() -> orderService.applyPaymentSucceeded(999L, "100.00", "CNY", "PAY20260101000001"))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("ORDER_NOT_FOUND"));
         }

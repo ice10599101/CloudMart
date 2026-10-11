@@ -341,35 +341,38 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     @Transactional
-    public void applyPaymentSucceeded(Long orderId, String expectedPayAmount, String currency) {
+    public void applyPaymentSucceeded(Long orderId, String paidAmount, String currency, String merchantPaymentNo) {
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
             // 明确失败：订单不存在是真实异常，由消费者 failConsume 重试/进入死信，不假装成功
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在: " + orderId);
         }
-        // 金额/币种校验（QA03/金额不匹配拒绝推进）：支付事件为渠道事实，订单应付为权威应付
-        if (expectedPayAmount != null
-                && order.getPayAmount() != null
-                && order.getPayAmount().compareTo(new java.math.BigDecimal(expectedPayAmount)) != 0) {
+        // R10：支付事实核验——金额/币种/支付单号均必填，禁止 null 跳过金额核对
+        if (paidAmount == null || paidAmount.isBlank()) {
+            throw new BusinessException("PAYMENT_FACT_INVALID",
+                    "支付事件缺少金额, orderId=" + orderId);
+        }
+        if (merchantPaymentNo == null || merchantPaymentNo.isBlank()) {
+            throw new BusinessException("PAYMENT_FACT_INVALID",
+                    "支付事件缺少支付单号, orderId=" + orderId);
+        }
+        if (order.getPayAmount() != null
+                && order.getPayAmount().compareTo(new java.math.BigDecimal(paidAmount)) != 0) {
             throw new BusinessException("PAYMENT_AMOUNT_MISMATCH",
                     "支付金额与订单应付不一致, orderId=" + orderId + ", expected=" + order.getPayAmount()
-                            + ", paid=" + expectedPayAmount);
+                            + ", paid=" + paidAmount);
         }
-        if (currency != null && !"CNY".equals(currency)) {
+        if (currency == null || currency.isBlank()) {
+            throw new BusinessException("PAYMENT_FACT_INVALID",
+                    "支付事件缺少币种, orderId=" + orderId);
+        }
+        if (!"CNY".equals(currency)) {
             throw new BusinessException("PAYMENT_CURRENCY_MISMATCH",
                     "支付币种不支持: " + currency + ", orderId=" + orderId);
         }
         if (!"PENDING_PAYMENT".equals(order.getStatus())) {
             if ("CANCELLED".equals(order.getStatus())) {
-                // QA05：订单取消后收到真实成功支付——进入 LATE_PAYMENT 处置（触发退款核查），不静默丢弃
-                log.error("[T05] 迟到支付：订单已取消但收到支付成功, orderId={}, amount={}",
-                        orderId, expectedPayAmount);
-                outboxService.record(EventEnvelope.of("LATE_PAYMENT_DETECTED", 1,
-                        String.valueOf(orderId), 1, null,
-                        compensationJson(java.util.Map.of(
-                                "orderId", orderId,
-                                "userId", order.getUserId(),
-                                "paidAmount", String.valueOf(expectedPayAmount)))));
+                handleLatePaymentSucceeded(order, paidAmount, currency, merchantPaymentNo);
                 return;
             }
             // PAID 及之后状态：事件重放幂等跳过
@@ -379,8 +382,25 @@ public class OrderServiceImpl implements OrderService {
 
         int updated = orderMapper.updateStatusIfMatch(orderId, "PENDING_PAYMENT", "PAID");
         if (updated == 0) {
-            log.warn("订单支付状态更新失败（并发变更）, orderId={}", orderId);
-            return;
+            // R10：CAS 失败必须重读权威状态并分类处理——预读待支付、CAS 前取消已提交的
+            // 竞争窗口不会命中上面的 CANCELLED 分支，静默 return 会让资金事实与订单状态分离
+            Order current = orderMapper.selectById(orderId);
+            String nowStatus = current == null ? null : current.getStatus();
+            if (nowStatus == null) {
+                // 订单在推进中被物理删除（异常路径）：抛可重试异常，消费者重投后按不存在处置
+                throw new BusinessException("ORDER_NOT_FOUND", "订单不存在: " + orderId);
+            }
+            if ("PAID".equals(nowStatus) || "SHIPPED".equals(nowStatus) || "COMPLETED".equals(nowStatus)) {
+                log.info("支付成功事件幂等跳过（CAS 竞争后已推进至 {}）, orderId={}", nowStatus, orderId);
+                return;
+            }
+            if ("CANCELLED".equals(nowStatus)) {
+                handleLatePaymentSucceeded(current, paidAmount, currency, merchantPaymentNo);
+                return;
+            }
+            // 其余中间态（并发迁移/未知）：抛可重试异常，消费记录随事务回滚，MQ 重投重试
+            throw new BusinessException("ORDER_STATE_TRANSIENT",
+                    "订单状态瞬时不一致，等待重试, orderId=" + orderId + ", status=" + nowStatus);
         }
 
         // T06：支付成功 → 券 RESERVED→USED 核销确认；失败登记补偿任务重试（券核销最终一致）
@@ -414,6 +434,33 @@ public class OrderServiceImpl implements OrderService {
         confirmStockDeduct(orderId);
 
         redisTemplate.delete(ORDER_TIMEOUT_KEY_PREFIX + orderId);
+    }
+
+    /**
+     * R10：迟到支付处置——订单已取消但渠道扣款已发生（外部资金事实），建立唯一处置义务。
+     * 用补偿任务（taskId=late-payment:{orderId} 幂等，REQUIRES_NEW 独立事务）而非
+     * Outbox 事件：同一订单重复收到支付成功事件只产生一条义务，且由
+     * {@code LatePaymentRefundCompensationHandler} 按稳定退款号 LATE{orderId} 幂等退款，
+     * 超限转死信进入异常工作台人工处置——不能只留下无人消费的事件。
+     */
+    private void handleLatePaymentSucceeded(Order order, String paidAmount, String currency,
+                                            String merchantPaymentNo) {
+        Long orderId = order.getId();
+        // 零元内部结算与取消竞争：无渠道资金事实，不建退款义务（取消流程已释放库存/券）
+        if (new java.math.BigDecimal(paidAmount).signum() <= 0) {
+            log.warn("[R10] 已取消订单收到零金额支付成功事件，无资金事实不建处置义务, orderId={}", orderId);
+            return;
+        }
+        log.error("[R10] 迟到支付：订单已取消但收到支付成功, orderId={}, amount={}, paymentNo={}",
+                orderId, paidAmount, merchantPaymentNo);
+        compensationTaskService.createIfAbsent(
+                "late-payment:" + orderId, "late-payment-refund", String.valueOf(orderId),
+                compensationJson(java.util.Map.of(
+                        "orderId", orderId,
+                        "userId", order.getUserId(),
+                        "paidAmount", String.valueOf(paidAmount),
+                        "currency", currency,
+                        "merchantPaymentNo", merchantPaymentNo)));
     }
 
     @Override
@@ -1328,7 +1375,8 @@ public class OrderServiceImpl implements OrderService {
                 "zero-pay-" + orderId, "ORDER_ZERO_PAY", 1, String.valueOf(orderId), 1,
                 System.currentTimeMillis(), null,
                 "{\"orderId\":" + orderId + ",\"payAmount\":\"0.00\",\"currency\":\"CNY\"}"));
-        applyPaymentSucceeded(orderId, "0.00", "CNY");
+        // 内部零元结算无渠道支付单：用确定性内部引用满足支付事实非空契约（R10）
+        applyPaymentSucceeded(orderId, "0.00", "CNY", "ZERO-PAY-" + orderId);
         log.info("[T18] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
     }
 

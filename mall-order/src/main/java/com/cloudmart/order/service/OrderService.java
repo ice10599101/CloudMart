@@ -58,10 +58,12 @@ public interface OrderService {
 
     /**
      * T05：支付成功唯一推进入口（支付事件 MQ 消费调用；Inbox + 金额/币种校验 + CAS + 订单
-     * Outbox 同一本地事务）。expectedPayAmount/currency 为支付事件中的渠道事实，
-     * 与订单应付不符时拒绝推进。
+     * Outbox 同一本地事务）。paidAmount/currency/merchantPaymentNo 为支付事件中的渠道事实
+     * （R10：三者均必填，禁止 null 跳过核验），与订单应付不符时拒绝推进；
+     * CAS 失败重读权威状态分类处理——已推进幂等跳过，已取消进入唯一迟到支付处置义务，
+     * 其余状态抛可重试异常由消费者重投，不静默完成消费。
      */
-    void applyPaymentSucceeded(Long orderId, String expectedPayAmount, String currency);
+    void applyPaymentSucceeded(Long orderId, String paidAmount, String currency, String merchantPaymentNo);
 
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
