@@ -52,16 +52,11 @@ class QuoteServiceImplTest {
                 new OrderCouponPolicy(org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class)), 300L);
     }
 
-    private Map<String, Object> sku(long skuId, long productId, String price, int status) {
-        Map<String, Object> sku = new HashMap<>();
-        sku.put("skuId", skuId);
-        sku.put("productId", productId);
-        sku.put("productName", "商品" + skuId);
-        sku.put("image", "http://img/" + skuId + ".png");
-        sku.put("attributes", "颜色:红");
-        sku.put("price", new BigDecimal(price));
-        sku.put("status", status);
-        return sku;
+    /** R24：Feign 响应已强类型化——mock 直接构造 DTO，字符串形态由 Jackson 反序列化层负责 */
+    private com.cloudmart.order.dto.SkuBatchItemDTO sku(long skuId, long productId, String price, int status) {
+        return new com.cloudmart.order.dto.SkuBatchItemDTO(
+                skuId, productId, "商品" + skuId, "http://img/" + skuId + ".png",
+                new BigDecimal(price), status, "颜色:红");
     }
 
     @Test

@@ -366,16 +366,8 @@ class OrderServiceTest {
         when(riskFeignClient.check(any())).thenReturn(ApiResponse.ok(java.util.Map.of("result", "PASS")));
 
         // TRADE-01：下单前服务端按 skuId 覆盖权威价格/商品信息
-        Map<String, Object> authoritativeSku = new HashMap<>();
-        authoritativeSku.put("skuId", 200L);
-        authoritativeSku.put("productId", 300L);
-        authoritativeSku.put("productName", "商品A");
-        authoritativeSku.put("image", "img.jpg");
-        authoritativeSku.put("attributes", "红色");
-        authoritativeSku.put("price", new BigDecimal("99.00"));
-        authoritativeSku.put("status", 1);
         when(productFeignClient.getSkusBatch(List.of(200L)))
-                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku())));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(10L);
@@ -430,16 +422,8 @@ class OrderServiceTest {
         when(seckillFeignClient.getSeckillQuote("req-seckill-1")).thenReturn(ApiResponse.ok(quote));
 
         // 商品权威信息照常覆盖（价格随后被快照覆盖）
-        Map<String, Object> authoritativeSku = new HashMap<>();
-        authoritativeSku.put("skuId", 200L);
-        authoritativeSku.put("productId", 300L);
-        authoritativeSku.put("productName", "商品A");
-        authoritativeSku.put("image", "img.jpg");
-        authoritativeSku.put("attributes", "红色");
-        authoritativeSku.put("price", new BigDecimal("99.00"));
-        authoritativeSku.put("status", 1);
         when(productFeignClient.getSkusBatch(List.of(200L)))
-                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku())));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(10L);
@@ -524,16 +508,8 @@ class OrderServiceTest {
         when(marketingFeignClient.getGroupQuote(3001L)).thenReturn(ApiResponse.ok(quote));
 
         // 商品权威信息照常覆盖（价格随后被快照覆盖）
-        Map<String, Object> authoritativeSku = new HashMap<>();
-        authoritativeSku.put("skuId", 200L);
-        authoritativeSku.put("productId", 300L);
-        authoritativeSku.put("productName", "商品A");
-        authoritativeSku.put("image", "img.jpg");
-        authoritativeSku.put("attributes", "红色");
-        authoritativeSku.put("price", new BigDecimal("99.00"));
-        authoritativeSku.put("status", 1);
         when(productFeignClient.getSkusBatch(List.of(200L)))
-                .thenReturn(ApiResponse.ok(List.of(authoritativeSku)));
+                .thenReturn(ApiResponse.ok(List.of(authoritativeSku())));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(10L);
@@ -624,5 +600,11 @@ class OrderServiceTest {
 
         org.assertj.core.api.Assertions.assertThat(cancelled).isEqualTo(1);
         verify(orderMapper, org.mockito.Mockito.times(1)).updateStatusIfMatch(any(), eq("PENDING_PAYMENT"), eq("CANCELLED"));
+    }
+
+    /** R24：Feign 响应已强类型化——mock 直接构造 SkuBatchItemDTO */
+    private com.cloudmart.order.dto.SkuBatchItemDTO authoritativeSku() {
+        return new com.cloudmart.order.dto.SkuBatchItemDTO(
+                200L, 300L, "商品A", "img.jpg", new BigDecimal("99.00"), 1, "红色");
     }
 }

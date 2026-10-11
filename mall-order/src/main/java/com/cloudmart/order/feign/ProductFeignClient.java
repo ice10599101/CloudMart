@@ -1,12 +1,12 @@
 package com.cloudmart.order.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.order.dto.SkuBatchItemDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 商品 SKU 查询客户端（TRADE-01）：报价从服务端取权威价格/销售状态，
@@ -18,5 +18,5 @@ import java.util.Map;
 public interface ProductFeignClient {
 
     @GetMapping("/skus/batch")
-    ApiResponse<List<Map<String, Object>>> getSkusBatch(@RequestParam("ids") List<Long> ids);
+    ApiResponse<List<SkuBatchItemDTO>> getSkusBatch(@RequestParam("ids") List<Long> ids);
 }

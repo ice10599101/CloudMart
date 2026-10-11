@@ -908,47 +908,41 @@ public class OrderServiceImpl implements OrderService {
             List<CreateOrderRequest.OrderItemInput> items) {
         List<Long> skuIds = items.stream().map(CreateOrderRequest.OrderItemInput::skuId)
                 .distinct().toList();
-        ApiResponse<List<Map<String, Object>>> response = productFeignClient.getSkusBatch(skuIds);
+        // R24：强类型 DTO 消除 Map + instanceof Number 对雪花 ID 字符串形态的漏判
+        ApiResponse<List<com.cloudmart.order.dto.SkuBatchItemDTO>> response =
+                productFeignClient.getSkusBatch(skuIds);
         if (response == null || !response.success() || response.data() == null) {
             throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法下单");
         }
-        Map<Long, Map<String, Object>> skuMap = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> sku : response.data()) {
-            if (sku.get("skuId") instanceof Number n) {
-                skuMap.put(n.longValue(), sku);
+        Map<Long, com.cloudmart.order.dto.SkuBatchItemDTO> skuMap = new java.util.LinkedHashMap<>();
+        for (com.cloudmart.order.dto.SkuBatchItemDTO sku : response.data()) {
+            if (sku != null && sku.skuId() != null) {
+                skuMap.put(sku.skuId(), sku);
             }
         }
         // 构造新列表——入参可能是不可变 List（如 List.of）
         List<CreateOrderRequest.OrderItemInput> overridden = new ArrayList<>(items.size());
         for (CreateOrderRequest.OrderItemInput item : items) {
-            Map<String, Object> sku = skuMap.get(item.skuId());
+            com.cloudmart.order.dto.SkuBatchItemDTO sku = skuMap.get(item.skuId());
             if (sku == null) {
                 throw new BusinessException("SKU_NOT_FOUND", "商品不存在: SKU " + item.skuId());
             }
-            if (!Integer.valueOf(1).equals(sku.get("status"))) {
+            if (!Integer.valueOf(1).equals(sku.status())) {
                 throw new BusinessException("SKU_OFF_SALE", "商品已下架: SKU " + item.skuId());
             }
-            BigDecimal authoritativePrice = toBigDecimal(sku.get("price"), item.skuId());
+            if (sku.price() == null) {
+                throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + item.skuId());
+            }
             overridden.add(new CreateOrderRequest.OrderItemInput(
-                    toLongSafely(sku.get("productId")),
+                    sku.productId(),
                     item.skuId(),
                     item.quantity(),
-                    (String) sku.get("productName"),
-                    (String) sku.get("image"),
-                    (String) sku.get("attributes"),
-                    authoritativePrice));
+                    sku.productName(),
+                    sku.image(),
+                    sku.attributes(),
+                    sku.price()));
         }
         return overridden;
-    }
-
-    private BigDecimal toBigDecimal(Object value, Long skuId) {
-        if (value instanceof BigDecimal amount) {
-            return amount;
-        }
-        if (value instanceof Number n) {
-            return BigDecimal.valueOf(n.doubleValue());
-        }
-        throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
     }
 
     /**
@@ -1041,24 +1035,6 @@ public class OrderServiceImpl implements OrderService {
                 request.receiverName(), request.receiverPhone(), request.receiverAddress(),
                 request.couponId(), request.activityId(), request.quoteId(),
                 request.seckillRequestId(), request.groupOrderId());
-    }
-
-    private Integer toInt(Object value) {
-        return value instanceof Number n ? n.intValue() : null;
-    }
-
-    private BigDecimal toAmount(Object value, Long skuId) {
-        if (value instanceof BigDecimal amount) {
-            return amount;
-        }
-        if (value instanceof Number n) {
-            return BigDecimal.valueOf(n.doubleValue());
-        }
-        throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
-    }
-
-    private Long toLongSafely(Object value) {
-        return value instanceof Number n ? n.longValue() : null;
     }
 
     /** T03：并发同键建单竞争信号——携带胜者订单 ID，由事务边界重放胜者结果 */
@@ -1386,25 +1362,25 @@ public class OrderServiceImpl implements OrderService {
                 new LambdaQueryWrapper<com.cloudmart.order.entity.OrderQuoteItem>()
                         .eq(com.cloudmart.order.entity.OrderQuoteItem::getQuoteId, quote.getId()));
 
-        ApiResponse<List<Map<String, Object>>> resp =
+        // R24：强类型 DTO 消除 Map + instanceof Number 对雪花 ID 字符串形态的漏判
+        ApiResponse<List<com.cloudmart.order.dto.SkuBatchItemDTO>> resp =
                 productFeignClient.getSkusBatch(quoteItems.stream()
                         .map(com.cloudmart.order.entity.OrderQuoteItem::getSkuId).toList());
         if (resp == null || !resp.success() || resp.data() == null) {
             throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法核验报价");
         }
-        Map<Long, Map<String, Object>> skuMap = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> sku : resp.data()) {
-            if (sku.get("skuId") instanceof Number n) {
-                skuMap.put(n.longValue(), sku);
+        Map<Long, com.cloudmart.order.dto.SkuBatchItemDTO> skuMap = new java.util.LinkedHashMap<>();
+        for (com.cloudmart.order.dto.SkuBatchItemDTO sku : resp.data()) {
+            if (sku != null && sku.skuId() != null) {
+                skuMap.put(sku.skuId(), sku);
             }
         }
         for (com.cloudmart.order.entity.OrderQuoteItem item : quoteItems) {
-            Map<String, Object> sku = skuMap.get(item.getSkuId());
-            if (sku == null || !Integer.valueOf(1).equals(toInt(sku.get("status")))) {
+            com.cloudmart.order.dto.SkuBatchItemDTO sku = skuMap.get(item.getSkuId());
+            if (sku == null || !Integer.valueOf(1).equals(sku.status()) || sku.price() == null) {
                 throw new BusinessException("QUOTE_STALE", "报价中商品已下架: SKU " + item.getSkuId());
             }
-            BigDecimal currentPrice = toAmount(sku.get("price"), item.getSkuId());
-            if (currentPrice.compareTo(item.getPrice()) != 0) {
+            if (sku.price().compareTo(item.getPrice()) != 0) {
                 throw new BusinessException("QUOTE_STALE",
                         "报价中商品价格已变化: SKU " + item.getSkuId() + "，请重新报价");
             }

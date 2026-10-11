@@ -88,16 +88,17 @@ public class QuoteServiceImpl implements QuoteService {
             }
         }
 
-        // 服务端权威取价（fail-closed：商品服务不可用即拒绝）
-        ApiResponse<List<Map<String, Object>>> response = productFeignClient.getSkusBatch(List.copyOf(merged.keySet()));
+        // 服务端权威取价（fail-closed：商品服务不可用即拒绝）；R24 强类型 DTO 消除
+        // Map + instanceof Number 对雪花 ID 字符串形态的漏判
+        ApiResponse<List<com.cloudmart.order.dto.SkuBatchItemDTO>> response =
+                productFeignClient.getSkusBatch(List.copyOf(merged.keySet()));
         if (response == null || !response.success() || response.data() == null) {
             throw new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务暂不可用，无法生成报价");
         }
-        Map<Long, Map<String, Object>> skuMap = new LinkedHashMap<>();
-        for (Map<String, Object> sku : response.data()) {
-            Object id = sku.get("skuId");
-            if (id instanceof Number n) {
-                skuMap.put(n.longValue(), sku);
+        Map<Long, com.cloudmart.order.dto.SkuBatchItemDTO> skuMap = new LinkedHashMap<>();
+        for (com.cloudmart.order.dto.SkuBatchItemDTO sku : response.data()) {
+            if (sku != null && sku.skuId() != null) {
+                skuMap.put(sku.skuId(), sku);
             }
         }
 
@@ -114,21 +115,24 @@ public class QuoteServiceImpl implements QuoteService {
         BigDecimal total = BigDecimal.ZERO;
         List<OrderQuoteItem> quoteItems = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : merged.entrySet()) {
-            Map<String, Object> sku = skuMap.get(entry.getKey());
+            com.cloudmart.order.dto.SkuBatchItemDTO sku = skuMap.get(entry.getKey());
             if (sku == null) {
                 throw new BusinessException("SKU_NOT_FOUND", "商品不存在: SKU " + entry.getKey());
             }
-            if (!Integer.valueOf(1).equals(toInt(sku.get("status")))) {
+            if (!Integer.valueOf(1).equals(sku.status())) {
                 throw new BusinessException("SKU_OFF_SALE", "商品已下架: SKU " + entry.getKey());
             }
-            BigDecimal price = toAmount(sku.get("price"), entry.getKey());
+            if (sku.price() == null) {
+                throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + entry.getKey());
+            }
+            BigDecimal price = sku.price();
 
             OrderQuoteItem item = new OrderQuoteItem();
-            item.setProductId(toLong(sku.get("productId")));
+            item.setProductId(sku.productId());
             item.setSkuId(entry.getKey());
-            item.setProductName((String) sku.get("productName"));
-            item.setSkuImage((String) sku.get("image"));
-            item.setSkuAttributes((String) sku.get("attributes"));
+            item.setProductName(sku.productName());
+            item.setSkuImage(sku.image());
+            item.setSkuAttributes(sku.attributes());
             item.setPrice(price);
             item.setQuantity(entry.getValue());
             item.setSubtotal(price.multiply(BigDecimal.valueOf(entry.getValue())));
@@ -167,21 +171,4 @@ public class QuoteServiceImpl implements QuoteService {
         return new QuoteDetail(quote, items);
     }
 
-    private Integer toInt(Object value) {
-        return value instanceof Number n ? n.intValue() : null;
-    }
-
-    private Long toLong(Object value) {
-        return value instanceof Number n ? n.longValue() : null;
-    }
-
-    private BigDecimal toAmount(Object value, Long skuId) {
-        if (value instanceof BigDecimal amount) {
-            return amount;
-        }
-        if (value instanceof Number n) {
-            return BigDecimal.valueOf(n.doubleValue());
-        }
-        throw new BusinessException("SKU_PRICE_INVALID", "商品价格数据异常: SKU " + skuId);
-    }
 }
