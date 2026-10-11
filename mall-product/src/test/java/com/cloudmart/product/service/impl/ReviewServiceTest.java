@@ -57,7 +57,7 @@ class ReviewServiceTest {
     void setUp() {
         reviewService = new ReviewServiceImpl(reviewMapper, productMapper, skuMapper, objectMapper,
                 orderPurchaseFeignClient,
-                mock(com.cloudmart.product.feign.WishStarlightFeignClient.class));
+                mock(com.cloudmart.product.service.impl.ProductRewardObligationService.class));
     }
 
     @Test

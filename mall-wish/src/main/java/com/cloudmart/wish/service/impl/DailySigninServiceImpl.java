@@ -1,10 +1,10 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.WishDailySignin;
+import com.cloudmart.wish.entity.WishRewardObligation;
 import com.cloudmart.wish.entity.WishSigninMilestoneClaim;
 import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.feign.CommunityFeignClient;
@@ -28,7 +28,6 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -69,6 +68,7 @@ public class DailySigninServiceImpl implements DailySigninService {
     private final WishSigninMilestoneClaimMapper wishSigninMilestoneClaimMapper;
     private final UserStatService userStatService;
     private final CommunityFeignClient communityFeignClient;
+    private final WishRewardObligationService rewardObligationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -99,10 +99,13 @@ public class DailySigninServiceImpl implements DailySigninService {
         int levelBonus = resolveLevelBonus(userId);
         int credited = userStatService.earnStarlight(
                 userId, SIGNIN_REWARD + levelBonus, ResourceLogSource.SIGNIN, signin.getId());
-        // 经验 +10（mall-community 成长体系；community 不可用时不影响星光）
-        // T09：稳定业务 ID——唯一键 (user, WISH_SIGNIN, signinId) 保证失败重试不重复发
-        boolean expGranted = grantExp(userId, SIGNIN_EXP_REWARD, EXP_SOURCE_SIGNIN,
-                "WISH_SIGNIN:" + signin.getId() + ":EXP", "每日签到");
+        // 经验 +10（R07：交付义务与签到行同事务落库，提交后即送/失败退避补发——
+        // 不再提交前远端发奖，重复签到也不会永久漏发；expGranted=已受理交付义务）
+        rewardObligationService.enqueueWithCommitDelivery(
+                "WISH_SIGNIN:" + signin.getId() + ":EXP", EXP_SOURCE_SIGNIN,
+                "WISH_SIGNIN:" + signin.getId(), userId,
+                WishRewardObligation.TYPE_EXP, SIGNIN_EXP_REWARD, "每日签到");
+        boolean expGranted = true;
         // 签到瞬间等级提升检测（文档 6.5，只升不降；未提升返回 null）
         LevelUpVO levelUp = userStatService.checkAndLevelUp(userId);
         int consecutiveDays = wishDailySigninMapper.countConsecutiveDays(userId, today);
@@ -163,10 +166,13 @@ public class DailySigninServiceImpl implements DailySigninService {
 
         int credited = userStatService.earnStarlight(
                 userId, milestone.starlight(), ResourceLogSource.SIGNIN_MILESTONE, claim.getId());
-        // T09：稳定业务 ID（里程碑 claimId）——同事实只发一次
-        boolean expGranted = grantExp(userId, milestone.exp(), EXP_SOURCE_MILESTONE,
-                "WISH_MILESTONE:" + claim.getId() + ":EXP",
+        // R07：里程碑经验交付义务（同事务落库 + 提交后即送/补发；同 claimId 只入队一次）
+        rewardObligationService.enqueueWithCommitDelivery(
+                "WISH_MILESTONE:" + claim.getId() + ":EXP", EXP_SOURCE_MILESTONE,
+                "WISH_MILESTONE:" + claim.getId(), userId,
+                WishRewardObligation.TYPE_EXP, milestone.exp(),
                 "连续签到 " + milestone.days() + " 天里程碑");
+        boolean expGranted = true;
         LevelUpVO levelUp = userStatService.checkAndLevelUp(userId);
 
         log.info("里程碑领取成功, userId={}, days={}, starlight={}, expGranted={}, levelUp={}",
@@ -191,22 +197,6 @@ public class DailySigninServiceImpl implements DailySigninService {
         } catch (Exception e) {
             log.warn("等级加成查询失败（fail-open 按 0 加成）: userId={}, err={}", userId, e.getMessage());
             return 0;
-        }
-    }
-
-    /**
-     * 经 mall-community 内部接口发放经验；community 不可用/失败时返回 false，
-     * 不阻断签到与星光主链路（经验为增强奖励，可下轮重试由用户手动触发补发）。
-     */
-    private boolean grantExp(Long userId, int exp, String source, String sourceBizId, String description) {
-        try {
-            ApiResponse<Map<String, Object>> res = communityFeignClient.grantExp(
-                    Map.of("userId", userId, "exp", exp,
-                            "sourceBizId", sourceBizId, "description", description));
-            return res != null && res.success();
-        } catch (Exception e) {
-            log.warn("经验发放失败, userId={}, exp={}, source={}, err={}", userId, exp, source, e.getMessage());
-            return false;
         }
     }
 

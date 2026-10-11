@@ -5,7 +5,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.user.entity.UserInviteCode;
 import com.cloudmart.user.entity.UserInviteRelation;
-import com.cloudmart.user.feign.WishStarlightFeignClient;
+import com.cloudmart.user.entity.UserRewardObligation;
 import com.cloudmart.user.repository.UserInviteCodeMapper;
 import com.cloudmart.user.repository.UserInviteRelationMapper;
 import com.cloudmart.user.service.InviteService;
@@ -42,7 +42,7 @@ public class InviteServiceImpl implements InviteService {
 
     private final UserInviteCodeMapper inviteCodeMapper;
     private final UserInviteRelationMapper inviteRelationMapper;
-    private final WishStarlightFeignClient wishStarlightFeignClient;
+    private final UserRewardObligationService rewardObligationService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${invite.reward-inviter:" + INVITER_REWARD + "}")
@@ -88,10 +88,17 @@ public class InviteServiceImpl implements InviteService {
             throw new BusinessException("INVITE_ALREADY_BOUND", "你已绑定过邀请人");
         }
 
-        // 双向发奖（事务提交后执行更稳，但 mall-user 无编程式事务钩子依赖——
-        // 直接同事务调用：奖励失败仅记日志不回滚绑定（fail-open），幂等键可补发）
-        grantReward(inviteCode.getUserId(), relation.getId(), rewardInviter);
-        grantReward(userId, relation.getId(), rewardInvitee);
+        // R07：奖励交付义务与绑定关系同事务落库（提交后即送/失败退避补发）——
+        // 修复"绑定事务回滚留下已发远端奖励/远端失败永久漏发"；
+        // uk biz_key 保证每个邀请关系每个受益人至多一次
+        rewardObligationService.enqueueWithCommitDelivery(
+                SOURCE_INVITE + ":" + relation.getId() + ":" + inviteCode.getUserId(),
+                SOURCE_INVITE, String.valueOf(relation.getId()), inviteCode.getUserId(),
+                UserRewardObligation.TYPE_STARLIGHT, rewardInviter, "邀请好友奖励（邀请人）");
+        rewardObligationService.enqueueWithCommitDelivery(
+                SOURCE_INVITE + ":" + relation.getId() + ":" + userId,
+                SOURCE_INVITE, String.valueOf(relation.getId()), userId,
+                UserRewardObligation.TYPE_STARLIGHT, rewardInvitee, "受邀奖励（受邀人）");
         log.info("N-3 邀请绑定成功: inviter={}, invitee={}, relationId={}",
                 inviteCode.getUserId(), userId, relation.getId());
         return relation.getId();
@@ -131,17 +138,4 @@ public class InviteServiceImpl implements InviteService {
         return sb.toString();
     }
 
-    /** 双向奖励发放（幂等键含角色角色名，互不冲突）；失败仅记日志（fail-open） */
-    private void grantReward(Long userId, Long relationId, int amount) {
-        if (amount <= 0) {
-            return;
-        }
-        try {
-            wishStarlightFeignClient.earn(userId, amount, relationId,
-                    SOURCE_INVITE + ":" + relationId + ":" + userId, SOURCE_INVITE);
-        } catch (Exception e) {
-            log.warn("N-3 邀请奖励发放失败（fail-open 跳过，幂等键可补发）: userId={}, relationId={}, err={}",
-                    userId, relationId, e.getMessage());
-        }
-    }
 }

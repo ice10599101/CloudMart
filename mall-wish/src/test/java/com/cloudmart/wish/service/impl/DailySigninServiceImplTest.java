@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,7 +67,8 @@ class DailySigninServiceImplTest {
     @BeforeEach
     void setUp() {
         dailySigninService = new DailySigninServiceImpl(
-                wishDailySigninMapper, wishSigninMilestoneClaimMapper, userStatService, communityFeignClient);
+                wishDailySigninMapper, wishSigninMilestoneClaimMapper, userStatService, communityFeignClient,
+                mock(WishRewardObligationService.class));
         when(userStatService.getUserTimezone(USER_ID)).thenReturn("Asia/Shanghai");
     }
 

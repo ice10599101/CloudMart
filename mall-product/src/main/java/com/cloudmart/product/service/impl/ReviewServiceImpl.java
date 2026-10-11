@@ -8,6 +8,7 @@ import com.cloudmart.product.dto.CreateReviewRequest;
 import com.cloudmart.product.dto.ReviewDTO;
 import com.cloudmart.product.dto.ReviewStatsDTO;
 import com.cloudmart.product.entity.Product;
+import com.cloudmart.product.entity.ProductRewardObligation;
 import com.cloudmart.product.entity.ProductReview;
 import com.cloudmart.product.entity.ProductSku;
 import com.cloudmart.product.repository.ProductMapper;
@@ -35,7 +36,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductSkuMapper skuMapper;
     private final ObjectMapper objectMapper;
     private final com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient;
-    private final com.cloudmart.product.feign.WishStarlightFeignClient wishStarlightFeignClient;
+    private final com.cloudmart.product.service.impl.ProductRewardObligationService rewardObligationService;
 
     /** N-2：评价返星光数量（0=关闭激励开关） */
     @org.springframework.beans.factory.annotation.Value("${review.reward-starlight:5}")
@@ -46,13 +47,13 @@ public class ReviewServiceImpl implements ReviewService {
                              ProductSkuMapper skuMapper,
                              ObjectMapper objectMapper,
                              com.cloudmart.product.feign.OrderPurchaseFeignClient orderPurchaseFeignClient,
-                             com.cloudmart.product.feign.WishStarlightFeignClient wishStarlightFeignClient) {
+                             com.cloudmart.product.service.impl.ProductRewardObligationService rewardObligationService) {
         this.reviewMapper = reviewMapper;
         this.productMapper = productMapper;
         this.skuMapper = skuMapper;
         this.objectMapper = objectMapper;
         this.orderPurchaseFeignClient = orderPurchaseFeignClient;
-        this.wishStarlightFeignClient = wishStarlightFeignClient;
+        this.rewardObligationService = rewardObligationService;
     }
 
     @Override
@@ -110,21 +111,13 @@ public class ReviewServiceImpl implements ReviewService {
         ProductSku sku = skuMapper.selectById(request.skuId());
         String skuAttributes = sku != null ? sku.getAttributes() : null;
 
-        // N-2 评价返星光：评价提交成功后经内部端点幂等发放（事务提交后执行，
-        // 避免后续回滚造成星光已发的孤儿发放）；失败 fail-open 不阻塞评价主流程
+        // N-2/R07 评价返星光：交付义务与评价行同事务落库（uk biz_key 每评价至多一次），
+        // 提交后即送/失败退避补发——进程崩溃后义务行仍在，不再只靠日志补发
         if (rewardStarlight > 0 && review.getId() != null) {
-            Long reviewId = review.getId();
-            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                        new org.springframework.transaction.support.TransactionSynchronization() {
-                            @Override
-                            public void afterCommit() {
-                                grantReviewReward(userId, reviewId);
-                            }
-                        });
-            } else {
-                grantReviewReward(userId, reviewId);
-            }
+            rewardObligationService.enqueueWithCommitDelivery(
+                    "REVIEW_REWARD:" + review.getId(), "REVIEW_REWARD",
+                    String.valueOf(review.getId()), userId,
+                    ProductRewardObligation.TYPE_STARLIGHT, rewardStarlight, "评价返星光");
         }
 
         return new ReviewDTO(
@@ -344,14 +337,4 @@ public class ReviewServiceImpl implements ReviewService {
         }
     }
 
-    /** N-2：幂等发放评价奖励（operationId=REVIEW_REWARD:{reviewId}，重复请求返回原结果） */
-    private void grantReviewReward(Long userId, Long reviewId) {
-        try {
-            wishStarlightFeignClient.earn(userId, rewardStarlight, reviewId,
-                    "REVIEW_REWARD:" + reviewId, "REVIEW_REWARD");
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger(ReviewServiceImpl.class)
-                    .warn("N-2 评价返星光异常（fail-open 跳过）: userId={}, reviewId={}", userId, reviewId, e);
-        }
-    }
 }
